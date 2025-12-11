@@ -20,22 +20,19 @@ Uses the OpenCue Python API to submit the given job to OpenCue for processing.
 See outline.backend.__init__.py for a description of the PyOutline backend system.
 """
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
-from builtins import str
 import logging
 import os
 import sys
 import time
+from builtins import str
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
 
-from packaging.version import Version
-
 import FileSequence
 import opencue
+from packaging.version import Version
 
 import outline
 import outline.depend
@@ -43,12 +40,9 @@ import outline.exception
 import outline.util
 import outline.versions.main
 
-
 logger = logging.getLogger("outline.backend.cue")
 
-__all__ = ["launch",
-           "serialize",
-           "serialize_simple"]
+__all__ = ["launch", "serialize", "serialize_simple"]
 
 JOB_WAIT_PERIOD_SEC = 5
 
@@ -84,13 +78,15 @@ def build_command(launcher, layer):
         wrapper = "%s/opencue_wrap_frame" % outline.config.get("outline", "wrapper_dir")
     else:
         wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.get(
-            "outline", "wrapper_dir")
+            "outline", "wrapper_dir"
+        )
 
     command.append(wrapper)
     command.append(outline.config.get("outline", "user_dir"))
     command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
-    command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
-                                          layer.get_name()))
+    command.append(
+        "%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(), layer.get_name())
+    )
     command.append("--version %s" % outline.versions.get_version("outline"))
     command.append("--repos %s" % outline.versions.get_repos())
     command.append("--debug")
@@ -152,15 +148,20 @@ def test(job):
                 job = opencue.api.getJob(job.name())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     raise outline.exception.OutlineException(
-                        "Job test failed, dead or eaten frames on: %s" % job.data.name)
+                        "Job test failed, dead or eaten frames on: %s" % job.data.name
+                    )
                 if job.data.state == opencue.api.job_pb2.FINISHED:
                     break
                 logger.debug(
-                    "waiting on %s job to complete: %d/%d", job.data.name,
-                    job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
+                    "waiting on %s job to complete: %d/%d",
+                    job.data.name,
+                    job.data.job_stats.succeeded_frames,
+                    job.data.job_stats.total_frames,
+                )
             except opencue.CueException as ie:
                 raise outline.exception.OutlineException(
-                    "test for job %s failed: %s" % (job.data.name, ie))
+                    "test for job %s failed: %s" % (job.data.name, ie)
+                )
             time.sleep(5)
     finally:
         job.kill()
@@ -178,13 +179,17 @@ def wait(job):
             if not opencue.api.isJobPending(job.data.name):
                 break
             logger.debug(
-                "waiting on %s job to complete: %d/%d", job.data.name,
-                job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
+                "waiting on %s job to complete: %d/%d",
+                job.data.name,
+                job.data.job_stats.succeeded_frames,
+                job.data.job_stats.total_frames,
+            )
         except opencue.CueException as ie:
             print(
-                "opencue error waiting on job: %s, %s. Will continue to wait." % (
-                    job.data.name, ie),
-                file=sys.stderr)
+                "opencue error waiting on job: %s, %s. Will continue to wait."
+                % (job.data.name, ie),
+                file=sys.stderr,
+            )
         time.sleep(JOB_WAIT_PERIOD_SEC)
 
 
@@ -246,8 +251,9 @@ def _serialize(launcher, use_pycuerun):
         user = outline.util.get_user()
     sub_element(root, "user", user)
     if not launcher.get("nomail"):
-        sub_element(root, "email", "%s@%s" % (user,
-                                              outline.config.get("outline", "domain")))
+        sub_element(
+            root, "email", "%s@%s" % (user, outline.config.get("outline", "domain"))
+        )
     sub_element(root, "uid", str(outline.util.get_uid()))
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
@@ -287,7 +293,6 @@ def _serialize(launcher, use_pycuerun):
 
     layers = Et.SubElement(j, "layers")
     for layer in ol.get_layers():
-
         # Unregistered layers are in the job but don't show up on the cue.
         if not layer.get_arg("register"):
             continue
@@ -301,16 +306,19 @@ def _serialize(launcher, use_pycuerun):
         # that layer.
         frame_range = layer.get_frame_range()
         if not frame_range:
-            logger.info("Skipping layer %s, its range (%s) does not intersect "
-                        "with ol range %s", layer, layer.get_arg("range"), ol.get_frame_range())
+            logger.info(
+                "Skipping layer %s, its range (%s) does not intersect with ol range %s",
+                layer,
+                layer.get_arg("range"),
+                ol.get_frame_range(),
+            )
             continue
 
-        spec_layer = Et.SubElement(layers, "layer",
-                                   {"name": layer.get_name(),
-                                    "type": layer.get_type()})
+        spec_layer = Et.SubElement(
+            layers, "layer", {"name": layer.get_name(), "type": layer.get_type()}
+        )
         if use_pycuerun:
-            sub_element(spec_layer, "cmd",
-                        " ".join(build_command(launcher, layer)))
+            sub_element(spec_layer, "cmd", " ".join(build_command(launcher, layer)))
         else:
             sub_element(spec_layer, "cmd", " ".join(layer.get_arg("command")))
         sub_element(spec_layer, "range", str(frame_range))
@@ -328,12 +336,15 @@ def _serialize(launcher, use_pycuerun):
         else:
             logger.debug("%s is set to override service cores.", layer.get_name())
             if layer.is_arg_set("cores") and layer.is_arg_set("threads"):
-                logger.warning("%s has both cores and threads. Use cores.", layer.get_name())
+                logger.warning(
+                    "%s has both cores and threads. Use cores.", layer.get_name()
+                )
             sub_element(spec_layer, "cores", "%0.1f" % float(cores))
 
         if layer.is_arg_set("threadable"):
-            sub_element(spec_layer, "threadable",
-                        bool_to_str(layer.get_arg("threadable")))
+            sub_element(
+                spec_layer, "threadable", bool_to_str(layer.get_arg("threadable"))
+            )
 
         if layer.get_arg("memory"):
             sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
@@ -370,13 +381,24 @@ def _serialize(launcher, use_pycuerun):
 
         if layer.get_arg("timeout_llu"):
             if spec_version >= Version("1.10"):
-                sub_element(spec_layer, "timeout_llu", "%s" % (layer.get_arg("timeout_llu")))
+                sub_element(
+                    spec_layer, "timeout_llu", "%s" % (layer.get_arg("timeout_llu"))
+                )
             else:
                 _warning_spec_version(spec_version, "timeout_llu")
 
+        if layer.get_arg("slots_required"):
+            if spec_version >= Version("1.16"):
+                sub_element(
+                    spec_layer,
+                    "slots_required",
+                    "%s" % (layer.get_arg("slots_required")),
+                )
+            else:
+                _warning_spec_version(spec_version, "slots_required")
+
         if os.environ.get("OL_TAG_OVERRIDE", False):
-            sub_element(spec_layer, "tags",
-                        scrub_tags(os.environ["OL_TAG_OVERRIDE"]))
+            sub_element(spec_layer, "tags", scrub_tags(os.environ["OL_TAG_OVERRIDE"]))
         elif layer.get_arg("tags"):
             sub_element(spec_layer, "tags", scrub_tags(layer.get_arg("tags")))
 
@@ -412,7 +434,8 @@ def _serialize(launcher, use_pycuerun):
     if not layers:
         raise outline.exception.OutlineException(
             "Failed to launch job. There are no layers with frame "
-            "ranges that intersect the job's frame range: %s" % ol.get_frame_range())
+            "ranges that intersect the job's frame range: %s" % ol.get_frame_range()
+        )
 
     # Dependencies go after all of the layers
     root.append(depends)
@@ -421,7 +444,7 @@ def _serialize(launcher, use_pycuerun):
         '<?xml version="1.0"?>',
         '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
         '"http://localhost:8080/spcue/dtd/cjsl-%s.dtd">' % spec_version,
-        Et.tostring(root).decode()
+        Et.tostring(root).decode(),
     ]
 
     result = "".join(xml)
@@ -434,8 +457,7 @@ def scrub_tags(tags):
     Ensure that layer tags pass in as a string are formatted properly.
     """
     if isinstance(tags, str):
-        tags = [tag.strip() for tag in tags.split("|")
-                if tag.strip().isalnum()]
+        tags = [tag.strip() for tag in tags.split("|") if tag.strip().isalnum()]
     return " | ".join(tags)
 
 
@@ -455,21 +477,25 @@ def build_dependencies(ol, layer, all_depends):
     add them to the job spec.
     """
     for dep in layer.get_depends():
-
-        depend = Et.SubElement(all_depends, "depend",
-                               type=dep.get_type(),
-                               anyframe=bool_to_str(dep.is_any_frame()))
+        depend = Et.SubElement(
+            all_depends,
+            "depend",
+            type=dep.get_type(),
+            anyframe=bool_to_str(dep.is_any_frame()),
+        )
 
         if dep.get_type() == outline.depend.DependType.LayerOnSimFrame:
-
             frame_range = dep.get_depend_on_layer().get_frame_range()
             first_frame = FileSequence.FrameSet(frame_range)[0]
 
             sub_element(depend, "depjob", ol.get_name())
             sub_element(depend, "deplayer", layer.get_name())
             sub_element(depend, "onjob", ol.get_name())
-            sub_element(depend, "onframe", "%04d-%s"
-                        % (first_frame, dep.get_depend_on_layer().get_name()))
+            sub_element(
+                depend,
+                "onframe",
+                "%04d-%s" % (first_frame, dep.get_depend_on_layer().get_name()),
+            )
         else:
             sub_element(depend, "depjob", ol.get_name())
             sub_element(depend, "deplayer", layer.get_name())

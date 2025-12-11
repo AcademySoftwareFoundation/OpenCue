@@ -395,7 +395,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  int_load = ?, "
             + "  ts_booted = ?, "
             + "  ts_ping = current_timestamp, "
-            + "  str_os = ? "
+            + "  str_os = ?, "
             + "  int_running_procs = ? "
             + "WHERE "
             + "  pk_host = ?";

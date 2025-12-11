@@ -67,12 +67,12 @@ dependencies {
 
 compileJava {
     dependsOn generateProto
-    options.compilerArgs << "-Xlint:all" << "-Werror"
+    options.compilerArgs << "-Xlint:all,-serial" << "-Werror"
 }
 
 compileTestJava {
     dependsOn generateProto
-    options.compilerArgs << "-Xlint:all" << "-Werror"
+    options.compilerArgs << "-Xlint:all,-serial" << "-Werror"
 }
 
 protobuf {

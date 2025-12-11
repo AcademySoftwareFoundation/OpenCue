@@ -20,12 +20,13 @@ import os
 import platform
 
 from opencue_proto import job_pb2
+
 import opencue.api
-from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.limit
+from opencue.cuebot import Cuebot
 
 
 class Layer(object):
@@ -33,6 +34,7 @@ class Layer(object):
 
     class LayerType(enum.IntEnum):
         """Represents the type of layer."""
+
         PRE = job_pb2.PRE
         POST = job_pb2.POST
         RENDER = job_pb2.RENDER
@@ -40,51 +42,62 @@ class Layer(object):
 
     class Order(enum.IntEnum):
         """Represents the order of a layer."""
+
         FIRST = job_pb2.FIRST
         LAST = job_pb2.LAST
         REVERSE = job_pb2.REVERSE
 
     def __init__(self, layer=None):
         self.data = layer
-        self.stub = Cuebot.getStub('layer')
+        self.stub = Cuebot.getStub("layer")
 
     def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the entire layer."""
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
         host_kill = host_kill if host_kill else platform.uname()[1]
-        return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data,
-                                                                   username=username,
-                                                                   pid=str(pid),
-                                                                   host_kill=host_kill,
-                                                                   reason=reason),
-                                    timeout=Cuebot.Timeout)
+        return self.stub.KillFrames(
+            job_pb2.LayerKillFramesRequest(
+                layer=self.data,
+                username=username,
+                pid=str(pid),
+                host_kill=host_kill,
+                reason=reason,
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def eat(self):
         """Eats the entire layer."""
-        return self.stub.EatFrames(job_pb2.LayerEatFramesRequest(layer=self.data),
-                                   timeout=Cuebot.Timeout)
+        return self.stub.EatFrames(
+            job_pb2.LayerEatFramesRequest(layer=self.data), timeout=Cuebot.Timeout
+        )
 
     def retry(self):
         """Retries the entire layer."""
-        return self.stub.RetryFrames(job_pb2.LayerRetryFramesRequest(layer=self.data),
-                                     timeout=Cuebot.Timeout)
+        return self.stub.RetryFrames(
+            job_pb2.LayerRetryFramesRequest(layer=self.data), timeout=Cuebot.Timeout
+        )
 
     def markdone(self):
         """Drops any dependency that requires this layer or requires any frame in the layer."""
-        return self.stub.MarkdoneFrames(job_pb2.LayerMarkdoneFramesRequest(layer=self.data),
-                                        timeout=Cuebot.Timeout)
+        return self.stub.MarkdoneFrames(
+            job_pb2.LayerMarkdoneFramesRequest(layer=self.data), timeout=Cuebot.Timeout
+        )
 
     def addLimit(self, limit_id):
         """Adds a limit to the current layer."""
-        return self.stub.AddLimit(job_pb2.LayerAddLimitRequest(layer=self.data, limit_id=limit_id),
-                                  timeout=Cuebot.Timeout)
+        return self.stub.AddLimit(
+            job_pb2.LayerAddLimitRequest(layer=self.data, limit_id=limit_id),
+            timeout=Cuebot.Timeout,
+        )
 
     def dropLimit(self, limit_id):
         """Removes a limit on the current layer."""
         return self.stub.DropLimit(
             job_pb2.LayerDropLimitRequest(layer=self.data, limit_id=limit_id),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def enableMemoryOptimizer(self, value):
         """Enables or disables the memory optimizer.
@@ -92,9 +105,10 @@ class Layer(object):
         :type  value: bool
         :param value: whether memory optimizer is enabled
         """
-        return self.stub.EnableMemoryOptimizer(job_pb2.LayerEnableMemoryOptimizerRequest(
-            layer=self.data, value=value),
-            timeout=Cuebot.Timeout)
+        return self.stub.EnableMemoryOptimizer(
+            job_pb2.LayerEnableMemoryOptimizerRequest(layer=self.data, value=value),
+            timeout=Cuebot.Timeout,
+        )
 
     def getFrames(self, **options):
         """Returns a list of up to 1000 frames from within the layer.
@@ -105,9 +119,14 @@ class Layer(object):
         :return: sequence of matching frames
         """
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
-        response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, s=criteria),
-                                       timeout=Cuebot.Timeout)
-        return [opencue.wrappers.frame.Frame(frameData) for frameData in response.frames.frames]
+        response = self.stub.GetFrames(
+            job_pb2.LayerGetFramesRequest(layer=self.data, s=criteria),
+            timeout=Cuebot.Timeout,
+        )
+        return [
+            opencue.wrappers.frame.Frame(frameData)
+            for frameData in response.frames.frames
+        ]
 
     def getOutputPaths(self):
         """Return the output paths for this layer.
@@ -115,8 +134,9 @@ class Layer(object):
         :rtype: list<str>
         :return: list of output paths
         """
-        return self.stub.GetOutputPaths(job_pb2.LayerGetOutputPathsRequest(layer=self.data),
-                                        timeout=Cuebot.Timeout).output_paths
+        return self.stub.GetOutputPaths(
+            job_pb2.LayerGetOutputPathsRequest(layer=self.data), timeout=Cuebot.Timeout
+        ).output_paths
 
     def setTags(self, tags):
         """Sets the layer tags.
@@ -124,8 +144,10 @@ class Layer(object):
         :type  tags: list<str>
         :param tags: layer tags
         """
-        return self.stub.SetTags(job_pb2.LayerSetTagsRequest(layer=self.data, tags=tags),
-                                 timeout=Cuebot.Timeout)
+        return self.stub.SetTags(
+            job_pb2.LayerSetTagsRequest(layer=self.data, tags=tags),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMaxCores(self, cores):
         """Sets the maximum number of cores that this layer requires.
@@ -134,8 +156,9 @@ class Layer(object):
         :param cores: Core units, 100 reserves 1 core
         """
         return self.stub.SetMaxCores(
-            job_pb2.LayerSetMaxCoresRequest(layer=self.data, cores=cores/100.0),
-            timeout=Cuebot.Timeout)
+            job_pb2.LayerSetMaxCoresRequest(layer=self.data, cores=cores / 100.0),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinCores(self, cores):
         """Sets the minimum number of cores that this layer requires.
@@ -146,8 +169,9 @@ class Layer(object):
         :param cores: core units, 100 reserves 1 core
         """
         return self.stub.SetMinCores(
-            job_pb2.LayerSetMinCoresRequest(layer=self.data, cores=cores/100.0),
-            timeout=Cuebot.Timeout)
+            job_pb2.LayerSetMinCoresRequest(layer=self.data, cores=cores / 100.0),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMaxGpus(self, max_gpus):
         """Sets the maximum number of gpus that this layer requires.
@@ -155,7 +179,8 @@ class Layer(object):
         :param max_gpus: gpu cores"""
         return self.stub.SetMaxGpus(
             job_pb2.LayerSetMaxGpusRequest(layer=self.data, max_gpus=max_gpus),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinGpus(self, min_gpus):
         """Sets the minimum number of gpus that this layer requires.
@@ -163,7 +188,17 @@ class Layer(object):
         :param min_gpus: gou cores"""
         return self.stub.SetMinGpus(
             job_pb2.LayerSetMinGpusRequest(layer=self.data, min_gpus=min_gpus),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
+
+    def setSlotsRequired(self, slots):
+        """Sets the number of slots required per frame for this layer.
+        :type  slots: int
+        :param slots: Number of slots required (<=0 disables slot-based booking)"""
+        return self.stub.SetSlotsRequired(
+            job_pb2.LayerSetSlotsRequiredRequest(layer=self.data, slots=slots),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinGpuMemory(self, gpu_memory):
         """Sets the minimum number of gpu memory that this layer requires.
@@ -173,7 +208,8 @@ class Layer(object):
         """
         return self.stub.SetMinGpuMemory(
             job_pb2.LayerSetMinGpuMemoryRequest(layer=self.data, gpu_memory=gpu_memory),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinMemory(self, memory):
         """Sets the minimum amount of memory that this layer requires.
@@ -183,7 +219,8 @@ class Layer(object):
         """
         return self.stub.SetMinMemory(
             job_pb2.LayerSetMinMemoryRequest(layer=self.data, memory=memory),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def setThreadable(self, threadable):
         """Sets the threadable field.
@@ -191,27 +228,32 @@ class Layer(object):
         :type  threadable: bool
         :param threadable: boolean to enable/disable threadable
         """
-        return self.stub.SetThreadable(job_pb2.LayerSetThreadableRequest(
-            layer=self.data, threadable=threadable),
-            timeout=Cuebot.Timeout)
+        return self.stub.SetThreadable(
+            job_pb2.LayerSetThreadableRequest(layer=self.data, threadable=threadable),
+            timeout=Cuebot.Timeout,
+        )
 
     def setTimeout(self, timeout):
         """Set time out to the value.
         :type timeout: int
         :param timeout: value for timeout in minutes"""
-        return self.stub.SetTimeout(job_pb2.LayerSetTimeoutRequest(
-            layer=self.data, timeout=timeout),
-            timeout=Cuebot.Timeout)
+        return self.stub.SetTimeout(
+            job_pb2.LayerSetTimeoutRequest(layer=self.data, timeout=timeout),
+            timeout=Cuebot.Timeout,
+        )
 
     def setTimeoutLLU(self, timeout_llu):
         """Set LLU time out to the value.
         :type timeout: int
         :param timeout: value for timeout in minutes"""
-        return self.stub.SetTimeoutLLU(job_pb2.LayerSetTimeoutLLURequest(
-            layer=self.data, timeout_llu=timeout_llu),
-            timeout=Cuebot.Timeout)
+        return self.stub.SetTimeoutLLU(
+            job_pb2.LayerSetTimeoutLLURequest(layer=self.data, timeout_llu=timeout_llu),
+            timeout=Cuebot.Timeout,
+        )
 
-    def addRenderPartition(self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus):
+    def addRenderPartition(
+        self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus
+    ):
         """Adds a render partition to the layer.
 
         :type  hostname: str
@@ -228,14 +270,17 @@ class Layer(object):
         :param max_gpus: max gpus enabled for the partition
         """
         self.stub.AddRenderPartition(
-            job_pb2.LayerAddRenderPartitionRequest(layer=self.data,
-                                                   host=hostname,
-                                                   threads=threads,
-                                                   max_cores=max_cores,
-                                                   max_memory=max_mem,
-                                                   max_gpu_memory=max_gpu_memory,
-                                                   username=os.getenv("USER", "unknown"),
-                                                   max_gpus=max_gpus))
+            job_pb2.LayerAddRenderPartitionRequest(
+                layer=self.data,
+                host=hostname,
+                threads=threads,
+                max_cores=max_cores,
+                max_memory=max_mem,
+                max_gpu_memory=max_gpu_memory,
+                username=os.getenv("USER", "unknown"),
+                max_gpus=max_gpus,
+            )
+        )
 
     def getWhatDependsOnThis(self):
         """Gets a list of dependencies that depend directly on this layer.
@@ -245,7 +290,8 @@ class Layer(object):
         """
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         dependSeq = response.depends
         return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
@@ -257,7 +303,8 @@ class Layer(object):
         """
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         dependSeq = response.depends
         return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
@@ -271,7 +318,8 @@ class Layer(object):
         """
         response = self.stub.CreateDependencyOnJob(
             job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
@@ -283,8 +331,11 @@ class Layer(object):
         :return: the new dependency
         """
         response = self.stub.CreateDependencyOnLayer(
-            job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer.data),
-            timeout=Cuebot.Timeout)
+            job_pb2.LayerCreateDependOnLayerRequest(
+                layer=self.data, depend_on_layer=layer.data
+            ),
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
@@ -297,7 +348,8 @@ class Layer(object):
         """
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createFrameByFrameDependency(self, layer):
@@ -312,8 +364,10 @@ class Layer(object):
         # to LayerOnLayer for better efficiency.
         response = self.stub.CreateFrameByFrameDependency(
             job_pb2.LayerCreateFrameByFrameDependRequest(
-                layer=self.data, depend_layer=layer.data, any_frame=False),
-            timeout=Cuebot.Timeout)
+                layer=self.data, depend_layer=layer.data, any_frame=False
+            ),
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     # TODO(gregdenton) Determine if this is needed. (Issue #71)
@@ -337,7 +391,8 @@ class Layer(object):
         """
         self.stub.RegisterOutputPath(
             job_pb2.LayerRegisterOutputPathRequest(layer=self.data, spec=outputPath),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def reorderFrames(self, frameRange, order):
         """Reorders the specified frame range on this layer.
@@ -348,8 +403,11 @@ class Layer(object):
         :param order: First, Last or Reverse
         """
         self.stub.ReorderFrames(
-            job_pb2.LayerReorderFramesRequest(layer=self.data, range=frameRange, order=order),
-            timeout=Cuebot.Timeout)
+            job_pb2.LayerReorderFramesRequest(
+                layer=self.data, range=frameRange, order=order
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def staggerFrames(self, frameRange, stagger):
         """Staggers the specified frame range on this layer.
@@ -360,8 +418,11 @@ class Layer(object):
         :param stagger: the amount to stagger by
         """
         self.stub.StaggerFrames(
-            job_pb2.LayerStaggerFramesRequest(layer=self.data, range=frameRange, stagger=stagger),
-            timeout=Cuebot.Timeout)
+            job_pb2.LayerStaggerFramesRequest(
+                layer=self.data, range=frameRange, stagger=stagger
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def getLimitDetails(self):
         """Returns the Limit objects for the given layer.
@@ -369,8 +430,12 @@ class Layer(object):
         :rtype:  list<opencue.wrappers.limit.Limit>
         :return: list of limits on this layer
         """
-        return [opencue.wrappers.limit.Limit(limit) for limit in self.stub.GetLimits(
-            job_pb2.LayerGetLimitsRequest(layer=self.data), timeout=Cuebot.Timeout).limits]
+        return [
+            opencue.wrappers.limit.Limit(limit)
+            for limit in self.stub.GetLimits(
+                job_pb2.LayerGetLimitsRequest(layer=self.data), timeout=Cuebot.Timeout
+            ).limits
+        ]
 
     def id(self):
         """Returns the id of the layer.
@@ -448,6 +513,12 @@ class Layer(object):
         :rtype:  int
         :return: Minimum number of gpus required"""
         return self.data.min_gpus
+
+    def slotsRequired(self):
+        """Returns the number of slots required per frame.
+        :rtype:  int
+        :return: Number of slots required (<=0 means not slot-based)"""
+        return self.data.slots_required
 
     def minMemory(self):
         """Returns the minimum amount of memory that frames in this layer require.
@@ -555,8 +626,11 @@ class Layer(object):
         :return: percentage of frame completion
         """
         try:
-            return self.data.layer_stats.succeeded_frames / \
-                   float(self.data.layer_stats.total_frames) * 100.0
+            return (
+                self.data.layer_stats.succeeded_frames
+                / float(self.data.layer_stats.total_frames)
+                * 100.0
+            )
         except ZeroDivisionError:
             return 0
 
