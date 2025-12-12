@@ -1,6 +1,6 @@
 ---
 title: "CueWeb Tutorial"
-nav_order: 78
+nav_order: 80
 parent: Tutorials
 layout: default
 linkTitle: "Getting Started with CueWeb"

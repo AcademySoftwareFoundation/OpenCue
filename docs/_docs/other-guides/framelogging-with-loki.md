@@ -2,7 +2,7 @@
 title: "Configuring OpenCue with Loki for framelogs"
 layout: default
 parent: Other Guides
-nav_order: 49
+nav_order: 50
 linkTitle: "Configuring OpenCue with Loki for framelogs"
 date: 2024-11-27
 description: >
