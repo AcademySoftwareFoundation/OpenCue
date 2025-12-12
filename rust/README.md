@@ -6,6 +6,7 @@ Project crates:
  * rqd: rewrite of [OpenCue/rqd](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rqd)
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
+ * scheduler: A job scheduler to run alongside Cuebot
 
 ## Build Instructions
 
