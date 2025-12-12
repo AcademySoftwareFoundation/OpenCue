@@ -24,7 +24,7 @@ This directory contains the official documentation for OpenCue, built with Jekyl
 
 3. **Test the build:**
    ```bash
-   .build.sh
+   ./build.sh
    ```
 
 4. **Start development server:**
