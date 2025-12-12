@@ -28,9 +28,21 @@ variables:
     - sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
     - export PATH="$PWD/bin:$PATH"
 
+.common-rules:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+    - if: '$CI_COMMIT_REF_NAME == "helix"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
+      when: on_success
+    - when: never
+
 compute_version:
   stage: version
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   image: python:3.7
   script:
     - task compute-version
@@ -49,7 +61,9 @@ compute_version:
 
 build_opencue_packages:
   stage: build
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   image: python:3.7
   needs: [ ]  # starts asap
   script:
@@ -59,16 +73,12 @@ build_opencue_packages:
       - packages/
       - package_paths.env
     expire_in: 1 day
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 build_rust_binaries:
   stage: build
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   parallel:
     matrix:
       - TARGET: x86_64-unknown-linux-gnu
@@ -79,15 +89,10 @@ build_rust_binaries:
     paths:
       - release/
     expire_in: 1 day
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 install_opencue_packages:
   stage: test
+  extends: .common-rules
   image: python:${PYTHON_VERSION}
   needs:
     - build_opencue_packages
@@ -100,16 +105,12 @@ install_opencue_packages:
     - python -c "import opencue_proto"
     - python -c "import opencue_proto.report_pb2"
     - python -c "import opencue_proto.report_pb2_grpc"
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 test_python:
   stage: test
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   image: aswf/ci-opencue:${PYTHON_IMAGE_TAG}
   needs:
     - build_opencue_packages
@@ -118,15 +119,10 @@ test_python:
       - PYTHON_IMAGE_TAG: [ "2023", "2024" ]
   script:
     - task test-python
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 test_cuebot:
   stage: test
+  extends: .common-rules
   needs: []  # starts asap
   image: aswf/ci-opencue:${CUEBOT_IMAGE_TAG}
   parallel:
@@ -135,28 +131,20 @@ test_cuebot:
   script:
     - chown -R aswfuser:aswfgroup .
     - su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 test_rust:
   stage: test
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   script:
     - task test-rust
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 test_rest_gateway:
   stage: test
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   needs:
     - build_opencue_packages
   image: golang:1.24
@@ -167,41 +155,27 @@ test_rest_gateway:
     paths:
       - rest_gateway/opencue_gateway/coverage.out
     expire_in: 7 days
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 lint_python:
   stage: lint
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   needs:
     - build_opencue_packages
   image: aswf/ci-opencue:2024.1
   script:
     - task lint-python
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 lint_rust:
   stage: lint
-  extends: .install-task
+  extends:
+    - .install-task
+    - .common-rules
   needs:
     - build_rust_binaries
   script:
     - task lint-rust
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: on_success
-    - when: never
 
 
 deploy_etc_to_nas:
