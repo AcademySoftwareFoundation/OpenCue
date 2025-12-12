@@ -235,11 +235,6 @@ deploy_cuebot_image:
     - cd cuebot
     - docker login -u compil.twine -p "COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
     - docker push registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: manual
-      allow_failure: true
-    - when: never
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.
 ## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
