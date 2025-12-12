@@ -59,194 +59,237 @@ compute_version:
       when: on_success
     - when: never
 
-build_opencue_packages:
+#build_opencue_packages:
+#  stage: build
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  image: python:3.7
+#  needs: [ ]  # starts asap
+#  script:
+#    - task build-opencue-packages
+#  artifacts:
+#    paths:
+#      - packages/
+#      - package_paths.env
+#    expire_in: 1 day
+#
+#build_rust_binaries:
+#  stage: build
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  parallel:
+#    matrix:
+#      - TARGET: x86_64-unknown-linux-gnu
+#      - TARGET: x86_64-unknown-linux-musl
+#  script:
+#    - task build-rust-binary
+#  artifacts:
+#    paths:
+#      - release/
+#    expire_in: 1 day
+
+build_cuebot_image:
   stage: build
   extends:
     - .install-task
     - .common-rules
-  image: python:3.7
-  needs: [ ]  # starts asap
+  image: docker:26.1.3
+  needs:
+    - compute_version
+  variables:
+    IMAGE_NAME: cuebot:$(cat VERSION)
   script:
-    - task build-opencue-packages
+    - echo "Building cuebot docker image"
+    - cd cuebot
+    - docker build -t $IMAGE_NAME -f ./cuebot/Dockerfile .
+#    - task build-cuebot-image
   artifacts:
     paths:
-      - packages/
-      - package_paths.env
+      - cuebot/$IMAGE_NAME
     expire_in: 1 day
 
-build_rust_binaries:
-  stage: build
-  extends:
-    - .install-task
-    - .common-rules
-  parallel:
-    matrix:
-      - TARGET: x86_64-unknown-linux-gnu
-      - TARGET: x86_64-unknown-linux-musl
-  script:
-    - task build-rust-binary
-  artifacts:
-    paths:
-      - release/
-    expire_in: 1 day
 
-install_opencue_packages:
-  stage: test
-  extends: .common-rules
-  image: python:${PYTHON_VERSION}
-  needs:
-    - build_opencue_packages
-  parallel:
-    matrix:
-      - PYTHON_VERSION: [ "3.7", "3.9", "3.10", "3.11" ]
-  script:
-    - source package_paths.env
-    - pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUENAN_PACKAGE_PATH $OPENCUE_CUECMD_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_CUEGUI_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH $OPENCUE_CUENIMBY_PACKAGE_PATH
-    - python -c "import opencue_proto"
-    - python -c "import opencue_proto.report_pb2"
-    - python -c "import opencue_proto.report_pb2_grpc"
+#install_opencue_packages:
+#  stage: test
+#  extends: .common-rules
+#  image: python:${PYTHON_VERSION}
+#  needs:
+#    - build_opencue_packages
+#  parallel:
+#    matrix:
+#      - PYTHON_VERSION: [ "3.7", "3.9", "3.10", "3.11" ]
+#  script:
+#    - source package_paths.env
+#    - pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUENAN_PACKAGE_PATH $OPENCUE_CUECMD_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_CUEGUI_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH $OPENCUE_CUENIMBY_PACKAGE_PATH
+#    - python -c "import opencue_proto"
+#    - python -c "import opencue_proto.report_pb2"
+#    - python -c "import opencue_proto.report_pb2_grpc"
+#
+#test_python:
+#  stage: test
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  image: aswf/ci-opencue:${PYTHON_IMAGE_TAG}
+#  needs:
+#    - build_opencue_packages
+#  parallel:
+#    matrix:
+#      - PYTHON_IMAGE_TAG: [ "2023", "2024" ]
+#  script:
+#    - task test-python
+#
+#test_cuebot:
+#  stage: test
+#  extends: .common-rules
+#  needs: [ ]  # starts asap
+#  image: aswf/ci-opencue:${CUEBOT_IMAGE_TAG}
+#  parallel:
+#    matrix:
+#      - CUEBOT_IMAGE_TAG: [ "2023", "2024" ]
+#  script:
+#    - chown -R aswfuser:aswfgroup .
+#    - su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+#
+#test_rust:
+#  stage: test
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  script:
+#    - task test-rust
+#
+#test_rest_gateway:
+#  stage: test
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  needs:
+#    - build_opencue_packages
+#  image: golang:1.24
+#  script:
+#    - task test-rest-gateway
+#  artifacts:
+#    when: always
+#    paths:
+#      - rest_gateway/opencue_gateway/coverage.out
+#    expire_in: 7 days
+#
+#lint_python:
+#  stage: lint
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  needs:
+#    - build_opencue_packages
+#  image: aswf/ci-opencue:2024.1
+#  script:
+#    - task lint-python
+#
+#lint_rust:
+#  stage: lint
+#  extends:
+#    - .install-task
+#    - .common-rules
+#  needs:
+#    - build_rust_binaries
+#  script:
+#    - task lint-rust
+#
+#
+#deploy_etc_to_nas:
+#  stage: deploy
+#  extends:
+#    - .install-task
+#    - .cifra-secret-external
+#    - .common-rules
+#  image: $HELIX_PYTEST39_WINDOWS_DOCKER
+#  tags:
+#    - helix-win-runner
+#  needs: [ ]  # starts asap
+#  secrets:
+#    HLX_SERVICE_SECRET:
+#      vault: credentials/helixserviceuser/password@kv
+#      file: false
+#  before_script:
+#    - net use $OC_CONFIG_DIR /user:"ubisoft.org\helixserviceuser" $HLX_SERVICE_SECRET
+#  script:
+#    - task deploy-etc-to-nas $OC_CONFIG_DIR
 
-test_python:
-  stage: test
-  extends:
-    - .install-task
-    - .common-rules
-  image: aswf/ci-opencue:${PYTHON_IMAGE_TAG}
-  needs:
-    - build_opencue_packages
-  parallel:
-    matrix:
-      - PYTHON_IMAGE_TAG: [ "2023", "2024" ]
-  script:
-    - task test-python
-
-test_cuebot:
-  stage: test
-  extends: .common-rules
-  needs: [ ]  # starts asap
-  image: aswf/ci-opencue:${CUEBOT_IMAGE_TAG}
-  parallel:
-    matrix:
-      - CUEBOT_IMAGE_TAG: [ "2023", "2024" ]
-  script:
-    - chown -R aswfuser:aswfgroup .
-    - su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-
-test_rust:
-  stage: test
-  extends:
-    - .install-task
-    - .common-rules
-  script:
-    - task test-rust
-
-test_rest_gateway:
-  stage: test
-  extends:
-    - .install-task
-    - .common-rules
-  needs:
-    - build_opencue_packages
-  image: golang:1.24
-  script:
-    - task test-rest-gateway
-  artifacts:
-    when: always
-    paths:
-      - rest_gateway/opencue_gateway/coverage.out
-    expire_in: 7 days
-
-lint_python:
-  stage: lint
-  extends:
-    - .install-task
-    - .common-rules
-  needs:
-    - build_opencue_packages
-  image: aswf/ci-opencue:2024.1
-  script:
-    - task lint-python
-
-lint_rust:
-  stage: lint
-  extends:
-    - .install-task
-    - .common-rules
-  needs:
-    - build_rust_binaries
-  script:
-    - task lint-rust
-
-
-deploy_etc_to_nas:
+deploy_cuebot_image:
   stage: deploy
   extends:
     - .install-task
     - .cifra-secret-external
     - .common-rules
-  image: $HELIX_PYTEST39_WINDOWS_DOCKER
-  tags:
-    - helix-win-runner
-  needs: [ ]  # starts asap
+  needs:
+    - build_cuebot_image
   secrets:
-    HLX_SERVICE_SECRET:
-      vault: credentials/helixserviceuser/password@kv
+    COMPIL_TWINE_PASSWORD:
+      vault: credentials/compil.twine/password@kv
       file: false
-  before_script:
-    - net use $OC_CONFIG_DIR /user:"ubisoft.org\helixserviceuser" $HLX_SERVICE_SECRET
   script:
-    - task deploy-etc-to-nas $OC_CONFIG_DIR
-
-
-# This job is purely optional and triggered manually to publish dev packages to artifactory.
-# It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
-publish_dev_packages:
-  stage: publish
-  image: $HELIX_DOCKER_IMAGE_LINUX_39
-  parallel:
-    matrix:
-      - PKG: opencue_proto
-      - PKG: opencue_pycue
-      - PKG: opencue_pyoutline
-      - PKG: opencue_cueadmin
-      - PKG: opencue_cueman
-      - PKG: opencue_cuecmd
-      - PKG: opencue_cuesubmit
-      - PKG: opencue_cuegui
-      - PKG: opencue_rqd
-      - PKG: opencue_cuenimby
-  before_script:
-    - pip install twine
-  script:
-    - echo "Found package files:"
-    - ls -l packages/${PKG}-*.whl
-    - twine upload --repository-url $PYPI_DEV_URL -u $PYPI_USER -p $PYPI_PWD packages/${PKG}-*.whl
+    - echo "Deploying $IMAGE_NAME docker image to registry registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue"
+    - cd cuebot
+    - docker login -u compil.twine -p "COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
+    - docker push registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix" && $CI_MERGE_REQUEST_STATE != "merged"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
       when: manual
       allow_failure: true
     - when: never
 
-# This job tags any commit pushed to the helix branch with the computed version.
-# e.g. a version forked from opencue v1.13.8 with a single commit would be tagged helix-1.13.8.post1
-# Note that the `helix-` prefix should be pruned off when making actual releases. It's just to distinguish them better from opencue releases to the eye of the non-advised observer.
-tag:
-  stage: publish
-  image: $HELIX_DOCKER_IMAGE_LINUX_39
-  needs:
-    - compute_version
-  before_script:
-    - git config --global user.name "${GITLAB_USER_NAME}"
-    - git config --global user.email "${GITLAB_USER_EMAIL}"
-  script:
-    - |
-      VERSION=$(cat VERSION)
-      echo "Creating local git tag v${VERSION}"
-      git tag "v${VERSION}" -m "${CI_MERGE_REQUEST_TITLE}"
-      git push --tags https://root:$HELIX_ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git HEAD:$CI_COMMIT_REF_NAME
-  rules:
-    - if: '$CI_COMMIT_TAG'
-      when: never
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - when: never
+## This job is purely optional and triggered manually to publish dev packages to artifactory.
+## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
+#publish_dev_packages:
+#  stage: publish
+#  image: $HELIX_DOCKER_IMAGE_LINUX_39
+#  parallel:
+#    matrix:
+#      - PKG: opencue_proto
+#      - PKG: opencue_pycue
+#      - PKG: opencue_pyoutline
+#      - PKG: opencue_cueadmin
+#      - PKG: opencue_cueman
+#      - PKG: opencue_cuecmd
+#      - PKG: opencue_cuesubmit
+#      - PKG: opencue_cuegui
+#      - PKG: opencue_rqd
+#      - PKG: opencue_cuenimby
+#  before_script:
+#    - pip install twine
+#  script:
+#    - echo "Found package files:"
+#    - ls -l packages/${PKG}-*.whl
+#    - twine upload --repository-url $PYPI_DEV_URL -u $PYPI_USER -p $PYPI_PWD packages/${PKG}-*.whl
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix" && $CI_MERGE_REQUEST_STATE != "merged"'
+#      when: manual
+#      allow_failure: true
+#    - when: never
+#
+## This job tags any commit pushed to the helix branch with the computed version.
+## e.g. a version forked from opencue v1.13.8 with a single commit would be tagged helix-1.13.8.post1
+## Note that the `helix-` prefix should be pruned off when making actual releases. It's just to distinguish them better from opencue releases to the eye of the non-advised observer.
+#tag:
+#  stage: publish
+#  image: $HELIX_DOCKER_IMAGE_LINUX_39
+#  needs:
+#    - compute_version
+#  before_script:
+#    - git config --global user.name "${GITLAB_USER_NAME}"
+#    - git config --global user.email "${GITLAB_USER_EMAIL}"
+#  script:
+#    - |
+#      VERSION=$(cat VERSION)
+#      echo "Creating local git tag v${VERSION}"
+#      git tag "v${VERSION}" -m "${CI_MERGE_REQUEST_TITLE}"
+#      git push --tags https://root:$HELIX_ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git HEAD:$CI_COMMIT_REF_NAME
+#  rules:
+#    - if: '$CI_COMMIT_TAG'
+#      when: never
+#    - if: '$CI_COMMIT_REF_NAME == "helix"'
+#      when: on_success
+#    - when: never
