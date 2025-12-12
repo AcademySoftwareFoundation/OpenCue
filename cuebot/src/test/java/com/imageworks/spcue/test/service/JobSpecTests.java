@@ -120,4 +120,26 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(job.maxGpusOverride, Integer.valueOf(42));
     }
 
+    @Test
+    public void testParseSlotsRequired() {
+        String xml = readJobSpec("jobspec_1_16.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.16.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        BuildableJob job = spec.getJobs().get(0);
+        assertEquals(job.getBuildableLayers().size(), 2);
+
+        // First layer uses slot-based booking
+        LayerDetail slotBasedLayer = job.getBuildableLayers().get(0).layerDetail;
+        assertEquals(slotBasedLayer.name, "slot_based_layer");
+        assertEquals(slotBasedLayer.slotsRequired, 4);
+
+        // Second layer uses regular resource booking (default slots_required = 0)
+        LayerDetail regularLayer = job.getBuildableLayers().get(1).layerDetail;
+        assertEquals(regularLayer.name, "regular_layer");
+        assertEquals(regularLayer.slotsRequired, 0);
+    }
+
 }

@@ -120,7 +120,7 @@ public interface HostManager {
      */
     void setHostStatistics(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
             long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime, String os);
+            int load, Timestamp bootTime, String os, int runningProcs);
 
     void deleteHost(HostInterface host);
 

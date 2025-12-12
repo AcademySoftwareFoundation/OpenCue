@@ -10,7 +10,7 @@ pub use core_size::{CoreSize, CoreSizeWithMultiplier};
 pub use frame::DispatchFrame;
 pub use host::Host;
 pub use job::DispatchJob;
-pub use layer::DispatchLayer;
+pub use layer::{DispatchLayer, ResourceRequest};
 pub use subscription::{Allocation, Subscription};
 pub use virtual_proc::VirtualProc;
 

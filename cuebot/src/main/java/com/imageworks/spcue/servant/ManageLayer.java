@@ -110,6 +110,8 @@ import com.imageworks.spcue.grpc.job.LayerSetTimeoutRequest;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLURequest;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLUResponse;
+import com.imageworks.spcue.grpc.job.LayerSetSlotsRequiredRequest;
+import com.imageworks.spcue.grpc.job.LayerSetSlotsRequiredResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
 import com.imageworks.spcue.grpc.limit.Limit;
@@ -430,6 +432,15 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
             responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
+    }
+
+    @Override
+    public void setSlotsRequired(LayerSetSlotsRequiredRequest request,
+            StreamObserver<LayerSetSlotsRequiredResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        jobManager.setLayerSlotsRequired(layer, request.getSlots());
+        responseObserver.onNext(LayerSetSlotsRequiredResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     @Override
