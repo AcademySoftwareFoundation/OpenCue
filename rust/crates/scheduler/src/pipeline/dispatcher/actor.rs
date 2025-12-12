@@ -627,14 +627,15 @@ impl RqdDispatcherService {
     /// - Memory requirements and stranded thresholds
     /// - Selfish services and resource availability
     ///
+    /// This method doesn't check if the host has resources available to fulfill the demand
+    ///
     /// # Arguments
     /// * `host` - The target host with available resources
     /// * `frame` - The frame requiring resources
     /// * `memory_stranded_threshold` - Threshold for memory-stranded frame detection
     ///
     /// # Returns
-    /// * `Ok(CoreSize)` - Number of cores to reserve
-    /// * `Err(VirtualProcError)` - If insufficient resources available
+    /// * CoreSize - Number of cores to reserve
     fn calculate_core_reservation(
         host: &Host,
         frame: &DispatchFrame,
@@ -1138,7 +1139,8 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert_eq!(result, CoreSize(-8));
+        // Method shouldn't check for resource availability
+        assert_eq!(result, CoreSize(10));
     }
 
     #[test]
