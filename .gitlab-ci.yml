@@ -123,7 +123,7 @@ test_python:
 test_cuebot:
   stage: test
   extends: .common-rules
-  needs: []  # starts asap
+  needs: [ ]  # starts asap
   image: aswf/ci-opencue:${CUEBOT_IMAGE_TAG}
   parallel:
     matrix:
@@ -183,10 +183,11 @@ deploy_etc_to_nas:
   extends:
     - .install-task
     - .cifra-secret-external
+    - .common-rules
   image: $HELIX_PYTEST39_WINDOWS_DOCKER
   tags:
     - helix-win-runner
-  needs: []  # starts asap
+  needs: [ ]  # starts asap
   secrets:
     HLX_SERVICE_SECRET:
       vault: credentials/helixserviceuser/password@kv
@@ -195,13 +196,6 @@ deploy_etc_to_nas:
     - net use $OC_CONFIG_DIR /user:"ubisoft.org\helixserviceuser" $HLX_SERVICE_SECRET
   script:
     - task deploy-etc-to-nas $OC_CONFIG_DIR
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: manual
-      allow_failure: true
-    - when: never
 
 
 # This job is purely optional and triggered manually to publish dev packages to artifactory.
