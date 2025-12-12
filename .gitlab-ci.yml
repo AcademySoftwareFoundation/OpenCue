@@ -50,7 +50,7 @@ compute_version:
       - VERSION
     expire_in: 1 day
   rules:
-    - !reference [.common-rules]
+    - !reference [.common-rules, rules]
 
 #build_opencue_packages:
 #  stage: build
@@ -102,7 +102,7 @@ build_cuebot_image:
       - cuebot/$IMAGE_NAME
     expire_in: 1 day
   rules:
-    - !reference [ .common-rules ]
+    - !reference [.common-rules, rules]
 
 
 #install_opencue_packages:
@@ -229,7 +229,7 @@ deploy_cuebot_image:
     - docker login -u compil.twine -p "COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
     - docker push registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
   rules:
-    - !reference [.common-rules]
+    - !reference [.common-rules, rules]
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.
 ## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
