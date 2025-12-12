@@ -2,7 +2,8 @@ logging:
   level: info
 grpc:
   rqd_port: 8444
-  cuebot_endpoints: ["0.0.0.0:4343", "0.0.0.0:4343"]
+  # cuebot_endpoints: ["0.0.0.0:4343", "0.0.0.0:4343"]
+  cuebot_endpoints: ["localhost:8443"]
   connection_expires_after: 15m
 machine:
   # nimby_mode: true
@@ -14,7 +15,7 @@ machine:
   distro_release_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/distro-release/rocky"
   proc_stat_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/stat"
   proc_loadavg_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/loadavg"
-  temp_path: "/tmp"
+  temp_path: "/Users/dtavares/tmp"
   use_session_id_for_proc_lineage: true
 runner:
   snapshots_path: $HOME/.rqd/snapshots
