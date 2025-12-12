@@ -42,6 +42,7 @@ compute_version:
   stage: version
   extends:
     - .install-task
+    - .common-rules
   image: python:3.7
   script:
     - task compute-version
@@ -49,8 +50,6 @@ compute_version:
     paths:
       - VERSION
     expire_in: 1 day
-  rules:
-    - !reference [.common-rules, rules]
 
 #build_opencue_packages:
 #  stage: build
@@ -87,22 +86,21 @@ build_cuebot_image:
   stage: build
   extends:
     - .install-task
+    - .common-rules
   image: docker:26.1.3
   needs:
     - compute_version
-  variables:
-    IMAGE_NAME: cuebot:$(cat VERSION)
   script:
     - echo "Building cuebot docker image"
+    - VERSION=$(cat VERSION)
     - cd cuebot
-    - docker build -t $IMAGE_NAME -f ./cuebot/Dockerfile .
+    - docker build -t "cuebot:$VERSION" -f ./cuebot/Dockerfile .
+    - docker save $IMAGE_NAME -o "cuebot-$VERSION.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
-      - cuebot/$IMAGE_NAME
+      - cuebot/cuebot-*.tar
     expire_in: 1 day
-  rules:
-    - !reference [.common-rules, rules]
 
 
 #install_opencue_packages:
@@ -216,6 +214,7 @@ deploy_cuebot_image:
   stage: deploy
   extends:
     - .install-task
+    - .common-rules
     - .cifra-secret-external
   needs:
     - build_cuebot_image
@@ -224,12 +223,13 @@ deploy_cuebot_image:
       vault: credentials/compil.twine/password@kv
       file: false
   script:
-    - echo "Deploying $IMAGE_NAME docker image to registry registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue"
+    - echo "Deploying cuebot docker image to registry"
     - cd cuebot
-    - docker login -u compil.twine -p "COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
+    - docker load -i cuebot-*.tar
+    - IMAGE_NAME="cuebot:$(cat ../VERSION)"
+    - docker tag $IMAGE_NAME registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
+    - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
     - docker push registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
-  rules:
-    - !reference [.common-rules, rules]
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.
 ## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
