@@ -1244,6 +1244,8 @@ Render Frame Completed
             start_time: start_time as i64,
             max_rss: (stats.max_rss / KIB) as i64,
             rss: (stats.rss / KIB) as i64,
+            max_pss: (stats.max_pss / KIB) as i64,
+            pss: (stats.pss / KIB) as i64,
             max_vsize: (stats.max_vsize / KIB) as i64,
             vsize: (stats.vsize / KIB) as i64,
             attributes: self.request.attributes.clone(),

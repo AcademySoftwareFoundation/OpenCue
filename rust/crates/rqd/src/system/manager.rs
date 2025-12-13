@@ -108,6 +108,10 @@ pub struct ProcessStats {
     pub max_rss: u64,
     /// Current resident set size (KB) - amount of physical memory currently in use.
     pub rss: u64,
+    /// Maximum proportional set size (KB) - maximum amount of physical memory used.
+    pub max_pss: u64,
+    /// Current proportional set size (KB) - amount of physical memory currently in use.
+    pub pss: u64,
     /// Maximum virtual memory size (KB) - maximum amount of virtual memory used.
     pub max_vsize: u64,
     /// Current virtual memory size (KB) - amount of virtual memory currently in use.
@@ -131,6 +135,8 @@ impl Default for ProcessStats {
         ProcessStats {
             max_rss: 0,
             rss: 0,
+            max_pss: 0,
+            pss: 0,
             max_vsize: 0,
             vsize: 0,
             llu_time: 0,
@@ -150,10 +156,12 @@ impl ProcessStats {
     pub fn update(&mut self, new: Self) {
         *self = ProcessStats {
             max_rss: std::cmp::max(new.max_rss, self.max_rss),
+            max_pss: std::cmp::max(new.max_pss, self.max_pss),
             max_vsize: std::cmp::max(new.max_vsize, self.max_vsize),
             max_used_gpu_memory: std::cmp::max(new.max_used_gpu_memory, self.max_used_gpu_memory),
             run_time: std::cmp::max(new.run_time, self.run_time),
             rss: new.rss,
+            pss: new.pss,
             vsize: new.vsize,
             llu_time: new.llu_time,
             used_gpu_memory: new.used_gpu_memory,
