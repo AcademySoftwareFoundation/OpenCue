@@ -1,6 +1,6 @@
 ---
 title: "Deploying the monitoring stack"
-nav_order: 31
+nav_order: 32
 parent: Getting Started
 layout: default
 linkTitle: "Deploying monitoring"
