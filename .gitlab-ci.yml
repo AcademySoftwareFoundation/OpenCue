@@ -105,7 +105,7 @@ build_cuebot_image:
     - build_opencue_packages
   script:
     - echo "Building cuebot docker image"
-    - VERSION_NUMBER=$(cat VERSION)
+    - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - cd cuebot
     - docker build -t "cuebot:$VERSION_NUMBER" -f Dockerfile .
     - docker save "cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"

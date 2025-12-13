@@ -222,7 +222,7 @@ def _compute_dev_branch_version(
     short_sha = get_short_sha("HEAD")
     # compute the next post slot (predictive)
     next_post = compute_next_post_from_tags(base_version, tag_namespace=tag_ns)
-    return f"{format_pep440_post(base_version, next_post)}-{short_sha}"
+    return f"{format_pep440_post(base_version, next_post)}+{short_sha}"
 
 
 def main():
