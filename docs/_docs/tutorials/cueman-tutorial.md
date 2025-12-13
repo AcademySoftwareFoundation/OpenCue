@@ -1,6 +1,6 @@
 ---
 title: "Cueman Tutorial"
-nav_order: 78
+nav_order: 75
 parent: "Tutorials"
 layout: default
 date: 2025-08-06

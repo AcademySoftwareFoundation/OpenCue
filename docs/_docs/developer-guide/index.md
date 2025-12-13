@@ -1,6 +1,6 @@
 ---
 title: "Developer Guide"
-nav_order: 86
+nav_order: 82
 has_children: true
 layout: default
 linkTitle: "Developer Guide"

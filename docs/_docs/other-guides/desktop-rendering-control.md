@@ -1,6 +1,6 @@
 ---
 title: "Desktop rendering control"
-nav_order: 54
+nav_order: 51
 parent: Other Guides
 layout: default
 linkTitle: "Desktop rendering control"

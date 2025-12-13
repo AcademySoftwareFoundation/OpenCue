@@ -1,6 +1,6 @@
 ---
 title: "CueNIMBY tutorial"
-nav_order: 80
+nav_order: 77
 parent: Tutorials
 layout: default
 linkTitle: "CueNIMBY tutorial"

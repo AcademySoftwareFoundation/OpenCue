@@ -1,0 +1,188 @@
+# OpenCue Full Stack Deployment
+#
+# This Docker Compose file deploys the complete OpenCue stack including:
+#   - db: PostgreSQL database for storing OpenCue data
+#   - flyway: Database migration tool for schema management
+#   - cuebot: The OpenCue server that manages jobs, frames, and hosts
+#   - rqd: The render queue daemon that runs on render hosts
+#   - rest-gateway: HTTP/REST API gateway for web access
+#   - cueweb: Web UI for monitoring and managing OpenCue
+#
+# Usage:
+#   # Start the full stack
+#   docker compose -f sandbox/docker-compose.full.yml up -d
+#
+#   # Or use the convenience script
+#   ./sandbox/deploy_opencue_full.sh
+#
+# Prerequisites:
+#   1. Create required directories:
+#      mkdir -p /tmp/rqd/logs /tmp/rqd/shots
+#
+#   2. Build the images (or use the script):
+#      docker build -t opencue/cuebot -f cuebot/Dockerfile .
+#      docker build -t opencue/rest-gateway:latest -f rest_gateway/Dockerfile .
+#      docker build -t opencue/cueweb:latest ./cueweb
+#
+# Access:
+#   - CueWeb UI: http://localhost:3000
+#   - REST Gateway: http://localhost:8448
+#   - Cuebot gRPC: localhost:8443
+#   - PostgreSQL: localhost:5432
+#
+# Environment Variables:
+#   - JWT_SECRET: Shared secret for JWT authentication (required, auto-generated if not set)
+
+services:
+  # PostgreSQL Database
+  # Stores all OpenCue data including jobs, frames, hosts, shows, etc.
+  db:
+    image: postgres:15.1
+    container_name: opencue-db
+    environment:
+      - POSTGRES_USER=cuebot
+      - POSTGRES_PASSWORD=cuebot_password
+      - POSTGRES_DB=cuebot
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuebot -d cuebot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flyway Database Migration
+  # Applies database schema migrations to keep the database up to date
+  flyway:
+    build:
+      context: ../
+      dockerfile: ./sandbox/flyway.Dockerfile
+    container_name: opencue-flyway
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PGUSER=cuebot
+      - PGPASSWORD=cuebot_password
+      - PGDATABASE=cuebot
+      - PGHOST=db
+      - PGPORT=5432
+    command: /opt/scripts/migrate.sh
+
+  # Cuebot Server
+  # The main OpenCue server that manages jobs, frames, and render hosts
+  cuebot:
+    build:
+      context: ../
+      dockerfile: ./cuebot/Dockerfile
+    container_name: opencue-cuebot
+    ports:
+      - "8443:8443"
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+    restart: always
+    environment:
+      - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
+    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || [ $? -eq 22 ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # RQD Render Queue Daemon
+  # Runs on render hosts and executes frames assigned by Cuebot
+  rqd:
+    image: opencue/rqd
+    container_name: opencue-rqd
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUEBOT_HOSTNAME=cuebot
+    depends_on:
+      cuebot:
+        condition: service_healthy
+    ports:
+      - "8444:8444"
+    volumes:
+      - /tmp/rqd/logs:/tmp/rqd/logs
+      - /tmp/rqd/shots:/tmp/rqd/shots
+    restart: unless-stopped
+
+  # REST Gateway
+  # Provides HTTP/REST API access to OpenCue (used by CueWeb)
+  rest-gateway:
+    image: opencue/rest-gateway:latest
+    build:
+      context: ../
+      dockerfile: rest_gateway/Dockerfile
+    container_name: opencue-rest-gateway
+    ports:
+      - "8448:8448"
+    environment:
+      - CUEBOT_ENDPOINT=cuebot:8443
+      - JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+      - REST_PORT=8448
+      - LOG_LEVEL=info
+    depends_on:
+      cuebot:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://localhost:8448/ || [ $? -eq 22 ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # CueWeb UI
+  # Web-based user interface for monitoring and managing OpenCue
+  cueweb:
+    image: opencue/cueweb:latest
+    build:
+      context: ../cueweb
+      dockerfile: Dockerfile
+      args:
+        # Build-time environment variables for Next.js
+        - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+        - NEXT_PUBLIC_URL=http://localhost:3000
+        - NEXTAUTH_URL=http://localhost:3000
+        - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
+        # Authentication disabled by default for sandbox/development
+        # To enable authentication, uncomment the following line and set providers:
+        # - NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap
+        - NEXT_PUBLIC_AUTH_PROVIDER=
+        # Disable Sentry for sandbox
+        - SENTRY_ENVIRONMENT=development
+    container_name: opencue-cueweb
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount RQD logs directory so CueWeb can display frame logs
+      - /tmp/rqd/logs:/tmp/rqd/logs:ro
+    environment:
+      # Runtime environment variables
+      - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+      - NEXT_PUBLIC_URL=http://localhost:3000
+      - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
+      - SENTRY_ENVIRONMENT=development
+      # Authentication disabled - empty value skips auth providers
+      - NEXT_PUBLIC_AUTH_PROVIDER=
+    depends_on:
+      rest-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

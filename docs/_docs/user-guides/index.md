@@ -1,7 +1,7 @@
 ---
 layout: default
 title: User Guides
-nav_order: 32
+nav_order: 30
 has_children: true
 permalink: /docs/user-guides
 ---

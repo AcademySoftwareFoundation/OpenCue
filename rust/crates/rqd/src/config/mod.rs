@@ -14,6 +14,14 @@ lazy_static! {
 }
 //===Config Types===
 
+#[derive(Default, Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum MemoryMetric {
+    #[default]
+    Rss,
+    Pss,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct LoggingConfig {
@@ -90,6 +98,7 @@ pub struct MachineConfig {
     pub nimby_start_retry_interval: Duration,
     pub nimby_display_xauthority_path: String,
     pub memory_oom_margin_percentage: u32,
+    pub memory_metric: MemoryMetric,
 }
 
 impl Default for MachineConfig {
@@ -113,6 +122,7 @@ impl Default for MachineConfig {
             nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
             memory_oom_margin_percentage: 96,
+            memory_metric: MemoryMetric::Rss,
         }
     }
 }

@@ -1,6 +1,6 @@
 ---
 title: "Rust RQD"
-nav_order: 61
+nav_order: 58
 parent: Reference
 layout: default
 linkTitle: "Rust RQD"

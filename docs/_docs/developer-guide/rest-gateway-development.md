@@ -1,6 +1,6 @@
 ---
 title: "REST Gateway Development"
-nav_order: 94
+nav_order: 90
 parent: Developer Guide
 layout: default
 linkTitle: "Developing the OpenCue REST Gateway"

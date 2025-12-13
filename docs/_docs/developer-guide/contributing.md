@@ -2,7 +2,7 @@
 title: "Contributing to OpenCue"
 linkTitle: "Contributing to OpenCue"
 parent: "Developer Guide"
-nav_order: 87
+nav_order: 83
 layout: default
 date: 2020-05-04
 description: >
