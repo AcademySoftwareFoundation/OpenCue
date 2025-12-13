@@ -29,6 +29,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
@@ -56,6 +57,13 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
+import com.imageworks.spcue.grpc.monitoring.JobEvent;
+import com.imageworks.spcue.grpc.monitoring.LayerEvent;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing FrameComplete reports
@@ -83,6 +91,9 @@ public class FrameCompleteHandler {
     private ServiceDao serviceDao;
     private ShowDao showDao;
     private Environment env;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing. Since there are so many
@@ -256,6 +267,11 @@ public class FrameCompleteHandler {
         try {
 
             /*
+             * Publish frame complete event to Kafka for monitoring
+             */
+            publishFrameCompleteEvent(report, frame, frameDetail, newFrameState, proc);
+
+            /*
              * The default behavior is to keep the proc on the same job.
              */
             boolean unbookProc = proc.unbooked;
@@ -270,6 +286,29 @@ public class FrameCompleteHandler {
                 isLayerComplete = jobManager.isLayerComplete(frame);
                 if (isLayerComplete) {
                     jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
+
+                    // Record layer max runtime and memory metrics
+                    if (prometheusMetrics != null) {
+                        ExecutionSummary layerSummary =
+                                jobManager.getExecutionSummary((LayerInterface) frame);
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
+                                frame.show, frame.shot, layerDetail.type.toString());
+                        if (layerSummary.highMemoryKb > 0) {
+                            prometheusMetrics.recordLayerMaxMemory(
+                                    layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
+                                    layerDetail.type.toString());
+                        }
+                    }
+
+                    // Publish layer completed event to Kafka
+                    if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        LayerEvent layerEvent =
+                                monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
+                                        layerDetail, frame.getName(), frame.show);
+                        kafkaEventPublisher.publishLayerEvent(layerEvent);
+                    }
                 }
             }
 
@@ -719,6 +758,47 @@ public class FrameCompleteHandler {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
+
+    /**
+     * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
+     * asynchronously to avoid blocking the dispatch thread.
+     */
+    private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
+            FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
+        // Record Prometheus metrics for frame completion
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
+        }
+
+        // Publish to Kafka if enabled
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
+                frameDetail.state, frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 
 }

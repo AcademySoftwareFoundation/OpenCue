@@ -2,7 +2,7 @@
 title: "Configuring OpenCue"
 layout: default
 parent: Other Guides
-nav_order: 42
+nav_order: 46
 linkTitle: "Configuring OpenCue"
 date: 2023-01-26
 description: >

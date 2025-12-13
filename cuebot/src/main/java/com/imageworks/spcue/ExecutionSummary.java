@@ -28,6 +28,15 @@ public class ExecutionSummary {
     public long gpuTimeSuccess;
     public long gpuTimeFail;
     public long highMemoryKb;
+    public int highFrameSec;
+
+    public int getHighFrameSec() {
+        return highFrameSec;
+    }
+
+    public void setHighFrameSec(int highFrameSec) {
+        this.highFrameSec = highFrameSec;
+    }
 
     public long getHighMemoryKb() {
         return highMemoryKb;

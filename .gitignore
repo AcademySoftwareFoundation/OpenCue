@@ -32,4 +32,5 @@ docs/bin/
 sandbox/kafka-data
 sandbox/zookeeper-data
 sandbox/zookeeper-logs
+sandbox/rqd/shots/
 docs/_data/version.yml

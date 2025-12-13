@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.BuildableDependency;
 import com.imageworks.spcue.DependencyManagerException;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
@@ -54,6 +55,11 @@ import com.imageworks.spcue.depend.LayerOnSimFrame;
 import com.imageworks.spcue.depend.PreviousFrame;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 
@@ -67,6 +73,8 @@ public class DependManagerService implements DependManager {
     private LayerDao layerDao;
     private FrameDao frameDao;
     private FrameSearchFactory frameSearchFactory;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     /** Job Depends **/
     @Override
@@ -510,6 +518,12 @@ public class DependManagerService implements DependManager {
                     logger.warn(
                             "warning, depend count for " + depend.getId() + "was not decremented "
                                     + "for frame " + f + "because the count is " + "already 0.");
+                } else {
+                    // Check if frame just became dispatchable (depend_count = 0)
+                    // and publish FRAME_DISPATCHED event (DEPEND -> WAITING transition)
+                    if (dependDao.isFrameDispatchable(f)) {
+                        publishFrameDispatchableEvent(f);
+                    }
                 }
             }
         }
@@ -612,5 +626,27 @@ public class DependManagerService implements DependManager {
 
     public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
         this.frameSearchFactory = frameSearchFactory;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    /**
+     * Publishes a frame dispatchable event to Kafka for monitoring purposes. This captures the
+     * DEPEND -> WAITING transition for pickup time analysis.
+     */
+    private void publishFrameDispatchableEvent(FrameInterface frame) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        FrameDetail frameDetail = frameDao.getFrameDetail(frame);
+        FrameEvent event = monitoringEventBuilder.buildFrameDispatchableEvent(frameDetail);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 }
