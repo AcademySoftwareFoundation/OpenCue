@@ -104,10 +104,10 @@ build_cuebot_image:
     - compute_version
   script:
     - echo "Building cuebot docker image"
-    - VERSION=$(cat VERSION)
+    - VERSION_NUMBER=$(cat VERSION)
     - cd cuebot
-    - docker build -t "cuebot:$VERSION" -f ./cuebot/Dockerfile .
-    - docker save $IMAGE_NAME -o "cuebot-$VERSION.tar"
+    - docker build -t "cuebot:$VERSION_NUMBER" -f Dockerfile .
+    - docker save "cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
