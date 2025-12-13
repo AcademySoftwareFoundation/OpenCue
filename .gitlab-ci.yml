@@ -63,21 +63,21 @@ compute_version:
       - VERSION
     expire_in: 1 day
 
-#build_opencue_packages:
-#  stage: build
-#  extends:
-#    - .install-task
-#    - .common-rules
-#  image: python:3.7
-#  needs: [ ]  # starts asap
-#  script:
-#    - task build-opencue-packages
-#  artifacts:
-#    paths:
-#      - packages/
-#      - package_paths.env
-#    expire_in: 1 day
-#
+build_opencue_packages:
+  stage: build
+  extends:
+    - .install-task
+    - .common-rules
+  image: python:3.7
+  needs: [ ]  # starts asap
+  script:
+    - task build-opencue-packages
+  artifacts:
+    paths:
+      - packages/
+      - package_paths.env
+    expire_in: 1 day
+
 #build_rust_binaries:
 #  stage: build
 #  extends:
@@ -102,6 +102,7 @@ build_cuebot_image:
     - .docker_setup
   needs:
     - compute_version
+    - build_opencue_packages
   script:
     - echo "Building cuebot docker image"
     - VERSION_NUMBER=$(cat VERSION)
