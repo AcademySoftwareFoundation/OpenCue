@@ -148,7 +148,7 @@ impl ElasticsearchClient {
         let index_prefix = &self.config.index_prefix;
 
         // Process events in parallel using rayon
-        let results: Vec<Result<Vec<JsonBody<serde_json::Value>>, IndexerError>> = events
+        let results: Vec<_> = events
             .par_iter()
             .map(|event| {
                 let index_name = format!(
@@ -159,16 +159,17 @@ impl ElasticsearchClient {
                 );
 
                 // Index action
-                let action = if let Some(ref event_id) = event.event_id {
+                let action: JsonBody<serde_json::Value>  = if let Some(ref event_id) = event.event_id {
                     json!({ "index": { "_index": index_name, "_id": event_id } })
                 } else {
                     json!({ "index": { "_index": index_name } })
-                };
+                }.into();
 
                 // Document
-                let doc: serde_json::Value = serde_json::from_str(&event.payload)?;
-
-                Ok(vec![action.into(), doc.into()])
+                serde_json::from_str(&event.payload).map(|valid_doc| {
+                    let document: JsonBody<serde_json::Value> = doc.into();
+                    vec![action, doc]
+                })
             })
             .collect();
 
