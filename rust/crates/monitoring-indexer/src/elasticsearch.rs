@@ -166,17 +166,32 @@ impl ElasticsearchClient {
                 }.into();
 
                 // Document
-                serde_json::from_str(&event.payload).map(|valid_doc| {
-                    let document: JsonBody<serde_json::Value> = doc.into();
-                    vec![action, doc]
+                serde_json::from_str(&event.payload).map(|valid_doc: serde_json::Value| {
+                    let document: JsonBody<serde_json::Value> = valid_doc.into();
+                    vec![action, document]
                 })
             })
             .collect();
 
-        // Collect results and handle any errors
+        // Collect successful results, log and skip malformed events
         let mut body: Vec<JsonBody<serde_json::Value>> = Vec::with_capacity(events.len() * 2);
+        let mut error_count = 0;
         for result in results {
-            body.extend(result?);
+            match result {
+                Ok(docs) => body.extend(docs),
+                Err(e) => {
+                    error_count += 1;
+                    warn!(error = %e, "Failed to parse event payload, skipping");
+                }
+            }
+        }
+        if error_count > 0 {
+            warn!(count = error_count, "Skipped malformed events");
+        }
+
+        if body.is_empty() {
+            debug!("No valid events to index after filtering malformed payloads");
+            return Ok(());
         }
 
         let response = self.client.bulk(BulkParts::None).body(body).send().await?;
