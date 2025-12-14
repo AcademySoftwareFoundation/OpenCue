@@ -9,6 +9,8 @@ option go_package = "opencue_gateway/gen/go";
 
 import "host.proto";
 
+// Note: GpuDevice and GpuUsage are defined in host.proto
+
 // Interface to handle RQD pings.
 
 
@@ -82,9 +84,10 @@ message RenderHost {
     repeated string tags = 15; // an array of default tags that are added to the host record
     host.HardwareState state = 16; // hardware state for the host
     map<string, string> attributes = 17; // additional data can be provided about the host
-    int32 num_gpus = 18; // the number of physical GPU's
+    int32 num_gpus = 18; // the number of physical GPU's (legacy, use gpu_devices for details)
     int64 free_gpu_mem = 19; // the current amount of free gpu memory in kB
     int64 total_gpu_mem = 20; // the total size of gpu memory in kB
+    repeated host.GpuDevice gpu_devices = 21; // Detailed GPU inventory
 };
 
 message RunningFrameInfo {
@@ -107,6 +110,7 @@ message RunningFrameInfo {
     int64 used_gpu_memory = 17; // kB
     ChildrenProcStats children = 18; //additional data about the running frame's child processes
     int64 used_swap_memory = 19; // kB
+    repeated host.GpuUsage gpu_usage = 20; // Per-device GPU usage
 };
 
 message ChildrenProcStats {

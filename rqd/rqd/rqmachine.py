@@ -27,6 +27,7 @@ from builtins import object
 import codecs
 import ctypes
 import errno
+import json
 import logging
 import math
 import os
@@ -64,6 +65,172 @@ log = logging.getLogger(__name__)
 KILOBYTE = 1024
 
 
+# ===== GPU Discovery Abstraction =====
+
+class GpuDiscovery(object):
+    """Abstract GPU discovery interface."""
+    def detect_devices(self):
+        """Returns list of GpuDevice proto messages."""
+        raise NotImplementedError
+
+    def get_utilization(self, device_id):
+        """Returns GpuUsage proto message."""
+        raise NotImplementedError
+
+
+class NvidiaGpuDiscovery(GpuDiscovery):
+    """NVIDIA GPU discovery using NVML (preferred) or nvidia-smi fallback."""
+
+    def __init__(self):
+        self.use_nvml = False
+        try:
+            import pynvml  # pylint: disable=import-outside-toplevel
+            pynvml.nvmlInit()
+            self.pynvml = pynvml
+            self.use_nvml = True
+            log.info("Using NVML for NVIDIA GPU discovery")
+        except (ImportError, Exception) as e:
+            log.warning("NVML unavailable, falling back to nvidia-smi: %s", e)
+
+    def detect_devices(self):
+        """Detect NVIDIA GPUs via NVML or nvidia-smi."""
+        if self.use_nvml:
+            return self._detect_via_nvml()
+        return self._detect_via_smi()
+
+    def _detect_via_nvml(self):
+        """Use pynvml for detailed GPU metadata."""
+        devices = []
+        device_count = self.pynvml.nvmlDeviceGetCount()
+        for i in range(device_count):
+            handle = self.pynvml.nvmlDeviceGetHandleByIndex(i)
+            name = self.pynvml.nvmlDeviceGetName(handle)
+            if isinstance(name, bytes):
+                name = name.decode('utf-8')
+            mem_info = self.pynvml.nvmlDeviceGetMemoryInfo(handle)
+            pci_info = self.pynvml.nvmlDeviceGetPciInfo(handle)
+            driver_version = self.pynvml.nvmlSystemGetDriverVersion()
+            if isinstance(driver_version, bytes):
+                driver_version = driver_version.decode('utf-8')
+            cuda_version = self.pynvml.nvmlSystemGetCudaDriverVersion()
+            pci_bus = pci_info.busId
+            if isinstance(pci_bus, bytes):
+                pci_bus = pci_bus.decode('utf-8')
+
+            # Build GpuDevice proto
+            gpu_device = opencue_proto.host_pb2.GpuDevice(
+                id=str(i),
+                vendor="NVIDIA",
+                model=name,
+                memory_bytes=mem_info.total,
+                pci_bus=pci_bus,
+                driver_version=driver_version,
+                cuda_version="{}.{}".format(cuda_version // 1000, (cuda_version % 1000) // 10),
+            )
+            devices.append(gpu_device)
+        return devices
+
+    def _detect_via_smi(self):
+        """Fallback to nvidia-smi."""
+        devices = []
+        try:
+            output = subprocess.check_output(
+                ['nvidia-smi', '--query-gpu=index,name,memory.total,pci.bus_id,driver_version',
+                 '--format=csv,noheader,nounits'],
+                encoding='utf-8'
+            )
+            for line in output.strip().splitlines():
+                parts = [p.strip() for p in line.split(',')]
+                idx, name, mem_mb, pci, driver = parts
+                gpu_device = opencue_proto.host_pb2.GpuDevice(
+                    id=idx,
+                    vendor="NVIDIA",
+                    model=name,
+                    memory_bytes=int(float(mem_mb) * 1048576),  # MB → bytes
+                    pci_bus=pci,
+                    driver_version=driver,
+                )
+                devices.append(gpu_device)
+        except Exception as e:
+            log.error("nvidia-smi GPU detection failed: %s", e)
+        return devices
+
+    def get_utilization(self, device_id):
+        """Get current utilization for a device."""
+        if not self.use_nvml:
+            return opencue_proto.host_pb2.GpuUsage(
+                device_id=device_id, utilization_pct=0, memory_used_bytes=0)
+
+        try:
+            handle = self.pynvml.nvmlDeviceGetHandleByIndex(int(device_id))
+            util = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
+            mem_info = self.pynvml.nvmlDeviceGetMemoryInfo(handle)
+            return opencue_proto.host_pb2.GpuUsage(
+                device_id=device_id,
+                utilization_pct=util.gpu,
+                memory_used_bytes=mem_info.used,
+            )
+        except Exception as e:
+            log.warning("Failed to get GPU utilization for device %s: %s", device_id, e)
+            return opencue_proto.host_pb2.GpuUsage(
+                device_id=device_id, utilization_pct=0, memory_used_bytes=0)
+
+
+class AppleMetalGpuDiscovery(GpuDiscovery):
+    """macOS Apple Silicon GPU discovery via system_profiler."""
+
+    def detect_devices(self):
+        """Detect Apple GPUs via system_profiler."""
+        devices = []
+        try:
+            output = subprocess.check_output(
+                ['system_profiler', 'SPDisplaysDataType', '-json'],
+                encoding='utf-8'
+            )
+            data = json.loads(output)
+
+            # Parse SPDisplaysDataType for GPU info
+            displays = data.get('SPDisplaysDataType', [])
+            gpu_idx = 0
+            for display in displays:
+                chipset_model = display.get('sppci_model', 'Unknown')
+                vram = display.get('spdisplays_vram', '0 MB')
+                vram_bytes = self._parse_vram(vram)
+
+                # Apple GPUs are integrated, so treat as single device
+                gpu_device = opencue_proto.host_pb2.GpuDevice(
+                    id=str(gpu_idx),
+                    vendor="Apple",
+                    model=chipset_model,
+                    memory_bytes=vram_bytes,
+                    pci_bus="integrated",
+                    driver_version="Metal",
+                    cuda_version="N/A",
+                )
+                gpu_device.attributes['metal_supported'] = 'true'
+                devices.append(gpu_device)
+                gpu_idx += 1
+        except Exception as e:
+            log.error("Apple GPU detection failed: %s", e)
+        return devices
+
+    def _parse_vram(self, vram_str):
+        """Parse '16 GB' or '16384 MB' to bytes."""
+        match = re.match(r'(\d+)\s*(GB|MB)', vram_str)
+        if match:
+            val, unit = match.groups()
+            if unit == 'GB':
+                return int(val) * 1024 * 1024 * 1024
+            if unit == 'MB':
+                return int(val) * 1024 * 1024
+        return 0
+
+    def get_utilization(self, device_id):
+        """Apple Metal does not expose per-process GPU utilization; return empty."""
+        return opencue_proto.host_pb2.GpuUsage(
+            device_id=device_id, utilization_pct=0, memory_used_bytes=0)
+
+
 class Machine(object):
     """Gathers information about the machine and resources"""
     def __init__(self, rqCore, coreInfo):
@@ -76,6 +243,7 @@ class Machine(object):
         self.__rqCore = rqCore
         self.__coreInfo = coreInfo
         self.__gpusets = set()
+        self.__gpu_discovery = None
 
         # A dictionary built from /proc/cpuinfo containing
         # { <physical id> : { <core_id> : set([<processor>, <processor>, ...]), ... }, ... }
@@ -183,7 +351,14 @@ class Machine(object):
     def __updateGpuAndLlu(self, frame):
         if 'GPU_LIST' in frame.runFrame.attributes:
             usedGpuMemory = 0
+            # Clear previous GPU usage and collect fresh data
+            frame.gpuUsage = []
             for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
+                # Collect per-device GPU usage
+                gpu_usage = self.getGpuUtilization(unitId)
+                frame.gpuUsage.append(gpu_usage)
+
+                # Legacy memory tracking (backward compatibility)
                 usedGpuMemory += self.getGpuMemoryUsed(unitId)
 
             frame.usedGpuMemory = usedGpuMemory
@@ -866,6 +1041,12 @@ class Machine(object):
             self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
             self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
 
+            # Populate gpu_devices with new detailed GPU inventory
+            if rqd.rqconstants.ALLOW_GPU:
+                gpu_devices = self.getGpuDevices()
+                self.__renderHost.ClearField('gpu_devices')
+                self.__renderHost.gpu_devices.extend(gpu_devices)
+
             self.__renderHost.attributes['swapout'] = self.__getSwapout()
 
         elif platform.system() == 'Darwin':
@@ -873,6 +1054,12 @@ class Machine(object):
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
             self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
+
+            # Populate gpu_devices with new detailed GPU inventory
+            if rqd.rqconstants.ALLOW_GPU:
+                gpu_devices = self.getGpuDevices()
+                self.__renderHost.ClearField('gpu_devices')
+                self.__renderHost.gpu_devices.extend(gpu_devices)
 
         elif platform.system() == 'Windows':
             TEMP_DEFAULT = 1048576
@@ -883,6 +1070,12 @@ class Machine(object):
             self.__renderHost.num_gpus = self.getGpuCount()
             self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
             self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
+
+            # Populate gpu_devices with new detailed GPU inventory
+            if rqd.rqconstants.ALLOW_GPU:
+                gpu_devices = self.getGpuDevices()
+                self.__renderHost.ClearField('gpu_devices')
+                self.__renderHost.gpu_devices.extend(gpu_devices)
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
@@ -934,7 +1127,32 @@ class Machine(object):
 
     def setupGpu(self):
         """ Setup rqd for Gpus """
+        if rqd.rqconstants.ALLOW_GPU:
+            self.__gpu_discovery = self.__init_gpu_discovery()
         self.__gpusets = set(range(self.getGpuCount()))
+
+    def __init_gpu_discovery(self):
+        """Initialize platform-specific GPU discovery."""
+        if platform.system() == 'Linux':
+            return NvidiaGpuDiscovery()
+        if platform.system() == 'Darwin':
+            return AppleMetalGpuDiscovery()
+        if platform.system() == 'Windows':
+            return NvidiaGpuDiscovery()  # Assume NVIDIA on Windows for now
+        return None
+
+    def getGpuDevices(self):
+        """Return list of GpuDevice protos."""
+        if not self.__gpu_discovery:
+            return []
+        return self.__gpu_discovery.detect_devices()
+
+    def getGpuUtilization(self, device_id):
+        """Return GpuUsage proto for a device."""
+        if not self.__gpu_discovery:
+            return opencue_proto.host_pb2.GpuUsage(
+                device_id=device_id, utilization_pct=0, memory_used_bytes=0)
+        return self.__gpu_discovery.get_utilization(device_id)
 
     def reserveHT(self, frameCores):
         """ Reserve cores for use by taskset

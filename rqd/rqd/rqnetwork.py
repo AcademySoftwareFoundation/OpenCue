@@ -76,6 +76,7 @@ class RunningFrame(object):
 
         self.usedGpuMemory = 0
         self.maxUsedGpuMemory = 0
+        self.gpuUsage = []  # List of GpuUsage protos
 
         self.usedSwapMemory = 0
 
@@ -110,6 +111,8 @@ class RunningFrame(object):
             children=self._serializeChildrenProcs(),
             used_swap_memory=self.usedSwapMemory,
         )
+        # Add per-device GPU usage
+        runningFrameInfo.gpu_usage.extend(self.gpuUsage)
         return runningFrameInfo
 
     def _serializeChildrenProcs(self):
