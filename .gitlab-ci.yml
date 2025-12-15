@@ -103,6 +103,9 @@ build_cuebot_image:
   needs:
     - compute_version
     - build_opencue_packages
+  before_script:
+    - apk update
+    - apk add curl
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image cuebot:$VERSION_NUMBER"
