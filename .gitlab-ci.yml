@@ -236,6 +236,7 @@ deploy_cuebot_image:
     - .docker_setup
     - .cifra-secret-external
   needs:
+    - compute_version
     - build_cuebot_image
   secrets:
     COMPIL_TWINE_PASSWORD:
