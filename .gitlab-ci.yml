@@ -111,15 +111,6 @@ build_cuebot_image:
     paths:
       - cuebot-*.tar
     expire_in: 1 day
-  rules:
-    - if: '$CI_COMMIT_TAG'
-      when: never
-    - if: '$CI_COMMIT_REF_NAME == "helix"'
-      when: manual
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
-      when: manual
-      allow_failure: true
-    - when: never
 
 #install_opencue_packages:
 #  stage: test
@@ -232,7 +223,6 @@ deploy_cuebot_image:
   stage: deploy
   extends:
     - .install-task
-    - .common-rules
     - .docker_setup
     - .cifra-secret-external
   needs:
@@ -248,6 +238,15 @@ deploy_cuebot_image:
     - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
     - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
     - docker push $IMAGE_NAME
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "helix"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
+      when: manual
+      allow_failure: true
+    - when: never
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.
 ## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
