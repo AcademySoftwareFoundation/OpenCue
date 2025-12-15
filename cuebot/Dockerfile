@@ -3,11 +3,9 @@
 # -----------------
 FROM gradle:7.6.4-jdk17 AS build
 
-# Accept and set proxy settings for Gradle
+# Accept proxy args for Gradle
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
-ENV HTTP_PROXY=${HTTP_PROXY}
-ENV HTTPS_PROXY=${HTTPS_PROXY}
 
 USER gradle
 
