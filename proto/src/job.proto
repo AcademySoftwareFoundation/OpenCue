@@ -686,6 +686,7 @@ message JobStats {
     int64 failed_gpu_sec = 23;
     float reserved_gpus = 24;
     int64 max_gpu_memory = 25;
+    int64 max_pss = 26;
 }
 
 // LAYER ----
@@ -746,6 +747,7 @@ message LayerStats {
     int64 failed_gpu_sec = 23;
     float reserved_gpus = 24;
     int64 max_gpu_memory = 25;
+    int64 max_pss = 26;
 }
 
 // NestedGroup ---

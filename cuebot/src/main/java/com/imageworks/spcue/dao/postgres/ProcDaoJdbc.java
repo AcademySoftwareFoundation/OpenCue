@@ -171,16 +171,16 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 frame.getFrameId()) == 1;
     }
 
-    private static final String UPDATE_PROC_MEMORY_USAGE =
-            "UPDATE " + "proc " + "SET " + "int_mem_used = ?, " + "int_mem_max_used = ?,"
-                    + "int_virt_used = ?, " + "int_virt_max_used = ?, " + "int_gpu_mem_used = ?, "
-                    + "int_gpu_mem_max_used = ?, " + "int_swap_used = ?, " + "bytea_children = ?, "
-                    + "ts_ping = current_timestamp " + "WHERE " + "pk_frame = ?";
+    private static final String UPDATE_PROC_MEMORY_USAGE = "UPDATE " + "proc " + "SET "
+            + "int_mem_used = ?, " + "int_mem_max_used = ?," + "int_pss_used = ?, "
+            + "int_pss_max_used = ?, " + "int_virt_used = ?, " + "int_virt_max_used = ?, "
+            + "int_gpu_mem_used = ?, " + "int_gpu_mem_max_used = ?, " + "int_swap_used = ?, "
+            + "bytea_children = ?, " + "ts_ping = current_timestamp " + "WHERE " + "pk_frame = ?";
 
     @Override
-    public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long vss,
-            long maxVss, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
-            byte[] children) {
+    public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long pss,
+            long maxPss, long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children) {
         /*
          * This method is going to repeat for a proc every 1 minute, so if the proc is being touched
          * by another thread, then return quietly without updating memory usage.
@@ -202,13 +202,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                                 conn.prepareStatement(UPDATE_PROC_MEMORY_USAGE);
                         updateProc.setLong(1, rss);
                         updateProc.setLong(2, maxRss);
-                        updateProc.setLong(3, vss);
-                        updateProc.setLong(4, maxVss);
-                        updateProc.setLong(5, usedGpuMemory);
-                        updateProc.setLong(6, maxUsedGpuMemory);
-                        updateProc.setLong(7, usedSwapMemory);
-                        updateProc.setBytes(8, children);
-                        updateProc.setString(9, f.getFrameId());
+                        updateProc.setLong(3, pss);
+                        updateProc.setLong(4, maxPss);
+                        updateProc.setLong(5, vss);
+                        updateProc.setLong(6, maxVss);
+                        updateProc.setLong(7, usedGpuMemory);
+                        updateProc.setLong(8, maxUsedGpuMemory);
+                        updateProc.setLong(9, usedSwapMemory);
+                        updateProc.setBytes(10, children);
+                        updateProc.setString(11, f.getFrameId());
                         return updateProc;
                     }
                 });
