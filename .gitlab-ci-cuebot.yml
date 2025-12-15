@@ -19,6 +19,12 @@ include:
   # JOB TEMPLATES
   - local: '.gitlab-ci-templates.yml'
 
+# IMPORTANT: do NOT use .common-rules here to avoid main-pipeline rules.
+# In the child pipeline, we want every job to be added when the pipeline is triggered manually.
+.cuebot-rules:
+  rules:
+    - when: on_success
+
 variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
@@ -27,7 +33,7 @@ get_computed_version:
   stage: version
   image: alpine/curl:8.7.1
   extends:
-    - .common-rules
+    - .cuebot-rules
   script:
     - |
       echo "Getting VERSION artifact from parent pipeline"
@@ -45,7 +51,7 @@ build_cuebot_image:
   extends:
     - .install-task
     - .docker_setup
-    - .common-rules
+    - .cuebot-rules
   needs:
     - get_computed_version
   script:
@@ -61,7 +67,7 @@ push_cuebot_image:
     - .install-task
     - .docker_setup
     - .cifra-secret-external
-    - .common-rules
+    - .cuebot-rules
   needs:
     - get_computed_version
     - build_cuebot_image
@@ -80,7 +86,7 @@ deploy_cuebot_dev:
   stage: deploy
   extends:
     - .install-task
-    - .common-rules
+    - .cuebot-rules
   needs:
     - get_computed_version
     - push_cuebot_image
@@ -103,6 +109,7 @@ deploy_cuebot_dev:
 #  stage: deploy
 #  extends:
 #    - .install-task
+#    - .cuebot-rules
 #  needs:
 #    - get_computed_version
 #    - push_cuebot_image
@@ -116,6 +123,5 @@ deploy_cuebot_dev:
 #    - env IMAGE_NAME="$IMAGE_NAME" envsubst < k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
 #    - kubectl apply -f k8s/deployment/cuebot.ingress.yaml
 #  rules:
-#    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-#      when: manual
+#    - when: manual
 #    - when: never
