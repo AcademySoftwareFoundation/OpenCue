@@ -1,0 +1,21 @@
+# All the connection to the cuebot is done throught the port 80 without tls
+# that's why we are using spec.routes (and spec.routes.permitInsecure)
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: dev-cuebot-ingress
+spec:
+  routes:
+  - services:
+    - name: dev-cuebot-service
+      port: 8443
+      protocol: h2c
+  - conditions:
+    - prefix: /
+    permitInsecure: true
+    services:
+    - name: dev-cuebot-service
+      port: 8443
+      protocol: h2c
+  virtualhost:
+    fqdn: cuebot.helix-dev.ubisoft.org

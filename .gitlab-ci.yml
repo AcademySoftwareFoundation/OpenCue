@@ -24,7 +24,6 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
-
 .install-task:
   before_script:
     - sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
@@ -40,6 +39,12 @@ variables:
       when: on_success
     - when: never
 
+.dev-deploy-rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix" && $CI_MERGE_REQUEST_STATE != "merged"'
+      when: manual
+      allow_failure: true
+    - when: never
 
 .docker_setup:
   image: docker:26.1.3
@@ -219,7 +224,7 @@ build_cuebot_image:
 #  script:
 #    - task deploy-etc-to-nas $OC_CONFIG_DIR
 
-deploy_cuebot_image:
+push_cuebot_image:
   stage: deploy
   extends:
     - .install-task
@@ -239,13 +244,48 @@ deploy_cuebot_image:
     - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
     - docker push $IMAGE_NAME
   rules:
-    - if: '$CI_COMMIT_TAG'
-      when: never
     - if: '$CI_COMMIT_REF_NAME == "helix"'
       when: manual
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "helix"'
+    - !reference [.dev-deploy-rules, rules]
+
+deploy_cuebot_dev:
+  stage: deploy
+  extends:
+    - .install-task
+    - .dev-deploy-rules
+  needs:
+    - compute_version
+    - push_cuebot_image
+  image:
+    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
+    entrypoint: ["bash", "-l", "-c"]
+  environment:
+    name: rcw-opencue
+  script:
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
+    - env IMAGE_NAME="$IMAGE_NAME" envsubst < ./k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
+    - kubectl apply -f ./k8s/deployment/cuebot.test-ingress.yaml
+
+deploy_cuebot_prod:
+  stage: deploy
+  extends:
+    - .install-task
+    - .common-rules
+  needs:
+    - compute_version
+    - push_cuebot_image
+  image:
+    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
+    entrypoint: ["bash", "-l", "-c"]
+  environment:
+    name: rcw-opencue
+  script:
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION)"
+    - env IMAGE_NAME="$IMAGE_NAME" envsubst < ./k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
+    - kubectl apply -f ./k8s/deployment/cuebot.ingress.yaml
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "helix"'
       when: manual
-      allow_failure: true
     - when: never
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.

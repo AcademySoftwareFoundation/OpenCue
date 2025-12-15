@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: cuebot-app
-          image: registry.gitlab-ncsa.ubisoft.org/helix/poc/opencue/opencue:1.14.0
+          image: $(IMAGE_NAME)  # REPLACE IN CI WITH IMAGE NAME AND TAG
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8443
