@@ -129,13 +129,12 @@ build_cuebot_image:
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile . &>"docker-build-cuebot.log"
+    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
     - docker save "opencue/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
       - cuebot-*.tar
-      - docker-build-cuebot.log
     expire_in: 1 day
 
 
