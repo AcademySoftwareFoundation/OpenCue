@@ -18,6 +18,22 @@ COPY --chown=gradle:gradle ./proto/src /home/gradle/proto/src
 
 WORKDIR /home/gradle/cuebot
 
+# Configure Gradle properties for proxy if environment variables are set
+RUN if [ -n "$HTTP_PROXY" ]; then \
+    proxy_host=$(echo $HTTP_PROXY | sed 's|.*://||' | cut -d: -f1); \
+    proxy_port=$(echo $HTTP_PROXY | sed 's|.*://||' | cut -d: -f2 | cut -d/ -f1); \
+    mkdir -p ~/.gradle && \
+    echo "systemProp.http.proxyHost=$proxy_host" >> ~/.gradle/gradle.properties && \
+    echo "systemProp.http.proxyPort=$proxy_port" >> ~/.gradle/gradle.properties; \
+fi && \
+if [ -n "$HTTPS_PROXY" ]; then \
+    proxy_host=$(echo $HTTPS_PROXY | sed 's|.*://||' | cut -d: -f1); \
+    proxy_port=$(echo $HTTPS_PROXY | sed 's|.*://||' | cut -d: -f2 | cut -d/ -f1); \
+    mkdir -p ~/.gradle && \
+    echo "systemProp.https.proxyHost=$proxy_host" >> ~/.gradle/gradle.properties && \
+    echo "systemProp.https.proxyPort=$proxy_port" >> ~/.gradle/gradle.properties; \
+fi
+
 RUN gradle build --info --stacktrace
 
 ARG BUILD_ID
