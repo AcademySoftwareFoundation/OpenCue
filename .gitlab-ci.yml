@@ -104,8 +104,21 @@ build_cuebot_image:
     - compute_version
     - build_opencue_packages
   before_script:
-    - apk update
-    - apk add curl
+    - |
+      # Configure Docker to use proxy
+      echo "Configuring Docker daemon proxy settings..."
+      mkdir -p %USERPROFILE%\.docker
+      cat > %USERPROFILE%\.docker\config.json << EOF
+      {
+        "proxies": {
+          "default": {
+            "httpProxy": "${HTTP_PROXY}",
+            "httpsProxy": "${HTTPS_PROXY}",
+            "noProxy": "${NO_PROXY}"
+          }
+        }
+      }
+      EOF
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image cuebot:$VERSION_NUMBER"
@@ -239,7 +252,6 @@ deploy_cuebot_image:
       file: false
   script:
     - echo "Deploying cuebot docker image to registry"
-    - cd cuebot
     - docker load -i cuebot-*.tar
     - IMAGE_NAME="cuebot:$(cat ../VERSION)"
     - docker tag $IMAGE_NAME registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
