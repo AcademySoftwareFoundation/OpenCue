@@ -18,20 +18,6 @@ configurations {
     compile.exclude module: 'spring-boot-starter-logging'
 }
 
-// Configure proxy from environment variables if available
-if (System.getenv('HTTP_PROXY')) {
-    def httpProxy = System.getenv('HTTP_PROXY')
-    def proxyUri = URI.create(httpProxy)
-    System.setProperty('http.proxyHost', proxyUri.host)
-    System.setProperty('http.proxyPort', proxyUri.port.toString())
-}
-if (System.getenv('HTTPS_PROXY')) {
-    def httpsProxy = System.getenv('HTTPS_PROXY')
-    def proxyUri = URI.create(httpsProxy)
-    System.setProperty('https.proxyHost', proxyUri.host)
-    System.setProperty('https.proxyPort', proxyUri.port.toString())
-}
-
 repositories {
     mavenCentral()
     jcenter()
