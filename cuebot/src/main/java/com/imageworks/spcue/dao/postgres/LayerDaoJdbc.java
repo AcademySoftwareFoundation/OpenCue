@@ -425,12 +425,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 }, layer.getLayerId());
     }
 
-    private static final String GET_EXECUTION_SUMMARY = "SELECT "
-            + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail,"
-            + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail,"
-            + "layer_usage.int_clock_time_success," + "layer_mem.int_max_rss " + "FROM " + "layer,"
-            + "layer_usage, " + "layer_mem " + "WHERE " + "layer.pk_layer = layer_usage.pk_layer "
-            + "AND " + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_layer = ?";
+    private static final String GET_EXECUTION_SUMMARY =
+            "SELECT " + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail,"
+                    + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail,"
+                    + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_high,"
+                    + "layer_mem.int_max_rss " + "FROM " + "layer," + "layer_usage, " + "layer_mem "
+                    + "WHERE " + "layer.pk_layer = layer_usage.pk_layer " + "AND "
+                    + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_layer = ?";
 
     @Override
     public ExecutionSummary getExecutionSummary(LayerInterface layer) {
@@ -445,6 +446,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                         e.gpuTimeFail = rs.getLong("int_gpu_time_fail");
                         e.gpuTime = e.gpuTimeSuccess + e.gpuTimeFail;
                         e.highMemoryKb = rs.getLong("int_max_rss");
+                        e.highFrameSec = rs.getInt("int_clock_time_high");
                         return e;
                     }
                 }, layer.getLayerId());

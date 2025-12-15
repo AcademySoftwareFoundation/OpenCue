@@ -1,6 +1,6 @@
 ---
 title: "Installing PyCue and PyOutline"
-nav_order: 23
+nav_order: 26
 parent: Getting Started
 layout: default
 linkTitle: "Installing PyCue and PyOutline"

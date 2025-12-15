@@ -179,6 +179,8 @@
     <property name="layerDao" ref="layerDao" />
     <property name="frameDao" ref="frameDao" />
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="dispatchSupport" class="com.imageworks.spcue.dispatcher.DispatchSupportService">
@@ -195,6 +197,8 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="bookingManager" ref="bookingManager" />
     <property name="bookingDao" ref="bookingDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="filterManager" class="com.imageworks.spcue.service.FilterManagerService">
@@ -248,6 +252,10 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="emailSupport" ref="emailSupport"/>
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">
@@ -379,6 +387,9 @@
     <property name="whiteboardDao" ref="whiteboardDao" />
     <property name="serviceDao" ref="serviceDao" />
     <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">
@@ -394,6 +405,8 @@
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="killQueue" ref="killQueue"/>
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <!-- ##################################################################################### -->
