@@ -105,25 +105,56 @@ build_cuebot_image:
     - build_opencue_packages
   before_script:
     - |
+      # Install system dependencies in Alpine Linux (docker image)
+      apk update
+      apk add --no-cache \
+          python3 \
+          py3-pip \
+          py3-virtualenv \
+          jq \
+          curl \
+          git \
+          ca-certificates \
+          build-base \
+          wget \
+          bash
+      
+      # Set environment variables that Docker will pass automatically as build args
+      export HTTP_PROXY="${HTTP_PROXY:-$http_proxy}"
+      export HTTPS_PROXY="${HTTPS_PROXY:-$https_proxy}"
+      export NO_PROXY="${NO_PROXY:-$no_proxy},db,flyway,cuebot,rqd,opencue_default"
+      export http_proxy="${HTTP_PROXY:-$http_proxy}"
+      export https_proxy="${HTTPS_PROXY:-$https_proxy}"
+      export no_proxy="${NO_PROXY:-$no_proxy}"
+      echo "Docker proxy environment configured: HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY"
+      
       # Configure Docker to use proxy
       echo "Configuring Docker daemon proxy settings..."
-      mkdir -p %USERPROFILE%\.docker
-      cat > %USERPROFILE%\.docker\config.json << EOF
+      mkdir -p ~/.docker
+      cat > ~/.docker/config.json << EOF
       {
         "proxies": {
           "default": {
-            "httpProxy": "${HTTP_PROXY}",
-            "httpsProxy": "${HTTPS_PROXY}",
-            "noProxy": "${NO_PROXY}"
+            "httpProxy": "$HTTP_PROXY",
+            "httpsProxy": "$HTTPS_PROXY",
+            "noProxy": "$NO_PROXY"
           }
         }
       }
       EOF
+
+      # Install Python build tools (use --break-system-packages for Alpine)
+      python3 -m pip install --break-system-packages --upgrade pip build wheel
+      
+      # Create log directory in project workspace and symlink from /tmp for script compatibility
+      mkdir -p tmp/opencue-test
+      ln -sf "$(pwd)/tmp/opencue-test" /tmp/opencue-test
+      echo "Created log directory: $(pwd)/tmp/opencue-test (linked from /tmp/opencue-test)"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
-    - echo "Building cuebot docker image cuebot:$VERSION_NUMBER"
-    - docker build -t "cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
-    - docker save "cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
+    - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
+    - docker build -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
+    - docker save "opencue/cuebot:$VERSION_NUMBER" -o "opencue/cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
