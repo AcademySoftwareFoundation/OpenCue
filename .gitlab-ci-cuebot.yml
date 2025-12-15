@@ -26,8 +26,6 @@ variables:
 .default-rules:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: on_success
-    - when: never
 
 get_computed_version:
   stage: version
