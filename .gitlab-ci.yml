@@ -109,8 +109,6 @@ build_cuebot_image:
       PROXY_ARGS=""
       if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
       if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
-      if [ -n "$NO_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg NO_PROXY=$NO_PROXY"; fi
-      echo "Docker build proxy args: $PROXY_ARGS"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
