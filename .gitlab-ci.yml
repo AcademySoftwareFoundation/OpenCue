@@ -233,6 +233,7 @@ deploy_cuebot_image:
   extends:
     - .install-task
     - .common-rules
+    - .docker_setup
     - .cifra-secret-external
   needs:
     - build_cuebot_image
