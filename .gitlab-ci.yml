@@ -105,29 +105,6 @@ build_cuebot_image:
     - build_opencue_packages
   before_script:
     - |
-      # Install system dependencies in Alpine Linux (docker image)
-      apk update
-      apk add --no-cache \
-          python3 \
-          py3-pip \
-          py3-virtualenv \
-          jq \
-          curl \
-          git \
-          ca-certificates \
-          build-base \
-          wget \
-          bash
-      
-      # Set environment variables that Docker will pass automatically as build args
-      export HTTP_PROXY="${HTTP_PROXY:-$http_proxy}"
-      export HTTPS_PROXY="${HTTPS_PROXY:-$https_proxy}"
-      export NO_PROXY="${NO_PROXY:-$no_proxy},db,flyway,cuebot,rqd,opencue_default"
-      export http_proxy="${HTTP_PROXY:-$http_proxy}"
-      export https_proxy="${HTTPS_PROXY:-$https_proxy}"
-      export no_proxy="${NO_PROXY:-$no_proxy}"
-      echo "Docker proxy environment configured: HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY"
-      
       # Configure Docker to use proxy
       echo "Configuring Docker daemon proxy settings..."
       mkdir -p ~/.docker
@@ -148,17 +125,6 @@ build_cuebot_image:
       if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
       if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
       if [ -n "$NO_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg NO_PROXY=$NO_PROXY"; fi
-
-      # Configure Gradle proxy settings
-      mkdir -p ~/.gradle
-      cat > ~/.gradle/gradle.properties << EOF
-      systemProp.http.proxyHost=$(echo $HTTP_PROXY | sed 's|http://||' | cut -d: -f1)
-      systemProp.http.proxyPort=$(echo $HTTP_PROXY | sed 's|http://||' | cut -d: -f2)
-      systemProp.https.proxyHost=$(echo $HTTPS_PROXY | sed 's|https://||' | cut -d: -f1)
-      systemProp.https.proxyPort=$(echo $HTTPS_PROXY | sed 's|https://||' | cut -d: -f2)
-      systemProp.http.nonProxyHosts=$NO_PROXY
-      EOF
-      echo "Gradle proxy configuration created"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
