@@ -21,6 +21,8 @@ include:
 variables:
   OC_CONFIG_DIR: \\ubisoft.org\mtlstudio\Helix\tools\opencue\etc
   VAULT_AUTH_ROLE: helix-opencue
+  GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
+  CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue
 
 
 .install-task:
@@ -112,8 +114,8 @@ build_cuebot_image:
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
-    - docker save "opencue/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
+    - docker build $PROXY_ARGS -t "$CUEBOT_REGISTRY/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
+    - docker save "$CUEBOT_REGISTRY/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
@@ -245,10 +247,9 @@ deploy_cuebot_image:
   script:
     - echo "Deploying cuebot docker image to registry"
     - docker load -i cuebot-*.tar
-    - IMAGE_NAME="opencue/cuebot:$(cat VERSION | sed 's/+/-/g')"
-    - docker tag $IMAGE_NAME registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
-    - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" registry.gitlab-ncsa.ubisoft.org
-    - docker push registry.gitlab-ncsa.ubisoft.org/helix/opencue/OpenCue/$IMAGE_NAME
+    - IMAGE_NAME="$CUEBOT_REGISTRY/cuebot:$(cat VERSION | sed 's/+/-/g')"
+    - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
+    - docker push $IMAGE_NAME
 
 ## This job is purely optional and triggered manually to publish dev packages to artifactory.
 ## It's a good template for how to do prod releases later. Just replace the repository URL with PyPI's: $PYPI_URL.
