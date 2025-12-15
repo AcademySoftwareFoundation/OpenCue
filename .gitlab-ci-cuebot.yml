@@ -23,9 +23,17 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
+.default-rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+      when: on_success
+    - when: never
+
 get_computed_version:
   stage: version
   image: alpine/curl:8.7.1
+  extends:
+    - .default-rules
   script:
     - |
       echo "Getting VERSION artifact from parent pipeline"
@@ -37,24 +45,13 @@ get_computed_version:
     paths:
       - VERSION
     expire_in: 1 day
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: on_success
-    - when: never
-
-.cuebot-dev-rules:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: manual
-      allow_failure: true
-    - when: never
 
 build_cuebot_image:
   stage: build
   extends:
     - .install-task
-    - .common-rules
     - .docker_setup
+    - .default-rules
   needs:
     - get_computed_version
   script:
@@ -70,7 +67,7 @@ push_cuebot_image:
     - .install-task
     - .docker_setup
     - .cifra-secret-external
-    - .common-rules
+    - .default-rules
   needs:
     - get_computed_version
     - build_cuebot_image
@@ -89,7 +86,7 @@ deploy_cuebot_dev:
   stage: deploy
   extends:
     - .install-task
-    - .cuebot-dev-rules
+    - .default-rules
   needs:
     - get_computed_version
     - push_cuebot_image
@@ -108,23 +105,23 @@ deploy_cuebot_dev:
       env IMAGE_NAME="$IMAGE_NAME" envsubst | kubectl apply -f -
     - kubectl apply -f k8s/deployment/cuebot.test-ingress.yaml
 
-deploy_cuebot_prod:
-  stage: deploy
-  extends:
-    - .install-task
-  needs:
-    - get_computed_version
-    - push_cuebot_image
-  image:
-    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
-    entrypoint: ["bash", "-l", "-c"]
-  environment:
-    name: rcw-opencue
-  script:
-    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION)"
-    - env IMAGE_NAME="$IMAGE_NAME" envsubst < k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
-    - kubectl apply -f k8s/deployment/cuebot.ingress.yaml
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: manual
-    - when: never
+#deploy_cuebot_prod:
+#  stage: deploy
+#  extends:
+#    - .install-task
+#  needs:
+#    - get_computed_version
+#    - push_cuebot_image
+#  image:
+#    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
+#    entrypoint: ["bash", "-l", "-c"]
+#  environment:
+#    name: rcw-opencue
+#  script:
+#    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION)"
+#    - env IMAGE_NAME="$IMAGE_NAME" envsubst < k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
+#    - kubectl apply -f k8s/deployment/cuebot.ingress.yaml
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+#      when: manual
+#    - when: never
