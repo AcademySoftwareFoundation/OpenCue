@@ -1,4 +1,4 @@
-# All the connection to the cuebot is done throught the port 80 without tls
+# All the connection to the cuebot is done through the port 80 without tls
 # that's why we are using spec.routes (and spec.routes.permitInsecure)
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy

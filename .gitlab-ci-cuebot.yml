@@ -1,0 +1,119 @@
+# GitLab CI pipeline for Cuebot downstream deployment
+# This pipeline is triggered manually from the main OpenCue pipeline
+
+default:
+  tags:
+    - square_linux_2
+
+stages:
+  - version
+  - build
+  - push
+  - deploy
+
+include:
+  # SECRETS
+  - project: 'helix/helix_git_101'
+    ref: main
+    file: '/templates/v2/cifra_secrets.gitlab-ci.yml'
+  # JOB TEMPLATES
+  - local: '.gitlab-ci-templates.yml'
+  # VERSION COMPUTATION
+  - local: '.gitlab-ci-version.yml'
+
+variables:
+  GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
+  CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
+
+.cuebot-rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+      when: on_success
+    - when: never
+
+.cuebot-dev-rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+      when: manual
+      allow_failure: true
+    - when: never
+
+build_cuebot_image:
+  stage: build
+  extends:
+    - .install-task
+    - .cuebot-rules
+    - .docker_setup
+  needs:
+    - compute_version
+  script:
+    - task build-cuebot-image
+  artifacts:
+    paths:
+      - cuebot-*.tar
+    expire_in: 1 day
+
+push_cuebot_image:
+  stage: push
+  extends:
+    - .install-task
+    - .docker_setup
+    - .cifra-secret-external
+    - .cuebot-rules
+  needs:
+    - compute_version
+    - build_cuebot_image
+  secrets:
+    COMPIL_TWINE_PASSWORD:
+      vault: credentials/compil.twine/password@kv
+      file: false
+  script:
+    - echo "Deploying cuebot docker image to registry"
+    - docker load -i cuebot-*.tar
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
+    - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
+    - docker push $IMAGE_NAME
+
+deploy_cuebot_dev:
+  stage: deploy
+  extends:
+    - .install-task
+    - .cuebot-dev-rules
+  needs:
+    - compute_version
+    - push_cuebot_image
+  image:
+    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
+    entrypoint: ["bash", "-l", "-c"]
+  environment:
+    name: rcw-opencue-dev
+  script:
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
+    - |
+      # Modify deployment for dev environment
+      sed 's/name: cuebot-app/name: dev-cuebot-app/g' k8s/deployment/cuebot.deployment.yaml | \
+      sed 's/app: cuebot-app/app: dev-cuebot-app/g' | \
+      sed 's/name: cuebot-service/name: dev-cuebot-service/g' | \
+      env IMAGE_NAME="$IMAGE_NAME" envsubst | kubectl apply -f -
+    - kubectl apply -f k8s/deployment/cuebot.test-ingress.yaml
+
+#deploy_cuebot_prod:
+#  stage: deploy
+#  extends:
+#    - .install-task
+#  needs:
+#    - compute_version
+#    - push_cuebot_image
+#  image:
+#    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
+#    entrypoint: ["bash", "-l", "-c"]
+#  environment:
+#    name: rcw-opencue
+#  script:
+#    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION)"
+#    - env IMAGE_NAME="$IMAGE_NAME" envsubst < k8s/deployment/cuebot.deployment.yaml | kubectl apply -f -
+#    - kubectl apply -f k8s/deployment/cuebot.ingress.yaml
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+#      when: manual
+#    - when: never
