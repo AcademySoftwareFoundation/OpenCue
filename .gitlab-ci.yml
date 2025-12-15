@@ -125,15 +125,17 @@ build_cuebot_image:
       if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
       if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
       if [ -n "$NO_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg NO_PROXY=$NO_PROXY"; fi
+      echo "Docker build proxy args: $PROXY_ARGS"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
-    - docker save "opencue/cuebot:$VERSION_NUMBER" -o "opencue/cuebot-$VERSION_NUMBER.tar"
+    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile . &>"docker-build-cuebot.log"
+    - docker save "opencue/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
-      - cuebot/cuebot-*.tar
+      - cuebot-*.tar
+      - docker-build-cuebot.log
     expire_in: 1 day
 
 
