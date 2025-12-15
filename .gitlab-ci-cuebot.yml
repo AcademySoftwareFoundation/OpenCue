@@ -29,18 +29,14 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
-get_computed_version:
+compute_version:
   stage: version
-  image: alpine/curl:8.7.1
   extends:
+    - .install-task
     - .cuebot-rules
+  image: python:3.7
   script:
-    - |
-      echo "Getting VERSION artifact from parent pipeline"
-      curl --location --output VERSION \
-        --header "PRIVATE-TOKEN: $CI_JOB_TOKEN" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/jobs/artifacts/$CI_COMMIT_REF_NAME/raw?job=compute_version&file_path=VERSION"
-      echo "Using version: $(cat VERSION)"
+    - task compute-version
   artifacts:
     paths:
       - VERSION
@@ -53,7 +49,7 @@ build_cuebot_image:
     - .docker_setup
     - .cuebot-rules
   needs:
-    - get_computed_version
+    - compute_version
   script:
     - task build-cuebot-image
   artifacts:
@@ -69,7 +65,7 @@ push_cuebot_image:
     - .cifra-secret-external
     - .cuebot-rules
   needs:
-    - get_computed_version
+    - compute_version
     - build_cuebot_image
   secrets:
     COMPIL_TWINE_PASSWORD:
@@ -88,7 +84,7 @@ deploy_cuebot_dev:
     - .install-task
     - .cuebot-rules
   needs:
-    - get_computed_version
+    - compute_version
     - push_cuebot_image
   image:
     name: lachlanevenson/k8s-kubectl:v1.16.4-bash
@@ -111,7 +107,7 @@ deploy_cuebot_dev:
 #    - .install-task
 #    - .cuebot-rules
 #  needs:
-#    - get_computed_version
+#    - compute_version
 #    - push_cuebot_image
 #  image:
 #    name: lachlanevenson/k8s-kubectl:v1.16.4-bash
