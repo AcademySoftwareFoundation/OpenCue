@@ -142,6 +142,12 @@ build_cuebot_image:
         }
       }
       EOF
+      
+      # Build proxy args for docker build
+      PROXY_ARGS=""
+      if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
+      if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
+      if [ -n "$NO_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg NO_PROXY=$NO_PROXY"; fi
 
       # Configure Gradle proxy settings
       mkdir -p ~/.gradle
@@ -156,7 +162,7 @@ build_cuebot_image:
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
+    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
     - docker save "opencue/cuebot:$VERSION_NUMBER" -o "opencue/cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
