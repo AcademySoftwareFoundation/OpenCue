@@ -23,17 +23,11 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
-.default-rules:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: on_success
-    - when: never
-
 get_computed_version:
   stage: version
   image: alpine/curl:8.7.1
   extends:
-    - .default-rules
+    - .common-rules
   script:
     - |
       echo "Getting VERSION artifact from parent pipeline"
@@ -51,7 +45,7 @@ build_cuebot_image:
   extends:
     - .install-task
     - .docker_setup
-    - .default-rules
+    - .common-rules
   needs:
     - get_computed_version
   script:
@@ -67,7 +61,7 @@ push_cuebot_image:
     - .install-task
     - .docker_setup
     - .cifra-secret-external
-    - .default-rules
+    - .common-rules
   needs:
     - get_computed_version
     - build_cuebot_image
@@ -86,7 +80,7 @@ deploy_cuebot_dev:
   stage: deploy
   extends:
     - .install-task
-    - .default-rules
+    - .common-rules
   needs:
     - get_computed_version
     - push_cuebot_image
