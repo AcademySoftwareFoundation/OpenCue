@@ -51,6 +51,21 @@ tasks:
       - echo "OPENCUE_RQD_PACKAGE_PATH=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> package_paths.env
       - echo "OPENCUE_CUENIMBY_PACKAGE_PATH=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> package_paths.env
 
+  build-cuebot-image:
+    # needs build-opencue-packages to ensure packages are built before building image
+    desc: Build cuebot Docker image
+    cmds:
+      - |
+        VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
+        IMAGE_NAME="$CUEBOT_REGISTRY:$VERSION_NUMBER"
+        echo "Building cuebot docker image $IMAGE_NAME"
+        docker build \
+          ${HTTP_PROXY:+--build-arg HTTP_PROXY=$HTTP_PROXY} \
+          ${HTTPS_PROXY:+--build-arg HTTPS_PROXY=$HTTPS_PROXY} \
+          -t "$IMAGE_NAME" \
+          -f cuebot/Dockerfile .
+        docker save "$IMAGE_NAME" -o "cuebot-$VERSION_NUMBER.tar"
+
   .install-rust:
     desc: Install Rust toolchain
     cmds:

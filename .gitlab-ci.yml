@@ -105,19 +105,8 @@ build_cuebot_image:
   needs:
     - compute_version
     - build_opencue_packages
-  before_script:
-    - |
-      # Build proxy args for docker build (gradle)
-      PROXY_ARGS=""
-      if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
-      if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
   script:
-    - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
-    - IMAGE_NAME="$CUEBOT_REGISTRY:$VERSION_NUMBER"
-    - echo "Building cuebot docker image $IMAGE_NAME"
-    - docker build $PROXY_ARGS -t "$IMAGE_NAME" -f cuebot/Dockerfile .
-    - docker save "$IMAGE_NAME" -o "cuebot-$VERSION_NUMBER.tar"
-#    - task build-cuebot-image
+    - task build-cuebot-image
   artifacts:
     paths:
       - cuebot-*.tar
