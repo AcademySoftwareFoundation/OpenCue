@@ -22,7 +22,7 @@ variables:
   OC_CONFIG_DIR: \\ubisoft.org\mtlstudio\Helix\tools\opencue\etc
   VAULT_AUTH_ROLE: helix-opencue
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
-  CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue
+  CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
 
 .install-task:
@@ -113,7 +113,7 @@ build_cuebot_image:
       if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
-    - IMAGE_NAME="$CUEBOT_REGISTRY:cuebot-$VERSION_NUMBER"
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$VERSION_NUMBER"
     - echo "Building cuebot docker image $IMAGE_NAME"
     - docker build $PROXY_ARGS -t "$IMAGE_NAME" -f cuebot/Dockerfile .
     - docker save "$IMAGE_NAME" -o "cuebot-$VERSION_NUMBER.tar"
@@ -248,7 +248,7 @@ deploy_cuebot_image:
   script:
     - echo "Deploying cuebot docker image to registry"
     - docker load -i cuebot-*.tar
-    - IMAGE_NAME="$CUEBOT_REGISTRY:cuebot-$(cat VERSION | sed 's/+/-/g')"
+    - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
     - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
     - docker push $IMAGE_NAME
 
