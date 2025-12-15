@@ -2,7 +2,7 @@
 title: "CueGUI: CueCommander Administration System"
 layout: default
 parent: User Guides
-nav_order: 35
+nav_order: 38
 linkTitle: "CueCommander Administration Guide"
 date: 2025-01-13
 description: >

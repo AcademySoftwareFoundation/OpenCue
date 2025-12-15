@@ -1,6 +1,6 @@
 ---
 title: "Cuecmd User Guide"
-nav_order: 37
+nav_order: 40
 parent: "User Guides"
 layout: default
 date: 2025-10-02

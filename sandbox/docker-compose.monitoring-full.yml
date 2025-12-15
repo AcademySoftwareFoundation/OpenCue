@@ -1,0 +1,233 @@
+services:
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: opencue-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: opencue-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:29092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Kafka UI for debugging
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: opencue-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: opencue
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  # Elasticsearch for historical data storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: opencue-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Kibana for Elasticsearch visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: opencue-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: opencue-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus-monitoring.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: opencue-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+  # PostgreSQL database
+  db:
+    image: postgres:15
+    container_name: opencue-db
+    environment:
+      - POSTGRES_USER=cuebot
+      - POSTGRES_PASSWORD=cuebot_password
+      - POSTGRES_DB=cuebot
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Flyway for database migrations
+  flyway:
+    build:
+      context: ../
+      dockerfile: ./sandbox/flyway.Dockerfile
+    container_name: opencue-flyway
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PGUSER=cuebot
+      - PGPASSWORD=cuebot_password
+      - PGDATABASE=cuebot
+      - PGHOST=db
+      - PGPORT=5432
+    command: /opt/scripts/migrate.sh
+
+  # Cuebot with monitoring enabled
+  cuebot:
+    build:
+      context: ../
+      dockerfile: ./cuebot/Dockerfile
+    container_name: opencue-cuebot
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+    environment:
+      - CUEBOT_DB_HOST=db
+      - CUEBOT_DB_NAME=cuebot
+      - CUEBOT_DB_USER=cuebot
+      - CUEBOT_DB_PASS=cuebot_password
+    command:
+      - java
+      - -jar
+      - /opt/opencue/cuebot-latest.jar
+      - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
+      - --datasource.cue-data-source.username=cuebot
+      - --datasource.cue-data-source.password=cuebot_password
+      - --monitoring.kafka.enabled=true
+      - --monitoring.kafka.bootstrap.servers=kafka:29092
+      - --metrics.prometheus.collector=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
+  monitoring-indexer:
+    build:
+      context: ../rust
+      dockerfile: Dockerfile.monitoring-indexer
+    container_name: opencue-monitoring-indexer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - KAFKA_GROUP_ID=opencue-monitoring-indexer
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=opencue
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+  # RQD (render queue daemon)
+  rqd:
+    image: opencue/rqd
+    container_name: opencue-rqd
+    depends_on:
+      cuebot:
+        condition: service_healthy
+    environment:
+      - CUEBOT_HOSTNAME=cuebot
+    volumes:
+      - ./rqd/logs:/tmp/rqd_logs
+      - ./rqd/shots:/shots
+
+volumes:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:
