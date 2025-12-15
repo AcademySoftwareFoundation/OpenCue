@@ -113,9 +113,10 @@ build_cuebot_image:
       if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
-    - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build $PROXY_ARGS -t "$CUEBOT_REGISTRY/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
-    - docker save "$CUEBOT_REGISTRY/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
+    - IMAGE_NAME="$CUEBOT_REGISTRY:cuebot-$VERSION_NUMBER"
+    - echo "Building cuebot docker image $IMAGE_NAME"
+    - docker build $PROXY_ARGS -t "$IMAGE_NAME" -f cuebot/Dockerfile .
+    - docker save "$IMAGE_NAME" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
     paths:
@@ -247,7 +248,7 @@ deploy_cuebot_image:
   script:
     - echo "Deploying cuebot docker image to registry"
     - docker load -i cuebot-*.tar
-    - IMAGE_NAME="$CUEBOT_REGISTRY/cuebot:$(cat VERSION | sed 's/+/-/g')"
+    - IMAGE_NAME="$CUEBOT_REGISTRY:cuebot-$(cat VERSION | sed 's/+/-/g')"
     - docker login -u compil.twine -p "$COMPIL_TWINE_PASSWORD" $GITLAB_REGISTRY
     - docker push $IMAGE_NAME
 
