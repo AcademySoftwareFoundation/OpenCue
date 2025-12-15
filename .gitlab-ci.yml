@@ -105,40 +105,16 @@ build_cuebot_image:
     - build_opencue_packages
   before_script:
     - |
-      # Configure Docker to use proxy
-      echo "Configuring Docker daemon proxy settings..."
-      mkdir -p ~/.docker
-      cat > ~/.docker/config.json << EOF
-      {
-        "proxies": {
-          "default": {
-            "httpProxy": "$HTTP_PROXY",
-            "httpsProxy": "$HTTPS_PROXY",
-            "noProxy": "$NO_PROXY"
-          }
-        }
-      }
-      EOF
-      
-      # Configure Gradle properties for proxy if environment variables are set
-      if [ -n "$HTTP_PROXY" ]; then
-        proxy_host=$(echo $HTTP_PROXY | sed 's|.*://||' | cut -d: -f1)
-        proxy_port=$(echo $HTTP_PROXY | sed 's|.*://||' | cut -d: -f2 | cut -d/ -f1)
-        mkdir -p ~/.gradle
-        echo "systemProp.http.proxyHost=$proxy_host" >> ~/.gradle/gradle.properties
-        echo "systemProp.http.proxyPort=$proxy_port" >> ~/.gradle/gradle.properties
-      fi
-      if [ -n "$HTTPS_PROXY" ]; then
-        proxy_host=$(echo $HTTPS_PROXY | sed 's|.*://||' | cut -d: -f1)
-        proxy_port=$(echo $HTTPS_PROXY | sed 's|.*://||' | cut -d: -f2 | cut -d/ -f1)
-        mkdir -p ~/.gradle
-        echo "systemProp.https.proxyHost=$proxy_host" >> ~/.gradle/gradle.properties
-        echo "systemProp.https.proxyPort=$proxy_port" >> ~/.gradle/gradle.properties
-      fi
+      # Build proxy args for docker build (gradle)
+      PROXY_ARGS=""
+      if [ -n "$HTTP_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTP_PROXY=$HTTP_PROXY"; fi
+      if [ -n "$HTTPS_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg HTTPS_PROXY=$HTTPS_PROXY"; fi
+      if [ -n "$NO_PROXY" ]; then PROXY_ARGS="$PROXY_ARGS --build-arg NO_PROXY=$NO_PROXY"; fi
+      echo "Docker build proxy args: $PROXY_ARGS"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
-    - docker build -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
+    - docker build $PROXY_ARGS -t "opencue/cuebot:$VERSION_NUMBER" -f cuebot/Dockerfile .
     - docker save "opencue/cuebot:$VERSION_NUMBER" -o "cuebot-$VERSION_NUMBER.tar"
 #    - task build-cuebot-image
   artifacts:
