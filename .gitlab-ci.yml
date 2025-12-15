@@ -19,14 +19,25 @@ include:
     file: '/templates/v2/cifra_secrets.gitlab-ci.yml'
   # JOB TEMPLATES
   - local: '.gitlab-ci-templates.yml'
-  # VERSION COMPUTATION
-  - local: '.gitlab-ci-version.yml'
 
 variables:
   OC_CONFIG_DIR: \\ubisoft.org\mtlstudio\Helix\tools\opencue\etc
   VAULT_AUTH_ROLE: helix-opencue
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
+
+compute_version:
+  stage: version
+  extends:
+    - .install-task
+    - .common-rules
+  image: python:3.7
+  script:
+    - task compute-version
+  artifacts:
+    paths:
+      - VERSION
+    expire_in: 1 day
 
 build_opencue_packages:
   stage: build
