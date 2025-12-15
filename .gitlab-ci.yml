@@ -143,13 +143,16 @@ build_cuebot_image:
       }
       EOF
 
-      # Install Python build tools (use --break-system-packages for Alpine)
-      python3 -m pip install --break-system-packages --upgrade pip build wheel
-      
-      # Create log directory in project workspace and symlink from /tmp for script compatibility
-      mkdir -p tmp/opencue-test
-      ln -sf "$(pwd)/tmp/opencue-test" /tmp/opencue-test
-      echo "Created log directory: $(pwd)/tmp/opencue-test (linked from /tmp/opencue-test)"
+      # Configure Gradle proxy settings
+      mkdir -p ~/.gradle
+      cat > ~/.gradle/gradle.properties << EOF
+      systemProp.http.proxyHost=$(echo $HTTP_PROXY | sed 's|http://||' | cut -d: -f1)
+      systemProp.http.proxyPort=$(echo $HTTP_PROXY | sed 's|http://||' | cut -d: -f2)
+      systemProp.https.proxyHost=$(echo $HTTPS_PROXY | sed 's|https://||' | cut -d: -f1)
+      systemProp.https.proxyPort=$(echo $HTTPS_PROXY | sed 's|https://||' | cut -d: -f2)
+      systemProp.http.nonProxyHosts=$NO_PROXY
+      EOF
+      echo "Gradle proxy configuration created"
   script:
     - VERSION_NUMBER=$(cat VERSION | sed 's/+/-/g')
     - echo "Building cuebot docker image opencue/cuebot:$VERSION_NUMBER"
