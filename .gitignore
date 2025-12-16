@@ -27,6 +27,8 @@ cuebot/.project
 /pycue/opencue/compiled_proto/
 /rqd/rqd/compiled_proto/
 docker-compose-local.yml
+/sandbox/kafka*
+/sandbox/zookeeper*
 docs/_site/
 docs/bin/
 sandbox/kafka-data
@@ -34,3 +36,8 @@ sandbox/zookeeper-data
 sandbox/zookeeper-logs
 sandbox/rqd/shots/
 docs/_data/version.yml
+target/*
+
+# Agent files
+AGENTS.md
+CLAUDE.md
