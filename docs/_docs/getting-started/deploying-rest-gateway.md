@@ -1,6 +1,6 @@
 ---
 title: "Deploying OpenCue REST Gateway"
-nav_order: 27
+nav_order: 28
 parent: Getting Started
 layout: default
 linkTitle: "Deploying REST Gateway"
