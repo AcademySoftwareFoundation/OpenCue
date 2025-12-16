@@ -31,7 +31,7 @@ use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
 
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
@@ -1287,7 +1287,7 @@ Render Frame Completed
 
 #[cfg(test)]
 mod tests {
-    use opencue_proto::rqd::{RunFrame, run_frame::UidOptional};
+    use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
     use std::collections::HashMap;
     use std::sync::Arc;
     use uuid::Uuid;
@@ -1488,8 +1488,7 @@ mod tests {
             .await;
         let elapsed = start.elapsed();
 
-        assert!(status.is_ok());
-        assert_eq!((0, None), status.unwrap());
+        assert_eq!(Ok((0, None)), status);
         assert!(
             elapsed >= Duration::from_millis(500),
             "Command didn't run for expected duration"
