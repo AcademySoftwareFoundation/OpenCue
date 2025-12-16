@@ -29,19 +29,6 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
-compute_version:
-  stage: version
-  extends:
-    - .install-task
-    - .cuebot-rules
-  image: python:3.7
-  script:
-    - task compute-version
-  artifacts:
-    paths:
-      - VERSION
-    expire_in: 1 day
-
 build_cuebot_image:
   stage: build
   extends:
@@ -49,7 +36,8 @@ build_cuebot_image:
     - .docker_setup
     - .cuebot-rules
   needs:
-    - compute_version
+    - pipeline: $PARENT_PIPELINE_ID
+      job: compute_version
   script:
     - task build-cuebot-image
   artifacts:
@@ -65,7 +53,8 @@ push_cuebot_image:
     - .cifra-secret-external
     - .cuebot-rules
   needs:
-    - compute_version
+    - pipeline: $PARENT_PIPELINE_ID
+      job: compute_version
     - build_cuebot_image
   secrets:
     COMPIL_TWINE_PASSWORD:
@@ -84,7 +73,8 @@ deploy_cuebot_dev:
     - .install-task
     - .cuebot-rules
   needs:
-    - compute_version
+    - pipeline: $PARENT_PIPELINE_ID
+      job: compute_version
     - push_cuebot_image
   image:
     name: lachlanevenson/k8s-kubectl:v1.16.4-bash

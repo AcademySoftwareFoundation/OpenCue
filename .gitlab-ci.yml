@@ -182,6 +182,8 @@ trigger_cuebot_deploy:
   trigger:
     include: .gitlab-ci-cuebot.yml
     strategy: depend
+  variables:
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
   needs:
     - compute_version
     - build_opencue_packages
