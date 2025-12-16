@@ -4,14 +4,22 @@ members = [
     "crates/rqd",
     "crates/dummy-cuebot",
     "crates/scheduler",
+<<<<<<< HEAD
     "crates/monitoring-indexer",
+=======
+    "crates/monitoring-indexer"
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 ]
 resolver = "2"
 
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com>"]
 edition = "2021"
+<<<<<<< HEAD
 version = "0.1.3"
+=======
+version = "0.1.6"
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 
 [workspace.dependencies]
 async-trait = "0.1"

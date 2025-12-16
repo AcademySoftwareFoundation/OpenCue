@@ -251,7 +251,11 @@ impl MatchingService {
     /// * `cluster` - The cluster context for this dispatch operation
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         let mut try_again = true;
+<<<<<<< HEAD
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
+=======
+        let mut attempts = CONFIG.queue.host_candidate_attempts_per_layer;
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
         let initial_attempts = attempts;
 
         // Use Option to handle ownership transfer cleanly
@@ -387,7 +391,31 @@ impl MatchingService {
                             try_again = false;
                         }
                         crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
+<<<<<<< HEAD
                             panic!("Cache is no longer able to access the database. {}", err)
+=======
+                            // CRITICAL: Database connection failure in host cache query
+                            //
+                            // When the host cache cannot query the database, the matching service
+                            // cannot reliably find hosts for job dispatch. This is a systemic
+                            // failure that affects all job processing.
+                            //
+                            // We panic here rather than propagating an error because:
+                            // 1. The entire service is compromised - no jobs can be matched
+                            // 2. Graceful degradation is not possible without host candidates
+                            // 3. The orchestration layer (e.g., Kubernetes) should restart the
+                            //    service to re-establish database connectivity
+                            // 4. Bubbling the error up would add unnecessary complexity for a
+                            //    condition that always requires service restart
+                            //
+                            // This allows the orchestration layer to handle the failure through
+                            // its standard restart policies rather than attempting partial recovery.
+                            panic!(
+                                "Host cache failed to query database - service is non-functional \
+                                and requires restart. Error: {}",
+                                err
+                            )
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
                         }
                     }
                 }

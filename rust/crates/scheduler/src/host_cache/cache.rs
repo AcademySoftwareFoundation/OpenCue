@@ -21,7 +21,13 @@
 ///
 /// ...
 use std::{
+<<<<<<< HEAD
     collections::{BTreeMap, HashSet},
+=======
+    cell::RefCell,
+    collections::{BTreeMap, HashSet},
+    rc::Rc,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
     sync::RwLock,
     time::{Duration, SystemTime},
 };
@@ -179,6 +185,7 @@ impl HostCache {
     {
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
+<<<<<<< HEAD
         let host_validation = |host: &Host| {
             validation(host) && host.idle_memory >= memory && host.idle_cores >= cores
         };
@@ -248,6 +255,98 @@ impl HostCache {
                     // Host state changed, retry the entire operation
                     return None;
                 }
+=======
+
+        let failed_candidates: RefCell<Vec<Uuid>> = RefCell::new(Vec::new());
+        let host_validation = |host: &Host| {
+            // Check caller validation
+            validation(host) &&
+            // Check memory and core requirements just in case
+            host.idle_memory >= memory &&
+            host.idle_cores >= cores &&
+            // Ensure we're not retrying the same host as last attempts
+            !failed_candidates.borrow().contains(&host.id)
+        };
+
+        let mut attempts = 5;
+        loop {
+            // Step 1: Find a candidate host in the index
+            let candidate_info = {
+                let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
+                let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
+                    if !self.strategy.core_saturation {
+                        // Reverse order to find hosts with max amount of cores available
+                        Box::new(host_index_lock.range(core_key..).rev())
+                    } else {
+                        Box::new(host_index_lock.range(core_key..))
+                    };
+
+                iter.find_map(|(by_core_key, hosts_by_memory)| {
+                    let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
+                        hosts.iter().find_map(|host_id| {
+                            HOST_STORE.get(host_id).and_then(|host| {
+                                // Check validation and memory capacity
+                                if host_validation(&host) {
+                                    Some((
+                                        *by_core_key,
+                                        *by_memory_key,
+                                        *host_id,
+                                        host.last_updated,
+                                    ))
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                    };
+
+                    if self.strategy.memory_saturation {
+                        // Search for hosts with at least the same amount of memory requested
+                        hosts_by_memory.range(memory_key..).find_map(find_fn)
+                    } else {
+                        // Search for hosts with the most amount of memory available
+                        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
+                    }
+                })
+            };
+
+            // Step 2: Attempt atomic removal if we found a candidate
+            if let Some((by_core_key, by_memory_key, host_id, expected_last_updated)) =
+                candidate_info
+            {
+                // Atomic check-and-remove from HOST_STORE
+                // Ensure host is still valid when it's time to remove it
+                match HOST_STORE.atomic_remove_if_valid(
+                    &host_id,
+                    expected_last_updated,
+                    host_validation,
+                ) {
+                    Ok(Some(removed_host)) => {
+                        // Successfully removed from store, now remove from index
+                        let mut host_index_lock =
+                            self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
+
+                        // Remove from hosts_by_core_and_memory index
+                        host_index_lock
+                            .get_mut(&by_core_key)
+                            .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
+                            .map(|hosts| hosts.remove(&host_id));
+
+                        return Some(removed_host);
+                    }
+                    Ok(None) | Err(()) => {
+                        // Host was removed by another thread. Try another candidate
+                        attempts -= 1;
+                        // Mark the failed candidate to avoid retrying it again.
+                        failed_candidates.borrow_mut().push(host_id);
+                        if attempts <= 0 {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                break;
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
             }
         }
 

@@ -83,7 +83,11 @@ pub fn create_test_config() -> Config {
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
+<<<<<<< HEAD
             host_candidate_attemps_per_layer: 5,
+=======
+            host_candidate_attempts_per_layer: 5,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
             empty_job_cycles_before_quiting: Some(20),
             mem_reserved_min: bytesize::ByteSize::mb(250),
             allocation_refresh_interval: Duration::from_secs(3),
@@ -94,6 +98,10 @@ pub fn create_test_config() -> Config {
             },
             frame_memory_soft_limit: 1.6,
             frame_memory_hard_limit: 2.0,
+<<<<<<< HEAD
+=======
+            metrics_port: 9090,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
         },
         database: DatabaseConfig {
             pool_size: 20,

@@ -77,7 +77,11 @@ impl From<HostModel> for Host {
                 .int_gpus_idle
                 .try_into()
                 .expect("int_gpus should fit on a i32"),
+<<<<<<< HEAD
             idle_gpu_memory: ByteSize::kb(0),
+=======
+            idle_gpu_memory: ByteSize::kb(val.int_gpu_mem_free as u64),
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
             total_cores: CoreSize::from_multiplied(
                 val.int_cores
                     .try_into()
@@ -97,6 +101,7 @@ impl From<HostModel> for Host {
     }
 }
 
+<<<<<<< HEAD
 static _QUERY_DISPATCH_HOST: &str = r#"
 SELECT
     h.pk_host,
@@ -133,6 +138,8 @@ ORDER BY
 LIMIT $10
 "#;
 
+=======
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 // Host memory, cores and gpu values are stored at host and host_stat tables and are updated
 // by different flows:
 //  - memory and core fields on table host are only updated when booking procs (update_host_resources)

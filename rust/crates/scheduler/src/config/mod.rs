@@ -8,7 +8,11 @@ use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use std::{env, fs, path::PathBuf, time::Duration};
 
+<<<<<<< HEAD
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
+=======
+static DEFAULT_CONFIG_FILE: &str = "~/.local/share/scheduler.yaml";
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 
 pub static OVERRIDE_CONFIG: OnceCell<Config> = OnceCell::new();
 
@@ -67,7 +71,11 @@ pub struct QueueConfig {
     pub stream: StreamConfig,
     pub manual_tags_chunk_size: usize,
     pub hostname_tags_chunk_size: usize,
+<<<<<<< HEAD
     pub host_candidate_attemps_per_layer: usize,
+=======
+    pub host_candidate_attempts_per_layer: usize,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
@@ -76,6 +84,10 @@ pub struct QueueConfig {
     pub host_booking_strategy: HostBookingStrategy,
     pub frame_memory_soft_limit: f64,
     pub frame_memory_hard_limit: f64,
+<<<<<<< HEAD
+=======
+    pub metrics_port: u16,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 }
 
 impl Default for QueueConfig {
@@ -90,7 +102,11 @@ impl Default for QueueConfig {
             stream: StreamConfig::default(),
             manual_tags_chunk_size: 100,
             hostname_tags_chunk_size: 300,
+<<<<<<< HEAD
             host_candidate_attemps_per_layer: 10,
+=======
+            host_candidate_attempts_per_layer: 10,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
             allocation_refresh_interval: Duration::from_secs(3),
@@ -98,6 +114,10 @@ impl Default for QueueConfig {
             host_booking_strategy: HostBookingStrategy::default(),
             frame_memory_soft_limit: 1.6,
             frame_memory_hard_limit: 2.0,
+<<<<<<< HEAD
+=======
+            metrics_port: 9090,
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
         }
     }
 }

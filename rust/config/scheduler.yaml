@@ -37,8 +37,14 @@ database:
   db_user: cuebot
 
   # Database password
+<<<<<<< HEAD
   # Default: "password"
   db_pass: cuebot_password
+=======
+  # To avoid saving passwords in plain text, override this value using the
+  # environment variable OPENSCHEDULER_database.db_pass
+  # db_pass: cuebot_password
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
 
   # Database port
   # Default: 5432

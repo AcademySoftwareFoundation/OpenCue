@@ -203,9 +203,15 @@ async fn async_main() -> miette::Result<()> {
     tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
 
     // Start Prometheus metrics HTTP server in background
+<<<<<<< HEAD
     let metrics_addr = "0.0.0.0:9090";
     tokio::spawn(async move {
         if let Err(e) = metrics::start_server(metrics_addr).await {
+=======
+    let metrics_addr = format!("0.0.0.0:{}", CONFIG.queue.metrics_port);
+    tokio::spawn(async move {
+        if let Err(e) = metrics::start_server(&metrics_addr).await {
+>>>>>>> 515b7010 ([rust/scheduler] Distributed Scheduler (#2104))
             tracing::error!("Metrics server failed: {}", e);
         }
     });

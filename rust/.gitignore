@@ -12,3 +12,7 @@ Cargo.lock
 
 # Localized files only meant for building docker images locally
 proto
+
+# Agent files
+AGENTS.md
+CLAUDE.md
