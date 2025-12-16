@@ -58,6 +58,8 @@ from opencue_proto import subscription_pb2
 from opencue_proto import subscription_pb2_grpc
 from opencue_proto import task_pb2
 from opencue_proto import task_pb2_grpc
+from opencue_proto import monitoring_pb2
+from opencue_proto import monitoring_pb2_grpc
 from opencue.exception import ConnectionException
 from opencue.exception import CueException
 import opencue.config
@@ -107,6 +109,7 @@ class Cuebot(object):
         'layer': job_pb2,
         'limit': limit_pb2,
         'matcher': filter_pb2,
+        'monitoring': monitoring_pb2,
         'owner': host_pb2,
         'proc': host_pb2,
         'renderPartition': renderPartition_pb2,
@@ -132,6 +135,7 @@ class Cuebot(object):
         'layer': job_pb2_grpc.LayerInterfaceStub,
         'limit': limit_pb2_grpc.LimitInterfaceStub,
         'matcher': filter_pb2_grpc.MatcherInterfaceStub,
+        'monitoring': monitoring_pb2_grpc.MonitoringInterfaceStub,
         'owner': host_pb2_grpc.OwnerInterfaceStub,
         'proc': host_pb2_grpc.ProcInterfaceStub,
         'renderPartition': renderPartition_pb2_grpc.RenderPartitionInterfaceStub,

@@ -4,6 +4,7 @@ members = [
     "crates/rqd",
     "crates/dummy-cuebot",
     "crates/scheduler",
+    "crates/monitoring-indexer",
 ]
 resolver = "2"
 

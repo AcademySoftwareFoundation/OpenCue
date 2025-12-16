@@ -23,3 +23,20 @@ datasources:
     isDefault: false
     version: 1
     editable: false
+  - name: elasticsearch
+    type: elasticsearch
+    uid: elasticsearch
+    access: proxy
+    orgId: 1
+    url: http://elasticsearch:9200
+    basicAuth: false
+    isDefault: false
+    version: 1
+    editable: false
+    jsonData:
+      esVersion: "7.10.0"
+      timeField: "header.timestamp"
+      logMessageField: "message"
+      logLevelField: "level"
+      maxConcurrentShardRequests: 5
+      index: "opencue-frame-events-*"
