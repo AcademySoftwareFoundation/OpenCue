@@ -94,43 +94,6 @@ dispatcher.exclusion_list=show1:facility.alloc1,show2:facility.alloc2
 4. Gradually migrate more clusters to the Scheduler
 5. Eventually disable Cuebot booking entirely with `dispatcher.turn_off_booking=true`
 
-## Running the Scheduler
-
-### Prerequisites
-
-```bash
-# Install Rust and protobuf compiler
-brew install protobuf  # macOS
-# or
-sudo apt-get install protobuf-compiler  # Ubuntu/Debian
-```
-
-### Build and Deploy
-
-```bash
-cd rust
-cargo build --release -p scheduler
-
-# Run scheduler for specific clusters
-target/release/cue-scheduler \
-  --facility spi \
-  --alloc_tags=show1:tag1,show2:tag2 \
-  --manual_tags=manual_tag1,manual_tag2
-```
-
-### Configuration
-
-The scheduler uses YAML configuration files with CLI overrides. Key settings:
-
-- `facility`: Filter clusters to a specific facility
-- `alloc_tags`: Comma-separated list of `show:tag` allocation combinations
-- `manual_tags`: Comma-separated list of manual tags to process
-- `queue.manual_tags_chunk_size`: How many manual tags per cluster (default: 10)
-- `queue.hostname_tags_chunk_size`: How many hostname tags per cluster (default: 10)
-- `queue.empty_job_cycles_before_quiting`: Exit after N idle rounds (optional)
-
-A documented sample of the config file can be found at: `rust/config/scheduler.yaml`.
-
 ## Performance Benefits
 
 Early testing shows significant improvements:

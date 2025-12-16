@@ -596,4 +596,3 @@ Planned for future releases:
 
 - **Slack**: Join #opencue on [ASWF Slack](https://slack.aswf.io)
 - **GitHub Issues**: [Report bugs or request features](https://github.com/AcademySoftwareFoundation/OpenCue/issues)
-- **Discussions**: [Community Q&A](https://github.com/AcademySoftwareFoundation/OpenCue/discussions)
