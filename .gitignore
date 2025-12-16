@@ -37,3 +37,7 @@ sandbox/zookeeper-logs
 sandbox/rqd/shots/
 docs/_data/version.yml
 target/*
+
+# Agent files
+AGENTS.md
+CLAUDE.md
