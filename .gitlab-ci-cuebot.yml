@@ -92,6 +92,8 @@ deploy_cuebot_dev:
   environment:
     name: rcw-opencue-dev
   script:
+    # Ensure envsubst is available (provided by gettext)
+    - apk add --no-cache gettext
     - IMAGE_NAME="$CUEBOT_REGISTRY:$(cat VERSION | sed 's/+/-/g')"
     - |
       # Modify deployment for dev environment
