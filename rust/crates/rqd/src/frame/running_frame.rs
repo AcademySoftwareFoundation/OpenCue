@@ -1488,7 +1488,7 @@ mod tests {
             .await;
         let elapsed = start.elapsed();
 
-        assert_eq!(Ok((0, None)), status);
+        assert_eq!((0, None), status.expect("status should be OK"));
         assert!(
             elapsed >= Duration::from_millis(500),
             "Command didn't run for expected duration"
