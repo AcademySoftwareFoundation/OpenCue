@@ -1,6 +1,6 @@
 ---
 title: "Distributed Scheduler Technical Reference"
-nav_order: 59
+nav_order: 100
 parent: Reference
 layout: default
 linkTitle: "Distributed Scheduler"
