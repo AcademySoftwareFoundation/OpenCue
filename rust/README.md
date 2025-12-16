@@ -7,11 +7,13 @@ Project crates:
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
  * monitoring-indexer: OpenCue monitoring event indexer (Kafka to Elasticsearch)
+ * scheduler: A job scheduler to run alongside Cuebot
 
 Sample configuration files are available in the `config/` directory:
  * `config/rqd.yaml` - RQD configuration
  * `config/rqd.fake_linux.yaml` - RQD configuration for simulating Linux on macOS
  * `config/monitoring-indexer.yaml` - Monitoring indexer configuration
+ * `config/scheduler.yaml` - Scheduler configuration
 
 ## Build Instructions
 
