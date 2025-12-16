@@ -54,6 +54,21 @@ build_opencue_packages:
       - package_paths.env
     expire_in: 1 day
 
+build_cuebot_image:
+  stage: build
+  extends:
+    - .install-task
+    - .docker_setup
+    - .common-rules
+  needs:
+    - compute_version
+  script:
+    - task build-cuebot-image
+  artifacts:
+    paths:
+      - cuebot-*.tar
+    expire_in: 1 day
+
 #build_rust_binaries:
 #  stage: build
 #  extends:
@@ -184,9 +199,6 @@ trigger_cuebot_deploy:
     strategy: depend
   variables:
     PARENT_PIPELINE_ID: $CI_PIPELINE_ID
-  needs:
-    - compute_version
-    - build_opencue_packages
   rules:
     - if: '$CI_COMMIT_TAG'
       when: never

@@ -29,22 +29,6 @@ variables:
   GITLAB_REGISTRY: registry.gitlab-ncsa.ubisoft.org
   CUEBOT_REGISTRY: $GITLAB_REGISTRY/helix/opencue/opencue/cuebot
 
-build_cuebot_image:
-  stage: build
-  extends:
-    - .install-task
-    - .docker_setup
-    - .cuebot-rules
-  needs:
-    - pipeline: $PARENT_PIPELINE_ID
-      job: compute_version
-  script:
-    - task build-cuebot-image
-  artifacts:
-    paths:
-      - cuebot-*.tar
-    expire_in: 1 day
-
 push_cuebot_image:
   stage: push
   extends:
@@ -55,7 +39,8 @@ push_cuebot_image:
   needs:
     - pipeline: $PARENT_PIPELINE_ID
       job: compute_version
-    - build_cuebot_image
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_cuebot_image
   secrets:
     COMPIL_TWINE_PASSWORD:
       vault: credentials/compil.twine/password@kv
