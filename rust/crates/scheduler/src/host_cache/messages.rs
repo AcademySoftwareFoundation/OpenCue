@@ -54,9 +54,18 @@ where
     pub facility_id: Uuid,
     pub show_id: Uuid,
     pub tags: Vec<Tag>,
-    pub cores: CoreSize,
-    pub memory: ByteSize,
+    pub resource_request: ResourceRequest,
     pub validation: F,
+}
+
+#[derive(Clone, Copy)]
+pub enum ResourceRequest {
+    /// Request a machine with at least this amount of cores and memory idle
+    CoresAndMemory { cores: CoreSize, memory: ByteSize },
+    /// Request a machine with this amount of gpu cores idle
+    Gpu(CoreSize),
+    /// Request a machine with this amount of frame slots available
+    Slots(u32),
 }
 
 /// Payload for checking in a host or invalidating a host in the cache.

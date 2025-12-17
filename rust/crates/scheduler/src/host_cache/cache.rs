@@ -26,6 +26,7 @@ use std::{
     rc::Rc,
     sync::RwLock,
     time::{Duration, SystemTime},
+    u32,
 };
 
 use bytesize::ByteSize;
@@ -34,7 +35,7 @@ use uuid::Uuid;
 
 use crate::{
     config::{HostBookingStrategy, CONFIG},
-    host_cache::{store::HOST_STORE, HostCacheError, HostId},
+    host_cache::{messages::ResourceRequest, store::HOST_STORE, HostCacheError, HostId},
     models::{CoreSize, Host},
 };
 
@@ -133,8 +134,7 @@ impl HostCache {
     ///
     /// # Arguments
     ///
-    /// * `cores` - Minimum number of cores required
-    /// * `memory` - Minimum memory required
+    /// * `resource_request` - The resource requirements (cores and memory, GPU, or unit)
     /// * `validation` - Function to validate additional host requirements
     ///
     /// # Returns
@@ -143,8 +143,7 @@ impl HostCache {
     /// * `Err(HostCacheError)` - No suitable host available
     pub fn check_out<F>(
         &self,
-        cores: CoreSize,
-        memory: ByteSize,
+        resource_request: ResourceRequest,
         validation: F,
     ) -> Result<Host, HostCacheError>
     where
@@ -152,9 +151,17 @@ impl HostCache {
     {
         self.ping_query();
 
-        let host = self
-            .remove_host(cores, memory, validation)
-            .ok_or(HostCacheError::NoCandidateAvailable)?;
+        let host = match resource_request {
+            ResourceRequest::CoresAndMemory { cores, memory } => self
+                .remove_host(cores, memory, 1, validation)
+                .ok_or(HostCacheError::NoCandidateAvailable)?,
+            ResourceRequest::Gpu(_core_size) => todo!("GPU host search is not yet implemented"),
+            ResourceRequest::Slots(slots) => self
+                // Request a host with minimum requirements as the remove logic already accounts for
+                // limiting slots
+                .remove_host(CoreSize(1), ByteSize::mib(256), slots, validation)
+                .ok_or(HostCacheError::NoCandidateAvailable)?,
+        };
 
         Ok(host)
     }
@@ -175,7 +182,13 @@ impl HostCache {
     ///
     /// * `Some(Host)` - Host that meets all requirements
     /// * `None` - No suitable host found
-    fn remove_host<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
+    fn remove_host<F>(
+        &self,
+        cores: CoreSize,
+        memory: ByteSize,
+        slots: u32,
+        validation: F,
+    ) -> Option<Host>
     where
         F: Fn(&Host) -> bool,
     {
@@ -189,6 +202,8 @@ impl HostCache {
             // Check memory and core requirements just in case
             host.idle_memory >= memory &&
             host.idle_cores >= cores &&
+            host.running_procs_count + slots
+                <= host.concurrent_procs_limit.unwrap_or(u32::MAX) &&
             // Ensure we're not retrying the same host as last attempts
             !failed_candidates.borrow().contains(&host.id)
         };
@@ -355,7 +370,8 @@ mod tests {
             alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
-            concurrent_frames_limit: None,
+            concurrent_procs_limit: None,
+            running_procs_count: 0,
         }
     }
 
@@ -450,8 +466,10 @@ mod tests {
         cache.check_in(host, false);
 
         let result = cache.check_out(
-            CoreSize(2),
-            ByteSize::gb(4),
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
             |_| true, // Always validate true
         );
 
@@ -475,7 +493,13 @@ mod tests {
     fn test_checkout_no_candidate_available() {
         let cache = HostCache::default();
 
-        let result = cache.check_out(CoreSize(4), ByteSize::gb(8), |_| true);
+        let result = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(4),
+                memory: ByteSize::gb(8),
+            },
+            |_| true,
+        );
 
         assert!(result.is_err());
         assert!(matches!(result, Err(HostCacheError::NoCandidateAvailable)));
@@ -490,8 +514,10 @@ mod tests {
         cache.check_in(host, false);
 
         let result = cache.check_out(
-            CoreSize(4), // Request more cores than available
-            ByteSize::gb(4),
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(4), // Request more cores than available
+                memory: ByteSize::gb(4),
+            },
             |_| true,
         );
 
@@ -507,8 +533,10 @@ mod tests {
         cache.check_in(host, false);
 
         let result = cache.check_out(
-            CoreSize(2),
-            ByteSize::gb(8), // Request more memory than available
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(8), // Request more memory than available
+            },
             |_| true,
         );
 
@@ -524,8 +552,10 @@ mod tests {
         cache.check_in(host, false);
 
         let result = cache.check_out(
-            CoreSize(2),
-            ByteSize::gb(4),
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
             |_| false, // Always fail validation
         );
 
@@ -541,11 +571,23 @@ mod tests {
         cache.check_in(host, false);
 
         // First checkout should succeed
-        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result1 = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true,
+        );
         assert!(result1.is_ok());
 
         // Second checkout should fail because host is already checked out
-        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true,
+        );
         assert!(result2.is_err());
     }
 
@@ -558,7 +600,13 @@ mod tests {
         cache.check_in(host.clone(), false);
 
         // Checkout the host
-        let mut checked_host = assert_ok!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
+        let mut checked_host = assert_ok!(cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true
+        ));
         assert_eq!(checked_host.idle_cores.value(), 4);
 
         // Reduce the number of cores and checkin to ensure cache is updated
@@ -566,8 +614,20 @@ mod tests {
 
         // Check it back in
         cache.check_in(checked_host, false);
-        assert_err!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
-        assert_ok!(cache.check_out(CoreSize(1), ByteSize::gb(4), |_| true));
+        assert_err!(cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true
+        ));
+        assert_ok!(cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(1),
+                memory: ByteSize::gb(4),
+            },
+            |_| true
+        ));
     }
 
     #[test]
@@ -589,7 +649,13 @@ mod tests {
         cache.check_in(host3, false);
 
         // Request 3 cores, 6GB - should get host2 (4 cores, 8GB) or host3 (8 cores, 16GB)
-        let result = cache.check_out(CoreSize(3), ByteSize::gb(6), |_| true);
+        let result = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(3),
+                memory: ByteSize::gb(6),
+            },
+            |_| true,
+        );
         assert!(result.is_ok());
 
         let chosen_host = result.unwrap();
@@ -633,11 +699,23 @@ mod tests {
         cache.check_in(host2, false);
 
         // First checkout should succeed
-        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result1 = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true,
+        );
         assert!(result1.is_ok());
 
         // Second checkout should also succeed (different host)
-        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(
+            ResourceRequest::CoresAndMemory {
+                cores: CoreSize(2),
+                memory: ByteSize::gb(4),
+            },
+            |_| true,
+        );
         assert!(result2.is_ok());
 
         // The hosts should be different

@@ -396,13 +396,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  ts_booted = ?, "
             + "  ts_ping = current_timestamp, "
             + "  str_os = ? "
+            + "  int_running_procs = ? "
             + "WHERE "
             + "  pk_host = ?";
 
     @Override
     public void updateHostStats(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
-            long freeGpuMemory, int load, Timestamp bootTime, String os) {
+            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningProcs) {
 
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
@@ -410,7 +411,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(UPDATE_RENDER_HOST, totalMemory, freeMemory, totalSwap, freeSwap,
                 totalMcp, freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os,
-                host.getHostId());
+                runningProcs, host.getHostId());
     }
 
     @Override
@@ -631,7 +632,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     /**
      * Checks if the passed in name looks like a fully qualified domain name. If so, returns the
      * hostname without the domain. Otherwise returns the passed in name unchanged.
-     * 
+     *
      * @param fqdn - String
      * @return String - hostname
      */
