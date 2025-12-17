@@ -14,8 +14,8 @@ use libc::{_SC_CLK_TCK, _SC_PAGESIZE};
 use chrono::{DateTime, Local};
 use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
-use miette::{Context, IntoDiagnostic, Result, miette};
-use nix::sys::signal::{Signal, kill, killpg};
+use miette::{miette, Context, IntoDiagnostic, Result};
+use nix::sys::signal::{kill, killpg, Signal};
 use opencue_proto::{
     host::HardwareState,
     report::{ChildrenProcStats, ProcStats, Stat},
@@ -954,7 +954,7 @@ impl SystemManager for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{MachineConfig, MemoryMetric};
+    use crate::config::MachineConfig;
     use std::fs;
     use std::{collections::HashMap, sync::Mutex};
 

@@ -1,13 +1,12 @@
 use actix::{Message, MessageResponse};
 
-use bytesize::ByteSize;
 use miette::Result;
 use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag},
     host_cache::HostCacheError,
-    models::{CoreSize, Host, ResourceRequest},
+    models::{Host, ResourceRequest},
 };
 
 /// Response containing a checked-out host and its associated cluster key.

@@ -23,10 +23,8 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
-    rc::Rc,
     sync::RwLock,
     time::{Duration, SystemTime},
-    u32,
 };
 
 use bytesize::ByteSize;
