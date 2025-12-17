@@ -94,6 +94,11 @@ public class HostManagerService implements HostManager {
         hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
+    @Override
+    public void setConcurrentSlotsLimit(HostInterface host, int limit) {
+        hostDao.updateConcurrentSlotsLimit(host, limit);
+    }
+
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);

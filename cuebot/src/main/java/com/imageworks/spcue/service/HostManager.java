@@ -67,6 +67,14 @@ public interface HostManager {
      */
     void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
+    /**
+     * Updates the concurrent procs limit of a host.
+     *
+     * @param host HostInterface
+     * @param limit int
+     */
+    void setConcurrentSlotsLimit(HostInterface host, int limit);
+
     DispatchHost createHost(HostReport report);
 
     DispatchHost createHost(RenderHost host);

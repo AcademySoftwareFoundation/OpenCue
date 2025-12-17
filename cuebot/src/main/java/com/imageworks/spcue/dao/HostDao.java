@@ -244,6 +244,14 @@ public interface HostDao {
     void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
+     * Update the host's concurrent procs limit.
+     *
+     * @param host HostInterface
+     * @param limit int (0 for no limit)
+     */
+    void updateConcurrentSlotsLimit(HostInterface host, int limit);
+
+    /**
      * Update the specified host's hardware information.
      *
      * @param host HostInterface

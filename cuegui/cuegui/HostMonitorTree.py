@@ -290,6 +290,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "removeTags")
         self.__menuActions.hosts().addAction(menu, "renameTag")
         self.__menuActions.hosts().addAction(menu, "changeAllocation")
+        self.__menuActions.hosts().addAction(menu, "setConcurrentSlotsLimit")
         self.__menuActions.hosts().addAction(menu, "delete")
         self.__menuActions.hosts().addAction(menu, "rebootWhenIdle")
         self.__menuActions.hosts().addAction(menu, "setRepair")

@@ -633,6 +633,15 @@ class Host(object):
         """
         return self.data.os
 
+    def concurrentSlotsLimit(self):
+        """Returns the concurrent procs limit.
+
+        :rtype:  int
+        :return: the concurrent procs limit (0 = no limit)
+        """
+        return self.data.concurrent_procs_limit
+
+
 class NestedHost(Host):
     """This class contains information and actions related to a nested host."""
 
