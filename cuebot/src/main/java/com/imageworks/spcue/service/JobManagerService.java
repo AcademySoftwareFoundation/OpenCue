@@ -457,6 +457,11 @@ public class JobManagerService implements JobManager {
     }
 
     @Override
+    public void setLayerSlotsRequired(LayerInterface layer, int slots) {
+        layerDao.updateLayerSlotsRequired(layer, slots);
+    }
+
+    @Override
     public void setLayerMaxGpus(LayerInterface layer, int gpu) {
         layerDao.updateLayerMaxGpus(layer, gpu);
     }
