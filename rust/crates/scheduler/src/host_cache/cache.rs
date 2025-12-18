@@ -204,7 +204,7 @@ impl HostCache {
             host.idle_memory >= memory &&
             host.idle_cores >= cores &&
             host.running_procs_count + slots
-                <= host.concurrent_procs_limit.unwrap_or(u32::MAX) &&
+                <= host.concurrent_slots_limit.unwrap_or(u32::MAX) &&
             // Ensure we're not retrying the same host as last attempts
             !failed_candidates.borrow().contains(&host.id)
         };
@@ -371,7 +371,7 @@ mod tests {
             alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
-            concurrent_procs_limit: None,
+            concurrent_slots_limit: None,
             running_procs_count: 0,
         }
     }

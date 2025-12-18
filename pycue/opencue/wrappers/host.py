@@ -128,6 +128,11 @@ class Host(object):
         """Causes the host to kill all running frames and reboot the machine."""
         self.stub.Reboot(host_pb2.HostRebootRequest(host=self.data), timeout=Cuebot.Timeout)
 
+    def setConcurrentSlotsLimit(self, limit):
+        """Set the concurrent slots limit for selected hosts."""
+        self.stub.SetConcurrentSlotsLimit(host_pb2.HostSetConcurrentSlotsLimitRequest(
+            host=self.data, limit=limit), timeout=Cuebot.Timeout)
+
     def addTags(self, tags):
         """Adds tags to a host.
 
@@ -634,12 +639,12 @@ class Host(object):
         return self.data.os
 
     def concurrentSlotsLimit(self):
-        """Returns the concurrent procs limit.
+        """Returns the limit of slots this host can run concurrently.
 
         :rtype:  int
-        :return: the concurrent procs limit (0 = no limit)
+        :return: the concurrent slots limit (0 = no limit)
         """
-        return self.data.concurrent_procs_limit
+        return self.data.concurrent_slots_limit
 
 
 class NestedHost(Host):

@@ -59,7 +59,7 @@ pub struct HostModel {
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
     ts_ping: DateTime<Utc>,
-    int_concurrent_procs_limit: i64,
+    int_concurrent_slots_limit: i64,
     int_running_procs: i64,
 }
 
@@ -95,8 +95,8 @@ impl From<HostModel> for Host {
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
-            concurrent_procs_limit: (val.int_concurrent_procs_limit >= 0)
-                .then_some(val.int_concurrent_procs_limit as u32),
+            concurrent_slots_limit: (val.int_concurrent_slots_limit >= 0)
+                .then_some(val.int_concurrent_slots_limit as u32),
             running_procs_count: val.int_running_procs as u32,
         }
     }
@@ -124,7 +124,7 @@ SELECT DISTINCT
     a.pk_alloc,
     a.str_name as str_alloc_name,
     hs.ts_ping,
-    h.int_concurrent_procs_limit,
+    h.int_concurrent_slots_limit,
     hs.int_running_procs
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host

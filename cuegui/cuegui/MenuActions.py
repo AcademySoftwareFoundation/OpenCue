@@ -1968,7 +1968,7 @@ class HostActions(AbstractActions):
             for host in hosts:
                 self.cuebotCall(
                     host.setConcurrentSlotsLimit,
-                    "Set Concurrent Procs Limit on %s Failed" % host.data.name,
+                    "Set Concurrent Slots Limit on %s Failed" % host.data.name,
                     int(value),
                 )
             self._update()
