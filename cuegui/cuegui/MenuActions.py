@@ -1947,11 +1947,11 @@ class HostActions(AbstractActions):
         current = hosts[0].concurrentSlotsLimit() if len(hosts) == 1 else 0
 
         title = "Set Concurrent Slots Limit"
-        body = "Enter maximum concurrent slots (usually a frame consumes 1 slot, " \
+        body = "Enter maximum concurrent slots \n(usually a frame consumes 1 slot, " \
                "the value can be configured on its layer's slot_required field)\n" \
                "When a limit is defined, booking will only allocate layers with " \
-               "slots_required > 0 to be executed on this host. Which means regular booking by " \
-               "cores/memory/gpu becomes disabled.\n" \
+               "slots_required > 0 to be executed on this host. \n" \
+               "Which means regular booking by cores/memory/gpu becomes disabled.\n\n" \
                "(0 for no limit, >0 for specific limit):"
 
         (value, choice) = QtWidgets.QInputDialog.getInt(

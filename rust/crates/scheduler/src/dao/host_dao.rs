@@ -107,7 +107,7 @@ impl From<HostModel> for Host {
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
-            concurrent_slots_limit: (val.int_concurrent_slots_limit >= 0)
+            concurrent_slots_limit: (val.int_concurrent_slots_limit > 0)
                 .then_some(val.int_concurrent_slots_limit as u32),
             running_procs_count: val.int_running_procs as u32,
         }

@@ -107,7 +107,7 @@ class _LayerArgs(TypedDict, total=False):
     # timeout_llu: Timeout for long last update in seconds
     # before considering a frame hung
     timeout_llu: int
-    # slots_required: Number of slots required per frame (<=0 means not slot-based)
+    # slots_required: Number of slots required per frame (<0 means not slot-based)
     slots_required: int
     type: outline.constants.LayerType  # The layer type (Render, Util, Post)
 

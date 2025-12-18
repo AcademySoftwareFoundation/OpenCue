@@ -315,7 +315,7 @@ public interface LayerDao {
      * Updates the slots required for a layer.
      *
      * @param layer the layer to update
-     * @param slots the number of slots required (<=0 means not slot-based)
+     * @param slots the number of slots required (<0 means the host is not slot-based)
      */
     void updateLayerSlotsRequired(LayerInterface layer, int slots);
 

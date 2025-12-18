@@ -472,7 +472,7 @@ class Layer(object):
         """Returns the number of slots required per frame.
 
         :rtype:  int
-        :return: Number of slots required (<=0 means not slot-based)
+        :return: Number of slots required (<0 means not slot-based)
         """
         return self.data.slots_required
 

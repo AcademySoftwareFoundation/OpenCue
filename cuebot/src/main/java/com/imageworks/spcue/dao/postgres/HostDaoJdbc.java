@@ -78,6 +78,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.idleGpus = rs.getInt("int_gpus_idle");
             host.gpuMemory = rs.getLong("int_gpu_mem");
             host.idleGpuMemory = rs.getLong("int_gpu_mem_idle");
+            host.concurrentSlotsLimit = rs.getInt("int_concurrent_slots_limit");
             host.dateBooted = rs.getDate("ts_booted");
             host.dateCreated = rs.getDate("ts_created");
             host.datePinged = rs.getDate("ts_ping");
@@ -131,6 +132,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host.int_gpus_idle, "
             + "  host.int_gpu_mem, "
             + "  host.int_gpu_mem_idle, "
+            + "  host.int_concurrent_slots_limit, "
             + "  host.ts_created, "
             + "  host.str_name, "
             + "  host_stat.str_state, "
