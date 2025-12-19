@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 //! Frame range parsing and manipulation for OpenCue job queue.
 //!
 //! This module provides functionality for parsing and manipulating frame ranges
@@ -41,7 +53,7 @@
 //! ```
 
 use indexmap::IndexSet;
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use regex::Regex;
 
 /// Represents a sequence of image frames parsed from a frame range specification.
@@ -789,47 +801,40 @@ mod tests {
     fn test_step_zero_error() {
         let result = FrameRange::new("1-10x0");
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Step cannot be zero")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Step cannot be zero"));
     }
 
     #[test]
     fn test_positive_step_with_descending_range_error() {
         let result = FrameRange::new("10-1x2");
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("End frame may not be less than start frame when using a positive step")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("End frame may not be less than start frame when using a positive step"));
     }
 
     #[test]
     fn test_negative_step_with_ascending_range_error() {
         let result = FrameRange::new("1-10x-2");
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains(
-                "End frame may not be greater than start frame when using a negative step"
-            )
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("End frame may not be greater than start frame when using a negative step"));
     }
 
     #[test]
     fn test_invalid_syntax_error() {
         let result = FrameRange::new("1-10z2");
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Unrecognized frame range syntax")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unrecognized frame range syntax"));
     }
 
     #[test]
@@ -890,12 +895,10 @@ mod tests {
         let frame_set = FrameSet::new("1-5").unwrap();
         let result = frame_set.get_chunk(10, 3);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("startFrameIndex 10 is not in range 0-4")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("startFrameIndex 10 is not in range 0-4"));
     }
 
     #[test]
