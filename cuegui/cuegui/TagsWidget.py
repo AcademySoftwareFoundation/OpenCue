@@ -128,7 +128,22 @@ class TagsWidget(QtWidgets.QWidget):
             tags = re.split(r'[\s,|]+', tags)
         else:
             tags = [str(t.text()) for t in self.standard_tags.checkedBoxes()]
-        return [tag.strip() for tag in tags if tag.strip().isalnum()]
+        return [tag.strip() for tag in tags if self._is_valid_tag(tag.strip())]
+
+    @staticmethod
+    def _is_valid_tag(tag):
+        """
+        Check if a tag is valid. Valid tags contain only alphanumeric characters,
+        dashes, and underscores, and must not be empty.
+
+        @param tag: The tag to validate
+        @type tag: str
+        @return: Whether the tag is valid
+        @rtype: bool
+        """
+        if not tag:
+            return False
+        return bool(re.match(r'^[a-zA-Z0-9_-]+$', tag))
 
     def is_custom_enabled(self):
         """
