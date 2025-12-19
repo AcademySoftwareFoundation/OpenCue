@@ -221,7 +221,7 @@ class WindowsRqdLoggerStrategy(_RqgLoggerStrategy):
                 # being used by another process. Frame execution doesn't need to
                 # be halted for this.
                 err = "Unable to rotate previous log file due to %s" % e
-                log.debug(err)
+                log.warning(err)
                 return
             else:
                 # Success
