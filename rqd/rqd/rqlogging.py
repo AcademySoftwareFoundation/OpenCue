@@ -15,12 +15,14 @@
 
 """Logging module, handles logging to files and non-files"""
 
-
+from __future__ import annotations
+import abc
 import logging
 import time
 import os
 import datetime
 import platform
+from abc import ABC
 
 import rqd.rqconstants
 
@@ -28,7 +30,7 @@ log = logging.getLogger(__name__)
 log.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
 
 
-class RqdLogger(object):
+class RqdLogger:
     """Class to abstract file logging, this class tries to act as a file object"""
     filepath = None
     fd = None
@@ -39,7 +41,7 @@ class RqdLogger(object):
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-
+        self._strategy = _make_strategy(self)
         self.filepath = filepath
 
         log_dir = os.path.dirname(self.filepath)
@@ -64,25 +66,10 @@ class RqdLogger(object):
             err = "Unable to write to log directory %s" % log_dir
             raise RuntimeError(err)
 
-        try:
-            # Rotate any old logs to a max of MAX_LOG_FILES:
-            if os.path.isfile(self.filepath):
-                rotateCount = 1
-                while (os.path.isfile("%s.%s" % (self.filepath, rotateCount))
-                       and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
-                    rotateCount += 1
-                os.rename(self.filepath,
-                          "%s.%s" % (self.filepath, rotateCount))
-        # pylint: disable=broad-except
-        except Exception as e:
-            err = "Unable to rotate previous log file due to %s" % e
-            # Windows might fail while trying to rotate logs for checking if file is
-            # being used by another process. Frame execution doesn't need to
-            # be halted for this.
-            if platform.system() == "Windows":
-                log.warning(err)
-            else:
-                raise RuntimeError(err)
+        # Rotate any old logs to a max of MAX_LOG_FILES
+        if os.path.isfile(self.filepath):
+            self._strategy.rotateLogFile()
+
         # pylint: disable=consider-using-with
         self.fd = open(self.filepath, "w+", 1, encoding='utf-8')
         try:
@@ -97,7 +84,7 @@ class RqdLogger(object):
         """Abstract write function that will write to the correct backend"""
         # Convert data to unicode
         if isinstance(data, bytes):
-            data = data.decode('utf-8', errors='ignore')
+            data = data.decode("utf-8", errors="ignore")
         if prependTimestamp is True:
             lines = data.splitlines()
             curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -132,7 +119,8 @@ class RqdLogger(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-class LokiLogger(object):
+
+class LokiLogger:
     """Class for logging to a loki server. It mimics a file object as much as possible"""
     def __init__(self, lokiURL, runFrame):
         try:
@@ -189,3 +177,75 @@ class LokiLogger(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+
+class _RqgLoggerStrategy(ABC):
+    """Abstract base class for RqdLogger strategies for different platforms."""
+
+    def __init__(self, rqdLogger: RqdLogger) -> None:
+        """Initialize with the RqdLogger instance."""
+        self.rqdLogger = rqdLogger
+
+    @abc.abstractmethod
+    def rotateLogFile(self) -> None:
+        """Rotate the log file according to platform-specific logic."""
+
+    def _rotateLogFile(self) -> None:
+        """Common log rotation logic used by all platforms."""
+        count = 1
+        while (
+            os.path.isfile("%s.%s" % (self.rqdLogger.filepath, count))
+            and count < rqd.rqconstants.MAX_LOG_FILES
+        ):
+            count += 1
+        os.rename(self.rqdLogger.filepath, "%s.%s" % (self.rqdLogger.filepath, count))
+
+
+class WindowsRqdLoggerStrategy(_RqgLoggerStrategy):
+    """Class to handle Windows-specific logging logic."""
+
+    ROTATION_MAX_RETRIES = 3
+
+    def rotateLogFile(self):
+        """Rotate log file with Windows-specific handling for file locks"""
+        # On Windows, try multiple times with delays for UNC paths
+        for attempt in range(self.ROTATION_MAX_RETRIES):
+            try:
+                self._rotateLogFile()
+            except OSError as e:
+                if attempt < self.ROTATION_MAX_RETRIES - 1:
+                    # Wait a bit and retry
+                    time.sleep(0.1)
+                    continue
+                # Windows might fail while trying to rotate logs for checking if file is
+                # being used by another process. Frame execution doesn't need to
+                # be halted for this.
+                err = "Unable to rotate previous log file due to %s" % e
+                log.debug(err)
+                return
+            else:
+                # Success
+                return
+
+
+class LinuxRqdLoggerStrategy(_RqgLoggerStrategy):
+    """Class to handle Linux-specific logging logic"""
+
+    def rotateLogFile(self) -> None:
+        """Rotate log file with Linux-specific handling.
+
+        @Raises RuntimeError: If log rotation fails.
+        """
+        try:
+            self._rotateLogFile()
+        # pylint: disable=broad-except
+        except Exception as e:
+            err = "Unable to rotate previous log file due to %s" % e
+            raise RuntimeError(err)
+
+
+def _make_strategy(rqdLogger: RqdLogger) -> _RqgLoggerStrategy:
+    """Factory method to get the appropriate strategy based on platform."""
+    if platform.system() == "Windows":
+        return WindowsRqdLoggerStrategy(rqdLogger)
+    return LinuxRqdLoggerStrategy(rqdLogger)
