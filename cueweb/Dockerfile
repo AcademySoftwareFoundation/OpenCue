@@ -62,10 +62,18 @@ ENV LDAP_CERTIFICATE=tobeoverriden
 ENV LDAP_URI=tobeoverriden
 
 # The following environment variables need to be accurately defined during production or dev builds as their
-# values cannot be changed after build time
-ENV NEXT_PUBLIC_URL=tobeoverriden
-ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=tobeoverriden
-ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github,ldap
+# values cannot be changed after build time. Use ARG to allow override at build time.
+ARG NEXT_PUBLIC_URL=http://localhost:3000
+ENV NEXT_PUBLIC_URL=${NEXT_PUBLIC_URL}
+
+ARG NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448
+ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=${NEXT_PUBLIC_OPENCUE_ENDPOINT}
+
+# Authentication providers - use ARG to allow override at build time
+# Set to empty string to disable authentication (sandbox mode)
+# Set to comma-separated list for production (e.g., "google,okta,github,ldap")
+ARG NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github,ldap
+ENV NEXT_PUBLIC_AUTH_PROVIDER=${NEXT_PUBLIC_AUTH_PROVIDER}
 
 RUN npm run build
 CMD ["npm", "run", "start"]

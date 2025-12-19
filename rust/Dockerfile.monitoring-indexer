@@ -1,0 +1,48 @@
+# Build stage
+FROM rust:1.88-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    cmake \
+    libssl-dev \
+    pkg-config \
+    libsasl2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace files and all crate sources
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+
+# Build the monitoring-indexer package
+RUN cargo build --release --package monitoring-indexer
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libsasl2-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the binary
+COPY --from=builder /app/target/release/monitoring-indexer /usr/local/bin/
+
+# Create non-root user
+RUN useradd -r -s /bin/false indexer
+USER indexer
+
+# Default environment variables
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ENV KAFKA_GROUP_ID=opencue-monitoring-indexer
+ENV ELASTICSEARCH_URL=http://elasticsearch:9200
+ENV ELASTICSEARCH_INDEX_PREFIX=opencue
+ENV LOG_LEVEL=info
+ENV RUST_BACKTRACE=1
+
+ENTRYPOINT ["/usr/local/bin/monitoring-indexer"]

@@ -215,6 +215,15 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         return getJdbcTemplate().update(DECREMENT_DEPEND_COUNT, f.getFrameId()) == 1;
     }
 
+    private static final String IS_FRAME_DISPATCHABLE =
+            "SELECT int_depend_count = 0 FROM frame WHERE pk_frame = ?";
+
+    @Override
+    public boolean isFrameDispatchable(FrameInterface f) {
+        return Boolean.TRUE.equals(getJdbcTemplate().queryForObject(IS_FRAME_DISPATCHABLE,
+                Boolean.class, f.getFrameId()));
+    }
+
     private static final String[] DELETE_DEPEND =
             {"DELETE FROM depend WHERE pk_parent=?", "DELETE FROM depend WHERE pk_depend=?"};
 
