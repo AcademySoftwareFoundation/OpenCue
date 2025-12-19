@@ -1527,6 +1527,11 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             # Ensure logdir is owned by this job user. If it doesn't exist it will get
             # created under the correct user when RqdLogger is initialized
             if os.path.isdir(self.runFrame.log_dir):
+                # Skip chown on Windows as it's not supported for UNC paths and file ownership
+                # works differently on Windows
+                if platform.system() == 'Windows':
+                    log.debug("Skipping chown on Windows for log_dir: %s", self.runFrame.log_dir)
+                    return
                 try:
                     rqd.rqutil.permissionsHigh()
                     os.chown(self.runFrame.log_dir, self.runFrame.uid, self.runFrame.gid)
