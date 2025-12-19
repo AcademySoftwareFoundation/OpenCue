@@ -55,7 +55,7 @@ class FrameEtaGenerator(object):
         """Gets ETA for the given frame."""
         self.log = opencue.util.logPath(job, frame)
         if os.path.isfile(self.log):
-            with open(self.log, encoding='utf-8') as fp:
+            with open(self.log, encoding='utf-8', errors='replace') as fp:
                 self.log_lines = len(fp.readlines())
             self.GetFrameBuildTime(frame)
         try:
@@ -121,7 +121,7 @@ class FrameEtaGenerator(object):
         del frame
         if os.path.isfile(self.log):
             line = ''
-            with open(self.log, encoding='utf-8') as fp:
+            with open(self.log, encoding='utf-8', errors='replace') as fp:
                 for line in reversed(fp.readlines()):
                     # Checks log directory for a percentage complete in reverse to limit time in log
                     if 'Running generator batch' in line:
@@ -188,7 +188,7 @@ class FrameEtaGenerator(object):
             return self.startTimeCache[key]
         # Read the logFile here for time.
         result = ''
-        with open(self.log, encoding='utf-8') as fp:
+        with open(self.log, encoding='utf-8', errors='replace') as fp:
             for line in fp:
                 if '% done' in line:
                     result = line
@@ -205,7 +205,7 @@ class FrameEtaGenerator(object):
             return self.buildTimeCache[key]
         # Read the logFile here for time.
         result_line = None
-        with open(self.log, encoding='utf-8') as fp:
+        with open(self.log, encoding='utf-8', errors='replace') as fp:
             for line in fp:
                 if 'Building scene done' in line:
                     result_line = line
