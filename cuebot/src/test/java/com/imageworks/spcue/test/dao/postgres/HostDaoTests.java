@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -547,5 +546,36 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testIsNimby() {
         DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
         assertFalse(hostDao.isNimbyHost(host));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateHostTagsOnlyAffectsHardwareTags() {
+        // Create initial host with default RQD tags (linux, 64bit)
+        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
+
+        // Add some manual tags
+        hostDao.tagHost(host, "manual_tag1", HostTagType.MANUAL);
+        hostDao.tagHost(host, "manual_tag2", HostTagType.MANUAL);
+        hostDao.recalcuateTags(host.id);
+
+        String initialTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned 64bit linux beta manual_tag1 manual_tag2", initialTags);
+
+        // Create updated RenderHost with different hardware tags
+        RenderHost updatedRHost = buildRenderHost(TEST_HOST).toBuilder().clearTags()
+                .addTags("rqdv-2").addTags("windows").build();
+
+        // Update host tags using the new method
+        hostManager.updateHostTags(host, updatedRHost);
+
+        // Check that hardware tags were updated but manual tags were preserved
+        String updatedTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+
+        // Verify all expected tags are present
+        assertEquals("unassigned rqdv-2 windows beta manual_tag1 manual_tag2", updatedTags);
     }
 }
