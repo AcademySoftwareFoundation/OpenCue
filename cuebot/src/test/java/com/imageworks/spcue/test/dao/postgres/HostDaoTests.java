@@ -567,15 +567,11 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // Create updated RenderHost with different hardware tags
         RenderHost updatedRHost = buildRenderHost(TEST_HOST).toBuilder().clearTags()
                 .addTags("rqdv-2").addTags("windows").build();
-
-        // Update host tags using the new method
         hostManager.updateHostTags(host, updatedRHost);
 
         // Check that hardware tags were updated but manual tags were preserved
         String updatedTags = jdbcTemplate
                 .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
-
-        // Verify all expected tags are present
         assertEquals("unassigned rqdv-2 windows beta manual_tag1 manual_tag2", updatedTags);
     }
 }
