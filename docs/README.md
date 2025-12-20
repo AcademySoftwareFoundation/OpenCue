@@ -146,8 +146,8 @@ nav_order|file_path
 
 Example:
 ```
-1|/Users/rfigueiredo/github/OpenCue/docs/_docs/index.md
-2|/Users/rfigueiredo/github/OpenCue/docs/_docs/quick-starts/index.md
+1|./docs/_docs/index.md
+2|./docs/_docs/quick-starts/index.md
 ```
 
 #### `extract_nav_orders.py`
@@ -155,7 +155,7 @@ Script to extract `nav_order` values from all markdown files in the `_docs` dire
 
 **Usage:**
 ```bash
-cd /Users/rfigueiredo/github/OpenCue/docs
+cd ./docs
 python3 extract_nav_orders.py
 ```
 
@@ -169,7 +169,7 @@ Script to update `nav_order` values in markdown files based on the values in `na
 
 **Usage:**
 ```bash
-cd /Users/rfigueiredo/github/OpenCue/docs
+cd ./docs
 
 # Dry run - see what would change without modifying files
 python3 update_nav_order.py --dry-run

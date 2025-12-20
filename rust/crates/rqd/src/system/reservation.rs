@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::{
     cmp,
     collections::{HashMap, HashSet},
@@ -165,19 +177,20 @@ impl CoreStateManager {
     }
 
     /// Get a list of all cores booked for this phys_id
-    fn get_bookings(&self, phys_id: &PhysId) -> impl Iterator<Item = CoreId> {
-        self.bookings.values().flat_map(|booking| {
+    fn get_bookings(&self, phys_id: &PhysId) -> impl Iterator<Item = CoreId> + '_ {
+        let phys_id = *phys_id;
+        self.bookings.values().flat_map(move |booking| {
             let cores: Vec<CoreId> = booking
                 .cores
                 .iter()
-                .filter(|&(phys_id_all, _)| *phys_id == *phys_id_all)
+                .filter(|&(phys_id_all, _)| phys_id == *phys_id_all)
                 .map(|(_, core_id)| *core_id)
                 .collect();
             cores
         })
     }
 
-    fn calculate_available_cores(&self) -> impl Iterator<Item = (PhysId, Vec<CoreId>)> {
+    fn calculate_available_cores(&self) -> impl Iterator<Item = (PhysId, Vec<CoreId>)> + '_ {
         self.processor_structure
             .cores_by_phys_id
             .iter()

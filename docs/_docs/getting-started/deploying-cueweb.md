@@ -2,7 +2,7 @@
 layout: default
 title: Deploying CueWeb
 parent: Getting Started
-nav_order: 28
+nav_order: 31
 ---
 
 # Deploying CueWeb

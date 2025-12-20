@@ -1,27 +1,39 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::sync::Arc;
 
 use crate::frame::manager::FrameManager;
 use crate::servant::Result;
 use crate::system::machine::Machine;
 use opencue_proto::{
-    WithUuid,
     rqd::{
-        RqdStaticGetRunFrameRequest, RqdStaticGetRunFrameResponse,
-        RqdStaticGetRunningFrameStatusRequest, RqdStaticGetRunningFrameStatusResponse,
-        RqdStaticKillRunningFrameRequest, RqdStaticKillRunningFrameResponse,
-        RqdStaticLaunchFrameRequest, RqdStaticLaunchFrameResponse, RqdStaticLockAllRequest,
-        RqdStaticLockAllResponse, RqdStaticLockRequest, RqdStaticLockResponse,
-        RqdStaticNimbyOffRequest, RqdStaticNimbyOffResponse, RqdStaticNimbyOnRequest,
-        RqdStaticNimbyOnResponse, RqdStaticRebootIdleRequest, RqdStaticRebootIdleResponse,
-        RqdStaticRebootNowRequest, RqdStaticRebootNowResponse, RqdStaticReportStatusRequest,
-        RqdStaticReportStatusResponse, RqdStaticRestartIdleRequest, RqdStaticRestartIdleResponse,
-        RqdStaticRestartNowRequest, RqdStaticRestartNowResponse, RqdStaticShutdownIdleRequest,
-        RqdStaticShutdownIdleResponse, RqdStaticShutdownNowRequest, RqdStaticShutdownNowResponse,
-        RqdStaticUnlockAllRequest, RqdStaticUnlockAllResponse, RqdStaticUnlockRequest,
-        RqdStaticUnlockResponse, rqd_interface_server::RqdInterface,
+        rqd_interface_server::RqdInterface, RqdStaticGetRunFrameRequest,
+        RqdStaticGetRunFrameResponse, RqdStaticGetRunningFrameStatusRequest,
+        RqdStaticGetRunningFrameStatusResponse, RqdStaticKillRunningFrameRequest,
+        RqdStaticKillRunningFrameResponse, RqdStaticLaunchFrameRequest,
+        RqdStaticLaunchFrameResponse, RqdStaticLockAllRequest, RqdStaticLockAllResponse,
+        RqdStaticLockRequest, RqdStaticLockResponse, RqdStaticNimbyOffRequest,
+        RqdStaticNimbyOffResponse, RqdStaticNimbyOnRequest, RqdStaticNimbyOnResponse,
+        RqdStaticRebootIdleRequest, RqdStaticRebootIdleResponse, RqdStaticRebootNowRequest,
+        RqdStaticRebootNowResponse, RqdStaticReportStatusRequest, RqdStaticReportStatusResponse,
+        RqdStaticRestartIdleRequest, RqdStaticRestartIdleResponse, RqdStaticRestartNowRequest,
+        RqdStaticRestartNowResponse, RqdStaticShutdownIdleRequest, RqdStaticShutdownIdleResponse,
+        RqdStaticShutdownNowRequest, RqdStaticShutdownNowResponse, RqdStaticUnlockAllRequest,
+        RqdStaticUnlockAllResponse, RqdStaticUnlockRequest, RqdStaticUnlockResponse,
     },
+    WithUuid,
 };
-use tonic::{Request, Response, async_trait};
+use tonic::{async_trait, Request, Response};
 use tracing::info;
 
 pub type MachineImpl = dyn Machine + Sync + Send;

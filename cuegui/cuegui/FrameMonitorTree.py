@@ -840,7 +840,7 @@ class FrameEtaDataBuffer(object):
         self.__currentJob = None
         self.__cache = {}
 
-        self.__defaultETA = ''
+        self.__defaultETA = 0
 
         self.__TIME = 0
         self.__ETA = 1

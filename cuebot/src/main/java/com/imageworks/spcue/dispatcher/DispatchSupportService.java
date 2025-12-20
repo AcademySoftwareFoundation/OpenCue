@@ -54,7 +54,12 @@ import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
+import com.imageworks.spcue.grpc.monitoring.ProcEvent;
 import com.imageworks.spcue.grpc.rqd.RunFrame;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
@@ -77,6 +82,8 @@ public class DispatchSupportService implements DispatchSupport {
     private RedirectManager redirectManager;
     private BookingManager bookingManager;
     private BookingDao bookingDao;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
             new ConcurrentHashMap<String, StrandedCores>();
@@ -216,9 +223,15 @@ public class DispatchSupportService implements DispatchSupport {
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
         logger.trace("starting frame: " + frame);
 
+        // Capture previous state before update for event publishing
+        FrameState previousState = frame.state;
+
         frameDao.updateFrameStarted(proc, frame);
 
         reserveProc(proc, frame);
+
+        // Publish FRAME_STARTED event (WAITING -> RUNNING transition)
+        publishFrameStartedEvent(frame, proc, previousState);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
@@ -460,6 +473,7 @@ public class DispatchSupportService implements DispatchSupport {
         if (proc.isNew()) {
             logger.info("creating proc " + proc.getName() + " for " + frame.getName());
             procDao.insertVirtualProc(proc);
+            publishProcEvent(EventType.PROC_BOOKED, proc);
         } else {
             logger.info("updated proc " + proc.getName() + " for " + frame.getName());
             procDao.updateVirtualProcAssignment(proc);
@@ -481,6 +495,7 @@ public class DispatchSupportService implements DispatchSupport {
         }
         proc.unbooked = true;
         procDao.deleteVirtualProc(proc);
+        publishProcEvent(EventType.PROC_UNBOOKED, proc);
         DispatchSupport.unbookedProcs.getAndIncrement();
         logger.info(proc + " " + reason);
 
@@ -679,5 +694,43 @@ public class DispatchSupportService implements DispatchSupport {
     @Override
     public void clearCache() {
         dispatcherDao.clearCache();
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    /**
+     * Publishes a proc event to Kafka for monitoring purposes.
+     */
+    private void publishProcEvent(EventType eventType, VirtualProc proc) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        ProcEvent event = monitoringEventBuilder.buildProcEvent(eventType, proc);
+        kafkaEventPublisher.publishProcEvent(event);
+    }
+
+    /**
+     * Publishes a frame started event to Kafka for monitoring purposes. This captures the WAITING
+     * -> RUNNING transition for pickup time analysis.
+     */
+    private void publishFrameStartedEvent(DispatchFrame frame, VirtualProc proc,
+            FrameState previousState) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        FrameEvent event = monitoringEventBuilder.buildFrameStartedEvent(frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 }

@@ -198,4 +198,7 @@
         <property name="hostReportHandler" ref="hostReportHandler" />
     </bean>
 
+    <bean scope="prototype" id="manageMonitoring" class="com.imageworks.spcue.servant.ManageMonitoring">
+    </bean>
+
 </beans>

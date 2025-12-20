@@ -1,0 +1,65 @@
+# Multi-stage Dockerfile for OpenCue Scheduler
+
+# Build stage
+FROM rust:1.88-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    libprotobuf-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /build
+
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+
+# Copy all crate directories
+COPY crates ./crates
+
+# Remove symlink
+RUN rm ./crates/opencue-proto/src/protos
+
+# Copy proto files
+COPY proto ./crates/opencue-proto/src/protos
+
+# Build the scheduler in release mode
+RUN cargo build --release -p scheduler
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1000 -s /bin/bash scheduler
+
+# Create necessary directories
+RUN mkdir -p /app/resources && chown -R scheduler:scheduler /app
+
+WORKDIR /app
+
+# Copy the built binary from builder stage
+COPY --from=builder /build/target/release/cue-scheduler /app/cue-scheduler
+
+# Copy resources (schema file)
+COPY --from=builder /build/crates/scheduler/resources /app/resources
+
+# Switch to non-root user
+USER scheduler
+
+# Set debug environment variables when needed
+# ENV RUST_LOG=info
+# ENV RUST_BACKTRACE=1
+
+# Container should mount the config file to this directory
+ENV OPENCUE_SCHEDULER_CONFIG=/etc/cue-scheduler/rqd.yaml
+
+# Run the scheduler
+ENTRYPOINT ["/app/cue-scheduler"]
+CMD []

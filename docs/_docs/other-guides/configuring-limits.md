@@ -2,7 +2,7 @@
 title: "Configuring limits"
 layout: default
 parent: Other Guides
-nav_order: 42
+nav_order: 47
 linkTitle: "Configuring limits"
 date: 2020-03-26
 description: >
