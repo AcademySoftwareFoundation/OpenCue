@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Build documentation
+  docs-build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opencue-docs:latest
+    container_name: opencue-docs-build
+    volumes:
+      - .:/docs
+      - docs-bundle:/usr/local/bundle
+    command: bundle exec jekyll build --verbose
+    profiles:
+      - build
+
+  # Serve documentation with live reload
+  docs-serve:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opencue-docs:latest
+    container_name: opencue-docs-serve
+    volumes:
+      - .:/docs
+      - docs-bundle:/usr/local/bundle
+    ports:
+      - "4000:4000"
+    command: bundle exec jekyll serve --host 0.0.0.0 --livereload --force_polling
+    profiles:
+      - serve
+
+  # One-off build without volumes (for CI/CD)
+  docs-build-ci:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opencue-docs:latest
+    container_name: opencue-docs-build-ci
+    command: bundle exec jekyll build --verbose
+    profiles:
+      - ci
+
+volumes:
+  docs-bundle:
+    driver: local
