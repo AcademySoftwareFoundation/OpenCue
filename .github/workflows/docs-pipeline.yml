@@ -55,12 +55,8 @@ jobs:
           VERSION_TAG=${GITHUB_REF#refs/tags/}
           git checkout tags/$VERSION_TAG -b docs-$VERSION_TAG
           
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: ./docs
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
           
       - name: Extract version information
         id: version
@@ -107,7 +103,12 @@ jobs:
           git_hash: "$(git rev-parse --short HEAD)"
           EOF
           
-      - name: Build with Jekyll
+      - name: Build Docker image
+        working-directory: ./docs
+        run: |
+          docker build -t opencue-docs:ci .
+          
+      - name: Build with Jekyll using Docker
         working-directory: ./docs
         run: |
           # Set version in config
@@ -122,24 +123,28 @@ jobs:
           echo "opencue_version: ${{ steps.version.outputs.opencue_version }}" >> _config.yml
           
           # Determine baseurl based on deployment target
-          # For docs.opencue.io deployment, use empty baseurl
-          # For GitHub Pages in forks, use /OpenCue
+          BASEURL=""
           if [ "${{ github.repository }}" = "AcademySoftwareFoundation/OpenCue" ]; then
             # Main repository - deploying to docs.opencue.io
-            bundle exec jekyll build --baseurl ""
+            BASEURL=""
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             # Pull request - use GitHub Pages path
-            bundle exec jekyll build --baseurl "/OpenCue"
+            BASEURL="/OpenCue"
           else
             # Fork or other deployment - use GitHub Pages path
             if [ "${{ steps.version.outputs.version }}" != "main" ]; then
-              bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}/${{ steps.version.outputs.version }}"
+              BASEURL="${{ steps.pages.outputs.base_path }}/${{ steps.version.outputs.version }}"
             else
-              bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+              BASEURL="${{ steps.pages.outputs.base_path }}"
             fi
           fi
-        env:
-          JEKYLL_ENV: production
+          
+          # Build documentation using Docker
+          docker run --rm \
+            -v "$(pwd):/docs" \
+            -e JEKYLL_ENV=production \
+            opencue-docs:ci \
+            bundle exec jekyll build --baseurl "$BASEURL" --verbose
           
       - name: Create version redirect
         if: github.event_name != 'pull_request'
