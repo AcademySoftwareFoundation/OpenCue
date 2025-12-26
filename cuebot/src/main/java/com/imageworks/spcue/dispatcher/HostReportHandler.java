@@ -206,6 +206,9 @@ public class HostReportHandler {
                  */
                 if (isBoot) {
                     hostManager.setHostResources(host, report);
+
+                    // Update host tags during boot to ensure they're current
+                    hostManager.updateHostTags(host, report.getHost());
                 }
 
                 dispatchSupport.determineIdleCores(host, report.getHost().getLoad());

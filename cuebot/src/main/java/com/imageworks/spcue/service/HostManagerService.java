@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -172,12 +171,12 @@ public class HostManagerService implements HostManager {
 
         if (rhost.getTagsCount() > 0) {
             for (String tag : rhost.getTagsList()) {
-                hostDao.tagHost(host, tag, HostTagType.MANUAL);
+                hostDao.tagHost(host, tag, HostTagType.HARDWARE);
             }
         }
 
-        // Don't tag anything with hardware yet, we don't watch new procs
-        // that report in to automatically start running frames.
+        // RQD tags (version, platform) are tagged as HARDWARE type since they represent
+        // technical characteristics of the host, not manual user assignments
 
         hostDao.recalcuateTags(host.id);
         return host;
@@ -407,5 +406,24 @@ public class HostManagerService implements HostManager {
 
     public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
         this.subscriptionDao = subscriptionDao;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateHostTags(DispatchHost host, RenderHost rhost) {
+        // Remove existing hardware tags and re-add current tags from report
+        // This ensures platform/version tags are always up-to-date with what RQD is reporting
+        hostDao.removeTagsByType(host, HostTagType.HARDWARE);
+
+        if (rhost.getTagsCount() > 0) {
+            for (String tag : rhost.getTagsList()) {
+                hostDao.tagHost(host, tag, HostTagType.HARDWARE);
+            }
+        }
+
+        hostDao.recalcuateTags(host.getHostId());
+
+        logger.info("Updated hardware tags for host {} with tags: {}", host.getName(),
+                rhost.getTagsList());
     }
 }
