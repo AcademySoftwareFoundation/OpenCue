@@ -1,0 +1,30 @@
+# Docker ignore file for OpenCue documentation builds
+# Excludes unnecessary files from Docker build context
+
+# Build output
+_site/
+.jekyll-cache/
+.sass-cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation metadata
+nav_order_index.txt
+
+# Docker files (not needed in container)
+.dockerignore
+docker-compose.yml
+
+# Temporary files
+*.tmp
+*.log
