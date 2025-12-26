@@ -29,6 +29,7 @@ Optional configuration file:
 In /etc/opencue/rqd.conf (on Linux) or %LOCALAPPDATA%/OpenCue/rqd.conf (on Windows):
 [Override]
 OVERRIDE_CORES = 2
+OVERRIDE_THREADS = 4
 OVERRIDE_PROCS = 3
 OVERRIDE_MEMORY = 1000000
 OVERRIDE_CUEBOT = cuebot1 cuebot2 cuebot3

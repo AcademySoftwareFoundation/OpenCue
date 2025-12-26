@@ -24,7 +24,6 @@ from builtins import str
 from builtins import range
 from builtins import object
 
-import codecs
 import ctypes
 import errno
 import logging
@@ -37,6 +36,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 
 # pylint: disable=import-error,wrong-import-position
 if platform.system() in ('Linux', 'Darwin'):
@@ -58,6 +58,8 @@ import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqswap
 import rqd.rqutil
+if platform.system() == "Windows":
+    import rqd.rqwinutils
 
 
 log = logging.getLogger(__name__)
@@ -79,11 +81,11 @@ class Machine(object):
 
         # A dictionary built from /proc/cpuinfo containing
         # { <physical id> : { <core_id> : set([<processor>, <processor>, ...]), ... }, ... }
-        self.__procs_by_physid_and_coreid = {}
+        self.__threadid_by_cpuid_and_coreid = {}
 
         # A reverse mapping of the above.
         # { <processor> : (<physical id>, <core_id>), ... }
-        self.__physid_and_coreid_by_proc = {}
+        self.__cpuid_and_coreid_by_threadid = {}
 
         if platform.system() == 'Linux':
             self.__vmstat = rqd.rqswap.VmStat()
@@ -456,26 +458,33 @@ class Machine(object):
 
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served
-           for the last 1 minute multiplied by 100."""
+           for the last 1 minute across all cores, x100 for cuebot."""
+        loadAvg = 0
         if platform.system() == "Linux":
+            # On linux, the load is the average number of processes in queue
+            # It helps measures the CPU utilization as well as disk i/o.
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
-                loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-                if self.__enabledHT():
-                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
-                loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
-                loadAvg = max(loadAvg, 0)
-                return loadAvg
-        return 0
+                loadAvg = float(loadAvgFile.read().split()[0]) * 100
+        elif platform.system() in ("Windows", "Darwin"):
+            # On Windows and MacOS, we can only get the CPU usage.
+            # Here we get the sum of the CPU usage across all cores.
+            # (note: CueGui divides this value by the number of physical cores)
+            loadAvg = sum(psutil.cpu_percent(interval=2, percpu=True))
+        if self.__enabledHT():
+            loadAvg = loadAvg // self.getHyperthreadingMultiplier()
+        loadAvg += rqd.rqconstants.LOAD_MODIFIER
+        loadAvg = max(loadAvg, 0)
+        return int(loadAvg)
 
     @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
-        if platform.system() == "Linux":
+        if os.path.isfile(rqd.rqconstants.PATH_STAT):
             with open(rqd.rqconstants.PATH_STAT, "r", encoding='utf-8') as statFile:
                 for line in statFile:
                     if line.startswith("btime"):
                         return int(line.split()[1])
-        return 0
+        return int(psutil.boot_time())
 
     @rqd.rqutil.Memoize
     def getGpuCount(self):
@@ -619,197 +628,197 @@ class Machine(object):
         return self.__renderHost, self.__coreInfo
 
     def __initMachineStats(self, pathCpuInfo=None):
-        """Updates static machine information during initialization"""
+        """Updates static machine information during initialization
+
+        @type  pathCpuInfo: str
+        @param pathCpuInfo: Path to a specific cpuinfo file
+        """
         self.__renderHost.name = self.getHostname()
         self.__renderHost.boot_time = self.getBootTime()
         self.__renderHost.facility = rqd.rqconstants.DEFAULT_FACILITY
         self.__renderHost.attributes['SP_OS'] = rqd.rqconstants.SP_OS
 
+        # Get the total memory and swap
         self.updateMachineStats()
 
-        __numProcs = __totalCores = 0
+        # By default all systems will just have one proc/core
+        cpu_count = total_cores = total_threads = core_per_proc = thread_per_proc = 1
+
         if platform.system() == "Linux" or pathCpuInfo is not None:
-            # Reads static information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
+            self.__initStatsLinux(pathCpuInfo)
+            (cpu_count, total_cores, total_threads,
+             core_per_proc, thread_per_proc) = self.count_cores()
+        elif platform.system() == 'Windows':
+            self.__initStatsWindows()
+            (cpu_count, total_cores, total_threads,
+             core_per_proc, thread_per_proc) = self.count_cores()
 
-            # Reset mappings
-            self.__procs_by_physid_and_coreid = {}
-            self.__physid_and_coreid_by_proc = {}
-
-            # Reads static information from /proc/cpuinfo
-            with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
-                      encoding='utf-8') as cpuinfoFile:
-                currCore = {}
-                procsFound = []
-                for line in cpuinfoFile:
-                    lineList = line.strip().replace("\t", "").split(": ")
-                    # A normal entry added to the singleCore dictionary
-                    if len(lineList) >= 2:
-                        currCore[lineList[0]] = lineList[1]
-                    # The end of a processor block
-                    elif lineList == ['']:
-                        # Check for hyper-threading
-                        hyperthreadingMultiplier = (int(currCore.get('siblings', '1'))
-                                                    // int(currCore.get('cpu cores', '1')))
-
-                        __totalCores += rqd.rqconstants.CORE_VALUE
-                        if "core id" in currCore \
-                                and "physical id" in currCore \
-                                and not currCore["physical id"] in procsFound:
-                            procsFound.append(currCore["physical id"])
-                            __numProcs += 1
-                        elif "core id" not in currCore:
-                            __numProcs += 1
-
-                        if 'physical id' in currCore and 'core id' in currCore:
-                            # Keep track of what processors are on which core on
-                            # which physical socket.
-                            procid, physid, coreid = (
-                                currCore['processor'],
-                                currCore['physical id'],
-                                currCore['core id'])
-                            self.__procs_by_physid_and_coreid \
-                                .setdefault(physid, {}) \
-                                .setdefault(coreid, set()).add(procid)
-                            self.__physid_and_coreid_by_proc[procid] = physid, coreid
-                        currCore = {}
-
-                    # An entry without data
-                    elif len(lineList) == 1:
-                        currCore[lineList[0]] = ""
-
-                # Reads information from /proc/meminfo
-                with codecs.open(rqd.rqconstants.PATH_MEMINFO, "r", encoding="utf-8") as fp:
-                    for line in fp:
-                        if line.startswith("MemTotal"):
-                            self.__renderHost.total_mem = int(line.split()[1])
-                        elif line.startswith("SwapTotal"):
-                            self.__renderHost.total_swap = int(line.split()[1])
-        elif platform.system() == 'Darwin':
-            # Reads static information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
-            hyperthreadingMultiplier = 1
-        else:
-            hyperthreadingMultiplier = 1
-
-        if platform.system() == 'Windows':
-            logicalCoreCount, __numProcs, hyperthreadingMultiplier = self.__initStatsFromWindows()
-            __totalCores = logicalCoreCount * rqd.rqconstants.CORE_VALUE
-
-        # All other systems will just have one proc/core
-        if not __numProcs or not __totalCores:
-            __numProcs = 1
-            __totalCores = rqd.rqconstants.CORE_VALUE
-
+        # Override values from rqd.conf
         if rqd.rqconstants.OVERRIDE_MEMORY is not None:
             log.warning("Manually overriding the total memory")
             self.__renderHost.total_mem = rqd.rqconstants.OVERRIDE_MEMORY
 
-        if rqd.rqconstants.OVERRIDE_CORES is not None:
-            log.warning("Manually overriding the number of reported cores")
-            __totalCores = rqd.rqconstants.OVERRIDE_CORES * rqd.rqconstants.CORE_VALUE
-
         if rqd.rqconstants.OVERRIDE_PROCS is not None:
             log.warning("Manually overriding the number of reported procs")
-            __numProcs = rqd.rqconstants.OVERRIDE_PROCS
+            cpu_count = rqd.rqconstants.OVERRIDE_PROCS
 
-        # Don't report/reserve cores added due to hyperthreading
-        __totalCores = __totalCores // hyperthreadingMultiplier
+        if rqd.rqconstants.OVERRIDE_CORES is not None:
+            log.warning("Manually overriding the number of reported cores")
+            core_per_proc = rqd.rqconstants.OVERRIDE_CORES
+            total_cores = core_per_proc * cpu_count
+            if rqd.rqconstants.OVERRIDE_THREADS is None:
+                thread_per_proc = core_per_proc
+                total_threads = total_cores
 
-        self.__coreInfo.idle_cores = __totalCores
-        self.__coreInfo.total_cores = __totalCores
-        self.__renderHost.num_procs = __numProcs
-        self.__renderHost.cores_per_proc = __totalCores // __numProcs
+        if rqd.rqconstants.OVERRIDE_THREADS is not None:
+            log.warning("Manually overriding the number of reported threads")
+            thread_per_proc = rqd.rqconstants.OVERRIDE_THREADS
+            total_threads = thread_per_proc * cpu_count
+            if rqd.rqconstants.OVERRIDE_CORES is None:
+                core_per_proc = thread_per_proc
+                total_cores = total_threads
 
-        if hyperthreadingMultiplier >= 1:
-            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+        self.__coreInfo.idle_cores = total_cores * rqd.rqconstants.CORE_VALUE
+        # TODO: add idle_threads ? anyway we need to address reserving threads instead of cores.
+        self.__coreInfo.total_cores = total_cores * rqd.rqconstants.CORE_VALUE
+        self.__coreInfo.total_threads = total_threads * rqd.rqconstants.CORE_VALUE
+        self.__renderHost.num_procs = cpu_count
+        self.__renderHost.cores_per_proc = core_per_proc * rqd.rqconstants.CORE_VALUE
+        self.__renderHost.threads_per_proc = thread_per_proc * rqd.rqconstants.CORE_VALUE
 
-    def __initStatsFromWindows(self):
+        ht_multiplier = thread_per_proc / core_per_proc
+        if ht_multiplier >= 1:
+            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(ht_multiplier)
+
+    def count_cores(self):
+        """Counts the number of cores on the machine"""
+        cpu_count = len(self.__threadid_by_cpuid_and_coreid.keys())
+        total_threads = len(self.__cpuid_and_coreid_by_threadid.keys())
+        thread_per_proc = total_threads // cpu_count
+        total_cores = sum(
+            len(cores) for _, cores in self.__threadid_by_cpuid_and_coreid.items()
+        )
+        core_per_proc = total_cores // cpu_count
+
+        return cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc
+
+    def __initStatsLinux(self, pathCpuInfo=None):
+        """Init machine stats for Linux platforms.
+
+        @type  pathCpuInfo: str
+        @param pathCpuInfo: Path to a specific cpuinfo file
+        """
+        coreInfo = []
+        # Reads static information from /proc/cpuinfo
+        with (open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
+                   encoding='utf-8') as cpuinfoFile):
+            infoBlock = {} # Gets reset for each processor block
+            for line in cpuinfoFile:
+                lineList = line.strip().replace("\t", "").split(": ")
+                # A normal entry added to the singleCore dictionary
+                if len(lineList) >= 2:
+                    infoBlock[lineList[0]] = lineList[1]
+                # An entry without data
+                elif len(lineList) == 1:
+                    infoBlock[lineList[0]] = ""
+                # The end of a processor block
+                if lineList == ['']:
+                    # Get relevant information from the block
+                    logical_core_id = infoBlock['processor']
+                    cpu_id = infoBlock.get('physical id', infoBlock['processor'])
+                    physical_core_id = infoBlock.get('core id', infoBlock['processor'])
+                    # Save that and iterate
+                    coreInfo.append((cpu_id, physical_core_id, logical_core_id))
+                    infoBlock.clear()
+
+        self.__updateProcsMappings(coreInfo=coreInfo)
+
+    def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
-
-        @rtype:  tuple
-        @return: A 3-items tuple containing:
-            - the number of logical cores
-            - the number of physical processors
-            - the hyper-threading multiplier
         """
-        # Windows memory information
-        stat = self.getWindowsMemory()
-        TEMP_DEFAULT = 1048576
-        self.__renderHost.total_mcp = TEMP_DEFAULT
-        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+        coreInfo = rqd.rqwinutils.get_logical_processor_information_ex()
+        self.__updateProcsMappings(coreInfo=coreInfo)
 
-        # Windows CPU information
-        self.__updateProcsMappingsFromWindows()
-
-        logicalCoreCount = psutil.cpu_count(logical=True)
-        actualCoreCount = psutil.cpu_count(logical=False)
-        hyperThreadingMultiplier = logicalCoreCount // actualCoreCount
-
-        physicalProcessorCount = len(self.__procs_by_physid_and_coreid)
-
-        return logicalCoreCount, physicalProcessorCount, hyperThreadingMultiplier
-
-    def __updateProcsMappingsFromWindows(self):
+    def __updateProcsMappings(self, coreInfo):
         """
-        Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings
-        for Windows platforms.
+        Update `__threadid_by_cpuid_and_coreid` and `__cpuid_and_coreid_by_threadid` mappings.
+
+        @type  coreInfo: list[tuple[str, str, str]]
+        @param coreInfo: A list of tuples containing CPU ID, Physical Core ID, and Logical Core ID.
+
+        Implementation detail:
+        One CPU has one or more physical cores,
+         and each physical core has one or more logical cores.
+        Some CPUs have hyper-threading, which means that each logical core is treated as
+         a separate core by the operating system, while being on the same physical core.
+        Hybrid CPUs have performance cores that are hyper-threaded,
+         and efficient cores that are mono-threaded.
+        On Windows, we can't detect each physical CPU,
+         so instead we use CPU groups (64 cores per group).
         """
-        # Windows-specific
-        import wmi  # pylint:disable=import-outside-toplevel,import-error
 
         # Reset mappings
-        self.__procs_by_physid_and_coreid = {}
-        self.__physid_and_coreid_by_proc = {}
+        self.__threadid_by_cpuid_and_coreid = {}
+        self.__cpuid_and_coreid_by_threadid = {}
 
-        # Connect to the Windows Management Instrumentation (WMI) interface
-        wmiInstance = wmi.WMI()
+        for (cpu_id, physical_core_id, logical_core_id) in coreInfo:
+            self.__threadid_by_cpuid_and_coreid.setdefault(
+                str(cpu_id), {}).setdefault(
+                physical_core_id, set()).add(str(logical_core_id))
+            self.__cpuid_and_coreid_by_threadid[logical_core_id] = (str(cpu_id),
+                                                                    str(physical_core_id))
 
-        # Retrieve CPU information using WMI
-        for physicalId, processor in enumerate(wmiInstance.Win32_Processor()):
-
-            threadPerCore = processor.NumberOfLogicalProcessors // processor.NumberOfCores
-            procId = 0
-
-            for coreId in range(processor.NumberOfCores):
-                for _ in range(threadPerCore):
-                    self.__procs_by_physid_and_coreid.setdefault(
-                        str(physicalId), {}
-                    ).setdefault(str(coreId), set()).add(str(procId))
-                    self.__physid_and_coreid_by_proc[str(procId)] = (
-                        str(physicalId),
-                        str(coreId),
-                    )
-                    procId += 1
-
-    def getWindowsMemory(self):
-        """Gets information on system memory, Windows compatible version."""
-        # From
-        # http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
+    def updateWindowsMemory(self):
+        """Updates the internal store of memory available for Windows."""
         if not hasattr(self, '__windowsStat'):
-            class MEMORYSTATUSEX(ctypes.Structure):
-                """Represents Windows memory information."""
-                _fields_ = [("dwLength", ctypes.c_uint),
-                            ("dwMemoryLoad", ctypes.c_uint),
-                            ("ullTotalPhys", ctypes.c_ulonglong),
-                            ("ullAvailPhys", ctypes.c_ulonglong),
-                            ("ullTotalPageFile", ctypes.c_ulonglong),
-                            ("ullAvailPageFile", ctypes.c_ulonglong),
-                            ("ullTotalVirtual", ctypes.c_ulonglong),
-                            ("ullAvailVirtual", ctypes.c_ulonglong),
-                            ("sullAvailExtendedVirtual", ctypes.c_ulonglong),]
-
-                def __init__(self):
-                    # have to initialize this to the size of MEMORYSTATUSEX
-                    self.dwLength = 2*4 + 7*8     # size = 2 ints, 7 longs
-                    super(MEMORYSTATUSEX, self).__init__()
-
-            self.__windowsStat = MEMORYSTATUSEX()
+            self.__windowsStat = rqd.rqwinutils.MEMORYSTATUSEX()
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(self.__windowsStat))
-        return self.__windowsStat
+
+        disk_usage = psutil.disk_usage(self.getTempPath())
+
+        self.__renderHost.total_mcp = disk_usage.total // 1024
+        self.__renderHost.free_mcp = disk_usage.free // 1024
+
+        stat = self.__windowsStat
+
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+        self.__renderHost.free_mem = int(stat.ullAvailPhys / 1024)
+
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+        self.__renderHost.free_swap = int(stat.ullAvailPageFile / 1024)
+
+        self.__renderHost.num_gpus = self.getGpuCount()
+        self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
+        self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
+
+    def updateLinuxMemory(self):
+        """Gets information on system memory for Linux."""
+        # Reads dynamic information for mcp
+        mcpStat = os.statvfs(self.getTempPath())
+        self.__renderHost.total_mcp = (mcpStat.f_blocks * mcpStat.f_frsize) // 1024
+        self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // 1024
+
+        # Reads dynamic information from /proc/meminfo
+        with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding='utf-8') as fp:
+            for line in fp:
+                if line.startswith("MemFree"):
+                    freeMem = int(line.split()[1])
+                elif line.startswith("SwapFree"):
+                    freeSwapMem = int(line.split()[1])
+                elif line.startswith("SwapTotal"):
+                    self.__renderHost.total_swap = int(line.split()[1])
+                elif line.startswith("Cached"):
+                    cachedMem = int(line.split()[1])
+                elif line.startswith("MemTotal"):
+                    self.__renderHost.total_mem = int(line.split()[1])
+
+        self.__renderHost.free_swap = freeSwapMem
+        self.__renderHost.free_mem = freeMem + cachedMem
+        self.__renderHost.num_gpus = self.getGpuCount()
+        self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
+        self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
+
+        self.__renderHost.attributes['swapout'] = self.__getSwapout()
 
     def updateMacMemory(self):
         """Updates the internal store of memory available, macOS compatible version."""
@@ -841,48 +850,22 @@ class Machine(object):
         else:
             self.__renderHost.free_swap = 0
 
+        # Reads dynamic information for mcp
+        mcpStat = os.statvfs(self.getTempPath())
+        self.__renderHost.total_mcp = (mcpStat.f_blocks * mcpStat.f_frsize) // KILOBYTE
+        self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
+
     def updateMachineStats(self):
         """Updates dynamic machine information during runtime"""
+
         if platform.system() == "Linux":
-            # Reads dynamic information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
-
-            # Reads dynamic information from /proc/meminfo
-            with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding='utf-8') as fp:
-                for line in fp:
-                    if line.startswith("MemFree"):
-                        freeMem = int(line.split()[1])
-                    elif line.startswith("SwapFree"):
-                        freeSwapMem = int(line.split()[1])
-                    elif line.startswith("Cached"):
-                        cachedMem = int(line.split()[1])
-                    elif line.startswith("MemTotal"):
-                        self.__renderHost.total_mem = int(line.split()[1])
-
-            self.__renderHost.free_swap = freeSwapMem
-            self.__renderHost.free_mem = freeMem + cachedMem
-            self.__renderHost.num_gpus = self.getGpuCount()
-            self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
-            self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
-
-            self.__renderHost.attributes['swapout'] = self.__getSwapout()
+            self.updateLinuxMemory()
 
         elif platform.system() == 'Darwin':
             self.updateMacMemory()
-            # Reads dynamic information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
         elif platform.system() == 'Windows':
-            TEMP_DEFAULT = 1048576
-            stats = self.getWindowsMemory()
-            self.__renderHost.free_mcp = TEMP_DEFAULT
-            self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
-            self.__renderHost.free_mem = int(stats.ullAvailPhys / 1024)
-            self.__renderHost.num_gpus = self.getGpuCount()
-            self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
-            self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
+            self.updateWindowsMemory()
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
@@ -923,10 +906,10 @@ class Machine(object):
 
     def getHyperthreadingMultiplier(self):
         """
-        Multiplied used to compute the number of threads that can be allocated simultaneously
-        on a core
+        Multiplier used to compute the number of threads that can be allocated simultaneously
+        on a core. This is a float as it can be fractional for hybrid cores.
         """
-        return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
+        return float(self.__renderHost.attributes.get('hyperthreadingMultiplier', 1.0))
 
     def setupTaskset(self):
         """ Setup rqd for hyper-threading """
@@ -936,42 +919,52 @@ class Machine(object):
         """ Setup rqd for Gpus """
         self.__gpusets = set(range(self.getGpuCount()))
 
-    def reserveHT(self, frameCores):
+    def reserveCores(self, coresCount=0, logical=True):
         """ Reserve cores for use by taskset
         taskset -c 0,1,8,9 COMMAND
         Not thread save, use with locking.
-        @type   frameCores: int
-        @param  frameCores: The total physical cores reserved by the frame.
+        @type   coresCount: int
+        @param  coresCount: The total physical cores reserved by the frame.
+        @type   logical: bool
+        @param  logical: If True, reserve logical cores (aka threads),
+                         else reserve physical cores (legacy).
+            note: logical cores is what you see in htop or task manager.
+                  For example, a 16 core CPU with hyper-threading will have 32 logical cores.
         @rtype:  string
         @return: The cpu-list for taskset -c
         """
 
-        if frameCores % 100:
+        if coresCount % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (coresCount // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.
         # Spread different frames around on different physical cpus.
         avail_cores = {}
-        avail_cores_count = 0
+        avail_procs_count = 0
         reserved_cores = self.__coreInfo.reserved_cores
 
-        for physid, cores in self.__procs_by_physid_and_coreid.items():
+        for physid, cores in self.__threadid_by_cpuid_and_coreid.items():
             for coreid in cores.keys():
                 if int(physid) in reserved_cores and \
                         int(coreid) in reserved_cores[int(physid)].coreid:
                     continue
                 avail_cores.setdefault(physid, set()).add(coreid)
-                avail_cores_count += 1
+                if logical:
+                    # Count all threads (logical cores)
+                    avail_procs_count += len(cores[coreid])
+                else:
+                    # Count only physical cores
+                    avail_procs_count += 1
 
-        remaining_cores = frameCores / 100
+        query_procs = coresCount / 100
 
-        if avail_cores_count < remaining_cores:
-            err = ('Not launching, insufficient hyperthreading cores to reserve '
-                   'based on frameCores (%s < %s)')  \
-                  % (avail_cores_count, remaining_cores)
+        if avail_procs_count < query_procs:
+            err = ('Not launching, insufficient cores to reserve '
+                   'based on coresCount (%s < %s)')  \
+                  % (avail_procs_count, query_procs)
             log.critical(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
@@ -983,23 +976,53 @@ class Machine(object):
                 # the most idle cores first.
                 key=lambda tup: len(tup[1]),
                 reverse=True):
-
-            while remaining_cores > 0 and len(cores) > 0:
-                coreid = cores.pop()
-                # Give all the hyperthreads on this core.
-                # This counts as one core.
+            cores = sorted(list(cores), key=int)
+            while query_procs > 0 and len(cores) > 0:
+                # Reserve hyper-threaded cores first (2 threads(logical cores) for 1 physical core)
+                # Avoid booking a hyper-threaded core for an odd thread count remainder
+                # ex: if query_procs==2, get the next core with 2 threads
+                # ex: if query_procs==1, get the next core with 1 thread or any other core
+                # here we fall back on the first physical core
+                # (assuming "first in list" == "has more threads")
+                # if we didn't find a core with the right number of threads, and continue the loop.
+                coreid = next(iter(
+                    [cid for cid in cores
+                     if len(self.__threadid_by_cpuid_and_coreid[physid][cid]) <= query_procs]),
+                    cores[0])
+                cores.remove(coreid)
+                procids = self.__threadid_by_cpuid_and_coreid[physid][coreid]
                 reserved_cores[int(physid)].coreid.extend([int(coreid)])
-                remaining_cores -= 1
+                if logical:
+                    query_procs -= len(procids)
+                else:
+                    query_procs -= 1
+                tasksets.extend(procids)
 
-                for procid in self.__procs_by_physid_and_coreid[physid][coreid]:
-                    tasksets.append(procid)
-
-            if remaining_cores == 0:
+            if query_procs <= 0:
+                # Could be negative if we reserved a full core with more threads than needed
                 break
 
         log.warning('Taskset: Reserving procs - %s', ','.join(tasksets))
 
         return ','.join(tasksets)
+
+
+    def reserveHT(self, frameCores):
+        """ Reserve cores for use by taskset
+        taskset -c 0,1,8,9 COMMAND
+        Not thread save, use with locking.
+        @type   frameCores: int
+        @param  frameCores: The total physical cores reserved by the frame.
+        @rtype:  string
+        @return: The cpu-list for taskset -c
+        """
+        warnings.warn(
+            "The `reserveHT` method is deprecated and will be removed in a future release. "
+            "Use `reserveCores(logical=False)` instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.reserveCores(frameCores, logical=False)
 
     # pylint: disable=inconsistent-return-statements
     def releaseHT(self, reservedHT):
@@ -1017,7 +1040,7 @@ class Machine(object):
         # aren't valid core identities.
         reserved_cores = self.__coreInfo.reserved_cores
         for core in reservedHT.split(','):
-            physical_id_str, core_id_str = self.__physid_and_coreid_by_proc.get(core)
+            physical_id_str, core_id_str = self.__cpuid_and_coreid_by_threadid.get(core)
             physical_id = int(physical_id_str)
             core_id = int(core_id_str)
 

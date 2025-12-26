@@ -543,6 +543,7 @@ impl MachineMonitor {
             facility: config.facility.clone(),
             num_procs: stats.num_sockets as i32,
             cores_per_proc: (stats.cores_per_socket * config.core_multiplier) as i32,
+            threads_per_proc: stats.threads_per_proc as i32,
             total_swap: (stats.total_swap / KIB) as i64,
             total_mem: (stats.total_memory / KIB) as i64,
             total_mcp: (stats.total_temp_storage / KIB) as i64,
