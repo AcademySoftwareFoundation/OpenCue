@@ -107,6 +107,8 @@ message RunningFrameInfo {
     int64 used_gpu_memory = 17; // kB
     ChildrenProcStats children = 18; //additional data about the running frame's child processes
     int64 used_swap_memory = 19; // kB
+    int64 max_pss = 20; // kB
+    int64 pss = 21; // kB
 };
 
 message ChildrenProcStats {
@@ -122,6 +124,7 @@ message ProcStats {
 
 message Stat {
     int64 rss = 1;
+    int64 pss = 6;
     int64 vsize = 2;
     string state = 3;
     string name = 4;

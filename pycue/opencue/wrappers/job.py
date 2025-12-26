@@ -20,15 +20,15 @@ import os
 import platform
 import time
 
-from opencue_proto import comment_pb2
-from opencue_proto import job_pb2
-from opencue import Cuebot
+from opencue_proto import comment_pb2, job_pb2
+
 import opencue.api
 import opencue.search
 import opencue.wrappers.comment
 import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.layer
+from opencue import Cuebot
 
 
 class Job(object):
@@ -36,6 +36,7 @@ class Job(object):
 
     class JobState(enum.IntEnum):
         """Enum representing the state of a job."""
+
         PENDING = job_pb2.PENDING
         FINISHED = job_pb2.FINISHED
         STARTUP = job_pb2.STARTUP
@@ -44,7 +45,7 @@ class Job(object):
 
     def __init__(self, job=None):
         self.data = job
-        self.stub = Cuebot.getStub('job')
+        self.stub = Cuebot.getStub("job")
         self.__frameStateTotals = {}
 
     def kill(self, username=None, pid=None, host_kill=None, reason=None):
@@ -52,12 +53,16 @@ class Job(object):
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
         host_kill = host_kill if host_kill else platform.uname()[1]
-        self.stub.Kill(job_pb2.JobKillRequest(job=self.data,
-                                              username=username,
-                                              pid=str(pid),
-                                              host_kill=host_kill,
-                                              reason=reason),
-                       timeout=Cuebot.Timeout)
+        self.stub.Kill(
+            job_pb2.JobKillRequest(
+                job=self.data,
+                username=username,
+                pid=str(pid),
+                host_kill=host_kill,
+                reason=reason,
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def pause(self):
         """Pauses the job."""
@@ -65,9 +70,13 @@ class Job(object):
 
     def resume(self):
         """Resumes the job."""
-        self.stub.Resume(job_pb2.JobResumeRequest(job=self.data), timeout=Cuebot.Timeout)
+        self.stub.Resume(
+            job_pb2.JobResumeRequest(job=self.data), timeout=Cuebot.Timeout
+        )
 
-    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
+    def killFrames(
+        self, username=None, pid=None, host_kill=None, reason=None, **request
+    ):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
@@ -77,13 +86,17 @@ class Job(object):
         pid = pid if pid else os.getpid()
         host_kill = host_kill if host_kill else platform.uname()[1]
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
-        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data,
-                                                          req=criteria,
-                                                          username=username,
-                                                          pid=str(pid),
-                                                          host_kill=host_kill,
-                                                          reason=reason),
-                            timeout=Cuebot.Timeout)
+        self.stub.KillFrames(
+            job_pb2.JobKillFramesRequest(
+                job=self.data,
+                req=criteria,
+                username=username,
+                pid=str(pid),
+                host_kill=host_kill,
+                reason=reason,
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch.
@@ -92,8 +105,10 @@ class Job(object):
         :param request: FrameSearch parameters
         """
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
-        return self.stub.EatFrames(job_pb2.JobEatFramesRequest(job=self.data, req=criteria),
-                                   timeout=Cuebot.Timeout)
+        return self.stub.EatFrames(
+            job_pb2.JobEatFramesRequest(job=self.data, req=criteria),
+            timeout=Cuebot.Timeout,
+        )
 
     def retryFrames(self, **request):
         """Retries all frames that match the FrameSearch.
@@ -102,8 +117,10 @@ class Job(object):
         :param request: FrameSearch parameters
         """
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
-        return self.stub.RetryFrames(job_pb2.JobRetryFramesRequest(job=self.data, req=criteria),
-                                     timeout=Cuebot.Timeout)
+        return self.stub.RetryFrames(
+            job_pb2.JobRetryFramesRequest(job=self.data, req=criteria),
+            timeout=Cuebot.Timeout,
+        )
 
     def markdoneFrames(self, **request):
         """Drops any dependency that requires any frame that matches the FrameSearch.
@@ -114,7 +131,8 @@ class Job(object):
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
         return self.stub.MarkDoneFrames(
             job_pb2.JobMarkDoneFramesRequest(job=self.data, req=criteria),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def markAsWaiting(self, **request):
         """Changes the matching frames from the depend state to the waiting state.
@@ -125,7 +143,8 @@ class Job(object):
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
         return self.stub.MarkAsWaiting(
             job_pb2.JobMarkAsWaitingRequest(job=self.data, req=criteria),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinCores(self, minCores):
         """Sets the minimum number of cores the job needs.
@@ -133,8 +152,10 @@ class Job(object):
         :type  minCores: int
         :param minCores: new minimum cores value
         """
-        self.stub.SetMinCores(job_pb2.JobSetMinCoresRequest(job=self.data, val=minCores),
-                              timeout=Cuebot.Timeout)
+        self.stub.SetMinCores(
+            job_pb2.JobSetMinCoresRequest(job=self.data, val=minCores),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMaxCores(self, maxCores):
         """Sets the maximum number of cores the job will use.
@@ -142,22 +163,28 @@ class Job(object):
         :type  maxCores: int
         :param maxCores: new maximum cores value
         """
-        self.stub.SetMaxCores(job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
-                              timeout=Cuebot.Timeout)
+        self.stub.SetMaxCores(
+            job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMinGpus(self, minGpus):
         """Sets the minimum procs value
         :type  minGpus: int
         :param minGpus: New minimum cores value"""
-        self.stub.SetMinGpus(job_pb2.JobSetMinGpusRequest(job=self.data, val=minGpus),
-                             timeout=Cuebot.Timeout)
+        self.stub.SetMinGpus(
+            job_pb2.JobSetMinGpusRequest(job=self.data, val=minGpus),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMaxGpus(self, maxGpus):
         """Sets the maximum procs value
         :type  maxGpus: int
         :param maxGpus: New maximum cores value"""
-        self.stub.SetMaxGpus(job_pb2.JobSetMaxGpusRequest(job=self.data, val=maxGpus),
-                             timeout=Cuebot.Timeout)
+        self.stub.SetMaxGpus(
+            job_pb2.JobSetMaxGpusRequest(job=self.data, val=maxGpus),
+            timeout=Cuebot.Timeout,
+        )
 
     def setPriority(self, priority):
         """Sets the job priority.
@@ -165,8 +192,10 @@ class Job(object):
         :type  priority: int
         :param priority: new job priority number
         """
-        self.stub.SetPriority(job_pb2.JobSetPriorityRequest(job=self.data, val=priority),
-                              timeout=Cuebot.Timeout)
+        self.stub.SetPriority(
+            job_pb2.JobSetPriorityRequest(job=self.data, val=priority),
+            timeout=Cuebot.Timeout,
+        )
 
     def setMaxRetries(self, maxRetries):
         """Sets the number of retries before a frame goes dead.
@@ -176,7 +205,8 @@ class Job(object):
         """
         self.stub.SetMaxRetries(
             job_pb2.JobSetMaxRetriesRequest(job=self.data, max_retries=maxRetries),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
 
     def getLayers(self):
         """Returns the list of layers in the job.
@@ -184,13 +214,14 @@ class Job(object):
         :rtype:  list<opencue.wrappers.layer.Layer>
         :return: list of layers in the job
         """
-        response = self.stub.GetLayers(job_pb2.JobGetLayersRequest(job=self.data),
-                                       timeout=Cuebot.Timeout)
+        response = self.stub.GetLayers(
+            job_pb2.JobGetLayersRequest(job=self.data), timeout=Cuebot.Timeout
+        )
         layerSeq = response.layers
         return [opencue.wrappers.layer.Layer(lyr) for lyr in layerSeq.layers]
 
     def getLayer(self, layerName):
-        """ Returns the layer with the specified name
+        """Returns the layer with the specified name
         :type:   layername: str
         :rtype:  opencue.wrappers.layer.Layer
         :return: specific layer in the job
@@ -210,8 +241,10 @@ class Job(object):
         :return: list of frames
         """
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
-        response = self.stub.GetFrames(job_pb2.JobGetFramesRequest(job=self.data, req=criteria),
-                                       timeout=Cuebot.Timeout)
+        response = self.stub.GetFrames(
+            job_pb2.JobGetFramesRequest(job=self.data, req=criteria),
+            timeout=Cuebot.Timeout,
+        )
         frameSeq = response.frames
         return [opencue.wrappers.frame.Frame(frm) for frm in frameSeq.frames]
 
@@ -237,9 +270,11 @@ class Job(object):
         else:
             layerSeq = None
         return self.stub.GetUpdatedFrames(
-            job_pb2.JobGetUpdatedFramesRequest(job=self.data, last_check=lastCheck,
-                                               layer_filter=layerSeq),
-            timeout=Cuebot.Timeout)
+            job_pb2.JobGetUpdatedFramesRequest(
+                job=self.data, last_check=lastCheck, layer_filter=layerSeq
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def setAutoEating(self, value):
         """Sets the job autoeat field.
@@ -249,10 +284,14 @@ class Job(object):
         :type  value: bool
         :param value: whether job should autoeat
         """
-        self.stub.SetAutoEat(job_pb2.JobSetAutoEatRequest(job=self.data, value=value),
-                             timeout=Cuebot.Timeout)
+        self.stub.SetAutoEat(
+            job_pb2.JobSetAutoEatRequest(job=self.data, value=value),
+            timeout=Cuebot.Timeout,
+        )
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpus, max_gpu_memory):
+    def addRenderPartition(
+        self, hostname, threads, max_cores, num_mem, max_gpus, max_gpu_memory
+    ):
         """Adds a render partition to the job.
 
         :type  hostname: str
@@ -269,14 +308,17 @@ class Job(object):
         :param max_gpu_memory: amount of gpu memory reserved for the partition
         """
         self.stub.AddRenderPartition(
-            job_pb2.JobAddRenderPartRequest(job=self.data,
-                                            host=hostname,
-                                            threads=threads,
-                                            max_cores=max_cores,
-                                            max_memory=num_mem,
-                                            max_gpus=max_gpus,
-                                            max_gpu_memory=max_gpu_memory,
-                                            username=os.getenv("USER", "unknown")))
+            job_pb2.JobAddRenderPartRequest(
+                job=self.data,
+                host=hostname,
+                threads=threads,
+                max_cores=max_cores,
+                max_memory=num_mem,
+                max_gpus=max_gpus,
+                max_gpu_memory=max_gpu_memory,
+                username=os.getenv("USER", "unknown"),
+            )
+        )
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this job.
@@ -286,7 +328,8 @@ class Job(object):
         """
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.JobGetWhatDependsOnThisRequest(job=self.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         dependSeq = response.depends
         return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
@@ -298,7 +341,8 @@ class Job(object):
         """
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.JobGetWhatThisDependsOnRequest(job=self.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         dependSeq = response.depends
         return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
@@ -309,8 +353,8 @@ class Job(object):
         :return: all depends involved with this job
         """
         response = self.stub.GetDepends(
-            job_pb2.JobGetDependsRequest(job=self.data),
-            timeout=Cuebot.Timeout)
+            job_pb2.JobGetDependsRequest(job=self.data), timeout=Cuebot.Timeout
+        )
         dependSeq = response.depends
         return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
@@ -320,8 +364,10 @@ class Job(object):
         :type  target: depend_pb2.DependTarget
         :param target: the desired dependency target to drop
         """
-        return self.stub.DropDepends(job_pb2.JobDropDependsRequest(job=self.data, target=target),
-                                     timeout=Cuebot.Timeout)
+        return self.stub.DropDepends(
+            job_pb2.JobDropDependsRequest(job=self.data, target=target),
+            timeout=Cuebot.Timeout,
+        )
 
     def createDependencyOnJob(self, job):
         """Creates and returns a job-on-job dependency.
@@ -333,7 +379,8 @@ class Job(object):
         """
         response = self.stub.CreateDependencyOnJob(
             job_pb2.JobCreateDependencyOnJobRequest(job=self.data, on_job=job.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
@@ -346,7 +393,8 @@ class Job(object):
         """
         response = self.stub.CreateDependencyOnLayer(
             job_pb2.JobCreateDependencyOnLayerRequest(job=self.data, layer=layer.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
@@ -359,7 +407,8 @@ class Job(object):
         """
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.JobCreateDependencyOnFrameRequest(job=self.data, frame=frame.data),
-            timeout=Cuebot.Timeout)
+            timeout=Cuebot.Timeout,
+        )
         return opencue.wrappers.depend.Depend(response.depend)
 
     # TODO(gregdenton) Is this needed? (Issue #71)
@@ -385,9 +434,12 @@ class Job(object):
             user=os.getenv("USER", "unknown"),
             subject=subject,
             message=message or " ",
-            timestamp=0)
-        self.stub.AddComment(job_pb2.JobAddCommentRequest(job=self.data, new_comment=comment),
-                             timeout=Cuebot.Timeout)
+            timestamp=0,
+        )
+        self.stub.AddComment(
+            job_pb2.JobAddCommentRequest(job=self.data, new_comment=comment),
+            timeout=Cuebot.Timeout,
+        )
 
     def getComments(self):
         """Returns the job's comment list.
@@ -395,8 +447,9 @@ class Job(object):
         :rtype: list<opencue.wrappers.comment.Comment>
         :return: the job's comment list
         """
-        response = self.stub.GetComments(job_pb2.JobGetCommentsRequest(job=self.data),
-                                         timeout=Cuebot.Timeout)
+        response = self.stub.GetComments(
+            job_pb2.JobGetCommentsRequest(job=self.data), timeout=Cuebot.Timeout
+        )
         commentSeq = response.comments
         return [opencue.wrappers.comment.Comment(cmt) for cmt in commentSeq.comments]
 
@@ -406,8 +459,10 @@ class Job(object):
         :type  group: opencue.wrappers.group.Group
         :param group: the group you want the job to be in
         """
-        self.stub.SetGroup(job_pb2.JobSetGroupRequest(job=self.data, group_id=group.id()),
-                           timeout=Cuebot.Timeout)
+        self.stub.SetGroup(
+            job_pb2.JobSetGroupRequest(job=self.data, group_id=group.id()),
+            timeout=Cuebot.Timeout,
+        )
 
     def reorderFrames(self, frame_range, order):
         """Reorders the specified frame range on this job.
@@ -418,8 +473,11 @@ class Job(object):
         :param order: First, Last or Reverse
         """
         self.stub.ReorderFrames(
-            job_pb2.JobReorderFramesRequest(job=self.data, range=frame_range, order=order),
-            timeout=Cuebot.Timeout)
+            job_pb2.JobReorderFramesRequest(
+                job=self.data, range=frame_range, order=order
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def staggerFrames(self, frame_range, stagger):
         """Staggers the specified frame range on this job.
@@ -430,8 +488,11 @@ class Job(object):
         :param stagger: the amount to stagger by
         """
         self.stub.StaggerFrames(
-            job_pb2.JobStaggerFramesRequest(job=self.data, range=frame_range, stagger=stagger),
-            timeout=Cuebot.Timeout)
+            job_pb2.JobStaggerFramesRequest(
+                job=self.data, range=frame_range, stagger=stagger
+            ),
+            timeout=Cuebot.Timeout,
+        )
 
     def addSubscriber(self, subscriber):
         """Adds email subscriber to status change for the job
@@ -439,8 +500,9 @@ class Job(object):
         :type subscriber: string
         :param subscriber: email address to send update when the job finishes
         """
-        self.stub.AddSubscriber(job_pb2.JobAddSubscriberRequest(job=self.data,
-                                                                subscriber=subscriber))
+        self.stub.AddSubscriber(
+            job_pb2.JobAddSubscriberRequest(job=self.data, subscriber=subscriber)
+        )
 
     def facility(self):
         """Returns the facility that the job must run in.
@@ -760,7 +822,9 @@ class Job(object):
         if not self.__frameStateTotals:
             self.__frameStateTotals.clear()
             for state in job_pb2.FrameState.keys():
-                frameCount = getattr(self.data.job_stats, '{}_frames'.format(state.lower()), 0)
+                frameCount = getattr(
+                    self.data.job_stats, "{}_frames".format(state.lower()), 0
+                )
                 self.__frameStateTotals[getattr(job_pb2, state)] = frameCount
         return self.__frameStateTotals
 
@@ -771,8 +835,11 @@ class Job(object):
         :return: percentage of frame completion
         """
         try:
-            return self.data.job_stats.succeeded_frames /\
-                   float(self.data.job_stats.total_frames) * 100.0
+            return (
+                self.data.job_stats.succeeded_frames
+                / float(self.data.job_stats.total_frames)
+                * 100.0
+            )
         except ZeroDivisionError:
             return 0
 
@@ -809,10 +876,20 @@ class Job(object):
         :return: most memory used by any frame in kB"""
         return self.data.job_stats.max_rss
 
+    def maxPss(self):
+        """Returns the highest amount of PSS that any frame in this job used.
+
+        Value is within 5% of the actual highest frame.
+
+        :rtype:  long
+        :return: most PSS used by any frame in kB"""
+        return self.data.job_stats.max_pss
+
     def shutdownIfCompleted(self):
         """Shutdown the job if it is completed."""
-        self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
-                                      timeout=Cuebot.Timeout)
+        self.stub.ShutdownIfCompleted(
+            job_pb2.JobShutdownIfCompletedRequest(job=self.data), timeout=Cuebot.Timeout
+        )
 
     def lokiURL(self):
         """Returns url for loki server on the job
@@ -822,8 +899,10 @@ class Job(object):
         """
         return self.data.loki_url
 
+
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""
+
     def __init__(self, nestedJob=None):
         super(NestedJob, self).__init__(nestedJob)
         # job children are most likely empty but its possible to
@@ -846,7 +925,9 @@ class NestedJob(Job):
         """Resumes the job."""
         self.asJob().resume()
 
-    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
+    def killFrames(
+        self, username=None, pid=None, host_kill=None, reason=None, **request
+    ):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
@@ -1087,25 +1168,27 @@ class NestedJob(Job):
         :rtype: opencue.wrappers.job.Job
         :return: Job version of this NestedJob
         """
-        return Job(job_pb2.Job(
-            id=self.data.id,
-            state=self.data.state,
-            name=self.data.name,
-            shot=self.data.shot,
-            show=self.data.show,
-            user=self.data.user,
-            group=self.data.group,
-            facility=self.data.facility,
-            os=self.data.os,
-            uid=self.data.uid if self.data.HasField("uid") else None,
-            priority=self.data.priority,
-            min_cores=self.data.min_cores,
-            max_cores=self.data.max_cores,
-            log_dir=self.data.log_dir,
-            is_paused=self.data.is_paused,
-            has_comment=self.data.has_comment,
-            auto_eat=self.data.auto_eat,
-            start_time=self.data.start_time,
-            stop_time=self.data.stop_time,
-            job_stats=self.data.stats
-        ))
+        return Job(
+            job_pb2.Job(
+                id=self.data.id,
+                state=self.data.state,
+                name=self.data.name,
+                shot=self.data.shot,
+                show=self.data.show,
+                user=self.data.user,
+                group=self.data.group,
+                facility=self.data.facility,
+                os=self.data.os,
+                uid=self.data.uid if self.data.HasField("uid") else None,
+                priority=self.data.priority,
+                min_cores=self.data.min_cores,
+                max_cores=self.data.max_cores,
+                log_dir=self.data.log_dir,
+                is_paused=self.data.is_paused,
+                has_comment=self.data.has_comment,
+                auto_eat=self.data.auto_eat,
+                start_time=self.data.start_time,
+                stop_time=self.data.stop_time,
+                job_stats=self.data.stats,
+            )
+        )

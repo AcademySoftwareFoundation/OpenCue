@@ -1256,6 +1256,8 @@ Render Frame Completed
             start_time: start_time as i64,
             max_rss: (stats.max_rss / KIB) as i64,
             rss: (stats.rss / KIB) as i64,
+            max_pss: (stats.max_pss / KIB) as i64,
+            pss: (stats.pss / KIB) as i64,
             max_vsize: (stats.max_vsize / KIB) as i64,
             vsize: (stats.vsize / KIB) as i64,
             attributes: self.request.attributes.clone(),
@@ -1498,8 +1500,7 @@ mod tests {
             .await;
         let elapsed = start.elapsed();
 
-        assert!(status.is_ok());
-        assert_eq!((0, None), status.unwrap());
+        assert_eq!((0, None), status.expect("status should be OK"));
         assert!(
             elapsed >= Duration::from_millis(500),
             "Command didn't run for expected duration"

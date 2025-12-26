@@ -196,6 +196,16 @@ public interface LayerDao {
     void updateLayerMaxRSS(LayerInterface layer, long val, boolean force);
 
     /**
+     * Updates the layer's maximum PSS value. If force is true, the max RSS is updated no matter
+     * what the current value is. If force is false, the value is only updated the val is greater
+     * than than the existing value.
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerMaxPSS(LayerInterface layer, long val, boolean force);
+
+    /**
      * Increases the value of the minimum memory when the supplied value is larger than the current
      * value
      *

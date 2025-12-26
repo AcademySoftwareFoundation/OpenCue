@@ -1124,7 +1124,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         JobStats.Builder statsBuilder = JobStats.newBuilder()
                 .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                 .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
-                .setTotalFrames(rs.getInt("int_frame_count"))
+                .setMaxPss(rs.getLong("int_max_pss")).setTotalFrames(rs.getInt("int_frame_count"))
                 .setTotalLayers(rs.getInt("int_layer_count"))
                 .setWaitingFrames(rs.getInt("int_waiting_count"))
                 .setRunningFrames(rs.getInt("int_running_count"))
@@ -1188,6 +1188,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                     .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
+                    .setMaxPss(rs.getLong("int_max_pss"))
                     .setTotalFrames(rs.getInt("int_total_count"))
                     .setWaitingFrames(rs.getInt("int_waiting_count"))
                     .setRunningFrames(rs.getInt("int_running_count"))
@@ -1608,7 +1609,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "job_usage.int_core_time_fail, " + "job_usage.int_gpu_time_success, "
             + "job_usage.int_gpu_time_fail, " + "job_usage.int_frame_success_count, "
             + "job_usage.int_frame_fail_count, " + "job_usage.int_clock_time_high,"
-            + "job_usage.int_clock_time_success," + "job_mem.int_max_rss,"
+            + "job_usage.int_clock_time_success," + "job_mem.int_max_rss," + "job_mem.int_max_pss,"
             + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"
             + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
             + "job.str_loki_url " + "FROM " + "job," + "folder," + "show," + "facility,"
@@ -1627,11 +1628,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "layer_usage.int_frame_success_count, " + "layer_usage.int_frame_fail_count, "
             + "layer_usage.int_clock_time_low, " + "layer_usage.int_clock_time_high,"
             + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_fail,"
-            + "layer_mem.int_max_rss," + "layer_resource.int_cores," + "layer_resource.int_gpus "
-            + "FROM " + "layer, " + "job," + "layer_stat, " + "layer_resource, " + "layer_usage, "
-            + "layer_mem " + "WHERE " + "layer.pk_job = job.pk_job " + "AND "
-            + "layer.pk_layer = layer_stat.pk_layer " + "AND "
-            + "layer.pk_layer = layer_resource.pk_layer " + "AND "
+            + "layer_mem.int_max_rss," + "layer_mem.int_max_pss," + "layer_resource.int_cores,"
+            + "layer_resource.int_gpus " + "FROM " + "layer, " + "job," + "layer_stat, "
+            + "layer_resource, " + "layer_usage, " + "layer_mem " + "WHERE "
+            + "layer.pk_job = job.pk_job " + "AND " + "layer.pk_layer = layer_stat.pk_layer "
+            + "AND " + "layer.pk_layer = layer_resource.pk_layer " + "AND "
             + "layer.pk_layer = layer_usage.pk_layer " + "AND "
             + "layer.pk_layer = layer_mem.pk_layer";
 
@@ -1645,7 +1646,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "layer_usage.int_frame_fail_count, " + "layer_usage.int_clock_time_low, "
             + "layer_usage.int_clock_time_high, " + "layer_usage.int_clock_time_success, "
             + "layer_usage.int_clock_time_fail, " + "layer_mem.int_max_rss, "
-            + "layer_resource.int_cores, " + "layer_resource.int_gpus, "
+            + "layer_mem.int_max_pss, " + "layer_resource.int_cores, " + "layer_resource.int_gpus, "
             + "limit_names.str_limit_names " + "FROM " + "layer " + "JOIN "
             + "job ON layer.pk_job = job.pk_job " + "JOIN "
             + "layer_stat ON layer.pk_layer = layer_stat.pk_layer " + "JOIN "
