@@ -374,6 +374,16 @@ def _serialize(launcher, use_pycuerun):
             else:
                 _warning_spec_version(spec_version, "timeout_llu")
 
+        if layer.get_arg("slots_required"):
+            if spec_version >= Version("1.16"):
+                sub_element(
+                    spec_layer,
+                    "slots_required",
+                    "%s" % (layer.get_arg("slots_required")),
+                )
+            else:
+                _warning_spec_version(spec_version, "slots_required")
+
         if os.environ.get("OL_TAG_OVERRIDE", False):
             sub_element(spec_layer, "tags",
                         scrub_tags(os.environ["OL_TAG_OVERRIDE"]))

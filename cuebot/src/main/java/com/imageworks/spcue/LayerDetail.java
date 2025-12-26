@@ -38,6 +38,7 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public int timeout_llu;
     public int dispatchOrder;
     public int totalFrameCount;
+    public int slotsRequired;
 
     public Set<String> tags = new LinkedHashSet<String>();
     public Set<String> services = new LinkedHashSet<String>();

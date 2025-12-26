@@ -94,6 +94,11 @@ public class HostManagerService implements HostManager {
         hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
+    @Override
+    public void setConcurrentSlotsLimit(HostInterface host, int limit) {
+        hostDao.updateConcurrentSlotsLimit(host, limit);
+    }
+
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);
@@ -116,10 +121,10 @@ public class HostManagerService implements HostManager {
     @Override
     public void setHostStatistics(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
-            long freeGpuMemory, int load, Timestamp bootTime, String os) {
+            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningProcs) {
 
         hostDao.updateHostStats(host, totalMemory, freeMemory, totalSwap, freeSwap, totalMcp,
-                freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os);
+                freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os, runningProcs);
     }
 
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)

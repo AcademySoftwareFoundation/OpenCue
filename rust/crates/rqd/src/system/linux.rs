@@ -966,7 +966,7 @@ impl SystemManager for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{MachineConfig, MemoryMetric};
+    use crate::config::MachineConfig;
     use std::fs;
     use std::{collections::HashMap, sync::Mutex};
 
