@@ -224,6 +224,26 @@ public class MaintenanceManagerSupport {
         }
     }
 
+    /**
+     * Recalculates subscription core usage values to fix accountability issues
+     * that can occur at large scale. This calls the recalculate_subs() database
+     * function that was added in PR #1380.
+     */
+    public void recalculateSubscriptions() {
+        if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_SUBSCRIPTION_RECALCULATION)) {
+            return;
+        }
+        try {
+            logger.info("running subscription recalculation");
+            maintenanceDao.recalculateSubscriptions();
+            logger.info("subscription recalculation completed");
+        } catch (Exception e) {
+            logger.warn("failed to recalculate subscriptions: " + e);
+        } finally {
+            maintenanceDao.unlockTask(MaintenanceTask.LOCK_SUBSCRIPTION_RECALCULATION);
+        }
+    }
+
     public FrameDao getFrameDao() {
         return frameDao;
     }

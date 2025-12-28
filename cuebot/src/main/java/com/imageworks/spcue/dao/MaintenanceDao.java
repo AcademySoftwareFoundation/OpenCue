@@ -57,4 +57,11 @@ public interface MaintenanceDao {
      */
     void unlockTask(MaintenanceTask task);
 
+    /**
+     * Recalculates subscription core usage values by calling the
+     * recalculate_subs() database function. This fixes subscription
+     * accountability issues that can occur at large scale.
+     */
+    void recalculateSubscriptions();
+
 }
