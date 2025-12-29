@@ -44,5 +44,10 @@ public enum MaintenanceTask {
     /**
      * Lock the stale checkpoint task.
      */
-    LOCK_STALE_CHECKPOINT
+    LOCK_STALE_CHECKPOINT,
+
+    /**
+     * Lock the subscription recalculation task.
+     */
+    LOCK_SUBSCRIPTION_RECALCULATION
 }

@@ -55,4 +55,11 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
         getJdbcTemplate().update("UPDATE task_lock SET int_lock = 0 WHERE str_name=?",
                 task.toString());
     }
+
+    private static final String RECALCULATE_SUBS = "SELECT recalculate_subs()";
+
+    @Override
+    public void recalculateSubscriptions() {
+        getJdbcTemplate().execute(RECALCULATE_SUBS);
+    }
 }
