@@ -410,6 +410,42 @@ public class FilterManagerService implements FilterManager {
                         LayerType.RENDER);
                 break;
 
+            case SET_ALL_UTIL_LAYER_TAGS:
+                layerDao.updateTags(job, action.stringValue, LayerType.UTIL);
+                break;
+
+            case SET_ALL_UTIL_LAYER_MEMORY:
+                layerDao.updateMinMemory(job, (int) action.intValue, LayerType.UTIL);
+                break;
+
+            case SET_ALL_UTIL_LAYER_MIN_CORES:
+                layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue),
+                        LayerType.UTIL);
+                break;
+
+            case SET_ALL_UTIL_LAYER_MAX_CORES:
+                layerDao.updateMaxCores(job, Convert.coresToCoreUnits(action.floatValue),
+                        LayerType.UTIL);
+                break;
+
+            case SET_ALL_PRE_LAYER_TAGS:
+                layerDao.updateTags(job, action.stringValue, LayerType.PRE);
+                break;
+
+            case SET_ALL_PRE_LAYER_MEMORY:
+                layerDao.updateMinMemory(job, (int) action.intValue, LayerType.PRE);
+                break;
+
+            case SET_ALL_PRE_LAYER_MIN_CORES:
+                layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue),
+                        LayerType.PRE);
+                break;
+
+            case SET_ALL_PRE_LAYER_MAX_CORES:
+                layerDao.updateMaxCores(job, Convert.coresToCoreUnits(action.floatValue),
+                        LayerType.PRE);
+                break;
+
             case SET_MEMORY_OPTIMIZER:
                 List<LayerInterface> layers = layerDao.getLayers(job);
                 for (LayerInterface layer : layers) {

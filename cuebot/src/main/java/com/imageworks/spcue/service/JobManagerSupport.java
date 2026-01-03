@@ -27,6 +27,7 @@ import io.sentry.Sentry;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
@@ -49,6 +50,13 @@ import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.spcue.PrometheusMetricsCollector;
+import com.imageworks.spcue.ExecutionSummary;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.JobEvent;
 
 /**
  * A non-transaction support class for managing jobs.
@@ -66,6 +74,10 @@ public class JobManagerSupport {
     private RedirectManager redirectManager;
     private EmailSupport emailSupport;
     private FrameSearchFactory frameSearchFactory;
+    private PrometheusMetricsCollector prometheusMetrics;
+    private ShowDao showDao;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
@@ -149,6 +161,34 @@ public class JobManagerSupport {
                  * inaccurate numbers.
                  */
                 emailSupport.sendShutdownEmail(job);
+
+                // Record job completion metric
+                if (prometheusMetrics != null && showDao != null) {
+                    JobDetail jobDetail = jobManager.getJobDetail(job.getId());
+                    String showName = showDao.getShowDetail(job.getShowId()).getName();
+                    String state = isManualKill ? "KILLED" : "FINISHED";
+                    prometheusMetrics.recordJobCompleted(state, showName, jobDetail.shot);
+
+                    // Record job core seconds histogram
+                    ExecutionSummary execSummary = jobManager.getExecutionSummary(job);
+                    prometheusMetrics.recordJobCoreSeconds(execSummary.coreTime, showName,
+                            jobDetail.shot);
+                }
+
+                // Publish job completed/killed event to Kafka
+                if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                    try {
+                        JobDetail jobDetail = jobManager.getJobDetail(job.getId());
+                        EventType eventType =
+                                isManualKill ? EventType.JOB_KILLED : EventType.JOB_FINISHED;
+                        JobState previousState = JobState.PENDING;
+                        JobEvent jobEvent = monitoringEventBuilder.buildJobEvent(eventType,
+                                jobDetail, previousState, null, null);
+                        kafkaEventPublisher.publishJobEvent(jobEvent);
+                    } catch (Exception e) {
+                        logger.warn("Failed to publish job event", e);
+                    }
+                }
 
                 return true;
             }
@@ -592,5 +632,33 @@ public class JobManagerSupport {
 
     public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
         this.frameSearchFactory = frameSearchFactory;
+    }
+
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
+
+    public ShowDao getShowDao() {
+        return showDao;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
     }
 }

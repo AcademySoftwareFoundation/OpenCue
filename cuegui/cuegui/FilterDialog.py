@@ -474,44 +474,72 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         50000,
                         1)
 
-                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+                                    opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+                                    opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY):
+                    layer_type = "render"
+                    if actionType == opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY:
+                        layer_type = "util"
+                    elif actionType == opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY:
+                        layer_type = "pre"
                     (value, choice) = QtWidgets.QInputDialog.getDouble(
                         self,
                         "Create Action",
-                        "How much memory (in GB) should each render layer require?",
+                        "How much memory (in GB) should each %s layer require?" % layer_type,
                         4.0,
                         0.1,
                         MAX_RENDER_MEM,
                         2)
                     value = int(value * 1048576)
 
-                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,):
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                                    opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+                                    opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES):
+                    layer_type = "render"
+                    if actionType == opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES:
+                        layer_type = "util"
+                    elif actionType == opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES:
+                        layer_type = "pre"
                     (value, choice) = QtWidgets.QInputDialog.getDouble(
                         self,
                         "Create Action",
-                        "How many min cores should every render layer require?",
+                        "How many min cores should every %s layer require?" % layer_type,
                         1,
                         0.1,
                         100,
                         2)
                     value = float(value)
 
-                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,):
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+                                    opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+                                    opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES):
+                    layer_type = "render"
+                    if actionType == opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES:
+                        layer_type = "util"
+                    elif actionType == opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES:
+                        layer_type = "pre"
                     (value, choice) = QtWidgets.QInputDialog.getDouble(
                         self,
                         "Create Action",
-                        "How many max cores should every render layer require?",
+                        "How many max cores should every %s layer require?" % layer_type,
                         1,
                         0.1,
                         100,
                         2)
                     value = float(value)
 
-                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+                                    opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+                                    opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS):
+                    layer_type = "render"
+                    if actionType == opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS:
+                        layer_type = "util"
+                    elif actionType == opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS:
+                        layer_type = "pre"
                     (value, choice) = QtWidgets.QInputDialog.getText(
                         self,
                         "Create Action",
-                        "What tags should all render layers be set to?")
+                        "What tags should all %s layers be set to?" % layer_type)
                     value = str(value)
 
                 elif actionType in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
@@ -738,17 +766,25 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
             value = widget.value()
 
-        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+                                        opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+                                        opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY):
             widget.setMaximum(MAX_RENDER_MEM)
             value = int(widget.value() * 1048576)
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MIN_CORES,
                                        opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
-                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
+                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES):
             value = float(widget.value())
 
-        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+                                        opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+                                        opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS):
             value = str(widget.text())
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
@@ -783,7 +819,13 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
                                            opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
-                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
+                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+                                           opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+                                           opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+                                           opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+                                           opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY,
+                                           opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES,
+                                           opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
@@ -798,7 +840,9 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget.setMaximum(1000)
                 widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
-            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+                                           opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+                                           opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS):
                 widget = QtWidgets.QLineEdit("", self.parent())
                 widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
@@ -829,14 +873,22 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
             self.__widgets["ActionValue"].setValue(self.rpcObject.value())
 
-        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+                                        opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+                                        opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY):
             self.__widgets["ActionValue"].setValue(float(self.rpcObject.value()) / 1048576)
 
-        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+                                        opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+                                        opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS):
             self.__widgets["ActionValue"].setText(self.rpcObject.value())
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
                                        opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MIN_CORES):
             self.__widgets["ActionValue"].setValue(float(str(self.rpcObject.value())))

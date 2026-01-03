@@ -1,6 +1,6 @@
 ---
 title: "Cueman - CLI Job Management Tool"
-nav_order: 52
+nav_order: 66
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default
@@ -218,6 +218,8 @@ Add delays between frame starts:
 cueman -stagger job_name 1-100 5  # Stagger by 5 frame increments
 ```
 
+**Note:** Increment must be a positive integer. Zero, negative, and non-numeric values will be rejected.
+
 #### Reorder Frames
 
 Change execution order:
@@ -227,6 +229,8 @@ cueman -reorder job_name 50-100 FIRST    # Move to front
 cueman -reorder job_name 1-49 LAST       # Move to back
 cueman -reorder job_name 1-100 REVERSE   # Reverse order
 ```
+
+**Note:** Position must be one of: `FIRST`, `LAST`, or `REVERSE`. Other values will be rejected.
 
 ## Filtering Options
 
@@ -250,6 +254,8 @@ cueman -lf job_name -range 1,3,5,7,9       # Individual frames
 cueman -lf job_name -range 1-10,20,30-40   # Mixed ranges
 ```
 
+**Validation:** Range must be numeric (single frame like `5` or range like `1-100`). For ranges, the start frame must be less than or equal to the end frame (e.g., `10-1` is invalid).
+
 ### Layer Filter
 
 Work with specific layers:
@@ -269,6 +275,17 @@ cueman -lf job_name -memory lt2    # Less than 2 GB
 cueman -lf job_name -memory gt16   # Greater than 16 GB
 ```
 
+**Input Validation:**
+- **Single value:** Must be a non-negative number (e.g., `5`, `2.5`, `0`)
+- **Range format:** `x-y` where both `x` and `y` are non-negative numbers and `x < y` (e.g., `2-8`, `0.5-4.5`, `0-5`)
+- **Comparison format:** `gt<value>` or `lt<value>` with non-negative values (e.g., `gt16`, `lt2`)
+
+**Invalid inputs that will be rejected:**
+- Negative values: `-5`, `2--5`, `-2-5`
+- Reversed ranges: `8-2` (min must be less than max)
+- Multiple dashes: `2-3-5` (only two parts allowed)
+- Equal min/max: `2-2` (range must have min < max)
+
 ### Duration Filter
 
 Filter by runtime (in hours):
@@ -278,6 +295,18 @@ cueman -lf job_name -duration 1-2      # Range: 1-2 hours
 cueman -lf job_name -duration gt3.5    # More than 3.5 hours
 cueman -lf job_name -duration lt0.5    # Less than 0.5 hours
 ```
+
+**Input Validation:**
+- **Single value:** Must be a non-negative number (e.g., `2`, `3.5`, `0`)
+- **Range format:** `x-y` where both `x` and `y` are non-negative numbers and `x < y` (e.g., `1-3`, `0.5-2.5`, `0-5`)
+- **Comparison format:** `gt<value>` or `lt<value>` with non-negative values (e.g., `gt12`, `lt0.5`)
+
+**Invalid inputs that will be rejected:**
+- Negative values: `-2`, `2--5`, `-1-3`
+- Reversed ranges: `5-2` (min must be less than max)
+- Multiple dashes: `2-3-5` (only two parts allowed)
+- Equal min/max: `1-1` (range must have min < max)
+- Non-numeric: `abc`, `1-abc`
 
 ### Pagination
 
@@ -391,6 +420,54 @@ cueman -server cuebot.example.com:8443 -lf job_name
 cueman -v -info job_name
 ```
 
+**Invalid stagger increment:**
+```bash
+$ cueman -stagger job_name 1-100 0
+Error: Increment must be a positive integer.
+
+$ cueman -stagger job_name 1-100 -5
+Error: Increment must be a positive integer.
+```
+
+**Invalid reorder position:**
+```bash
+$ cueman -reorder job_name 1-50 MIDDLE
+Error: Position must be one of FIRST, LAST, or REVERSE.
+```
+
+**Invalid frame range:**
+```bash
+$ cueman -eat job_name -range 10-1
+Error: Invalid range format: 10-1
+
+$ cueman -eat job_name -range 1-a
+Error: Invalid range format: 1-a
+```
+
+**Invalid duration filter:**
+```bash
+$ cueman -lp job_name -duration 5-2
+Invalid duration range '5-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -duration 2--5
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
+
+$ cueman -lp job_name -duration 2-3-5
+Invalid duration format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
+
+$ cueman -lp job_name -duration -5
+Invalid duration format '-5'. Value cannot be negative.
+```
+
+**Invalid memory filter:**
+```bash
+$ cueman -lp job_name -memory 8-2
+Invalid memory range '8-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -memory 2--5
+Invalid memory format '2--5'. Use single value or x-y range format.
+```
+
 ### Getting Help
 
 ```bash
@@ -414,6 +491,8 @@ cueman             # Running without args shows help
 - Preview operations with `-lf` before running destructive commands
 - Memory values are in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are in hours (e.g., `gt12` = greater than 12 hours)
+- Input validation ensures only valid non-negative ranges and values are accepted
+- Always use proper range format with min < max (e.g., `2-5` not `5-2`)
 
 ## Development and Testing
 

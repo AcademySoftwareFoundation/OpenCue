@@ -251,8 +251,8 @@ class TestCuemanMain(unittest.TestCase):
         with mock.patch("sys.stdout"):
             main.terminateJobs(jobs)
 
-        mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)
-        mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)
+        mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
+        mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
     @mock.patch('getpass.getuser')
     @mock.patch('cueman.main.logger')
@@ -267,7 +267,7 @@ class TestCuemanMain(unittest.TestCase):
 
         # The KILL_REASON template is "Opencueman Terminate Job %s by user %s"
         # terminateJobs uses it directly as the reason parameter
-        mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+        mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
         # Verify logging includes username
         mock_logger.info.assert_any_call(main.KILL_REASON, "test_job", "specialuser")
@@ -288,7 +288,7 @@ class TestCuemanMain(unittest.TestCase):
 
         # Verify all jobs were killed
         for job in jobs:
-            job.kill.assert_called_once_with(reason=main.KILL_REASON)
+            job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
     @mock.patch('cueman.main.logger')
     def test_terminateJobs_empty_list(self, mock_logger):
@@ -348,7 +348,7 @@ class TestCuemanMain(unittest.TestCase):
             main.terminateJobs(jobs)
 
             # Verify job was killed regardless of state
-            mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+            mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
             mock_job.reset_mock()
 
 
@@ -405,17 +405,22 @@ class TestCuemanHandleArgs(unittest.TestCase):
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_handleArgs_list_frames(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_handleArgs_list_frames(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         """Test handleArgs with -lf flag."""
         self.args.lf = "test_job"
         mock_job = mock.Mock()
         mock_frames = ["frame1", "frame2"]
         mock_job.getFrames.return_value = mock_frames
         mock_findJob.return_value = mock_job
+        mock_buildFrameSearch.return_value = {}
 
         main.handleArgs(self.args)
 
         mock_findJob.assert_called_once_with("test_job")
+        mock_buildFrameSearch.assert_called_once_with(self.args)
         mock_job.getFrames.assert_called_once()
         mock_display.assert_called_once_with(mock_frames)
 

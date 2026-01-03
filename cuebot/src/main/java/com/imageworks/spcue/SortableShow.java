@@ -27,19 +27,25 @@ public class SortableShow implements Comparable<SortableShow> {
 
     private static final Logger logger = LogManager.getLogger(SortableShow.class);
 
-    private String show;
+    private String show_id;
+    private String show_name;
     private float tier;
 
     private Map<String, long[]> failed = new ConcurrentHashMap<String, long[]>();
     private Set<AllocationInterface> failedAllocs = new HashSet<AllocationInterface>();
 
-    public SortableShow(String show, float value) {
-        this.show = show;
+    public SortableShow(String show_id, String show_name, float value) {
+        this.show_id = show_id;
+        this.show_name = show_name;
         this.tier = value;
     }
 
+    public String getShowName() {
+        return show_name;
+    }
+
     public String getShowId() {
-        return show;
+        return show_id;
     }
 
     public float getValue() {
@@ -96,7 +102,7 @@ public class SortableShow implements Comparable<SortableShow> {
 
     @Override
     public int hashCode() {
-        return show.hashCode();
+        return show_id.hashCode();
     };
 
     @Override

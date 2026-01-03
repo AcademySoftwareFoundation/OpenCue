@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 #[cfg(unix)]
 use std::os::fd::IntoRawFd;
 #[cfg(unix)]
@@ -11,6 +23,7 @@ use std::{
     fmt::Display,
     path::Path,
     process::ExitStatus,
+    sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, RwLock},
 };
 use std::{process::Stdio, thread};
@@ -24,12 +37,13 @@ use tokio::io::AsyncReadExt;
 use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
+use crate::system::OOM_REASON_MSG;
 use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
 
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
@@ -58,6 +72,9 @@ pub struct RunningFrame {
     pub entrypoint_file_path: String,
     state: RwLock<FrameState>,
     should_remove_from_cache: RwLock<bool>,
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    stats_frozen: AtomicBool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -176,14 +193,76 @@ impl RunningFrame {
                 launch_thread_handle: None,
             })),
             should_remove_from_cache: RwLock::new(false),
+            stats_frozen: AtomicBool::new(false),
         }
     }
 
+    #[cfg(test)]
+    pub fn init_started_for_test(
+        request: RunFrame,
+        uid: u32,
+        config: RunnerConfig,
+        cpu_list: Option<Vec<u32>>,
+        gpu_list: Option<Vec<u32>>,
+        hostname: String,
+        duration: Duration,
+    ) -> Self {
+        let instance = Self::init(request, uid, config, cpu_list, gpu_list, hostname);
+
+        {
+            let mut state = instance
+                .state
+                .write()
+                .unwrap_or_else(|err| err.into_inner());
+
+            match &mut *state {
+                FrameState::Created(created_state) => {
+                    *state = FrameState::Running(RunningState {
+                        pid: 999, // Dummy pid
+                        start_time: SystemTime::now()
+                            .checked_sub(duration)
+                            .unwrap_or(SystemTime::now()),
+                        launch_thread_handle: created_state.launch_thread_handle.take(),
+                        kill_reason: None,
+                    });
+                }
+                FrameState::Running(running_state) => warn!(
+                    "Invalid State. Frame {} has already started {:?}",
+                    instance, running_state
+                ),
+                FrameState::Finished(_) => {
+                    warn!("Invalid States. Frame {} has already finished", instance)
+                }
+                FrameState::FailedBeforeStart => {
+                    warn!("Invalid States. Frame {} failed before starting", instance)
+                }
+            }
+        } // state is dropped here
+
+        instance
+    }
+
     pub fn update_frame_stats(&self, proc_stats: ProcessStats) {
+        // Don't update stats if they've been frozen (e.g., when frame is being killed for OOM)
+        if self.stats_frozen.load(Ordering::SeqCst) {
+            return;
+        }
+
         self.frame_stats
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .update(proc_stats);
+    }
+
+    pub fn get_duration(&self) -> Duration {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+
+        match *state {
+            FrameState::Created(_) => Duration::ZERO,
+            FrameState::Running(ref r) => r.start_time.elapsed().unwrap_or(Duration::ZERO),
+            FrameState::Finished(ref r) => r.start_time.elapsed().unwrap_or(Duration::ZERO),
+            FrameState::FailedBeforeStart => Duration::ZERO,
+        }
     }
 
     pub fn get_state_copy(&self) -> FrameState {
@@ -250,13 +329,23 @@ impl RunningFrame {
         match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
             FrameState::Running(running_state) => {
+                // Replace exit_signal to memory signal if kill_reason matches the memory check message
+                let modified_exit_signal = match &running_state.kill_reason {
+                    Some(reason) if reason.contains(OOM_REASON_MSG) => {
+                        // 33 is the error signal hardcoded on Cuebot for memory issues
+                        // (See Dispatcher.java:EXIT_STATUS_MEMORY_FAILURE)
+                        Some(33)
+                    }
+                    _ => exit_signal,
+                };
+
                 // Create a new FinishedState with the current running state values
                 let finished_state = FinishedState {
                     pid: running_state.pid,
                     start_time: running_state.start_time,
                     end_time: SystemTime::now(),
                     exit_code,
-                    exit_signal,
+                    exit_signal: modified_exit_signal,
                     kill_reason: running_state.kill_reason.clone(),
                 };
 
@@ -974,6 +1063,8 @@ impl RunningFrame {
 
         // Replace snapshot config with the new config:
         frame.config = config;
+        // Initialize stats_frozen (skipped during deserialization)
+        frame.stats_frozen = AtomicBool::new(false);
 
         let pid = frame.pid();
 
@@ -1191,11 +1282,22 @@ Render Frame Completed
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+
+    /// Freezes the frame statistics to prevent further updates.
+    ///
+    /// This is typically called when a frame is being killed for OOM (out of memory),
+    /// to capture the accurate memory measurement at the moment of kill detection
+    /// and prevent corruption from reading zombie/dying processes.
+    ///
+    /// Once frozen, calls to `update_frame_stats()` will be ignored.
+    pub fn freeze_stats(&self) {
+        self.stats_frozen.store(true, Ordering::SeqCst);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use opencue_proto::rqd::{RunFrame, run_frame::UidOptional};
+    use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
     use std::collections::HashMap;
     use std::sync::Arc;
     use uuid::Uuid;

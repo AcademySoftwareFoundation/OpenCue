@@ -94,6 +94,10 @@ class JobProgressBar(QtWidgets.QWidget):
         self.action_kill.setToolTip("Kill the job")
         self.action_kill.triggered.connect(self._kill)
 
+        self.action_retry_dead = QtWidgets.QAction("Retry Dead Frames", self)
+        self.action_retry_dead.setToolTip("Retry all dead frames in the job")
+        self.action_retry_dead.triggered.connect(self._retry_dead_frames)
+
     def paintEvent(self, _event):
         """
         Draws a bar of frame status colors across the widget.
@@ -148,6 +152,12 @@ class JobProgressBar(QtWidgets.QWidget):
                 action = self.action_unpause if self._job.isPaused() else self.action_pause
                 self._menu.addAction(action)
                 self._menu.addSeparator()
+
+                # Add retry dead frames option if there are dead frames
+                if self._job.deadFrames() > 0:
+                    self._menu.addAction(self.action_retry_dead)
+                    self._menu.addSeparator()
+
                 self._menu.addAction(self.action_kill)
 
         self._menu.exec_(event.globalPos())
@@ -177,6 +187,32 @@ class JobProgressBar(QtWidgets.QWidget):
         )
         if confirm == QtWidgets.QMessageBox.Yes:
             self._job.kill(reason=DEFAULT_JOB_KILL_REASON)
+
+    def _retry_dead_frames(self):
+        """
+        Retry all dead frames in the job.
+        """
+        try:
+            dead_count = self._job.deadFrames()
+            if dead_count > 0:
+                confirm = QtWidgets.QMessageBox.question(
+                    self, "Retry Dead Frames",
+                    f"Are you sure you want to retry {dead_count} dead frame(s)?\n"
+                    f"{self._job.name()}",
+                    QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No
+                )
+                if confirm == QtWidgets.QMessageBox.Yes:
+                    self._job.retryFrames(state=[Opencue.job_pb2.DEAD])
+                    self.update()
+                    QtWidgets.QMessageBox.information(
+                        self, "Retry Successful",
+                        f"Successfully retried {dead_count} dead frame(s)."
+                    )
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self, "Retry Failed",
+                f"Failed to retry dead frames: {str(e)}"
+            )
 
 class XanacueColorIcon(QtGui.QIcon):
     """

@@ -356,7 +356,8 @@ def handleArgs(args):
     if args.lf:
         try:
             job = opencue.api.findJob(args.lf)
-            frames = job.getFrames()
+            search = buildFrameSearch(args)
+            frames = job.getFrames(**search)
             cueadmin.output.displayFrames(frames)
         except Exception as e:
             if (
@@ -566,6 +567,9 @@ def handleArgs(args):
     elif args.stagger:
         name, frame_range, increment = args.stagger
         try:
+            if not increment.isdigit() or int(increment) < 1:
+                logger.error("Error: Increment must be a positive integer.")
+                sys.exit(1)
             job = opencue.api.findJob(name)
             layers = args.layer
             common.confirm(
@@ -590,6 +594,9 @@ def handleArgs(args):
     elif args.reorder:
         name, frame_range, position = args.reorder
         try:
+            if position not in ["FIRST", "LAST", "REVERSE"]:
+                logger.error("Error: Position must be one of FIRST, LAST, or REVERSE.")
+                sys.exit(1)
             job = opencue.api.findJob(name)
             layers = args.layer
             common.confirm(
@@ -649,6 +656,100 @@ def handleArgs(args):
             sys.exit(1)
 
 
+def _validate_range_filter(value_str, filter_name, converter, use_int=False):
+    """Validate and parse a range filter (duration or memory).
+
+    Args:
+        value_str: String value to validate (e.g., "2-5", "3", "gt4")
+        filter_name: Name of the filter for error messages (e.g., "duration", "memory")
+        converter: Conversion function from common.Convert (e.g., hoursToSeconds, gigsToKB)
+        use_int: If True, convert parts to int before passing to handleIntCriterion
+
+    Returns:
+        tuple: (range_string, error_occurred) where range_string is "min-max" format or None
+    """
+    # Check for range format (x-y)
+    if re.search(RE_PATTERN_RANGE, value_str):
+        parts = value_str.split("-")
+
+        # Validate that we have exactly 2 parts (min and max)
+        if len(parts) != 2:
+            logger.error(
+                "Invalid %s format '%s'. Expected format: x-y where x and y "
+                "are non-negative numbers.",
+                filter_name, value_str
+            )
+            return None, True
+
+        try:
+            min_val = float(parts[0])
+            max_val = float(parts[1])
+        except ValueError:
+            logger.error(
+                "Invalid %s format '%s'. Values must be numbers.",
+                filter_name, value_str
+            )
+            return None, True
+
+        # Validate that both values are non-negative
+        if min_val < 0 or max_val < 0:
+            logger.error(
+                "Invalid %s range '%s'. Values cannot be negative.",
+                filter_name, value_str
+            )
+            return None, True
+
+        # Validate that min < max
+        if min_val >= max_val:
+            logger.error(
+                "Invalid %s range '%s'. Minimum value must be less than maximum value.",
+                filter_name, value_str
+            )
+            return None, True
+
+        # Convert values using provided converter
+        if use_int:
+            range_min = common.handleIntCriterion(int(parts[0]), converter)
+            range_max = common.handleIntCriterion(int(parts[1]), converter)
+        else:
+            range_min = common.handleIntCriterion(parts[0], converter)
+            range_max = common.handleIntCriterion(parts[1], converter)
+
+        if not range_min or not range_max:
+            return None, True
+
+        return "%s-%s" % (range_min[-1].value, range_max[-1].value), False
+
+    # Single value format
+    try:
+        val = float(value_str)
+    except ValueError:
+        logger.error(
+            "Invalid %s format '%s'. Value must be a number.",
+            filter_name, value_str
+        )
+        return None, True
+
+    # Validate that value is non-negative
+    if val < 0:
+        logger.error(
+            "Invalid %s '%s'. Value cannot be negative.",
+            filter_name, value_str
+        )
+        return None, True
+
+    # Convert value
+    if use_int:
+        converted = common.handleIntCriterion(int(value_str), converter)
+    else:
+        converted = common.handleIntCriterion(value_str, converter)
+
+    if not converted:
+        return None, True
+
+    return "0-%s" % converted[-1].value, False
+
+
 def _get_proc_filters(args):
     """Get process filters for memory and duration.
 
@@ -658,37 +759,38 @@ def _get_proc_filters(args):
     Returns:
         tuple: (procs_list, duration_range) or (None, None) if error
     """
-    # Handle duration range
-    if re.search(RE_PATTERN_RANGE, str(args.duration)):
-        ls = args.duration.split("-")
-        dur_min = common.handleIntCriterion(ls[0], common.Convert.hoursToSeconds)
-        dur_max = common.handleIntCriterion(ls[-1], common.Convert.hoursToSeconds)
-        if not dur_min or not dur_max:
-            return None, None
-        duration_range = "%s-%s" % (dur_min[-1].value, dur_max[-1].value)
-    else:
-        duration = common.handleIntCriterion(
-            args.duration, common.Convert.hoursToSeconds
-        )
-        if not duration:
-            return None, None
-        duration_range = "0-%s" % duration[-1].value
+    # Validate and handle duration range
+    duration_range, error = _validate_range_filter(
+        str(args.duration), "duration", common.Convert.hoursToSeconds
+    )
+    if error:
+        return None, None
 
     # Handle memory and duration filters
     if args.memory and args.duration:
-        if re.search(RE_PATTERN_RANGE, str(args.memory)):
-            ls = args.memory.split("-")
-            mem_min = common.handleIntCriterion(int(ls[0]), common.Convert.gigsToKB)
-            mem_max = common.handleIntCriterion(int(ls[1]), common.Convert.gigsToKB)
-            if not mem_min or not mem_max:
+        memory_str = str(args.memory)
+
+        if re.search(RE_PATTERN_RANGE, memory_str):
+            memory_range, error = _validate_range_filter(
+                memory_str, "memory", common.Convert.gigsToKB, use_int=True
+            )
+            if error:
                 return None, None
-            memory_range = "%s-%s" % (mem_min[-1].value, mem_max[-1].value)
+
             procs = opencue.api.getProcs(
                 job=[args.lp], memory=memory_range, duration=duration_range
             )
         else:
+            # Check for malformed patterns like "2--5" before processing
+            if memory_str.count("-") > 1:
+                logger.error(
+                    "Invalid memory format '%s'. Use single value or x-y range format.",
+                    memory_str
+                )
+                return None, None
+
             mem = common.handleIntCriterion(args.memory, common.Convert.gigsToKB)
-            if not mem:
+            if not mem or not isinstance(mem, list) or len(mem) == 0:
                 return None, None
             greater_less_than_match = re.search(
                 RE_PATTERN_GREATER_LESS_THAN, str(args.memory)
@@ -724,6 +826,14 @@ def buildFrameSearch(args):
     if args.layer:
         s["layer"] = args.layer
     if args.range:
+        if not re.match(r"^\d+$|^\d+-\d+$", args.range):
+            logger.error("Invalid range format: %s", args.range)
+            sys.exit(1)
+        if "-" in args.range:
+            r = args.range.partition("-")
+            if r[0] > r[2]:
+                logger.error("Invalid range format: %s", args.range)
+                sys.exit(1)
         s["range"] = args.range
     if args.state:
         s["state"] = [common.Convert.strToFrameState(st) for st in args.state]

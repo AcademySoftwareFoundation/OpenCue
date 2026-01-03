@@ -21,8 +21,14 @@ export default async function Page() {
   const session = await getServerSession(authOptions);
   let username = UNKNOWN_USER;
   
-  if (session && session.user && session.user.email) {
-    username = session.user.email.split('@')[0];
+  if (session && session.user) {
+    if (session.user.email) {
+        username = session.user.email.split('@')[0];
+    }
+    else if (session.user.name) {
+        username = session.user.name;
+    }
+
     // Increment Prometheus metric - number of log ins for this user
     try {
       await fetch(`${process.env.NEXTAUTH_URL}/api/increment?username=${username}`);

@@ -17,6 +17,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -408,12 +409,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 }, layer.getLayerId());
     }
 
-    private static final String GET_EXECUTION_SUMMARY = "SELECT "
-            + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail,"
-            + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail,"
-            + "layer_usage.int_clock_time_success," + "layer_mem.int_max_rss " + "FROM " + "layer,"
-            + "layer_usage, " + "layer_mem " + "WHERE " + "layer.pk_layer = layer_usage.pk_layer "
-            + "AND " + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_layer = ?";
+    private static final String GET_EXECUTION_SUMMARY =
+            "SELECT " + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail,"
+                    + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail,"
+                    + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_high,"
+                    + "layer_mem.int_max_rss " + "FROM " + "layer," + "layer_usage, " + "layer_mem "
+                    + "WHERE " + "layer.pk_layer = layer_usage.pk_layer " + "AND "
+                    + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_layer = ?";
 
     @Override
     public ExecutionSummary getExecutionSummary(LayerInterface layer) {
@@ -428,6 +430,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                         e.gpuTimeFail = rs.getLong("int_gpu_time_fail");
                         e.gpuTime = e.gpuTimeSuccess + e.gpuTimeFail;
                         e.highMemoryKb = rs.getLong("int_max_rss");
+                        e.highFrameSec = rs.getInt("int_clock_time_high");
                         return e;
                     }
                 }, layer.getLayerId());
@@ -490,8 +493,15 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateTags(JobInterface job, String tags, LayerType type) {
-        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?", tags,
-                job.getJobId(), type.toString());
+        // Split tags by spaces, commas, and pipes to match layer properties behavior
+        String[] tagArray = tags.split("[\\s,|]+");
+
+        // Filter out empty tags and join with pipe delimiter
+        String formattedTags = String.join(" | ", Arrays.stream(tagArray).map(String::trim)
+                .filter(tag -> !tag.isEmpty()).toArray(String[]::new));
+
+        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?",
+                formattedTags, job.getJobId(), type.toString());
     }
 
     @Override

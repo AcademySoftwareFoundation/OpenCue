@@ -215,4 +215,39 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 show.id);
         assertEquals(frameFail + 1, frameFail2);
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testArchiveShow() {
+        // Create a show to be archived
+        ShowEntity showToArchive = new ShowEntity();
+        showToArchive.name = "show_to_archive";
+        showDao.insertShow(showToArchive);
+
+        // Create a target show
+        ShowEntity targetShow = new ShowEntity();
+        targetShow.name = "target_show";
+        showDao.insertShow(targetShow);
+
+        // Archive the show
+        showDao.archiveShow(showToArchive, targetShow.name);
+
+        // Verify the show was renamed with '_archive' suffix
+        String renamedShowName = jdbcTemplate.queryForObject(
+                "SELECT str_name FROM show WHERE pk_show=?", String.class, showToArchive.id);
+        assertEquals("show_to_archive_archive", renamedShowName);
+
+        // Verify the alias was created in show_alias table
+        Integer aliasCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM show_alias WHERE str_name=? AND pk_show=?", Integer.class,
+                "show_to_archive", targetShow.id);
+        assertEquals(Integer.valueOf(1), aliasCount);
+
+        // Verify that findShowDetail now returns the target show when querying with the original
+        // name
+        ShowEntity aliasedShow = showDao.findShowDetail("show_to_archive");
+        assertEquals(targetShow.id, aliasedShow.id);
+        assertEquals("show_to_archive", aliasedShow.name);
+    }
 }

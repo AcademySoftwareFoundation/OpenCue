@@ -2,7 +2,7 @@
 layout: default
 title: CueWeb Quick Start
 parent: Quick Starts
-nav_order: 6
+nav_order: 9
 ---
 
 # CueWeb Quick Start

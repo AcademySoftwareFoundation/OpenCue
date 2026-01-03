@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -14,17 +26,20 @@ use libc::{_SC_CLK_TCK, _SC_PAGESIZE};
 use chrono::{DateTime, Local};
 use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
-use miette::{Context, IntoDiagnostic, Result, miette};
-use nix::sys::signal::{Signal, kill, killpg};
+use miette::{miette, Context, IntoDiagnostic, Result};
+use nix::sys::signal::{kill, killpg, Signal};
 use opencue_proto::{
     host::HardwareState,
     report::{ChildrenProcStats, ProcStats, Stat},
 };
 use sysinfo::{DiskRefreshKind, Disks, MemoryRefreshKind, RefreshKind};
-use tracing::debug;
+use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
+use crate::{
+    config::{MachineConfig, MemoryMetric},
+    system::reservation::ProcessorStructure,
+};
 
 use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SystemManager};
 
@@ -143,6 +158,8 @@ impl LinuxSystem {
             .try_into()
             .into_diagnostic()
             .wrap_err("SC_CLK_TCK not available")?;
+
+        info!("Memory metric configured: {:?}", config.memory_metric);
 
         Ok(Self {
             config: config.clone(),
@@ -562,6 +579,35 @@ impl LinuxSystem {
         Ok(())
     }
 
+    /// Reads PSS (Proportional Set Size) from /proc/[pid]/smaps_rollup
+    ///
+    /// PSS divides shared memory proportionally among processes using it,
+    /// providing more accurate memory accounting than RSS.
+    ///
+    /// Requires Linux kernel 4.14+. Returns error if unavailable.
+    fn read_pss(&self, pid: u32) -> Result<u64> {
+        let smaps_rollup_path = format!("/proc/{}/smaps_rollup", pid);
+
+        let content = std::fs::read_to_string(&smaps_rollup_path).into_diagnostic()?;
+
+        for line in content.lines() {
+            if line.starts_with("Pss:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(pss_kb) = parts[1].parse::<u64>() {
+                        // PSS is in kB, convert to bytes
+                        return Ok(pss_kb * 1024);
+                    }
+                }
+            }
+        }
+
+        Err(miette!(
+            "Could not parse PSS from /proc/{}/smaps_rollup",
+            pid
+        ))
+    }
+
     /// Reads proc data from stat and statm files:
     ///
     /// # Used fields:
@@ -603,14 +649,30 @@ impl LinuxSystem {
                 fields_statm[0].parse::<u64>(), // size
                 fields_statm[1].parse::<u64>(), // rss
             ) {
-                (Ok(vsize), Ok(rss)) => (vsize, rss),
+                (Ok(vsize), Ok(rss)) => (
+                    vsize.saturating_mul(self.static_info.page_size),
+                    rss.saturating_mul(self.static_info.page_size),
+                ),
                 _ => Err(miette!("Invalid /proc/{pid}/statm file"))?,
+            };
+            let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
+
+            // Read memory based on configured metric
+            let memory = match self.config.memory_metric {
+                MemoryMetric::Pss => {
+                    // Try PSS, fallback to RSS if unavailable
+                    match self.read_pss(pid) {
+                        Ok(pss) => pss,
+                        Err(_) => rss,
+                    }
+                }
+                MemoryMetric::Rss => {
+                    // Original RSS logic
+                    rss
+                }
             };
 
             let (start_time, run_time) = self.calculate_process_time(start_time);
-            // Rss is stored in number of pages
-            let memory = rss.saturating_mul(self.static_info.page_size);
-            let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
 
             // Remove ()
             let name = if name.len() > 2 {
@@ -904,7 +966,7 @@ impl SystemManager for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::MachineConfig;
+    use crate::config::{MachineConfig, MemoryMetric};
     use std::fs;
     use std::{collections::HashMap, sync::Mutex};
 

@@ -1,5 +1,20 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 /// Implement Rqd modules for rqd.proto's interfaces
-use crate::{config::Config, frame::manager::FrameManager};
+use crate::{
+    config::CONFIG,
+    frame::manager::{self},
+};
 
 use opencue_proto::rqd::{
     rqd_interface_server::RqdInterfaceServer, running_frame_server::RunningFrameServer,
@@ -19,6 +34,7 @@ pub mod running_frame_servant;
 pub type Result<T> = core::result::Result<T, tonic::Status>;
 
 /// Determines the IPv4 address to bind to based on the provided interface name.
+#[allow(clippy::result_large_err)]
 fn get_ip_for_interface(rqd_interface: Option<String>) -> Result<Ipv4Addr> {
     match rqd_interface {
         None => Ok(Ipv4Addr::new(0, 0, 0, 0)),
@@ -50,20 +66,19 @@ fn get_ip_for_interface(rqd_interface: Option<String>) -> Result<Ipv4Addr> {
     }
 }
 
-pub async fn serve(
-    config: Config,
-    machine: Arc<MachineImpl>,
-    frame_manager: Arc<FrameManager>,
-) -> Result<()> {
-    let ip_address = get_ip_for_interface(config.grpc.rqd_interface)?;
+pub async fn serve(machine: Arc<MachineImpl>) -> Result<()> {
+    let ip_address = get_ip_for_interface(CONFIG.grpc.rqd_interface.clone())?;
 
-    let address: SocketAddr = SocketAddr::new(IpAddr::V4(ip_address), config.grpc.rqd_port);
+    let address: SocketAddr = SocketAddr::new(IpAddr::V4(ip_address), CONFIG.grpc.rqd_port);
 
-    let running_frame_servant = RunningFrameServant::init(Arc::clone(&frame_manager));
-    let rqd_servant = RqdServant::init(machine, Arc::clone(&frame_manager));
+    let frame_manager = manager::instance()
+        .await
+        .map_err(|err| tonic::Status::internal(err.to_string()))?;
+
+    let rqd_servant = RqdServant::init(machine, frame_manager);
 
     Server::builder()
-        .add_service(RunningFrameServer::new(running_frame_servant))
+        .add_service(RunningFrameServer::new(RunningFrameServant {}))
         .add_service(RqdInterfaceServer::new(rqd_servant))
         .serve(address)
         .await

@@ -1,6 +1,6 @@
 ---
 title: "Installing CueSubmit"
-nav_order: 21
+nav_order: 29
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueSubmit"

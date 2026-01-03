@@ -17,8 +17,10 @@ jobs:
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +42,9 @@ jobs:
           echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuecmd_path=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   build_rust_binaries:
     name: Build Rust Binaries
@@ -52,9 +56,9 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-14
           - target: aarch64-apple-darwin
-            os: macos-13
+            os: macos-14
     runs-on: ${{ matrix.os }}
     outputs:
       rust_binaries_artifact: rust-binaries-${{ github.sha }}
@@ -82,7 +86,7 @@ jobs:
           fi
 
       - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-14'
         run: |
           brew install protobuf
 
@@ -104,7 +108,7 @@ jobs:
           cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
 
       - name: Copy binaries (macOS)
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-14'
         run: |
           cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
 

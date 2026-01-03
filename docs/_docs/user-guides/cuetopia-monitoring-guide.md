@@ -2,7 +2,7 @@
 title: "CueGUI: Cuetopia Monitoring System"
 layout: default
 parent: User Guides
-nav_order: 28
+nav_order: 37
 linkTitle: "Cuetopia Monitoring Guide"
 date: 2025-01-07
 description: >
@@ -23,8 +23,9 @@ This guide provides comprehensive documentation for Cuetopia, which includes the
    - [Job Color Organization](#job-color-organization)
 2. [Monitor Job Details Plugin](#monitor-job-details-plugin)
 3. [Job Graph Plugin](#job-graph-plugin)
-4. [Filters and Search Capabilities](#filters-and-search-capabilities)
-5. [Data Processing and Updates](#data-processing-and-updates)
+4. [CueProgBar - Progress Bar Window](#cueprogbar---progress-bar-window)
+5. [Filters and Search Capabilities](#filters-and-search-capabilities)
+6. [Data Processing and Updates](#data-processing-and-updates)
 
 ---
 
@@ -347,6 +348,132 @@ Right-click on nodes provides:
 
 ---
 
+## CueProgBar - Progress Bar Window
+
+CueProgBar is a lightweight, standalone progress monitoring window that provides a visual representation of job frame status. It offers a minimalist interface for quick job monitoring without the overhead of the full CueGUI application.
+
+### Launching CueProgBar
+
+From CueGUI Job Context Menu:
+   - Right-click on any job in the Monitor Jobs view
+   - Select "Show Progress Bar" from the context menu
+   - A separate progress bar window opens for that job
+
+### Interface Overview
+
+![CueProgBar Window Interface](/assets/images/cuegui/cueprogbar/cueprogbar_window.png)
+
+The CueProgBar window consists of three main components:
+
+1. **Visual Progress Bar**: A horizontal bar showing frame states through color coding
+2. **Status Label**: Displays current progress (e.g., "150 of 200 done, 10 running")
+3. **Job Name Label**: Shows the full job name
+
+### Frame State Color Coding
+
+The progress bar uses distinct colors to represent different frame states:
+
+| State | Color | Description |
+|-------|-------|-------------|
+| **SUCCEEDED** | Green (#37C837) | Frames that completed successfully |
+| **RUNNING** | Yellow (#C8C837) | Frames currently being processed |
+| **WAITING** | Light Blue (#87CFEB) | Frames ready to run when resources are available |
+| **DEPEND** | Purple (#A020F0) | Frames waiting on dependencies |
+| **DEAD** | Red (#FF0000) | Frames that failed and exceeded retry attempts |
+| **EATEN** | Dark Red (#960000) | Frames manually marked as complete |
+
+![CueProgBar Color Legend](/assets/images/cuegui/cueprogbar/cueprogbar_colors.png)
+
+### Interactive Features
+
+#### Left-Click Menu
+
+Clicking the left mouse button on the progress bar displays a breakdown of frame states:
+
+![CueProgBar Frame Status Menu](/assets/images/cuegui/cueprogbar/cueprogbar_left_click.png)
+
+- Shows count for each frame state
+- Color-coded icons match the progress bar colors
+- Only displays states with non-zero counts
+
+#### Right-Click Context Menu
+
+Right-clicking the progress bar reveals job control actions:
+
+![CueProgBar Context Menu](/assets/images/cuegui/cueprogbar/cueprogbar_right_click.png)
+
+Available actions include:
+
+1. **Pause/Unpause Job**:
+   - Toggles job execution state
+   - Paused jobs show "Paused" overlay on the progress bar
+   - Prevents new frames from starting while allowing running frames to complete
+
+2. **Retry Dead Frames** (NEW):
+   - Appears only when dead frames exist
+   - Shows confirmation dialog with dead frame count
+   - Retries all frames in DEAD state
+   - Displays success/failure notification
+
+   ![Retry Dead Frames Confirmation](/assets/images/cuegui/cueprogbar/cueprogbar_retry_confirm.png)
+
+3. **Kill Job**:
+   - Terminates the job and all running frames
+   - Requires confirmation dialog
+   - Logs the action with username and timestamp
+
+### Window Features
+
+#### Auto-Update
+- Refreshes every 5 seconds (configurable)
+- Updates frame counts and progress bar in real-time
+- Stops updating when job completes
+
+#### Window Title
+The window title dynamically updates to show:
+- **Percentage**: "75% job_name" (for running jobs)
+- **DONE**: "DONE job_name" (for completed jobs)
+- **ERR**: "ERR job_name" (when dead frames exist and no frames are running)
+
+#### Visual Indicators
+- **COMPLETE** overlay: Displayed when job finishes successfully
+- **Paused** overlay: Shown when job is paused
+- **Job Not Found** message: Appears if job is deleted or becomes inaccessible
+
+### Use Cases
+
+CueProgBar is ideal for:
+
+1. **Quick Monitoring**: Artists who want to monitor specific jobs without full CueGUI
+2. **Multi-Job Tracking**: Opening multiple progress bars for different jobs simultaneously
+3. **Desktop Integration**: Minimal windows that can be arranged on secondary monitors
+4. **Resource Efficiency**: Lower memory and CPU usage compared to full CueGUI
+
+### Technical Details
+
+#### Memory Usage
+- Minimal memory footprint
+- No layer or frame detail caching
+- Simple RPC calls for job statistics only
+
+#### Update Mechanism
+```python
+# Update cycle (every 5 seconds)
+1. Fetch job statistics via RPC
+2. Calculate frame state totals
+3. Repaint progress bar
+4. Update labels and title
+```
+
+### Best Practices
+
+1. **Multiple Windows**: Open separate progress bars for critical jobs
+2. **Window Arrangement**: Stack vertically for space-efficient monitoring
+3. **Close When Done**: Windows can be safely closed without affecting jobs
+4. **Retry Strategy**: Use "Retry Dead Frames" before marking jobs complete
+
+---
+
 ## Filters and Search Capabilities
 
 ### Job Search Patterns
@@ -500,6 +627,90 @@ CueGUI saves user preferences:
 - Job monitoring list
 
 Settings stored in: `~/.config/opencue/cuegui.ini`
+
+### Job Interaction Permissions
+
+CueGUI includes a permission system that controls which jobs users can modify. This is particularly important in production environments where artists should generally only manage their own jobs, but administrators and show TDs need the ability to retry or modify jobs across all users.
+
+#### Permission Model
+
+By default, users can only perform certain actions (kill, retry dead frames, auto-eating) on jobs they own. To manage jobs owned by other users, you must enable **Job Interaction** mode.
+
+**Default Behavior (Job Interaction Disabled)**:
+- Can only modify jobs you own (matching your username)
+- Actions on other users' jobs will be blocked with a permission error
+- Provides safety against accidentally modifying others' work
+
+**Job Interaction Enabled**:
+- Can modify any job regardless of owner
+- Intended for administrators, Production Services and Resources (PSR) teams, and Developers
+- Should be used with caution
+
+#### Protected Actions
+
+The following actions require ownership or enabled Job Interaction:
+
+- **Kill Jobs**: Terminate jobs and running frames
+- **Retry Dead Frames**: Retry all frames that failed
+- **Auto Eating (Enable/Disable)**: Toggle automatic eating of dead frames
+- **Eat Dead Frames**: Mark dead frames as complete
+- **Layer Operations**: Retry layers, modify layer settings
+- **Frame Operations**: Retry specific frames
+
+**Note**: Pause and Resume operations are NOT protected and can be performed on any job.
+
+#### Enabling/Disabling Job Interaction
+
+To enable or disable Job Interaction:
+
+1. Open the **File** menu in CueGUI (either Cuetopia or CueCommander)
+2. Select either:
+   - **Enable Job Interaction** (if currently disabled)
+   - **Disable Job Interaction** (if currently enabled)
+3. Confirm the restart prompt
+4. CueGUI will close and must be restarted for the change to take effect
+
+- **Enable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_enable_job_interaction.png)
+
+- **Disable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_disable_job_interaction.png)
+
+The setting is persistent across sessions and stored in your user preferences.
+
+#### When to Enable Job Interaction
+
+**Enable Job Interaction when**:
+- You are part of the Pipeline team, Production Services and Resources (PSR) team, system administrator performing daily maintenance
+- Retrying jobs across multiple users is part of your workflow
+- Providing production support for render issues
+- Managing jobs during off-hours or emergencies
+
+**Keep Job Interaction Disabled when**:
+- Working as an artist managing only your own jobs
+- Safety and preventing accidental modifications is a priority
+- You don't regularly need to manage others' jobs
+
+#### Permission Error Messages
+
+If you attempt an action on someone else's job without Job Interaction enabled, you'll see an error message like:
+
+```
+You do not have permissions to retry dead for some of the selected jobs owned by <USERNAME>
+
+Job actions can still be enabled at File > Enable Job Interaction, but caution is advised.
+```
+
+This message confirms the action was blocked and reminds you how to enable permissions if needed.
+
+#### Best Practices
+
+1. **Enable Only When Needed**: Keep Job Interaction disabled during normal artist/end-user work
+2. **Communicate**: Inform job owners when modifying their jobs
+3. **Document Changes**: Note why jobs were killed or retried for tracking
+4. **Verify Ownership**: Double-check job names before performing destructive actions
 
 ### Plugin Integration
 

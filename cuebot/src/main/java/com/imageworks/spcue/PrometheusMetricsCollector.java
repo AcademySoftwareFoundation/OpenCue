@@ -119,6 +119,38 @@ public class PrometheusMetricsCollector {
             .labelNames("env", "cuebot_host", "render_node", "job_name", "frame_name", "frame_id")
             .register();
 
+    private static final Counter frameCompletedCounter = Counter.build()
+            .name("cue_frames_completed_total").help("Total number of frames completed")
+            .labelNames("env", "cuebot_host", "state", "show", "shot").register();
+
+    private static final Counter jobCompletedCounter =
+            Counter.build().name("cue_jobs_completed_total").help("Total number of jobs completed")
+                    .labelNames("env", "cuebot_host", "state", "show", "shot").register();
+
+    private static final Histogram jobCoreSecondsHistogram = Histogram.build()
+            .name("cue_job_core_seconds").help("Histogram of total core seconds per job")
+            .labelNames("env", "cuebot_host", "show", "shot")
+            .buckets(3600, 36000, 360000, 3600000, 36000000).register();
+
+    private static final Histogram layerMaxRuntimeHistogram =
+            Histogram.build().name("cue_layer_max_runtime_seconds")
+                    .help("Histogram of max frame runtime per layer in seconds")
+                    .labelNames("env", "cuebot_host", "show", "shot", "layer_type")
+                    .buckets(60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400).register();
+
+    private static final Histogram layerMaxMemoryHistogram =
+            Histogram.build().name("cue_layer_max_memory_bytes")
+                    .help("Histogram of max frame memory usage per layer in bytes")
+                    .labelNames("env", "cuebot_host", "show", "shot", "layer_type")
+                    .buckets(256L * 1024 * 1024, 512L * 1024 * 1024, 1024L * 1024 * 1024,
+                            2048L * 1024 * 1024, 4096L * 1024 * 1024, 8192L * 1024 * 1024,
+                            16384L * 1024 * 1024, 32768L * 1024 * 1024)
+                    .register();
+
+    private static final Counter hostReportsReceivedCounter = Counter.build()
+            .name("cue_host_reports_received_total").help("Total number of host reports received")
+            .labelNames("env", "cuebot_host", "facility").register();
+
     private String deployment_environment;
     private String cuebot_host;
 
@@ -267,6 +299,82 @@ public class PrometheusMetricsCollector {
             String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
                 jobName, frameName, frameId).inc();
+    }
+
+    /**
+     * Record a frame completion
+     *
+     * @param state final state of the frame
+     * @param show show name
+     * @param shot shot name
+     */
+    public void recordFrameCompleted(String state, String show, String shot) {
+        frameCompletedCounter
+                .labels(this.deployment_environment, this.cuebot_host, state, show, shot).inc();
+    }
+
+    /**
+     * Record a job completion
+     *
+     * @param state final state of the job
+     * @param show show name
+     * @param shot shot name
+     */
+    public void recordJobCompleted(String state, String show, String shot) {
+        jobCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show, shot)
+                .inc();
+    }
+
+    /**
+     * Record job total core seconds for histogramming
+     *
+     * @param coreSeconds total core seconds consumed by the job
+     * @param show show name
+     * @param shot shot name
+     */
+    public void recordJobCoreSeconds(double coreSeconds, String show, String shot) {
+        jobCoreSecondsHistogram.labels(this.deployment_environment, this.cuebot_host, show, shot)
+                .observe(coreSeconds);
+    }
+
+    /**
+     * Record layer max runtime for histogramming
+     *
+     * @param runtimeSeconds max runtime in seconds for the layer
+     * @param show show name
+     * @param shot shot name
+     * @param layerType layer type
+     */
+    public void recordLayerMaxRuntime(double runtimeSeconds, String show, String shot,
+            String layerType) {
+        layerMaxRuntimeHistogram
+                .labels(this.deployment_environment, this.cuebot_host, show, shot, layerType)
+                .observe(runtimeSeconds);
+    }
+
+    /**
+     * Record layer max memory usage for histogramming
+     *
+     * @param memoryBytes max memory in bytes for the layer
+     * @param show show name
+     * @param shot shot name
+     * @param layerType layer type
+     */
+    public void recordLayerMaxMemory(double memoryBytes, String show, String shot,
+            String layerType) {
+        layerMaxMemoryHistogram
+                .labels(this.deployment_environment, this.cuebot_host, show, shot, layerType)
+                .observe(memoryBytes);
+    }
+
+    /**
+     * Record a host report received
+     *
+     * @param facility facility name
+     */
+    public void recordHostReport(String facility) {
+        hostReportsReceivedCounter.labels(this.deployment_environment, this.cuebot_host, facility)
+                .inc();
     }
 
     // Setters used for dependency injection
