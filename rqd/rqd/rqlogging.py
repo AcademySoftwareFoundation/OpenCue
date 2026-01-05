@@ -22,7 +22,6 @@ import time
 import os
 import datetime
 import platform
-from abc import ABC
 
 import rqd.rqconstants
 
@@ -41,8 +40,8 @@ class RqdLogger:
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-        self._strategy = _make_strategy(self)
         self.filepath = filepath
+        self._strategy = _make_strategy(self)
 
         log_dir = os.path.dirname(self.filepath)
         if not os.access(log_dir, os.F_OK):
@@ -179,7 +178,7 @@ class LokiLogger:
         pass
 
 
-class _RqgLoggerStrategy(ABC):
+class _RqdLoggerStrategy(abc.ABC):
     """Abstract base class for RqdLogger strategies for different platforms."""
 
     def __init__(self, rqdLogger: RqdLogger) -> None:
@@ -201,14 +200,14 @@ class _RqgLoggerStrategy(ABC):
         os.rename(self.rqdLogger.filepath, "%s.%s" % (self.rqdLogger.filepath, count))
 
 
-class WindowsRqdLoggerStrategy(_RqgLoggerStrategy):
+class WindowsRqdLoggerStrategy(_RqdLoggerStrategy):
     """Class to handle Windows-specific logging logic."""
 
     ROTATION_MAX_RETRIES = 3
 
-    def rotateLogFile(self):
+    def rotateLogFile(self) -> None:
         """Rotate log file with Windows-specific handling for file locks"""
-        # On Windows, try multiple times with delays for UNC paths
+        # On Windows, retry rotation to handle temporary file locks (WinError 32)
         for attempt in range(self.ROTATION_MAX_RETRIES):
             try:
                 self._rotateLogFile()
@@ -228,7 +227,7 @@ class WindowsRqdLoggerStrategy(_RqgLoggerStrategy):
                 return
 
 
-class LinuxRqdLoggerStrategy(_RqgLoggerStrategy):
+class LinuxRqdLoggerStrategy(_RqdLoggerStrategy):
     """Class to handle Linux-specific logging logic"""
 
     def rotateLogFile(self) -> None:
@@ -238,13 +237,12 @@ class LinuxRqdLoggerStrategy(_RqgLoggerStrategy):
         """
         try:
             self._rotateLogFile()
-        # pylint: disable=broad-except
-        except Exception as e:
+        except OSError as e:
             err = "Unable to rotate previous log file due to %s" % e
             raise RuntimeError(err)
 
 
-def _make_strategy(rqdLogger: RqdLogger) -> _RqgLoggerStrategy:
+def _make_strategy(rqdLogger: RqdLogger) -> _RqdLoggerStrategy:
     """Factory method to get the appropriate strategy based on platform."""
     if platform.system() == "Windows":
         return WindowsRqdLoggerStrategy(rqdLogger)
