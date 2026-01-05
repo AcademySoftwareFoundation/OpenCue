@@ -423,17 +423,24 @@ class RqCore(object):
 
         # See if all requested cores are available
         with self.__threadLock:
-            # pylint: disable=no-member
-            if self.cores.idle_cores < runFrame.num_cores:
-                err = "Not launching, insufficient idle cores"
-                log.critical(err)
-                raise rqd.rqexceptions.CoreReservationFailureException(err)
-            # pylint: enable=no-member
-
+            # For hyperthreading workloads, check HT core availability first
+            # as it uses a different counting mechanism than idle_cores
             if runFrame.environment.get('CUE_THREADABLE') == '1':
+                if not self.machine.canReserveHT(runFrame.num_cores):
+                    err = "Not launching, insufficient hyperthreading cores available"
+                    log.critical(err)
+                    raise rqd.rqexceptions.CoreReservationFailureException(err)
                 reserveHT = self.machine.reserveHT(runFrame.num_cores)
                 if reserveHT:
                     runFrame.attributes['CPU_LIST'] = reserveHT
+            else:
+                # Only check idle cores for non-hyperthreading workloads
+                # pylint: disable=no-member
+                if self.cores.idle_cores < runFrame.num_cores:
+                    err = "Not launching, insufficient idle cores"
+                    log.critical(err)
+                    raise rqd.rqexceptions.CoreReservationFailureException(err)
+                # pylint: enable=no-member
 
             if runFrame.num_gpus:
                 reserveGpus = self.machine.reserveGpus(runFrame.num_gpus)
@@ -1519,6 +1526,11 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             # Ensure logdir is owned by this job user. If it doesn't exist it will get
             # created under the correct user when RqdLogger is initialized
             if os.path.isdir(self.runFrame.log_dir):
+                # Skip chown on Windows as it's not supported for UNC paths and file ownership
+                # works differently on Windows
+                if platform.system() == 'Windows':
+                    log.debug("Skipping chown on Windows for log_dir: %s", self.runFrame.log_dir)
+                    return
                 try:
                     rqd.rqutil.permissionsHigh()
                     os.chown(self.runFrame.log_dir, self.runFrame.uid, self.runFrame.gid)
