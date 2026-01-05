@@ -30,6 +30,7 @@ from qtpy import QtWidgets
 import grpc
 
 import FileSequence
+from opencue.cuebot import Cuebot
 from opencue_proto import job_pb2
 
 import cuegui.FrameMonitorTree
@@ -165,6 +166,9 @@ class FrameMonitor(QtWidgets.QWidget):
                                                          grpc.StatusCode.UNAVAILABLE]:
                     log.warning(
                         "gRPC connection interrupted while updating frame range filter, will retry")
+                    # Record failed call and potentially reset the channel
+                    if Cuebot.recordFailedCall():
+                        log.info("Channel was reset due to connection issues")
                 else:
                     log.error("gRPC error in _frameRangeSelectionFilterUpdate: %s", e)
                 # pylint: enable=no-member
@@ -377,6 +381,9 @@ class FrameMonitor(QtWidgets.QWidget):
                                                          grpc.StatusCode.UNAVAILABLE]:
                     log.warning(
                         "gRPC connection interrupted while updating layer filter, will retry")
+                    # Record failed call and potentially reset the channel
+                    if Cuebot.recordFailedCall():
+                        log.info("Channel was reset due to connection issues")
                 else:
                     log.error("gRPC error in _filterLayersUpdate: %s", e)
                 # pylint: enable=no-member

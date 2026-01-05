@@ -36,6 +36,7 @@ from qtpy import QtWidgets
 import grpc
 
 import opencue
+from opencue.cuebot import Cuebot
 from opencue_proto import job_pb2
 
 import cuegui.AbstractTreeWidget
@@ -483,7 +484,10 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if self.__job:
                 self.__lastUpdateTime = int(time.time())
-                return self.__job.getFrames(**self.frameSearch.options)
+                result = self.__job.getFrames(**self.frameSearch.options)
+                # Record successful call for connection health tracking
+                Cuebot.recordSuccessfulCall()
+                return result
             return []
         except grpc.RpcError as e:
             # Handle gRPC errors - log but don't crash, allow UI to retry
@@ -491,6 +495,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
                                                      grpc.StatusCode.UNAVAILABLE]:
                 logger.warning("gRPC connection interrupted during frame update, will retry")
+                # Record failed call and potentially reset the channel
+                if Cuebot.recordFailedCall():
+                    logger.info("Channel reset due to connection issues, retrying")
             else:
                 logger.error("gRPC error in _getUpdate: %s", e)
             # pylint: enable=no-member
@@ -515,6 +522,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__lastUpdateTime = updated_data.server_time
             self.__jobState = updated_data.state
             updatedFrames = updated_data.updated_frames.updated_frames
+            # Record successful call for connection health tracking
+            Cuebot.recordSuccessfulCall()
 
         except grpc.RpcError as e:
             # Handle gRPC errors - allow UI to continue and retry
@@ -522,6 +531,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if hasattr(e, 'code'):
                 if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
                     logger.warning("gRPC connection interrupted during frame update, will retry")
+                    # Record failed call and potentially reset the channel
+                    if Cuebot.recordFailedCall():
+                        logger.info("Channel reset due to connection issues, retrying")
                     # Return None to trigger a full update on next cycle
                     return None
                 if e.code() == grpc.StatusCode.NOT_FOUND:

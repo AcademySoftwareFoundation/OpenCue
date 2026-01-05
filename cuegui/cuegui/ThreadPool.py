@@ -52,6 +52,7 @@ import os
 from qtpy import QtCore
 import grpc
 
+from opencue.cuebot import Cuebot
 import cuegui.Logger
 
 
@@ -220,7 +221,12 @@ class ThreadPool(QtCore.QObject):
                     if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
                                                              grpc.StatusCode.UNAVAILABLE]:
                         logger.warning("gRPC connection issue for '%s': %s - "
-                                     "UI will retry on next update", work[2], e.details())
+                                     "UI will retry on next update", work[2],
+                                     e.details() if hasattr(e, 'details') else str(e))
+                        # Record failed call and potentially reset the channel
+                        if Cuebot.recordFailedCall():
+                            logger.info("Channel was reset due to connection issues, "
+                                      "subsequent operations should recover")
                     else:
                         logger.error("gRPC error processing work for '%s': %s", work[2], e)
                     # pylint: enable=no-member

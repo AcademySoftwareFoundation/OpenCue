@@ -73,6 +73,14 @@ logger = logging.getLogger("opencue")
 DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
 
+# gRPC keepalive settings to prevent "Connection reset by peer" errors
+# These settings help maintain long-lived connections through load balancers and firewalls
+DEFAULT_KEEPALIVE_TIME_MS = 30000  # Send keepalive ping every 30 seconds
+DEFAULT_KEEPALIVE_TIMEOUT_MS = 10000  # Wait 10 seconds for keepalive response
+DEFAULT_KEEPALIVE_PERMIT_WITHOUT_CALLS = True  # Send keepalive even when no active RPCs
+DEFAULT_MAX_CONNECTION_IDLE_MS = 0  # Disable max idle time (keep connection open)
+DEFAULT_MAX_CONNECTION_AGE_MS = 0  # Disable max connection age
+
 if platform.system() != 'Darwin':
     # Avoid spamming users with epoll fork warning messages
     os.environ["GRPC_POLL_STRATEGY"] = "epoll1"
@@ -91,6 +99,12 @@ class Cuebot(object):
     Stubs = {}
     Config = opencue.config.load_config_from_file()
     Timeout = Config.get('cuebot.timeout', 10000)
+
+    # Connection health tracking
+    _lastSuccessfulCall = 0
+    _consecutiveFailures = 0
+    _maxConsecutiveFailures = 3  # Reset channel after this many failures
+    _channelResetInProgress = False
 
     PROTO_MAP = {
         'action': filter_pb2,
@@ -199,10 +213,32 @@ class Cuebot(object):
             # pylint: enable=logging-not-lazy
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
+                # Configure keepalive settings to prevent "Connection reset by peer" errors
+                # These are essential for long-lived connections through load balancers
+                keepalive_time_ms = Cuebot.Config.get(
+                    'cuebot.keepalive_time_ms', DEFAULT_KEEPALIVE_TIME_MS)
+                keepalive_timeout_ms = Cuebot.Config.get(
+                    'cuebot.keepalive_timeout_ms', DEFAULT_KEEPALIVE_TIMEOUT_MS)
+                keepalive_permit_without_calls = Cuebot.Config.get(
+                    'cuebot.keepalive_permit_without_calls', DEFAULT_KEEPALIVE_PERMIT_WITHOUT_CALLS)
+
+                channel_options = [
+                    ('grpc.max_send_message_length', maxMessageBytes),
+                    ('grpc.max_receive_message_length', maxMessageBytes),
+                    # Keepalive settings to maintain connection health
+                    ('grpc.keepalive_time_ms', keepalive_time_ms),
+                    ('grpc.keepalive_timeout_ms', keepalive_timeout_ms),
+                    ('grpc.keepalive_permit_without_calls', keepalive_permit_without_calls),
+                    # Allow client to send keepalive pings even without data
+                    ('grpc.http2.max_pings_without_data', 0),
+                    # Minimum time between pings (allows more frequent pings)
+                    ('grpc.http2.min_time_between_pings_ms', 10000),
+                    # Don't limit ping strikes (server may reject too many pings)
+                    ('grpc.http2.min_ping_interval_without_data_ms', 5000),
+                ]
+
                 Cuebot.RpcChannel = grpc.intercept_channel(
-                    grpc.insecure_channel(connectStr, options=[
-                        ('grpc.max_send_message_length', maxMessageBytes),
-                        ('grpc.max_receive_message_length', maxMessageBytes)]),
+                    grpc.insecure_channel(connectStr, options=channel_options),
                     *interceptors)
                 # Test the connection
                 Cuebot.getStub('cue').GetSystemStats(
@@ -301,6 +337,62 @@ class Cuebot(object):
     def getConfig():
         """Gets the Cuebot config object, originally read in from the config file on disk."""
         return Cuebot.Config
+
+    @staticmethod
+    def recordSuccessfulCall():
+        """Record a successful gRPC call to track connection health."""
+        Cuebot._lastSuccessfulCall = time.time()
+        Cuebot._consecutiveFailures = 0
+
+    @staticmethod
+    def recordFailedCall():
+        """Record a failed gRPC call and trigger channel reset if needed.
+
+        Returns True if the channel was reset and the caller should retry."""
+        Cuebot._consecutiveFailures += 1
+
+        if Cuebot._consecutiveFailures >= Cuebot._maxConsecutiveFailures:
+            if not Cuebot._channelResetInProgress:
+                Cuebot._channelResetInProgress = True
+                try:
+                    logger.warning(
+                        "Connection appears unhealthy after %d consecutive failures, "
+                        "resetting gRPC channel...", Cuebot._consecutiveFailures)
+                    Cuebot.resetChannel()
+                    Cuebot._consecutiveFailures = 0
+                    return True
+                except Exception as e:
+                    logger.error("Failed to reset gRPC channel: %s", e)
+                finally:
+                    Cuebot._channelResetInProgress = False
+        return False
+
+    @staticmethod
+    def checkChannelHealth():
+        """Check if the gRPC channel is healthy by making a simple call.
+
+        Returns True if healthy, False otherwise."""
+        if Cuebot.RpcChannel is None:
+            return False
+
+        try:
+            Cuebot.getStub('cue').GetSystemStats(
+                cue_pb2.CueGetSystemStatsRequest(), timeout=5000)
+            Cuebot.recordSuccessfulCall()
+            return True
+        except grpc.RpcError as e:
+            # pylint: disable=no-member
+            if hasattr(e, 'code') and e.code() == grpc.StatusCode.UNAVAILABLE:
+                details = e.details() if hasattr(e, 'details') else str(e)
+                logger.warning("Channel health check failed: %s", details)
+                Cuebot.recordFailedCall()
+                return False
+            # pylint: enable=no-member
+            # Other errors might be OK (e.g., permission issues)
+            return True
+        except Exception as e:
+            logger.warning("Channel health check failed with unexpected error: %s", e)
+            return False
 
 
 # Python 2/3 compatible implementation of ABC
