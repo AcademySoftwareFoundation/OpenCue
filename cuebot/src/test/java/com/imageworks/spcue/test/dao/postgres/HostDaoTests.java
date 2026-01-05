@@ -574,4 +574,28 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
         assertEquals("unassigned rqdv-2 windows beta manual_tag1 manual_tag2", updatedTags);
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateHostTagsRemovesManualDuplicates() {
+        // Create initial host with a manual tag that will become a hardware tag
+        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
+        hostDao.tagHost(host, "foo", HostTagType.MANUAL);
+        hostDao.recalcuateTags(host.id);
+
+        String initialTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned 64bit linux beta foo", initialTags);
+
+        // Update hardware tags to include "foo"
+        RenderHost updatedRHost = buildRenderHost(TEST_HOST).toBuilder().clearTags().addTags("foo")
+                .addTags("linux").build();
+        hostManager.updateHostTags(host, updatedRHost);
+
+        // Ensure "foo" appears only once and as a hardware tag
+        String updatedTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned foo linux beta", updatedTags);
+    }
 }

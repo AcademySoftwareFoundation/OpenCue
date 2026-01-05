@@ -412,11 +412,14 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateHostTags(DispatchHost host, RenderHost rhost) {
         // Remove existing hardware tags and re-add current tags from report
-        // This ensures platform/version tags are always up-to-date with what RQD is reporting
         hostDao.removeTagsByType(host, HostTagType.HARDWARE);
 
         if (rhost.getTagsCount() > 0) {
             for (String tag : rhost.getTagsList()) {
+                // Remove tag by name, regardless of type.
+                // It avoids duplicates if the host was first registered with
+                // an older version of Cuebot where those tags were of MANUAL type.
+                hostDao.removeTag(host, tag);
                 hostDao.tagHost(host, tag, HostTagType.HARDWARE);
             }
         }
