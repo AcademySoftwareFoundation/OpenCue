@@ -290,6 +290,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             + "host_stat.int_load, " + "proc.pk_proc, " + "proc.int_cores_reserved AS proc_cores, "
             + "proc.int_gpus_reserved AS proc_gpus, " + "proc.int_mem_reserved AS proc_memory, "
             + "proc.int_mem_used AS used_memory, " + "proc.int_mem_max_used AS max_memory, "
+            + "proc.int_pss_used AS used_pss, " + "proc.int_pss_max_used AS max_pss, "
             + "proc.int_gpu_mem_reserved AS proc_gpu_memory, " + "proc.ts_ping, "
             + "proc.ts_booked, " + "proc.ts_dispatched, " + "proc.b_unbooked, "
             + "redirect.str_name AS str_redirect, " + "job.str_name AS job_name, "
@@ -390,6 +391,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                                     .setReservedMemory(rs.getLong("proc_memory"))
                                     .setReservedGpuMemory(rs.getLong("proc_gpu_memory"))
                                     .setUsedMemory(rs.getLong("used_memory"))
+                                    .setUsedPss(rs.getLong("used_pss"))
+                                    .setMaxPss(rs.getLong("max_pss"))
                                     .setFrameName(rs.getString("frame_name"))
                                     .setJobName(rs.getString("job_name"))
                                     .setShowName(rs.getString("show_name"))

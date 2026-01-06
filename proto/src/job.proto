@@ -520,6 +520,8 @@ message Frame {
     int64 max_gpu_memory = 21;
     int64 used_gpu_memory = 22;
     FrameStateDisplayOverride frame_state_display_override = 23;
+    int64 max_pss = 24;
+    int64 used_pss = 25;
 }
 
 // Object for frame searching
