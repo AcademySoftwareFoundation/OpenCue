@@ -41,3 +41,6 @@ target/*
 # Agent files
 AGENTS.md
 CLAUDE.md
+
+# Documentation navigation temporary file
+docs/nav_order_index.txt

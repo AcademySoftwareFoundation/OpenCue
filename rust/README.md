@@ -3,6 +3,7 @@
 Opencue [Rust](https://www.rust-lang.org/) modules:
 
 Project crates:
+ * scheduler: Standalone scheduler service that replaces scheduling logic from Cuebot
  * rqd: rewrite of [OpenCue/rqd](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rqd)
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
@@ -74,3 +75,35 @@ target/release/dummy-cuebot rqd-client launch-frame /PATH-TO-OPENCUE/Opencue/rus
 - You should see output indicating that the frame has been launched and is being processed by the RQD service.
 - You can monitor the logs in the terminal where you started the RQD service to see the progress and status of the frame execution.
 - You can follow the logs for jobs created by dummy-cuebot on `/tmp/rqd/test_job.test_frame.rqlog`
+
+## Running the Scheduler
+
+The scheduler is a standalone service that handles job scheduling and frame dispatch. 
+
+1. Run the scheduler with a configuration file:
+
+```bash
+env OPENCUE_SCHEDULER_CONFIG=/PATH-TO-OPENCUE/OpenCue/rust/config/scheduler.yaml target/release/cue-scheduler
+```
+
+Or specify scheduling parameters via command-line arguments:
+
+```bash
+target/release/cue-scheduler --facility <facility> --alloc_tags=<show:tag> --manual_tags=<tag>
+```
+
+**Notes:**
+- Configuration is loaded from `config/scheduler.yaml` or the path specified by `OPENCUE_SCHEDULER_CONFIG`
+- Command-line arguments override configuration file values
+- The scheduler can be run in dry-run mode for testing (set `rqd.dry_run_mode: true` in config)
+
+2. Run the scheduler using Docker:
+
+```bash
+docker build -f Dockerfile.scheduler -t opencue/scheduler .
+docker run -v /path/to/config:/etc/cue-scheduler opencue/scheduler
+```
+
+**Notes:**
+- Mount your configuration file to `/etc/cue-scheduler/scheduler.yaml` in the container
+- See `Dockerfile.scheduler` for the container build configuration

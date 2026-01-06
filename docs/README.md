@@ -4,13 +4,31 @@ This directory contains the official documentation for OpenCue, built with Jekyl
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker Setup (Recommended)
+
+Build and serve documentation using Docker without installing Ruby locally:
+
+```bash
+cd docs/
+
+# Build documentation
+./docker-build.sh build
+
+# Or serve with live reload
+./docker-build.sh serve
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker setup documentation.
+
+### Option 2: Local Setup
+
+#### Prerequisites
 
 - **Ruby 3.0+** and Bundler
 - **Git** for version control
 - **Text editor** (VS Code, Sublime, etc.)
 
-### Development Setup
+#### Development Setup
 
 1. **Clone and navigate to docs:**
    ```bash
@@ -57,6 +75,12 @@ docs/
 │   └── css/                 # Generated CSS files
 ├── _plugins/                # Jekyll plugins for search and functionality
 ├── build.sh                 # Automated build testing script
+├── docker-build.sh          # Docker build helper script
+├── Dockerfile               # Docker image for building docs
+├── docker-compose.yml       # Docker Compose configuration
+├── .dockerignore            # Docker build exclusions
+├── Makefile                 # Make-based Docker build commands
+├── DOCKER.md                # Docker setup documentation
 ├── extract_nav_orders.py    # Extract nav_order values from markdown files
 ├── update_nav_order.py      # Update nav_order values in markdown files
 ├── nav_order_index.txt      # Generated index of nav_order values
@@ -146,8 +170,8 @@ nav_order|file_path
 
 Example:
 ```
-1|/Users/rfigueiredo/github/OpenCue/docs/_docs/index.md
-2|/Users/rfigueiredo/github/OpenCue/docs/_docs/quick-starts/index.md
+1|./docs/_docs/index.md
+2|./docs/_docs/quick-starts/index.md
 ```
 
 #### `extract_nav_orders.py`
@@ -155,7 +179,7 @@ Script to extract `nav_order` values from all markdown files in the `_docs` dire
 
 **Usage:**
 ```bash
-cd /Users/rfigueiredo/github/OpenCue/docs
+cd ./docs
 python3 extract_nav_orders.py
 ```
 
@@ -169,7 +193,7 @@ Script to update `nav_order` values in markdown files based on the values in `na
 
 **Usage:**
 ```bash
-cd /Users/rfigueiredo/github/OpenCue/docs
+cd ./docs
 
 # Dry run - see what would change without modifying files
 python3 update_nav_order.py --dry-run
