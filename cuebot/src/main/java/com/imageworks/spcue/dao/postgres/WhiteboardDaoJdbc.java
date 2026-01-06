@@ -1310,8 +1310,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
                     .setLayerName(SqlUtil.getString(rs, "layer_name"))
                     .setUsedMemory(rs.getLong("int_mem_used"))
+                    .setUsedPss(rs.getLong("int_pss_used"))
                     .setReservedMemory(rs.getLong("int_mem_reserved"))
                     .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
+                    .setMaxPss(rs.getLong("int_pss_max_used"))
                     .setCheckpointState(
                             CheckpointState.valueOf(SqlUtil.getString(rs, "str_checkpoint_state")))
                     .setCheckpointCount(rs.getInt("int_checkpoint_count"));
@@ -1455,7 +1457,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "frame.int_dispatch_order," + "frame.ts_started," + "frame.ts_stopped,"
             + "frame.ts_llu," + "frame.int_retries," + "frame.str_state," + "frame.str_host,"
             + "frame.int_cores," + "frame.int_gpus," + "frame.int_mem_max_used,"
-            + "frame.int_mem_used, " + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
+            + "frame.int_mem_used, " + "frame.int_pss_max_used," + "frame.int_pss_used, "
+            + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
             + "frame.str_checkpoint_state," + "frame.int_checkpoint_count,"
             + "frame.int_total_past_core_time," + "frame.int_total_past_gpu_time,"
             + "layer.str_name AS layer_name," + "job.str_name AS job_name,"
@@ -1747,8 +1750,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     + "frame.int_number," + "frame.int_dispatch_order," + "frame.ts_started,"
                     + "frame.ts_stopped," + "frame.ts_llu," + "frame.int_retries,"
                     + "frame.str_state," + "frame.str_host," + "frame.int_cores,"
-                    + "frame.int_mem_max_used," + "frame.int_mem_used, "
-                    + "frame.int_mem_reserved, " + "frame.int_gpus,"
+                    + "frame.int_mem_max_used," + "frame.int_mem_used, " + "frame.int_pss_max_used,"
+                    + "frame.int_pss_used, " + "frame.int_mem_reserved, " + "frame.int_gpus,"
                     + "frame.int_gpu_mem_max_used, " + "frame.int_gpu_mem_used, "
                     + "frame.int_gpu_mem_reserved, " + "frame.str_checkpoint_state,"
                     + "frame.int_checkpoint_count," + "frame.int_total_past_core_time,"

@@ -155,6 +155,7 @@ public class MonitoringEventBuilder {
                 .setStartTime((int) report.getFrame().getStartTime())
                 .setStopTime((int) (System.currentTimeMillis() / 1000))
                 .setMaxRss(report.getFrame().getMaxRss()).setUsedMemory(report.getFrame().getRss())
+                .setMaxPss(report.getFrame().getMaxPss()).setUsedPss(report.getFrame().getPss())
                 .setReservedMemory(proc.memoryReserved).setReservedGpuMemory(proc.gpuMemoryReserved)
                 .setLluTime((int) report.getFrame().getLluTime())
                 .setMaxGpuMemory(report.getFrame().getMaxUsedGpuMemory())
@@ -231,6 +232,9 @@ public class MonitoringEventBuilder {
         }
         if (frame.maxRss > 0) {
             frameBuilder.setMaxRss(frame.maxRss);
+        }
+        if (frame.maxPss > 0) {
+            frameBuilder.setMaxPss(frame.maxPss);
         }
         if (frame.lastResource != null) {
             frameBuilder.setLastResource(frame.lastResource);

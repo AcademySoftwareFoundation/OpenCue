@@ -293,6 +293,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             frame.layerId = rs.getString("pk_layer");
             frame.showId = rs.getString("pk_show");
             frame.maxRss = rs.getLong("int_mem_max_used");
+            frame.maxPss = rs.getLong("int_pss_max_used");
             frame.name = rs.getString("str_name");
             frame.number = rs.getInt("int_number");
             frame.dispatchOrder = rs.getInt("int_dispatch_order");
