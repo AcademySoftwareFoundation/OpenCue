@@ -126,6 +126,8 @@ message RunFrame {
     int64 hard_memory_limit = 27;
     int32 pid = 28;
     string loki_url = 29;
+    // Number of slots required per frame (<= 0 means not slot-based)
+    int32 slots_required = 30;
 }
 
 message RunFrameSeq {

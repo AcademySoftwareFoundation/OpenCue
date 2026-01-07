@@ -967,6 +967,7 @@ impl RqdDispatcherService {
             log_file: "deprecated".to_string(),
             #[allow(deprecated)]
             log_dir_file: "deprecated".to_string(),
+            slots_required: 0,
         };
 
         Ok(run_frame)

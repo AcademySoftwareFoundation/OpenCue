@@ -717,7 +717,7 @@ message Layer {
     float min_gpus = 20;
     float max_gpus = 21;
     string command = 22;
-    // Number of slots required per frame (<0 means not slot-based)
+    // Number of slots required per frame (<= 0 means not slot-based)
     int32 slots_required = 23;
 }
 

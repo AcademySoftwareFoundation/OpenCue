@@ -392,7 +392,7 @@ public class DispatchSupportService implements DispatchSupport {
                 .setNumCores(proc.coresReserved).setNumGpus(proc.gpusReserved)
                 .setStartTime(System.currentTimeMillis()).setIgnoreNimby(proc.isLocalDispatch)
                 .setOs(proc.os).setSoftMemoryLimit(frame.softMemoryLimit).setLokiUrl(frame.lokiURL)
-                .setHardMemoryLimit(frame.hardMemoryLimit)
+                .setHardMemoryLimit(frame.hardMemoryLimit).setSlotsRequired(proc.slotsRequired)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame)).putEnvironment("CUE3", "1")
                 .putEnvironment("CUE_THREADS", String.valueOf(threads))
