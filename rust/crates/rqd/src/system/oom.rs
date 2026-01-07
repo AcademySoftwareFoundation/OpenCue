@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::{cmp, sync::Arc, time::Duration};
 
 use itertools::Itertools;
@@ -175,7 +187,7 @@ fn calc_memory_aggression_score(
 mod tests {
     use super::*;
     use crate::config::Config;
-    use opencue_proto::rqd::{RunFrame, run_frame::UidOptional};
+    use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
     use std::collections::HashMap;
 
     // Helper function to create a test frame with specific memory parameters
@@ -483,9 +495,9 @@ mod tests {
 
         let total_memory = 50_000u64; // 50GB
         let memory_usage = 97u32; // 97% = 48.5GB
-        // Target: 91% = 45.5GB (96 - 5)
-        // Need to free: ~3GB
-        // Should kill 1 frame (7GB > 3GB needed)
+                                  // Target: 91% = 45.5GB (96 - 5)
+                                  // Need to free: ~3GB
+                                  // Should kill 1 frame (7GB > 3GB needed)
 
         let result = choose_frames_to_kill(memory_usage, total_memory, frames);
 
@@ -506,9 +518,9 @@ mod tests {
 
         let total_memory = 100_000u64; // 100GB
         let memory_usage = 97u32; // 97%
-        // Default threshold is 96%, so target is 91% (96-5)
-        // Current: 97GB, Target: 91GB, Need to free: 6GB
-        // Frame consumes 10GB, so should be killed
+                                  // Default threshold is 96%, so target is 91% (96-5)
+                                  // Current: 97GB, Target: 91GB, Need to free: 6GB
+                                  // Frame consumes 10GB, so should be killed
 
         let result = choose_frames_to_kill(memory_usage, total_memory, frames);
 

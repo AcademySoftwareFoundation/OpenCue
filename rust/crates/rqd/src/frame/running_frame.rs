@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 #[cfg(unix)]
 use std::os::fd::IntoRawFd;
 #[cfg(unix)]
@@ -31,7 +43,7 @@ use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
 
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
@@ -1285,7 +1297,7 @@ Render Frame Completed
 
 #[cfg(test)]
 mod tests {
-    use opencue_proto::rqd::{RunFrame, run_frame::UidOptional};
+    use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
     use std::collections::HashMap;
     use std::sync::Arc;
     use uuid::Uuid;
