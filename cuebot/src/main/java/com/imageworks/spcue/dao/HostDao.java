@@ -252,6 +252,14 @@ public interface HostDao {
     void updateConcurrentSlotsLimit(HostInterface host, int limit);
 
     /**
+     * Get the host's concurrent slots limit by hostname.
+     *
+     * @param hostname String
+     * @return int the concurrent slots limit
+     */
+    int getHostConcurrentSlotsLimit(String hostname);
+
+    /**
      * Update the specified host's hardware information.
      *
      * @param host HostInterface

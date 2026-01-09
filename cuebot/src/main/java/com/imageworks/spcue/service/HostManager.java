@@ -75,6 +75,14 @@ public interface HostManager {
      */
     void setConcurrentSlotsLimit(HostInterface host, int limit);
 
+    /**
+     * Gets the concurrent slots limit of a host by hostname.
+     *
+     * @param hostname String
+     * @return int the concurrent slots limit
+     */
+    int getHostConcurrentSlotsLimit(String hostname);
+
     DispatchHost createHost(HostReport report);
 
     DispatchHost createHost(RenderHost host);

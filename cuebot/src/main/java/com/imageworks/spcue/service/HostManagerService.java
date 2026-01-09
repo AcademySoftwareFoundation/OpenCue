@@ -99,6 +99,12 @@ public class HostManagerService implements HostManager {
         hostDao.updateConcurrentSlotsLimit(host, limit);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public int getHostConcurrentSlotsLimit(String hostname) {
+        return hostDao.getHostConcurrentSlotsLimit(hostname);
+    }
+
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);

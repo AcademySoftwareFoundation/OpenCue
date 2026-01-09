@@ -23,6 +23,9 @@ service RqdReportInterface {
 
     // An incremental status report sent by RQD
     rpc ReportStatus(RqdReportStatusRequest) returns (RqdReportStatusResponse);
+
+    // Get the host's slot limit
+    rpc GetHostSlotsLimit(RqdReportGetHostSlotsLimitRequest) returns (RqdReportGetHostSlotsLimitResponse);
 }
 
 
@@ -180,3 +183,12 @@ message RqdReportStatusRequest {
     HostReport host_report = 1;
 }
 message RqdReportStatusResponse {} // Empty
+
+// GetHostSlotsLimit
+message RqdReportGetHostSlotsLimitRequest {
+    string name = 1;
+}
+
+message RqdReportGetHostSlotsLimitResponse {
+    int64 slots_limit = 1;
+}

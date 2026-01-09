@@ -183,6 +183,7 @@ pub trait ReportInterface {
         run_time: u32,
     ) -> Result<()>;
     async fn send_host_report(&self, host_report: pb::HostReport) -> Result<()>;
+    async fn get_host_slots_limit(&self, name: String) -> Result<Option<u32>>;
 }
 
 #[async_trait]
@@ -241,5 +242,24 @@ impl ReportInterface for ReportClient {
             .await
             .into_diagnostic()
             .and(Ok(()))
+    }
+
+    async fn get_host_slots_limit(&self, name: String) -> Result<Option<u32>> {
+        let request = pb::RqdReportGetHostSlotsLimitRequest { name };
+        let slots_limit = self
+            .get_client()
+            .await?
+            .get_host_slots_limit(request)
+            .await
+            .into_diagnostic()?
+            .into_inner()
+            .slots_limit;
+
+        // Host with limit <= 0 are running on core based booking mode, so they don't have a limit
+        if slots_limit > 0 {
+            Ok(Some(slots_limit as u32))
+        } else {
+            Ok(None)
+        }
     }
 }

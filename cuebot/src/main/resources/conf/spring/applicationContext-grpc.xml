@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!--
    Copyright Contributors to the OpenCue Project
 
@@ -14,12 +14,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="
-            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+<beans
+    xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd"
+>
 
     <bean id="cueStaticServant" class="com.imageworks.spcue.servant.CueStatic">
         <property name="whiteboard" ref="whiteboard" />
@@ -35,7 +35,11 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
-    <bean scope="prototype" id="manageAllocation" class="com.imageworks.spcue.servant.ManageAllocation">
+    <bean
+        scope="prototype"
+        id="manageAllocation"
+        class="com.imageworks.spcue.servant.ManageAllocation"
+    >
         <property name="allocationDao" ref="allocationDao" />
         <property name="adminManager" ref="adminManager" />
         <property name="hostManager" ref="hostManager" />
@@ -53,7 +57,11 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
-    <bean scope="prototype" id="manageDepartment" class="com.imageworks.spcue.servant.ManageDepartment">
+    <bean
+        scope="prototype"
+        id="manageDepartment"
+        class="com.imageworks.spcue.servant.ManageDepartment"
+    >
         <property name="adminManager" ref="adminManager" />
         <property name="departmentManager" ref="departmentManager" />
         <property name="whiteboard" ref="whiteboard" />
@@ -160,7 +168,11 @@
         <property name="procSearchFactory" ref="procSearchFactory" />
     </bean>
 
-    <bean scope="prototype" id="manageRenderPartition" class="com.imageworks.spcue.servant.ManageRenderPartition">
+    <bean
+        scope="prototype"
+        id="manageRenderPartition"
+        class="com.imageworks.spcue.servant.ManageRenderPartition"
+    >
         <property name="bookingManager" ref="bookingManager" />
     </bean>
 
@@ -169,7 +181,11 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
-    <bean scope="prototype" id="manageServiceOverride" class="com.imageworks.spcue.servant.ManageServiceOverride">
+    <bean
+        scope="prototype"
+        id="manageServiceOverride"
+        class="com.imageworks.spcue.servant.ManageServiceOverride"
+    >
         <property name="serviceManager" ref="serviceManager" />
     </bean>
 
@@ -184,7 +200,11 @@
         <property name="jobSearchFactory" ref="jobSearchFactory" />
     </bean>
 
-    <bean scope="prototype" id="manageSubscription" class="com.imageworks.spcue.servant.ManageSubscription">
+    <bean
+        scope="prototype"
+        id="manageSubscription"
+        class="com.imageworks.spcue.servant.ManageSubscription"
+    >
         <property name="adminManager" ref="adminManager" />
         <property name="whiteboard" ref="whiteboard" />
     </bean>
@@ -193,12 +213,21 @@
         <property name="departmentManager" ref="departmentManager" />
     </bean>
 
-    <bean scope="prototype" id="rqdReportStatic" class="com.imageworks.spcue.servant.RqdReportStatic">
+    <bean
+        scope="prototype"
+        id="rqdReportStatic"
+        class="com.imageworks.spcue.servant.RqdReportStatic"
+    >
         <property name="frameCompleteHandler" ref="frameCompleteHandler" />
         <property name="hostReportHandler" ref="hostReportHandler" />
+        <property name="hostManager" ref="hostManager" />
     </bean>
 
-    <bean scope="prototype" id="manageMonitoring" class="com.imageworks.spcue.servant.ManageMonitoring">
+    <bean
+        scope="prototype"
+        id="manageMonitoring"
+        class="com.imageworks.spcue.servant.ManageMonitoring"
+    >
     </bean>
 
 </beans>

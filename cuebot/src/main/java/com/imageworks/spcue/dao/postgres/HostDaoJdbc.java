@@ -572,6 +572,17 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
+    public int getHostConcurrentSlotsLimit(String hostname) {
+        try {
+            return getJdbcTemplate().queryForObject(
+                    "SELECT int_concurrent_slots_limit FROM host WHERE str_name = ?",
+                    Integer.class, hostname);
+        } catch (EmptyResultDataAccessException e) {
+            return 0;
+        }
+    }
+
+    @Override
     public void updateHostOs(HostInterface host, String os) {
         getJdbcTemplate().update("UPDATE host_stat SET str_os=? WHERE pk_host=?", os,
                 host.getHostId());
