@@ -197,7 +197,11 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        self.app.job_not_found.connect(self.__handleJobNotFound)
         # pylint: enable=no-member
+
+        # Track jobs that have been notified as not found to avoid duplicate popups
+        self.__notifiedJobsNotFound = set()
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
@@ -253,6 +257,41 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             job = item.rpcObject
             if col == COLUMN_COMMENT and job.isCommented():
                 self.__menuActions.jobs().viewComments([job])
+
+    def __handleJobNotFound(self, job):
+        """Handle a job not found signal by showing a popup and removing the job.
+        @type  job: opencue.wrappers.job.Job
+        @param job: The job that was not found"""
+        if job is None:
+            return
+
+        jobKey = cuegui.Utils.getObjectKey(job)
+
+        # Avoid showing duplicate popups for the same job
+        if jobKey in self.__notifiedJobsNotFound:
+            return
+
+        self.__notifiedJobsNotFound.add(jobKey)
+
+        # Find and remove the job from the list
+        if jobKey in self._items:
+            item = self._items[jobKey]
+            self.removeItem(item)
+
+        # Show popup notification
+        jobName = job.data.name if hasattr(job, 'data') else str(job)
+        QtWidgets.QMessageBox.warning(
+            self,
+            "Job No Longer Available",
+            f"The job '{jobName}' is no longer available.\n\n"
+            "The job has been moved to historical data and is no longer "
+            "accessible through the live job interface.\n\n"
+            "The job has been removed from the monitor list."
+        )
+
+        # Clean up the notification tracking after a delay to allow re-notification
+        # if the user adds the same job again later
+        QtCore.QTimer.singleShot(5000, lambda: self.__notifiedJobsNotFound.discard(jobKey))
 
     def startDrag(self, dropActions):
         """Triggers a drag event"""
