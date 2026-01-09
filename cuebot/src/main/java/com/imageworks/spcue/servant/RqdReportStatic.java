@@ -52,9 +52,8 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
     public void getHostSlotsLimit(RqdReportGetHostSlotsLimitRequest request,
             StreamObserver<RqdReportGetHostSlotsLimitResponse> responseObserver) {
         int slotsLimit = hostManager.getHostConcurrentSlotsLimit(request.getName());
-        responseObserver.onNext(RqdReportGetHostSlotsLimitResponse.newBuilder()
-                .setSlotsLimit(slotsLimit)
-                .build());
+        responseObserver.onNext(
+                RqdReportGetHostSlotsLimitResponse.newBuilder().setSlotsLimit(slotsLimit).build());
         responseObserver.onCompleted();
     }
 
