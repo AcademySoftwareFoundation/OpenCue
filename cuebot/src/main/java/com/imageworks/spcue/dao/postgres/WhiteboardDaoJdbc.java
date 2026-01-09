@@ -1254,6 +1254,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             UpdatedFrame.newBuilder().setId(SqlUtil.getString(rs, "pk_frame"))
                                     .setExitStatus(rs.getInt("int_exit_status"))
                                     .setMaxRss(rs.getInt("int_mem_max_used"))
+                                    .setMaxPss(rs.getLong("int_pss_max_used"))
                                     .setRetryCount(rs.getInt("int_retries"))
                                     .setState(
                                             FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
@@ -1500,6 +1501,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     + "frame.str_host," + "frame.int_cores," + "frame.int_gpus," + "frame.ts_llu,"
                     + "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used,"
                     + "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used,"
+                    + "COALESCE(proc.int_pss_max_used, frame.int_pss_max_used) AS int_pss_max_used,"
                     + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer," + "frame "
                     + "LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) "
                     + "LEFT JOIN frame_state_display_overrides ON "

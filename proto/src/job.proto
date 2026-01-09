@@ -568,6 +568,7 @@ message UpdatedFrame {
     int64 max_gpu_memory = 11;
     int64 used_gpu_memory = 12;
     FrameStateDisplayOverride frame_state_display_override = 13;
+    int64 max_pss = 14;
 }
 
 message UpdatedFrameSeq {
