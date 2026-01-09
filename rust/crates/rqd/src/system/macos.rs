@@ -85,9 +85,9 @@ pub struct MachineDynamicInfo {
 
 /// Aggregated Data refering to a process session
 struct SessionData {
-    /// Amount of memory used by all processes in this session
+    /// Amount of memory used by all processes in this session calculated by rss
     rss: u64,
-    /// Amount of memory used by all processes in this session
+    /// Amount of memory used by all processes in this session calculated by pss
     pss: u64,
     /// Amount of virtual memory used by all processes in this session
     virtual_memory: u64,
