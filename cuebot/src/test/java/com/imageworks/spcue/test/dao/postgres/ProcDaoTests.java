@@ -319,7 +319,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.verifyRunningProc(proc.getId(), frame.getId());
         byte[] children = new byte[100];
 
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame, 100, 100, 100, 100, 1000, 1000, 0, 0, 0, children);
 
     }
 
@@ -608,7 +608,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc1);
 
         byte[] children = new byte[100];
-        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 250000, 250000, 0, 0,
+                0, children);
         layerDao.updateLayerMaxRSS(frame1, 250000, true);
 
         FrameDetail frameDetail2 = frameDao.findFrameDetail(job, "0002-pass_1");
@@ -618,7 +619,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000, 255000, 255000, 0, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000, 250000, 250000, 255000, 255000, 0, 0,
+                0, children);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -628,8 +630,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728, 3145728, 3145728, 0, 0, 0,
-                children);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728, 3145728, 3145728, 3145728, 3145728,
+                0, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame3, 300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
