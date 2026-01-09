@@ -170,6 +170,12 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout_llu.setSuffix(" minutes")
         self.__timeout_llu.setSpecialValueText("No timeout")
 
+        # Slots Required
+        self.__slots_required = QtWidgets.QSpinBox(self)
+        self.__slots_required.setRange(0, int(self._cfg().get('max_cores', 16)))
+        self.__slots_required.setSingleStep(1)
+        self.__slots_required.setSpecialValueText("Not slot-based")
+
         # Memory Optimizer
         self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
@@ -228,6 +234,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_gpus.setValue(self.getMaxGpus())
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
+        self.__slots_required.setValue(self.getSlotsRequired())
 
         QtWidgets.QVBoxLayout(self)
 
@@ -270,6 +277,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                             multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout LLU:",
                                                             self.__timeout_llu,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Slots Required:",
+                                                            self.__slots_required,
                                                             False),
                                                             multiSelect))
         layout.addStretch()
@@ -336,6 +347,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setTimeout(self.__timeout.value())
             if self.__timeout_llu.isEnabled():
                 layer.setTimeoutLLU(self.__timeout_llu.value())
+            if self.__slots_required.isEnabled():
+                layer.setSlotsRequired(self.__slots_required.value())
         if self.__tags.isEnabled():
             self.__tags.apply()
         if self.__limits.isEnabled():
@@ -419,6 +432,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
             if layer.data.memory_optimizer_enabled:
                 result = True
                 break
+        return result
+
+    def getSlotsRequired(self):
+        """Gets the layer slots required."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.slots_required > result:
+                result = layer.data.slots_required
         return result
 
     def __translateToMemSpinbox(self, value):
