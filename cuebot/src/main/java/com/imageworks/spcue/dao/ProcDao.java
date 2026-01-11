@@ -133,8 +133,9 @@ public interface ProcDao {
      * @param usedKb
      * @param maxKb
      */
-    void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long vsize, long maxVsize,
-            long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory, byte[] children);
+    void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long pss, long maxPss,
+            long vsize, long maxVsize, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children);
 
     /**
      * get aq virual proc from its unique id
