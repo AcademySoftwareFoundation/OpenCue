@@ -865,11 +865,12 @@ public class HostReportHandler {
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame, rf.getRss(), rf.getMaxRss(),
-                    rf.getLluTime());
+                    rf.getPss(), rf.getMaxPss(), rf.getLluTime());
 
-            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(), rf.getVsize(),
-                    rf.getMaxVsize(), rf.getUsedGpuMemory(), rf.getMaxUsedGpuMemory(),
-                    rf.getUsedSwapMemory(), rf.getChildren().toByteArray());
+            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(), rf.getPss(),
+                    rf.getMaxPss(), rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
+                    rf.getMaxUsedGpuMemory(), rf.getUsedSwapMemory(),
+                    rf.getChildren().toByteArray());
         }
 
         updateJobMemoryUsage(rFrames);
@@ -883,6 +884,7 @@ public class HostReportHandler {
      */
     private void updateJobMemoryUsage(List<RunningFrameInfo> frames) {
         final Map<JobEntity, Long> jobs = new HashMap<JobEntity, Long>(frames.size());
+        final Map<JobEntity, Long> jobsPss = new HashMap<JobEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame : frames) {
             JobEntity job = new JobEntity(frame.getJobId());
@@ -893,10 +895,22 @@ public class HostReportHandler {
             } else {
                 jobs.put(job, frame.getMaxRss());
             }
+
+            if (jobsPss.containsKey(job)) {
+                if (jobsPss.get(job) < frame.getMaxPss()) {
+                    jobsPss.put(job, frame.getMaxPss());
+                }
+            } else {
+                jobsPss.put(job, frame.getMaxPss());
+            }
         }
 
         for (Map.Entry<JobEntity, Long> set : jobs.entrySet()) {
             jobDao.updateMaxRSS(set.getKey(), set.getValue());
+        }
+
+        for (Map.Entry<JobEntity, Long> set : jobsPss.entrySet()) {
+            jobDao.updateMaxPSS(set.getKey(), set.getValue());
         }
     }
 
@@ -907,6 +921,7 @@ public class HostReportHandler {
      */
     private void updateLayerMemoryUsage(List<RunningFrameInfo> frames) {
         final Map<LayerEntity, Long> layers = new HashMap<LayerEntity, Long>(frames.size());
+        final Map<LayerEntity, Long> layersPss = new HashMap<LayerEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame : frames) {
             LayerEntity layer = new LayerEntity(frame.getLayerId());
@@ -917,12 +932,25 @@ public class HostReportHandler {
             } else {
                 layers.put(layer, frame.getMaxRss());
             }
+
+            if (layersPss.containsKey(layer)) {
+                if (layersPss.get(layer) < frame.getMaxPss()) {
+                    layersPss.put(layer, frame.getMaxPss());
+                }
+            } else {
+                layersPss.put(layer, frame.getMaxPss());
+            }
         }
 
         /* Attempt to update the max RSS value for the job **/
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
             layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
+        }
+
+        /* Attempt to update the max PSS value for the layer **/
+        for (Map.Entry<LayerEntity, Long> set : layersPss.entrySet()) {
+            layerDao.updateLayerMaxPSS(set.getKey(), set.getValue(), false);
         }
     }
 

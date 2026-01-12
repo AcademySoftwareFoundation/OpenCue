@@ -326,10 +326,13 @@ public interface FrameDao {
      * @param f
      * @param maxRss
      * @param rss
+     * @param maxPss
+     * @param pss
      * @param lluTime
      * @throws FrameReservationException if the frame is locked by another thread.
      */
-    void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss, long lluTime);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss, long maxPss,
+            long pss, long lluTime);
 
     /**
      * Attempt to put a exclusive row lock on the given frame. The frame must be in the specified

@@ -226,7 +226,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         IntStream.range(1, 11).forEach(i -> {
             FrameInterface frame = frameDao.findFrame(layer, i);
             frameDao.updateFrameState(frame, FrameState.RUNNING);
-            frameDao.updateFrameMemoryUsageAndLluTime(frame, CueUtil.GB * 5, CueUtil.GB, 0);
+            frameDao.updateFrameMemoryUsageAndLluTime(frame, CueUtil.GB * 5, CueUtil.GB,
+                    CueUtil.GB * 5, CueUtil.GB, 0);
         });
 
         FrameSearchInterface frameSearch = frameSearchFactory.create();
