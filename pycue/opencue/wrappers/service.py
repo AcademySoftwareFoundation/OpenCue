@@ -241,12 +241,20 @@ class Service(object):
         """Sets the default service timeout."""
         self.data.timeout = timeout
 
-    def timeoutLLU(self):
-        """Gets the default service LLU timeout."""
-        return self.data.timeout
+    def timeoutLLU(self) -> int:
+        """Returns the default service Last Layer Update (LLU) timeout in seconds.
 
-    def setTimeoutLLU(self, timeout_llu):
-        """Sets the default service LLU timeout."""
+        :rtype: int
+        :return: The default service LLU timeout in seconds.
+        """
+        return self.data.timeout_llu
+
+    def setTimeoutLLU(self, timeout_llu: int) -> None:
+        """Sets the default service Last Layer Update (LLU) timeout.
+
+        :type timeout_llu: int
+        :param timeout_llu: The new default service LLU timeout in seconds.
+        """
         self.data.timeout_llu = timeout_llu
 
     def minMemoryIncrease(self):
