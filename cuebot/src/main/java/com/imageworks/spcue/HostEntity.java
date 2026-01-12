@@ -38,6 +38,7 @@ public class HostEntity extends Entity implements HostInterface {
     public int idleGpus;
     public long gpuMemory;
     public long idleGpuMemory;
+    public int concurrentSlotsLimit;
 
     public boolean unlockAtBoot;
 
@@ -61,6 +62,7 @@ public class HostEntity extends Entity implements HostInterface {
         this.idleGpus = (int) grpcHost.getIdleGpus();
         this.gpuMemory = grpcHost.getGpuMemory();
         this.idleGpuMemory = grpcHost.getIdleGpuMemory();
+        this.concurrentSlotsLimit = grpcHost.getConcurrentSlotsLimit();
     }
 
     public String getHostId() {

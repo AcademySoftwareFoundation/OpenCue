@@ -12,14 +12,13 @@
 
 use actix::{Message, MessageResponse};
 
-use bytesize::ByteSize;
 use miette::Result;
 use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag},
     host_cache::HostCacheError,
-    models::{CoreSize, Host},
+    models::{Host, ResourceRequest},
 };
 
 /// Response containing a checked-out host and its associated cluster key.
@@ -66,8 +65,7 @@ where
     pub facility_id: Uuid,
     pub show_id: Uuid,
     pub tags: Vec<Tag>,
-    pub cores: CoreSize,
-    pub memory: ByteSize,
+    pub resource_request: ResourceRequest,
     pub validation: F,
 }
 

@@ -1361,6 +1361,7 @@ mod tests {
 
                 #[allow(deprecated)]
                 start_time: 0,
+                slots_required: 0,
             },
             uid,
             config,

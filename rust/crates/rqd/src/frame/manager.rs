@@ -80,6 +80,8 @@ impl FrameManager {
         self.validate_grpc_frame(&run_frame)?;
         self.validate_machine_state(run_frame.ignore_nimby).await?;
 
+        let resource_id = run_frame.resource_id();
+
         // Create user if required. uid and gid ranges have already been verified
         let uid = match run_frame.uid_optional.as_ref().map(|o| match o {
             run_frame::UidOptional::Uid(v) => *v as u32,
@@ -97,39 +99,13 @@ impl FrameManager {
             None => CONFIG.runner.default_uid,
         };
 
-        // **Attention**: If an error happens between here and spawning a frame, the resources
-        // reserved need to be released.
-
-        let num_cores = (run_frame.num_cores as u32).div_ceil(CONFIG.machine.core_multiplier);
-
-        // Reserving cores will always yield a list of reserved thread_ids. If hyperthreading is off,
-        // the list should be ignored
-        let thread_ids = self
-            .machine
-            .reserve_cores(Either::Left(num_cores as usize), run_frame.resource_id())
-            .await
-            .map_err(|err| {
-                FrameManagerError::Aborted(format!(
-                    "Not launching, failed to reserve cpu resources {:?}",
-                    err
-                ))
-            })?;
         // Although num_gpus is not required on a frame, the field is not optional on the proto
         // layer. =0 means None, !=0 means Some
         let gpu_list = match run_frame.num_gpus {
             0 => None,
             _ => {
+                // TODO: Release GPUs in case of error when GPU support gets implemented
                 let reserved_res = self.machine.reserve_gpus(run_frame.num_gpus as u32).await;
-                if reserved_res.is_err() {
-                    // Release cores reserved on the last step
-                    if let Err(err) = self.machine.release_cores(&run_frame.resource_id()).await {
-                        warn!(
-                            "Failed to release cores reserved for {} during gpu reservation failure. {}",
-                            &run_frame.resource_id(),
-                            err
-                        )
-                    };
-                }
                 Some(reserved_res.map_err(|err| {
                     FrameManagerError::Aborted(format!(
                         "Not launching, insufficient resources {:?}",
@@ -145,27 +121,90 @@ impl FrameManager {
             .environment
             .get("CUE_THREADABLE")
             .is_some_and(|v| v == "1");
-        // Ignore the list of allocated threads if hyperthreading is off
-        let thread_ids = hyperthreaded.then_some(thread_ids);
 
-        let resource_id = run_frame.resource_id();
-        let running_frame = Arc::new(RunningFrame::init(
-            run_frame,
-            uid,
-            CONFIG.runner.clone(),
-            thread_ids,
-            gpu_list,
-            self.machine.get_host_name().await,
-        ));
+        let slot_based_booking = self.machine.is_slot_configured().await;
+        // Keep track of reserved slots, if any
+        let mut reserved_slots = 0;
+
+        let running_frame = match slot_based_booking {
+            // Core based booking
+            false => {
+                // **Attention**: If an error happens between here and spawning a frame, the resources
+                // reserved need to be released.
+                let num_cores =
+                    (run_frame.num_cores as u32).div_ceil(CONFIG.machine.core_multiplier);
+
+                // Reserving cores will always yield a list of reserved thread_ids. If hyperthreading is off,
+                // the list should be ignored
+                let thread_ids = self
+                    .machine
+                    .reserve_cores(Either::Left(num_cores as usize), run_frame.resource_id())
+                    .await
+                    .map_err(|err| {
+                        FrameManagerError::Aborted(format!(
+                            "Not launching, failed to reserve cpu resources {:?}",
+                            err
+                        ))
+                    })?;
+                // Ignore the list of allocated threads if hyperthreading is off
+                let thread_ids = hyperthreaded.then_some(thread_ids);
+
+                Arc::new(RunningFrame::init(
+                    run_frame,
+                    uid,
+                    CONFIG.runner.clone(),
+                    thread_ids,
+                    gpu_list,
+                    self.machine.get_host_name(),
+                ))
+            }
+            // Slot based booking
+            true => {
+                reserved_slots = if run_frame.slots_required > 0 {
+                    run_frame.slots_required as u32
+                } else {
+                    Err(FrameManagerError::InvalidArgument(
+                        "Core based frame cannot be launched on a slot configured host".to_string(),
+                    ))?
+                };
+                self.machine
+                    .reserve_slots(reserved_slots)
+                    .await
+                    .map_err(|err| {
+                        FrameManagerError::Aborted(format!(
+                            "Not launching, failed to reserve {:} slots {:?}",
+                            run_frame.slots_required, err
+                        ))
+                    })?;
+
+                Arc::new(RunningFrame::init(
+                    run_frame,
+                    uid,
+                    CONFIG.runner.clone(),
+                    // Disable taskset to avoid binding this frame to specific threads
+                    None,
+                    gpu_list,
+                    self.machine.get_host_name(),
+                ))
+            }
+        };
 
         if cfg!(feature = "containerized_frames") && CONFIG.runner.run_on_docker {
             #[cfg(feature = "containerized_frames")]
             self.spawn_docker_frame(running_frame, false);
         } else if self.spawn_running_frame(running_frame, false).is_err() {
-            // Release cores reserved if spawning the frame failed
-            if let Err(err) = self.machine.release_cores(&resource_id).await {
+            let release_res = if slot_based_booking {
+                // Release slots reserved if spawning the frame failed
+                self.machine.release_slots(reserved_slots).await
+            } else {
+                // Release cores reserved if spawning the frame failed
+                self.machine.release_cores(&resource_id).await
+            };
+
+            // Log failure to release
+            if let Err(err) = release_res {
                 warn!(
-                    "Failed to release cores reserved for {} during spawn failure. {}",
+                    "Failed to release resources reserved for {} during spawn failure. {}",
                     &resource_id, err
                 );
             }
@@ -207,43 +246,75 @@ impl FrameManager {
             })
             .collect();
         let mut errors = Vec::new();
+        let slot_based_booking = self.machine.is_slot_configured().await;
+
         for path in snapshot_dir {
             let running_frame = RunningFrame::from_snapshot(&path, CONFIG.runner.clone())
                 .await
                 .map(Arc::new);
             match running_frame {
                 Ok(running_frame) => {
-                    // Update reservations. If a thread_ids list exists, the frame was booked using affinity
-                    if let Err(err) = match &running_frame.thread_ids {
-                        Some(thread_ids) => {
-                            self.machine
-                                .reserve_cores(
-                                    Either::Right(thread_ids.clone()),
-                                    running_frame.request.resource_id(),
-                                )
-                                .await
+                    let resource_id = running_frame.request.resource_id();
+                    let mut reserved_slots = 0;
+
+                    // Update reservations based on booking mode
+                    if let Err(err) = match slot_based_booking {
+                        // Core-based booking: If a thread_ids list exists, the frame was booked using affinity
+                        false => {
+                            match &running_frame.thread_ids {
+                                Some(thread_ids) => {
+                                    self.machine
+                                        .reserve_cores(
+                                            Either::Right(thread_ids.clone()),
+                                            running_frame.request.resource_id(),
+                                        )
+                                        .await
+                                }
+                                None => {
+                                    let num_cores = (running_frame.request.num_cores as u32)
+                                        .div_ceil(CONFIG.machine.core_multiplier);
+                                    self.machine
+                                        .reserve_cores(
+                                            Either::Left(num_cores as usize),
+                                            running_frame.request.resource_id(),
+                                        )
+                                        .await
+                                }
+                            }
+                            // Ignore reserved threads as they are no longer necessary
+                            .map(|_| ())
                         }
-                        None => {
-                            let num_cores = (running_frame.request.num_cores as u32)
-                                .div_ceil(CONFIG.machine.core_multiplier);
-                            self.machine
-                                .reserve_cores(
-                                    Either::Left(num_cores as usize),
-                                    running_frame.request.resource_id(),
-                                )
-                                .await
+                        // Slot-based booking
+                        true => {
+                            reserved_slots = if running_frame.request.slots_required > 0 {
+                                running_frame.request.slots_required as u32
+                            } else {
+                                errors.push(format!(
+                                    "Core based frame {} cannot be recovered on a slot configured host",
+                                    resource_id
+                                ));
+                                continue;
+                            };
+                            self.machine.reserve_slots(reserved_slots).await
                         }
                     } {
                         errors.push(err.to_string());
                     }
 
-                    let resource_id = running_frame.request.resource_id();
                     if CONFIG.runner.run_on_docker {
                         todo!("Recovering frames when running on docker is not yet supported")
                     } else if self.spawn_running_frame(running_frame, true).is_err() {
-                        if let Err(err) = self.machine.release_cores(&resource_id).await {
+                        let release_res = if slot_based_booking {
+                            // Release slots reserved if spawning the frame failed
+                            self.machine.release_slots(reserved_slots).await
+                        } else {
+                            self.machine.release_cores(&resource_id).await
+                        };
+
+                        // Failed to release
+                        if let Err(err) = release_res {
                             warn!(
-                                "Failed to release cores reserved for {} during recover spawn error. {}",
+                                "Failed to release resources reserved for {} during recover spawn error. {}",
                                 &resource_id, err
                             );
                         }

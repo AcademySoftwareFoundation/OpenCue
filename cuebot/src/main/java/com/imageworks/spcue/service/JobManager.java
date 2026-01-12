@@ -456,6 +456,14 @@ public interface JobManager {
     void setLayerMinGpus(LayerInterface layer, int gpuUnits);
 
     /**
+     * Sets the slots required for a layer.
+     *
+     * @param layer the layer to update
+     * @param slots the number of slots required
+     */
+    void setLayerSlotsRequired(LayerInterface layer, int slots);
+
+    /**
      * Add a limit to the given layer.
      *
      * @param layer

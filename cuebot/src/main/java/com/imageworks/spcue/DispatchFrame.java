@@ -43,6 +43,7 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public int minGpus;
     public int maxGpus;
     public long minGpuMemory;
+    public int slotsRequired;
 
     // A comma separated list of services
     public String services;

@@ -967,6 +967,7 @@ impl RqdDispatcherService {
             log_file: "deprecated".to_string(),
             #[allow(deprecated)]
             log_dir_file: "deprecated".to_string(),
+            slots_required: 0,
         };
 
         Ok(run_frame)
@@ -1040,6 +1041,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -1172,6 +1174,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1208,6 +1211,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1244,6 +1248,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1279,6 +1284,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
