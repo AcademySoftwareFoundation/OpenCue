@@ -245,7 +245,7 @@ class Service(object):
         """Returns the default service Last Layer Update (LLU) timeout in seconds.
 
         :rtype: int
-        :return: The default service LLU timeout in seconds.
+        :return: The default service Last Layer Update (LLU) timeout in seconds.
         """
         return self.data.timeout_llu
 
@@ -253,7 +253,8 @@ class Service(object):
         """Sets the default service Last Layer Update (LLU) timeout.
 
         :type timeout_llu: int
-        :param timeout_llu: The new default service LLU timeout in seconds.
+        :param timeout_llu: The new default service Layer Last Update (LLU)
+            timeout in seconds.
         """
         self.data.timeout_llu = timeout_llu
 
