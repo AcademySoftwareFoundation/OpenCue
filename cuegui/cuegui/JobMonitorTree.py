@@ -208,6 +208,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # Track jobs that have been notified as not found to avoid duplicate popups
         self.__notifiedJobsNotFound = set()
 
+        # Batch job-not-found notifications to show in a single dialog
+        self.__pendingNotFoundJobs = []
+        self.__notFoundTimer = None
+
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
 
@@ -264,7 +268,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__menuActions.jobs().viewComments([job])
 
     def __handleJobNotFound(self, job):
-        """Handle a job not found signal by showing a popup and removing the job.
+        """Handle a job not found signal by batching notifications and removing the job.
         @type  job: opencue.wrappers.job.Job
         @param job: The job that was not found"""
         if job is None:
@@ -283,20 +287,51 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             item = self._items[jobKey]
             self.removeItem(item)
 
-        # Show popup notification
+        # Add job name to pending list for batched notification
         jobName = job.data.name if hasattr(job, 'data') else str(job)
-        QtWidgets.QMessageBox.warning(
-            self,
-            "Job No Longer Available",
-            f"The job '{jobName}' is no longer available.\n\n"
-            "The job has been moved to historical data and is no longer "
-            "accessible through the live job interface.\n\n"
-            "The job has been removed from the monitor list."
-        )
+        self.__pendingNotFoundJobs.append(jobName)
+
+        # Start or restart the timer to batch multiple notifications
+        if self.__notFoundTimer is None:
+            self.__notFoundTimer = QtCore.QTimer(self)
+            self.__notFoundTimer.setSingleShot(True)
+            self.__notFoundTimer.timeout.connect(self.__showBatchedJobNotFoundDialog)
+        self.__notFoundTimer.start(500)  # 500ms delay to collect multiple notifications
 
         # Clean up the notification tracking after a delay to allow re-notification
         # if the user adds the same job again later
         QtCore.QTimer.singleShot(5000, lambda: self.__notifiedJobsNotFound.discard(jobKey))
+
+    def __showBatchedJobNotFoundDialog(self):
+        """Show a single dialog for all pending job-not-found notifications."""
+        if not self.__pendingNotFoundJobs:
+            return
+
+        jobNames = self.__pendingNotFoundJobs[:]
+        self.__pendingNotFoundJobs.clear()
+
+        if len(jobNames) == 1:
+            message = (
+                f"The job '{jobNames[0]}' is no longer available.\n\n"
+                "The job has been moved to historical data and is no longer "
+                "accessible through the live job interface.\n\n"
+                "The job has been removed from the monitor list."
+            )
+        else:
+            jobList = "\n".join(f"  • {name}" for name in jobNames)
+            message = (
+                f"The following {len(jobNames)} jobs are no longer available:\n\n"
+                f"{jobList}\n\n"
+                "These jobs have been moved to historical data and are no longer "
+                "accessible through the live job interface.\n\n"
+                "The jobs have been removed from the monitor list."
+            )
+
+        QtWidgets.QMessageBox.warning(
+            self,
+            "Job No Longer Available",
+            message
+        )
 
     def startDrag(self, dropActions):
         """Triggers a drag event"""
