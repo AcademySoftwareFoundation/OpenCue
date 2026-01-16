@@ -247,11 +247,15 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         self.setJob(None)
                         return []
                     if e.code() == grpc.StatusCode.INTERNAL:
-                        # "Failed to find job data" comes as INTERNAL error
-                        logger.info("Job data not found (moved to historical data), "
-                                    "notifying and clearing job from view")
-                        cuegui.app().job_not_found.emit(self.__job)
-                        self.setJob(None)
+                        # Check if this is specifically a "job not found" error
+                        error_details = str(e.details()) if hasattr(e, 'details') else str(e)
+                        if "Failed to find job data" in error_details:
+                            logger.info("Job data not found (moved to historical data), "
+                                        "notifying and clearing job from view")
+                            cuegui.app().job_not_found.emit(self.__job)
+                            self.setJob(None)
+                            return []
+                        logger.error("gRPC INTERNAL error in _getUpdate: %s", e)
                         return []
                     if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
                         logger.warning(
