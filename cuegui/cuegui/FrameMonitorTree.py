@@ -495,17 +495,6 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     cuegui.app().job_not_found.emit(self.__job)
                     self.setJob(None)
                     return []
-                if e.code() == grpc.StatusCode.INTERNAL:
-                    # Check if this is specifically a "job not found" error
-                    error_details = str(e.details()) if hasattr(e, 'details') else str(e)
-                    if "Failed to find job data" in error_details:
-                        logger.info("Job data not found (moved to historical data), "
-                                    "notifying and clearing job from view")
-                        cuegui.app().job_not_found.emit(self.__job)
-                        self.setJob(None)
-                        return []
-                    logger.error("gRPC INTERNAL error in _getUpdate: %s", e)
-                    return []
                 if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
                     logger.warning("gRPC connection interrupted during frame update, will retry")
                 else:
@@ -549,17 +538,6 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     cuegui.app().job_not_found.emit(self.__job)
                     self.setJob(None)
                     return []
-                if e.code() == grpc.StatusCode.INTERNAL:
-                    # Check if this is specifically a "job not found" error
-                    error_details = str(e.details()) if hasattr(e, 'details') else str(e)
-                    if "Failed to find job data" in error_details:
-                        logger.info("Job data not found (moved to historical data), "
-                                    "notifying and clearing job from view")
-                        cuegui.app().job_not_found.emit(self.__job)
-                        self.setJob(None)
-                        return []
-                    logger.error("gRPC INTERNAL error in _getUpdateChanged: %s", e)
-                    return None
                 logger.error("gRPC error in _getUpdateChanged: %s", e)
             # pylint: enable=no-member
             return None

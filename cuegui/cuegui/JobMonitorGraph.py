@@ -134,17 +134,6 @@ class JobMonitorGraph(AbstractGraphWidget):
                     cuegui.app().job_not_found.emit(self.job)
                     self.setJob(None)
                     return
-                if e.code() == grpc.StatusCode.INTERNAL:
-                    # Check if this is specifically a "job not found" error
-                    error_details = str(e.details()) if hasattr(e, 'details') else str(e)
-                    if "Failed to find job data" in error_details:
-                        logger.info("Job data not found (moved to historical data), "
-                                    "notifying and clearing job from view")
-                        cuegui.app().job_not_found.emit(self.job)
-                        self.setJob(None)
-                        return
-                    logger.error("gRPC INTERNAL error in createGraph: %s", e)
-                    return
                 if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
                     logger.warning(
                         "gRPC connection interrupted during graph creation, will retry")
@@ -207,17 +196,6 @@ class JobMonitorGraph(AbstractGraphWidget):
                         logger.info("Job not found during update, notifying and clearing job")
                         cuegui.app().job_not_found.emit(self.job)
                         self.setJob(None)
-                        return
-                    if e.code() == grpc.StatusCode.INTERNAL:
-                        # Check if this is specifically a "job not found" error
-                        error_details = str(e.details()) if hasattr(e, 'details') else str(e)
-                        if "Failed to find job data" in error_details:
-                            logger.info("Job data not found during update, "
-                                        "notifying and clearing job from view")
-                            cuegui.app().job_not_found.emit(self.job)
-                            self.setJob(None)
-                            return
-                        logger.error("gRPC INTERNAL error in update: %s", e)
                         return
                     if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
                         logger.warning(
