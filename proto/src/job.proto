@@ -520,6 +520,8 @@ message Frame {
     int64 max_gpu_memory = 21;
     int64 used_gpu_memory = 22;
     FrameStateDisplayOverride frame_state_display_override = 23;
+    int64 max_pss = 24;
+    int64 used_pss = 25;
 }
 
 // Object for frame searching
@@ -566,6 +568,7 @@ message UpdatedFrame {
     int64 max_gpu_memory = 11;
     int64 used_gpu_memory = 12;
     FrameStateDisplayOverride frame_state_display_override = 13;
+    int64 max_pss = 14;
 }
 
 message UpdatedFrameSeq {
@@ -686,6 +689,7 @@ message JobStats {
     int64 failed_gpu_sec = 23;
     float reserved_gpus = 24;
     int64 max_gpu_memory = 25;
+    int64 max_pss = 26;
 }
 
 // LAYER ----
@@ -746,6 +750,7 @@ message LayerStats {
     int64 failed_gpu_sec = 23;
     float reserved_gpus = 24;
     int64 max_gpu_memory = 25;
+    int64 max_pss = 26;
 }
 
 // NestedGroup ---
