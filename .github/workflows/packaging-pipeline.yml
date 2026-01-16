@@ -97,7 +97,7 @@ jobs:
       - name: Build Rust binaries
         run: |
           cd rust
-          cargo build --release --target ${{ matrix.target }} --no-default-features
+          cargo build --release --target ${{ matrix.target }} --no-default-features -p rqd
 
       - name: Create release directory
         run: mkdir -p release
