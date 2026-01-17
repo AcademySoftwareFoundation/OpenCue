@@ -317,21 +317,50 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 "accessible through the live job interface.\n\n"
                 "The job has been removed from the monitor list."
             )
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Job No Longer Available",
+                message
+            )
         else:
-            jobList = "\n".join(f"  • {name}" for name in jobNames)
-            message = (
-                f"The following {len(jobNames)} jobs are no longer available:\n\n"
-                f"{jobList}\n\n"
+            # Use a custom dialog with scrollable area for many jobs
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle("Jobs No Longer Available")
+            dialog.setMinimumWidth(500)
+            dialog.setMaximumHeight(600)
+
+            layout = QtWidgets.QVBoxLayout(dialog)
+
+            # Header label
+            headerLabel = QtWidgets.QLabel(
+                f"The following {len(jobNames)} jobs are no longer available:"
+            )
+            layout.addWidget(headerLabel)
+
+            # Scrollable job list
+            jobList = "\n".join(f"  • {name}" for name in sorted(jobNames))
+            textEdit = QtWidgets.QTextEdit()
+            textEdit.setPlainText(jobList)
+            textEdit.setReadOnly(True)
+            textEdit.setMinimumHeight(150)
+            textEdit.setMaximumHeight(350)
+            layout.addWidget(textEdit)
+
+            # Footer message
+            footerLabel = QtWidgets.QLabel(
                 "These jobs have been moved to historical data and are no longer "
                 "accessible through the live job interface.\n\n"
                 "The jobs have been removed from the monitor list."
             )
+            footerLabel.setWordWrap(True)
+            layout.addWidget(footerLabel)
 
-        QtWidgets.QMessageBox.warning(
-            self,
-            "Job No Longer Available",
-            message
-        )
+            # OK button
+            buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+            buttonBox.accepted.connect(dialog.accept)
+            layout.addWidget(buttonBox)
+
+            dialog.exec_()
 
     def startDrag(self, dropActions):
         """Triggers a drag event"""
