@@ -916,6 +916,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.clear()
 
             for proxy, job in iteritems(rpcObjects):
+                # Skip jobs that were recently marked as not found
+                if proxy in self.__notifiedJobsNotFound:
+                    continue
                 # Handle different grouping modes
                 if self.__groupByMode == "Clear":
                     # No grouping - flat list
