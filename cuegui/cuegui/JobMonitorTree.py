@@ -389,6 +389,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if newJobObj:
                 jobKey = cuegui.Utils.getObjectKey(newJobObj)
+                # Skip jobs that were recently marked as not found
+                if jobKey in self.__notifiedJobsNotFound:
+                    return
                 if self.__groupByMode == "Clear":
                     self.__load[jobKey] = newJobObj
                     self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
