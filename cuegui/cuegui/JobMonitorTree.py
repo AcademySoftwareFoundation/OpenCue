@@ -826,14 +826,16 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @rtype:  dict<class.id: job>"""
         try:
             jobs = {}
+            finished_jobs = {}  # Track finished jobs to verify they still exist
 
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
             for item in list(self._items.values()):
                 objectKey = cuegui.Utils.getObjectKey(item.rpcObject)
                 if item.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
-                    # Reuse the old object if job is finished
-                    jobs[objectKey] = item.rpcObject
+                    # Track finished jobs - verify they still exist
+                    finished_jobs[objectKey] = item.rpcObject
+                    monitored_proxies.append(objectKey)
                 else:
                     # Gather list of all other jobs to update
                     monitored_proxies.append(objectKey)
@@ -869,6 +871,12 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             include_finished=True):
                         objectKey = cuegui.Utils.getObjectKey(job)
                         jobs[objectKey] = job
+
+            # Check for finished jobs that no longer exist (archived/deleted)
+            for objectKey, job in finished_jobs.items():
+                if objectKey not in jobs:
+                    # Job no longer exists - emit signal for batch notification
+                    self.app.job_not_found.emit(job)
 
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
