@@ -26,6 +26,8 @@ from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 
+import grpc
+
 from opencue.exception import EntityNotFoundException
 from opencue.api import job_pb2
 
@@ -242,7 +244,27 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             try:
                 return self.__job.getLayers()
             except EntityNotFoundException:
+                logger.info("Job not found, notifying and clearing job from view")
+                cuegui.app().job_not_found.emit(self.__job)
                 self.setJob(None)
+                return []
+            except grpc.RpcError as e:
+                # Handle gRPC errors - log but don't crash, allow UI to retry
+                # pylint: disable=no-member
+                if hasattr(e, 'code'):
+                    if e.code() == grpc.StatusCode.NOT_FOUND:
+                        logger.info("Job not found, notifying and clearing job from view")
+                        cuegui.app().job_not_found.emit(self.__job)
+                        self.setJob(None)
+                        return []
+                    if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                        logger.warning(
+                            "gRPC connection interrupted during layer update, will retry")
+                    else:
+                        logger.error("gRPC error in _getUpdate: %s", e)
+                else:
+                    logger.error("gRPC error in _getUpdate: %s", e)
+                # pylint: enable=no-member
                 return []
         return []
 

@@ -16,12 +16,20 @@
 """Node graph to display Layers of a Job"""
 
 
+import grpc
+
 from qtpy import QtWidgets
 
+from opencue.exception import EntityNotFoundException
+
+import cuegui
+import cuegui.Logger
 import cuegui.Utils
 import cuegui.MenuActions
 from cuegui.nodegraph import CueLayerNode
 from cuegui.AbstractGraphWidget import AbstractGraphWidget
+
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class JobMonitorGraph(AbstractGraphWidget):
@@ -111,7 +119,30 @@ class JobMonitorGraph(AbstractGraphWidget):
         if not self.job:
             return
 
-        layers = self.job.getLayers()
+        try:
+            layers = self.job.getLayers()
+        except EntityNotFoundException:
+            logger.info("Job not found, notifying and clearing job from view")
+            cuegui.app().job_not_found.emit(self.job)
+            self.setJob(None)
+            return
+        except grpc.RpcError as e:
+            # pylint: disable=no-member
+            if hasattr(e, 'code'):
+                if e.code() == grpc.StatusCode.NOT_FOUND:
+                    logger.info("Job not found, notifying and clearing job from view")
+                    cuegui.app().job_not_found.emit(self.job)
+                    self.setJob(None)
+                    return
+                if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                    logger.warning(
+                        "gRPC connection interrupted during graph creation, will retry")
+                else:
+                    logger.error("gRPC error in createGraph: %s", e)
+            else:
+                logger.error("gRPC error in createGraph: %s", e)
+            # pylint: enable=no-member
+            return
 
         # add job layers to tree
         for layer in layers:
@@ -128,7 +159,12 @@ class JobMonitorGraph(AbstractGraphWidget):
     def setupNodeConnections(self):
         """Setup connections between nodes based on their dependencies"""
         for node in self.graph.all_nodes():
-            for depend in node.rpcObject.getWhatDependsOnThis():
+            try:
+                depends = node.rpcObject.getWhatDependsOnThis()
+            except (EntityNotFoundException, grpc.RpcError) as e:
+                logger.warning("Failed to get dependencies for node %s: %s", node.name(), e)
+                continue
+            for depend in depends:
                 child_node = self.graph.get_node_by_name(depend.dependErLayer())
                 if child_node:
                     # todo check if connection exists
@@ -146,7 +182,32 @@ class JobMonitorGraph(AbstractGraphWidget):
         This is run every 20 seconds by the timer.
         """
         if self.job is not None:
-            layers = self.job.getLayers()
+            try:
+                layers = self.job.getLayers()
+            except EntityNotFoundException:
+                logger.info("Job not found during update, notifying and clearing job from view")
+                cuegui.app().job_not_found.emit(self.job)
+                self.setJob(None)
+                return
+            except grpc.RpcError as e:
+                # pylint: disable=no-member
+                if hasattr(e, 'code'):
+                    if e.code() == grpc.StatusCode.NOT_FOUND:
+                        logger.info("Job not found during update, notifying and clearing job")
+                        cuegui.app().job_not_found.emit(self.job)
+                        self.setJob(None)
+                        return
+                    if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                        logger.warning(
+                            "gRPC connection interrupted during graph update, will retry")
+                    else:
+                        logger.error("gRPC error in update: %s", e)
+                else:
+                    logger.error("gRPC error in update: %s", e)
+                # pylint: enable=no-member
+                return
+
             for layer in layers:
                 node = self.graph.get_node_by_name(layer.name())
-                node.setRpcObject(layer)
+                if node is not None:
+                    node.setRpcObject(layer)
