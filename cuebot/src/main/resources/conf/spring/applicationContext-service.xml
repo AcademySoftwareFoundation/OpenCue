@@ -591,6 +591,19 @@
     <property name="repeatInterval" value="60000" />
   </bean>
 
+  <bean id="subscriptionRecalculation" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="recalculateSubscriptions" />
+  </bean>
+
+  <bean id="subscriptionRecalculationTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="subscriptionRecalculation" />
+    <!-- 10 minute start delay to let the cue get up and running -->
+    <property name="startDelay" value="600000" />
+    <!-- repeat every 2 hours by default (configurable via maintenance.subscription_recalculation_interval_ms) -->
+    <property name="repeatInterval" value="${maintenance.subscription_recalculation_interval_ms}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -607,6 +620,7 @@
         <ref bean="killQueueSchedule" />
         <ref bean="updateShowsStatusTrigger" />
         <ref bean="collectPrometheusMetricsTrigger" />
+        <ref bean="subscriptionRecalculationTrigger" />
       </list>
     </property>
   </bean>
