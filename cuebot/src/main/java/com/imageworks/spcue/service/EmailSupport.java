@@ -283,7 +283,8 @@ public class EmailSupport {
 
                     // Check if the constructed path is writable, if not, fallback to a default path
                     File tempFile = new File(filepath);
-                    if (!tempFile.getParentFile().exists() || !tempFile.getParentFile().canWrite()) {
+                    if (!tempFile.getParentFile().exists()
+                            || !tempFile.getParentFile().canWrite()) {
                         filepath = fallback_path;
                     }
 
