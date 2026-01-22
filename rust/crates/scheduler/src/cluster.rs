@@ -106,6 +106,7 @@ impl ClusterFeed {
             .chain(cluster_dao.fetch_non_alloc_clusters());
         let mut clusters = Vec::new();
         let mut manual_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
+        let mut hardware_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
         let mut hostname_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
 
         // Collect all tags
@@ -149,6 +150,12 @@ impl ClusterFeed {
                                 .or_default()
                                 .push(cluster.tag);
                         }
+                        "HARDWARE" => {
+                            hardware_tags
+                                .entry(parse_uuid(&cluster.facility_id))
+                                .or_default()
+                                .push(cluster.tag);
+                        }
                         _ => (),
                     };
                 }
@@ -183,6 +190,25 @@ impl ClusterFeed {
                         .map(|name| Tag {
                             name,
                             ttype: TagType::HostName,
+                        })
+                        .collect(),
+                ))
+            }
+        }
+
+        // Chunk Hardware tags
+        for (facility_id, tags) in hardware_tags.into_iter() {
+            for chunk in &tags
+                .into_iter()
+                // Hardware share the same size as manual to simplify configuration
+                .chunks(CONFIG.queue.manual_tags_chunk_size)
+            {
+                clusters.push(Cluster::TagsKey(
+                    facility_id,
+                    chunk
+                        .map(|name| Tag {
+                            name,
+                            ttype: TagType::Hardware,
                         })
                         .collect(),
                 ))
