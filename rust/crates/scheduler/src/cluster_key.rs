@@ -18,6 +18,7 @@ pub enum TagType {
     Alloc,
     HostName,
     Manual,
+    Hardware,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
