@@ -143,3 +143,4 @@ exclude:
   - README.md
   - LICENSE
   - CONTRIBUTING.md
+  - DOCKER.md
