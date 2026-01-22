@@ -38,6 +38,7 @@ import grpc
 import opencue
 from opencue_proto import job_pb2
 
+import cuegui
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -501,9 +502,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         except grpc.RpcError as e:
             # Handle gRPC errors - log but don't crash, allow UI to retry
             # pylint: disable=no-member
-            if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
-                                                     grpc.StatusCode.UNAVAILABLE]:
-                logger.warning("gRPC connection interrupted during frame update, will retry")
+            if hasattr(e, 'code'):
+                if e.code() == grpc.StatusCode.NOT_FOUND:
+                    logger.info("Job not found, notifying and clearing job from view")
+                    cuegui.app().job_not_found.emit(self.__job)
+                    self.setJob(None)
+                    return []
+                if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                    logger.warning("gRPC connection interrupted during frame update, will retry")
+                else:
+                    logger.error("gRPC error in _getUpdate: %s", e)
             else:
                 logger.error("gRPC error in _getUpdate: %s", e)
             # pylint: enable=no-member
@@ -539,13 +547,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     return None
                 if e.code() == grpc.StatusCode.NOT_FOUND:
                     # Job was deleted
-                    logger.info("Job not found, clearing job from view")
+                    logger.info("Job not found, notifying and clearing job from view")
+                    cuegui.app().job_not_found.emit(self.__job)
                     self.setJob(None)
                     return []
                 logger.error("gRPC error in _getUpdateChanged: %s", e)
             # pylint: enable=no-member
             return None
         except opencue.EntityNotFoundException:
+            logger.info("Job entity not found, notifying and clearing job from view")
+            cuegui.app().job_not_found.emit(self.__job)
             self.setJob(None)
         except opencue.exception.CueException as e:
             # pylint: disable=no-member
