@@ -64,7 +64,7 @@ impl RunningFrame {
         let exit_code = if recover_mode {
             match self.recover_inner(Arc::clone(&logger)).await {
                 Ok((exit_code, exit_signal)) => {
-                    if let Err(err) = self.finish(exit_code, exit_signal) {
+                    if let Err(err) = self.finish(exit_code, exit_signal, None) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
                     logger.writeln(&self.write_footer());
@@ -81,7 +81,7 @@ impl RunningFrame {
             let run_result = self.run_docker_inner(Arc::clone(&logger)).await;
             match run_result {
                 Ok((exit_code, exit_signal)) => {
-                    if let Err(err) = self.finish(exit_code, exit_signal) {
+                    if let Err(err) = self.finish(exit_code, exit_signal, None) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
                     logger.writeln(&self.write_footer());
