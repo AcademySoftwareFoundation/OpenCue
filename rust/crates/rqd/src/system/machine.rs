@@ -35,6 +35,7 @@ use tokio::{
     time,
 };
 use tracing::{debug, error, info, warn};
+use tracing_subscriber::fmt::time::SystemTime;
 use uuid::Uuid;
 
 #[cfg(target_os = "macos")]
@@ -384,21 +385,25 @@ impl MachineMonitor {
 
                 // Update stats for running frames
                 running_frame.update_frame_stats(proc_stats);
-            } else if running_frame.is_marked_for_cache_removal() {
-                // Only remove procs that have been marked for removal
+            } else if running_frame.is_dangling_expired() {
+                // Frama proc was not found to be running even after a grace period
                 warn!(
                     "Removing {} from the cache. Could not find proc {} for frame that was supposed to be running.",
                     running_frame.to_string(),
                     running_state.pid
                 );
                 // Attempt to finish the process
-                let _ = running_frame.finish(1, Some(19));
+                let _ = running_frame.finish(
+                    1,
+                    Some(19),
+                    Some("Failed to find PID associated to this frame".to_string()),
+                );
                 finished_frames.push(Arc::clone(running_frame));
                 self.running_frames_cache.remove(&running_frame.frame_id);
             } else {
                 // Proc finished but frame is waiting for the lock on `is_finished` to update the status
                 // keep frame around for another round
-                running_frame.mark_for_cache_removal();
+                running_frame.mark_dangling();
             }
         }
 
