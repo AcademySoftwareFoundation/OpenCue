@@ -878,7 +878,7 @@ impl RqdDispatcherService {
             Self::prepare_frame_spec(frame_number, &frame.range, frame.chunk_size as usize)?;
 
         // Build environment variables
-        let mut environment = HashMap::new();
+        let mut environment = proc.frame.env.clone();
         environment.insert("CUE3".to_string(), "1".to_string());
         environment.insert("CUE_THREADS".to_string(), threads.to_string());
         environment.insert("CUE_MEMORY".to_string(), proc.memory_reserved.to_string());
@@ -1074,6 +1074,7 @@ mod tests {
             loki_url: None,
             version: 1,
             updated_at: SystemTime::now(),
+            env: HashMap::new(),
         }
     }
 
