@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{fmt::Display, time::SystemTime};
+use std::{collections::HashMap, fmt::Display, time::SystemTime};
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,7 @@ pub struct DispatchFrame {
     pub loki_url: Option<String>,
     pub version: u32,
     pub updated_at: SystemTime,
+    pub env: HashMap<String, String>,
 }
 
 impl Display for DispatchFrame {

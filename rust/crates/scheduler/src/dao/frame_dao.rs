@@ -10,12 +10,13 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::time::SystemTime;
+use std::{collections::HashMap, time::SystemTime};
 
 use bytesize::{ByteSize, KB};
 use chrono::{DateTime, Utc};
 use miette::{Diagnostic, Result};
 use opencue_proto::job::FrameExitStatus;
+use prost::Message;
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
 
@@ -76,6 +77,10 @@ pub struct DispatchFrameModel {
     pub int_version: i32,
     pub str_loki_url: Option<String>,
     pub ts_updated: Option<DateTime<Utc>>,
+
+    // Env fields
+    pub job_env: HashMap<String, String>,
+    pub layer_env: HashMap<String, String>,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
@@ -99,6 +104,10 @@ impl From<DispatchFrameModel> for DispatchFrame {
             Some(t) => SystemTime::from(t),
             None => SystemTime::now(),
         };
+
+        // Combine job and layer envs as Frame has no interest on where envs came from
+        let mut env = val.job_env;
+        env.extend(val.layer_env);
 
         DispatchFrame {
             id: parse_uuid(&val.pk_frame),
@@ -142,6 +151,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             ),
             version: val.int_version as u32,
             updated_at,
+            env,
         }
     }
 }
