@@ -1023,7 +1023,7 @@ mod tests {
 
     use super::*;
     use crate::models::{CoreSize, DispatchFrame, Host};
-    use bytesize::ByteSize;
+    use bytesize::{ByteSize, KB};
     use opencue_proto::host::ThreadMode;
     use uuid::Uuid;
 
@@ -1483,7 +1483,7 @@ mod tests {
         assert_eq!(run_frame.environment.get("CUE_THREADS").unwrap(), "2");
         assert_eq!(
             run_frame.environment.get("CUE_MEMORY").unwrap(),
-            &virtual_proc.memory_reserved.to_string()
+            &(virtual_proc.memory_reserved.as_u64() / KIB).to_string(),
         );
         assert_eq!(run_frame.environment.get("CUE_GPUS").unwrap(), "1");
         assert_eq!(
