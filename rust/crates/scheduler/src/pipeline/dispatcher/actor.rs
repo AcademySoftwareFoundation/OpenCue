@@ -881,11 +881,14 @@ impl RqdDispatcherService {
         let mut environment = proc.frame.env.clone();
         environment.insert("CUE3".to_string(), "1".to_string());
         environment.insert("CUE_THREADS".to_string(), threads.to_string());
-        environment.insert("CUE_MEMORY".to_string(), proc.memory_reserved.to_string());
+        environment.insert(
+            "CUE_MEMORY".to_string(),
+            (proc.memory_reserved.as_u64() / KIB).to_string(),
+        );
         environment.insert("CUE_GPUS".to_string(), proc.gpus_reserved.to_string());
         environment.insert(
             "CUE_GPU_MEMORY".to_string(),
-            proc.gpu_memory_reserved.to_string(),
+            (proc.gpu_memory_reserved.as_u64() / KIB).to_string(),
         );
         environment.insert("CUE_LOG_PATH".to_string(), frame.log_dir.clone());
         environment.insert("CUE_RANGE".to_string(), frame.range.clone());
