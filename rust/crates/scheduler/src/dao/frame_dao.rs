@@ -63,7 +63,7 @@ pub struct DispatchFrameModel {
     pub str_log_dir: String,
     pub str_layer_name: String,
     pub str_job_name: String,
-    pub int_min_cores: i32,
+    pub int_min_cores: i64,
     pub int_mem_min: i64,
     pub b_threadable: bool,
     pub int_gpus_min: i64,
@@ -131,7 +131,11 @@ impl From<DispatchFrameModel> for DispatchFrame {
             log_dir: val.str_log_dir,
             layer_name: val.str_layer_name,
             job_name: val.str_job_name,
-            min_cores: CoreSize::from_multiplied(val.int_min_cores),
+            min_cores: CoreSize::from_multiplied(
+                val.int_min_cores
+                    .try_into()
+                    .expect("layer.int_cores_min should fix i32"),
+            ),
             threadable: val.b_threadable,
             min_gpus: val
                 .int_gpus_min

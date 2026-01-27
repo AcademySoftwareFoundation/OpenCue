@@ -95,7 +95,7 @@ pub struct LayerWithFramesModel {
     pub int_uid: Option<i64>,
     pub str_log_dir: Option<String>,
     pub str_layer_name: Option<String>,
-    pub int_layer_cores_min: Option<i32>,
+    pub int_layer_cores_min: Option<i64>,
     pub int_mem_min_frame: Option<i64>,
     pub int_gpus_min_frame: Option<i64>,
     pub int_gpu_mem_min_frame: Option<i64>,
