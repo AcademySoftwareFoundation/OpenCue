@@ -5,28 +5,56 @@
 #
 # Optional Components:
 #   - Web UI (rest-gateway, cueweb): Web-based interface for monitoring and managing OpenCue
-#   - Basic Monitoring (metrics, prometheus, grafana, loki, db-exporter): Metrics and logging
-#   - Full Monitoring (kafka, zookeeper, elasticsearch, kibana, monitoring-indexer): Event streaming and historical data
+#   - Monitoring (prometheus, grafana, loki, db-exporter): Metrics and logging
+#   - Event Streaming (kafka, zookeeper, elasticsearch, kibana, monitoring-indexer): Event streaming and historical data
 #
-# Usage:
-#   # Start core services only (default)
-#   docker compose up -d
+# =============================================================================
+# QUICK START
+# =============================================================================
 #
-#   # View logs
-#   docker compose logs -f
+# 1. Prerequisites:
+#    mkdir -p /tmp/rqd/logs /tmp/rqd/shots
+#    docker compose down -v  # Clean up existing containers (optional)
 #
-# Prerequisites:
-#   mkdir -p /tmp/rqd/logs /tmp/rqd/shots
+# 2. Validate configuration:
+#    docker compose config
 #
-# Access (when enabled):
-#   - CueWeb UI: http://localhost:3000
-#   - REST Gateway: http://localhost:8448
-#   - Cuebot gRPC: localhost:8443
-#   - PostgreSQL: localhost:5432
-#   - Grafana: http://localhost:3001 (basic monitoring) or http://localhost:3002 (full monitoring)
-#   - Prometheus: http://localhost:9000 (basic) or http://localhost:9090 (full)
-#   - Kibana: http://localhost:5601
-#   - Kafka UI: http://localhost:8090
+# 3. Start services:
+#
+#    Option A - Start everything at once:
+#    docker compose up -d
+#
+#    Option B - Start in stages (recommended for debugging):
+#    docker compose up -d db zookeeper elasticsearch        # Stage 1: Infrastructure
+#    docker compose up -d flyway kafka                      # Stage 2: Migrations + Kafka
+#    docker compose up -d cuebot                            # Stage 3: Core OpenCue
+#    docker compose up -d rqd rest-gateway cueweb           # Stage 4: RQD + Web UI
+#    docker compose up -d db-exporter prometheus grafana loki kafka-ui kibana monitoring-indexer  # Stage 5: Monitoring
+#
+# 4. Check status:
+#    docker compose ps
+#    docker compose logs -f  # Watch logs (Ctrl+C to exit)
+#
+# 5. Troubleshoot:
+#    docker compose logs <service-name>      # Check specific service logs
+#    docker compose restart <service-name>   # Restart a specific service
+#
+# =============================================================================
+# ACCESS ENDPOINTS (when enabled)
+# =============================================================================
+#
+#   Service          URL                              Credentials
+#   -------          ---                              -----------
+#   CueWeb UI        http://localhost:3000            -
+#   REST Gateway     http://localhost:8448            -
+#   Cuebot gRPC      localhost:8443                   -
+#   PostgreSQL       localhost:5432                   cuebot / cuebot_password
+#   Grafana          http://localhost:3001            admin / admin
+#   Prometheus       http://localhost:9090            -
+#   Loki             http://localhost:3100            -
+#   Kafka UI         http://localhost:8090            -
+#   Kibana           http://localhost:5601            -
+#   Elasticsearch    http://localhost:9200            -
 
 services:
   # =============================================================================
@@ -99,7 +127,7 @@ services:
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
-      # Uncomment for monitoring-full setup
+      # Uncomment for Kafka monitoring setup
       # - CUEBOT_DB_HOST=db
       # - CUEBOT_DB_NAME=cuebot
       # - CUEBOT_DB_USER=cuebot
@@ -231,7 +259,7 @@ services:
       start_period: 30s
 
   # =============================================================================
-  # BASIC MONITORING SERVICES (optional)
+  # MONITORING SERVICES (optional)
   # Uncomment this section for metrics, dashboards, and log aggregation
   # =============================================================================
 
@@ -265,27 +293,42 @@ services:
   #   ports:
   #     - "8302:8302"
 
-  # Prometheus for metrics collection (basic monitoring)
+  # Prometheus for metrics collection
   prometheus:
-    image: prom/prometheus:v2.21.0
+    image: prom/prometheus:v2.45.0
     container_name: opencue-prometheus
     ports:
-      - "9000:9090"
+      - "9090:9090"
     volumes:
       - ./sandbox/config/prometheus:/etc/prometheus/
       - prometheus-data:/prometheus
-    command: --web.enable-lifecycle --config.file=/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  # Grafana for dashboards (basic monitoring)
-  # Note: Port 3001 to avoid conflict with CueWeb
+  # Grafana for dashboards
+  # Port 3001 to avoid conflict with CueWeb (3000)
   grafana:
-    image: grafana/grafana:7.1.1
+    image: grafana/grafana:10.0.0
     container_name: opencue-grafana
-    volumes:
-      - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning
-      - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - prometheus
     ports:
       - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
 
   # Loki for log aggregation
   # Enable loki logging driver on other services to use
@@ -301,8 +344,8 @@ services:
       - "3100:3100"
 
   # =============================================================================
-  # FULL MONITORING SERVICES (optional)
-  # Uncomment this section for Kafka event streaming, Elasticsearch, and advanced monitoring
+  # EVENT STREAMING SERVICES (optional)
+  # Uncomment this section for Kafka event streaming and Elasticsearch historical data
   # Note: This requires significant resources and is intended for production-like setups
   # =============================================================================
 
@@ -394,44 +437,6 @@ services:
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
 
-  # Prometheus for metrics collection (full monitoring version)
-  # Note: Uses different port and config than basic monitoring
-  prometheus-full:
-    image: prom/prometheus:v2.45.0
-    container_name: opencue-prometheus-full
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./sandbox/config/prometheus-monitoring.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-full-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # Grafana for dashboards (full monitoring version)
-  # Note: Port 3002 to avoid conflict with CueWeb (3000) and basic Grafana (3001)
-  grafana-full:
-    image: grafana/grafana:10.0.0
-    container_name: opencue-grafana-full
-    depends_on:
-      - prometheus-full
-    ports:
-      - "3002:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards:ro
-      - grafana-full-data:/var/lib/grafana
-
   # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
   # Note: Requires building from source (rust)
   monitoring-indexer:
@@ -454,14 +459,9 @@ services:
 
 # =============================================================================
 # VOLUMES
-# Uncomment volumes as needed based on which services you enable
 # =============================================================================
 
 volumes:
-  # Basic monitoring volumes
   prometheus-data:
-
-  # Full monitoring volumes
-  prometheus-full-data:
-  grafana-full-data:
+  grafana-data:
   elasticsearch-data:
