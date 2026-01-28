@@ -159,7 +159,11 @@ impl RunningFrame {
             .to_string_lossy()
             .to_string();
         let entrypoint_file_path = std::path::Path::new(&config.temp_path)
-            .join(format!("{}.{}", frame_file_prefix, Self::entrypoint_extension()))
+            .join(format!(
+                "{}.{}",
+                frame_file_prefix,
+                Self::entrypoint_extension()
+            ))
             .to_string_lossy()
             .to_string();
         let env_vars = Self::setup_env_vars(&config, &request, hostname.clone(), log_path.clone());
