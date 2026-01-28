@@ -142,7 +142,7 @@ impl WindowsSystem {
     /// Reads the CPU information from the system and extracts core topology.
     pub fn read_cpuinfo(_cpuinfo_path: &str) -> Result<ProcessorInfoData> {
         let mut sysinfo = sysinfo::System::new();
-        sysinfo.refresh_cpu();
+        sysinfo.refresh_cpu_all();
 
         let logical_cpus = sysinfo.cpus().len().max(1) as u32;
         let physical_cores = sysinfo
@@ -153,7 +153,11 @@ impl WindowsSystem {
         let hyperthreading_multiplier = (logical_cpus / physical_cores).max(1);
 
         let (threads_by_core_unique_id, cores_by_phys_id, thread_id_lookup_table) =
-            Self::build_processor_structure(logical_cpus, physical_cores, hyperthreading_multiplier);
+            Self::build_processor_structure(
+                logical_cpus,
+                physical_cores,
+                hyperthreading_multiplier,
+            );
 
         let processor_structure = ProcessorStructure::init(
             threads_by_core_unique_id,
@@ -199,7 +203,11 @@ impl WindowsSystem {
         }
         cores_by_phys_id.insert(0, core_ids);
 
-        (threads_by_core_unique_id, cores_by_phys_id, thread_id_lookup_table)
+        (
+            threads_by_core_unique_id,
+            cores_by_phys_id,
+            thread_id_lookup_table,
+        )
     }
 
     /// Retrieves the hostname of the machine based on the configuration parameters.
@@ -396,11 +404,7 @@ impl WindowsSystem {
                         .to_string();
                         let proc_memory = proc.memory();
                         let proc_vmemory = proc.virtual_memory();
-                        let cmdline = proc
-                            .cmd()
-                            .iter()
-                            .map(|oss| oss.to_string_lossy())
-                            .join(" ");
+                        let cmdline = proc.cmd().iter().map(|oss| oss.to_string_lossy()).join(" ");
 
                         children.push(ProcStats {
                             stat: Some(Stat {

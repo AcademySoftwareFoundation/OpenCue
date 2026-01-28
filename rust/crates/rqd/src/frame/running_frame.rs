@@ -780,7 +780,6 @@ impl RunningFrame {
     ///
     /// # Errors
     /// Returns an error if the frame doesn't have a valid PID or if process monitoring fails
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(super) async fn recover_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
         logger.writeln(self.write_header().as_str());
 
@@ -805,35 +804,16 @@ impl RunningFrame {
 
         info!("Frame {} finished successfully with pid={}", self, pid);
 
-        // If a recovered frame fails to read the exit code from
-        // the exit file, mark the frame as killed (SIGTERM)
-        Ok(self.read_exit_file().await.unwrap_or((1, Some(143))))
-    }
-
-    #[cfg(target_os = "windows")]
-    pub(super) async fn recover_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
-        logger.writeln(self.write_header().as_str());
-
-        let pid = self.pid().ok_or(miette!(
-            "Invalid state. Trying to recover a frame that hasn't started. {}",
-            self
-        ))?;
-
-        let (log_pipe_handle, logger_signal) = self.spawn_logger(logger).await;
-
-        info!("Frame {self} recovered with pid {pid}");
-        self.wait()?;
-
-        if logger_signal.send(()).await.is_err() {
-            warn!("Failed to notify log thread");
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            // If a recovered frame fails to read the exit code from
+            // the exit file, mark the frame as killed (SIGTERM)
+            Ok(self.read_exit_file().await.unwrap_or((1, Some(143))))
         }
-        if log_pipe_handle.await.is_err() {
-            warn!("Failed to join log thread");
+        #[cfg(target_os = "windows")]
+        {
+            Ok(self.read_exit_file().await.unwrap_or((1, None)))
         }
-
-        info!("Frame {} finished successfully with pid={}", self, pid);
-
-        Ok(self.read_exit_file().await.unwrap_or((1, None)))
     }
 
     /// Get the process ID (PID) of the running frame process
@@ -976,7 +956,10 @@ impl RunningFrame {
 
         let mut sysinfo = System::new();
         loop {
-            sysinfo.refresh_processes();
+            sysinfo.refresh_processes(
+                sysinfo::ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+                true,
+            );
             if sysinfo.process(Pid::from_u32(pid)).is_none() {
                 break;
             }
