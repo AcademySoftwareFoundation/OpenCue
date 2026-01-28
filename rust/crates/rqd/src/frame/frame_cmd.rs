@@ -61,6 +61,19 @@ impl FrameCmdBuilder {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn new(shell: &String, entrypoint_file_path: String) -> Self {
+        let cmd = Command::new(shell);
+        Self {
+            cmd,
+            shell: shell.clone(),
+            exit_file_path: None,
+            become_user: None,
+            entrypoint_file_path,
+            end_cmd: None,
+        }
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub fn build(&mut self) -> Result<(&mut Command, String)> {
         use std::os::unix::fs::PermissionsExt;
@@ -147,6 +160,33 @@ impl FrameCmdBuilder {
         Ok((&mut self.cmd, script.clone()))
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn build(&mut self) -> Result<(&mut Command, String)> {
+        let args: Vec<&str> = self
+            .cmd
+            .as_std()
+            .get_args()
+            .filter_map(|arg| arg.to_str())
+            .collect();
+        let cmd_str = args.join(" ");
+        let mut file = File::create(&self.entrypoint_file_path).into_diagnostic()?;
+
+        let script = match &self.exit_file_path {
+            Some(exit_file_path) => format!(
+                "@echo off\r\n{}\r\nset exit_code=%ERRORLEVEL%\r\necho %exit_code% > {}\r\nexit /b %exit_code%\r\n",
+                cmd_str, exit_file_path
+            ),
+            None => format!("@echo off\r\n{}\r\n", cmd_str),
+        };
+
+        self.end_cmd = Some(script.clone());
+        file.write_all(script.as_bytes()).into_diagnostic()?;
+        drop(file);
+
+        self.cmd = Command::new(&self.entrypoint_file_path);
+        Ok((&mut self.cmd, script.clone()))
+    }
+
     /// Adds a taskset reservation for the `proc_list`:
     /// ```bash
     ///   taskset -p 1,2,3
@@ -168,7 +208,7 @@ impl FrameCmdBuilder {
 
     #[cfg(target_os = "windows")]
     // taskset is noop on windows. There's not a native way to allocate threads to sockets
-    pub fn with_taskset(&mut self, cpu_list: Vec<u32>) -> &mut Self {
+    pub fn with_taskset(&mut self, _cpu_list: Vec<u32>) -> &mut Self {
         self
     }
 
@@ -220,6 +260,7 @@ impl FrameCmdBuilder {
     // Exit files are only used for recovery mode and this feature is disabled at the moment for
     // linux for not being stable
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
+        self.exit_file_path = Some(exit_file_path);
         self
     }
 
