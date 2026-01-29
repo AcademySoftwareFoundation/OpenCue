@@ -1,12 +1,13 @@
 # OpenCue Docker Compose Configuration
 #
-# This file contains all OpenCue services. By default, only the core services are enabled.
-# Uncomment the optional sections to enable additional functionality:
+# This file contains all OpenCue services with everything enabled by default.
+# Comment out any services you don't need.
 #
-# Optional Components:
-#   - Web UI (rest-gateway, cueweb): Web-based interface for monitoring and managing OpenCue
-#   - Monitoring (prometheus, grafana, loki, db-exporter): Metrics and logging
-#   - Event Streaming (kafka, zookeeper, elasticsearch, kibana, monitoring-indexer): Event streaming and historical data
+# Components:
+#   - Core: db, flyway, cuebot, rqd
+#   - Web UI: rest-gateway, cueweb
+#   - Monitoring: prometheus, grafana, loki, db-exporter
+#   - Event Streaming: kafka, zookeeper, elasticsearch, kibana, kafka-ui, monitoring-indexer
 #
 # =============================================================================
 # QUICK START
@@ -39,8 +40,14 @@
 #    docker compose logs <service-name>      # Check specific service logs
 #    docker compose restart <service-name>   # Restart a specific service
 #
+# 6. CueWeb "ECONNREFUSED" or "/api/job/getjobs" errors:
+#    This happens when CueWeb has http://localhost:8448 baked in instead of
+#    http://rest-gateway:8448. Next.js NEXT_PUBLIC_* vars are embedded at build time.
+#    Fix: Rebuild the image with correct build args:
+#    docker compose build --no-cache cueweb && docker compose up -d cueweb
+#
 # =============================================================================
-# ACCESS ENDPOINTS (when enabled)
+# ACCESS ENDPOINTS
 # =============================================================================
 #
 #   Service          URL                              Credentials
