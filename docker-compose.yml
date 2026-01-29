@@ -46,6 +46,24 @@
 #    Fix: Rebuild the image with correct build args:
 #    docker compose build --no-cache cueweb && docker compose up -d cueweb
 #
+# 7. Enable Kafka monitoring for Cuebot:
+#    In the cuebot service section:
+#    a) Uncomment port 8080:
+#       - "8080:8080"
+#    b) Comment out the simple command and uncomment the Kafka command:
+#       # command: --datasource.cue-data-source.jdbc-url=...
+#       command:
+#         - java
+#         - -jar
+#         - /opt/opencue/cuebot-latest.jar
+#         - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
+#         - --datasource.cue-data-source.username=cuebot
+#         - --datasource.cue-data-source.password=cuebot_password
+#         - --monitoring.kafka.enabled=true
+#         - --monitoring.kafka.bootstrap.servers=kafka:29092
+#         - --metrics.prometheus.collector=true
+#    c) Restart cuebot: docker compose up -d cuebot
+#
 # =============================================================================
 # ACCESS ENDPOINTS
 # =============================================================================
