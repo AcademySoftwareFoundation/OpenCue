@@ -265,9 +265,7 @@ fn get_two_free_ports() -> (u16, u16) {
 }
 
 fn integration_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    TEST_MUTEX
-        .lock()
-        .expect("Failed to lock integration test mutex")
+    TEST_MUTEX.lock().unwrap_or_else(|err| err.into_inner())
 }
 
 /// Test that verifies openrqd can start, accept frame launches, and complete them successfully
@@ -290,7 +288,7 @@ async fn test_openrqd_frame_execution_with_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
@@ -407,7 +405,7 @@ async fn test_frame_with_environment_variables_and_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
@@ -525,7 +523,7 @@ async fn test_frame_run_as_user() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 5s
@@ -631,7 +629,7 @@ async fn test_memory_fork_script() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 5s
@@ -773,7 +771,7 @@ async fn test_multiple_frames_sequential_with_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
@@ -897,7 +895,7 @@ async fn test_openrqd_frame_execution_with_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
@@ -1002,7 +1000,7 @@ async fn test_frame_with_environment_variables_and_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
@@ -1109,7 +1107,7 @@ async fn test_memory_fork_script() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 5s
@@ -1244,7 +1242,7 @@ async fn test_multiple_frames_sequential_with_completion() {
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
   monitor_interval: 2s
