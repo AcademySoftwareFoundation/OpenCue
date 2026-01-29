@@ -278,15 +278,13 @@ impl WindowsSystem {
     /// Reads storage information from the temporary mount point and extracts
     /// the total space and available space.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
+        let temp_path = std::path::Path::new(&self.config.temp_path);
         let mut diskinfo =
             Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
-        let tmp_disk = diskinfo.list_mut().iter_mut().find(|disk| {
-            self.config.temp_path.starts_with(
-                disk.mount_point()
-                    .to_str()
-                    .unwrap_or("invalid_path_will_never_match"),
-            )
-        });
+        let tmp_disk = diskinfo
+            .list_mut()
+            .iter_mut()
+            .find(|disk| temp_path.starts_with(disk.mount_point()));
         match tmp_disk {
             Some(disk) => {
                 disk.refresh_specifics(DiskRefreshKind::everything());
