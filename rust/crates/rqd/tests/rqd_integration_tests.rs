@@ -10,11 +10,12 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
+use std::{net::TcpStream, time::Instant};
 use tempfile::TempDir;
 use tokio::time::sleep;
 
@@ -196,6 +197,47 @@ fn monitor_server_output(
     (success, all_output)
 }
 
+fn collect_child_output(child: &mut std::process::Child) -> (String, String) {
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        let _ = out.read_to_string(&mut stdout);
+    }
+    if let Some(mut err) = child.stderr.take() {
+        let _ = err.read_to_string(&mut stderr);
+    }
+    (stdout, stderr)
+}
+
+fn wait_for_port_open(child: &mut std::process::Child, port: u16, label: &str, timeout_secs: u64) {
+    let start = Instant::now();
+    loop {
+        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            return;
+        }
+
+        if let Ok(Some(status)) = child.try_wait() {
+            let (stdout, stderr) = collect_child_output(child);
+            panic!(
+                "{} exited early with status {}.\nstdout:\n{}\nstderr:\n{}",
+                label, status, stdout, stderr
+            );
+        }
+
+        if start.elapsed().as_secs() >= timeout_secs {
+            let _ = child.kill();
+            let _ = child.wait();
+            let (stdout, stderr) = collect_child_output(child);
+            panic!(
+                "{} did not open port {} within {}s.\nstdout:\n{}\nstderr:\n{}",
+                label, port, timeout_secs, stdout, stderr
+            );
+        }
+
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
 /// Test that verifies openrqd can start, accept frame launches, and complete them successfully
 #[cfg(unix)]
 #[tokio::test]
@@ -265,7 +307,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18600, "openrqd", 20);
 
     // Test launching a simple frame that runs for a moment to ensure proper completion
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
@@ -375,7 +417,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18601, "openrqd", 20);
 
     // Test launching a frame with environment variables
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
@@ -486,7 +528,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18602, "openrqd", 20);
 
     // Test launching a frame as current user
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
@@ -585,7 +627,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18603, "openrqd", 20);
 
     // Test launching the memory fork script
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
@@ -719,7 +761,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18604, "openrqd", 20);
 
     // Launch multiple frames sequentially
     const NUM_FRAMES: usize = 3;
@@ -834,7 +876,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18600, "openrqd", 20);
 
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
         .args([
@@ -932,7 +974,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18601, "openrqd", 20);
 
     let frame_output = Command::new(get_binary_path("dummy-cuebot"))
         .args([
@@ -1032,7 +1074,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18603, "openrqd", 20);
 
     let script_path = "../../crates/rqd/resources/test_scripts/memory_fork.cmd";
 
@@ -1159,7 +1201,7 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, 18604, "openrqd", 20);
 
     const NUM_FRAMES: usize = 3;
     for i in 1..=NUM_FRAMES {
