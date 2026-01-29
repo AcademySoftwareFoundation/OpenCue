@@ -11,6 +11,7 @@
 // the License.
 
 use std::io::{BufRead, BufReader, Read};
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::thread;
@@ -85,6 +86,10 @@ fn quoted_if_needed(path: &str) -> String {
     } else {
         path.to_string()
     }
+}
+
+fn yaml_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 #[cfg(windows)]
@@ -245,6 +250,9 @@ async fn test_openrqd_frame_execution_with_completion() {
     // Create temporary directory for test configuration
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     // Create test configuration with shorter report interval
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
@@ -277,14 +285,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -356,6 +364,9 @@ runner:
 async fn test_frame_with_environment_variables_and_completion() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
     let test_config = format!(
@@ -387,14 +398,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -467,6 +478,9 @@ runner:
 async fn test_frame_run_as_user() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
     let test_config = format!(
@@ -498,14 +512,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -566,6 +580,9 @@ runner:
 async fn test_memory_fork_script() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
     let test_config = format!(
@@ -597,14 +614,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -700,6 +717,9 @@ async fn test_connection_error_handling() {
 async fn test_multiple_frames_sequential_with_completion() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
     let test_config = format!(
@@ -731,14 +751,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -818,6 +838,9 @@ async fn test_openrqd_frame_execution_with_completion() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let test_config = format!(
         r#"
@@ -848,14 +871,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -916,6 +939,9 @@ async fn test_frame_with_environment_variables_and_completion() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let test_config = format!(
         r#"
@@ -946,14 +972,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -1016,6 +1042,9 @@ async fn test_memory_fork_script() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let test_config = format!(
         r#"
@@ -1046,14 +1075,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
@@ -1143,6 +1172,9 @@ async fn test_multiple_frames_sequential_with_completion() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("test_config.yaml");
     let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
 
     let test_config = format!(
         r#"
@@ -1173,14 +1205,14 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
+        temp_dir_str,
+        tmp_dir_str,
         cpuinfo_path,
         distro_release_path,
         proc_stat_path,
         proc_loadavg_path,
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+        tmp_dir_str,
+        snapshots_dir_str
     );
 
     std::fs::write(&config_path, test_config).unwrap();
