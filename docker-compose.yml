@@ -121,31 +121,33 @@ services:
     # image: opencue/cuebot
     ports:
       - "8443:8443"
-      - "8080:8080"
+      # Uncomment for metrics endpoint (used with Prometheus monitoring)
+      # - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
       flyway:
         condition: service_completed_successfully
+      # Kafka dependency is optional - cuebot works without it
       kafka:
         condition: service_healthy
+        required: false
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
-      - CUEBOT_DB_HOST=db
-      - CUEBOT_DB_NAME=cuebot
-      - CUEBOT_DB_USER=cuebot
-      - CUEBOT_DB_PASS=cuebot_password
-    command:
-      - java
-      - -jar
-      - /opt/opencue/cuebot-latest.jar
-      - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
-      - --datasource.cue-data-source.username=cuebot
-      - --datasource.cue-data-source.password=cuebot_password
-      - --monitoring.kafka.enabled=true
-      - --monitoring.kafka.bootstrap.servers=kafka:29092
-      - --metrics.prometheus.collector=true
+    # Default command (works without Kafka)
+    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
+    # Alternative: Enable Kafka monitoring (requires kafka service running)
+    # command:
+    #   - java
+    #   - -jar
+    #   - /opt/opencue/cuebot-latest.jar
+    #   - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
+    #   - --datasource.cue-data-source.username=cuebot
+    #   - --datasource.cue-data-source.password=cuebot_password
+    #   - --monitoring.kafka.enabled=true
+    #   - --monitoring.kafka.bootstrap.servers=kafka:29092
+    #   - --metrics.prometheus.collector=true
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || [ $? -eq 22 ]"]
       interval: 30s
