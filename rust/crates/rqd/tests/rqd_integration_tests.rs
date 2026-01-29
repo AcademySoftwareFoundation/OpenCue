@@ -1321,7 +1321,8 @@ runner:
             String::from_utf8_lossy(&frame_output.stderr)
         );
 
-        sleep(Duration::from_millis(1000)).await;
+        // Give enough time for a frame to finish before booking the next one
+        sleep(Duration::from_secs(10)).await;
     }
 
     let server_handle = thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, 25));
