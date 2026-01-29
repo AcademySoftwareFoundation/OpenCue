@@ -1312,6 +1312,7 @@ runner:
             ])
             .output()
             .expect("Failed to launch frame");
+        println!("Launched frame {i}/{NUM_FRAMES}");
 
         assert!(
             frame_output.status.success(),
@@ -1320,7 +1321,7 @@ runner:
             String::from_utf8_lossy(&frame_output.stderr)
         );
 
-        sleep(Duration::from_millis(500)).await;
+        sleep(Duration::from_millis(1000)).await;
     }
 
     let server_handle = thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, 25));
