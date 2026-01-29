@@ -50,7 +50,7 @@ Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?
 
 ## Docker Compose
 
-The easiest way to run OpenCue locally is using Docker Compose:
+A local environment can be easily launched using Docker Compose:
 
 ```bash
 # Prerequisites
