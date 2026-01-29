@@ -155,6 +155,9 @@ services:
     # Default command (works without Kafka)
     command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
     # Alternative: Enable Kafka monitoring (requires kafka service running)
+    # Note: The datasource parameters below configure the database connection and can be
+    # modified to point to an external database. Only the monitoring.kafka.* and metrics.*
+    # parameters are specific to Kafka event streaming.
     # command:
     #   - java
     #   - -jar
