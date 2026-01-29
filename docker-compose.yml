@@ -300,18 +300,18 @@ services:
   # # OpenCue Metrics Exporter
   # # Exports OpenCue-specific metrics to Prometheus
   # # Note: Requires building from source
-  # # metrics:
-  # #   restart: always
-  # #   build:
-  # #     context: ./
-  # #     dockerfile: ./connectors/prometheus_metrics/Dockerfile
-  # #   container_name: opencue-metrics
-  # #   environment:
-  # #     - CUEBOT_HOSTS=cuebot
-  # #   depends_on:
-  # #     - cuebot
-  # #   ports:
-  # #     - "8302:8302"
+  # metrics:
+  #   restart: always
+  #   build:
+  #     context: ./
+  #     dockerfile: ./connectors/prometheus_metrics/Dockerfile
+  #   container_name: opencue-metrics
+  #   environment:
+  #     - CUEBOT_HOSTS=cuebot
+  #   depends_on:
+  #     - cuebot
+  #   ports:
+  #     - "8302:8302"
 
   # # Prometheus for metrics collection
   # prometheus:
