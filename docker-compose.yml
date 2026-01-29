@@ -1,13 +1,12 @@
 # OpenCue Docker Compose Configuration
 #
-# This file contains all OpenCue services with everything enabled by default.
-# Comment out any services you don't need.
+# By default, only the core services are enabled (db, flyway, cuebot, rqd).
+# Uncomment the optional sections to enable additional functionality:
 #
-# Components:
-#   - Core: db, flyway, cuebot, rqd
-#   - Web UI: rest-gateway, cueweb
-#   - Monitoring: prometheus, grafana, loki, db-exporter
-#   - Event Streaming: kafka, zookeeper, elasticsearch, kibana, kafka-ui, monitoring-indexer
+# Optional Components:
+#   - Web UI (rest-gateway, cueweb): Web-based interface for monitoring and managing OpenCue
+#   - Monitoring (prometheus, grafana, loki, db-exporter): Metrics and logging
+#   - Event Streaming (kafka, zookeeper, elasticsearch, kibana, monitoring-indexer): Event streaming and historical data
 #
 # =============================================================================
 # QUICK START
@@ -22,12 +21,12 @@
 #
 # 3. Start services:
 #
-#    Option A - Start everything at once:
+#    Core only (default):
 #    docker compose up -d
 #
-#    Option B - Start in stages (recommended for debugging):
+#    Full stack (uncomment all sections first):
 #    docker compose up -d db zookeeper elasticsearch        # Stage 1: Infrastructure
-#    docker compose up -d flyway kafka                      # Stage 2: Migrations + Kafka
+#    docker compose up -d kafka                             # Stage 2: Kafka
 #    docker compose up -d cuebot                            # Stage 3: Core OpenCue
 #    docker compose up -d rqd rest-gateway cueweb           # Stage 4: RQD + Web UI
 #    docker compose up -d db-exporter prometheus grafana loki kafka-ui kibana monitoring-indexer  # Stage 5: Monitoring
@@ -65,7 +64,7 @@
 #    c) Restart cuebot: docker compose up -d cuebot
 #
 # =============================================================================
-# ACCESS ENDPOINTS
+# ACCESS ENDPOINTS (when enabled)
 # =============================================================================
 #
 #   Service          URL                              Credentials
@@ -146,10 +145,10 @@ services:
         condition: service_healthy
       flyway:
         condition: service_completed_successfully
-      # Kafka dependency is optional - cuebot works without it
-      kafka:
-        condition: service_healthy
-        required: false
+      # Uncomment if using Kafka monitoring (also uncomment kafka service below)
+      # kafka:
+      #   condition: service_healthy
+      #   required: false
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
@@ -207,276 +206,277 @@ services:
   # Uncomment this section to enable web-based interface
   # =============================================================================
 
-  # REST Gateway
-  # Provides HTTP/REST API access to OpenCue (used by CueWeb)
-  rest-gateway:
-    image: opencue/rest-gateway:latest
-    build:
-      context: ./
-      dockerfile: rest_gateway/Dockerfile
-    container_name: opencue-rest-gateway
-    ports:
-      - "8448:8448"
-    environment:
-      - CUEBOT_ENDPOINT=cuebot:8443
-      - JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
-      - REST_PORT=8448
-      - LOG_LEVEL=info
-    depends_on:
-      cuebot:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "sh", "-c", "curl -sf http://localhost:8448/ || [ $? -eq 22 ]"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  # # REST Gateway
+  # # Provides HTTP/REST API access to OpenCue (used by CueWeb)
+  # rest-gateway:
+  #   image: opencue/rest-gateway:latest
+  #   build:
+  #     context: ./
+  #     dockerfile: rest_gateway/Dockerfile
+  #   container_name: opencue-rest-gateway
+  #   ports:
+  #     - "8448:8448"
+  #   environment:
+  #     - CUEBOT_ENDPOINT=cuebot:8443
+  #     - JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+  #     - REST_PORT=8448
+  #     - LOG_LEVEL=info
+  #   depends_on:
+  #     cuebot:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "sh", "-c", "curl -sf http://localhost:8448/ || [ $? -eq 22 ]"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
 
-  # CueWeb UI
-  # Web-based user interface for monitoring and managing OpenCue
-  cueweb:
-    image: opencue/cueweb:latest
-    build:
-      context: ./cueweb
-      dockerfile: Dockerfile
-      args:
-        # Build-time environment variables for Next.js
-        - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-        - NEXT_PUBLIC_URL=http://localhost:3000
-        - NEXTAUTH_URL=http://localhost:3000
-        - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
-        # Authentication disabled by default for sandbox/development
-        # To enable authentication, uncomment and set providers:
-        # - NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap
-        - NEXT_PUBLIC_AUTH_PROVIDER=
-        # Disable Sentry for sandbox
-        - SENTRY_ENVIRONMENT=development
-    container_name: opencue-cueweb
-    ports:
-      - "3000:3000"
-    volumes:
-      # Mount RQD logs directory so CueWeb can display frame logs
-      - /tmp/rqd/logs:/tmp/rqd/logs:ro
-    environment:
-      # Runtime environment variables
-      - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-      - NEXT_PUBLIC_URL=http://localhost:3000
-      - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
-      - SENTRY_ENVIRONMENT=development
-      # Authentication disabled - empty value skips auth providers
-      - NEXT_PUBLIC_AUTH_PROVIDER=
-    depends_on:
-      rest-gateway:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+  # # CueWeb UI
+  # # Web-based user interface for monitoring and managing OpenCue
+  # cueweb:
+  #   image: opencue/cueweb:latest
+  #   build:
+  #     context: ./cueweb
+  #     dockerfile: Dockerfile
+  #     args:
+  #       # Build-time environment variables for Next.js
+  #       - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+  #       - NEXT_PUBLIC_URL=http://localhost:3000
+  #       - NEXTAUTH_URL=http://localhost:3000
+  #       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
+  #       # Authentication disabled by default for sandbox/development
+  #       # To enable authentication, uncomment and set providers:
+  #       # - NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap
+  #       - NEXT_PUBLIC_AUTH_PROVIDER=
+  #       # Disable Sentry for sandbox
+  #       - SENTRY_ENVIRONMENT=development
+  #   container_name: opencue-cueweb
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     # Mount RQD logs directory so CueWeb can display frame logs
+  #     - /tmp/rqd/logs:/tmp/rqd/logs:ro
+  #   environment:
+  #     # Runtime environment variables
+  #     - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+  #     - NEXT_PUBLIC_URL=http://localhost:3000
+  #     - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+  #     - NEXTAUTH_URL=http://localhost:3000
+  #     - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
+  #     - SENTRY_ENVIRONMENT=development
+  #     # Authentication disabled - empty value skips auth providers
+  #     - NEXT_PUBLIC_AUTH_PROVIDER=
+  #   depends_on:
+  #     rest-gateway:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
 
   # =============================================================================
   # MONITORING SERVICES (optional)
   # Uncomment this section for metrics, dashboards, and log aggregation
   # =============================================================================
 
-  # PostgreSQL Exporter for Prometheus
-  db-exporter:
-    image: wrouesnel/postgres_exporter
-    container_name: opencue-db-exporter
-    environment:
-      - DATA_SOURCE_URI=db:5432/postgres?sslmode=disable
-      - DATA_SOURCE_USER=cuebot
-      - DATA_SOURCE_PASS=cuebot_password
-      - PG_EXPORTER_AUTO_DISCOVER_DATABASES=true
-    ports:
-      - "9187:9187"
-    depends_on:
-      - db
+  # # PostgreSQL Exporter for Prometheus
+  # db-exporter:
+  #   image: wrouesnel/postgres_exporter
+  #   container_name: opencue-db-exporter
+  #   environment:
+  #     - DATA_SOURCE_URI=db:5432/postgres?sslmode=disable
+  #     - DATA_SOURCE_USER=cuebot
+  #     - DATA_SOURCE_PASS=cuebot_password
+  #     - PG_EXPORTER_AUTO_DISCOVER_DATABASES=true
+  #   ports:
+  #     - "9187:9187"
+  #   depends_on:
+  #     - db
 
   # # OpenCue Metrics Exporter
   # # Exports OpenCue-specific metrics to Prometheus
   # # Note: Requires building from source
-  # metrics:
-  #   restart: always
-  #   build:
-  #     context: ./
-  #     dockerfile: ./connectors/prometheus_metrics/Dockerfile
-  #   container_name: opencue-metrics
-  #   environment:
-  #     - CUEBOT_HOSTS=cuebot
-  #   depends_on:
-  #     - cuebot
+  # # metrics:
+  # #   restart: always
+  # #   build:
+  # #     context: ./
+  # #     dockerfile: ./connectors/prometheus_metrics/Dockerfile
+  # #   container_name: opencue-metrics
+  # #   environment:
+  # #     - CUEBOT_HOSTS=cuebot
+  # #   depends_on:
+  # #     - cuebot
+  # #   ports:
+  # #     - "8302:8302"
+
+  # # Prometheus for metrics collection
+  # prometheus:
+  #   image: prom/prometheus:v2.45.0
+  #   container_name: opencue-prometheus
   #   ports:
-  #     - "8302:8302"
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./sandbox/config/prometheus-monitoring.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus-data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.enable-lifecycle'
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
 
-  # Prometheus for metrics collection
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    container_name: opencue-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./sandbox/config/prometheus-monitoring.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+  # # Grafana for dashboards
+  # # Port 3001 to avoid conflict with CueWeb (3000)
+  # grafana:
+  #   image: grafana/grafana:10.0.0
+  #   container_name: opencue-grafana
+  #   depends_on:
+  #     - prometheus
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #     - GF_USERS_ALLOW_SIGN_UP=false
+  #   volumes:
+  #     - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning:ro
+  #     - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards:ro
+  #     - grafana-data:/var/lib/grafana
 
-  # Grafana for dashboards
-  # Port 3001 to avoid conflict with CueWeb (3000)
-  grafana:
-    image: grafana/grafana:10.0.0
-    container_name: opencue-grafana
-    depends_on:
-      - prometheus
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-
-  # Loki for log aggregation
-  # Enable loki logging driver on other services to use
-  loki:
-    image: grafana/loki:v1.3.0
-    container_name: opencue-loki
-    volumes:
-      - ./sandbox/config/loki:/etc/config
-    entrypoint:
-      - /usr/bin/loki
-      - -config.file=/etc/config/loki.yaml
-    ports:
-      - "3100:3100"
+  # # Loki for log aggregation
+  # # Enable loki logging driver on other services to use
+  # loki:
+  #   image: grafana/loki:v1.3.0
+  #   container_name: opencue-loki
+  #   volumes:
+  #     - ./sandbox/config/loki:/etc/config
+  #   entrypoint:
+  #     - /usr/bin/loki
+  #     - -config.file=/etc/config/loki.yaml
+  #   ports:
+  #     - "3100:3100"
 
   # =============================================================================
   # EVENT STREAMING SERVICES (optional)
   # Uncomment this section for Kafka event streaming and Elasticsearch historical data
   # Note: This requires significant resources and is intended for production-like setups
+  # Also uncomment the Kafka dependency in cuebot above and enable Kafka monitoring command
   # =============================================================================
 
-  # Zookeeper for Kafka
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    hostname: zookeeper
-    container_name: opencue-zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # # Zookeeper for Kafka
+  # zookeeper:
+  #   image: confluentinc/cp-zookeeper:7.4.0
+  #   hostname: zookeeper
+  #   container_name: opencue-zookeeper
+  #   ports:
+  #     - "2181:2181"
+  #   environment:
+  #     ZOOKEEPER_CLIENT_PORT: 2181
+  #     ZOOKEEPER_TICK_TIME: 2000
+  #   healthcheck:
+  #     test: ["CMD", "nc", "-z", "localhost", "2181"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
-  # Kafka broker for event streaming
-  kafka:
-    image: confluentinc/cp-kafka:7.4.0
-    hostname: kafka
-    container_name: opencue-kafka
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:29092", "--list"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+  # # Kafka broker for event streaming
+  # kafka:
+  #   image: confluentinc/cp-kafka:7.4.0
+  #   hostname: kafka
+  #   container_name: opencue-kafka
+  #   depends_on:
+  #     zookeeper:
+  #       condition: service_healthy
+  #   ports:
+  #     - "9092:9092"
+  #     - "29092:29092"
+  #   environment:
+  #     KAFKA_BROKER_ID: 1
+  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  #     KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  #   healthcheck:
+  #     test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:29092", "--list"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 5
 
-  # Kafka UI for debugging
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: opencue-kafka-ui
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8090:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: opencue
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+  # # Kafka UI for debugging
+  # kafka-ui:
+  #   image: provectuslabs/kafka-ui:latest
+  #   container_name: opencue-kafka-ui
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8090:8080"
+  #   environment:
+  #     KAFKA_CLUSTERS_0_NAME: opencue
+  #     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+  #     KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
 
-  # Elasticsearch for historical data storage
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
-    container_name: opencue-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
+  # # Elasticsearch for historical data storage
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+  #   container_name: opencue-elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #   volumes:
+  #     - elasticsearch-data:/usr/share/elasticsearch/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 10
 
-  # Kibana for Elasticsearch visualization
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.8.0
-    container_name: opencue-kibana
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    ports:
-      - "5601:5601"
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+  # # Kibana for Elasticsearch visualization
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.8.0
+  #   container_name: opencue-kibana
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   ports:
+  #     - "5601:5601"
+  #   environment:
+  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
 
-  # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
-  # Note: Requires building from source (rust)
-  monitoring-indexer:
-    build:
-      context: ./rust
-      dockerfile: Dockerfile.monitoring-indexer
-    container_name: opencue-monitoring-indexer
-    depends_on:
-      kafka:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - KAFKA_GROUP_ID=opencue-monitoring-indexer
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - ELASTICSEARCH_INDEX_PREFIX=opencue
-      - LOG_LEVEL=info
-    restart: unless-stopped
+  # # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
+  # # Note: Requires building from source (rust)
+  # monitoring-indexer:
+  #   build:
+  #     context: ./rust
+  #     dockerfile: Dockerfile.monitoring-indexer
+  #   container_name: opencue-monitoring-indexer
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   environment:
+  #     - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+  #     - KAFKA_GROUP_ID=opencue-monitoring-indexer
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #     - ELASTICSEARCH_INDEX_PREFIX=opencue
+  #     - LOG_LEVEL=info
+  #   restart: unless-stopped
 
 # =============================================================================
 # VOLUMES
