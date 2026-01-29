@@ -121,37 +121,31 @@ services:
     # image: opencue/cuebot
     ports:
       - "8443:8443"
-      # Uncomment for health/metrics endpoint access
-      # - "8080:8080"
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
       flyway:
         condition: service_completed_successfully
-      # Uncomment if using Kafka monitoring
-      # kafka:
-      #   condition: service_healthy
+      kafka:
+        condition: service_healthy
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
-      # Uncomment for Kafka monitoring setup
-      # - CUEBOT_DB_HOST=db
-      # - CUEBOT_DB_NAME=cuebot
-      # - CUEBOT_DB_USER=cuebot
-      # - CUEBOT_DB_PASS=cuebot_password
-    # Default command (without Kafka monitoring)
-    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
-    # Uncomment for Kafka monitoring (replace the command above)
-    # command:
-    #   - java
-    #   - -jar
-    #   - /opt/opencue/cuebot-latest.jar
-    #   - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
-    #   - --datasource.cue-data-source.username=cuebot
-    #   - --datasource.cue-data-source.password=cuebot_password
-    #   - --monitoring.kafka.enabled=true
-    #   - --monitoring.kafka.bootstrap.servers=kafka:29092
-    #   - --metrics.prometheus.collector=true
+      - CUEBOT_DB_HOST=db
+      - CUEBOT_DB_NAME=cuebot
+      - CUEBOT_DB_USER=cuebot
+      - CUEBOT_DB_PASS=cuebot_password
+    command:
+      - java
+      - -jar
+      - /opt/opencue/cuebot-latest.jar
+      - --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot
+      - --datasource.cue-data-source.username=cuebot
+      - --datasource.cue-data-source.password=cuebot_password
+      - --monitoring.kafka.enabled=true
+      - --monitoring.kafka.bootstrap.servers=kafka:29092
+      - --metrics.prometheus.collector=true
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/ || [ $? -eq 22 ]"]
       interval: 30s
@@ -307,7 +301,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./sandbox/config/prometheus:/etc/prometheus/
+      - ./sandbox/config/prometheus-monitoring.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
