@@ -48,12 +48,37 @@ Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?
 
 # Quick installation and tests
 
-Read the [OpenCue sandbox documentation](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/sandbox/README.md) 
-to learn how to set up a local OpenCue environment.
+## Docker Compose
 
-- The sandbox environment offers an easy way to run a test OpenCue deployment locally, with all components running in 
+The easiest way to run OpenCue locally is using Docker Compose:
+
+```bash
+# Prerequisites
+mkdir -p /tmp/rqd/logs /tmp/rqd/shots
+
+# Start core services (db, flyway, cuebot, rqd)
+docker compose up -d
+
+# Check status
+docker compose ps
+```
+
+By default, only core services are enabled. To enable optional components (Web UI, Monitoring, Event Streaming),
+uncomment the relevant sections in `docker-compose.yml`. See the file header for detailed instructions.
+
+**Optional Components:**
+- **Web UI**: `rest-gateway`, `cueweb` - REST gateway and Web interface (CueWeb)
+- **Monitoring**: `prometheus`, `grafana`, `loki` - Metrics, dashboards, and logging
+- **Event Streaming**: `kafka`, `elasticsearch`, `kibana` - Historical data and analytics
+
+## Sandbox Environment
+
+Read the [OpenCue sandbox documentation](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/sandbox/README.md)
+to learn more about the sandbox environment.
+
+- The sandbox environment offers an easy way to run a test OpenCue deployment locally, with all components running in
 separate Docker containers or Python virtual environments.
-- It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for 
+- It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for
 experimentation and learning.
 
 To learn how to run the sandbox environment, see the [OpenCue Quick Starts documentation](https://www.opencue.io/docs/quick-starts/).
