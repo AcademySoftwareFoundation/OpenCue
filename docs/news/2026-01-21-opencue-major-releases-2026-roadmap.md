@@ -39,7 +39,7 @@ Diego Tavares ([DiegoTavares](https://github.com/DiegoTavares)), Ramon Figueired
 
 **200 commits** - A very productive year with major new features.
 
-2024 was a landmark year for OpenCue's modernization efforts, introducing web-based interfaces and containerization support. The highlight was the first release of CueWeb, bringing CueGUI functionality to the browser alongside a new REST API Gateway that opens OpenCue to modern integration patterns. Docker Jobs support enabled running frames in containerized environments, significantly improving reproducibility and isolation. On the infrastructure side, Cuebot gained Prometheus metrics and HTTP healthchecks for better observability, while RQD received hard/soft memory limits for finer resource control. CueGUI was enhanced with an output viewer, job dependency visualization through the Node Graph plugin, and numerous usability improvements. The year also saw important CI/CD modernization, including dropping CY2022 support and migrating from CentOS 7.
+2024 focused on OpenCue's modernization, introducing web-based interfaces and containerization support. CueWeb brought CueGUI functionality to the browser, alongside a new REST API Gateway that opens OpenCue to modern integration patterns. Docker Jobs support enabled running frames in containerized environments, significantly improving reproducibility and isolation. On the infrastructure side, Cuebot gained Prometheus metrics and HTTP healthchecks for better observability, while RQD received hard/soft memory limits for finer resource control. CueGUI was enhanced with an output viewer, job dependency visualization through the Node Graph plugin, and numerous usability improvements. The year also saw important CI/CD modernization, including dropping CY2022 support and migrating from CentOS 7.
 
 ### Major Features (2024)
 
@@ -126,9 +126,9 @@ Diego Tavares ([DiegoTavares](https://github.com/DiegoTavares)), Ramon Figueired
 
 ## 2025 Changes Summary
 
-**287 commits** - The most productive year with major architectural innovations.
+**287 commits** - Focused on architectural changes and new tooling.
 
-2025 marked a transformative year for OpenCue with major architectural breakthroughs focused on performance and scalability. The standout achievement was the complete rewrite of RQD in Rust, delivering a 5x smaller binary with 50% reduced CPU usage, alongside the introduction of a Rust-based Distributed Scheduler that eliminates database bottlenecks in large-scale deployments. The project also saw significant improvements in observability with Loki integration for centralized log aggregation and event-driven monitoring with comprehensive dashboards. New tools like CueNimby (system tray NIMBY control) and Cueman (advanced CLI for job management) were introduced, while CueWeb gained LDAP authentication for enterprise environments. The documentation received a complete overhaul, migrating into the main repository with a modern Jekyll-based site featuring dark mode support. Finally, all Python modules were published to PyPI for the first time, dramatically simplifying installation and dependency management.
+2025 focused on architectural changes to improve performance and scalability. RQD was completely rewritten in Rust, delivering a 5x smaller binary with 50% reduced CPU usage. A new Rust-based Distributed Scheduler was introduced to eliminate database bottlenecks in large-scale deployments. Observability improved with Loki integration for centralized log aggregation and event-driven monitoring with dashboards. New tools like CueNimby (system tray NIMBY control) and Cueman (advanced CLI for job management) were introduced, while CueWeb gained LDAP authentication for enterprise environments. The documentation was migrated into the main repository with a Jekyll-based site featuring dark mode support. All Python modules were published to PyPI for the first time, simplifying installation and dependency management.
 
 ### Major Features (2025)
 
