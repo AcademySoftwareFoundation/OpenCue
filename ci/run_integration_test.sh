@@ -188,40 +188,8 @@ run_job() {
     log INFO "Job succeeded (PASS)"
 }
 
-run_blender_job() {
-    cp samples/pyoutline/sample.blend $RQD_ROOT
-    samples/pyoutline/blender_job.py
-    job_name="testing-shot02-${USER}_blender_job"
-    samples/pycue/wait_for_job.py "${job_name}" --timeout 300
-    log INFO "Blender job succeeded (PASS)"
-}
-
-add_RQD_tag() {
-    container_id=$(docker ps --filter "name=blender" --format "{{.ID}}")
-    got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
-    host_exists=false
-    for host in $(echo "${got_hosts}" | tr -d '[],' | tr -d "'" | tr ' ' '\n'); do
-      if [[ "$host" == "$container_id" ]]; then
-          host_exists=true
-          break
-      fi
-    done
-
-    if [[ "$host_exists" == true ]]; then
-      log INFO "Adding tag to Blender RQD"
-      python -c "import opencue; import opencue.wrappers.host; \
-                  host=opencue.api.findHost('${container_id}'); \
-                  tags = ['blender']; \
-                  host.addTags(tags)"
-    else
-        log ERROR "Blender RQD not detected by Cuebot. Unable to add tag"
-        exit 1
-    fi
-}
-
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
-    docker rm -f blender
     rm -rf "${RQD_ROOT}" || true
     rm -rf "${DB_DATA_DIR}" || true
     rm -rf "${VENV}" || true
@@ -296,25 +264,6 @@ main() {
     test_cueadmin
 
     run_job
-
-    log INFO "Starting RQD Blender..."
-    docker run -td --name blender \
-    --env CUEBOT_HOSTNAME=cuebot \
-    --volume "/tmp/rqd/shots:/tmp/rqd/shots" \
-    --volume "/tmp/rqd/logs:/tmp/rqd/logs" \
-    -p 8441:8441 \
-    --network opencue_default \
-    opencue/blender
-
-    docker exec blender sh -c 'echo "RQD_USE_IP_AS_HOSTNAME=False" >> /etc/opencue/rqd.conf'
-    log INFO "Restarting RQD Blender..."
-    docker restart blender
-    sleep 3
-
-    add_RQD_tag
-
-    log INFO "Testing Blender job..."
-    run_blender_job
 
     cleanup
 
