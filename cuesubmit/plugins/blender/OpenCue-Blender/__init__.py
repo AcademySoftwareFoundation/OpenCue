@@ -18,7 +18,6 @@ from __future__ import absolute_import
 
 bl_info = {
     "name": "OpenCue",
-    "author": "Nuwan Jayawardene",
     "version": (0, 0, 0, 1),
     "blender": (3, 3, 1),
     "description": "OpenCue client for Blender.",
