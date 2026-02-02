@@ -2,7 +2,7 @@
 layout: default
 title: "Jul 22, 2019: OpenCue Steering Committee at SIGGRAPH"
 parent: News
-nav_order: 8
+nav_order: 9
 ---
 
 # OpenCue Steering Committee at SIGGRAPH

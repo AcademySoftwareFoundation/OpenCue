@@ -17,7 +17,7 @@ use bytesize::ByteSize;
 use chrono::{DateTime, Utc};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres, Transaction};
+use sqlx::{types::Json, Pool, Postgres, Transaction};
 use tracing::debug;
 use uuid::Uuid;
 
@@ -80,6 +80,8 @@ pub struct LayerWithFramesModel {
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
     pub str_tags: String,
+    pub job_env: Json<HashMap<String, String>>,
+    pub layer_env: Json<HashMap<String, String>>,
 
     // Frame fields (Optional - NULL when no frames match)
     pub pk_frame: Option<String>,
@@ -93,7 +95,7 @@ pub struct LayerWithFramesModel {
     pub int_uid: Option<i64>,
     pub str_log_dir: Option<String>,
     pub str_layer_name: Option<String>,
-    pub int_min_cores: Option<i32>,
+    pub int_layer_cores_min: Option<i64>,
     pub int_mem_min_frame: Option<i64>,
     pub int_gpus_min_frame: Option<i64>,
     pub int_gpu_mem_min_frame: Option<i64>,
@@ -165,7 +167,7 @@ WITH dispatch_frames AS (
         j.str_loki_url,
         l.str_name as str_layer_name,
         j.str_name as str_job_name,
-        j.int_min_cores,
+        l.int_cores_min as int_layer_cores_min,
         l.int_mem_min as int_mem_min_frame,
         l.b_threadable,
         l.int_gpus_min as int_gpus_min_frame,
@@ -219,6 +221,8 @@ SELECT DISTINCT
     l.int_gpus_min,
     l.int_gpu_mem_min,
     l.str_tags,
+    je.job_env,
+    le.layer_env,
     l.int_dispatch_order,
 
     -- Frame fields (can be NULL if no frames)
@@ -233,7 +237,7 @@ SELECT DISTINCT
     lf.int_uid,
     lf.str_log_dir,
     lf.str_layer_name,
-    lf.int_min_cores,
+    lf.int_layer_cores_min,
     lf.int_mem_min_frame,
     lf.int_gpus_min_frame,
     lf.int_gpu_mem_min_frame,
@@ -247,6 +251,22 @@ SELECT DISTINCT
 FROM job j
     INNER JOIN layer l ON j.pk_job = l.pk_job
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(
+            jsonb_object_agg(je.str_key, je.str_value),
+            '{}'::jsonb
+        ) AS job_env
+        FROM job_env je
+        WHERE je.pk_job = j.pk_job
+    ) je ON true
+    LEFT JOIN LATERAL (
+        SELECT COALESCE(
+            jsonb_object_agg(le.str_key, le.str_value),
+            '{}'::jsonb
+        ) AS layer_env
+        FROM layer_env le
+        WHERE le.pk_layer = l.pk_layer
+    ) le ON true
     LEFT JOIN limited_frames lf ON l.pk_layer = lf.pk_layer
 WHERE j.pk_job = $1
     AND ls.int_waiting_count > 0
@@ -360,7 +380,7 @@ impl LayerDao {
                     str_log_dir: model.str_log_dir.unwrap_or_default(),
                     str_layer_name: model.str_layer_name.unwrap_or_default(),
                     str_job_name: model.job_name.clone(),
-                    int_min_cores: model.int_min_cores.unwrap_or(100), // default core multiplier
+                    int_min_cores: model.int_layer_cores_min.unwrap_or(100), // default core multiplier
                     int_mem_min: model.int_mem_min_frame.unwrap_or(0),
                     b_threadable: model.b_threadable,
                     int_gpus_min: model.int_gpus_min_frame.unwrap_or(0),
@@ -371,6 +391,8 @@ impl LayerDao {
                     int_version: model.int_version.unwrap_or(1),
                     str_loki_url: model.str_loki_url,
                     ts_updated: model.ts_updated,
+                    job_env: model.job_env.0.clone(),
+                    layer_env: model.layer_env.0.clone(),
                 })
             } else {
                 None

@@ -878,14 +878,17 @@ impl RqdDispatcherService {
             Self::prepare_frame_spec(frame_number, &frame.range, frame.chunk_size as usize)?;
 
         // Build environment variables
-        let mut environment = HashMap::new();
+        let mut environment = proc.frame.env.clone();
         environment.insert("CUE3".to_string(), "1".to_string());
         environment.insert("CUE_THREADS".to_string(), threads.to_string());
-        environment.insert("CUE_MEMORY".to_string(), proc.memory_reserved.to_string());
+        environment.insert(
+            "CUE_MEMORY".to_string(),
+            (proc.memory_reserved.as_u64() / KIB).to_string(),
+        );
         environment.insert("CUE_GPUS".to_string(), proc.gpus_reserved.to_string());
         environment.insert(
             "CUE_GPU_MEMORY".to_string(),
-            proc.gpu_memory_reserved.to_string(),
+            (proc.gpu_memory_reserved.as_u64() / KIB).to_string(),
         );
         environment.insert("CUE_LOG_PATH".to_string(), frame.log_dir.clone());
         environment.insert("CUE_RANGE".to_string(), frame.range.clone());
@@ -1020,7 +1023,7 @@ mod tests {
 
     use super::*;
     use crate::models::{CoreSize, DispatchFrame, Host};
-    use bytesize::ByteSize;
+    use bytesize::{ByteSize, KB};
     use opencue_proto::host::ThreadMode;
     use uuid::Uuid;
 
@@ -1074,6 +1077,7 @@ mod tests {
             loki_url: None,
             version: 1,
             updated_at: SystemTime::now(),
+            env: HashMap::new(),
         }
     }
 
@@ -1479,7 +1483,7 @@ mod tests {
         assert_eq!(run_frame.environment.get("CUE_THREADS").unwrap(), "2");
         assert_eq!(
             run_frame.environment.get("CUE_MEMORY").unwrap(),
-            &virtual_proc.memory_reserved.to_string()
+            &(virtual_proc.memory_reserved.as_u64() / KIB).to_string(),
         );
         assert_eq!(run_frame.environment.get("CUE_GPUS").unwrap(), "1");
         assert_eq!(
