@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -472,7 +471,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         String tag = jdbcTemplate.queryForObject("SELECT str_tags FROM host WHERE pk_host=?",
                 String.class, host.id);
-        assertEquals("unassigned beta 64bit frick jack linux", tag);
+        assertEquals("unassigned 64bit linux beta frick jack", tag);
     }
 
     @Test
@@ -494,18 +493,18 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         String tag = jdbcTemplate.queryForObject("SELECT str_tags FROM host WHERE pk_host=?",
                 String.class, host.id);
-        assertEquals("unassigned beta 64bit linux", tag);
+        assertEquals("unassigned 64bit linux beta", tag);
 
         hostDao.removeTag(host, "linux");
         hostDao.recalcuateTags(host.id);
 
-        assertEquals("unassigned beta 64bit", jdbcTemplate.queryForObject(
+        assertEquals("unassigned 64bit beta", jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id));
 
         hostDao.tagHost(host, "32bit", HostTagType.MANUAL);
         hostDao.recalcuateTags(host.id);
 
-        assertEquals("unassigned beta 32bit 64bit", jdbcTemplate.queryForObject(
+        assertEquals("unassigned 64bit beta 32bit", jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id));
     }
 
@@ -548,5 +547,56 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testIsNimby() {
         DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
         assertFalse(hostDao.isNimbyHost(host));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateHostTagsOnlyAffectsHardwareTags() {
+        // Create initial host with default RQD tags (linux, 64bit)
+        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
+
+        // Add some manual tags
+        hostDao.tagHost(host, "manual_tag1", HostTagType.MANUAL);
+        hostDao.tagHost(host, "manual_tag2", HostTagType.MANUAL);
+        hostDao.recalcuateTags(host.id);
+
+        String initialTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned 64bit linux beta manual_tag1 manual_tag2", initialTags);
+
+        // Create updated RenderHost with different hardware tags
+        RenderHost updatedRHost = buildRenderHost(TEST_HOST).toBuilder().clearTags()
+                .addTags("rqdv-2").addTags("windows").build();
+        hostManager.updateHostTags(host, updatedRHost);
+
+        // Check that hardware tags were updated but manual tags were preserved
+        String updatedTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned rqdv-2 windows beta manual_tag1 manual_tag2", updatedTags);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateHostTagsRemovesManualDuplicates() {
+        // Create initial host with a manual tag that will become a hardware tag
+        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
+        hostDao.tagHost(host, "foo", HostTagType.MANUAL);
+        hostDao.recalcuateTags(host.id);
+
+        String initialTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned 64bit linux beta foo", initialTags);
+
+        // Update hardware tags to include "foo"
+        RenderHost updatedRHost = buildRenderHost(TEST_HOST).toBuilder().clearTags().addTags("foo")
+                .addTags("linux").build();
+        hostManager.updateHostTags(host, updatedRHost);
+
+        // Ensure "foo" appears only once and as a hardware tag
+        String updatedTags = jdbcTemplate
+                .queryForObject("SELECT str_tags FROM host WHERE pk_host=?", String.class, host.id);
+        assertEquals("unassigned foo linux beta", updatedTags);
     }
 }

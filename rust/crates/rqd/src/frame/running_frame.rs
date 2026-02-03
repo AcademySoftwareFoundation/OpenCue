@@ -10,6 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
+use opencue_proto::job::LayerSetTimeoutRequest;
 #[cfg(unix)]
 use std::os::fd::IntoRawFd;
 #[cfg(unix)]
@@ -71,7 +72,7 @@ pub struct RunningFrame {
     pub exit_file_path: String,
     pub entrypoint_file_path: String,
     state: RwLock<FrameState>,
-    should_remove_from_cache: RwLock<bool>,
+    dangling_state_registed_at: RwLock<Option<SystemTime>>,
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     stats_frozen: AtomicBool,
@@ -192,7 +193,7 @@ impl RunningFrame {
             state: RwLock::new(FrameState::Created(CreatedState {
                 launch_thread_handle: None,
             })),
-            should_remove_from_cache: RwLock::new(false),
+            dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
         }
     }
@@ -247,6 +248,9 @@ impl RunningFrame {
         if self.stats_frozen.load(Ordering::SeqCst) {
             return;
         }
+
+        // Make sure
+        self.unmark_dangling();
 
         self.frame_stats
             .write()
@@ -321,10 +325,16 @@ impl RunningFrame {
     /// # Parameters
     /// * `exit_code` - The exit code from the frame process (0 for success, non-zero for failure)
     /// * `exit_signal` - Optional signal number that terminated the process (e.g., 15 for SIGTERM, 9 for SIGKILL)
+    /// * `external_kill_reason` - Optional message to explain why the frame was marked as failed
     ///
     /// This method updates the internal finished state with the termination information,
     /// which can later be used to determine if the frame succeeded or failed.
-    pub fn finish(&self, exit_code: i32, exit_signal: Option<i32>) -> Result<()> {
+    pub fn finish(
+        &self,
+        exit_code: i32,
+        exit_signal: Option<i32>,
+        external_kill_reason: Option<String>,
+    ) -> Result<()> {
         let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
         match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
@@ -346,7 +356,7 @@ impl RunningFrame {
                     end_time: SystemTime::now(),
                     exit_code,
                     exit_signal: modified_exit_signal,
-                    kill_reason: running_state.kill_reason.clone(),
+                    kill_reason: running_state.kill_reason.clone().or(external_kill_reason),
                 };
 
                 // Replace state with the new FinishedState
@@ -486,7 +496,7 @@ impl RunningFrame {
         };
         let was_spawned = match output {
             Ok((exit_code, exit_signal)) => {
-                if let Err(err) = self.finish(exit_code, exit_signal) {
+                if let Err(err) = self.finish(exit_code, exit_signal, None) {
                     error!("Failed to mark frame {} as finished. {}", self, err);
                 }
                 logger.writeln(&self.write_footer());
@@ -1256,6 +1266,8 @@ Render Frame Completed
             start_time: start_time as i64,
             max_rss: (stats.max_rss / KIB) as i64,
             rss: (stats.rss / KIB) as i64,
+            max_pss: (stats.max_pss / KIB) as i64,
+            pss: (stats.pss / KIB) as i64,
             max_vsize: (stats.max_vsize / KIB) as i64,
             vsize: (stats.vsize / KIB) as i64,
             attributes: self.request.attributes.clone(),
@@ -1268,19 +1280,35 @@ Render Frame Completed
         }
     }
 
-    pub fn mark_for_cache_removal(&self) {
+    pub fn mark_dangling(&self) {
         let mut lock = self
-            .should_remove_from_cache
+            .dangling_state_registed_at
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        *lock = true;
+        // Never reset dangling marker
+        if lock.is_none() {
+            *lock = Some(SystemTime::now());
+        }
     }
 
-    pub fn is_marked_for_cache_removal(&self) -> bool {
-        *self
-            .should_remove_from_cache
+    pub fn unmark_dangling(&self) {
+        let mut lock = self
+            .dangling_state_registed_at
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *lock = None
+    }
+
+    pub fn is_dangling_expired(&self) -> bool {
+        let last_occurrence = *self
+            .dangling_state_registed_at
             .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        match last_occurrence {
+            Some(time) => time.elapsed().unwrap_or(Duration::ZERO) > Duration::from_secs(15),
+            None => false,
+        }
     }
 
     /// Freezes the frame statistics to prevent further updates.
@@ -1499,8 +1527,7 @@ mod tests {
             .await;
         let elapsed = start.elapsed();
 
-        assert!(status.is_ok());
-        assert_eq!((0, None), status.unwrap());
+        assert_eq!((0, None), status.expect("status should be OK"));
         assert!(
             elapsed >= Duration::from_millis(500),
             "Command didn't run for expected duration"

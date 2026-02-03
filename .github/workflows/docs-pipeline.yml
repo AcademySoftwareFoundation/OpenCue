@@ -7,13 +7,13 @@ on:
       - main
     paths:
       - 'docs/**'
-      - '.github/workflows/docs.yml'
+      - '.github/workflows/docs-pipeline.yml'
     tags:
       - 'v*'  # Build docs for version tags
   pull_request:
     paths:
       - 'docs/**'
-      - '.github/workflows/docs.yml'
+      - '.github/workflows/docs-pipeline.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -145,6 +145,9 @@ jobs:
             -e JEKYLL_ENV=production \
             opencue-docs:ci \
             bundle exec jekyll build --baseurl "$BASEURL" --verbose
+
+          # Fix permissions after Docker build (Docker runs as root, so files are owned by root)
+          sudo chown -R $USER:$USER _site/
           
       - name: Create version redirect
         if: github.event_name != 'pull_request'

@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com>"]
 edition = "2021"
-version = "0.1.6"
+version = "0.1.8"
 
 [workspace.dependencies]
 async-trait = "0.1"
@@ -36,3 +36,4 @@ tracing-appender = "0.2.3"
 tracing-rolling-file = "0.1.2"
 tracing-subscriber = { version = "0.3.18", features = ["ansi", "env-filter"] }
 structopt = "0.3.26"
+home = "=0.5.9"

@@ -372,13 +372,16 @@ impl HostCacheService {
                 show_id,
                 tag,
             })
-            // Make sure tags are evaluated in this order: MANUAL -> HOSTNAME -> ALLOC
+            // Make sure tags are evaluated in this order:
+            // MANUAL -> HOSTNAME -> HARDWARE -> ALLOC
             .sorted_by(|l, r| match (&l.tag.ttype, &r.tag.ttype) {
                 (TagType::Alloc, TagType::Alloc)
                 | (TagType::HostName, TagType::HostName)
+                | (TagType::Hardware, TagType::Hardware)
                 | (TagType::Manual, TagType::Manual) => Ordering::Equal,
                 (TagType::Manual, _) => Ordering::Less,
                 (TagType::HostName, _) => Ordering::Less,
+                (TagType::Hardware, _) => Ordering::Less,
                 (TagType::Alloc, _) => Ordering::Greater,
             })
     }

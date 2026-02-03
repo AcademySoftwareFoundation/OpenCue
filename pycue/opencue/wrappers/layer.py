@@ -493,6 +493,15 @@ class Layer(object):
         :return: most memory used by any frame in this layer in kB"""
         return self.data.layer_stats.max_rss
 
+    def maxPss(self):
+        """Returns the highest amount of PSS that any frame in this layer used.
+
+        Value is within 5% of the actual highest frame.
+
+        :rtype:  long
+        :return: most PSS used by any frame in this layer in kB"""
+        return self.data.layer_stats.max_pss
+
     def type(self):
         """Returns the type of layer.
 

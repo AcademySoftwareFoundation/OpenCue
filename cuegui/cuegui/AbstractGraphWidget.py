@@ -62,6 +62,9 @@ class AbstractGraphWidget(QtWidgets.QWidget):
     def handleSelectObjects(self, rpcObjects):
         """Select incoming objects in graph.
         """
+        if rpcObjects is None:
+            return
+
         received = [o.name() for o in rpcObjects]
         current = [rpcObject.name() for rpcObject in self.selectedObjects()]
         if received == current:
@@ -72,7 +75,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
             node.set_selected(False)
         for rpcObject in rpcObjects:
             node = self.graph.get_node_by_name(rpcObject.name())
-            node.set_selected(True)
+            if node is not None:
+                node.set_selected(True)
 
     def selectedObjects(self):
         """Return the selected nodes rpcObjects in the graph.

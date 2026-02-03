@@ -361,6 +361,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId(), value);
     }
 
+    public void updateMaxPSS(JobInterface job, long value) {
+        getJdbcTemplate().update(
+                "UPDATE job_mem SET int_max_pss=? WHERE pk_job=? AND int_max_pss < ?", value,
+                job.getJobId(), value);
+    }
+
     private static final String UPDATE_JOB_FINISHED = "UPDATE " + "job " + "SET "
             + "str_state = ?, " + "str_visible_name = NULL, " + "ts_stopped = current_timestamp "
             + "WHERE " + "str_state = 'PENDING' " + "AND " + "pk_job = ?";

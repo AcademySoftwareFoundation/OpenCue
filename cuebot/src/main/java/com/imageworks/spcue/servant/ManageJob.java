@@ -243,8 +243,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobGetFramesResponse.newBuilder().setFrames(frameSeq).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -257,8 +257,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobGetLayersResponse.newBuilder().setLayers(layerSeq).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -274,8 +274,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobKillResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -328,8 +328,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobPauseResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -342,8 +342,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobResumeResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -358,8 +358,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -372,8 +372,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobSetMinCoresResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -386,8 +386,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobSetMaxGpusResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -400,8 +400,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobSetMinGpusResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -416,8 +416,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -430,8 +430,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobGetCurrentResponse.newBuilder().setJob(currentJob).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -448,8 +448,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -469,8 +469,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -486,8 +486,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -504,8 +504,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -520,8 +520,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -539,8 +539,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -558,8 +558,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -577,8 +577,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -591,8 +591,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                     .setDepends(whiteboard.getWhatDependsOnThis(job)).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -605,8 +605,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                     .setDepends(whiteboard.getWhatThisDependsOn(job)).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -619,8 +619,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                     .setDepends(whiteboard.getDepends(job)).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -640,8 +640,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         } catch (java.lang.IllegalArgumentException e) {
             System.out.println(e);
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -656,8 +656,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -676,8 +676,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobAddCommentResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -690,8 +690,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                     .setComments(whiteboard.getComments(job)).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -707,8 +707,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -723,8 +723,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -741,8 +741,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -758,8 +758,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -772,8 +772,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             responseObserver.onNext(JobShutdownIfCompletedResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -789,8 +789,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -828,8 +828,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 }
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 
@@ -845,8 +845,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL.withDescription("Failed to find job data")
-                    .asRuntimeException());
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
         }
     }
 

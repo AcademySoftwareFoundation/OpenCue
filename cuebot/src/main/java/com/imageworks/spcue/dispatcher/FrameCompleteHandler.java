@@ -609,12 +609,16 @@ public class FrameCompleteHandler {
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
-                // exemption code 256
             } else if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE
                     || report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE)
                     && (frame.retries < job.maxRetries)) {
+                // exemption code 256
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(report.getExitStatus()).build();
+                newState = FrameState.WAITING;
+            } else if (report.getHost().getNimbyLocked() && report.getExitSignal() == 15) {
+                // If frame got killed because the host was nimby locked,
+                // retry even if retry count is higher than maxretrycount
                 newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;

@@ -33,13 +33,10 @@ use opencue_proto::{
     report::{ChildrenProcStats, ProcStats, Stat},
 };
 use sysinfo::{DiskRefreshKind, Disks, MemoryRefreshKind, RefreshKind};
-use tracing::{debug, info};
+use tracing::debug;
 use uuid::Uuid;
 
-use crate::{
-    config::{MachineConfig, MemoryMetric},
-    system::reservation::ProcessorStructure,
-};
+use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
 
 use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SystemManager};
 
@@ -58,7 +55,8 @@ pub struct LinuxSystem {
 
 #[derive(Debug)]
 struct ProcessData {
-    memory: u64,
+    rss: u64,
+    pss: u64,
     virtual_memory: u64,
     cmd: String,
     state: String,
@@ -114,8 +112,10 @@ pub struct MachineDynamicInfo {
 
 /// Aggregated Data refering to a process session
 struct SessionData {
-    /// Amount of memory used by all processes in this session
-    memory: u64,
+    /// Amount of memory used by all processes in this session calculated by rss
+    rss: u64,
+    /// Amount of memory used by all processes in this session calculated by pss
+    pss: u64,
     /// Amount of virtual memory used by all processes in this session
     virtual_memory: u64,
     /// Amount of gpu used by all processes in this session
@@ -158,8 +158,6 @@ impl LinuxSystem {
             .try_into()
             .into_diagnostic()
             .wrap_err("SC_CLK_TCK not available")?;
-
-        info!("Memory metric configured: {:?}", config.memory_metric);
 
         Ok(Self {
             config: config.clone(),
@@ -657,20 +655,8 @@ impl LinuxSystem {
             };
             let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
 
-            // Read memory based on configured metric
-            let memory = match self.config.memory_metric {
-                MemoryMetric::Pss => {
-                    // Try PSS, fallback to RSS if unavailable
-                    match self.read_pss(pid) {
-                        Ok(pss) => pss,
-                        Err(_) => rss,
-                    }
-                }
-                MemoryMetric::Rss => {
-                    // Original RSS logic
-                    rss
-                }
-            };
+            // Try PSS, fallback to RSS if unavailable
+            let pss = self.read_pss(pid).unwrap_or(rss);
 
             let (start_time, run_time) = self.calculate_process_time(start_time);
 
@@ -684,7 +670,8 @@ impl LinuxSystem {
             let cmd = cmdline.replace('\0', " ");
 
             Ok(ProcessData {
-                memory,
+                rss,
+                pss,
                 virtual_memory,
                 cmd,
                 state,
@@ -737,61 +724,70 @@ impl LinuxSystem {
             })?;
 
         // If session owner is still alive, iterate over the session and calculate memory
-        let (memory, virtual_memory, gpu_memory, start_time, run_time) = match self
-            .session_processes
-            .get(session_id)
-        {
-            Some(ref lineage) => {
-                // Process session data
-                lineage
-                    .iter()
-                    .filter_map(|pid| {
-                        match self.cached_processes.get(pid) {
-                            Some(proc) if !proc.is_dead() => {
-                                // Confirm this is a proc and not a thread
-                                let start_time_str = DateTime::<Local>::from(
-                                    UNIX_EPOCH + Duration::from_secs(proc.start_time),
-                                )
-                                .format("%Y-%m-%d %H:%M:%S")
-                                .to_string();
-                                let proc_memory = proc.memory;
-                                let proc_vmemory = proc.virtual_memory;
-                                let cmdline = proc.cmd.clone();
+        let (rss, pss, virtual_memory, gpu_memory, start_time, run_time) =
+            match self.session_processes.get(session_id) {
+                Some(ref lineage) => {
+                    // Process session data
+                    lineage
+                        .iter()
+                        .filter_map(|pid| {
+                            match self.cached_processes.get(pid) {
+                                Some(proc) if !proc.is_dead() => {
+                                    // Confirm this is a proc and not a thread
+                                    let start_time_str = DateTime::<Local>::from(
+                                        UNIX_EPOCH + Duration::from_secs(proc.start_time),
+                                    )
+                                    .format("%Y-%m-%d %H:%M:%S")
+                                    .to_string();
+                                    let proc_rss = proc.rss;
+                                    let proc_pss = proc.pss;
+                                    let proc_vmemory = proc.virtual_memory;
+                                    let cmdline = proc.cmd.clone();
 
-                                // Check for potential duplicates
-                                children.push(ProcStats {
-                                    stat: Some(Stat {
-                                        rss: proc_memory as i64,
-                                        vsize: proc_vmemory as i64,
-                                        state: proc.state.clone(),
-                                        name: proc.name.clone(),
-                                        pid: pid.to_string(),
-                                    }),
-                                    statm: None,
-                                    status: None,
-                                    cmdline,
-                                    start_time: start_time_str,
-                                });
-                                Some((proc_memory, proc_vmemory, 0, proc.start_time, proc.run_time))
+                                    // Check for potential duplicates
+                                    children.push(ProcStats {
+                                        stat: Some(Stat {
+                                            rss: proc_rss as i64,
+                                            pss: proc_pss as i64,
+                                            vsize: proc_vmemory as i64,
+                                            state: proc.state.clone(),
+                                            name: proc.name.clone(),
+                                            pid: pid.to_string(),
+                                        }),
+                                        statm: None,
+                                        status: None,
+                                        cmdline,
+                                        start_time: start_time_str,
+                                    });
+                                    Some((
+                                        proc_rss,
+                                        proc_pss,
+                                        proc_vmemory,
+                                        0,
+                                        proc.start_time,
+                                        proc.run_time,
+                                    ))
+                                }
+                                _ => None,
                             }
-                            _ => None,
-                        }
-                    })
-                    .reduce(|a, b| {
-                        (
-                            a.0 + b.0,
-                            a.1 + b.1,
-                            a.2 + b.2,
-                            std::cmp::min(a.3, b.3),
-                            std::cmp::max(a.4, b.4),
-                        )
-                    })
-                    .unwrap_or((0, 0, 0, u64::MAX, 0))
-            }
-            None => (0, 0, 0, u64::MAX, 0),
-        };
+                        })
+                        .reduce(|a, b| {
+                            (
+                                a.0 + b.0,
+                                a.1 + b.1,
+                                a.2 + b.2,
+                                a.3 + b.3,
+                                std::cmp::min(a.3, b.3),
+                                std::cmp::max(a.4, b.4),
+                            )
+                        })
+                        .unwrap_or((0, 0, 0, 0, u64::MAX, 0))
+                }
+                None => (0, 0, 0, 0, u64::MAX, 0),
+            };
         Some(SessionData {
-            memory,
+            rss,
+            pss,
             virtual_memory,
             gpu_memory,
             start_time,
@@ -890,12 +886,14 @@ impl SystemManager for LinuxSystem {
         Ok(self.calculate_proc_session_data(&pid).map(|session_data| {
             debug!(
                 "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
-                pid, session_data.memory, session_data.virtual_memory, session_data.gpu_memory
+                pid, session_data.rss, session_data.virtual_memory, session_data.gpu_memory
             );
             ProcessStats {
                 // Caller is responsible for maintaining the Max value between calls
-                max_rss: session_data.memory,
-                rss: session_data.memory,
+                max_rss: session_data.rss,
+                rss: session_data.rss,
+                max_pss: session_data.pss,
+                pss: session_data.pss,
                 max_vsize: session_data.virtual_memory,
                 vsize: session_data.virtual_memory,
                 llu_time: log_mtime,

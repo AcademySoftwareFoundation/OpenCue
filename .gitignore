@@ -45,3 +45,5 @@ CLAUDE.md
 
 # Documentation navigation temporary file
 docs/nav_order_index.txt
+rust/.cargo/config.toml
+sandbox/pgadmin-data/*

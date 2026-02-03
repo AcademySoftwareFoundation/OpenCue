@@ -38,6 +38,7 @@ import grpc
 import opencue
 from opencue_proto import job_pb2
 
+import cuegui
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -161,7 +162,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "time without an update is an indication of a stuck\n"
                            "frame for most types of jobs")
 
-        self.addColumn("Memory", 60, id=13,
+        self.addColumn("Memory (RSS)", 60, id=13,
                        data=lambda job, frame: (
                                frame.data.state == opencue.api.job_pb2.RUNNING and
                                cuegui.Utils.memoryToString(frame.data.used_memory) or
@@ -169,11 +170,23 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 frame.data.used_memory or frame.data.max_rss),
                        tip="If a frame is running:\n"
-                           "\t The amount of memory currently used by the frame.\n"
+                           "\t The amount of RSS memory currently used by the frame.\n"
                            "If a frame is not running:\n"
-                           "\t The most memory this frame has used at one time.")
+                           "\t The most RSS memory this frame has used at one time.")
 
-        self.addColumn("GPU Memory", 60, id=14,
+        self.addColumn("Memory (PSS)", 60, id=14,
+                       data=lambda job, frame: (
+                               frame.data.state == opencue.api.job_pb2.RUNNING and
+                               cuegui.Utils.memoryToString(frame.data.used_pss) or
+                               cuegui.Utils.memoryToString(frame.data.max_pss)),
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
+                                                frame.data.used_pss or frame.data.max_pss),
+                       tip="If a frame is running:\n"
+                           "\t The amount of PSS memory currently used by the frame.\n"
+                           "If a frame is not running:\n"
+                           "\t The most PSS memory this frame has used at one time.")
+
+        self.addColumn("GPU Memory", 60, id=15,
                        data=lambda job, frame: (
                                frame.data.state == opencue.api.job_pb2.RUNNING and
                                cuegui.Utils.memoryToString(frame.data.used_gpu_memory) or
@@ -186,7 +199,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "If a frame is not running:\n"
                            "\t The most GPU memory this frame has used at one time.")
 
-        self.addColumn("Remain", 70, id=15,
+        self.addColumn("Remain", 70, id=16,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameEtaDataBuffer.getEtaFormatted(job, frame)
                                                 or ""),
@@ -194,16 +207,17 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                 self.frameEtaDataBuffer.getEta(job, frame) or -1),
                        tip="Hours:Minutes:Seconds remaining.")
 
-        self.addColumn("Start Time", 100, id=16,
+        self.addColumn("Start Time", 100, id=17,
                        data=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        tip="The time the frame was started or retried.")
-        self.addColumn("Stop Time", 100, id=17,
+
+        self.addColumn("Stop Time", 100, id=18,
                        data=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
-        self.addColumn("Last Line", 0, id=18,
+        self.addColumn("Last Line", 0, id=19,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
@@ -488,9 +502,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         except grpc.RpcError as e:
             # Handle gRPC errors - log but don't crash, allow UI to retry
             # pylint: disable=no-member
-            if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
-                                                     grpc.StatusCode.UNAVAILABLE]:
-                logger.warning("gRPC connection interrupted during frame update, will retry")
+            if hasattr(e, 'code'):
+                if e.code() == grpc.StatusCode.NOT_FOUND:
+                    logger.info("Job not found, notifying and clearing job from view")
+                    cuegui.app().job_not_found.emit(self.__job)
+                    self.setJob(None)
+                    return []
+                if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                    logger.warning("gRPC connection interrupted during frame update, will retry")
+                else:
+                    logger.error("gRPC error in _getUpdate: %s", e)
             else:
                 logger.error("gRPC error in _getUpdate: %s", e)
             # pylint: enable=no-member
@@ -526,13 +547,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     return None
                 if e.code() == grpc.StatusCode.NOT_FOUND:
                     # Job was deleted
-                    logger.info("Job not found, clearing job from view")
+                    logger.info("Job not found, notifying and clearing job from view")
+                    cuegui.app().job_not_found.emit(self.__job)
                     self.setJob(None)
                     return []
                 logger.error("gRPC error in _getUpdateChanged: %s", e)
             # pylint: enable=no-member
             return None
         except opencue.EntityNotFoundException:
+            logger.info("Job entity not found, notifying and clearing job from view")
+            cuegui.app().job_not_found.emit(self.__job)
             self.setJob(None)
         except opencue.exception.CueException as e:
             # pylint: disable=no-member

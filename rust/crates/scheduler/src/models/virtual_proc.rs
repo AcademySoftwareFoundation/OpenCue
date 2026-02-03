@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};

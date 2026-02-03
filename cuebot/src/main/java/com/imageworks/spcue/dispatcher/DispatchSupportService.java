@@ -554,20 +554,20 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-            long maxVsize, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
-            byte[] children) {
-        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize, usedGpuMemory,
-                maxUsedGpuMemory, usedSwapMemory, children);
+    public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long pss,
+            long maxPss, long vsize, long maxVsize, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children) {
+        procDao.updateProcMemoryUsage(frame, rss, maxRss, pss, maxPss, vsize, maxVsize,
+                usedGpuMemory, maxUsedGpuMemory, usedSwapMemory, children);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
-            long lluTime) {
+            long pss, long maxPss, long lluTime) {
 
         try {
-            frameDao.updateFrameMemoryUsageAndLluTime(frame, maxRss, rss, lluTime);
+            frameDao.updateFrameMemoryUsageAndLluTime(frame, maxRss, rss, maxPss, pss, lluTime);
         } catch (FrameReservationException ex) {
             // Eat this, the frame was not in the correct state or
             // was locked by another thread. The only reason it would

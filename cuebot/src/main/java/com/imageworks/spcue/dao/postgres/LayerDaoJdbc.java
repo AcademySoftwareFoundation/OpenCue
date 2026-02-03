@@ -359,6 +359,22 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         getJdbcTemplate().update(sb.toString(), options);
     }
 
+    private static final String UPDATE_LAYER_MAX_PSS =
+            "UPDATE " + "layer_mem " + "SET " + "int_max_pss = ? " + "WHERE " + "pk_layer = ?";
+
+    @Override
+    public void updateLayerMaxPSS(LayerInterface layer, long val, boolean force) {
+        StringBuilder sb = new StringBuilder(UPDATE_LAYER_MAX_PSS);
+        Object[] options;
+        if (!force) {
+            options = new Object[] {val, layer.getLayerId(), val};
+            sb.append(" AND int_max_pss < ?");
+        } else {
+            options = new Object[] {val, layer.getLayerId()};
+        }
+        getJdbcTemplate().update(sb.toString(), options);
+    }
+
     @Override
     public void updateLayerTags(LayerInterface layer, Set<String> tags) {
         if (tags.size() == 0) {

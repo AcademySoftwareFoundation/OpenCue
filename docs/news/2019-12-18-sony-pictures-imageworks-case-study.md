@@ -2,7 +2,7 @@
 layout: default
 title: "Dec 18, 2019: Sony Pictures Imageworks case study"
 parent: News
-nav_order: 5
+nav_order: 6
 ---
 
 # Sony Pictures Imageworks case study

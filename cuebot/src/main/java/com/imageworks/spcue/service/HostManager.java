@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -261,4 +260,12 @@ public interface HostManager {
      * @param report
      */
     void setHostResources(DispatchHost host, HostReport report);
+
+    /**
+     * Updates host tags during boot to ensure they're current.
+     *
+     * @param host DispatchHost
+     * @param rhost RenderHost with updated tag information
+     */
+    void updateHostTags(DispatchHost host, RenderHost rhost);
 }

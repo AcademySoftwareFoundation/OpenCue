@@ -357,6 +357,8 @@ message NestedProc {
     NestedHost parent = 18;
     int64 used_gpu_memory = 19;
     float reserved_gpus = 20;
+    int64 max_pss = 21;
+    int64 used_pss = 22;
 }
 
 message NestedProcSeq {

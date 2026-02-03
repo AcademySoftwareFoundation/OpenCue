@@ -150,23 +150,28 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
                        sort=lambda job: sortableKey(job.data.job_stats.max_rss,
                                                     job.data.start_time),
-                       tip="The maximum memory used any single frame in each job.")
-        self.addColumn("Age", 50, id=11,
+                       tip="The maximum RSS memory used any single frame in each job.")
+        self.addColumn("MaxPss", 55, id=11,
+                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_pss),
+                       sort=lambda job: sortableKey(job.data.job_stats.max_pss,
+                                                    job.data.start_time),
+                       tip="The maximum PSS memory used any single frame in each job.")
+        self.addColumn("Age", 50, id=12,
                        data=lambda job: (cuegui.Utils.secondsToHHHMM((job.data.stop_time or
                                                                time.time()) - job.data.start_time)),
                        sort=lambda job: ((job.data.stop_time or time.time()) - job.data.start_time),
                        tip="The HOURS:MINUTES that the job has spent in the queue.")
-        self.addColumn("Launched", 100, id=12,
+        self.addColumn("Launched", 100, id=13,
                        data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.start_time),
                        sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
-        self.addColumn("Finished", 100, id=13,
+        self.addColumn("Finished", 100, id=14,
                        data=lambda job: (job.data.stop_time > 0
                                          and cuegui.Utils.dateToMMDDHHMM(job.data.stop_time)
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
-        self.addColumn("Progress", 0, id=14,
+        self.addColumn("Progress", 0, id=15,
                        delegate=cuegui.ItemDelegate.JobProgressBarDelegate,
                        tip="A visual overview of the progress of each job.\n"
                            "Green \t is succeeded\n"
@@ -197,7 +202,15 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        self.app.job_not_found.connect(self.__handleJobNotFound)
         # pylint: enable=no-member
+
+        # Track jobs that have been notified as not found to avoid duplicate popups
+        self.__notifiedJobsNotFound = set()
+
+        # Batch job-not-found notifications to show in a single dialog
+        self.__pendingNotFoundJobs = []
+        self.__notFoundTimer = None
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
@@ -253,6 +266,101 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             job = item.rpcObject
             if col == COLUMN_COMMENT and job.isCommented():
                 self.__menuActions.jobs().viewComments([job])
+
+    def __handleJobNotFound(self, job):
+        """Handle a job not found signal by batching notifications and removing the job.
+        @type  job: opencue.wrappers.job.Job
+        @param job: The job that was not found"""
+        if job is None:
+            return
+
+        jobKey = cuegui.Utils.getObjectKey(job)
+
+        # Avoid showing duplicate popups for the same job
+        if jobKey in self.__notifiedJobsNotFound:
+            return
+
+        self.__notifiedJobsNotFound.add(jobKey)
+
+        # Find and remove the job from the list
+        if jobKey in self._items:
+            item = self._items[jobKey]
+            self.removeItem(item)
+
+        # Add job name to pending list for batched notification
+        jobName = job.data.name if hasattr(job, 'data') else str(job)
+        self.__pendingNotFoundJobs.append(jobName)
+
+        # Start or restart the timer to batch multiple notifications
+        if self.__notFoundTimer is None:
+            self.__notFoundTimer = QtCore.QTimer(self)
+            self.__notFoundTimer.setSingleShot(True)
+            self.__notFoundTimer.timeout.connect(self.__showBatchedJobNotFoundDialog)
+        self.__notFoundTimer.start(500)  # 500ms delay to collect multiple notifications
+
+        # Clean up the notification tracking after a delay to allow re-notification
+        # if the user adds the same job again later
+        QtCore.QTimer.singleShot(5000, lambda: self.__notifiedJobsNotFound.discard(jobKey))
+
+    def __showBatchedJobNotFoundDialog(self):
+        """Show a single dialog for all pending job-not-found notifications."""
+        if not self.__pendingNotFoundJobs:
+            return
+
+        jobNames = self.__pendingNotFoundJobs[:]
+        self.__pendingNotFoundJobs.clear()
+
+        if len(jobNames) == 1:
+            message = (
+                f"The job '{jobNames[0]}' is no longer available.\n\n"
+                "The job has been moved to historical data and is no longer "
+                "accessible through the live job interface.\n\n"
+                "The job has been removed from the monitor list."
+            )
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Job No Longer Available",
+                message
+            )
+        else:
+            # Use a custom dialog with scrollable area for many jobs
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle("Jobs No Longer Available")
+            dialog.setMinimumWidth(500)
+            dialog.setMaximumHeight(600)
+
+            layout = QtWidgets.QVBoxLayout(dialog)
+
+            # Header label
+            headerLabel = QtWidgets.QLabel(
+                f"The following {len(jobNames)} jobs are no longer available:"
+            )
+            layout.addWidget(headerLabel)
+
+            # Scrollable job list
+            jobList = "\n".join(f"  • {name}" for name in sorted(jobNames))
+            textEdit = QtWidgets.QTextEdit()
+            textEdit.setPlainText(jobList)
+            textEdit.setReadOnly(True)
+            textEdit.setMinimumHeight(150)
+            textEdit.setMaximumHeight(350)
+            layout.addWidget(textEdit)
+
+            # Footer message
+            footerLabel = QtWidgets.QLabel(
+                "These jobs have been moved to historical data and are no longer "
+                "accessible through the live job interface.\n\n"
+                "The jobs have been removed from the monitor list."
+            )
+            footerLabel.setWordWrap(True)
+            layout.addWidget(footerLabel)
+
+            # OK button
+            buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+            buttonBox.accepted.connect(dialog.accept)
+            layout.addWidget(buttonBox)
+
+            dialog.exec_()
 
     def startDrag(self, dropActions):
         """Triggers a drag event"""
@@ -310,6 +418,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if newJobObj:
                 jobKey = cuegui.Utils.getObjectKey(newJobObj)
+                # Skip jobs that were recently marked as not found
+                if jobKey in self.__notifiedJobsNotFound:
+                    return
                 if self.__groupByMode == "Clear":
                     self.__load[jobKey] = newJobObj
                     self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
@@ -744,14 +855,16 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @rtype:  dict<class.id: job>"""
         try:
             jobs = {}
+            finished_jobs = {}  # Track finished jobs to verify they still exist
 
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
             for item in list(self._items.values()):
                 objectKey = cuegui.Utils.getObjectKey(item.rpcObject)
                 if item.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
-                    # Reuse the old object if job is finished
-                    jobs[objectKey] = item.rpcObject
+                    # Track finished jobs - verify they still exist
+                    finished_jobs[objectKey] = item.rpcObject
+                    monitored_proxies.append(objectKey)
                 else:
                     # Gather list of all other jobs to update
                     monitored_proxies.append(objectKey)
@@ -787,6 +900,12 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             include_finished=True):
                         objectKey = cuegui.Utils.getObjectKey(job)
                         jobs[objectKey] = job
+
+            # Check for finished jobs that no longer exist (archived/deleted)
+            for objectKey, job in finished_jobs.items():
+                if objectKey not in jobs:
+                    # Job no longer exists - emit signal for batch notification
+                    self.app.job_not_found.emit(job)
 
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
@@ -834,6 +953,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.clear()
 
             for proxy, job in iteritems(rpcObjects):
+                # Skip jobs that were recently marked as not found
+                if proxy in self.__notifiedJobsNotFound:
+                    continue
                 # Handle different grouping modes
                 if self.__groupByMode == "Clear":
                     # No grouping - flat list

@@ -240,8 +240,8 @@ main() {
            --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
            -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
 
-    log INFO "Starting Docker compose..."
-    docker compose up &>"${DOCKER_COMPOSE_LOG}" &
+    log INFO "Starting Docker compose (core services only)..."
+    docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
     if [[ "$(uname -s)" == "Darwin" ]]; then
         docker_timeout=$(date -v +5M +%s)
     else
