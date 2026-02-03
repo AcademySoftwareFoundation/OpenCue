@@ -78,6 +78,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.idleGpus = rs.getInt("int_gpus_idle");
             host.gpuMemory = rs.getLong("int_gpu_mem");
             host.idleGpuMemory = rs.getLong("int_gpu_mem_idle");
+            host.concurrentSlotsLimit = rs.getInt("int_concurrent_slots_limit");
             host.dateBooted = rs.getDate("ts_booted");
             host.dateCreated = rs.getDate("ts_created");
             host.datePinged = rs.getDate("ts_ping");
@@ -131,6 +132,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host.int_gpus_idle, "
             + "  host.int_gpu_mem, "
             + "  host.int_gpu_mem_idle, "
+            + "  host.int_concurrent_slots_limit, "
             + "  host.ts_created, "
             + "  host.str_name, "
             + "  host_stat.str_state, "
@@ -395,14 +397,15 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  int_load = ?, "
             + "  ts_booted = ?, "
             + "  ts_ping = current_timestamp, "
-            + "  str_os = ? "
+            + "  str_os = ?, "
+            + "  int_running_procs = ? "
             + "WHERE "
             + "  pk_host = ?";
 
     @Override
     public void updateHostStats(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
-            long freeGpuMemory, int load, Timestamp bootTime, String os) {
+            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningProcs) {
 
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
@@ -410,7 +413,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(UPDATE_RENDER_HOST, totalMemory, freeMemory, totalSwap, freeSwap,
                 totalMcp, freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os,
-                host.getHostId());
+                runningProcs, host.getHostId());
     }
 
     @Override
@@ -563,6 +566,23 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
+    public void updateConcurrentSlotsLimit(HostInterface host, int limit) {
+        getJdbcTemplate().update("UPDATE host SET int_concurrent_slots_limit=? WHERE pk_host=?",
+                limit, host.getHostId());
+    }
+
+    @Override
+    public int getHostConcurrentSlotsLimit(String hostname) {
+        try {
+            return getJdbcTemplate().queryForObject(
+                    "SELECT int_concurrent_slots_limit FROM host WHERE str_name = ?",
+                    Integer.class, hostname);
+        } catch (EmptyResultDataAccessException e) {
+            return 0;
+        }
+    }
+
+    @Override
     public void updateHostOs(HostInterface host, String os) {
         getJdbcTemplate().update("UPDATE host_stat SET str_os=? WHERE pk_host=?", os,
                 host.getHostId());
@@ -631,7 +651,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     /**
      * Checks if the passed in name looks like a fully qualified domain name. If so, returns the
      * hostname without the domain. Otherwise returns the passed in name unchanged.
-     * 
+     *
      * @param fqdn - String
      * @return String - hostname
      */

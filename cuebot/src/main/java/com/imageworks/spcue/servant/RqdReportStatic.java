@@ -12,11 +12,15 @@ import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionRequest;
 import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionResponse;
 import com.imageworks.spcue.grpc.report.RqdReportStatusRequest;
 import com.imageworks.spcue.grpc.report.RqdReportStatusResponse;
+import com.imageworks.spcue.grpc.report.RqdReportGetHostSlotsLimitRequest;
+import com.imageworks.spcue.grpc.report.RqdReportGetHostSlotsLimitResponse;
+import com.imageworks.spcue.service.HostManager;
 
 public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceImplBase {
 
     private FrameCompleteHandler frameCompleteHandler;
     private HostReportHandler hostReportHandler;
+    private HostManager hostManager;
 
     @SuppressWarnings("unused")
 
@@ -44,6 +48,15 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
         responseObserver.onCompleted();
     }
 
+    @Override
+    public void getHostSlotsLimit(RqdReportGetHostSlotsLimitRequest request,
+            StreamObserver<RqdReportGetHostSlotsLimitResponse> responseObserver) {
+        int slotsLimit = hostManager.getHostConcurrentSlotsLimit(request.getName());
+        responseObserver.onNext(
+                RqdReportGetHostSlotsLimitResponse.newBuilder().setSlotsLimit(slotsLimit).build());
+        responseObserver.onCompleted();
+    }
+
     public FrameCompleteHandler getFrameCompleteHandler() {
         return frameCompleteHandler;
     }
@@ -58,5 +71,13 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
 
     public void setHostReportHandler(HostReportHandler hostReportHandler) {
         this.hostReportHandler = hostReportHandler;
+    }
+
+    public HostManager getHostManager() {
+        return hostManager;
+    }
+
+    public void setHostManager(HostManager hostManager) {
+        this.hostManager = hostManager;
     }
 }

@@ -159,6 +159,15 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
+        self.addColumn("Concurrent Slots", 50, id=23,
+                       data=lambda host: \
+                           host.data.concurrent_slots_limit \
+                           if host.data.concurrent_slots_limit >= 0 \
+                           else "-",
+                       tip="When >0 the host is configured to be slot based.\n"
+                           "The host can only run this amount of slots at the same time "
+                           "(Usually: 1 frame = 1 slot)\n\n"
+                           "This host will only run layers with a slots_required field configured.")
 
         self.hostSearch = opencue.search.HostSearch()
 
@@ -290,6 +299,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "removeTags")
         self.__menuActions.hosts().addAction(menu, "renameTag")
         self.__menuActions.hosts().addAction(menu, "changeAllocation")
+        self.__menuActions.hosts().addAction(menu, "setConcurrentSlotsLimit")
         self.__menuActions.hosts().addAction(menu, "delete")
         self.__menuActions.hosts().addAction(menu, "rebootWhenIdle")
         self.__menuActions.hosts().addAction(menu, "setRepair")

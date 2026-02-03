@@ -89,6 +89,7 @@ compileTestJava {
     options.compilerArgs << "-Xlint:all,-serial" << "-Werror"
 }
 
+
 protobuf {
     protoc {
         // The protoc compiler

@@ -4,7 +4,7 @@ nav_order: 13
 parent: Concepts
 layout: default
 linkTitle: "Glossary"
-date: 2019-02-22
+date: 2026-02-03
 description: >
   Glossary of common OpenCue terms
 ---
@@ -123,8 +123,19 @@ type of job to the cue, including Maya, Katana, or even shell commands.
 
 ## Proc
 
-A proc is a slot on a render *host* that has been carved out and isolated to
-execute a *frame*.
+A proc is a unit of work on a render *host* that executes a *frame*. In
+core-based booking, a proc represents reserved cores on a host.
+
+## Slot
+
+A slot is a scheduling unit used by slot-based booking. Slots are defined per
+host and consumed per frame.
+
+## Slot-based booking
+
+A booking mode where hosts are scheduled by slots instead of cores, memory, or
+GPU resources. It is enabled by setting a concurrent slots limit on hosts and a
+`slots_required` value on layers.
 
 ## OpenCue REST Gateway
 
