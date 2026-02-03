@@ -164,7 +164,9 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda layer: layer.data.timeout_llu,
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
         self.addColumn("Slots Required", 65, id=23,
-                       data=lambda layer: "-" if layer.data.slots_required <= 0 else str(layer.data.slots_required),
+                       data=lambda layer: "-" \
+                           if layer.data.slots_required <= 0 \
+                           else str(layer.data.slots_required),
                        sort=lambda layer: layer.data.slots_required,
                        tip="Number of slots required per frame\n"
                            "(- means not slot-based)")
