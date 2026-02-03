@@ -43,3 +43,18 @@ jobs:
         run: |
           cd rust
           cargo clippy --verbose
+
+  windows-tests:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Protobuf
+        run: choco install protoc -y
+      - name: Export PROTOC path
+        run: echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+      - name: Run tests
+        working-directory: rust
+        run: cargo test -p rqd --verbose
