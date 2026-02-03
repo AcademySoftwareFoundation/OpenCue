@@ -184,7 +184,7 @@ services:
   # RQD Render Queue Daemon
   # Runs on render hosts and executes frames assigned by Cuebot
   rqd:
-    image: opencue/rqd
+    image: ${RQD_IMAGE:-opencue/rqd}
     environment:
       - PYTHONUNBUFFERED=1
       - CUEBOT_HOSTNAME=cuebot
