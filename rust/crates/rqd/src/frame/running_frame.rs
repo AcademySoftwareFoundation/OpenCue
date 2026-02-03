@@ -1263,7 +1263,7 @@ Render Frame Completed
             frame_name: self.request.frame_name.clone(),
             layer_id: self.request.layer_id.clone(),
             num_cores: self.request.num_cores,
-            start_time: start_time as i64,
+            start_time: (start_time * 1000) as i64,
             max_rss: (stats.max_rss / KIB) as i64,
             rss: (stats.rss / KIB) as i64,
             max_pss: (stats.max_pss / KIB) as i64,

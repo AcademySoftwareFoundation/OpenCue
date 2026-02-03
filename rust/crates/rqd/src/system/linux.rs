@@ -544,6 +544,13 @@ impl LinuxSystem {
                     }
                 }
             }
+
+            // Find session_id from stat file instead of status
+            // Depending on the OS, Kernel version or SELinux state, status might not contain NSSid
+            if session_id.is_none() {
+                session_id = self.read_session_id_from_stat(pid);
+            }
+
             match (session_id, tgid, state) {
                 (Some(session_id), Some(tgid), Some(state)) => {
                     // Only store valid states
@@ -575,6 +582,37 @@ impl LinuxSystem {
             }
         }
         Ok(())
+    }
+
+
+    // Read stats from /proc/{pid}/stat file and return session_id
+    // NSsid might be is missing from /proc/{pid}/status
+    // In this case we fallback if not found and and then use stat instead
+    fn read_session_id_from_stat(&self, pid: u32) -> Option<u32> {
+        let stat_path = format!("/proc/{}/stat", pid);
+        let stat = match std::fs::read_to_string(stat_path).into_diagnostic() {
+            Ok(s) => s,
+            Err(_) => return None, // Skip procs which status is not available
+        };
+
+        // Stats file can star with these formats:
+        //     - 105 name ...
+        //     - 105 (name) ...
+        //     - 105 (name with space) ...
+        //     - 105 (name with) (space and parenthesis) ...
+
+        let end = stat.rfind(')');
+
+        match end {
+            Some(end) => {
+                let fields: Vec<&str> = stat[end+2..].split_whitespace().collect();
+                return fields[3].parse::<u32>().ok()
+            },
+            None => {
+                let fields: Vec<&str> = stat.split_whitespace().collect();
+                return fields[5].parse::<u32>().ok()
+            }
+        }
     }
 
     /// Reads PSS (Proportional Set Size) from /proc/[pid]/smaps_rollup
