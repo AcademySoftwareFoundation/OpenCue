@@ -57,6 +57,7 @@ public class EmailSupport {
     private String emailDomain;
     private String emailFromAddress;
     private String[] emailCcAddresses;
+    private String outputsPath;
 
     private Map<String, byte[]> imageMap;
 
@@ -67,6 +68,7 @@ public class EmailSupport {
         this.emailDomain = env.getProperty("email.domain", "opencue.io");
         this.emailFromAddress = env.getProperty("email.from.address", "opencue-noreply@opencue.io");
         this.emailCcAddresses = env.getProperty("email.cc.addresses", "").split(",");
+        this.outputsPath = env.getProperty("email.output_path", "/tmp");
     }
 
     private static void loadImage(Map<String, byte[]> map, String path) {
@@ -276,7 +278,17 @@ public class EmailSupport {
             File file = null;
             if (shouldCreateFile) {
                 try {
-                    file = new File("my_outputs.txt");
+                    String fallback_path = this.outputsPath + "/fallback_path.txt";
+                    String filepath = this.outputsPath + "/" + d.getName() + ".txt";
+
+                    // Check if the constructed path is writable, if not, fallback to a default path
+                    File tempFile = new File(filepath);
+                    if (!tempFile.getParentFile().exists()
+                            || !tempFile.getParentFile().canWrite()) {
+                        filepath = fallback_path;
+                    }
+
+                    file = new File(filepath);
                     output = new BufferedWriter(new FileWriter(file));
                     for (LayerDetail layer : layers) {
                         if (layer.type.equals(LayerType.RENDER)) {
