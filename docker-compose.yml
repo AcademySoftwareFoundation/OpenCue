@@ -318,7 +318,7 @@ services:
 
   # # Prometheus for metrics collection
   # prometheus:
-  #   image: prom/prometheus:v2.45.0
+  #   image: prom/prometheus:v3.9.1
   #   container_name: opencue-prometheus
   #   ports:
   #     - "9090:9090"
@@ -338,7 +338,7 @@ services:
   # # Grafana for dashboards
   # # Port 3001 to avoid conflict with CueWeb (3000)
   # grafana:
-  #   image: grafana/grafana:10.0.0
+  #   image: grafana/grafana:12.3
   #   container_name: opencue-grafana
   #   depends_on:
   #     - prometheus
@@ -356,7 +356,7 @@ services:
   # # Loki for log aggregation
   # # Enable loki logging driver on other services to use
   # loki:
-  #   image: grafana/loki:v1.3.0
+  #   image: grafana/loki:3.6.0
   #   container_name: opencue-loki
   #   volumes:
   #     - ./sandbox/config/loki:/etc/config
@@ -375,7 +375,7 @@ services:
 
   # # Zookeeper for Kafka
   # zookeeper:
-  #   image: confluentinc/cp-zookeeper:7.4.0
+  #   image: confluentinc/cp-zookeeper:7.7.7
   #   hostname: zookeeper
   #   container_name: opencue-zookeeper
   #   ports:
@@ -391,7 +391,7 @@ services:
 
   # # Kafka broker for event streaming
   # kafka:
-  #   image: confluentinc/cp-kafka:7.4.0
+  #   image: confluentinc/cp-kafka:7.7.7
   #   hostname: kafka
   #   container_name: opencue-kafka
   #   depends_on:
@@ -432,7 +432,7 @@ services:
 
   # # Elasticsearch for historical data storage
   # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
   #   container_name: opencue-elasticsearch
   #   environment:
   #     - discovery.type=single-node
@@ -451,7 +451,7 @@ services:
 
   # # Kibana for Elasticsearch visualization
   # kibana:
-  #   image: docker.elastic.co/kibana/kibana:8.8.0
+  #   image: docker.elastic.co/kibana/kibana:9.3.0
   #   container_name: opencue-kibana
   #   depends_on:
   #     elasticsearch:
