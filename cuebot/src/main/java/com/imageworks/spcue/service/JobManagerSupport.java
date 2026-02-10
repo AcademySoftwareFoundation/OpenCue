@@ -448,6 +448,15 @@ public class JobManagerSupport {
             logger.info("failed to obtain information for " + "proc running on frame: " + frame);
         }
 
+        if (frame.getState() == FrameState.RUNNING) {
+            logger.warn("Invalid retry request. Cannot retry a running frame");
+            return;
+        }
+        if (frame.getState() == FrameState.SUCCEEDED) {
+            logger.warn("Invalid retry request. Cannot retry a succeeded frame");
+            return;
+        }
+
         if (manualStopFrame(frame, FrameState.WAITING)) {
             if (proc != null) {
                 redirectManager.addRedirect(proc, (JobInterface) proc, false, source);

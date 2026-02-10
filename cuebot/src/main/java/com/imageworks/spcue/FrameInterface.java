@@ -14,6 +14,8 @@
 
 package com.imageworks.spcue;
 
+import com.imageworks.spcue.grpc.job.FrameState;
+
 public interface FrameInterface extends LayerInterface {
 
     public String getFrameId();
@@ -25,4 +27,6 @@ public interface FrameInterface extends LayerInterface {
      * @return the time stamp that represents the last time this frame was updated.
      */
     public int getVersion();
+
+    public FrameState getState();
 }
