@@ -171,7 +171,12 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
-        self.addColumn("Progress", 0, id=15,
+        self.addColumn("User Color", 100, id=15,
+                       data=lambda job: self._getUserColorName(cuegui.Utils.getObjectKey(job)),
+                       sort=lambda job: self._getUserColorSortKey(cuegui.Utils.getObjectKey(job)),
+                       tip="User-assigned color for this job.\n"
+                           "Click column header to sort by color.")
+        self.addColumn("Progress", 0, id=16,
                        delegate=cuegui.ItemDelegate.JobProgressBarDelegate,
                        tip="A visual overview of the progress of each job.\n"
                            "Green \t is succeeded\n"
@@ -214,6 +219,87 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
+
+    def _getUserColorName(self, objectKey):
+        """Returns the display name for a user color.
+
+        @type  objectKey: str
+        @param objectKey: The object key (e.g., "Job.abc123")
+        @rtype:  str
+        @return: Color name, "RGB(R,G,B)" for custom RGB, or empty string if no color
+        """
+        if objectKey not in self.__userColors:
+            return ""
+
+        color = self.__userColors[objectKey]
+
+        # Mapping of RGB tuples to color names based on Constants.py
+        color_names = {
+            (50, 50, 100): "Dark Blue",
+            (100, 100, 50): "Dark Yellow",
+            (0, 50, 0): "Dark Green",
+            (50, 30, 0): "Dark Brown",
+            (80, 0, 80): "Purple",
+            (0, 80, 80): "Teal",
+            (100, 50, 0): "Orange",
+            (70, 0, 35): "Maroon",
+            (0, 60, 30): "Forest Green",
+            (90, 60, 90): "Lavender",
+            (100, 0, 50): "Crimson",
+            (0, 50, 100): "Navy",
+            (80, 80, 0): "Olive",
+            (60, 20, 60): "Plum",
+            (30, 70, 70): "Slate",
+        }
+
+        rgb = (color.red(), color.green(), color.blue())
+        if rgb in color_names:
+            return color_names[rgb]
+        # Return RGB format for custom colors
+        return f"RGB({rgb[0]},{rgb[1]},{rgb[2]})"
+
+    def _getUserColorSortKey(self, objectKey):
+        """Returns a numeric sort key for a user color.
+
+        Jobs without colors sort first (0), preset colors 1-15 sort in order,
+        and custom RGB colors sort last with unique keys based on RGB values.
+
+        @type  objectKey: str
+        @param objectKey: The object key (e.g., "Job.abc123")
+        @rtype:  int
+        @return: Sort key value (0=no color, 1-15=preset, 16000000+=custom with RGB)
+        """
+        if objectKey not in self.__userColors:
+            return 0
+
+        color = self.__userColors[objectKey]
+
+        # Mapping of RGB tuples to sort keys based on preset color numbers
+        color_keys = {
+            (50, 50, 100): 1,      # Dark Blue
+            (100, 100, 50): 2,     # Dark Yellow
+            (0, 50, 0): 3,         # Dark Green
+            (50, 30, 0): 4,        # Dark Brown
+            (80, 0, 80): 5,        # Purple
+            (0, 80, 80): 6,        # Teal
+            (100, 50, 0): 7,       # Orange
+            (70, 0, 35): 8,        # Maroon
+            (0, 60, 30): 9,        # Forest Green
+            (90, 60, 90): 10,      # Lavender
+            (100, 0, 50): 11,      # Crimson
+            (0, 50, 100): 12,      # Navy
+            (80, 80, 0): 13,       # Olive
+            (60, 20, 60): 14,      # Plum
+            (30, 70, 70): 15,      # Slate
+        }
+
+        rgb = (color.red(), color.green(), color.blue())
+        if rgb in color_keys:
+            return color_keys[rgb]
+        # For custom colors, create unique sort key from RGB values
+        # Base 16000000 ensures custom colors sort after preset colors (1-15)
+        # Formula: 16000000 + (R * 10000 + G * 100 + B)
+        return 16000000 + (rgb[0] * 10000 + rgb[1] * 100 + rgb[2])
 
     def tick(self):
         if self.__load:
