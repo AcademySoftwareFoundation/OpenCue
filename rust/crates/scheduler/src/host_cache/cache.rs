@@ -171,8 +171,12 @@ impl HostCache {
             ResourceRequest::Slots(slots) => self
                 // Request a host with minimum requirements as the remove logic already accounts for
                 // limiting slots
-                // TODO: Replace and consider hardcoded values
-                .remove_host(CoreSize(1), ByteSize::mib(256), slots, validation)
+                .remove_host(
+                    CoreSize(CONFIG.host_cache.slot_min_cores as i32),
+                    CONFIG.host_cache.slot_min_memory,
+                    slots,
+                    validation,
+                )
                 .ok_or(HostCacheError::NoCandidateAvailable)?,
         };
 

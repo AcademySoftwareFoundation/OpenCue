@@ -193,5 +193,5 @@ message RqdReportGetHostSlotsLimitRequest {
 }
 
 message RqdReportGetHostSlotsLimitResponse {
-    int64 slots_limit = 1;
+    int32 slots_limit = 1;
 }

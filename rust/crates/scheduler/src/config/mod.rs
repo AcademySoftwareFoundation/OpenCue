@@ -239,6 +239,8 @@ pub struct HostCacheConfig {
     #[serde(with = "humantime_serde")]
     pub host_staleness_threshold: Duration,
     pub update_stat_on_book: bool,
+    pub slot_min_cores: u32,
+    pub slot_min_memory: ByteSize,
 }
 
 impl Default for HostCacheConfig {
@@ -253,6 +255,8 @@ impl Default for HostCacheConfig {
             concurrent_fetch_permit: 4,
             host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
             update_stat_on_book: false,
+            slot_min_cores: 1,
+            slot_min_memory: ByteSize::mib(257),
         }
     }
 }

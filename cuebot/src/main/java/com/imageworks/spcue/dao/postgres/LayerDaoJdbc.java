@@ -575,6 +575,9 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateLayerSlotsRequired(LayerInterface layer, int slots) {
+        // Avoid negative numbers as they have the same meaning as zero
+        slots = Math.max(slots, 0);
+
         getJdbcTemplate().update("UPDATE layer SET int_slots_required=? WHERE pk_layer=?", slots,
                 layer.getLayerId());
     }

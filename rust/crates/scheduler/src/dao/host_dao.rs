@@ -165,7 +165,7 @@ RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, NOW()
 static UPDATE_HOST_STAT: &str = r#"
 UPDATE host_stat
 SET int_mem_free = int_mem_free - $1,
-    int_gpu_mem_free = int_gpu_mem_free - $2
+    int_gpu_mem_free = int_gpu_mem_free - $2,
     int_running_procs = int_running_procs + 1
 WHERE pk_host = $3
 "#;

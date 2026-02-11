@@ -95,7 +95,7 @@ service HostInterface {
 
     // Changes the host's [ThreadMode]
     rpc SetThreadMode(HostSetThreadModeRequest) returns (HostSetThreadModeResponse);
-    
+
     // Set the maximum concurrent procs limit for the host.
     rpc SetConcurrentSlotsLimit(HostSetConcurrentSlotsLimitRequest) returns (HostSetConcurrentSlotsLimitResponse);
 
@@ -276,11 +276,11 @@ message Host {
     LockState lock_state = 26;
     ThreadMode thread_mode = 27;
     float gpus = 28;
-    float idle_gpus = 29;   
-    
-    // When a limit is defined, booking will only allocate layers with slots_required > 0 to be
-    // executed on this host. Which means regular booking by cores/memory/gpu becomes disabled.
-    // (0 for no limit, >0 for specific limit)
+    float idle_gpus = 29;
+
+    // Controls slot-based concurrent frame limiting on this host.
+    // 0: slot-based booking is disabled (default behavior using cores/memory/gpu)
+    // >0: slot-based booking is enabled with specified limit (only layers with slots_required > 0)
     int32 concurrent_slots_limit = 30;
 }
 

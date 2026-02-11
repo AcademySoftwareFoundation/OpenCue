@@ -821,7 +821,7 @@ impl Machine for MachineMonitor {
 
         match slot_state.as_mut() {
             Some(slot_state) => {
-                if slot_state.slots_consumed + requested_slots < slot_state.slot_limit {
+                if slot_state.slots_consumed + requested_slots <= slot_state.slot_limit {
                     slot_state.slots_consumed += requested_slots;
                     Ok(())
                 } else {

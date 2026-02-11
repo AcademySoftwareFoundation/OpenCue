@@ -189,7 +189,7 @@ class Layer(object):
         """Sets the number of slots required per frame for this layer.
 
         :type  slots: int
-        :param slots: Number of slots required (<=0 disables slot-based booking)
+        :param slots: Number of slots required (=0 disables slot-based booking)
         """
         return self.stub.SetSlotsRequired(
             job_pb2.LayerSetSlotsRequiredRequest(layer=self.data, slots=slots),
