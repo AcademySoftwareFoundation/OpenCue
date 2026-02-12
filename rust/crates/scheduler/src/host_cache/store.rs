@@ -401,7 +401,7 @@ mod tests {
             alloc_name: "test".to_string(),
             last_updated,
             concurrent_slots_limit: None,
-            running_procs_count: 0,
+            running_slots_count: 0,
         }
     }
 

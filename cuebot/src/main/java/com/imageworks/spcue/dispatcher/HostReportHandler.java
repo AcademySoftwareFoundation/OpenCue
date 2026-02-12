@@ -185,13 +185,21 @@ public class HostReportHandler {
 
             DispatchHost host;
             RenderHost rhost = report.getHost();
+
+            /*
+             * Verify all the frames in the report are valid. Frames that are not valid are removed.
+             */
+            List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
+            int host_running_slots =
+                    runningFrames.stream().mapToInt(RunningFrameInfo::getSlotsRequired).sum();
+
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host, rhost.getTotalMem(), rhost.getFreeMem(),
                         rhost.getTotalSwap(), rhost.getFreeSwap(), rhost.getTotalMcp(),
                         rhost.getFreeMcp(), rhost.getTotalGpuMem(), rhost.getFreeGpuMem(),
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
-                        rhost.getAttributesMap().get("SP_OS"), report.getFramesCount());
+                        rhost.getAttributesMap().get("SP_OS"), host_running_slots);
 
                 // Both logics are conflicting, only change hardware state if
                 // there was no need for a tempDirStorage state change
@@ -222,11 +230,6 @@ public class HostReportHandler {
                 logger.warn("Error processing HostReport, " + e);
                 return;
             }
-
-            /*
-             * Verify all the frames in the report are valid. Frames that are not valid are removed.
-             */
-            List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
 
             /*
              * Updates memory usage for the proc, frames, jobs, and layers. And LLU time for the

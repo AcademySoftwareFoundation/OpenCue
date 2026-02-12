@@ -530,4 +530,180 @@ public class HostReportHandlerTests extends TransactionalTest {
                 Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
                 layer.getMinimumMemory());
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostRunningSlotsWithNoFrames() {
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).build();
+
+        hostReportHandler.handleHostReport(report, false);
+
+        DispatchHost host = getHost(hostname);
+        assertEquals(0, host.runningSlots);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostRunningSlotsWithSingleFrame() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+        int slotsRequired = 3;
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).setSlotsRequired(slotsRequired).build();
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addFrames(info).build();
+
+        hostReportHandler.handleHostReport(report, false);
+
+        host = getHost(hostname);
+        assertEquals(slotsRequired, host.runningSlots);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostRunningSlotsWithMultipleFrames() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+        VirtualProc proc3 = procs.get(2);
+
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+
+        int slotsRequired1 = 2;
+        int slotsRequired2 = 5;
+        int slotsRequired3 = 1;
+        int expectedTotalSlots = slotsRequired1 + slotsRequired2 + slotsRequired3;
+
+        RunningFrameInfo info1 = RunningFrameInfo.newBuilder().setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId()).setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId()).setSlotsRequired(slotsRequired1).build();
+
+        RunningFrameInfo info2 = RunningFrameInfo.newBuilder().setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId()).setFrameId(proc2.getFrameId())
+                .setResourceId(proc2.getProcId()).setSlotsRequired(slotsRequired2).build();
+
+        RunningFrameInfo info3 = RunningFrameInfo.newBuilder().setJobId(proc3.getJobId())
+                .setLayerId(proc3.getLayerId()).setFrameId(proc3.getFrameId())
+                .setResourceId(proc3.getProcId()).setSlotsRequired(slotsRequired3).build();
+
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addAllFrames(Arrays.asList(info1, info2, info3)).build();
+
+        hostReportHandler.handleHostReport(report, false);
+
+        host = getHost(hostname);
+        assertEquals(expectedTotalSlots, host.runningSlots);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostRunningSlotsWithZeroSlotsFrames() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+
+        // Test with frames that have 0 slots required
+        RunningFrameInfo info1 = RunningFrameInfo.newBuilder().setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId()).setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId()).setSlotsRequired(0).build();
+
+        RunningFrameInfo info2 = RunningFrameInfo.newBuilder().setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId()).setFrameId(proc2.getFrameId())
+                .setResourceId(proc2.getProcId()).setSlotsRequired(0).build();
+
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addAllFrames(Arrays.asList(info1, info2)).build();
+
+        hostReportHandler.handleHostReport(report, false);
+
+        host = getHost(hostname);
+        assertEquals(0, host.runningSlots);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostRunningSlotsUpdatesOnSubsequentReports() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+        VirtualProc proc3 = procs.get(2);
+
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+
+        // First report: 2 frames running with total 7 slots
+        RunningFrameInfo info1 = RunningFrameInfo.newBuilder().setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId()).setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId()).setSlotsRequired(3).build();
+
+        RunningFrameInfo info2 = RunningFrameInfo.newBuilder().setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId()).setFrameId(proc2.getFrameId())
+                .setResourceId(proc2.getProcId()).setSlotsRequired(4).build();
+
+        HostReport report1 = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addAllFrames(Arrays.asList(info1, info2)).build();
+
+        hostReportHandler.handleHostReport(report1, false);
+        host = getHost(hostname);
+        assertEquals(7, host.runningSlots);
+
+        // Second report: 3 frames running with total 10 slots
+        RunningFrameInfo info3 = RunningFrameInfo.newBuilder().setJobId(proc3.getJobId())
+                .setLayerId(proc3.getLayerId()).setFrameId(proc3.getFrameId())
+                .setResourceId(proc3.getProcId()).setSlotsRequired(3).build();
+
+        HostReport report2 = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addAllFrames(Arrays.asList(info1, info2, info3)).build();
+
+        hostReportHandler.handleHostReport(report2, false);
+        host = getHost(hostname);
+        assertEquals(10, host.runningSlots);
+
+        // Third report: only 1 frame running with 2 slots
+        RunningFrameInfo info1Updated = RunningFrameInfo.newBuilder().setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId()).setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId()).setSlotsRequired(2).build();
+
+        HostReport report3 = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(cores).addFrames(info1Updated).build();
+
+        hostReportHandler.handleHostReport(report3, false);
+        host = getHost(hostname);
+        assertEquals(2, host.runningSlots);
+    }
 }

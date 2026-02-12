@@ -49,6 +49,7 @@ public class DispatchHost extends Entity
     public long idleGpuMemory;
     public String tags;
     private String os;
+    public int runningSlots;
 
     public boolean isNimby;
     public boolean isLocalDispatch = false;

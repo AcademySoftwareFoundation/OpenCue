@@ -112,6 +112,7 @@ message RunningFrameInfo {
     int64 used_swap_memory = 19; // kB
     int64 max_pss = 20; // kB
     int64 pss = 21; // kB
+    int32 slots_required = 22;
 };
 
 message ChildrenProcStats {

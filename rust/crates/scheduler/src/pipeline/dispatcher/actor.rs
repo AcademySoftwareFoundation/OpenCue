@@ -751,6 +751,7 @@ impl RqdDispatcherService {
                 is_local_dispatch: false,
                 frame: frame.clone(),
                 host_name: host.name.clone(),
+                slots_required: frame.slots_required,
             },
             host,
         ))
@@ -1080,6 +1081,7 @@ mod tests {
             version: 1,
             updated_at: SystemTime::now(),
             env: HashMap::new(),
+            slots_required: 0,
         }
     }
 
@@ -1466,6 +1468,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1542,6 +1545,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1578,6 +1582,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);

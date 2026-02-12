@@ -79,6 +79,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.gpuMemory = rs.getLong("int_gpu_mem");
             host.idleGpuMemory = rs.getLong("int_gpu_mem_idle");
             host.concurrentSlotsLimit = rs.getInt("int_concurrent_slots_limit");
+            host.runningSlots = rs.getInt("int_running_slots");
             host.dateBooted = rs.getDate("ts_booted");
             host.dateCreated = rs.getDate("ts_created");
             host.datePinged = rs.getDate("ts_ping");
@@ -138,6 +139,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host_stat.str_state, "
             + "  host_stat.ts_ping, "
             + "  host_stat.ts_booted, "
+            + "  host_stat.int_running_slots, "
             + "  alloc.pk_facility "
             + "FROM "
             + "  host, "
@@ -231,6 +233,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     host.tags = rs.getString("str_tags");
                     host.setOs(rs.getString("str_os"));
                     host.hardwareState = HardwareState.valueOf(rs.getString("str_state"));
+                    host.runningSlots = rs.getInt("int_running_slots");
                     return host;
                 }
             };
@@ -255,6 +258,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host.str_tags, "
             + "  host_stat.str_os, "
             + "  host_stat.str_state, "
+            + "  host_stat.int_running_slots, "
             + "  alloc.pk_facility "
             + "FROM "
             + "  host "
@@ -398,14 +402,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  ts_booted = ?, "
             + "  ts_ping = current_timestamp, "
             + "  str_os = ?, "
-            + "  int_running_procs = ? "
+            + "  int_running_slots = ? "
             + "WHERE "
             + "  pk_host = ?";
 
     @Override
     public void updateHostStats(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
-            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningProcs) {
+            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningSlots) {
 
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
@@ -413,7 +417,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(UPDATE_RENDER_HOST, totalMemory, freeMemory, totalSwap, freeSwap,
                 totalMcp, freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os,
-                runningProcs, host.getHostId());
+                runningSlots, host.getHostId());
     }
 
     @Override

@@ -257,7 +257,7 @@ impl ReportInterface for ReportClient {
 
         // Host with limit <= 0 are running on core based booking mode, so they don't have a limit
         if slots_limit > 0 {
-            Ok(Some(slots_limit))
+            Ok(Some(slots_limit as u32))
         } else {
             Ok(None)
         }

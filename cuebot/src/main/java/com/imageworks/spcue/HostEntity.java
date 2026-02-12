@@ -39,6 +39,7 @@ public class HostEntity extends Entity implements HostInterface {
     public long gpuMemory;
     public long idleGpuMemory;
     public int concurrentSlotsLimit;
+    public int runningSlots;
 
     public boolean unlockAtBoot;
 

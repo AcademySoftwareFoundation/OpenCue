@@ -126,10 +126,10 @@ public class HostManagerService implements HostManager {
     @Override
     public void setHostStatistics(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
-            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningProcs) {
+            long freeGpuMemory, int load, Timestamp bootTime, String os, int runningSlots) {
 
         hostDao.updateHostStats(host, totalMemory, freeMemory, totalSwap, freeSwap, totalMcp,
-                freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os, runningProcs);
+                freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os, runningSlots);
     }
 
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)

@@ -68,6 +68,7 @@ pub struct DispatchFrameModel {
     pub b_threadable: bool,
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
+    pub int_slots_required: i32,
     // On Cuebot these fields come from constants, maybe replicate these constants here
     // pub int_soft_memory_limit: i64,
     // pub int_hard_memory_limit: i64,
@@ -156,6 +157,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             version: val.int_version as u32,
             updated_at,
             env,
+            slots_required: val.slots_required,
         }
     }
 }
