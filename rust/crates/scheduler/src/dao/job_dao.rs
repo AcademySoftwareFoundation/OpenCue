@@ -41,6 +41,7 @@ pub struct JobDao {
 pub struct JobModel {
     pub pk_job: String,
     pub int_priority: i32,
+    pub show_name: String,
 }
 
 impl DispatchJob {
@@ -67,9 +68,11 @@ static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
 --bookable_shows: Shows that have room in at least one of its subscriptions
 WITH bookable_shows AS (
     SELECT
-        distinct w.pk_show
+        distinct w.pk_show,
+        sh.str_name as show_name
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
+    INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.pk_show = $1
         -- Burst == 0 is used to freeze a subscription
         AND s.int_burst > 0
@@ -80,7 +83,8 @@ WITH bookable_shows AS (
 filtered_jobs AS (
     SELECT
         j.pk_job,
-        jr.int_priority
+        jr.int_priority,
+        bookable_shows.show_name
     FROM job j
     INNER JOIN bookable_shows on j.pk_show = bookable_shows.pk_show
     INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
@@ -98,7 +102,8 @@ filtered_jobs AS (
 )
 SELECT DISTINCT
     fj.pk_job,
-    fj.int_priority
+    fj.int_priority,
+    fj.show_name
 FROM filtered_jobs fj
 INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
 WHERE ls.int_waiting_count > 0
@@ -109,9 +114,11 @@ static QUERY_PENDING_BY_TAGS: &str = r#"
 --bookable_shows: Shows that have room in at least one of its subscriptions
 WITH bookable_shows AS (
     SELECT
-        distinct w.pk_show
+        distinct w.pk_show,
+        sh.str_name as show_name
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
+    INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.int_burst > 0
         AND s.int_burst - s.int_cores >= $1
         AND s.int_cores < s.int_burst
@@ -119,7 +126,8 @@ WITH bookable_shows AS (
 filtered_jobs AS(
     SELECT
         j.pk_job,
-        jr.int_priority
+        jr.int_priority,
+        bookable_shows.show_name
     FROM job j
     INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
     INNER JOIN folder f ON j.pk_folder = f.pk_folder
@@ -136,7 +144,8 @@ filtered_jobs AS(
 )
 SELECT DISTINCT
     fj.pk_job,
-    fj.int_priority
+    fj.int_priority,
+    fj.show_name
 FROM filtered_jobs fj
 INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
 WHERE ls.int_waiting_count > 0
