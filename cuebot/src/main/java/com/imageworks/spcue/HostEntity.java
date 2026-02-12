@@ -64,6 +64,7 @@ public class HostEntity extends Entity implements HostInterface {
         this.gpuMemory = grpcHost.getGpuMemory();
         this.idleGpuMemory = grpcHost.getIdleGpuMemory();
         this.concurrentSlotsLimit = grpcHost.getConcurrentSlotsLimit();
+        this.runningSlots = grpcHost.getRunningSlots();
     }
 
     public String getHostId() {

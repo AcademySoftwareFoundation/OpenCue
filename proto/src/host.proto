@@ -282,6 +282,7 @@ message Host {
     // 0: slot-based booking is disabled (default behavior using cores/memory/gpu)
     // >0: slot-based booking is enabled with specified limit (only layers with slots_required > 0)
     int32 concurrent_slots_limit = 30;
+    int32 running_slots = 31;
 }
 
 message HostSearchCriteria {
@@ -330,6 +331,7 @@ message NestedHost {
     float gpus = 29;
     float idle_gpus = 30;
     int32 concurrent_slots_limit = 31;
+    int32 running_slots = 32;
 }
 
 message NestedHostSeq {

@@ -168,6 +168,12 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "The host can only run this amount of slots at the same time "
                            "(Usually: 1 frame = 1 slot)\n\n"
                            "This host will only run layers with a slots_required field configured.")
+        self.addColumn("Available Slots", 50, id=24,
+                       data=lambda host: (
+                           host.data.concurrent_slots_limit - host.data.running_slots
+                       ) if host.data.concurrent_slots_limit >= 0 else "-",
+                       tip="The number of slots still available on the host.\n"
+                           "Computed as Concurrent Slots minus currently running slots.")
 
         self.hostSearch = opencue.search.HostSearch()
 
