@@ -1726,9 +1726,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "host_stat.int_swap_free," + "host_stat.int_mcp_total," + "host_stat.int_mcp_free,"
             + "host_stat.int_gpu_mem_total," + "host_stat.int_gpu_mem_free,"
             + "host_stat.int_load, " + "host_stat.int_running_slots, "
-            + "alloc.str_name AS alloc_name " + "FROM " + "alloc,"
-            + "facility, " + "host_stat," + "host " + "WHERE " + "host.pk_alloc = alloc.pk_alloc "
-            + "AND " + "facility.pk_facility = alloc.pk_facility " + "AND "
+            + "alloc.str_name AS alloc_name " + "FROM " + "alloc," + "facility, " + "host_stat,"
+            + "host " + "WHERE " + "host.pk_alloc = alloc.pk_alloc " + "AND "
+            + "facility.pk_facility = alloc.pk_facility " + "AND "
             + "host.pk_host = host_stat.pk_host ";
 
     private static final String GET_DEPEND = "SELECT " + "depend.pk_depend, " + "depend.str_type, "

@@ -536,8 +536,8 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Rollback(true)
     public void testHostRunningSlotsWithNoFrames() {
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
-        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
-                .setCoreInfo(cores).build();
+        HostReport report =
+                HostReport.newBuilder().setHost(getRenderHost(hostname)).setCoreInfo(cores).build();
 
         hostReportHandler.handleHostReport(report, false);
 

@@ -356,7 +356,7 @@ impl HostDao {
             sqlx::query(UPDATE_HOST_STAT)
                 .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
                 .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
-                .bind(virtual_proc.slots_required.as_u64() as i64)
+                .bind(virtual_proc.slots_required as i64)
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await

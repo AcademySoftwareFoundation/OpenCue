@@ -157,7 +157,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             version: val.int_version as u32,
             updated_at,
             env,
-            slots_required: val.slots_required,
+            slots_required: val.int_slots_required as u32,
         }
     }
 }
