@@ -316,7 +316,7 @@ impl RqdDispatcherService {
                         .map_err(DispatchError::DbFailure)?;
 
                     // Track successful frame dispatch
-                    metrics::increment_frames_dispatched();
+                    metrics::increment_frames_dispatched(&frame.show_name);
 
                     // Track time from frame updated_at to dispatch
                     if let Ok(elapsed) = frame.updated_at.elapsed() {

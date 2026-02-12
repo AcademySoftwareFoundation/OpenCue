@@ -12,7 +12,10 @@
 
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
-use prometheus::{register_counter, register_histogram, Counter, Encoder, Histogram, TextEncoder};
+use prometheus::{
+    register_counter, register_counter_vec, register_histogram, Counter, CounterVec, Encoder,
+    Histogram, TextEncoder,
+};
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -24,9 +27,10 @@ lazy_static! {
     )
     .expect("Failed to register jobs_queried_total counter");
 
-    pub static ref JOBS_PROCESSED_TOTAL: Counter = register_counter!(
+    pub static ref JOBS_PROCESSED_TOTAL: CounterVec = register_counter_vec!(
         "scheduler_jobs_processed_total",
-        "Total number of jobs processed by the scheduler"
+        "Total number of jobs processed by the scheduler",
+        &["show_name"]
     )
     .expect("Failed to register jobs_processed_total counter");
 
@@ -45,9 +49,10 @@ lazy_static! {
     .expect("Failed to register candidates_per_layer histogram");
 
     // Dispatcher metrics from dispatcher/actor.rs
-    pub static ref FRAMES_DISPATCHED_TOTAL: Counter = register_counter!(
+    pub static ref FRAMES_DISPATCHED_TOTAL: CounterVec = register_counter_vec!(
         "scheduler_frames_dispatched_total",
-        "Total number of frames dispatched"
+        "Total number of frames dispatched",
+        &["show_name"]
     )
     .expect("Failed to register frames_dispatched_total counter");
 
@@ -126,8 +131,8 @@ pub fn increment_jobs_queried(count: usize) {
 
 /// Helper function to increment jobs processed counter
 #[inline]
-pub fn increment_jobs_processed() {
-    JOBS_PROCESSED_TOTAL.inc();
+pub fn increment_jobs_processed(show_name: &str) {
+    JOBS_PROCESSED_TOTAL.with_label_values(&[show_name]).inc();
 }
 
 /// Helper function to increment no candidate iterations counter
@@ -144,8 +149,10 @@ pub fn observe_candidates_per_layer(candidates: usize) {
 
 /// Helper function to increment frames dispatched counter
 #[inline]
-pub fn increment_frames_dispatched() {
-    FRAMES_DISPATCHED_TOTAL.inc();
+pub fn increment_frames_dispatched(show_name: &str) {
+    FRAMES_DISPATCHED_TOTAL
+        .with_label_values(&[show_name])
+        .inc();
 }
 
 /// Helper function to observe time to book

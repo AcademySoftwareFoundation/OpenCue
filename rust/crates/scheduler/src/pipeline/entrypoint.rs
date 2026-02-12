@@ -88,7 +88,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                 CONFIG.queue.stream.job_buffer_size,
                                 |job_model| async {
                                     processed_jobs.fetch_add(1, Ordering::Relaxed);
-                                    metrics::increment_jobs_processed();
+                                    metrics::increment_jobs_processed(&job_model.show_name);
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     debug!("Found job: {}", job);
                                     matcher.process(job).await;
