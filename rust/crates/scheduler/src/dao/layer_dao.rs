@@ -56,7 +56,7 @@ pub struct DispatchLayerModel {
     pub b_threadable: bool,
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
-    pub int_slots_required: i64,
+    pub int_slots_required: i32,
     pub str_tags: String,
 }
 
@@ -80,7 +80,7 @@ pub struct LayerWithFramesModel {
     pub b_threadable: bool,
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
-    pub int_slots_required: i64,
+    pub int_slots_required: i32,
     pub str_tags: String,
     pub job_env: Json<HashMap<String, String>>,
     pub layer_env: Json<HashMap<String, String>>,
@@ -392,7 +392,7 @@ impl LayerDao {
                     str_job_name: model.job_name.clone(),
                     int_min_cores: model.int_layer_cores_min.unwrap_or(100), // default core multiplier
                     int_mem_min: model.int_mem_min_frame.unwrap_or(0),
-                    int_slots_required: model.int_slots_required.unwrap_or(0),
+                    int_slots_required: model.int_slots_required,
                     b_threadable: model.b_threadable,
                     int_gpus_min: model.int_gpus_min_frame.unwrap_or(0),
                     int_gpu_mem_min: model.int_gpu_mem_min_frame.unwrap_or(0),
