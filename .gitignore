@@ -35,6 +35,7 @@ sandbox/kafka-data
 sandbox/zookeeper-data
 sandbox/zookeeper-logs
 sandbox/rqd/shots/
+sandbox/pgadmin-data
 docs/_data/version.yml
 target/*
 

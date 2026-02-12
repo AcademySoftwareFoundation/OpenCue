@@ -45,6 +45,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public long gpuMemoryUsed;
     public long gpuMemoryMax;
 
+    public int slotsRequired;
+
     public boolean unbooked;
     public boolean usageRecorded = false;
     public boolean isLocalDispatch = false;
@@ -101,6 +103,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
+        proc.slotsRequired = frame.slotsRequired;
 
         /*
          * Frames that are announcing cores less than 100 are not multi-threaded so there is no
@@ -237,6 +240,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
+        proc.slotsRequired = frame.slotsRequired;
 
         int wholeCores = (int) (Math.floor(host.idleCores / 100.0));
         if (wholeCores == 0) {

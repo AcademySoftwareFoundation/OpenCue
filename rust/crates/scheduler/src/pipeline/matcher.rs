@@ -291,27 +291,23 @@ impl MatchingService {
                 layer.show_id
             );
 
-            // Clone only the minimal data needed for the validation closure
-            // These are needed because the closure must have 'static lifetime for actor messaging
-            let layer_id = layer.id;
-            let show_id = layer.show_id;
             let cores_requested = layer.cores_min;
             let allocation_service = self.allocation_service.clone();
             let os = layer.str_os.clone();
 
+            // Get a matching candidate
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
                     facility_id: layer.facility_id,
                     show_id: layer.show_id,
                     tags,
-                    cores: cores_requested,
-                    memory: layer.mem_min,
+                    resource_request: layer.resource_request(),
                     validation: move |host| {
                         Self::validate_match(
                             host,
-                            &layer_id,
-                            &show_id,
+                            &layer.id,
+                            &layer.show_id,
                             cores_requested,
                             &allocation_service,
                             os.as_deref(),

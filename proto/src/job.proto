@@ -392,6 +392,9 @@ service LayerInterface {
     // Set whether the LLU timeout for frames in the layer
     rpc SetTimeoutLLU(LayerSetTimeoutLLURequest) returns (LayerSetTimeoutLLUResponse);
 
+    // Set the number of slots required per frame for this layer
+    rpc SetSlotsRequired(LayerSetSlotsRequiredRequest) returns (LayerSetSlotsRequiredResponse);
+
     // Staggers the specified frame range.
     rpc StaggerFrames(LayerStaggerFramesRequest) returns (LayerStaggerFramesResponse);
 }
@@ -718,6 +721,8 @@ message Layer {
     float min_gpus = 20;
     float max_gpus = 21;
     string command = 22;
+    // Number of slots required per frame (<= 0 means not slot-based)
+    int32 slots_required = 23;
 }
 
 message LayerSeq {
@@ -1799,6 +1804,14 @@ message LayerSetTimeoutLLURequest {
 
 message LayerSetTimeoutLLUResponse {} // Empty
 
+// SetSlotsRequired
+//
+message LayerSetSlotsRequiredRequest {
+  Layer layer = 1;
+  int32 slots = 2;
+}
+
+message LayerSetSlotsRequiredResponse {} // Empty
 
 // StaggerFrames
 message LayerStaggerFramesRequest {

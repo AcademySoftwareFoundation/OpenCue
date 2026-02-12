@@ -158,6 +158,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.services.addAll(Lists.newArrayList(rs.getString("str_services").split(",")));
             layer.timeout = rs.getInt("int_timeout");
             layer.timeout_llu = rs.getInt("int_timeout_llu");
+            layer.slotsRequired = rs.getInt("int_slots_required");
             return layer;
         }
     };
@@ -241,7 +242,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             + "int_dispatch_order, " + "str_tags, " + "str_type," + "int_cores_min, "
             + "int_cores_max, " + "b_threadable, " + "int_mem_min, " + "int_gpus_min, "
             + "int_gpus_max, " + "int_gpu_mem_min, " + "str_services, " + "int_timeout,"
-            + "int_timeout_llu " + ") " + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "int_timeout_llu, " + "int_slots_required " + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insertLayerDetail(LayerDetail l) {
@@ -250,7 +252,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.chunkSize, l.dispatchOrder, StringUtils.join(l.tags, " | "), l.type.toString(),
                 l.minimumCores, l.maximumCores, l.isThreadable, l.minimumMemory, l.minimumGpus,
                 l.maximumGpus, l.minimumGpuMemory, StringUtils.join(l.services, ","), l.timeout,
-                l.timeout_llu);
+                l.timeout_llu, l.slotsRequired);
     }
 
     @Override
@@ -568,6 +570,15 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     @Override
     public void updateTimeoutLLU(LayerInterface layer, int timeout_llu) {
         getJdbcTemplate().update("UPDATE layer SET int_timeout_llu=? WHERE pk_layer=?", timeout_llu,
+                layer.getLayerId());
+    }
+
+    @Override
+    public void updateLayerSlotsRequired(LayerInterface layer, int slots) {
+        // Avoid negative numbers as they have the same meaning as zero
+        slots = Math.max(slots, 0);
+
+        getJdbcTemplate().update("UPDATE layer SET int_slots_required=? WHERE pk_layer=?", slots,
                 layer.getLayerId());
     }
 

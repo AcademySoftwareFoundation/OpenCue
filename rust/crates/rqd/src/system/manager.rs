@@ -70,6 +70,9 @@ pub enum ReservationError {
 
     #[error("Could not find core owner of this thread id")]
     CoreNotFoundForThread(Vec<u32>),
+
+    #[error("Slot reservation requested when the host is configured to core based booking")]
+    InvalidSlotReservationRequest,
 }
 
 /// Represents attributes on a machine that should never change without restarting the

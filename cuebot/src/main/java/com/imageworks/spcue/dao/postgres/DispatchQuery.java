@@ -546,6 +546,7 @@ public class DispatchQuery {
         "int_gpus_min, " +
         "int_gpus_max, " +
         "int_gpu_mem_min, " +
+        "int_slots_required, " +
         "str_cmd, " +
         "str_range, " +
         "int_chunk_size, " +
@@ -588,6 +589,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -676,6 +678,7 @@ public class DispatchQuery {
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -765,6 +768,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -847,6 +851,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -932,6 +937,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1020,6 +1026,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1108,6 +1115,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.int_cores_max, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
@@ -1191,6 +1199,7 @@ public class DispatchQuery {
                 "layer.int_gpus_min, " +
                 "layer.int_gpus_max, " +
                 "layer.int_gpu_mem_min, " +
+                "layer.int_slots_required, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +

@@ -239,6 +239,7 @@ mod tests {
                 log_dir_file: "".to_string(),
                 #[allow(deprecated)]
                 start_time: 0,
+                slots_required: 0,
             },
             1000,
             config,

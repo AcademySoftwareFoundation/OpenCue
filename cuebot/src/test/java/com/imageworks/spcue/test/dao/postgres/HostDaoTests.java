@@ -383,7 +383,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
         hostDao.updateHostStats(dispatchHost, CueUtil.GB8, CueUtil.GB8, CueUtil.GB8, CueUtil.GB8,
-                CueUtil.GB8, CueUtil.GB8, 1, 1, 100, new Timestamp(1247526000 * 1000l), "spinux1");
+                CueUtil.GB8, CueUtil.GB8, 1, 1, 100, new Timestamp(1247526000 * 1000l), "spinux1",
+                2);
 
         Map<String, Object> result = jdbcTemplate
                 .queryForMap("SELECT * FROM host_stat WHERE pk_host=?", dispatchHost.getHostId());

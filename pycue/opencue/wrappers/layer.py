@@ -185,6 +185,17 @@ class Layer(object):
             job_pb2.LayerSetMinMemoryRequest(layer=self.data, memory=memory),
             timeout=Cuebot.Timeout)
 
+    def setSlotsRequired(self, slots):
+        """Sets the number of slots required per frame for this layer.
+
+        :type  slots: int
+        :param slots: Number of slots required (=0 disables slot-based booking)
+        """
+        return self.stub.SetSlotsRequired(
+            job_pb2.LayerSetSlotsRequiredRequest(layer=self.data, slots=slots),
+            timeout=Cuebot.Timeout,
+        )
+
     def setThreadable(self, threadable):
         """Sets the threadable field.
 
@@ -456,6 +467,14 @@ class Layer(object):
         :return: minimum kB of memory required by frames in this layer
         """
         return self.data.min_memory
+
+    def slotsRequired(self):
+        """Returns the number of slots required per frame.
+
+        :rtype:  int
+        :return: Number of slots required (<0 means not slot-based)
+        """
+        return self.data.slots_required
 
     def limits(self):
         """Returns the limit names for this layer.

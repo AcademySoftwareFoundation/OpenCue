@@ -19,6 +19,9 @@ use opencue_proto::report::{
     RqdReportRqdStartupResponse, RqdReportRunningFrameCompletionRequest,
     RqdReportRunningFrameCompletionResponse, RqdReportStatusRequest, RqdReportStatusResponse,
 };
+use opencue_proto::report::{
+    RqdReportGetHostSlotsLimitRequest, RqdReportGetHostSlotsLimitResponse,
+};
 use tonic::transport::Server;
 use tonic::{async_trait, Request, Response, Status};
 
@@ -63,6 +66,23 @@ impl RqdReportInterface for ReportServant {
         );
 
         Ok(Response::new(RqdReportStatusResponse {}))
+    }
+
+    /// Get the host's slot limit
+    async fn get_host_slots_limit(
+        &self,
+        request: tonic::Request<RqdReportGetHostSlotsLimitRequest>,
+    ) -> std::result::Result<tonic::Response<RqdReportGetHostSlotsLimitResponse>, tonic::Status>
+    {
+        let name = request.into_inner().name;
+        println!(
+            "RqdReport: Received a get_host_slots_limit request with: {:?}",
+            name
+        );
+
+        Ok(Response::new(RqdReportGetHostSlotsLimitResponse {
+            slots_limit: -1,
+        }))
     }
 }
 

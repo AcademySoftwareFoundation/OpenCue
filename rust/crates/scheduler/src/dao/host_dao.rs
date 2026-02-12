@@ -71,6 +71,8 @@ pub struct HostModel {
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
     ts_ping: DateTime<Utc>,
+    int_concurrent_slots_limit: i64,
+    int_running_slots: i64,
 }
 
 impl From<HostModel> for Host {
@@ -105,6 +107,9 @@ impl From<HostModel> for Host {
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
+            concurrent_slots_limit: (val.int_concurrent_slots_limit > 0)
+                .then_some(val.int_concurrent_slots_limit as u32),
+            running_slots_count: val.int_running_slots as u32,
         }
     }
 }
@@ -130,7 +135,9 @@ SELECT DISTINCT
     s.int_burst - s.int_cores as int_alloc_available_cores,
     a.pk_alloc,
     a.str_name as str_alloc_name,
-    hs.ts_ping
+    hs.ts_ping,
+    h.int_concurrent_slots_limit,
+    hs.int_running_slots
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
@@ -152,12 +159,14 @@ WHERE pk_host = $5
 RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, NOW()
 "#;
 
-// This update is meant for testing environments where rqd is not constantly reporting
-// host reports to Cuebot to get host_stats properly updated.
+// ATTENTION: This update is meant for testing environments where rqd is not constantly reporting
+// host reports to Cuebot to get host_stats properly updated. This is turned of by default and
+// can be turned on by `host_cache.update_stat_on_book=true`
 static UPDATE_HOST_STAT: &str = r#"
 UPDATE host_stat
 SET int_mem_free = int_mem_free - $1,
-    int_gpu_mem_free = int_gpu_mem_free - $2
+    int_gpu_mem_free = int_gpu_mem_free - $2,
+    int_running_slots = int_running_slots + $3
 WHERE pk_host = $3
 "#;
 
@@ -347,6 +356,7 @@ impl HostDao {
             sqlx::query(UPDATE_HOST_STAT)
                 .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
                 .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind(virtual_proc.slots_required as i64)
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await

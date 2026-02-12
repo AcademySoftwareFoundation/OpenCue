@@ -751,6 +751,7 @@ impl RqdDispatcherService {
                 is_local_dispatch: false,
                 frame: frame.clone(),
                 host_name: host.name.clone(),
+                slots_required: frame.slots_required,
             },
             host,
         ))
@@ -970,6 +971,7 @@ impl RqdDispatcherService {
             log_file: "deprecated".to_string(),
             #[allow(deprecated)]
             log_dir_file: "deprecated".to_string(),
+            slots_required: 0,
         };
 
         Ok(run_frame)
@@ -1043,6 +1045,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -1078,6 +1081,7 @@ mod tests {
             version: 1,
             updated_at: SystemTime::now(),
             env: HashMap::new(),
+            slots_required: 0,
         }
     }
 
@@ -1176,6 +1180,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1212,6 +1217,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1248,6 +1254,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1283,6 +1290,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1460,6 +1468,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1536,6 +1545,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1572,6 +1582,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);

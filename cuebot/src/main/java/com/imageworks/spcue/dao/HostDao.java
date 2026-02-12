@@ -244,6 +244,22 @@ public interface HostDao {
     void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
+     * Update the host's concurrent procs limit.
+     *
+     * @param host HostInterface
+     * @param limit int (0 for no limit)
+     */
+    void updateConcurrentSlotsLimit(HostInterface host, int limit);
+
+    /**
+     * Get the host's concurrent slots limit by hostname.
+     *
+     * @param hostname String
+     * @return int the concurrent slots limit
+     */
+    int getHostConcurrentSlotsLimit(String hostname);
+
+    /**
      * Update the specified host's hardware information.
      *
      * @param host HostInterface
@@ -257,10 +273,11 @@ public interface HostDao {
      * @param freeGpuMemory long
      * @param load int
      * @param os String
+     * @param runningSlots int
      */
     void updateHostStats(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
             long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime, String os);
+            int load, Timestamp bootTime, String os, int runningSlots);
 
     /**
      * Return true if the HardwareState is Up, false if it is anything else.

@@ -96,6 +96,9 @@ service HostInterface {
     // Changes the host's [ThreadMode]
     rpc SetThreadMode(HostSetThreadModeRequest) returns (HostSetThreadModeResponse);
 
+    // Set the maximum concurrent procs limit for the host.
+    rpc SetConcurrentSlotsLimit(HostSetConcurrentSlotsLimitRequest) returns (HostSetConcurrentSlotsLimitResponse);
+
     // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.
     rpc Unlock(HostUnlockRequest) returns (HostUnlockResponse);
 }
@@ -274,6 +277,12 @@ message Host {
     ThreadMode thread_mode = 27;
     float gpus = 28;
     float idle_gpus = 29;
+
+    // Controls slot-based concurrent frame limiting on this host.
+    // 0: slot-based booking is disabled (default behavior using cores/memory/gpu)
+    // >0: slot-based booking is enabled with specified limit (only layers with slots_required > 0)
+    int32 concurrent_slots_limit = 30;
+    int32 running_slots = 31;
 }
 
 message HostSearchCriteria {
@@ -321,6 +330,8 @@ message NestedHost {
     NestedProcSeq procs = 28;
     float gpus = 29;
     float idle_gpus = 30;
+    int32 concurrent_slots_limit = 31;
+    int32 running_slots = 32;
 }
 
 message NestedHostSeq {
@@ -637,6 +648,14 @@ message HostSetThreadModeRequest {
 }
 
 message HostSetThreadModeResponse {} // Empty
+
+// SetConcurrentSlotsLimit
+message HostSetConcurrentSlotsLimitRequest {
+  Host host = 1;
+  int32 limit = 2;
+}
+
+message HostSetConcurrentSlotsLimitResponse {} // Empty
 
 // Unlock
 message HostUnlockRequest {

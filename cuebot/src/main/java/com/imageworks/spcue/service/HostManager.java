@@ -66,6 +66,22 @@ public interface HostManager {
      */
     void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
+    /**
+     * Updates the concurrent procs limit of a host.
+     *
+     * @param host HostInterface
+     * @param limit int
+     */
+    void setConcurrentSlotsLimit(HostInterface host, int limit);
+
+    /**
+     * Gets the concurrent slots limit of a host by hostname.
+     *
+     * @param hostname String
+     * @return int the concurrent slots limit
+     */
+    int getHostConcurrentSlotsLimit(String hostname);
+
     DispatchHost createHost(HostReport report);
 
     DispatchHost createHost(RenderHost host);
@@ -119,7 +135,7 @@ public interface HostManager {
      */
     void setHostStatistics(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
             long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime, String os);
+            int load, Timestamp bootTime, String os, int runningProcs);
 
     void deleteHost(HostInterface host);
 

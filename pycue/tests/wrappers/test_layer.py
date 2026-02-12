@@ -240,6 +240,20 @@ class LayerTests(unittest.TestCase):
             job_pb2.LayerSetMinMemoryRequest(layer=layer.data, memory=memory),
             timeout=mock.ANY)
 
+    def testSetSlotsRequired(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetSlotsRequired.return_value = job_pb2.LayerSetSlotsRequiredResponse()
+        getStubMock.return_value = stubMock
+
+        slots = 4
+        layer = opencue.wrappers.layer.Layer(job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.setSlotsRequired(slots)
+
+        stubMock.SetSlotsRequired.assert_called_with(
+            job_pb2.LayerSetSlotsRequiredRequest(layer=layer.data, slots=slots),
+            timeout=mock.ANY,
+        )
+
     def testSetThreadable(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.SetThreadable.return_value = job_pb2.LayerSetThreadableResponse()

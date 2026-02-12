@@ -82,6 +82,8 @@ impl DummyRqdClient {
 
             #[allow(deprecated)]
             start_time: 0,
+
+            slots_required: 0,
         };
 
         let mut client = self.client.lock().await;

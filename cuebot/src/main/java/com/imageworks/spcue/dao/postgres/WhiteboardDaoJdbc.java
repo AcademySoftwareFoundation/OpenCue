@@ -961,6 +961,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 .setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")))
                 .setHasComment(rs.getBoolean("b_comment"))
                 .setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")])
+                .setConcurrentSlotsLimit(rs.getInt("int_concurrent_slots_limit"))
+                .setRunningSlots(rs.getInt("int_running_slots"))
                 .setOs(SqlUtil.getString(rs, "str_os"));
 
         String tags = SqlUtil.getString(rs, "str_tags");
@@ -998,6 +1000,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")));
         builder.setHasComment(rs.getBoolean("b_comment"));
         builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
+        builder.setConcurrentSlotsLimit(rs.getInt("int_concurrent_slots_limit"));
+        builder.setRunningSlots(rs.getInt("int_running_slots"));
         builder.setOs(SqlUtil.getString(rs, "str_os"));
 
         String tags = SqlUtil.getString(rs, "str_tags");
@@ -1183,7 +1187,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             Arrays.asList(SqlUtil.getString(rs, "str_limit_names").split(",")))
                     .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
                     .setTimeout(rs.getInt("int_timeout"))
-                    .setTimeoutLlu(rs.getInt("int_timeout_llu"));
+                    .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                    .setSlotsRequired(rs.getInt("int_slots_required"));
 
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
@@ -1716,13 +1721,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "host.int_cores_idle," + "host.int_mem," + "host.int_mem_idle," + "host.int_gpus,"
             + "host.int_gpus_idle," + "host.int_gpu_mem," + "host.int_gpu_mem_idle,"
             + "host.str_tags," + "host.str_lock_state," + "host.b_comment,"
-            + "host.int_thread_mode," + "host_stat.str_os," + "host_stat.int_mem_total,"
-            + "host_stat.int_mem_free," + "host_stat.int_swap_total," + "host_stat.int_swap_free,"
-            + "host_stat.int_mcp_total," + "host_stat.int_mcp_free,"
+            + "host.int_thread_mode," + "host.int_concurrent_slots_limit," + "host_stat.str_os,"
+            + "host_stat.int_mem_total," + "host_stat.int_mem_free," + "host_stat.int_swap_total,"
+            + "host_stat.int_swap_free," + "host_stat.int_mcp_total," + "host_stat.int_mcp_free,"
             + "host_stat.int_gpu_mem_total," + "host_stat.int_gpu_mem_free,"
-            + "host_stat.int_load, " + "alloc.str_name AS alloc_name " + "FROM " + "alloc,"
-            + "facility, " + "host_stat," + "host " + "WHERE " + "host.pk_alloc = alloc.pk_alloc "
-            + "AND " + "facility.pk_facility = alloc.pk_facility " + "AND "
+            + "host_stat.int_load, " + "host_stat.int_running_slots, "
+            + "alloc.str_name AS alloc_name " + "FROM " + "alloc," + "facility, " + "host_stat,"
+            + "host " + "WHERE " + "host.pk_alloc = alloc.pk_alloc " + "AND "
+            + "facility.pk_facility = alloc.pk_facility " + "AND "
             + "host.pk_host = host_stat.pk_host ";
 
     private static final String GET_DEPEND = "SELECT " + "depend.pk_depend, " + "depend.str_type, "

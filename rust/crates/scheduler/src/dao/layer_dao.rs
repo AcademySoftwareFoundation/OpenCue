@@ -56,6 +56,7 @@ pub struct DispatchLayerModel {
     pub b_threadable: bool,
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
+    pub int_slots_required: i32,
     pub str_tags: String,
 }
 
@@ -79,6 +80,7 @@ pub struct LayerWithFramesModel {
     pub b_threadable: bool,
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
+    pub int_slots_required: i32,
     pub str_tags: String,
     pub job_env: Json<HashMap<String, String>>,
     pub layer_env: Json<HashMap<String, String>>,
@@ -134,13 +136,19 @@ impl DispatchLayer {
             ),
             mem_min: ByteSize::kb(layer.int_mem_min as u64),
             threadable: layer.b_threadable,
-            gpus_min: layer
-                .int_gpus_min
-                .try_into()
-                .expect("gpus_min should fit on a i32"),
+            gpus_min: CoreSize(
+                layer
+                    .int_gpus_min
+                    .try_into()
+                    .expect("gpus_min should fit on a i32"),
+            ),
             gpu_mem_min: ByteSize::kb(layer.int_gpu_mem_min as u64),
             tags: layer.str_tags.split(" | ").map(|t| t.to_string()).collect(),
             frames: frames.into_iter().map(|f| f.into()).collect(),
+            slots_required: layer
+                .int_slots_required
+                .try_into()
+                .expect("int_slots_required should fit on a i32"),
         }
     }
 }
@@ -220,6 +228,7 @@ SELECT DISTINCT
     l.b_threadable,
     l.int_gpus_min,
     l.int_gpu_mem_min,
+    l.int_slots_required,
     l.str_tags,
     je.job_env,
     le.layer_env,
@@ -359,6 +368,7 @@ impl LayerDao {
                 int_gpus_min: model.int_gpus_min,
                 int_gpu_mem_min: model.int_gpu_mem_min,
                 str_tags: model.str_tags.clone(),
+                int_slots_required: model.int_slots_required,
             };
 
             // Extract frame data (if present)
@@ -382,6 +392,7 @@ impl LayerDao {
                     str_job_name: model.job_name.clone(),
                     int_min_cores: model.int_layer_cores_min.unwrap_or(100), // default core multiplier
                     int_mem_min: model.int_mem_min_frame.unwrap_or(0),
+                    int_slots_required: model.int_slots_required,
                     b_threadable: model.b_threadable,
                     int_gpus_min: model.int_gpus_min_frame.unwrap_or(0),
                     int_gpu_mem_min: model.int_gpu_mem_min_frame.unwrap_or(0),

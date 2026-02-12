@@ -79,12 +79,22 @@ pub struct MachineMonitor {
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
     last_host_state: Arc<RwLock<Option<RenderHost>>>,
+    // Host name is only written once at the beginning of start. After that it is only read.
+    // This makes it safe to have a sync lock to give the object mutability (it can't be
+    // initialized at init) but avoid unecessary awaits
+    host_name: std::sync::RwLock<Option<String>>,
+    slot_state: RwLock<Option<SlotState>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
     #[cfg(feature = "nimby")]
     nimby: Arc<Option<Nimby>>,
     #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
+}
+
+struct SlotState {
+    slot_limit: u32,
+    slots_consumed: u32,
 }
 
 static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
@@ -154,6 +164,7 @@ impl MachineMonitor {
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
             last_host_state: Arc::new(RwLock::new(None)),
+            host_name: std::sync::RwLock::new(None),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
             #[cfg(feature = "nimby")]
@@ -161,6 +172,7 @@ impl MachineMonitor {
             #[cfg(feature = "nimby")]
             nimby_state: RwLock::new(LockState::Open),
             core_manager,
+            slot_state: RwLock::new(None),
         })
     }
 
@@ -177,6 +189,14 @@ impl MachineMonitor {
             let core_manager = self.core_manager.read().await;
             core_manager.get_core_info_report(self.maching_config.core_multiplier)
         };
+
+        // Write host_name to the object
+        {
+            self.host_name
+                .write()
+                .unwrap_or_else(|p| p.into_inner())
+                .replace(host_state.name.clone());
+        }
 
         self.last_host_state
             .write()
@@ -217,6 +237,7 @@ impl MachineMonitor {
                     _ = interval.tick() => {
                         self.collect_and_send_host_report().await?;
                         self.check_reboot_flag().await;
+                        self.check_host_state_on_server().await;
 
                         #[cfg(feature = "nimby")]
                         if let Some(nimby) = &*self.nimby {
@@ -335,6 +356,29 @@ impl MachineMonitor {
             if let Err(err) = self.system_manager.lock().await.reboot() {
                 error!("Failed to reboot when became idle. {err}");
             };
+        }
+    }
+
+    async fn check_host_state_on_server(&self) {
+        let client = self.report_client.clone();
+
+        if let Some(slot_limit) = client
+            .get_host_slots_limit(self.get_host_name())
+            .await
+            .ok()
+            .flatten()
+        {
+            let mut current_state = self.slot_state.write().await;
+            let slots_consumed = current_state
+                .as_ref()
+                .map(|s| s.slots_consumed)
+                .unwrap_or(0);
+
+            // Replace limit but keep consumed count
+            current_state.replace(SlotState {
+                slot_limit,
+                slots_consumed,
+            });
         }
     }
 
@@ -504,7 +548,19 @@ impl MachineMonitor {
                 let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
-                if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
+                // Either release slots or cores, depending on whether it was configured with slots
+                if frame.request.slots_required > 0 {
+                    if let Err(err) = self
+                        .release_slots(frame.request.slots_required as u32)
+                        .await
+                    {
+                        warn!(
+                            "Failed to release cores reserved by {}: {}",
+                            frame.request.resource_id(),
+                            err
+                        );
+                    };
+                } else if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
                     warn!(
                         "Failed to release cores reserved by {}: {}",
                         frame.request.resource_id(),
@@ -572,6 +628,7 @@ pub trait Machine {
     async fn hardware_state(&self) -> Option<HardwareState>;
     async fn memory_usage(&self) -> Option<(u32, u64)>;
     async fn nimby_locked(&self) -> bool;
+    async fn is_slot_configured(&self) -> bool;
 
     /// Reserve CPU cores for a resource
     ///
@@ -592,6 +649,40 @@ pub trait Machine {
         request: Either<usize, Vec<u32>>,
         resource_id: Uuid,
     ) -> Result<Vec<u32>, ReservationError>;
+
+    /// Reserve slot units for a resource
+    ///
+    /// # Arguments
+    ///
+    /// * `requested_slots` - Number of slots to reserve
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the slots were successfully reserved
+    ///
+    /// # Errors
+    ///
+    /// Returns `ReservationError` if:
+    /// * There are not enough available slots (`NotEnoughResourcesAvailable`)
+    /// * Slot reservation is not configured on this machine (`InvalidSlotReservationRequest`)
+    async fn reserve_slots(&self, requested_slots: u32) -> Result<(), ReservationError>;
+
+    /// Release slot units previously reserved by a resource
+    ///
+    /// # Arguments
+    ///
+    /// * `requested_slots` - Number of slots to release
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the slots were successfully released
+    ///
+    /// # Errors
+    ///
+    /// Returns `ReservationError` if:
+    /// * Attempting to release more slots than are currently consumed (`NotEnoughResourcesAvailable`)
+    /// * Slot reservation is not configured on this machine (`InvalidSlotReservationRequest`)
+    async fn release_slots(&self, requested_slots: u32) -> Result<(), ReservationError>;
 
     /// Release CPU cores previously reserved by a resource
     ///
@@ -632,7 +723,17 @@ pub trait Machine {
     /// The user ID (uid) of the created or existing user
     async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
 
-    async fn get_host_name(&self) -> String;
+    /// Returns the hostname of this machine
+    ///
+    /// The hostname is determined during the initial startup report and remains
+    /// constant throughout the machine's lifecycle. If the hostname hasn't been
+    /// initialized yet (which shouldn't happen in normal operation), returns
+    /// "noname" as a fallback.
+    ///
+    /// # Returns
+    ///
+    /// The machine's hostname as a String
+    fn get_host_name(&self) -> String;
 
     /// Send a signal to kill a process
     ///
@@ -698,6 +799,10 @@ impl Machine for MachineMonitor {
             .unwrap_or(false)
     }
 
+    async fn is_slot_configured(&self) -> bool {
+        self.slot_state.read().await.as_ref().is_some()
+    }
+
     async fn reserve_cores(
         &self,
         request: Either<usize, Vec<u32>>,
@@ -708,6 +813,38 @@ impl Machine for MachineMonitor {
             Either::Left(num_cores) => core_manager.reserve_cores(num_cores, resource_id),
             #[allow(deprecated)]
             Either::Right(thread_ids) => core_manager.reserve_cores_by_id(thread_ids, resource_id),
+        }
+    }
+
+    async fn reserve_slots(&self, requested_slots: u32) -> Result<(), ReservationError> {
+        let mut slot_state = self.slot_state.write().await;
+
+        match slot_state.as_mut() {
+            Some(slot_state) => {
+                if slot_state.slots_consumed + requested_slots <= slot_state.slot_limit {
+                    slot_state.slots_consumed += requested_slots;
+                    Ok(())
+                } else {
+                    Err(ReservationError::NotEnoughResourcesAvailable)
+                }
+            }
+            None => Err(ReservationError::InvalidSlotReservationRequest),
+        }
+    }
+
+    async fn release_slots(&self, released_slots: u32) -> Result<(), ReservationError> {
+        let mut slot_state = self.slot_state.write().await;
+
+        match slot_state.as_mut() {
+            Some(slot_state) => {
+                if released_slots <= slot_state.slots_consumed {
+                    slot_state.slots_consumed -= released_slots;
+                    Ok(())
+                } else {
+                    Err(ReservationError::NotEnoughResourcesAvailable)
+                }
+            }
+            None => Err(ReservationError::InvalidSlotReservationRequest),
         }
     }
 
@@ -725,11 +862,11 @@ impl Machine for MachineMonitor {
         system.create_user_if_unexisting(username, uid, gid)
     }
 
-    async fn get_host_name(&self) -> String {
-        let lock = self.last_host_state.read().await;
-
-        lock.as_ref()
-            .map(|h| h.name.clone())
+    fn get_host_name(&self) -> String {
+        self.host_name
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
             .unwrap_or("noname".to_string())
     }
 
