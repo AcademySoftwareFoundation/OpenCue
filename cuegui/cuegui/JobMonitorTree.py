@@ -93,6 +93,25 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     __groupByMode = "Clear"  # Options: "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"
     view_object = QtCore.Signal(object)
 
+    # Unified color presets: RGB tuple -> (color_name, sort_key)
+    _USER_COLOR_PRESETS = {
+        (50, 50, 100): ("Dark Blue", 1),
+        (100, 100, 50): ("Dark Yellow", 2),
+        (0, 50, 0): ("Dark Green", 3),
+        (50, 30, 0): ("Dark Brown", 4),
+        (80, 0, 80): ("Purple", 5),
+        (0, 80, 80): ("Teal", 6),
+        (100, 50, 0): ("Orange", 7),
+        (70, 0, 35): ("Maroon", 8),
+        (0, 60, 30): ("Forest Green", 9),
+        (90, 60, 90): ("Lavender", 10),
+        (100, 0, 50): ("Crimson", 11),
+        (0, 50, 100): ("Navy", 12),
+        (80, 80, 0): ("Olive", 13),
+        (60, 20, 60): ("Plum", 14),
+        (30, 70, 70): ("Slate", 15),
+    }
+
     def __init__(self, parent):
         self.ticksWithoutUpdate = 0
 
@@ -171,7 +190,12 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
-        self.addColumn("Progress", 0, id=15,
+        self.addColumn("User Color", 100, id=15,
+                       data=lambda job: self._getUserColorName(cuegui.Utils.getObjectKey(job)),
+                       sort=lambda job: self._getUserColorSortKey(cuegui.Utils.getObjectKey(job)),
+                       tip="User-assigned color for this job.\n"
+                           "Click column header to sort by color.")
+        self.addColumn("Progress", 0, id=16,
                        delegate=cuegui.ItemDelegate.JobProgressBarDelegate,
                        tip="A visual overview of the progress of each job.\n"
                            "Green \t is succeeded\n"
@@ -214,6 +238,49 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
+
+    def _getUserColorName(self, objectKey):
+        """Returns the display name for a user color.
+
+        @type  objectKey: str
+        @param objectKey: The object key (e.g., "Job.abc123")
+        @rtype:  str
+        @return: Color name, "RGB(R,G,B)" for custom RGB, or empty string if no color
+        """
+        if objectKey not in self.__userColors:
+            return ""
+
+        color = self.__userColors[objectKey]
+        rgb = (color.red(), color.green(), color.blue())
+
+        if rgb in self._USER_COLOR_PRESETS:
+            return self._USER_COLOR_PRESETS[rgb][0]
+        # Return RGB format for custom colors
+        return f"RGB({rgb[0]},{rgb[1]},{rgb[2]})"
+
+    def _getUserColorSortKey(self, objectKey):
+        """Returns a numeric sort key for a user color.
+
+        Jobs without colors sort first (0), preset colors 1-15 sort in order,
+        and custom RGB colors sort last with unique keys based on RGB values.
+
+        @type  objectKey: str
+        @param objectKey: The object key (e.g., "Job.abc123")
+        @rtype:  int
+        @return: Sort key value (0=no color, 1-15=preset, 16000000+=custom with RGB)
+        """
+        if objectKey not in self.__userColors:
+            return 0
+
+        color = self.__userColors[objectKey]
+        rgb = (color.red(), color.green(), color.blue())
+
+        if rgb in self._USER_COLOR_PRESETS:
+            return self._USER_COLOR_PRESETS[rgb][1]
+        # For custom colors, create unique sort key from RGB values
+        # Base 16000000 ensures custom colors sort after preset colors (1-15)
+        # Formula: 16000000 + (R * 10000 + G * 100 + B)
+        return 16000000 + (rgb[0] * 10000 + rgb[1] * 100 + rgb[2])
 
     def tick(self):
         if self.__load:
