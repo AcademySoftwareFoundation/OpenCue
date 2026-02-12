@@ -93,6 +93,25 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     __groupByMode = "Clear"  # Options: "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"
     view_object = QtCore.Signal(object)
 
+    # Mapping of RGB tuples to color names based on Constants.py: RGB tuple -> (color_name, sort_key)
+    _USER_COLOR_PRESETS = {
+        (50, 50, 100): ("Dark Blue", 1),
+        (100, 100, 50): ("Dark Yellow", 2),
+        (0, 50, 0): ("Dark Green", 3),
+        (50, 30, 0): ("Dark Brown", 4),
+        (80, 0, 80): ("Purple", 5),
+        (0, 80, 80): ("Teal", 6),
+        (100, 50, 0): ("Orange", 7),
+        (70, 0, 35): ("Maroon", 8),
+        (0, 60, 30): ("Forest Green", 9),
+        (90, 60, 90): ("Lavender", 10),
+        (100, 0, 50): ("Crimson", 11),
+        (0, 50, 100): ("Navy", 12),
+        (80, 80, 0): ("Olive", 13),
+        (60, 20, 60): ("Plum", 14),
+        (30, 70, 70): ("Slate", 15),
+    }
+
     def __init__(self, parent):
         self.ticksWithoutUpdate = 0
 
@@ -232,29 +251,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return ""
 
         color = self.__userColors[objectKey]
-
-        # Mapping of RGB tuples to color names based on Constants.py
-        color_names = {
-            (50, 50, 100): "Dark Blue",
-            (100, 100, 50): "Dark Yellow",
-            (0, 50, 0): "Dark Green",
-            (50, 30, 0): "Dark Brown",
-            (80, 0, 80): "Purple",
-            (0, 80, 80): "Teal",
-            (100, 50, 0): "Orange",
-            (70, 0, 35): "Maroon",
-            (0, 60, 30): "Forest Green",
-            (90, 60, 90): "Lavender",
-            (100, 0, 50): "Crimson",
-            (0, 50, 100): "Navy",
-            (80, 80, 0): "Olive",
-            (60, 20, 60): "Plum",
-            (30, 70, 70): "Slate",
-        }
-
         rgb = (color.red(), color.green(), color.blue())
-        if rgb in color_names:
-            return color_names[rgb]
+
+        if rgb in self._USER_COLOR_PRESETS:
+            return self._USER_COLOR_PRESETS[rgb][0]
         # Return RGB format for custom colors
         return f"RGB({rgb[0]},{rgb[1]},{rgb[2]})"
 
@@ -273,29 +273,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return 0
 
         color = self.__userColors[objectKey]
-
-        # Mapping of RGB tuples to sort keys based on preset color numbers
-        color_keys = {
-            (50, 50, 100): 1,      # Dark Blue
-            (100, 100, 50): 2,     # Dark Yellow
-            (0, 50, 0): 3,         # Dark Green
-            (50, 30, 0): 4,        # Dark Brown
-            (80, 0, 80): 5,        # Purple
-            (0, 80, 80): 6,        # Teal
-            (100, 50, 0): 7,       # Orange
-            (70, 0, 35): 8,        # Maroon
-            (0, 60, 30): 9,        # Forest Green
-            (90, 60, 90): 10,      # Lavender
-            (100, 0, 50): 11,      # Crimson
-            (0, 50, 100): 12,      # Navy
-            (80, 80, 0): 13,       # Olive
-            (60, 20, 60): 14,      # Plum
-            (30, 70, 70): 15,      # Slate
-        }
-
         rgb = (color.red(), color.green(), color.blue())
-        if rgb in color_keys:
-            return color_keys[rgb]
+
+        if rgb in self._USER_COLOR_PRESETS:
+            return self._USER_COLOR_PRESETS[rgb][1]
         # For custom colors, create unique sort key from RGB values
         # Base 16000000 ensures custom colors sort after preset colors (1-15)
         # Formula: 16000000 + (R * 10000 + G * 100 + B)
