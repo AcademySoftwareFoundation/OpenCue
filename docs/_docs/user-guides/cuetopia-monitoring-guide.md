@@ -163,17 +163,7 @@ To apply a color to one or more jobs:
 
 #### Sorting by User Color
 
-The **User Color** column enables you to sort and organize jobs by their assigned colors:
-
-1. **Click the "User Color" column header** to sort jobs
-2. **Sort Order** (ascending):
-   - **Uncolored jobs** (no color assigned)
-   - **Preset colors** (Dark Blue, Dark Yellow, Dark Green, etc.) sorted by color order 1-15
-   - **Custom RGB colors** (displayed as "RGB(R,G,B)", e.g., "RGB(255,20,20)")
-
-3. **Click again** to reverse sort order (descending)
-
-This allows you to quickly organize large job lists by color, making it easy to find jobs belonging to specific projects, priorities, or departments.
+Click the **User Color** column header to sort jobs by their assigned colors. Click again to reverse the sort order. This allows you to quickly organize large job lists by color, making it easy to find jobs belonging to specific projects, priorities, or departments.
 
 #### Available Color Options
 

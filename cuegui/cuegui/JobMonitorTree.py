@@ -93,7 +93,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     __groupByMode = "Clear"  # Options: "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"
     view_object = QtCore.Signal(object)
 
-    # Mapping of RGB tuples to color names based on Constants.py: RGB tuple -> (color_name, sort_key)
+    # Unified color presets: RGB tuple -> (color_name, sort_key)
     _USER_COLOR_PRESETS = {
         (50, 50, 100): ("Dark Blue", 1),
         (100, 100, 50): ("Dark Yellow", 2),
