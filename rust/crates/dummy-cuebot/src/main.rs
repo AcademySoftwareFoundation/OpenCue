@@ -118,7 +118,7 @@ impl DummyCuebotCli {
                 let client = DummyRqdClient::build(cmd.hostname.clone(), cmd.port).await?;
                 match &cmd.api_method {
                     ApiMethod::LaunchFrame(cmd) => {
-                        let uid = cmd.run_as_user.then(users::get_current_uid);
+                        let uid = current_uid_if_requested(cmd.run_as_user);
                         client
                             .launch_frame(
                                 cmd.cmd.clone(),
@@ -136,6 +136,16 @@ impl DummyCuebotCli {
             }
         }
     }
+}
+
+#[cfg(unix)]
+fn current_uid_if_requested(run_as_user: bool) -> Option<u32> {
+    run_as_user.then(users::get_current_uid)
+}
+
+#[cfg(not(unix))]
+fn current_uid_if_requested(_run_as_user: bool) -> Option<u32> {
+    None
 }
 
 #[tokio::main]

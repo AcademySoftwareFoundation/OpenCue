@@ -171,6 +171,15 @@ pub struct DockerMountConfig {
 
 impl Default for RunnerConfig {
     fn default() -> Self {
+        let shell_path = if cfg!(target_os = "windows") {
+            "cmd.exe".to_string()
+        } else {
+            "/bin/bash".to_string()
+        };
+        let home_dir = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or("/tmp".to_string());
+
         Self {
             run_on_docker: false,
             default_uid: 1000,
@@ -180,11 +189,8 @@ impl Default for RunnerConfig {
             desktop_mode: false,
             run_as_user: false,
             temp_path: std::env::temp_dir().to_str().unwrap_or("/tmp").to_string(),
-            shell_path: "/bin/bash".to_string(),
-            snapshots_path: format!(
-                "{}/.rqd/snapshots",
-                std::env::var("HOME").unwrap_or("/tmp".to_string())
-            ),
+            shell_path,
+            snapshots_path: format!("{}/.rqd/snapshots", home_dir),
             kill_monitor_interval: Duration::from_secs(120),
             kill_monitor_timeout: Duration::from_secs(1200),
             force_kill_after_timeout: false,

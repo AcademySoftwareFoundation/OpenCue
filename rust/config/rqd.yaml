@@ -171,6 +171,7 @@ runner:
   # desktop_mode: false
 
   # Run jobs as the user who submitted them
+  # (Only available on Unix systems)
   # Default: false
   # run_as_user: false
 

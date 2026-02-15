@@ -35,11 +35,12 @@ use tokio::{
     time,
 };
 use tracing::{debug, error, info, warn};
-use tracing_subscriber::fmt::time::SystemTime;
 use uuid::Uuid;
 
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
+#[cfg(target_os = "windows")]
+use crate::system::windows::WindowsSystem;
 use crate::{
     config::MachineConfig,
     frame::{
@@ -50,7 +51,9 @@ use crate::{
     system::{manager::ReservationError, reservation::CoreStateManager},
 };
 
-use super::{linux::LinuxSystem, manager::SystemManagerType};
+#[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
+use super::linux::LinuxSystem;
+use super::manager::SystemManagerType;
 #[cfg(feature = "nimby")]
 use crate::system::nimby::Nimby;
 
@@ -118,7 +121,7 @@ impl MachineMonitor {
         };
 
         // Use debug_assertions to allow linux logic compilation from mac development environments
-        #[cfg(any(target_os = "linux", debug_assertions))]
+        #[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
         let (system_manager, core_manager): (
             SystemManagerType,
             Arc<RwLock<CoreStateManager>>,
@@ -130,6 +133,22 @@ impl MachineMonitor {
 
             (
                 Box::new(LinuxSystem::init(&CONFIG.machine, processor_info_data)?),
+                core_manager,
+            )
+        };
+
+        #[cfg(target_os = "windows")]
+        let (system_manager, core_manager): (
+            SystemManagerType,
+            Arc<RwLock<CoreStateManager>>,
+        ) = {
+            let processor_info_data = WindowsSystem::read_cpuinfo(&CONFIG.machine.cpuinfo_path)?;
+            let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
+                processor_info_data.processor_structure.clone(),
+            )));
+
+            (
+                Box::new(WindowsSystem::init(&CONFIG.machine, processor_info_data)?),
                 core_manager,
             )
         };
