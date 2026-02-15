@@ -157,6 +157,15 @@ jobs:
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
           ci/run_integration_test.sh
 
+      - name: Build blender addon
+        run: ci/build_blender_addon.sh
+
+      - name: Upload blender addon artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: OpenCue-Blender
+          path: ${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip
+
       - name: Archive log files
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
