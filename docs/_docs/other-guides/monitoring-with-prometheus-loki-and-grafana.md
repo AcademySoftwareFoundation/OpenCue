@@ -88,18 +88,6 @@ sandbox environment.
 
    ![Grafana PostgreSQL metrics](/assets/images/grafana_cuebot_metrics.png)
 
-## Customizing exported data
-
-The OpenCue repository contains a few key files that can be used as examples for your own
-deployment:
-
-* Our
-  [custom Prometheus exporter](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/connectors/prometheus_metrics)
-  that uses the OpenCue API to fetch metrics from the Cuebot.
-* The
-  [example Cuebot and PostgreSQL dashboards](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/sandbox/config/grafana/dashboards)
-  .
-
 ## Stopping and deleting the sandbox environment
 
 To delete the resources you created in this guide, run the following commands from the second shell:
