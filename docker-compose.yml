@@ -3,6 +3,10 @@
 # By default, only the core services are enabled (db, flyway, cuebot, rqd).
 # Uncomment the optional sections to enable additional functionality:
 #
+# Profiles:
+#   - default (included in all profiles)
+#   - infra
+#   - kafka
 # Optional Components:
 #   - Web UI (rest-gateway, cueweb): Web-based interface for monitoring and managing OpenCue
 #   - Monitoring (prometheus, grafana, loki, db-exporter): Metrics and logging
@@ -14,22 +18,28 @@
 #
 # 1. Prerequisites:
 #    mkdir -p /tmp/rqd/logs /tmp/rqd/shots
-#    docker compose down -v  # Clean up existing containers (optional)
+#    docker compose --profile all down -v  # Clean up existing containers (optional)
 #
 # 2. Validate configuration:
-#    docker compose config
+#    docker compose --profile all config
 #
 # 3. Start services:
 #
 #    Core only (default):
 #    docker compose up -d
 #
-#    Full stack (uncomment all sections first):
-#    docker compose up -d db zookeeper elasticsearch        # Stage 1: Infrastructure
-#    docker compose up -d kafka                             # Stage 2: Kafka
-#    docker compose up -d cuebot                            # Stage 3: Core OpenCue
-#    docker compose up -d rqd rest-gateway cueweb           # Stage 4: RQD + Web UI
-#    docker compose up -d db-exporter prometheus grafana loki kafka-ui kibana monitoring-indexer  # Stage 5: Monitoring
+#    # Full stack:
+#    docker compose up -d --profile all
+#    # Infrastructure (db, zookeeper, eleasticsearch)
+#    docker compose up -d --profile infra
+#    # Kafka (kafka)
+#    docker compose up -d --profile kafka
+#    # Web UI (cueweb, rest-gateway)
+#    docker compose up -d --profile cueweb
+#    # RQD (rqd)
+#    docker compose up -d --profile rqd
+#    # Monitoring (db-exporter prometheus grafana loki kafka-ui kibana monitoring-indexer)
+#    docker compose up -d --profile monitoring
 #
 # 4. Check status:
 #    docker compose ps
@@ -96,7 +106,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./sandbox/db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cuebot -d cuebot"]
@@ -184,6 +194,9 @@ services:
   # RQD Render Queue Daemon
   # Runs on render hosts and executes frames assigned by Cuebot
   rqd:
+    profiles:
+      - rqd
+      - all
     image: opencue/rqd
     environment:
       - PYTHONUNBUFFERED=1
@@ -212,7 +225,9 @@ services:
   # REST Gateway
   # Provides HTTP/REST API access to OpenCue (used by CueWeb)
   rest-gateway:
-    profiles: [cueweb, all]
+    profiles:
+      - cueweb
+      - all
     image: opencue/rest-gateway:latest
     build:
       context: ./
@@ -239,7 +254,9 @@ services:
   # CueWeb UI
   # Web-based user interface for monitoring and managing OpenCue
   cueweb:
-    profiles: [cueweb, all]
+    profiles:
+      - cueweb
+      - all
     image: opencue/cueweb:latest
     build:
       context: ./cueweb
@@ -288,9 +305,11 @@ services:
   # Uncomment this section for metrics, dashboards, and log aggregation
   # =============================================================================
 
-  # # PostgreSQL Exporter for Prometheus
+  # PostgreSQL Exporter for Prometheus
   db-exporter:
-    profiles: [metrics, all]
+    profiles:
+      - monitoring
+      - all
     image: wrouesnel/postgres_exporter
     container_name: opencue-db-exporter
     environment:
@@ -307,7 +326,8 @@ services:
   # Exports OpenCue-specific metrics to Prometheus
   # Note: Requires building from source
   metrics:
-    profiles: [metrics, all]
+    profiles:
+      - metrics
     restart: always
     build:
       context: ./
@@ -322,7 +342,9 @@ services:
 
   # Prometheus for metrics collection
   prometheus:
-    profiles: [metrics, all]
+    profiles:
+      - monitoring
+      - all
     image: prom/prometheus:v3.9.1
     container_name: opencue-prometheus
     ports:
@@ -343,7 +365,9 @@ services:
   # Grafana for dashboards
   # Port 3001 to avoid conflict with CueWeb (3000)
   grafana:
-    profiles: [metrics, all]
+    profiles:
+      - monitoring
+      - all
     image: grafana/grafana:12.3
     container_name: opencue-grafana
     depends_on:
@@ -362,7 +386,9 @@ services:
   # Loki for log aggregation
   # Enable loki logging driver on other services to use
   loki:
-    profiles: [loki, all]
+    profiles:
+      - monitoring
+      - all
     image: grafana/loki:3.6.0
     container_name: opencue-loki
     volumes:
@@ -382,7 +408,9 @@ services:
 
   # Zookeeper for Kafka
   zookeeper:
-    profiles: [cueinsight, all]
+    profiles:
+      - infra
+      - all
     image: confluentinc/cp-zookeeper:7.7.7
     hostname: zookeeper
     container_name: opencue-zookeeper
@@ -399,7 +427,9 @@ services:
 
   # Kafka broker for event streaming
   kafka:
-    profiles: [cueinsight, all]
+    profiles:
+      - kafka
+      - all
     image: confluentinc/cp-kafka:7.7.7
     hostname: kafka
     container_name: opencue-kafka
@@ -427,7 +457,9 @@ services:
 
   # Kafka UI for debugging
   kafka-ui:
-    profiles: [cueinsight, all]
+    profiles:
+      - monitoring
+      - all
     image: provectuslabs/kafka-ui:latest
     container_name: opencue-kafka-ui
     depends_on:
@@ -442,7 +474,9 @@ services:
 
   # Elasticsearch for historical data storage
   elasticsearch:
-    profiles: [cueinsight, all]
+    profiles:
+      - infra
+      - all
     image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
     container_name: opencue-elasticsearch
     environment:
@@ -462,7 +496,9 @@ services:
 
   # Kibana for Elasticsearch visualization
   kibana:
-    profiles: [cueinsight, all]
+    profiles:
+      - monitoring
+      - all
     image: docker.elastic.co/kibana/kibana:9.3.0
     container_name: opencue-kibana
     depends_on:
@@ -476,7 +512,9 @@ services:
   # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
   # Note: Requires building from source (rust)
   monitoring-indexer:
-    profiles: [cueinsight, all]
+    profiles:
+      - monitoring
+      - all
     build:
       context: ./rust
       dockerfile: Dockerfile.monitoring-indexer
@@ -502,3 +540,4 @@ volumes:
   prometheus-data:
   grafana-data:
   elasticsearch-data:
+  db-data:
