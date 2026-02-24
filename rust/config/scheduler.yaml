@@ -193,8 +193,15 @@ host_cache:
 # =============================================================================
 scheduler:
   # Optional facility code to run on (can be overridden with --facility flag)
+  # This optional is a no-op for entire_shows and manual_tags
   # Default: None
   # facility: eat
+
+  # List of show names to be fully scheduled (can be overridden with --entire_show flag)
+  # Default: []
+  # entire_shows:
+  #   - show1
+  #   - show2
 
   # List of allocation tags in show:tag format (can be overridden with --alloc_tags flag)
   # Default: []

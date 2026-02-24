@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
@@ -35,7 +35,7 @@ use crate::{
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Cluster {
     ComposedKey(ClusterKey),
     /// facility_id: Uuid,
@@ -81,7 +81,100 @@ impl Cluster {
     }
 }
 
+/// Builder for constructing a [`ClusterFeed`].
+///
+/// Start with [`ClusterFeed::facility`] or [`ClusterFeed::no_facility`], chain optional
+/// configuration methods, then call [`build`](ClusterFeedBuilder::build) to produce the feed.
+///
+/// # Example
+///
+/// ```ignore
+/// let feed = ClusterFeed::facility(facility_id)
+///     .with_ignore_tags(ignore_tags)
+///     .with_clusters(clusters)
+///     .with_entire_shows(shows)
+///     .build()
+///     .await?;
+/// ```
+pub struct ClusterFeedBuilder {
+    facility_id: Option<Uuid>,
+    ignore_tags: Vec<String>,
+    clusters: Vec<Cluster>,
+    entire_shows: Vec<String>,
+}
+
+impl ClusterFeedBuilder {
+    /// Adds tags to ignore when loading clusters.
+    pub fn with_ignore_tags(mut self, tags: Vec<String>) -> Self {
+        self.ignore_tags = tags;
+        self
+    }
+
+    /// Provides an explicit list of clusters instead of loading from the database.
+    pub fn with_clusters(mut self, clusters: Vec<Cluster>) -> Self {
+        self.clusters = clusters;
+        self
+    }
+
+    /// Specifies show names whose frames should be scheduled in their entirety.
+    pub fn with_entire_shows(mut self, shows: Vec<String>) -> Self {
+        self.entire_shows = shows;
+        self
+    }
+
+    /// Builds the [`ClusterFeed`].
+    ///
+    /// If explicit clusters were provided via [`with_clusters`](Self::with_clusters), they are
+    /// used directly (filtered by ignore tags). Otherwise all clusters are loaded from the
+    /// database, filtered to the configured facility and ignore tags.
+    pub async fn build(self) -> Result<ClusterFeed> {
+        let clusters = if self.clusters.is_empty() && self.entire_shows.is_empty() {
+            let all =
+                ClusterFeed::load_clusters(&self.facility_id, &self.ignore_tags, None).await?;
+            ClusterFeed::filter_clusters(all, &self.ignore_tags)
+        } else {
+            let mut clusters: HashSet<Cluster> = self.clusters.into_iter().collect();
+            if !self.entire_shows.is_empty() {
+                let show_clusters = ClusterFeed::load_clusters(
+                    &self.facility_id,
+                    &self.ignore_tags,
+                    Some(self.entire_shows),
+                )
+                .await?;
+                clusters.extend(show_clusters);
+            }
+            ClusterFeed::filter_clusters(clusters.into_iter().collect(), &self.ignore_tags)
+        };
+        Ok(ClusterFeed {
+            clusters: Arc::new(RwLock::new(clusters)),
+            current_index: Arc::new(AtomicUsize::new(0)),
+            stop_flag: Arc::new(AtomicBool::new(false)),
+            sleep_map: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+}
+
 impl ClusterFeed {
+    /// Returns a builder for a feed scoped to the given facility.
+    pub fn facility(facility_id: Uuid) -> ClusterFeedBuilder {
+        ClusterFeedBuilder {
+            facility_id: Some(facility_id),
+            ignore_tags: Vec::new(),
+            clusters: Vec::new(),
+            entire_shows: Vec::new(),
+        }
+    }
+
+    /// Returns a builder for a feed not scoped to any specific facility.
+    pub fn no_facility() -> ClusterFeedBuilder {
+        ClusterFeedBuilder {
+            facility_id: None,
+            ignore_tags: Vec::new(),
+            clusters: Vec::new(),
+            entire_shows: Vec::new(),
+        }
+    }
+
     /// Loads all clusters from the database and organizes them by tag type.
     ///
     /// Loads allocation clusters (one per facility+show+tag), and chunks manual/hostname tags
@@ -97,13 +190,17 @@ impl ClusterFeed {
     ///
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
-    pub async fn load_all(facility_id: &Option<Uuid>, ignore_tags: &[String]) -> Result<Self> {
+    pub async fn load_clusters(
+        facility_id: &Option<Uuid>,
+        ignore_tags: &[String],
+        shows_filter: Option<Vec<String>>,
+    ) -> Result<Vec<Cluster>> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
         let mut clusters_stream = cluster_dao
-            .fetch_alloc_clusters()
-            .chain(cluster_dao.fetch_non_alloc_clusters());
+            .fetch_alloc_clusters(shows_filter.clone())
+            .chain(cluster_dao.fetch_non_alloc_clusters(shows_filter));
         let mut clusters = Vec::new();
         let mut manual_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
         let mut hardware_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
@@ -215,12 +312,7 @@ impl ClusterFeed {
             }
         }
 
-        Ok(ClusterFeed {
-            clusters: Arc::new(RwLock::new(clusters)),
-            current_index: Arc::new(AtomicUsize::new(0)),
-            stop_flag: Arc::new(AtomicBool::new(false)),
-            sleep_map: Arc::new(Mutex::new(HashMap::new())),
-        })
+        Ok(clusters)
     }
 
     /// Creates a ClusterFeed from a predefined list of clusters for testing.
@@ -233,10 +325,9 @@ impl ClusterFeed {
     /// # Returns
     ///
     /// * `ClusterFeed` - Feed configured to run once through the provided clusters
-    #[allow(dead_code)]
-    pub fn load_from_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Self {
+    pub fn filter_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Vec<Cluster> {
         // Filter out ignored tags from clusters
-        let filtered_clusters: Vec<Cluster> = clusters
+        clusters
             .into_iter()
             .filter_map(|cluster| match cluster {
                 // For ComposedKey, remove the entire cluster if its tag is ignored
@@ -261,14 +352,7 @@ impl ClusterFeed {
                     }
                 }
             })
-            .collect();
-
-        ClusterFeed {
-            clusters: Arc::new(RwLock::new(filtered_clusters)),
-            current_index: Arc::new(AtomicUsize::new(0)),
-            stop_flag: Arc::new(AtomicBool::new(false)),
-            sleep_map: Arc::new(Mutex::new(HashMap::new())),
-        }
+            .collect()
     }
 
     /// Streams clusters to a channel receiver with backpressure control.

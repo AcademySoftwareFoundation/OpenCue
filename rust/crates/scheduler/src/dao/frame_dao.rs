@@ -16,7 +16,6 @@ use bytesize::{ByteSize, KB};
 use chrono::{DateTime, Utc};
 use miette::{Diagnostic, Result};
 use opencue_proto::job::FrameExitStatus;
-use prost::Message;
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
 

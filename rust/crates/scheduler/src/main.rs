@@ -19,6 +19,7 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
 use tracing_subscriber::{EnvFilter, Registry};
 
+use crate::config::AllocTag;
 use crate::{
     cluster::{Cluster, ClusterFeed},
     cluster_key::{ClusterKey, Tag, TagType},
@@ -41,6 +42,13 @@ mod pipeline;
 pub struct JobQueueCli {
     #[structopt(long, short = "f", long_help = "Facility code to run on")]
     facility: Option<String>,
+
+    #[structopt(
+        long,
+        short = "s",
+        long_help = "A list of show names to be scheduled entirely."
+    )]
+    entire_shows: Vec<String>,
 
     #[structopt(
         long,
@@ -82,43 +90,78 @@ impl FromStr for ColonSeparatedList {
     }
 }
 
+impl From<ColonSeparatedList> for AllocTag {
+    fn from(value: ColonSeparatedList) -> Self {
+        AllocTag {
+            show: value.0,
+            tag: value.1,
+        }
+    }
+}
+
 impl JobQueueCli {
-    async fn run(&self) -> miette::Result<()> {
-        // Merge CLI args with config, CLI takes precedence
+    /// Merge CLI args with config values, where CLI takes precedence.
+    ///
+    /// For each field, if a CLI argument was provided it is used; otherwise the
+    /// value falls back to the corresponding entry in [`CONFIG.scheduler`].
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(facility, alloc_tags, manual_tags, ignore_tags)`:
+    /// - `facility`      – Optional facility code (e.g. `"eat"`).
+    /// - `entire_shows`  – Name of shows to be completely scheduled (e.g. `show1`).
+    /// - `alloc_tags`    – Show/tag pairs tied to an allocation (e.g. `show1:general`).
+    /// - `manual_tags`   – Free-form tags not associated with an allocation.
+    /// - `ignore_tags`   – Tags to exclude when loading clusters.
+    #[allow(clippy::type_complexity)]
+    fn resolve_config(
+        &self,
+    ) -> (
+        Option<String>,
+        Vec<String>,
+        Vec<AllocTag>,
+        Vec<String>,
+        Vec<String>,
+    ) {
         let facility = if self.facility.is_some() {
             self.facility.clone()
         } else {
             CONFIG.scheduler.facility.clone()
         };
 
-        let alloc_tags = if !self.alloc_tags.is_empty() {
-            // CLI args provided, use them
-            self.alloc_tags.clone()
+        let entire_shows: Vec<String> = if !self.entire_shows.is_empty() {
+            self.entire_shows.clone()
         } else {
-            // Use config values
-            CONFIG
-                .scheduler
-                .alloc_tags
-                .iter()
-                .map(|at| ColonSeparatedList(at.show.clone(), at.tag.clone()))
+            CONFIG.scheduler.entire_shows.clone()
+        };
+
+        let alloc_tags: Vec<AllocTag> = if !self.alloc_tags.is_empty() {
+            self.alloc_tags
+                .clone()
+                .into_iter()
+                .map(|item| item.into())
                 .collect()
+        } else {
+            CONFIG.scheduler.alloc_tags.clone()
         };
 
         let manual_tags = if !self.manual_tags.is_empty() {
-            // CLI args provided, use them
             self.manual_tags.clone()
         } else {
-            // Use config values
             CONFIG.scheduler.manual_tags.clone()
         };
 
         let ignore_tags = if !self.ignore_tags.is_empty() {
-            // CLI args provided, use them
             self.ignore_tags.clone()
         } else {
-            // Use config values
             CONFIG.scheduler.ignore_tags.clone()
         };
+
+        (facility, entire_shows, alloc_tags, manual_tags, ignore_tags)
+    }
+
+    async fn run(&self) -> miette::Result<()> {
+        let (facility, entire_shows, alloc_tags, manual_tags, ignore_tags) = self.resolve_config();
 
         // Lookup facility_id from facility name
         let facility_id = match &facility {
@@ -135,14 +178,14 @@ impl JobQueueCli {
         if let Some(facility_id) = &facility_id {
             // Build Cluster::ComposedKey for each alloc_tag (show:tag format)
             for alloc_tag in &alloc_tags {
-                let show_id = cluster::get_show_id(&alloc_tag.0)
+                let show_id = cluster::get_show_id(&alloc_tag.show)
                     .await
                     .wrap_err("Could not find show {}.")?;
                 clusters.push(Cluster::ComposedKey(ClusterKey {
                     facility_id: *facility_id,
                     show_id,
                     tag: Tag {
-                        name: alloc_tag.1.clone(),
+                        name: alloc_tag.tag.clone(),
                         ttype: TagType::Alloc,
                     },
                 }));
@@ -165,11 +208,16 @@ impl JobQueueCli {
             Err(miette!("Alloc tag requires a valid facility"))?
         }
 
-        let cluster_feed = if alloc_tags.is_empty() && manual_tags.is_empty() {
-            ClusterFeed::load_all(&facility_id, &ignore_tags).await?
-        } else {
-            ClusterFeed::load_from_clusters(clusters, &ignore_tags)
+        let builder = match facility_id {
+            Some(id) => ClusterFeed::facility(id),
+            None => ClusterFeed::no_facility(),
         };
+        let cluster_feed = builder
+            .with_ignore_tags(ignore_tags)
+            .with_clusters(clusters)
+            .with_entire_shows(entire_shows)
+            .build()
+            .await?;
 
         pipeline::run(cluster_feed).await
     }

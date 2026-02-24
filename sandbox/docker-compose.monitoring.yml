@@ -34,20 +34,6 @@ services:
         loki-url: http://localhost:3100/loki/api/v1/push
         loki-external-labels: job=rqd
 
-  metrics:
-    restart: always
-    build:
-      context: ./
-      dockerfile: ./connectors/prometheus_metrics/Dockerfile
-    environment:
-      - CUEBOT_HOSTS=cuebot
-    depends_on:
-      - cuebot
-    links:
-      - cuebot
-    ports:
-      - "8302:8302"
-
   prometheus:
     image: prom/prometheus:v2.21.0
     ports:
