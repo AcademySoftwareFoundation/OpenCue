@@ -212,8 +212,8 @@ services:
     #     loki-external-labels: job=rqd
 
   # =============================================================================
-  # WEB UI SERVICES (optional)
-  # Uncomment this section to enable web-based interface
+  # WEB UI SERVICES (cueweb)
+  # Use this profile to enable the web-based interface
   # =============================================================================
 
   # REST Gateway
@@ -295,8 +295,8 @@ services:
       start_period: 30s
 
   # =============================================================================
-  # MONITORING SERVICES (optional)
-  # Uncomment this section for metrics, dashboards, and log aggregation
+  # MONITORING SERVICES (monitoring)
+  # Use the profile for metrics, dashboards, and log aggregation
   # =============================================================================
 
   # PostgreSQL Exporter for Prometheus
