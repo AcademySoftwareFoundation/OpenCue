@@ -4,9 +4,11 @@
 # Uncomment the optional sections to enable additional functionality:
 #
 # Profiles:
-#   - default (included in all profiles)
-#   - infra
-#   - kafka
+#   - default (cuebot, db)
+#   - rqd (rqd)
+#   - cueweb (rest-gateway, cueweb)
+#   - monitoring (db-exporter, prometheus, grafana, loki)
+#   - monitoring-full (zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer)
 # Optional Components:
 #   - Web UI (rest-gateway, cueweb): Web-based interface for monitoring and managing OpenCue
 #   - Monitoring (prometheus, grafana, loki, db-exporter): Metrics and logging
@@ -28,18 +30,10 @@
 #    Core only (default):
 #    docker compose up -d
 #
+#    Specific profile:
+#    docker compose --profile <profile> up -d
 #    # Full stack:
-#    docker compose up -d --profile all
-#    # Infrastructure (db, zookeeper, eleasticsearch)
-#    docker compose up -d --profile infra
-#    # Kafka (kafka)
-#    docker compose up -d --profile kafka
-#    # Web UI (cueweb, rest-gateway)
-#    docker compose up -d --profile cueweb
-#    # RQD (rqd)
-#    docker compose up -d --profile rqd
-#    # Monitoring (db-exporter prometheus grafana loki kafka-ui kibana monitoring-indexer)
-#    docker compose up -d --profile monitoring
+#    docker compose --profile all up -d
 #
 # 4. Check status:
 #    docker compose ps
@@ -309,6 +303,7 @@ services:
   db-exporter:
     profiles:
       - monitoring
+      - monitoring-full
       - all
     image: wrouesnel/postgres_exporter
     container_name: opencue-db-exporter
@@ -326,6 +321,7 @@ services:
   prometheus:
     profiles:
       - monitoring
+      - monitoring-full
       - all
     image: prom/prometheus:v3.9.1
     container_name: opencue-prometheus
@@ -349,6 +345,7 @@ services:
   grafana:
     profiles:
       - monitoring
+      - monitoring-full
       - all
     image: grafana/grafana:12.3
     container_name: opencue-grafana
@@ -370,6 +367,7 @@ services:
   loki:
     profiles:
       - monitoring
+      - monitoring-full
       - all
     image: grafana/loki:3.6.0
     container_name: opencue-loki
@@ -382,16 +380,15 @@ services:
       - "3100:3100"
 
   # =============================================================================
-  # EVENT STREAMING SERVICES (optional)
-  # Uncomment this section for Kafka event streaming and Elasticsearch historical data
+  # EVENT STREAMING SERVICES (monitoring-full)
+  # Use this profile for Kafka event streaming and Elasticsearch historical data
   # Note: This requires significant resources and is intended for production-like setups
-  # Also uncomment the Kafka dependency in cuebot above and enable Kafka monitoring command
   # =============================================================================
 
   # Zookeeper for Kafka
   zookeeper:
     profiles:
-      - infra
+      - monitoring-full
       - all
     image: confluentinc/cp-zookeeper:7.7.7
     hostname: zookeeper
@@ -410,7 +407,7 @@ services:
   # Kafka broker for event streaming
   kafka:
     profiles:
-      - kafka
+      - monitoring-full
       - all
     image: confluentinc/cp-kafka:7.7.7
     hostname: kafka
@@ -440,7 +437,7 @@ services:
   # Kafka UI for debugging
   kafka-ui:
     profiles:
-      - monitoring
+      - monitoring-full
       - all
     image: provectuslabs/kafka-ui:latest
     container_name: opencue-kafka-ui
@@ -457,7 +454,7 @@ services:
   # Elasticsearch for historical data storage
   elasticsearch:
     profiles:
-      - infra
+      - monitoring-full
       - all
     image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
     container_name: opencue-elasticsearch
@@ -479,7 +476,7 @@ services:
   # Kibana for Elasticsearch visualization
   kibana:
     profiles:
-      - monitoring
+      - monitoring-full
       - all
     image: docker.elastic.co/kibana/kibana:9.3.0
     container_name: opencue-kibana
@@ -495,7 +492,7 @@ services:
   # Note: Requires building from source (rust)
   monitoring-indexer:
     profiles:
-      - monitoring
+      - monitoring-full
       - all
     build:
       context: ./rust
