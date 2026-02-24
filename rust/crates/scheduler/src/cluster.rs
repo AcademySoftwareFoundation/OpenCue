@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
@@ -35,7 +35,7 @@ use crate::{
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Cluster {
     ComposedKey(ClusterKey),
     /// facility_id: Uuid,
@@ -111,9 +111,6 @@ impl ClusterFeedBuilder {
     }
 
     /// Provides an explicit list of clusters instead of loading from the database.
-    ///
-    /// When clusters are provided, [`build`] uses [`ClusterFeed::load_from_clusters`]
-    /// rather than [`ClusterFeed::load_all`].
     pub fn with_clusters(mut self, clusters: Vec<Cluster>) -> Self {
         self.clusters = clusters;
         self
@@ -136,17 +133,17 @@ impl ClusterFeedBuilder {
                 ClusterFeed::load_clusters(&self.facility_id, &self.ignore_tags, None).await?;
             ClusterFeed::filter_clusters(all, &self.ignore_tags)
         } else {
-            let mut clusters = self.clusters;
+            let mut clusters: HashSet<Cluster> = self.clusters.into_iter().collect();
             if !self.entire_shows.is_empty() {
-                let mut show_clusters = ClusterFeed::load_clusters(
+                let show_clusters = ClusterFeed::load_clusters(
                     &self.facility_id,
                     &self.ignore_tags,
                     Some(self.entire_shows),
                 )
                 .await?;
-                clusters.append(&mut show_clusters);
+                clusters.extend(show_clusters);
             }
-            ClusterFeed::filter_clusters(clusters, &self.ignore_tags)
+            ClusterFeed::filter_clusters(clusters.into_iter().collect(), &self.ignore_tags)
         };
         Ok(ClusterFeed {
             clusters: Arc::new(RwLock::new(clusters)),

@@ -204,19 +204,18 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         // should not be dispatched by Cuebot's dispatcher
         for (SortableShow s : shows) {
             long lastTime = System.currentTimeMillis();
+            String showName = s.getShowName();
 
             // Check if this show:allocation combination is in the exclusion list
             if (!exclusionShows.isEmpty()) {
-                String showName = s.getShowName();
                 if (exclusionShows.contains(showName)) {
                     logger.info("skipping show " + showName + " entirely due to exclusion list");
                     continue;
                 }
             }
 
-            // Check if this show:allocation combination is in the exclusion list
+            // Check if this show is in the exclusion list
             if (!exclusionShowAllocs.isEmpty()) {
-                String showName = s.getShowName();
                 String exclusionKey = showName + ":" + host.allocationName;
                 if (exclusionShowAllocs.contains(exclusionKey)) {
                     logger.info("skipping show " + showName + " on allocation "
