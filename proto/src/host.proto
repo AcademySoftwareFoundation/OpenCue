@@ -96,7 +96,7 @@ service HostInterface {
     // Changes the host's [ThreadMode]
     rpc SetThreadMode(HostSetThreadModeRequest) returns (HostSetThreadModeResponse);
 
-    // Set the maximum concurrent procs limit for the host.
+    // Set the maximum concurrent slots limit for the host.
     rpc SetConcurrentSlotsLimit(HostSetConcurrentSlotsLimitRequest) returns (HostSetConcurrentSlotsLimitResponse);
 
     // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.

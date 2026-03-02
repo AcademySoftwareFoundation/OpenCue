@@ -167,7 +167,7 @@ UPDATE host_stat
 SET int_mem_free = int_mem_free - $1,
     int_gpu_mem_free = int_gpu_mem_free - $2,
     int_running_slots = int_running_slots + $3
-WHERE pk_host = $3
+WHERE pk_host = $4
 "#;
 
 static UPDATE_SUBSCRIPTION: &str = r#"

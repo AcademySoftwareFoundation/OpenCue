@@ -555,7 +555,7 @@ impl MachineMonitor {
                         .await
                     {
                         warn!(
-                            "Failed to release cores reserved by {}: {}",
+                            "Failed to release slots reserved by {}: {}",
                             frame.request.resource_id(),
                             err
                         );

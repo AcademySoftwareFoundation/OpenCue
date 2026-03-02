@@ -121,27 +121,16 @@ outline script to batch multiple job submissions into a single job, setting up
 dependencies and / or running in parallel. Outline scripts can submit almost any
 type of job to the cue, including Maya, Katana, or even shell commands.
 
-## Proc
-
-A proc is a unit of work on a render *host* that executes a *frame*. In
-core-based booking, a proc represents reserved cores on a host.
-
-## Slot
-
-A slot is a scheduling unit used by slot-based booking. Slots are defined per
-host and consumed per frame.
-
-## Slot-based booking
-
-A booking mode where hosts are scheduled by slots instead of cores, memory, or
-GPU resources. It is enabled by setting a concurrent slots limit on hosts and a
-`slots_required` value on layers.
-
 ## OpenCue REST Gateway
 
 A production-ready HTTP service that translates REST API calls to gRPC
 communication with Cuebot. Enables web applications, scripts, and third-party
 tools to interact with OpenCue services through standard HTTP endpoints.
+
+## Proc
+
+A proc is a unit of work on a render *host* that executes a *frame*. In
+core-based booking, a proc represents reserved cores on a host.
 
 ## PyCue
 
@@ -183,6 +172,17 @@ a list of tags. These attributes are inherited by *layers* submitted to that
 service by default. Services can be used to setup different requirements for
 different software jobs. For instance, a Maya render may need 6GB of memory vs a
 Nuke render may only need 2GB.
+
+## Slot
+
+A slot is a scheduling unit used by slot-based booking. Slots are defined per
+host and consumed per frame.
+
+## Slot-based booking
+
+A booking mode where hosts are scheduled by slots instead of cores, memory, or
+GPU resources. It is enabled by setting a concurrent slots limit on hosts and a
+`slots_required` value on layers.
 
 ## Show
 
