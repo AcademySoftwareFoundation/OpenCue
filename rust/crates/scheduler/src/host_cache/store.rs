@@ -400,6 +400,8 @@ mod tests {
             alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated,
+            concurrent_slots_limit: None,
+            running_slots_count: 0,
         }
     }
 

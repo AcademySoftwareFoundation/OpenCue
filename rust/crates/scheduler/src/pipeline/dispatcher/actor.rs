@@ -721,6 +721,15 @@ impl RqdDispatcherService {
             )))?
         }
 
+        if let Some(concurrent_slots_limit) = host.concurrent_slots_limit {
+            if concurrent_slots_limit < host.running_slots_count + frame.slots_required {
+                Err(VirtualProcError::HostResourcesExtinguished(format!(
+                    "Not enough slots available: {} slots taken, requested {} slots",
+                    host.running_slots_count, frame.slots_required
+                )))?
+            }
+        }
+
         let memory_reserved = frame.min_memory;
         let gpus_reserved = frame.min_gpus;
         let gpu_memory_reserved = frame.min_gpu_memory;
@@ -733,6 +742,9 @@ impl RqdDispatcherService {
             ByteSize(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
         // Field will be overwritten with database values as soon as the changes are committed
         host.last_updated = Utc::now();
+        if host.concurrent_slots_limit.is_some() {
+            host.running_slots_count += frame.slots_required;
+        }
 
         Ok((
             VirtualProc {
@@ -751,6 +763,7 @@ impl RqdDispatcherService {
                 is_local_dispatch: false,
                 frame: frame.clone(),
                 host_name: host.name.clone(),
+                slots_required: frame.slots_required,
             },
             host,
         ))
@@ -970,6 +983,7 @@ impl RqdDispatcherService {
             log_file: "deprecated".to_string(),
             #[allow(deprecated)]
             log_dir_file: "deprecated".to_string(),
+            slots_required: proc.slots_required as i32,
         };
 
         Ok(run_frame)
@@ -1043,6 +1057,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -1078,6 +1093,7 @@ mod tests {
             version: 1,
             updated_at: SystemTime::now(),
             env: HashMap::new(),
+            slots_required: 0,
         }
     }
 
@@ -1176,6 +1192,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1212,6 +1229,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1248,6 +1266,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1283,6 +1302,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1460,6 +1480,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1536,6 +1557,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -1572,9 +1594,267 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
         assert!(result.is_err());
+    }
+
+    // ── Slot-based scheduling tests ──────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_slots_required_propagated_to_virtual_proc() {
+        // When frame.slots_required != 0, the VirtualProc should carry the same value
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 2;
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let (virtual_proc, _updated_host) = result.unwrap();
+        assert_eq!(virtual_proc.slots_required, 2);
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_with_slots_deducts_cores_and_memory() {
+        // Slot-based frames still deduct core and memory resources from the host
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 2;
+        frame.min_cores = CoreSize(1);
+        frame.min_memory = ByteSize::gib(2);
+        frame.threadable = false; // predictable core reservation
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+        let initial_idle_memory = host.idle_memory;
+        let initial_idle_cores = host.idle_cores;
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let (virtual_proc, updated_host) = result.unwrap();
+
+        assert_eq!(
+            updated_host.idle_memory.as_u64(),
+            initial_idle_memory.as_u64() - frame.min_memory.as_u64()
+        );
+        assert!(updated_host.idle_cores < initial_idle_cores);
+        assert_eq!(virtual_proc.memory_reserved, frame.min_memory);
+        assert_eq!(virtual_proc.slots_required, 2);
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_with_slots_updates_running_slots_count() {
+        // When concurrent_slots_limit is set, running_slots_count should be incremented
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 2;
+        frame.threadable = false;
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+        host.running_slots_count = 0;
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let (_virtual_proc, updated_host) = result.unwrap();
+        assert_eq!(updated_host.running_slots_count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_with_slots_fails_on_insufficient_cores() {
+        // Slot-based frames still fail when the host cannot satisfy core requirements
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 2;
+        frame.min_cores = CoreSize(100); // exceeds host capacity
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough cores"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for insufficient cores"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_with_slots_fails_on_insufficient_memory() {
+        // Slot-based frames still fail when the host cannot satisfy memory requirements
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 2;
+        frame.min_memory = ByteSize::gib(64); // exceeds host capacity
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough memory"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for insufficient memory"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_with_slots_fails_when_slots_exhausted() {
+        // When running_slots_count + slots_required exceeds concurrent_slots_limit, dispatch fails
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 3;
+        frame.threadable = false;
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+        host.running_slots_count = 2; // 2 + 3 > 4
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough slots"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for insufficient slots"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_rqd_run_frame_with_slots_required() {
+        // RunFrame message should include the slots_required value from the VirtualProc
+        let frame = create_test_dispatch_frame();
+        let virtual_proc = VirtualProc {
+            proc_id: Uuid::new_v4(),
+            host_id: Uuid::new_v4(),
+            show_id: Uuid::new_v4(),
+            layer_id: Uuid::new_v4(),
+            job_id: Uuid::new_v4(),
+            frame_id: Uuid::new_v4(),
+            alloc_id: Uuid::new_v4(),
+            cores_reserved: CoreSize(1).with_multiplier(),
+            memory_reserved: ByteSize::gib(2),
+            gpus_reserved: 0,
+            gpu_memory_reserved: ByteSize::gb(0),
+            os: "linux".to_string(),
+            is_local_dispatch: false,
+            frame,
+            host_name: "somehost".to_string(),
+            slots_required: 3,
+        };
+
+        let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
+
+        assert!(result.is_ok());
+        let run_frame = result.unwrap();
+        assert_eq!(run_frame.slots_required, 3);
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_sequential_slot_consumption() {
+        // Each successive slot-based dispatch reduces available slots and resources
+        let mut frame = create_test_dispatch_frame();
+        frame.slots_required = 1;
+        frame.min_cores = CoreSize(1);
+        frame.min_memory = ByteSize::gib(2);
+        frame.threadable = false;
+
+        let mut host = create_test_host();
+        host.concurrent_slots_limit = Some(4);
+
+        // First dispatch
+        let (vp1, host_after_first) = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await
+        .expect("first slot dispatch should succeed");
+
+        assert_eq!(vp1.slots_required, 1);
+        assert_eq!(host_after_first.running_slots_count, 1);
+        assert!(host_after_first.idle_memory < host.idle_memory);
+
+        // Second dispatch on the updated host
+        let (vp2, host_after_second) = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host_after_first,
+            ByteSize::gib(1),
+        )
+        .await
+        .expect("second slot dispatch should succeed");
+
+        assert_eq!(vp2.slots_required, 1);
+        assert_eq!(host_after_second.running_slots_count, 2);
+        assert!(host_after_second.idle_memory < host_after_first.idle_memory);
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_slots_zero_vs_nonzero() {
+        // Verify slots_required = 0 and != 0 produce VirtualProcs with the correct field
+        let frame_no_slots = create_test_dispatch_frame(); // slots_required = 0
+
+        let mut frame_with_slots = create_test_dispatch_frame();
+        frame_with_slots.slots_required = 5;
+
+        let host = create_test_host();
+
+        let (vp_no_slots, _) = RqdDispatcherService::consume_host_virtual_resources(
+            &frame_no_slots,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await
+        .expect("dispatch without slots should succeed");
+
+        let (vp_with_slots, _) = RqdDispatcherService::consume_host_virtual_resources(
+            &frame_with_slots,
+            &host,
+            ByteSize::gib(1),
+        )
+        .await
+        .expect("dispatch with slots should succeed");
+
+        assert_eq!(vp_no_slots.slots_required, 0);
+        assert_eq!(vp_with_slots.slots_required, 5);
     }
 }

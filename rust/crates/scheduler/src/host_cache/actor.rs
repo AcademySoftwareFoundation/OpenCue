@@ -12,7 +12,6 @@
 
 use actix::{Actor, ActorFutureExt, AsyncContext, Handler, ResponseActFuture, WrapFuture};
 
-use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
 use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
@@ -35,7 +34,7 @@ use crate::{
     config::CONFIG,
     dao::HostDao,
     host_cache::{messages::*, store, *},
-    models::{CoreSize, Host},
+    models::{Host, ResourceRequest},
 };
 
 #[derive(Clone)]
@@ -105,8 +104,7 @@ where
             facility_id,
             show_id,
             tags,
-            cores,
-            memory,
+            resource_request,
             validation,
         } = msg;
 
@@ -115,7 +113,7 @@ where
         Box::pin(
             async move {
                 let out = service
-                    .check_out(facility_id, show_id, tags, cores, memory, validation)
+                    .check_out(facility_id, show_id, tags, resource_request, validation)
                     .await;
                 if let Ok(host) = &out {
                     debug!("Checked out {}", host.1);
@@ -208,8 +206,7 @@ impl HostCacheService {
         facility_id: Uuid,
         show_id: Uuid,
         tags: Vec<Tag>,
-        cores: CoreSize,
-        memory: ByteSize,
+        resource_request: ResourceRequest,
         validation: F,
     ) -> Result<CheckedOutHost, HostCacheError>
     where
@@ -235,9 +232,9 @@ impl HostCacheService {
                 // fight for the same rows.
                 .read_async(&cache_key, |_, cached_group| {
                     if !cached_group.expired() {
+                        // Checkout host from a group
                         cached_group
-                            // Checkout host from a group
-                            .check_out(cores, memory, validation)
+                            .check_out(resource_request, validation)
                             .map(|host| (cache_key.clone(), host.clone()))
                             .ok()
                     } else {
@@ -260,7 +257,7 @@ impl HostCacheService {
                         .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
                     let checked_out_host = group
                         // Checkout host from a group
-                        .check_out(cores, memory, validation)
+                        .check_out(resource_request, validation)
                         .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
 
                     if let Ok(checked_out_host) = checked_out_host {

@@ -35,6 +35,7 @@ pub struct VirtualProc {
     pub os: String,
     pub is_local_dispatch: bool,
     pub frame: DispatchFrame,
+    pub slots_required: u32,
 }
 
 impl Display for VirtualProc {
