@@ -24,7 +24,6 @@ use uuid::Uuid;
 
 use miette::Result;
 use tokio::sync::OnceCell;
-use tracing::error;
 
 use crate::host_cache::messages::CacheRatio;
 

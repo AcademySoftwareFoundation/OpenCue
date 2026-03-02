@@ -18,7 +18,7 @@ use rand::{
 };
 use scheduler::{
     cluster::Cluster,
-    cluster_key::{ClusterKey, Tag, TagType},
+    cluster_key::{Tag, TagType},
     config::{
         Config, DatabaseConfig, HostBookingStrategy, HostCacheConfig, LoggingConfig, QueueConfig,
         RqdConfig, SchedulerConfig,
@@ -589,8 +589,9 @@ pub async fn create_test_data(
 
         // Clusters. Chunk manual tags in approximatelly 4 groups
         for chunk in tags.chunks(tags.len() / 4) {
-            let cluster = Cluster::TagsKey(
+            let cluster = Cluster::multiple_tag(
                 facility_id,
+                show_id,
                 chunk
                     .iter()
                     .map(|tag_name| Tag {
@@ -622,14 +623,14 @@ pub async fn create_test_data(
     ];
 
     for (alloc_id, alloc_name) in allocs.iter() {
-        let cluster = Cluster::ComposedKey(ClusterKey {
+        let cluster = Cluster::single_tag(
             facility_id,
             show_id,
-            tag: Tag {
+            Tag {
                 name: alloc_name.clone(),
                 ttype: TagType::Alloc,
             },
-        });
+        );
         clusters.push(cluster);
         create_subscription(&mut tx, *alloc_id, show_id, 10000 * 100, 990000 * 100).await?;
     }

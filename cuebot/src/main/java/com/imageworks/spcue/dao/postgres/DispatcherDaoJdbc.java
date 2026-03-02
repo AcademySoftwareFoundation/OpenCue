@@ -121,7 +121,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * Choose between different scheduling strategies
      */
     private SchedulingMode schedulingMode;
-    private Set<String> exclusionList;
+    private Set<String> exclusionShowAllocs;
+    private Set<String> exclusionShows;
 
     @Autowired
     public DispatcherDaoJdbc(Environment env) {
@@ -131,12 +132,17 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         // Parse the exclusion list from environment variable
         // Expected format: "show1:allocation1,show2:allocation2"
         String exclusionListStr = env.getProperty("dispatcher.exclusion_list", String.class, "");
-        this.exclusionList = new LinkedHashSet<String>();
+        this.exclusionShowAllocs = new LinkedHashSet<String>();
+        this.exclusionShows = new LinkedHashSet<String>();
         if (!exclusionListStr.isEmpty()) {
             for (String item : exclusionListStr.split(",")) {
                 String trimmedItem = item.trim();
                 if (!trimmedItem.isEmpty()) {
-                    this.exclusionList.add(trimmedItem);
+                    if (trimmedItem.contains(":")) {
+                        this.exclusionShowAllocs.add(trimmedItem);
+                    } else {
+                        this.exclusionShows.add(trimmedItem);
+                    }
                 }
             }
         }
@@ -198,12 +204,20 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         // should not be dispatched by Cuebot's dispatcher
         for (SortableShow s : shows) {
             long lastTime = System.currentTimeMillis();
+            String showName = s.getShowName();
 
             // Check if this show:allocation combination is in the exclusion list
-            if (!exclusionList.isEmpty()) {
-                String showName = s.getShowName();
+            if (!exclusionShows.isEmpty()) {
+                if (exclusionShows.contains(showName)) {
+                    logger.info("skipping show " + showName + " entirely due to exclusion list");
+                    continue;
+                }
+            }
+
+            // Check if this show is in the exclusion list
+            if (!exclusionShowAllocs.isEmpty()) {
                 String exclusionKey = showName + ":" + host.allocationName;
-                if (exclusionList.contains(exclusionKey)) {
+                if (exclusionShowAllocs.contains(exclusionKey)) {
                     logger.info("skipping show " + showName + " on allocation "
                             + host.allocationName + " due to exclusion list");
                     continue;

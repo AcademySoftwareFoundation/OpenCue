@@ -193,8 +193,15 @@ host_cache:
 # =============================================================================
 scheduler:
   # Optional facility code to run on (can be overridden with --facility flag)
+  # This optional is a no-op for entire_shows and manual_tags
   # Default: None
   # facility: eat
+
+  # List of show names to be fully scheduled (can be overridden with --entire_show flag)
+  # Default: []
+  # entire_shows:
+  #   - show1
+  #   - show2
 
   # List of allocation tags in show:tag format (can be overridden with --alloc_tags flag)
   # Default: []
@@ -204,11 +211,17 @@ scheduler:
   #   - show: show2
   #     tag: priority
 
-  # List of manual tags not associated with an allocation (can be overridden with --manual_tags flag)
+  # List of manual tags not associated with an allocation, scoped by show
+  # (can be overridden with --manual_tags flag, eg. show1:tag1,tag2,tag3)
   # Default: []
   # manual_tags:
-  #   - tag1
-  #   - tag2
+  #   - show: show1
+  #     tags:
+  #       - tag1
+  #       - tag2
+  #   - show: show2
+  #     tags:
+  #       - tag3
 
   # List of tags to ignore when loading clusters (can be overridden with --ignore_tags flag)
   # These tags will be filtered out from all cluster types (manual, hostname, and alloc)

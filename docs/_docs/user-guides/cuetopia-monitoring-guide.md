@@ -106,6 +106,7 @@ Notes:
 | **Age** | Time since job launch (HH:MM format)                                                                                                                                                | Calculated from `start_time` | Real-time |
 | **Launched** | Job launch timestamp                                                                                                                                                                | `job.data.start_time` | Static |
 | **Finished** | Job completion timestamp                                                                                                                                                            | `job.data.stop_time` | On completion |
+| **User Color** | User-assigned color name (preset or custom RGB format) | `__userColors` dictionary | On color change |
 | **Progress** | Visual progress bar                                                                                                                                                                 | Composite of all frame states | Real-time |
 
 #### Additional Columns (Hidden by Default)
@@ -148,6 +149,8 @@ Right-clicking on a job provides these actions:
 
 The Monitor Jobs view allows you to organize jobs visually by applying background colors. This feature is particularly useful when working with many concurrent renders, allowing you to group jobs by project, priority, department, or any other categorization scheme.
 
+Jobs with assigned colors are also easily sortable using the **User Color** column, making it simple to find and group all jobs of a specific color.
+
 #### Setting Job Colors
 
 To apply a color to one or more jobs:
@@ -157,6 +160,10 @@ To apply a color to one or more jobs:
 3. **Choose Color**: Navigate to "Set user color" submenu
 
 ![Set User Color Menu with 15 Options](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_15_color_options.png)
+
+#### Sorting by User Color
+
+Click the **User Color** column header to sort jobs by their assigned colors. Click again to reverse the sort order. This allows you to quickly organize large job lists by color, making it easy to find jobs belonging to specific projects, priorities, or departments.
 
 #### Available Color Options
 
@@ -188,6 +195,8 @@ For complete flexibility, use the **"Set Custom Color (RGB)..."** option to crea
 4. Click OK to apply the custom color
 
 ![Custom Color Dialog](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_set_custom_color.png)
+
+**Note**: Custom colors are displayed in the **User Color** column as "RGB(R,G,B)" format (e.g., "RGB(255,20,20)"), making it easy to identify and sort by custom color values. All jobs with the same custom RGB values will be grouped together when sorting by the User Color column.
 
 #### Color Management
 
