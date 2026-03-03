@@ -316,7 +316,7 @@ impl RqdDispatcherService {
                         .map_err(DispatchError::DbFailure)?;
 
                     // Track successful frame dispatch
-                    metrics::increment_frames_dispatched();
+                    metrics::increment_frames_dispatched(&frame.show_name);
 
                     // Track time from frame updated_at to dispatch
                     if let Ok(elapsed) = frame.updated_at.elapsed() {
@@ -1023,7 +1023,7 @@ mod tests {
 
     use super::*;
     use crate::models::{CoreSize, DispatchFrame, Host};
-    use bytesize::{ByteSize, KB};
+    use bytesize::ByteSize;
     use opencue_proto::host::ThreadMode;
     use uuid::Uuid;
 

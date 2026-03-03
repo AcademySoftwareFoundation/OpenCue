@@ -19,10 +19,10 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
 use tracing_subscriber::{EnvFilter, Registry};
 
-use crate::config::AllocTag;
+use crate::config::{AllocTag, ManualTags};
 use crate::{
     cluster::{Cluster, ClusterFeed},
-    cluster_key::{ClusterKey, Tag, TagType},
+    cluster_key::{Tag, TagType},
     config::CONFIG,
 };
 
@@ -60,9 +60,9 @@ pub struct JobQueueCli {
     #[structopt(
         long,
         short = "t",
-        long_help = "A list of tags not associated with an allocation."
+        long_help = "A list of show and tags not associated with an allocation. (eg. show1:tag1,tag2,tag3)"
     )]
-    manual_tags: Vec<String>,
+    manual_tags: Vec<ColonSeparatedList>,
 
     #[structopt(
         long,
@@ -120,7 +120,7 @@ impl JobQueueCli {
         Option<String>,
         Vec<String>,
         Vec<AllocTag>,
-        Vec<String>,
+        Vec<ManualTags>,
         Vec<String>,
     ) {
         let facility = if self.facility.is_some() {
@@ -146,7 +146,14 @@ impl JobQueueCli {
         };
 
         let manual_tags = if !self.manual_tags.is_empty() {
-            self.manual_tags.clone()
+            self.manual_tags
+                .clone()
+                .into_iter()
+                .map(|item| ManualTags {
+                    show: item.0,
+                    tags: item.1.split(",").map(|t| t.to_string()).collect(),
+                })
+                .collect()
         } else {
             CONFIG.scheduler.manual_tags.clone()
         };
@@ -180,22 +187,27 @@ impl JobQueueCli {
             for alloc_tag in &alloc_tags {
                 let show_id = cluster::get_show_id(&alloc_tag.show)
                     .await
-                    .wrap_err("Could not find show {}.")?;
-                clusters.push(Cluster::ComposedKey(ClusterKey {
-                    facility_id: *facility_id,
+                    .wrap_err(format!("Could not find show {}.", alloc_tag.show))?;
+                clusters.push(Cluster::single_tag(
+                    *facility_id,
                     show_id,
-                    tag: Tag {
+                    Tag {
                         name: alloc_tag.tag.clone(),
                         ttype: TagType::Alloc,
                     },
-                }));
+                ));
             }
 
             // Build Cluster::TagsKey for manual_tags
-            if !manual_tags.is_empty() {
-                clusters.push(Cluster::TagsKey(
+            for manual_tag in &manual_tags {
+                let show_id = cluster::get_show_id(&manual_tag.show)
+                    .await
+                    .wrap_err(format!("Could not find show {}.", manual_tag.show))?;
+                clusters.push(Cluster::multiple_tag(
                     *facility_id,
-                    manual_tags
+                    show_id,
+                    manual_tag
+                        .tags
                         .iter()
                         .map(|name| Tag {
                             name: name.clone(),
@@ -206,6 +218,8 @@ impl JobQueueCli {
             }
         } else if !alloc_tags.is_empty() {
             Err(miette!("Alloc tag requires a valid facility"))?
+        } else if !manual_tags.is_empty() {
+            Err(miette!("Manual tag requires a valid facility"))?
         }
 
         let builder = match facility_id {
