@@ -48,7 +48,7 @@ mod scheduler_smoke_test {
 
     use scheduler::{
         cluster::{Cluster, ClusterFeed},
-        cluster_key::{ClusterKey, Tag, TagType},
+        cluster_key::{Tag, TagType},
         pipeline,
     };
     use tracing::info;
@@ -831,16 +831,16 @@ mod scheduler_smoke_test {
 
     async fn test_dispatch_hostname_tag_flow_inner(test_data: TestData) {
         // Create a specific cluster feed for HOSTNAME tag testing
-        let hostname_cluster = Cluster::ComposedKey(ClusterKey {
-            facility_id: test_data.facility_id.to_string(),
-            show_id: test_data.show_id.to_string(),
-            tag: Tag {
+        let hostname_cluster = Cluster::single_tag(
+            test_data.facility_id,
+            test_data.show_id,
+            Tag {
                 name: format!("integ_test_hostname_tag_{}", test_data.test_suffix),
                 ttype: TagType::HostName,
             },
-        });
+        );
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![hostname_cluster], &[]);
+        let cluster_feed = ClusterFeed::from_clusters(vec![hostname_cluster], &[]);
 
         info!("Starting HOSTNAME tag integration test...");
 
@@ -887,16 +887,16 @@ mod scheduler_smoke_test {
 
     async fn test_dispatch_alloc_tag_flow_inner(test_data: TestData) {
         // Create a specific cluster feed for ALLOC tag testing
-        let alloc_cluster = Cluster::ComposedKey(ClusterKey {
-            facility_id: test_data.facility_id.to_string(),
-            show_id: test_data.show_id.to_string(),
-            tag: Tag {
+        let alloc_cluster = Cluster::single_tag(
+            test_data.facility_id,
+            test_data.show_id,
+            Tag {
                 name: format!("integ_test_alloc_tag_{}", test_data.test_suffix),
                 ttype: TagType::Alloc,
             },
-        });
+        );
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![alloc_cluster], &[]);
+        let cluster_feed = ClusterFeed::from_clusters(vec![alloc_cluster], &[]);
 
         info!("Starting ALLOC tag integration test...");
 
@@ -934,12 +934,16 @@ mod scheduler_smoke_test {
 
     async fn test_dispatch_manual_tag_flow_inner(test_data: TestData) {
         // Create a cluster feed with MANUAL tags (chunked)
-        let manual_cluster = Cluster::TagsKey(vec![Tag {
-            name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
-            ttype: TagType::Manual,
-        }]);
+        let manual_cluster = Cluster::multiple_tag(
+            test_data.facility_id,
+            test_data.show_id,
+            vec![Tag {
+                name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
+                ttype: TagType::Manual,
+            }],
+        );
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![manual_cluster], &[]);
+        let cluster_feed = ClusterFeed::from_clusters(vec![manual_cluster], &[]);
 
         info!("Starting MANUAL tag integration test...");
         let frame_count = test_data.num_frames();
@@ -977,29 +981,33 @@ mod scheduler_smoke_test {
     async fn test_dispatch_mixed_job_scenario_inner(test_data: TestData) {
         // Create multiple clusters to handle the mixed job with different tag types
         let clusters = vec![
-            Cluster::ComposedKey(ClusterKey {
-                facility_id: test_data.facility_id.to_string(),
-                show_id: test_data.show_id.to_string(),
-                tag: Tag {
+            Cluster::single_tag(
+                test_data.facility_id,
+                test_data.show_id,
+                Tag {
                     name: format!("integ_test_hostname_tag_{}", test_data.test_suffix),
                     ttype: TagType::HostName,
                 },
-            }),
-            Cluster::ComposedKey(ClusterKey {
-                facility_id: test_data.facility_id.to_string(),
-                show_id: test_data.show_id.to_string(),
-                tag: Tag {
+            ),
+            Cluster::single_tag(
+                test_data.facility_id,
+                test_data.show_id,
+                Tag {
                     name: format!("integ_test_alloc_tag_{}", test_data.test_suffix),
                     ttype: TagType::Alloc,
                 },
-            }),
-            Cluster::TagsKey(vec![Tag {
-                name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
-                ttype: TagType::Manual,
-            }]),
+            ),
+            Cluster::multiple_tag(
+                test_data.facility_id,
+                test_data.show_id,
+                vec![Tag {
+                    name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
+                    ttype: TagType::Manual,
+                }],
+            ),
         ];
 
-        let cluster_feed = ClusterFeed::load_from_clusters(clusters, &[]);
+        let cluster_feed = ClusterFeed::from_clusters(clusters, &[]);
 
         info!("Starting mixed job scenario integration test...");
 
@@ -1042,14 +1050,18 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatcher_no_matching_hosts_inner(_test_data: TestData) {
+    async fn test_dispatcher_no_matching_hosts_inner(test_data: TestData) {
         // Create a cluster with a non-existent tag that won't match any hosts
-        let non_matching_cluster = Cluster::TagsKey(vec![Tag {
-            name: "non_existent_tag".to_string(),
-            ttype: TagType::Manual,
-        }]);
+        let non_matching_cluster = Cluster::multiple_tag(
+            test_data.facility_id,
+            test_data.show_id,
+            vec![Tag {
+                name: "non_existent_tag".to_string(),
+                ttype: TagType::Manual,
+            }],
+        );
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![non_matching_cluster], &[]);
+        let cluster_feed = ClusterFeed::from_clusters(vec![non_matching_cluster], &[]);
 
         info!("Starting no matching hosts integration test...");
 

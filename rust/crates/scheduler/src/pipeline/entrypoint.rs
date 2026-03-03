@@ -40,7 +40,7 @@ use crate::pipeline::MatchingService;
 ///
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error occurred during processing
-pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
+pub async fn run(cluster_feed: Arc<ClusterFeed>) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));

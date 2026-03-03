@@ -46,3 +46,4 @@ CLAUDE.md
 docs/nav_order_index.txt
 rust/.cargo/config.toml
 sandbox/pgadmin-data/*
+plans/*
