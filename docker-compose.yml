@@ -186,6 +186,7 @@ services:
 
   # RQD Render Queue Daemon
   # Runs on render hosts and executes frames assigned by Cuebot
+  # Note: In a production environment, this should be disabled from the stack and only run on render hosts
   rqd:
     image: opencue/rqd
     environment:
