@@ -4,8 +4,7 @@
 # Uncomment the optional sections to enable additional functionality:
 #
 # Profiles:
-#   - default (cuebot, db)
-#   - rqd (rqd)
+#   - default (cuebot, db, rqd)
 #   - cueweb (rest-gateway, cueweb)
 #   - monitoring (db-exporter, prometheus, grafana, loki)
 #   - monitoring-full (zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer)
@@ -188,9 +187,6 @@ services:
   # RQD Render Queue Daemon
   # Runs on render hosts and executes frames assigned by Cuebot
   rqd:
-    profiles:
-      - rqd
-      - all
     image: opencue/rqd
     environment:
       - PYTHONUNBUFFERED=1
