@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info};
 
-use crate::cluster::{Cluster, ClusterFeed, FeedMessage};
+use crate::cluster::{ClusterFeed, FeedMessage};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
 use crate::metrics;
@@ -57,25 +57,13 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
             let feed_sender = feed_sender.clone();
 
             async move {
-                let jobs = match &cluster {
-                    Cluster::ComposedKey(cluster_key) => {
-                        job_fetcher
-                            .query_pending_jobs_by_show_facility_tag(
-                                cluster_key.show_id,
-                                cluster_key.facility_id,
-                                cluster_key.tag.to_string(),
-                            )
-                            .await
-                    }
-                    Cluster::TagsKey(facility_id, tags) => {
-                        job_fetcher
-                            .query_pending_jobs_by_tags(
-                                tags.iter().map(|v| v.to_string()).collect(),
-                                *facility_id,
-                            )
-                            .await
-                    }
-                };
+                let jobs = job_fetcher
+                    .query_pending_jobs_by_show_facility_and_tags(
+                        cluster.show_id,
+                        cluster.facility_id,
+                        cluster.tags.iter().map(|tag| tag.name.clone()),
+                    )
+                    .await;
 
                 match jobs {
                     Ok(jobs) => {
@@ -88,7 +76,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                 CONFIG.queue.stream.job_buffer_size,
                                 |job_model| async {
                                     processed_jobs.fetch_add(1, Ordering::Relaxed);
-                                    metrics::increment_jobs_processed();
+                                    metrics::increment_jobs_processed(&job_model.show_name);
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     debug!("Found job: {}", job);
                                     matcher.process(job).await;

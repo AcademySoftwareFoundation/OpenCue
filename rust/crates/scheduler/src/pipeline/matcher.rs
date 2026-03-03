@@ -117,7 +117,7 @@ impl MatchingService {
             .layer_dao
             .query_layers(
                 job.id,
-                cluster.tags().map(|tag| &tag.name).cloned().collect(),
+                cluster.tags.iter().map(|tag| &tag.name).cloned().collect(),
             )
             .await;
 
@@ -221,34 +221,6 @@ impl MatchingService {
         true
     }
 
-    /// Filters cluster tags to include only those that are also present in the dispatch layer tags.
-    ///
-    /// # Arguments
-    ///
-    /// * `cluster` - The cluster containing available tags
-    /// * `dispatch_layer` - The layer with tag requirements
-    ///
-    /// # Returns
-    ///
-    /// * `Vec<Tag>` - Tags that exist in both the cluster and the dispatch layer
-    fn filter_matching_tags(cluster: &Cluster, dispatch_layer: &DispatchLayer) -> Vec<Tag> {
-        // Extract tags from cluster and filter by layer tags
-        match cluster {
-            Cluster::ComposedKey(cluster_key) => {
-                if dispatch_layer.tags.contains(cluster_key.tag.name.as_str()) {
-                    vec![cluster_key.tag.clone()]
-                } else {
-                    vec![]
-                }
-            }
-            Cluster::TagsKey(_facility_id, cluster_tags) => cluster_tags
-                .iter()
-                .filter(|tag| dispatch_layer.tags.contains(tag.name.as_str()))
-                .cloned()
-                .collect(),
-        }
-    }
-
     /// Processes a single layer by finding host candidates and attempting dispatch.
     ///
     /// The process:
@@ -279,7 +251,13 @@ impl MatchingService {
                 .expect("Layer should be available");
 
             // Filter layer tags to match the scope of the cluster in context
-            let tags = Self::filter_matching_tags(&cluster, &layer);
+            let tags: Vec<Tag> = cluster
+                .tags
+                .iter()
+                .filter(|tag| layer.tags.contains(&tag.name))
+                .cloned()
+                .collect();
+
             assert!(
                 !tags.is_empty(),
                 "Layer shouldn't be here if it doesn't contain at least one matching tag"

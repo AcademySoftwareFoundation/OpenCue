@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
@@ -28,7 +28,7 @@ use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::{
-    cluster_key::{ClusterKey, Tag, TagType},
+    cluster_key::{Tag, TagType},
     config::CONFIG,
     dao::{helpers::parse_uuid, ClusterDao},
 };
@@ -36,11 +36,40 @@ use crate::{
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Cluster {
-    ComposedKey(ClusterKey),
-    /// facility_id: Uuid,
-    /// tags: Vec<Tag>
-    TagsKey(Uuid, Vec<Tag>),
+pub struct Cluster {
+    pub facility_id: Uuid,
+    pub show_id: Uuid,
+    pub tags: BTreeSet<Tag>,
+}
+
+impl std::fmt::Display for Cluster {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}:{}",
+            self.facility_id,
+            self.show_id,
+            self.tags.iter().join(",")
+        )
+    }
+}
+
+impl Cluster {
+    pub fn single_tag(facility_id: Uuid, show_id: Uuid, tag: Tag) -> Self {
+        Cluster {
+            facility_id,
+            show_id,
+            tags: BTreeSet::from([tag]),
+        }
+    }
+
+    pub fn multiple_tag(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+        Cluster {
+            facility_id,
+            show_id,
+            tags: tags.into_iter().collect(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -65,20 +94,6 @@ pub enum FeedMessage {
     /// * `Cluster` - The cluster to put to sleep
     /// * `Duration` - How long to sleep before the cluster can be processed again
     Sleep(Cluster, Duration),
-}
-
-impl Cluster {
-    /// Returns an iterator over the tags associated with this cluster.
-    ///
-    /// # Returns
-    ///
-    /// * `Box<dyn Iterator<Item = &Tag>>` - Iterator over tag references
-    pub fn tags(&self) -> Box<dyn Iterator<Item = &Tag> + '_> {
-        match self {
-            Cluster::ComposedKey(cluster_key) => Box::new(std::iter::once(&cluster_key.tag)),
-            Cluster::TagsKey(_facility_id, tags) => Box::new(tags.iter()),
-        }
-    }
 }
 
 /// Builder for constructing a [`ClusterFeed`].
@@ -129,14 +144,13 @@ impl ClusterFeedBuilder {
     /// database, filtered to the configured facility and ignore tags.
     pub async fn build(self) -> Result<ClusterFeed> {
         let clusters = if self.clusters.is_empty() && self.entire_shows.is_empty() {
-            let all =
-                ClusterFeed::load_clusters(&self.facility_id, &self.ignore_tags, None).await?;
+            let all = ClusterFeed::load_clusters(self.facility_id, &self.ignore_tags, None).await?;
             ClusterFeed::filter_clusters(all, &self.ignore_tags)
         } else {
             let mut clusters: HashSet<Cluster> = self.clusters.into_iter().collect();
             if !self.entire_shows.is_empty() {
                 let show_clusters = ClusterFeed::load_clusters(
-                    &self.facility_id,
+                    self.facility_id,
                     &self.ignore_tags,
                     Some(self.entire_shows),
                 )
@@ -191,20 +205,20 @@ impl ClusterFeed {
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
     pub async fn load_clusters(
-        facility_id: &Option<Uuid>,
+        facility_id: Option<Uuid>,
         ignore_tags: &[String],
         shows_filter: Option<Vec<String>>,
     ) -> Result<Vec<Cluster>> {
         let cluster_dao = ClusterDao::new().await?;
 
-        // Fetch clusters for both facilitys+shows+tags and just tags
+        // Fetch clusters for alloc and non_alloc tags
         let mut clusters_stream = cluster_dao
-            .fetch_alloc_clusters(shows_filter.clone())
-            .chain(cluster_dao.fetch_non_alloc_clusters(shows_filter));
+            .fetch_alloc_clusters(facility_id, shows_filter.clone())
+            .chain(cluster_dao.fetch_non_alloc_clusters(facility_id, shows_filter));
         let mut clusters = Vec::new();
-        let mut manual_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
-        let mut hardware_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
-        let mut hostname_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
+        let mut manual_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut hardware_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut hostname_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
 
         // Collect all tags
         while let Some(record) = clusters_stream.next().await {
@@ -215,43 +229,47 @@ impl ClusterFeed {
                         continue;
                     }
 
+                    let facility_id = parse_uuid(&cluster.facility_id);
+                    let show_id = parse_uuid(&cluster.show_id);
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster
                         "ALLOC" => {
-                            let cluster_facility_id = parse_uuid(&cluster.facility_id);
-                            if facility_id
-                                .as_ref()
-                                .map(|fid| fid == &cluster_facility_id)
-                                .unwrap_or(true)
-                            {
-                                clusters.push(Cluster::ComposedKey(ClusterKey {
-                                    facility_id: cluster_facility_id,
-                                    show_id: parse_uuid(&cluster.show_id),
-                                    tag: Tag {
-                                        name: cluster.tag,
-                                        ttype: TagType::Alloc,
-                                    },
-                                }));
-                            }
+                            clusters.push(Cluster::single_tag(
+                                facility_id,
+                                show_id,
+                                Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Alloc,
+                                },
+                            ));
                         }
                         // Manual and hostname tags are collected to be chunked
                         "MANUAL" => {
                             manual_tags
-                                .entry(parse_uuid(&cluster.facility_id))
+                                .entry((show_id, facility_id))
                                 .or_default()
-                                .push(cluster.tag);
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Manual,
+                                });
                         }
                         "HOSTNAME" => {
                             hostname_tags
-                                .entry(parse_uuid(&cluster.facility_id))
+                                .entry((show_id, facility_id))
                                 .or_default()
-                                .push(cluster.tag);
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::HostName,
+                                });
                         }
                         "HARDWARE" => {
                             hardware_tags
-                                .entry(parse_uuid(&cluster.facility_id))
+                                .entry((show_id, facility_id))
                                 .or_default()
-                                .push(cluster.tag);
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Hardware,
+                                });
                         }
                         _ => (),
                     };
@@ -261,54 +279,30 @@ impl ClusterFeed {
         }
 
         // Chunk Manual tags
-        for (facility_id, tags) in manual_tags.into_iter() {
+        for ((show_id, facility_id), tags) in manual_tags.into_iter() {
             for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
-                clusters.push(Cluster::TagsKey(
-                    facility_id,
-                    chunk
-                        .map(|name| Tag {
-                            name,
-                            ttype: TagType::Manual,
-                        })
-                        .collect(),
-                ))
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
             }
         }
 
         // Chunk Hostname tags
-        for (facility_id, tags) in hostname_tags.into_iter() {
+        for ((show_id, facility_id), tags) in hostname_tags.into_iter() {
             for chunk in &tags
                 .into_iter()
                 .chunks(CONFIG.queue.hostname_tags_chunk_size)
             {
-                clusters.push(Cluster::TagsKey(
-                    facility_id,
-                    chunk
-                        .map(|name| Tag {
-                            name,
-                            ttype: TagType::HostName,
-                        })
-                        .collect(),
-                ))
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
             }
         }
 
         // Chunk Hardware tags
-        for (facility_id, tags) in hardware_tags.into_iter() {
+        for ((show_id, facility_id), tags) in hardware_tags.into_iter() {
             for chunk in &tags
                 .into_iter()
                 // Hardware share the same size as manual to simplify configuration
                 .chunks(CONFIG.queue.manual_tags_chunk_size)
             {
-                clusters.push(Cluster::TagsKey(
-                    facility_id,
-                    chunk
-                        .map(|name| Tag {
-                            name,
-                            ttype: TagType::Hardware,
-                        })
-                        .collect(),
-                ))
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
             }
         }
 
@@ -326,30 +320,17 @@ impl ClusterFeed {
     ///
     /// * `ClusterFeed` - Feed configured to run once through the provided clusters
     pub fn filter_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Vec<Cluster> {
-        // Filter out ignored tags from clusters
+        if ignore_tags.is_empty() {
+            return clusters;
+        }
         clusters
             .into_iter()
-            .filter_map(|cluster| match cluster {
-                // For ComposedKey, remove the entire cluster if its tag is ignored
-                Cluster::ComposedKey(key) => {
-                    if ignore_tags.contains(&key.tag.name) {
-                        None
-                    } else {
-                        Some(Cluster::ComposedKey(key))
-                    }
-                }
-                // For TagsKey, filter out ignored tags from the list
-                Cluster::TagsKey(facility_id, tags) => {
-                    let filtered_tags: Vec<Tag> = tags
-                        .into_iter()
-                        .filter(|tag| !ignore_tags.contains(&tag.name))
-                        .collect();
-                    // Only keep the cluster if it still has tags after filtering
-                    if filtered_tags.is_empty() {
-                        None
-                    } else {
-                        Some(Cluster::TagsKey(facility_id, filtered_tags))
-                    }
+            .filter_map(|mut cluster| {
+                cluster.tags.retain(|tag| !ignore_tags.contains(&tag.name));
+                if cluster.tags.is_empty() {
+                    None
+                } else {
+                    Some(cluster)
                 }
             })
             .collect()

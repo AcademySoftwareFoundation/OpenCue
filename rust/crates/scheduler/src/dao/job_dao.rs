@@ -41,6 +41,7 @@ pub struct JobDao {
 pub struct JobModel {
     pub pk_job: String,
     pub int_priority: i32,
+    pub show_name: String,
 }
 
 impl DispatchJob {
@@ -67,9 +68,11 @@ static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
 --bookable_shows: Shows that have room in at least one of its subscriptions
 WITH bookable_shows AS (
     SELECT
-        distinct w.pk_show
+        distinct w.pk_show,
+        sh.str_name as show_name
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
+    INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.pk_show = $1
         -- Burst == 0 is used to freeze a subscription
         AND s.int_burst > 0
@@ -80,7 +83,8 @@ WITH bookable_shows AS (
 filtered_jobs AS (
     SELECT
         j.pk_job,
-        jr.int_priority
+        jr.int_priority,
+        bookable_shows.show_name
     FROM job j
     INNER JOIN bookable_shows on j.pk_show = bookable_shows.pk_show
     INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
@@ -98,45 +102,8 @@ filtered_jobs AS (
 )
 SELECT DISTINCT
     fj.pk_job,
-    fj.int_priority
-FROM filtered_jobs fj
-INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
-WHERE ls.int_waiting_count > 0
-ORDER BY int_priority DESC
-"#;
-
-static QUERY_PENDING_BY_TAGS: &str = r#"
---bookable_shows: Shows that have room in at least one of its subscriptions
-WITH bookable_shows AS (
-    SELECT
-        distinct w.pk_show
-    FROM subscription s
-    INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
-    WHERE s.int_burst > 0
-        AND s.int_burst - s.int_cores >= $1
-        AND s.int_cores < s.int_burst
-),
-filtered_jobs AS(
-    SELECT
-        j.pk_job,
-        jr.int_priority
-    FROM job j
-    INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
-    INNER JOIN folder f ON j.pk_folder = f.pk_folder
-    INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
-    INNER JOIN layer l ON l.pk_job = j.pk_job
-    INNER JOIN bookable_shows ON j.pk_show = bookable_shows.pk_show
-    WHERE
-        j.str_state = 'PENDING'
-        AND j.b_paused = false
-        AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
-        AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
-        AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
-        AND LOWER(j.pk_facility) = LOWER($3)
-)
-SELECT DISTINCT
-    fj.pk_job,
-    fj.int_priority
+    fj.int_priority,
+    fj.show_name
 FROM filtered_jobs fj
 INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
 WHERE ls.int_waiting_count > 0
@@ -190,57 +157,27 @@ impl JobDao {
     ///     "render | lighting".to_string(),
     /// );
     /// ```
-    pub async fn query_pending_jobs_by_show_facility_tag(
+    pub async fn query_pending_jobs_by_show_facility_and_tags(
         &self,
         show_id: Uuid,
         facility_id: Uuid,
-        tag: String,
+        tags: impl Iterator<Item = String>,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         trace!(
             "QUERY_PENDING_BY_SHOW_FACILITY_TAG= {}",
             QUERY_PENDING_BY_SHOW_FACILITY_TAG
         );
+        let tags_collected: Vec<String> = tags.collect();
         trace!(
             "QUERY_PENDING_BY_SHOW_FACILITY_TAG query args: show_id={}, core_multi={}, tag={}, facility_id={}",
-            show_id, CONFIG.queue.core_multiplier, tag, facility_id
-        );
+            show_id, CONFIG.queue.core_multiplier, tags_collected.join(","), facility_id);
 
         let start = std::time::Instant::now();
         let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_SHOW_FACILITY_TAG)
             .bind(show_id.to_string())
             .bind(CONFIG.queue.core_multiplier as i32)
-            .bind(tag)
+            .bind(tags_collected.join(" | ").to_string())
             .bind(facility_id.to_string())
-            .fetch_all(&*self.connection_pool)
-            .await;
-        observe_job_query_duration(start.elapsed());
-        result
-    }
-
-    /// Queries for pending jobs matching any of the specified tags.
-    ///
-    /// Finds jobs ready for dispatch based on tag matching and resource constraints.
-    /// Similar to `query_pending_jobs_by_show_facility_tag` but matches against multiple
-    /// tags without show or facility filtering.
-    ///
-    /// # Arguments
-    ///
-    /// * `tags` - List of tags to match against layer tags
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Vec<JobModel>)` - Jobs ordered by priority (descending)
-    /// * `Err(sqlx::Error)` - Database query failed
-    pub async fn query_pending_jobs_by_tags(
-        &self,
-        tags: Vec<String>,
-        facility: Uuid,
-    ) -> Result<Vec<JobModel>, sqlx::Error> {
-        let start = std::time::Instant::now();
-        let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
-            .bind(CONFIG.queue.core_multiplier as i32)
-            .bind(tags.join(" | ").to_string())
-            .bind(facility.to_string())
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());

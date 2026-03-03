@@ -242,7 +242,7 @@ pub struct SchedulerConfig {
     pub facility: Option<String>,
     pub entire_shows: Vec<String>,
     pub alloc_tags: Vec<AllocTag>,
-    pub manual_tags: Vec<String>,
+    pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
 }
 
@@ -250,6 +250,12 @@ pub struct SchedulerConfig {
 pub struct AllocTag {
     pub show: String,
     pub tag: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ManualTags {
+    pub show: String,
+    pub tags: Vec<String>,
 }
 
 //===Config Loader===
