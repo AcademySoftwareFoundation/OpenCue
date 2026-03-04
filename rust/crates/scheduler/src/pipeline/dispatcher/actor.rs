@@ -357,6 +357,17 @@ impl RqdDispatcherService {
                             // The next iteration should use the same host state as before.
                             continue;
                         }
+                        DispatchVirtualProcError::HostResourcesExhausted => {
+                            // Host resources were booked by another scheduler (e.g. Cuebot)
+                            // between cache refresh and dispatch. Break the loop and try another host.
+                            info!(
+                                "({dispatch_id}) Host resources exhausted for frame {} (likely booked by another scheduler)",
+                                frame_str
+                            );
+                            last_error = Some(DispatchError::HostResourcesExhausted(()));
+
+                            break;
+                        }
                         DispatchVirtualProcError::FrameCouldNotBeUpdated => {
                             // The entire transaction is probably compromised, stop working on this layer
                             info!(
@@ -364,6 +375,15 @@ impl RqdDispatcherService {
                                 frame_str
                             );
                             non_retrieable_frames.push(frame.id);
+                            break;
+                        }
+                        DispatchVirtualProcError::ResourceLimitExceeded(err) => {
+                            // Resource limit enforced by database trigger (e.g. job max cores,
+                            // subscription burst size). This is expected in normal operation.
+                            info!(
+                                "({dispatch_id}) {frame_str} {err}"
+                            );
+                            last_error = Some(err);
                             break;
                         }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
@@ -403,7 +423,16 @@ impl RqdDispatcherService {
         }
 
         if let Some(error) = last_error {
-            warn!("Wasn't able to dispatch all frames: {:?}", error)
+            match &error {
+                DispatchError::ResourceLimitExceeded(_)
+                | DispatchError::AllocationOverBurst(_)
+                | DispatchError::HostResourcesExhausted(_) => {
+                    info!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+                _ => {
+                    warn!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+            }
         }
         Ok((last_host_version, layer))
     }
@@ -540,10 +569,25 @@ impl RqdDispatcherService {
             .host_dao
             .update_resources(transaction, &host_id, virtual_proc, dispatch_id)
             .await
-            .map_err(|err| {
-                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
-                    err,
-                ))
+            .map_err(|err| match err {
+                crate::dao::HostDaoError::HostResourcesExhausted => {
+                    DispatchVirtualProcError::HostResourcesExhausted
+                }
+                crate::dao::HostDaoError::ResourceLimitExceeded { message } => {
+                    DispatchVirtualProcError::ResourceLimitExceeded(
+                        DispatchError::ResourceLimitExceeded(message),
+                    )
+                }
+                crate::dao::HostDaoError::DbFailure { context, source } => {
+                    DispatchVirtualProcError::FailedToStartOnDb(
+                        DispatchError::FailedToUpdateResources(
+                            Result::<(), _>::Err(source)
+                                .into_diagnostic()
+                                .unwrap_err()
+                                .wrap_err(context),
+                        ),
+                    )
+                }
             })?;
 
         Ok(updated_resources)

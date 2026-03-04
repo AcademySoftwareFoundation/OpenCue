@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use sqlx::{Pool, Postgres, Transaction};
+use thiserror::Error;
 use tracing::trace;
 use uuid::Uuid;
 
@@ -26,6 +27,45 @@ use crate::{
     models::{CoreSize, Host, VirtualProc},
     pgpool::connection_pool,
 };
+
+#[derive(Debug, Error)]
+pub enum HostDaoError {
+    #[error("Host resources exhausted (likely booked by another scheduler)")]
+    HostResourcesExhausted,
+
+    #[error("Resource limit exceeded: {message}")]
+    ResourceLimitExceeded { message: String },
+
+    #[error("{context}: {source}")]
+    DbFailure {
+        context: &'static str,
+        source: sqlx::Error,
+    },
+}
+
+/// Known PostgreSQL trigger messages that indicate expected resource limit enforcement.
+const RESOURCE_LIMIT_MESSAGES: &[&str] = &[
+    "job has exceeded max cores",
+    "job has exceeded max GPU units",
+    "subscription has exceeded burst size",
+    "unable to allocate additional core units",
+    "unable to allocate additional memory",
+    "unable to allocate additional GPU units",
+    "unable to allocate additional GPU memory",
+];
+
+fn check_resource_limit_error(err: sqlx::Error, context: &'static str) -> HostDaoError {
+    let msg = err.to_string();
+    match RESOURCE_LIMIT_MESSAGES.iter().find(|m| msg.contains(*m)) {
+        Some(m) => HostDaoError::ResourceLimitExceeded {
+            message: m.to_string(),
+        },
+        None => HostDaoError::DbFailure {
+            context,
+            source: err,
+        },
+    }
+}
 
 /// Data Access Object for host operations in the job dispatch system.
 ///
@@ -114,16 +154,19 @@ impl From<HostModel> for Host {
 //  - memory and core fields on table host are only updated when booking procs (update_host_resources)
 //  - the table host_stat contains memory fields that are updated by cuebot on HostReportHandler
 //
-// In summary, use host_stat for most up to date memory stats
+// We use LEAST(h.int_mem_idle, hs.int_mem_free) to get the most conservative memory estimate.
+// h.int_mem_idle reflects bookings (decremented on dispatch), while hs.int_mem_free reflects
+// actual OS-reported free memory. Using the minimum avoids overestimating available memory
+// when another scheduler (e.g. Cuebot) has booked resources that haven't been consumed yet.
 static QUERY_HOST_BY_SHOW_FACILITY_AND_TAG: &str = r#"
 SELECT DISTINCT
     h.pk_host,
     h.str_name,
     hs.str_os,
     h.int_cores_idle,
-    hs.int_mem_free,
+    LEAST(h.int_mem_idle, hs.int_mem_free) as int_mem_free,
     h.int_gpus_idle,
-    hs.int_gpu_mem_free,
+    LEAST(h.int_gpu_mem_idle, hs.int_gpu_mem_free) as int_gpu_mem_free,
     h.int_cores,
     hs.int_mem_total,
     h.int_thread_mode,
@@ -149,6 +192,8 @@ SET int_cores_idle = int_cores_idle - $1,
     int_gpus_idle = int_gpus_idle - $3,
     int_gpu_mem_idle = int_gpu_mem_idle - $4
 WHERE pk_host = $5
+    AND int_cores_idle >= $1
+    AND int_mem_idle >= $2
 RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, NOW()
 "#;
 
@@ -324,24 +369,23 @@ impl HostDao {
         transaction: &mut Transaction<'_, Postgres>,
         host_id: &Uuid,
         virtual_proc: &VirtualProc,
-        dispatch_id: Uuid,
-    ) -> Result<UpdatedHostResources> {
-        let (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated): (
-            i64,
-            i64,
-            i64,
-            i64,
-            DateTime<Utc>,
-        ) = sqlx::query_as(UPDATE_HOST_RESOURCES)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
-            .bind(host_id.to_string())
-            .fetch_one(&mut **transaction)
-            .await
-            .into_diagnostic()
-            .wrap_err(format!("({dispatch_id}) Failed to update host resources"))?;
+        _dispatch_id: Uuid,
+    ) -> Result<UpdatedHostResources, HostDaoError> {
+        let row: Option<(i64, i64, i64, i64, DateTime<Utc>)> =
+            sqlx::query_as(UPDATE_HOST_RESOURCES)
+                .bind(virtual_proc.cores_reserved.value())
+                .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+                .bind(virtual_proc.gpus_reserved as i32)
+                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind(host_id.to_string())
+                .fetch_optional(&mut **transaction)
+                .await
+                .map_err(|err| {
+                    check_resource_limit_error(err, "Failed to update host resources")
+                })?;
+
+        let (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated) =
+            row.ok_or(HostDaoError::HostResourcesExhausted)?;
 
         if CONFIG.host_cache.update_stat_on_book {
             sqlx::query(UPDATE_HOST_STAT)
@@ -350,8 +394,10 @@ impl HostDao {
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await
-                .into_diagnostic()
-                .wrap_err("Failed to update host stat")?;
+                .map_err(|source| HostDaoError::DbFailure {
+                    context: "Failed to update host stat",
+                    source,
+                })?;
         }
 
         sqlx::query(UPDATE_SUBSCRIPTION)
@@ -361,8 +407,9 @@ impl HostDao {
             .bind(virtual_proc.alloc_id.to_string())
             .execute(&mut **transaction)
             .await
-            .into_diagnostic()
-            .wrap_err("Failed to update subscription resources")?;
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update subscription resources")
+            })?;
 
         sqlx::query(UPDATE_LAYER_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
@@ -370,8 +417,10 @@ impl HostDao {
             .bind(virtual_proc.layer_id.to_string())
             .execute(&mut **transaction)
             .await
-            .into_diagnostic()
-            .wrap_err("Failed to update layer resources")?;
+            .map_err(|source| HostDaoError::DbFailure {
+                context: "Failed to update layer resources",
+                source,
+            })?;
 
         sqlx::query(UPDATE_JOB_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
@@ -379,8 +428,7 @@ impl HostDao {
             .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
-            .into_diagnostic()
-            .wrap_err("Failed to update job resources")?;
+            .map_err(|err| check_resource_limit_error(err, "Failed to update job resources"))?;
 
         sqlx::query(UPDATE_FOLDER_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
@@ -388,8 +436,9 @@ impl HostDao {
             .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
-            .into_diagnostic()
-            .wrap_err("Failed to update folder resources")?;
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update folder resources")
+            })?;
 
         sqlx::query(UPDATE_POINT)
             .bind(virtual_proc.cores_reserved.value())
@@ -398,8 +447,9 @@ impl HostDao {
             .bind(virtual_proc.show_id.to_string())
             .execute(&mut **transaction)
             .await
-            .into_diagnostic()
-            .wrap_err("Failed to update point resources")?;
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update point resources")
+            })?;
 
         Ok(UpdatedHostResources {
             cores_idle,
