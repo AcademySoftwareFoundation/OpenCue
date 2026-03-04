@@ -423,7 +423,16 @@ impl RqdDispatcherService {
         }
 
         if let Some(error) = last_error {
-            warn!("Wasn't able to dispatch all frames: {:?}", error)
+            match &error {
+                DispatchError::ResourceLimitExceeded(_)
+                | DispatchError::AllocationOverBurst(_)
+                | DispatchError::HostResourcesExhausted(_) => {
+                    info!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+                _ => {
+                    warn!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+            }
         }
         Ok((last_host_version, layer))
     }
