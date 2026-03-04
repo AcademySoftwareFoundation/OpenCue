@@ -33,11 +33,38 @@ pub enum HostDaoError {
     #[error("Host resources exhausted (likely booked by another scheduler)")]
     HostResourcesExhausted,
 
+    #[error("Resource limit exceeded: {message}")]
+    ResourceLimitExceeded { message: String },
+
     #[error("{context}: {source}")]
     DbFailure {
         context: &'static str,
         source: sqlx::Error,
     },
+}
+
+/// Known PostgreSQL trigger messages that indicate expected resource limit enforcement.
+const RESOURCE_LIMIT_MESSAGES: &[&str] = &[
+    "job has exceeded max cores",
+    "job has exceeded max GPU units",
+    "subscription has exceeded burst size",
+    "unable to allocate additional core units",
+    "unable to allocate additional memory",
+    "unable to allocate additional GPU units",
+    "unable to allocate additional GPU memory",
+];
+
+fn check_resource_limit_error(err: sqlx::Error, context: &'static str) -> HostDaoError {
+    let msg = err.to_string();
+    match RESOURCE_LIMIT_MESSAGES.iter().find(|m| msg.contains(*m)) {
+        Some(m) => HostDaoError::ResourceLimitExceeded {
+            message: m.to_string(),
+        },
+        None => HostDaoError::DbFailure {
+            context,
+            source: err,
+        },
+    }
 }
 
 /// Data Access Object for host operations in the job dispatch system.
@@ -353,9 +380,8 @@ impl HostDao {
                 .bind(host_id.to_string())
                 .fetch_optional(&mut **transaction)
                 .await
-                .map_err(|source| HostDaoError::DbFailure {
-                    context: "Failed to update host resources",
-                    source,
+                .map_err(|err| {
+                    check_resource_limit_error(err, "Failed to update host resources")
                 })?;
 
         let (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated) =
@@ -381,9 +407,8 @@ impl HostDao {
             .bind(virtual_proc.alloc_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|source| HostDaoError::DbFailure {
-                context: "Failed to update subscription resources",
-                source,
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update subscription resources")
             })?;
 
         sqlx::query(UPDATE_LAYER_RESOURCE)
@@ -403,10 +428,7 @@ impl HostDao {
             .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|source| HostDaoError::DbFailure {
-                context: "Failed to update job resources",
-                source,
-            })?;
+            .map_err(|err| check_resource_limit_error(err, "Failed to update job resources"))?;
 
         sqlx::query(UPDATE_FOLDER_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
@@ -414,9 +436,8 @@ impl HostDao {
             .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|source| HostDaoError::DbFailure {
-                context: "Failed to update folder resources",
-                source,
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update folder resources")
             })?;
 
         sqlx::query(UPDATE_POINT)
@@ -426,9 +447,8 @@ impl HostDao {
             .bind(virtual_proc.show_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|source| HostDaoError::DbFailure {
-                context: "Failed to update point resources",
-                source,
+            .map_err(|err| {
+                check_resource_limit_error(err, "Failed to update point resources")
             })?;
 
         Ok(UpdatedHostResources {

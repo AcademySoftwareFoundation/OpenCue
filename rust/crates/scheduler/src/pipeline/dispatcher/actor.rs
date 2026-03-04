@@ -377,6 +377,15 @@ impl RqdDispatcherService {
                             non_retrieable_frames.push(frame.id);
                             break;
                         }
+                        DispatchVirtualProcError::ResourceLimitExceeded(err) => {
+                            // Resource limit enforced by database trigger (e.g. job max cores,
+                            // subscription burst size). This is expected in normal operation.
+                            info!(
+                                "({dispatch_id}) {frame_str} {err}"
+                            );
+                            last_error = Some(err);
+                            break;
+                        }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
                             // An error here means connection with this host is probably broken,
                             // there's no reason to attempt the next frame
@@ -554,6 +563,11 @@ impl RqdDispatcherService {
             .map_err(|err| match err {
                 crate::dao::HostDaoError::HostResourcesExhausted => {
                     DispatchVirtualProcError::HostResourcesExhausted
+                }
+                crate::dao::HostDaoError::ResourceLimitExceeded { message } => {
+                    DispatchVirtualProcError::ResourceLimitExceeded(
+                        DispatchError::ResourceLimitExceeded(message),
+                    )
                 }
                 crate::dao::HostDaoError::DbFailure { context, source } => {
                     DispatchVirtualProcError::FailedToStartOnDb(

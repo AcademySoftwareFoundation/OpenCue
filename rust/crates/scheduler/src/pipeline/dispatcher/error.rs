@@ -54,6 +54,9 @@ pub enum DispatchError {
 
     #[error("DispatchError: Host Resources exhausted before updating the database")]
     HostResourcesExhausted(()),
+
+    #[error("DispatchError: Resource limit exceeded: {0}")]
+    ResourceLimitExceeded(String),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -72,4 +75,7 @@ pub enum DispatchVirtualProcError {
 
     #[error("Failed to connect to RQD on host {host}")]
     RqdConnectionFailed { host: String, error: Error },
+
+    #[error("Resource limit exceeded")]
+    ResourceLimitExceeded(DispatchError),
 }

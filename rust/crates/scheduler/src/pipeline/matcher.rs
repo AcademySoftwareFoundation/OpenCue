@@ -491,6 +491,12 @@ impl MatchingService {
                     layer_display, host
                 );
             }
+            DispatchError::ResourceLimitExceeded(msg) => {
+                info!(
+                    "Resource limit exceeded when dispatching {} on {}: {}",
+                    layer_display, host, msg
+                );
+            }
         }
     }
 }
