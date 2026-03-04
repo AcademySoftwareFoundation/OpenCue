@@ -51,6 +51,9 @@ pub enum DispatchError {
 
     #[error("DispatchError: Failed to execute command on GRPC interface")]
     GrpcFailure(tonic::Status),
+
+    #[error("DispatchError: Host Resources exhausted before updating the database")]
+    HostResourcesExhausted(()),
 }
 
 #[derive(Debug, Error, Diagnostic)]
@@ -60,6 +63,9 @@ pub enum DispatchVirtualProcError {
 
     #[error("Failed to start frame on database")]
     FailedToStartOnDb(DispatchError),
+
+    #[error("Host resources exhausted (likely booked by another scheduler)")]
+    HostResourcesExhausted,
 
     #[error("Failed to lock frame on database")]
     FrameCouldNotBeUpdated,

@@ -485,6 +485,12 @@ impl MatchingService {
                     ))
                 );
             }
+            DispatchError::HostResourcesExhausted(_) => {
+                info!(
+                    "Host resources exhausted before updating database when dispatching {} on {}.",
+                    layer_display, host
+                );
+            }
         }
     }
 }

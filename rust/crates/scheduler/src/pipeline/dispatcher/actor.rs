@@ -357,6 +357,17 @@ impl RqdDispatcherService {
                             // The next iteration should use the same host state as before.
                             continue;
                         }
+                        DispatchVirtualProcError::HostResourcesExhausted => {
+                            // Host resources were booked by another scheduler (e.g. Cuebot)
+                            // between cache refresh and dispatch. Break the loop and try another host.
+                            info!(
+                                "({dispatch_id}) Host resources exhausted for frame {} (likely booked by another scheduler)",
+                                frame_str
+                            );
+                            last_error = Some(DispatchError::HostResourcesExhausted(()));
+
+                            break;
+                        }
                         DispatchVirtualProcError::FrameCouldNotBeUpdated => {
                             // The entire transaction is probably compromised, stop working on this layer
                             info!(
@@ -540,10 +551,20 @@ impl RqdDispatcherService {
             .host_dao
             .update_resources(transaction, &host_id, virtual_proc, dispatch_id)
             .await
-            .map_err(|err| {
-                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
-                    err,
-                ))
+            .map_err(|err| match err {
+                crate::dao::HostDaoError::HostResourcesExhausted => {
+                    DispatchVirtualProcError::HostResourcesExhausted
+                }
+                crate::dao::HostDaoError::DbFailure { context, source } => {
+                    DispatchVirtualProcError::FailedToStartOnDb(
+                        DispatchError::FailedToUpdateResources(
+                            Result::<(), _>::Err(source)
+                                .into_diagnostic()
+                                .unwrap_err()
+                                .wrap_err(context),
+                        ),
+                    )
+                }
             })?;
 
         Ok(updated_resources)
