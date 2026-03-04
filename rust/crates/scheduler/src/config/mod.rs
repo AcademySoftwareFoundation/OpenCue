@@ -288,6 +288,11 @@ pub struct OrchestratorConfig {
     /// Graceful shutdown timeout before force-killing in-flight work (default: 30s)
     #[serde(with = "humantime_serde")]
     pub shutdown_timeout: Duration,
+
+    /// How long a cluster assignment is preserved before becoming eligible for
+    /// redistribution. Prevents new instances from remaining idle. (default: 120s)
+    #[serde(with = "humantime_serde")]
+    pub assignment_ttl: Duration,
 }
 
 impl Default for OrchestratorConfig {
@@ -300,6 +305,7 @@ impl Default for OrchestratorConfig {
             election_interval: Duration::from_secs(10),
             capacity: 100,
             shutdown_timeout: Duration::from_secs(30),
+            assignment_ttl: Duration::from_secs(120),
         }
     }
 }

@@ -590,7 +590,7 @@ pub async fn create_test_data(
 
         // Clusters. Chunk manual tags in approximatelly 4 groups
         for chunk in tags.chunks(tags.len() / 4) {
-            let cluster = Cluster::multiple_tag(
+            let cluster = Cluster::from_tags(
                 facility_id,
                 show_id,
                 chunk

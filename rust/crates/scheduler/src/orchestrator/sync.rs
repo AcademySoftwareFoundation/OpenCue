@@ -63,12 +63,12 @@ impl ClusterSync {
                                 let clusters: Vec<Cluster> = assignments
                                     .into_iter()
                                     .filter_map(|row| {
-                                        match serde_json::from_str::<Cluster>(&row.str_cluster) {
+                                        match serde_json::from_str::<Cluster>(&row.str_cluster_json) {
                                             Ok(cluster) => Some(cluster),
                                             Err(e) => {
                                                 error!(
                                                     "Failed to deserialize cluster assignment: {}. JSON: {}",
-                                                    e, row.str_cluster
+                                                    e, row.str_cluster_json
                                                 );
                                                 None
                                             }

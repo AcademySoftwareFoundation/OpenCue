@@ -18,7 +18,7 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::cluster::{Cluster, ClusterFeed};
-use crate::dao::helpers::parse_uuid;
+use crate::config::CONFIG;
 
 use super::dao::{InstanceRow, OrchestratorDao};
 
@@ -34,6 +34,9 @@ struct RateSnapshot {
 pub struct Distributor {
     /// Previous snapshots of each instance's jobs_queried counter, keyed by instance ID.
     previous_snapshots: HashMap<Uuid, RateSnapshot>,
+    /// Tracks when each cluster assignment was created or last renewed, keyed by cluster ID.
+    /// Used for TTL-based expiration to enable redistribution when new instances join.
+    assignment_ages: HashMap<String, Instant>,
 }
 
 impl Distributor {
@@ -44,7 +47,55 @@ impl Distributor {
     pub fn new() -> Self {
         Distributor {
             previous_snapshots: HashMap::new(),
+            assignment_ages: HashMap::new(),
         }
+    }
+
+    /// Seeds assignment ages from existing database assignments.
+    ///
+    /// Called on leader promotion to give existing assignments a full TTL grace period
+    /// before they become eligible for redistribution. This prevents a thundering-herd
+    /// redistribution when a new leader takes over.
+    pub fn seed_ages(&mut self, current_assignments: &HashMap<String, Uuid>) {
+        let now = Instant::now();
+        self.assignment_ages = current_assignments
+            .keys()
+            .map(|cluster_id| (cluster_id.clone(), now))
+            .collect();
+    }
+
+    /// Filters out assignments whose age exceeds the configured TTL.
+    ///
+    /// Expired assignments appear "unassigned" to `compute_assignments`, causing them
+    /// to go through the load-balanced second pass. Assignments with no tracked age
+    /// (e.g. pre-existing before the TTL feature) are preserved.
+    fn filter_expired_assignments(
+        &self,
+        current_assignments: &HashMap<String, Uuid>,
+        now: Instant,
+    ) -> HashMap<String, Uuid> {
+        let assignment_ttl = CONFIG.orchestrator.assignment_ttl;
+        current_assignments
+            .iter()
+            .filter(|(cluster_id, _)| match self.assignment_ages.get(*cluster_id) {
+                Some(created_at) => {
+                    let age = now.duration_since(*created_at);
+                    if age >= assignment_ttl {
+                        debug!(
+                            "Assignment for cluster {} expired (age: {:.1}s, ttl: {:.1}s)",
+                            cluster_id,
+                            age.as_secs_f64(),
+                            assignment_ttl.as_secs_f64()
+                        );
+                        false
+                    } else {
+                        true
+                    }
+                }
+                None => true,
+            })
+            .map(|(k, v)| (k.clone(), *v))
+            .collect()
     }
 
     /// Runs one distribution cycle: loads clusters, reads instances, computes assignments.
@@ -69,7 +120,7 @@ impl Distributor {
         ignore_tags: &[String],
         failure_threshold: Duration,
     ) -> Result<()> {
-        // 1. Clean up dead instances (cascade deletes their assignments)
+        // Clean up dead instances (cascade deletes their assignments)
         let dead = dao
             .delete_dead_instances(failure_threshold)
             .await
@@ -82,16 +133,15 @@ impl Distributor {
             }
         }
 
-        // 2. Load all clusters from the database
+        // Load all clusters from the database
         let all_clusters = ClusterFeed::load_clusters(None, ignore_tags, None).await?;
-        let all_clusters = ClusterFeed::filter_clusters(all_clusters, ignore_tags);
 
         if all_clusters.is_empty() {
             debug!("No clusters found in database");
             return Ok(());
         }
 
-        // 3. Read live instances
+        // Read live instances
         let instances = dao
             .get_live_instances(failure_threshold)
             .await
@@ -102,68 +152,66 @@ impl Distributor {
             return Ok(());
         }
 
-        // 4. Read current assignments
+        // Read current assignments (cluster_id -> instance_id)
         let current_assignments = dao.get_all_assignments().await.into_diagnostic()?;
 
-        // Build a map: cluster_json -> currently assigned instance_id
-        let mut current_map: HashMap<String, Uuid> = HashMap::new();
-        for assignment in &current_assignments {
-            current_map.insert(
-                assignment.str_cluster.clone(),
-                parse_uuid(&assignment.pk_instance),
-            );
+        // Compute job query rates per instance (enriches instances with their rate)
+        let rated_instances = self.compute_rates(instances);
+
+        let now = Instant::now();
+        let active_assignments = self.filter_expired_assignments(&current_assignments, now);
+
+        // Compute new assignments using filtered (non-expired) assignments
+        let new_assignments =
+            Self::compute_assignments(&all_clusters, &rated_instances, &active_assignments);
+
+        // Update assignment ages:
+        // - New or changed assignments get a fresh timestamp
+        // - Unchanged assignments keep their existing age
+        // - Removed clusters get cleaned up
+        let valid_cluster_ids: std::collections::HashSet<&String> =
+            new_assignments.keys().collect();
+        self.assignment_ages
+            .retain(|cluster_id, _| valid_cluster_ids.contains(cluster_id));
+        for (cluster_id, &new_instance) in &new_assignments {
+            let is_new_or_changed = match active_assignments.get(cluster_id) {
+                Some(&prev_instance) => prev_instance != new_instance,
+                None => true,
+            };
+            if is_new_or_changed {
+                self.assignment_ages.insert(cluster_id.clone(), now);
+            }
         }
 
-        // Build set of live instance IDs for quick lookup
-        let live_ids: std::collections::HashSet<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
-
-        // 5. Compute job query rates per instance
-        let now = Instant::now();
-        let rates = self.compute_rates(&instances, now);
-
-        // 6. Compute new assignments
-        let new_assignments =
-            Self::compute_assignments(&all_clusters, &instances, &current_map, &live_ids, &rates);
-
-        // 7. Apply assignment changes to the database
-        self.apply_assignments(dao, &all_clusters, &new_assignments, &current_map)
+        // Apply assignment changes to the database (uses original current_assignments
+        // to detect what actually changed in the DB)
+        self.apply_assignments(dao, &all_clusters, &new_assignments, &current_assignments)
             .await?;
 
-        // 8. Update snapshots for next cycle
-        for instance in &instances {
-            self.previous_snapshots.insert(
-                parse_uuid(&instance.pk_instance),
-                RateSnapshot {
-                    jobs_queried: instance.float_jobs_queried,
-                    timestamp: now,
-                },
-            );
-        }
-
-        // 9. Update metrics
-        crate::metrics::set_orchestrator_instances_alive(instances.len());
+        // Update metrics
+        crate::metrics::set_orchestrator_instances_alive(rated_instances.len());
         crate::metrics::increment_orchestrator_rebalance();
 
         debug!(
             "Distribution complete: {} clusters across {} instances",
             all_clusters.len(),
-            instances.len()
+            rated_instances.len()
         );
 
         Ok(())
     }
 
     /// Computes the job query rate for each instance based on the delta from previous snapshots.
-    /// Returns a map of instance_id -> rate (jobs/second).
+    /// Returns a map of instance_id -> (InstanceRow, rate) where rate is jobs/second.
     /// If no previous snapshot exists (bootstrap), rate is 0.0.
-    fn compute_rates(&self, instances: &[InstanceRow], now: Instant) -> HashMap<Uuid, f64> {
-        let mut rates = HashMap::new();
+    fn compute_rates(
+        &mut self,
+        instances: HashMap<Uuid, InstanceRow>,
+    ) -> HashMap<Uuid, (InstanceRow, f64)> {
+        let now = Instant::now();
+        let mut rated_instances = HashMap::new();
 
-        for instance in instances {
-            let id = parse_uuid(&instance.pk_instance);
+        for (id, instance) in instances {
             let rate = if let Some(prev) = self.previous_snapshots.get(&id) {
                 let delta_jobs = instance.float_jobs_queried - prev.jobs_queried;
                 let delta_secs = now.duration_since(prev.timestamp).as_secs_f64();
@@ -177,67 +225,64 @@ impl Distributor {
                 0.0
             };
 
-            rates.insert(id, rate);
+            // Update snapshots for next cycle
+            self.previous_snapshots.insert(
+                id,
+                RateSnapshot {
+                    jobs_queried: instance.float_jobs_queried,
+                    timestamp: Instant::now(),
+                },
+            );
+            rated_instances.insert(id, (instance, rate));
         }
 
-        rates
+        rated_instances
     }
 
     /// Pure function that computes the optimal cluster-to-instance assignment.
     ///
     /// Strategy:
-    /// 1. Preserve stable assignments (cluster stays on same live instance if eligible).
+    /// 1. Preserve stable assignments (cluster stays on same live instance).
     /// 2. Assign unassigned clusters to the instance with the lowest load ratio.
     fn compute_assignments(
         all_clusters: &[Cluster],
-        instances: &[InstanceRow],
+        rated_instances: &HashMap<Uuid, (InstanceRow, f64)>,
         current_map: &HashMap<String, Uuid>,
-        live_ids: &std::collections::HashSet<Uuid>,
-        rates: &HashMap<Uuid, f64>,
     ) -> HashMap<String, Uuid> {
         let mut assignments: HashMap<String, Uuid> = HashMap::new();
 
-        // Parse instance IDs once
-        let instance_ids: Vec<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
+        // Collect instance IDs
+        let instance_ids: Vec<Uuid> = rated_instances.keys().copied().collect();
 
         // Track load per instance (weighted by rate / capacity)
         let mut instance_load: HashMap<Uuid, f64> = instance_ids
             .iter()
-            .map(|id| (*id, *rates.get(id).unwrap_or(&0.0)))
+            .map(|id| (*id, rated_instances.get(id).map_or(0.0, |(_, rate)| *rate)))
             .collect();
 
         // Track assignment count per instance for bootstrap (when all rates are 0)
         let mut instance_count: HashMap<Uuid, usize> =
             instance_ids.iter().map(|id| (*id, 0)).collect();
 
-        let all_rates_zero = rates.values().all(|r| *r == 0.0);
+        let all_rates_zero = rated_instances.values().all(|(_, rate)| *rate == 0.0);
 
         // Build instance capacity map
-        let capacity_map: HashMap<Uuid, f64> = instances
+        let capacity_map: HashMap<Uuid, f64> = rated_instances
             .iter()
-            .zip(instance_ids.iter())
-            .map(|(i, id)| (*id, i.int_capacity as f64))
+            .map(|(&id, (inst, _))| (id, inst.int_capacity as f64))
             .collect();
 
         // Build facility map for affinity filtering
-        let instance_facilities: HashMap<Uuid, Option<String>> = instances
+        let instance_facilities: HashMap<Uuid, Option<String>> = rated_instances
             .iter()
-            .zip(instance_ids.iter())
-            .map(|(i, id)| (*id, i.str_facility.clone()))
+            .map(|(&id, (inst, _))| (id, inst.str_facility.clone()))
             .collect();
 
-        // First pass: preserve stable assignments
+        // First pass: preserve stable assignments where the instance is still alive
         for cluster in all_clusters {
-            let cluster_json = serde_json::to_string(cluster).expect("Failed to serialize Cluster");
-
-            if let Some(&current_instance) = current_map.get(&cluster_json) {
-                if live_ids.contains(&current_instance)
-                    && Self::is_facility_eligible(cluster, &instance_facilities, current_instance)
-                {
-                    assignments.insert(cluster_json, current_instance);
+            if let Some(&current_instance) = current_map.get(&cluster.id) {
+                if rated_instances.contains_key(&current_instance) {
+                    assignments.insert(cluster.id.clone(), current_instance);
                     if let Some(count) = instance_count.get_mut(&current_instance) {
                         *count += 1;
                     }
@@ -247,9 +292,7 @@ impl Distributor {
 
         // Second pass: assign unassigned clusters
         for cluster in all_clusters {
-            let cluster_json = serde_json::to_string(cluster).expect("Failed to serialize Cluster");
-
-            if assignments.contains_key(&cluster_json) {
+            if assignments.contains_key(&cluster.id) {
                 continue; // Already assigned in first pass
             }
 
@@ -299,7 +342,7 @@ impl Distributor {
                     .unwrap()
             };
 
-            assignments.insert(cluster_json, best);
+            assignments.insert(cluster.id.clone(), best);
             if let Some(count) = instance_count.get_mut(&best) {
                 *count += 1;
             }
@@ -342,10 +385,8 @@ impl Distributor {
     ) -> Result<()> {
         // Upsert assignments that are new or changed
         for cluster in all_clusters {
-            let cluster_json = serde_json::to_string(cluster).expect("Failed to serialize Cluster");
-
-            if let Some(&new_instance) = new_assignments.get(&cluster_json) {
-                let needs_upsert = match current_map.get(&cluster_json) {
+            if let Some(&new_instance) = new_assignments.get(&cluster.id) {
+                let needs_upsert = match current_map.get(&cluster.id) {
                     Some(&current_instance) => current_instance != new_instance,
                     None => true,
                 };
@@ -359,16 +400,13 @@ impl Distributor {
             }
         }
 
-        // Delete assignments for clusters that no longer exist in the database
-        for cluster_json in current_map.keys() {
-            if !new_assignments.contains_key(cluster_json) {
-                // This cluster no longer exists — try to parse and delete
-                if let Ok(cluster) = serde_json::from_str::<Cluster>(cluster_json) {
-                    dao.delete_assignment_by_cluster(&cluster)
-                        .await
-                        .into_diagnostic()?;
-                    debug!("Removed stale assignment for cluster {}", cluster);
-                }
+        // Delete assignments for clusters that no longer exist
+        for cluster_id in current_map.keys() {
+            if !new_assignments.contains_key(cluster_id) {
+                dao.delete_assignment_by_cluster_id(cluster_id)
+                    .await
+                    .into_diagnostic()?;
+                debug!("Removed stale assignment for cluster_id {}", cluster_id);
             }
         }
 
@@ -378,13 +416,12 @@ impl Distributor {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     use uuid::Uuid;
 
     use crate::cluster::Cluster;
     use crate::cluster_key::{Tag, TagType};
-    use crate::dao::helpers::parse_uuid;
 
     use super::{Distributor, InstanceRow};
 
@@ -400,12 +437,21 @@ mod tests {
     }
 
     fn make_instance(id: Uuid, facility: Option<&str>, capacity: i32) -> InstanceRow {
+        make_instance_with_jobs(id, facility, capacity, 0.0)
+    }
+
+    fn make_instance_with_jobs(
+        id: Uuid,
+        facility: Option<&str>,
+        capacity: i32,
+        jobs_queried: f64,
+    ) -> InstanceRow {
         InstanceRow {
             pk_instance: id.to_string(),
             str_name: format!("test:{}", id),
             str_facility: facility.map(String::from),
             int_capacity: capacity,
-            float_jobs_queried: 0.0,
+            float_jobs_queried: jobs_queried,
             b_draining: false,
         }
     }
@@ -421,28 +467,16 @@ mod tests {
 
         let inst_a = Uuid::new_v4();
         let inst_b = Uuid::new_v4();
-        let instances = vec![
-            make_instance(inst_a, None, 100),
-            make_instance(inst_b, None, 100),
-        ];
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (inst_a, (make_instance(inst_a, None, 100), 0.0)),
+            (inst_b, (make_instance(inst_b, None, 100), 0.0)),
+        ]
+        .into();
 
-        let live_ids: HashSet<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
-        let rates: HashMap<Uuid, f64> = instances
-            .iter()
-            .map(|i| (parse_uuid(&i.pk_instance), 0.0))
-            .collect();
         let current_map = HashMap::new();
 
-        let assignments = Distributor::compute_assignments(
-            &clusters,
-            &instances,
-            &current_map,
-            &live_ids,
-            &rates,
-        );
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &current_map);
 
         // All clusters should be assigned
         assert_eq!(assignments.len(), 6);
@@ -465,33 +499,21 @@ mod tests {
 
         let inst_a = Uuid::new_v4();
         let inst_b = Uuid::new_v4();
-        let instances = vec![
-            make_instance(inst_a, None, 100),
-            make_instance(inst_b, None, 100),
-        ];
-
-        let live_ids: HashSet<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
-        let rates: HashMap<Uuid, f64> = vec![(inst_a, 100.0), (inst_b, 50.0)].into_iter().collect();
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (inst_a, (make_instance(inst_a, None, 100), 100.0)),
+            (inst_b, (make_instance(inst_b, None, 100), 50.0)),
+        ]
+        .into();
 
         // Pre-assign all clusters to inst_a
-        let current_map: HashMap<String, Uuid> = clusters
-            .iter()
-            .map(|c| (serde_json::to_string(c).unwrap(), inst_a))
-            .collect();
+        let current_map: HashMap<String, Uuid> =
+            clusters.iter().map(|c| (c.id.clone(), inst_a)).collect();
 
-        let assignments = Distributor::compute_assignments(
-            &clusters,
-            &instances,
-            &current_map,
-            &live_ids,
-            &rates,
-        );
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &current_map);
 
         // All clusters should stay with inst_a (stability)
-        for (_, instance) in &assignments {
+        for instance in assignments.values() {
             assert_eq!(*instance, inst_a);
         }
     }
@@ -508,34 +530,31 @@ mod tests {
 
         let inst_a = Uuid::new_v4();
         let inst_b = Uuid::new_v4();
-        let instances = vec![
-            make_instance(inst_a, Some(&facility_a.to_string()), 100),
-            make_instance(inst_b, Some(&facility_b.to_string()), 100),
-        ];
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (
+                inst_a,
+                (
+                    make_instance(inst_a, Some(&facility_a.to_string()), 100),
+                    0.0,
+                ),
+            ),
+            (
+                inst_b,
+                (
+                    make_instance(inst_b, Some(&facility_b.to_string()), 100),
+                    0.0,
+                ),
+            ),
+        ]
+        .into();
 
-        let live_ids: HashSet<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
-        let rates: HashMap<Uuid, f64> = instances
-            .iter()
-            .map(|i| (parse_uuid(&i.pk_instance), 0.0))
-            .collect();
         let current_map = HashMap::new();
 
-        let assignments = Distributor::compute_assignments(
-            &clusters,
-            &instances,
-            &current_map,
-            &live_ids,
-            &rates,
-        );
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &current_map);
 
-        let cluster_a_json = serde_json::to_string(&cluster_a).unwrap();
-        let cluster_b_json = serde_json::to_string(&cluster_b).unwrap();
-
-        assert_eq!(assignments[&cluster_a_json], inst_a);
-        assert_eq!(assignments[&cluster_b_json], inst_b);
+        assert_eq!(assignments[&cluster_a.id], inst_a);
+        assert_eq!(assignments[&cluster_b.id], inst_b);
     }
 
     #[test]
@@ -549,28 +568,16 @@ mod tests {
 
         let inst_a = Uuid::new_v4();
         let inst_b = Uuid::new_v4();
-        let instances = vec![
-            make_instance(inst_a, None, 200), // 2x capacity
-            make_instance(inst_b, None, 100),
-        ];
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (inst_a, (make_instance(inst_a, None, 200), 0.0)), // 2x capacity
+            (inst_b, (make_instance(inst_b, None, 100), 0.0)),
+        ]
+        .into();
 
-        let live_ids: HashSet<Uuid> = instances
-            .iter()
-            .map(|i| parse_uuid(&i.pk_instance))
-            .collect();
-        let rates: HashMap<Uuid, f64> = instances
-            .iter()
-            .map(|i| (parse_uuid(&i.pk_instance), 0.0))
-            .collect();
         let current_map = HashMap::new();
 
-        let assignments = Distributor::compute_assignments(
-            &clusters,
-            &instances,
-            &current_map,
-            &live_ids,
-            &rates,
-        );
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &current_map);
 
         let count_a = assignments.values().filter(|&&v| v == inst_a).count();
         let count_b = assignments.values().filter(|&&v| v == inst_b).count();
@@ -578,5 +585,322 @@ mod tests {
         // inst_a should get ~6, inst_b should get ~3 (2:1 ratio)
         assert_eq!(count_a, 6);
         assert_eq!(count_b, 3);
+    }
+
+    #[test]
+    fn test_compute_rates_bootstrap_returns_zero() {
+        let mut distributor = Distributor::new();
+        let inst_a = Uuid::new_v4();
+        let inst_b = Uuid::new_v4();
+
+        let instances: HashMap<Uuid, InstanceRow> = [
+            (inst_a, make_instance_with_jobs(inst_a, None, 100, 50.0)),
+            (inst_b, make_instance_with_jobs(inst_b, None, 100, 30.0)),
+        ]
+        .into();
+
+        let rated = distributor.compute_rates(instances);
+
+        // Bootstrap: no previous snapshots, all rates should be 0.0
+        assert_eq!(rated[&inst_a].1, 0.0);
+        assert_eq!(rated[&inst_b].1, 0.0);
+    }
+
+    #[test]
+    fn test_compute_rates_positive_delta() {
+        let mut distributor = Distributor::new();
+        let inst_a = Uuid::new_v4();
+        let inst_b = Uuid::new_v4();
+
+        // Cycle 1: bootstrap — populates snapshots
+        let instances_t0: HashMap<Uuid, InstanceRow> = [
+            (inst_a, make_instance_with_jobs(inst_a, None, 100, 100.0)),
+            (inst_b, make_instance_with_jobs(inst_b, None, 100, 50.0)),
+        ]
+        .into();
+        let _ = distributor.compute_rates(instances_t0);
+
+        // Small delay to ensure non-zero elapsed time
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        // Cycle 2: inst_a queried 200 more, inst_b queried 50 more
+        let instances_t1: HashMap<Uuid, InstanceRow> = [
+            (inst_a, make_instance_with_jobs(inst_a, None, 100, 300.0)),
+            (inst_b, make_instance_with_jobs(inst_b, None, 100, 100.0)),
+        ]
+        .into();
+        let rated = distributor.compute_rates(instances_t1);
+
+        assert!(rated[&inst_a].1 > 0.0);
+        assert!(rated[&inst_b].1 > 0.0);
+        // inst_a delta (200) is 4x inst_b delta (50)
+        assert!(rated[&inst_a].1 > rated[&inst_b].1);
+    }
+
+    #[test]
+    fn test_compute_rates_negative_delta_returns_zero() {
+        let mut distributor = Distributor::new();
+        let inst_a = Uuid::new_v4();
+
+        // Cycle 1: bootstrap with high value
+        let instances_t0: HashMap<Uuid, InstanceRow> =
+            [(inst_a, make_instance_with_jobs(inst_a, None, 100, 500.0))].into();
+        let _ = distributor.compute_rates(instances_t0);
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        // Cycle 2: counter decreased (e.g. reset)
+        let instances_t1: HashMap<Uuid, InstanceRow> =
+            [(inst_a, make_instance_with_jobs(inst_a, None, 100, 100.0))].into();
+        let rated = distributor.compute_rates(instances_t1);
+
+        assert_eq!(rated[&inst_a].1, 0.0);
+    }
+
+    #[test]
+    fn test_compute_rates_feeds_distribution() {
+        let mut distributor = Distributor::new();
+        let facility = Uuid::new_v4();
+        let show = Uuid::new_v4();
+
+        let clusters: Vec<Cluster> = (0..6)
+            .map(|i| make_cluster(facility, show, &format!("rate_tag{}", i)))
+            .collect();
+
+        let inst_a = Uuid::new_v4();
+        let inst_b = Uuid::new_v4();
+
+        // Cycle 1: bootstrap
+        let instances_t0: HashMap<Uuid, InstanceRow> = [
+            (inst_a, make_instance_with_jobs(inst_a, None, 100, 0.0)),
+            (inst_b, make_instance_with_jobs(inst_b, None, 100, 0.0)),
+        ]
+        .into();
+        let _ = distributor.compute_rates(instances_t0);
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        // Cycle 2: inst_a is much busier than inst_b
+        let instances_t1: HashMap<Uuid, InstanceRow> = [
+            (inst_a, make_instance_with_jobs(inst_a, None, 100, 1000.0)),
+            (inst_b, make_instance_with_jobs(inst_b, None, 100, 100.0)),
+        ]
+        .into();
+        let rated = distributor.compute_rates(instances_t1);
+
+        // Rates should reflect that inst_a is busier
+        assert!(rated[&inst_a].1 > rated[&inst_b].1);
+
+        // Use computed rated instances in assignment (no prior assignments)
+        let current_map = HashMap::new();
+        let assignments = Distributor::compute_assignments(&clusters, &rated, &current_map);
+
+        assert_eq!(assignments.len(), 6);
+
+        let count_a = assignments.values().filter(|&&v| v == inst_a).count();
+        let count_b = assignments.values().filter(|&&v| v == inst_b).count();
+
+        // The less busy instance (inst_b) should get more clusters
+        assert!(
+            count_b > count_a,
+            "inst_b (less busy) should get more clusters: count_a={}, count_b={}",
+            count_a,
+            count_b
+        );
+    }
+
+    #[test]
+    fn test_ttl_expiration_enables_redistribution() {
+        use std::time::{Duration, Instant};
+
+        let facility = Uuid::new_v4();
+        let show = Uuid::new_v4();
+
+        let clusters: Vec<Cluster> = (0..6)
+            .map(|i| make_cluster(facility, show, &format!("ttl_tag{}", i)))
+            .collect();
+
+        let inst_a = Uuid::new_v4();
+        let inst_b = Uuid::new_v4();
+
+        // All clusters assigned to inst_a
+        let current_map: HashMap<String, Uuid> =
+            clusters.iter().map(|c| (c.id.clone(), inst_a)).collect();
+
+        let mut distributor = Distributor::new();
+
+        // Seed ages with a timestamp far in the past (expired)
+        let expired_time = Instant::now() - Duration::from_secs(300);
+        for cluster in &clusters {
+            distributor
+                .assignment_ages
+                .insert(cluster.id.clone(), expired_time);
+        }
+
+        // Filter out expired assignments (simulating what distribute() does)
+        let assignment_ttl = Duration::from_secs(120);
+        let now = Instant::now();
+        let active_assignments: HashMap<String, Uuid> = current_map
+            .iter()
+            .filter(|(cluster_id, _)| {
+                match distributor.assignment_ages.get(*cluster_id) {
+                    Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
+                    None => true,
+                }
+            })
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+
+        // All assignments should be expired
+        assert!(
+            active_assignments.is_empty(),
+            "All assignments should have expired"
+        );
+
+        // Now compute_assignments with both instances and no active assignments
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (inst_a, (make_instance(inst_a, None, 100), 0.0)),
+            (inst_b, (make_instance(inst_b, None, 100), 0.0)),
+        ]
+        .into();
+
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &active_assignments);
+
+        assert_eq!(assignments.len(), 6);
+
+        // With no active assignments, clusters should be evenly distributed
+        let count_a = assignments.values().filter(|&&v| v == inst_a).count();
+        let count_b = assignments.values().filter(|&&v| v == inst_b).count();
+        assert_eq!(count_a, 3);
+        assert_eq!(count_b, 3);
+    }
+
+    #[test]
+    fn test_seed_ages_gives_grace_period() {
+        use std::time::{Duration, Instant};
+
+        let facility = Uuid::new_v4();
+        let show = Uuid::new_v4();
+
+        let clusters: Vec<Cluster> = (0..4)
+            .map(|i| make_cluster(facility, show, &format!("seed_tag{}", i)))
+            .collect();
+
+        let inst_a = Uuid::new_v4();
+
+        // Simulate existing DB assignments
+        let current_assignments: HashMap<String, Uuid> =
+            clusters.iter().map(|c| (c.id.clone(), inst_a)).collect();
+
+        let mut distributor = Distributor::new();
+        distributor.seed_ages(&current_assignments);
+
+        // Verify all ages were seeded
+        assert_eq!(distributor.assignment_ages.len(), clusters.len());
+
+        // Verify none are expired (they should be very recent)
+        let assignment_ttl = Duration::from_secs(120);
+        let now = Instant::now();
+        for (cluster_id, created_at) in &distributor.assignment_ages {
+            let age = now.duration_since(*created_at);
+            assert!(
+                age < assignment_ttl,
+                "Seeded assignment for {} should not be expired (age: {:?})",
+                cluster_id,
+                age
+            );
+        }
+
+        // Filtering should keep all assignments active
+        let active_assignments: HashMap<String, Uuid> = current_assignments
+            .iter()
+            .filter(|(cluster_id, _)| {
+                match distributor.assignment_ages.get(*cluster_id) {
+                    Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
+                    None => true,
+                }
+            })
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+
+        assert_eq!(
+            active_assignments.len(),
+            current_assignments.len(),
+            "All seeded assignments should remain active"
+        );
+    }
+
+    #[test]
+    fn test_assignment_ages_updated_after_reassignment() {
+        use std::time::{Duration, Instant};
+
+        let facility = Uuid::new_v4();
+        let show = Uuid::new_v4();
+
+        let clusters: Vec<Cluster> = (0..4)
+            .map(|i| make_cluster(facility, show, &format!("age_tag{}", i)))
+            .collect();
+
+        let inst_a = Uuid::new_v4();
+        let inst_b = Uuid::new_v4();
+
+        let mut distributor = Distributor::new();
+
+        // Simulate: 2 clusters assigned to inst_a, 2 expired (will go through second pass)
+        let expired_time = Instant::now() - Duration::from_secs(300);
+        let fresh_time = Instant::now();
+
+        // First 2 clusters are expired, last 2 are fresh
+        distributor
+            .assignment_ages
+            .insert(clusters[0].id.clone(), expired_time);
+        distributor
+            .assignment_ages
+            .insert(clusters[1].id.clone(), expired_time);
+        distributor
+            .assignment_ages
+            .insert(clusters[2].id.clone(), fresh_time);
+        distributor
+            .assignment_ages
+            .insert(clusters[3].id.clone(), fresh_time);
+
+        // All currently assigned to inst_a
+        let current_map: HashMap<String, Uuid> =
+            clusters.iter().map(|c| (c.id.clone(), inst_a)).collect();
+
+        // Filter expired
+        let assignment_ttl = Duration::from_secs(120);
+        let now = Instant::now();
+        let active_assignments: HashMap<String, Uuid> = current_map
+            .iter()
+            .filter(|(cluster_id, _)| {
+                match distributor.assignment_ages.get(*cluster_id) {
+                    Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
+                    None => true,
+                }
+            })
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+
+        // Only 2 fresh assignments should remain
+        assert_eq!(active_assignments.len(), 2);
+
+        // Compute assignments with 2 instances
+        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
+            (inst_a, (make_instance(inst_a, None, 100), 0.0)),
+            (inst_b, (make_instance(inst_b, None, 100), 0.0)),
+        ]
+        .into();
+
+        let assignments =
+            Distributor::compute_assignments(&clusters, &rated_instances, &active_assignments);
+
+        // All 4 should be assigned
+        assert_eq!(assignments.len(), 4);
+
+        // The 2 fresh clusters stay with inst_a, the 2 expired ones get redistributed
+        assert_eq!(assignments[&clusters[2].id], inst_a);
+        assert_eq!(assignments[&clusters[3].id], inst_a);
     }
 }

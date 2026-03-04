@@ -216,7 +216,7 @@ impl JobQueueCli {
                 let show_id = cluster::get_show_id(&manual_tag.show)
                     .await
                     .wrap_err(format!("Could not find show {}.", manual_tag.show))?;
-                clusters.push(Cluster::multiple_tag(
+                clusters.push(Cluster::from_tags(
                     *facility_id,
                     show_id,
                     manual_tag

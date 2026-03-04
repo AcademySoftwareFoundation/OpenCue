@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
@@ -37,6 +37,9 @@ pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Cluster {
+    /// Stable identity key, independent of tag content for chunked clusters.
+    /// Format: "{facility_id}:{show_id}:{tag_type}:{tag_name_or_chunk_index}"
+    pub id: String,
     pub facility_id: Uuid,
     pub show_id: Uuid,
     pub tags: BTreeSet<Tag>,
@@ -44,30 +47,63 @@ pub struct Cluster {
 
 impl std::fmt::Display for Cluster {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}:{}:{}",
-            self.facility_id,
-            self.show_id,
-            self.tags.iter().join(",")
-        )
+        write!(f, "{}", self.id)
     }
 }
 
 impl Cluster {
     pub fn single_tag(facility_id: Uuid, show_id: Uuid, tag: Tag) -> Self {
+        let id = format!(
+            "{}:{}:{}:{}",
+            facility_id,
+            show_id,
+            tag.ttype.as_str(),
+            tag.name
+        );
         Cluster {
+            id,
             facility_id,
             show_id,
             tags: BTreeSet::from([tag]),
         }
     }
 
-    pub fn multiple_tag(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+    /// Creates a cluster for a batch of tags loaded from the DB, identified by chunk index.
+    /// The ID is position-based, so tag content can change without affecting identity.
+    pub fn chunked(
+        facility_id: Uuid,
+        show_id: Uuid,
+        tag_type: &str,
+        chunk_index: usize,
+        tags: Vec<Tag>,
+    ) -> Self {
+        let id = format!("{}:{}:{}:{}", facility_id, show_id, tag_type, chunk_index);
         Cluster {
+            id,
             facility_id,
             show_id,
             tags: tags.into_iter().collect(),
+        }
+    }
+
+    /// Creates a cluster from explicitly provided tags (e.g. CLI arguments).
+    /// The ID is derived from the sorted tag names.
+    pub fn from_tags(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+        let tag_type = tags.first().map_or("unknown", |t| t.ttype.as_str());
+        let sorted_tags: BTreeSet<Tag> = tags.into_iter().collect();
+        let tag_names: Vec<&str> = sorted_tags.iter().map(|t| t.name.as_str()).collect();
+        let id = format!(
+            "{}:{}:{}:{}",
+            facility_id,
+            show_id,
+            tag_type,
+            tag_names.join(",")
+        );
+        Cluster {
+            id,
+            facility_id,
+            show_id,
+            tags: sorted_tags,
         }
     }
 }
@@ -186,6 +222,7 @@ impl ClusterFeed {
     ///
     /// Applies ignore-tag filtering, then wraps the result in an `Arc`.
     /// Useful in tests and scenarios where clusters are known upfront.
+    #[allow(dead_code)]
     pub fn from_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Arc<Self> {
         let clusters = Self::filter_clusters(clusters, ignore_tags);
         Arc::new(ClusterFeed {
@@ -260,9 +297,9 @@ impl ClusterFeed {
             .fetch_alloc_clusters(facility_id, shows_filter.clone())
             .chain(cluster_dao.fetch_non_alloc_clusters(facility_id, shows_filter));
         let mut clusters = Vec::new();
-        let mut manual_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hardware_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hostname_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut manual_tags: BTreeMap<(Uuid, Uuid), BTreeSet<Tag>> = BTreeMap::new();
+        let mut hardware_tags: BTreeMap<(Uuid, Uuid), BTreeSet<Tag>> = BTreeMap::new();
+        let mut hostname_tags: BTreeMap<(Uuid, Uuid), BTreeSet<Tag>> = BTreeMap::new();
 
         // Collect all tags
         while let Some(record) = clusters_stream.next().await {
@@ -276,7 +313,7 @@ impl ClusterFeed {
                     let facility_id = parse_uuid(&cluster.facility_id);
                     let show_id = parse_uuid(&cluster.show_id);
                     match cluster.ttype.as_str() {
-                        // Each alloc tag becomes its own cluster
+                        // Each alloc tag becomes its own cluster with a stable ID
                         "ALLOC" => {
                             clusters.push(Cluster::single_tag(
                                 facility_id,
@@ -322,31 +359,54 @@ impl ClusterFeed {
             }
         }
 
-        // Chunk Manual tags
+        // Chunk Manual tags (BTreeSet ensures deterministic sorted order)
         for ((show_id, facility_id), tags) in manual_tags.into_iter() {
-            for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+            for (idx, chunk) in (&tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size))
+                .into_iter()
+                .enumerate()
+            {
+                clusters.push(Cluster::chunked(
+                    facility_id,
+                    show_id,
+                    "manual",
+                    idx,
+                    chunk.collect(),
+                ))
             }
         }
 
-        // Chunk Hostname tags
+        // Chunk Hostname tags (BTreeSet ensures deterministic sorted order)
         for ((show_id, facility_id), tags) in hostname_tags.into_iter() {
-            for chunk in &tags
+            for (idx, chunk) in (&tags
                 .into_iter()
-                .chunks(CONFIG.queue.hostname_tags_chunk_size)
+                .chunks(CONFIG.queue.hostname_tags_chunk_size))
+                .into_iter()
+                .enumerate()
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::chunked(
+                    facility_id,
+                    show_id,
+                    "hostname",
+                    idx,
+                    chunk.collect(),
+                ))
             }
         }
 
-        // Chunk Hardware tags
+        // Chunk Hardware tags (BTreeSet ensures deterministic sorted order)
+        // Hardware shares the same chunk size as manual to simplify configuration
         for ((show_id, facility_id), tags) in hardware_tags.into_iter() {
-            for chunk in &tags
+            for (idx, chunk) in (&tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size))
                 .into_iter()
-                // Hardware share the same size as manual to simplify configuration
-                .chunks(CONFIG.queue.manual_tags_chunk_size)
+                .enumerate()
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::chunked(
+                    facility_id,
+                    show_id,
+                    "hardware",
+                    idx,
+                    chunk.collect(),
+                ))
             }
         }
 

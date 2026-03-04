@@ -10,12 +10,15 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
+
+use crate::dao::helpers::parse_uuid;
 
 use crate::cluster::Cluster;
 use crate::pgpool::connection_pool;
@@ -41,7 +44,8 @@ pub struct InstanceRow {
 pub struct ClusterAssignmentRow {
     pub pk_assignment: String,
     pub pk_instance: String,
-    pub str_cluster: String,
+    pub str_cluster_id: String,
+    pub str_cluster_json: String,
     pub int_version: i32,
 }
 
@@ -85,26 +89,26 @@ WHERE ts_heartbeat >= NOW() - $1::interval
 // --- Cluster assignment queries ---
 
 static QUERY_ASSIGNMENTS_FOR_INSTANCE: &str = r#"
-SELECT pk_assignment, pk_instance, str_cluster, int_version
+SELECT pk_assignment, pk_instance, str_cluster_id, str_cluster_json, int_version
 FROM scheduler_cluster_assignment
 WHERE pk_instance = $1
 "#;
 
 static QUERY_ALL_ASSIGNMENTS: &str = r#"
-SELECT pk_assignment, pk_instance, str_cluster, int_version
+SELECT pk_assignment, pk_instance, str_cluster_id, str_cluster_json, int_version
 FROM scheduler_cluster_assignment
 "#;
 
 static UPSERT_ASSIGNMENT: &str = r#"
-INSERT INTO scheduler_cluster_assignment (pk_instance, str_cluster, int_version, ts_assigned)
-VALUES ($1, $2, 0, NOW())
-ON CONFLICT (str_cluster)
-DO UPDATE SET pk_instance = $1, int_version = scheduler_cluster_assignment.int_version + 1, ts_assigned = NOW()
+INSERT INTO scheduler_cluster_assignment (pk_instance, str_cluster_id, str_cluster_json, int_version, ts_assigned)
+VALUES ($1, $2, $3, 0, NOW())
+ON CONFLICT (str_cluster_id)
+DO UPDATE SET pk_instance = $1, str_cluster_json = $3, int_version = scheduler_cluster_assignment.int_version + 1, ts_assigned = NOW()
 "#;
 
-static DELETE_ASSIGNMENT_BY_CLUSTER: &str = r#"
+static DELETE_ASSIGNMENT_BY_CLUSTER_ID: &str = r#"
 DELETE FROM scheduler_cluster_assignment
-WHERE str_cluster = $1
+WHERE str_cluster_id = $1
 "#;
 
 // --- Advisory lock ---
@@ -187,12 +191,16 @@ impl OrchestratorDao {
     pub async fn get_live_instances(
         &self,
         failure_threshold: Duration,
-    ) -> Result<Vec<InstanceRow>, sqlx::Error> {
+    ) -> Result<HashMap<Uuid, InstanceRow>, sqlx::Error> {
         let interval = format!("{} seconds", failure_threshold.as_secs());
-        sqlx::query_as::<_, InstanceRow>(QUERY_LIVE_INSTANCES)
+        let rows = sqlx::query_as::<_, InstanceRow>(QUERY_LIVE_INSTANCES)
             .bind(interval)
             .fetch_all(&*self.connection_pool)
-            .await
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| (parse_uuid(&r.pk_instance), r))
+            .collect())
     }
 
     // --- Cluster assignment operations ---
@@ -207,14 +215,22 @@ impl OrchestratorDao {
             .await
     }
 
-    pub async fn get_all_assignments(&self) -> Result<Vec<ClusterAssignmentRow>, sqlx::Error> {
-        sqlx::query_as::<_, ClusterAssignmentRow>(QUERY_ALL_ASSIGNMENTS)
+    /// Returns all cluster assignments as a map of cluster ID to assigned instance ID.
+    ///
+    /// The key is the stable cluster ID (e.g. `"{facility}:{show}:alloc:{tag}"`),
+    /// which is independent of the exact tag content for chunked clusters.
+    pub async fn get_all_assignments(&self) -> Result<HashMap<String, Uuid>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ClusterAssignmentRow>(QUERY_ALL_ASSIGNMENTS)
             .fetch_all(&*self.connection_pool)
-            .await
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.str_cluster_id, parse_uuid(&r.pk_instance)))
+            .collect())
     }
 
-    /// Upserts a cluster assignment. If the cluster is already assigned, updates the instance
-    /// and bumps the version.
+    /// Upserts a cluster assignment. If the cluster is already assigned, updates the instance,
+    /// refreshes the JSON content, and bumps the version.
     pub async fn upsert_assignment(
         &self,
         instance_id: Uuid,
@@ -224,17 +240,19 @@ impl OrchestratorDao {
             serde_json::to_string(cluster).expect("Failed to serialize Cluster to JSON");
         sqlx::query(UPSERT_ASSIGNMENT)
             .bind(instance_id.to_string())
+            .bind(&cluster.id)
             .bind(cluster_json)
             .execute(&*self.connection_pool)
             .await?;
         Ok(())
     }
 
-    pub async fn delete_assignment_by_cluster(&self, cluster: &Cluster) -> Result<(), sqlx::Error> {
-        let cluster_json =
-            serde_json::to_string(cluster).expect("Failed to serialize Cluster to JSON");
-        sqlx::query(DELETE_ASSIGNMENT_BY_CLUSTER)
-            .bind(cluster_json)
+    pub async fn delete_assignment_by_cluster_id(
+        &self,
+        cluster_id: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(DELETE_ASSIGNMENT_BY_CLUSTER_ID)
+            .bind(cluster_id)
             .execute(&*self.connection_pool)
             .await?;
         Ok(())

@@ -14,12 +14,13 @@ CREATE TABLE scheduler_instance (
 CREATE INDEX idx_scheduler_instance_heartbeat ON scheduler_instance(ts_heartbeat);
 
 CREATE TABLE scheduler_cluster_assignment (
-    pk_assignment  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pk_instance    UUID NOT NULL REFERENCES scheduler_instance(pk_instance) ON DELETE CASCADE,
-    str_cluster    TEXT NOT NULL,
-    int_version    INTEGER NOT NULL DEFAULT 0,
-    ts_assigned    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(str_cluster)
+    pk_assignment    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pk_instance      UUID NOT NULL REFERENCES scheduler_instance(pk_instance) ON DELETE CASCADE,
+    str_cluster_id   TEXT NOT NULL,
+    str_cluster_json TEXT NOT NULL,
+    int_version      INTEGER NOT NULL DEFAULT 0,
+    ts_assigned      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(str_cluster_id)
 );
 
 CREATE INDEX idx_sca_instance ON scheduler_cluster_assignment(pk_instance);

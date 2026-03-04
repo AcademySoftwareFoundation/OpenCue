@@ -130,6 +130,12 @@ impl LeaderElection {
                             crate::metrics::set_orchestrator_is_leader(true);
                             // Reset distributor state for fresh snapshots
                             distributor = Distributor::new();
+                            // Seed assignment ages from existing DB assignments so they
+                            // get a full TTL grace period before redistribution
+                            match dao.get_all_assignments().await {
+                                Ok(assignments) => distributor.seed_ages(&assignments),
+                                Err(e) => warn!("Failed to seed assignment ages: {}", e),
+                            }
                         }
                         Ok(false) => {
                             // Another instance holds the lock
