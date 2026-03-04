@@ -18,3 +18,7 @@ PyOutline "modules" help to translate between a set of job options and an OpenCu
 For example, the Shell module translates the given job options into a job outline containing
 shell commands to be run on render hosts.
 """
+import os
+# This extends the paths for the output.modules package with custom ones if specified.
+# It allows adding custom modules insider the package and/or override default ones.
+__path__ = os.environ.get('OUTLINE_MODULES_PATHS', "").split(os.pathsep) + __path__
