@@ -10,6 +10,7 @@ name = "opencue_pyoutline"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
+    "pyyaml",
     "typing_extensions; python_version < '3.12'",  # Unpack
 ]
 requires-python = ">3.7"
@@ -32,8 +33,13 @@ testpaths = ["tests"] # Relative path(s) where tests are located
 python_files = ["test_*.py", "*_test.py"] # Default test file pattern
 python_functions = ["test_*"] # Default test function pattern
 
-# --- Optional Test Dependencies ---
 [project.optional-dependencies]
+# --- Optional Open Job Description Dependencies ---
+openjd = [
+    "openjd-cli>=0.4",
+    "openjd-model>=0.9",
+]
+# --- Optional Test Dependencies ---
 test = [
     "mock==2.0.0",
     "pyfakefs==5.2.3",
