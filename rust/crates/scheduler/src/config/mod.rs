@@ -42,6 +42,7 @@ pub struct Config {
     pub rqd: RqdConfig,
     pub host_cache: HostCacheConfig,
     pub scheduler: SchedulerConfig,
+    pub orchestrator: OrchestratorConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -256,6 +257,57 @@ pub struct AllocTag {
 pub struct ManualTags {
     pub show: String,
     pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct OrchestratorConfig {
+    /// How often this instance updates its heartbeat (default: 5s)
+    #[serde(with = "humantime_serde")]
+    pub heartbeat_interval: Duration,
+
+    /// Instance is considered dead after this duration without heartbeat (default: 30s)
+    #[serde(with = "humantime_serde")]
+    pub failure_threshold: Duration,
+
+    /// How often the leader recalculates cluster distribution (default: 10s)
+    #[serde(with = "humantime_serde")]
+    pub distribution_interval: Duration,
+
+    /// How often workers poll for assignment changes (default: 5s)
+    #[serde(with = "humantime_serde")]
+    pub poll_interval: Duration,
+
+    /// How often non-leaders attempt to acquire the leader lock (default: 10s)
+    #[serde(with = "humantime_serde")]
+    pub election_interval: Duration,
+
+    /// Relative capacity weight of this instance (default: 100)
+    pub capacity: u32,
+
+    /// Graceful shutdown timeout before force-killing in-flight work (default: 30s)
+    #[serde(with = "humantime_serde")]
+    pub shutdown_timeout: Duration,
+
+    /// How long a cluster assignment is preserved before becoming eligible for
+    /// redistribution. Prevents new instances from remaining idle. (default: 120s)
+    #[serde(with = "humantime_serde")]
+    pub assignment_ttl: Duration,
+}
+
+impl Default for OrchestratorConfig {
+    fn default() -> Self {
+        OrchestratorConfig {
+            heartbeat_interval: Duration::from_secs(5),
+            failure_threshold: Duration::from_secs(30),
+            distribution_interval: Duration::from_secs(10),
+            poll_interval: Duration::from_secs(5),
+            election_interval: Duration::from_secs(10),
+            capacity: 100,
+            shutdown_timeout: Duration::from_secs(30),
+            assignment_ttl: Duration::from_secs(120),
+        }
+    }
 }
 
 //===Config Loader===

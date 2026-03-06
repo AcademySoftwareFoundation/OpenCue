@@ -209,7 +209,7 @@ impl ClusterDao {
         &self,
         facility_id: Option<Uuid>,
         shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
         match (facility_id, shows_filter) {
             (Some(fid), Some(show_names)) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(
@@ -253,7 +253,7 @@ impl ClusterDao {
         &self,
         facility_id: Option<Uuid>,
         shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
         match (facility_id, shows_filter) {
             (Some(fid), Some(show_names)) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(
