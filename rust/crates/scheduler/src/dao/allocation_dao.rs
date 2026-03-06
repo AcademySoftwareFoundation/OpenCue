@@ -121,8 +121,8 @@ pub struct AllocationDao {
 /// facility without an explicit WHERE clause.
 static RECOMPUTE_BOOKED_FROM_PROC: &str = r#"
     SELECT s.pk_show, a.str_name as str_alloc_name,
-           COALESCE(SUM(p.int_cores), 0)::bigint as int_cores_booked,
-           COALESCE(SUM(p.int_gpus), 0)::bigint as int_gpus_booked
+           COALESCE(SUM(p.int_cores_reserved), 0)::bigint as int_cores_booked,
+           COALESCE(SUM(p.int_gpus_reserved), 0)::bigint as int_gpus_booked
     FROM subscription s
     JOIN alloc a ON s.pk_alloc = a.pk_alloc
     LEFT JOIN host h ON h.pk_alloc = a.pk_alloc
