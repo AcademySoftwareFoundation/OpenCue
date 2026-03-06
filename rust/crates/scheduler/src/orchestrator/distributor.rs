@@ -77,23 +77,25 @@ impl Distributor {
         let assignment_ttl = CONFIG.orchestrator.assignment_ttl;
         current_assignments
             .iter()
-            .filter(|(cluster_id, _)| match self.assignment_ages.get(*cluster_id) {
-                Some(created_at) => {
-                    let age = now.duration_since(*created_at);
-                    if age >= assignment_ttl {
-                        debug!(
-                            "Assignment for cluster {} expired (age: {:.1}s, ttl: {:.1}s)",
-                            cluster_id,
-                            age.as_secs_f64(),
-                            assignment_ttl.as_secs_f64()
-                        );
-                        false
-                    } else {
-                        true
+            .filter(
+                |(cluster_id, _)| match self.assignment_ages.get(*cluster_id) {
+                    Some(created_at) => {
+                        let age = now.duration_since(*created_at);
+                        if age >= assignment_ttl {
+                            debug!(
+                                "Assignment for cluster {} expired (age: {:.1}s, ttl: {:.1}s)",
+                                cluster_id,
+                                age.as_secs_f64(),
+                                assignment_ttl.as_secs_f64()
+                            );
+                            false
+                        } else {
+                            true
+                        }
                     }
-                }
-                None => true,
-            })
+                    None => true,
+                },
+            )
             .map(|(k, v)| (k.clone(), *v))
             .collect()
     }
@@ -152,7 +154,7 @@ impl Distributor {
             return Ok(());
         }
 
-        // Read current assignments (cluster_id -> instance_id)
+        // Read current assignments, expired included (cluster_id -> instance_id)
         let current_assignments = dao.get_all_assignments().await.into_diagnostic()?;
 
         // Compute job query rates per instance (enriches instances with their rate)
@@ -247,7 +249,7 @@ impl Distributor {
     fn compute_assignments(
         all_clusters: &[Cluster],
         rated_instances: &HashMap<Uuid, (InstanceRow, f64)>,
-        current_map: &HashMap<String, Uuid>,
+        active_assignments: &HashMap<String, Uuid>,
     ) -> HashMap<String, Uuid> {
         let mut assignments: HashMap<String, Uuid> = HashMap::new();
 
@@ -255,22 +257,15 @@ impl Distributor {
         let instance_ids: Vec<Uuid> = rated_instances.keys().copied().collect();
 
         // Track load per instance (weighted by rate / capacity)
-        let mut instance_load: HashMap<Uuid, f64> = instance_ids
+        let mut instance_load_count_capacity: HashMap<Uuid, (f64, usize, f64)> = instance_ids
             .iter()
-            .map(|id| (*id, rated_instances.get(id).map_or(0.0, |(_, rate)| *rate)))
+            .map(|id| {
+                let (inst, rate) = rated_instances.get(id).unwrap();
+                (*id, (*rate, 0, inst.int_capacity as f64))
+            })
             .collect();
-
-        // Track assignment count per instance for bootstrap (when all rates are 0)
-        let mut instance_count: HashMap<Uuid, usize> =
-            instance_ids.iter().map(|id| (*id, 0)).collect();
 
         let all_rates_zero = rated_instances.values().all(|(_, rate)| *rate == 0.0);
-
-        // Build instance capacity map
-        let capacity_map: HashMap<Uuid, f64> = rated_instances
-            .iter()
-            .map(|(&id, (inst, _))| (id, inst.int_capacity as f64))
-            .collect();
 
         // Build facility map for affinity filtering
         let instance_facilities: HashMap<Uuid, Option<String>> = rated_instances
@@ -280,10 +275,12 @@ impl Distributor {
 
         // First pass: preserve stable assignments where the instance is still alive
         for cluster in all_clusters {
-            if let Some(&current_instance) = current_map.get(&cluster.id) {
+            if let Some(&current_instance) = active_assignments.get(&cluster.id) {
                 if rated_instances.contains_key(&current_instance) {
                     assignments.insert(cluster.id.clone(), current_instance);
-                    if let Some(count) = instance_count.get_mut(&current_instance) {
+                    if let Some((_rate, count, _capacity)) =
+                        instance_load_count_capacity.get_mut(&current_instance)
+                    {
                         *count += 1;
                     }
                 }
@@ -311,44 +308,41 @@ impl Distributor {
                 continue;
             }
 
-            // Pick the instance with the lowest load
-            let best = if all_rates_zero {
-                // Bootstrap: distribute by count / capacity
-                *eligible
-                    .iter()
-                    .min_by(|a, b| {
-                        let ratio_a = *instance_count.get(a).unwrap_or(&0) as f64
-                            / capacity_map.get(a).unwrap_or(&1.0);
-                        let ratio_b = *instance_count.get(b).unwrap_or(&0) as f64
-                            / capacity_map.get(b).unwrap_or(&1.0);
-                        ratio_a
-                            .partial_cmp(&ratio_b)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .unwrap()
-            } else {
-                // Rate-based: pick instance with lowest rate/capacity ratio
-                *eligible
-                    .iter()
-                    .min_by(|a, b| {
-                        let ratio_a = instance_load.get(a).unwrap_or(&0.0)
-                            / capacity_map.get(a).unwrap_or(&1.0);
-                        let ratio_b = instance_load.get(b).unwrap_or(&0.0)
-                            / capacity_map.get(b).unwrap_or(&1.0);
-                        ratio_a
-                            .partial_cmp(&ratio_b)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .unwrap()
-            };
+            let best = *eligible
+                .iter()
+                .min_by(|a, b| {
+                    let (load_a, count_a, capacity_a) = *instance_load_count_capacity
+                        .get(a)
+                        .unwrap_or(&(0.0, 0, 1.0));
+                    let (load_b, count_b, capacity_b) = *instance_load_count_capacity
+                        .get(b)
+                        .unwrap_or(&(0.0, 0, 1.0));
+
+                    // If all rates are 0, use count based comparison
+                    let (ratio_a, ratio_b) = if all_rates_zero {
+                        (count_a as f64 / capacity_a, count_b as f64 / capacity_b)
+                    } else {
+                        (load_a / capacity_a, load_b / capacity_b)
+                    };
+                    ratio_a
+                        .partial_cmp(&ratio_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap();
 
             assignments.insert(cluster.id.clone(), best);
-            if let Some(count) = instance_count.get_mut(&best) {
+            if let Some((load, count, _)) = instance_load_count_capacity.get_mut(&best) {
                 *count += 1;
-            }
-            // For rate-based distribution, slightly increase load estimate for
-            // subsequent assignments within the same cycle
-            if let Some(load) = instance_load.get_mut(&best) {
+
+                // For rate-based distribution, slightly increase load estimate for
+                // subsequent assignments within the same cycle.
+                // Without this bump, if instance B has the lowest rate, it would win *every*
+                // assignment in the loop, piling all unassigned clusters onto one instance.
+                // By adding `1.0` to load after each assignment, the loop simulates the expected
+                // increase in workload, so subsequent iterations see instance B as slightly
+                // busier and may pick a different instance instead.
+                // 1.0 is an arbitrary unit, but it's enough to spread clusters across instances
+                // rather than dumping them all on the least-loaded one.
                 *load += 1.0;
             }
         }
@@ -742,12 +736,12 @@ mod tests {
         let now = Instant::now();
         let active_assignments: HashMap<String, Uuid> = current_map
             .iter()
-            .filter(|(cluster_id, _)| {
-                match distributor.assignment_ages.get(*cluster_id) {
+            .filter(
+                |(cluster_id, _)| match distributor.assignment_ages.get(*cluster_id) {
                     Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
                     None => true,
-                }
-            })
+                },
+            )
             .map(|(k, v)| (k.clone(), *v))
             .collect();
 
@@ -815,12 +809,12 @@ mod tests {
         // Filtering should keep all assignments active
         let active_assignments: HashMap<String, Uuid> = current_assignments
             .iter()
-            .filter(|(cluster_id, _)| {
-                match distributor.assignment_ages.get(*cluster_id) {
+            .filter(
+                |(cluster_id, _)| match distributor.assignment_ages.get(*cluster_id) {
                     Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
                     None => true,
-                }
-            })
+                },
+            )
             .map(|(k, v)| (k.clone(), *v))
             .collect();
 
@@ -874,12 +868,12 @@ mod tests {
         let now = Instant::now();
         let active_assignments: HashMap<String, Uuid> = current_map
             .iter()
-            .filter(|(cluster_id, _)| {
-                match distributor.assignment_ages.get(*cluster_id) {
+            .filter(
+                |(cluster_id, _)| match distributor.assignment_ages.get(*cluster_id) {
                     Some(created_at) => now.duration_since(*created_at) < assignment_ttl,
                     None => true,
-                }
-            })
+                },
+            )
             .map(|(k, v)| (k.clone(), *v))
             .collect();
 
