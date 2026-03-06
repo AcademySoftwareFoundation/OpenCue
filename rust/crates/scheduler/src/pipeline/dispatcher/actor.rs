@@ -276,6 +276,13 @@ impl RqdDispatcherService {
                 updated_host.id, updated_host.idle_cores
             );
 
+            // Capture booking info before virtual_proc is moved into dispatch_virtual_proc.
+            let booking_show_id = virtual_proc.show_id;
+            let booking_alloc_id = virtual_proc.alloc_id;
+            let booking_alloc_name = allocation_name.clone();
+            let booking_core_delta = virtual_proc.cores_reserved.value() as i64;
+            let booking_gpu_delta = virtual_proc.gpus_reserved as i32;
+
             // Each proc should run on its own transaction
             let mut proc_transaction = begin_transaction()
                 .await
@@ -314,6 +321,16 @@ impl RqdDispatcherService {
                         .commit()
                         .await
                         .map_err(DispatchError::DbFailure)?;
+
+                    // Update the in-memory subscription cache and enqueue the delta for
+                    // the next background flush to the subscription table.
+                    allocation_service.record_booking(
+                        booking_show_id,
+                        booking_alloc_id,
+                        &booking_alloc_name,
+                        booking_core_delta,
+                        booking_gpu_delta,
+                    );
 
                     // Track successful frame dispatch
                     metrics::increment_frames_dispatched(&frame.show_name);

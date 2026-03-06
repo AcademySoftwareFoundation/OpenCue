@@ -57,7 +57,7 @@ impl From<SubscriptionModel> for Subscription {
                 val.int_burst.try_into().expect("int_burst should fit i32"),
             ),
             booked_cores: CoreSize::from_multiplied(booked_cores),
-            gpus: val.int_gpus.try_into().expect("int_gpus should fit in u32"),
+            booked_gpus: val.int_gpus.try_into().expect("int_gpus should fit in u32"),
         }
     }
 }
@@ -111,6 +111,43 @@ pub struct AllocationDao {
     connection_pool: Arc<Pool<Postgres>>,
 }
 
+/// SQL query to recompute subscription booked cores and gpus from the proc table.
+///
+/// Used on scheduler startup to ensure the in-memory cache is seeded with accurate
+/// booked counts, instead of relying solely on the (potentially stale) subscription table.
+///
+/// No facility filter is needed: each allocation belongs to exactly one facility, so
+/// the join path `subscription → alloc → host → proc` naturally scopes results per
+/// facility without an explicit WHERE clause.
+static RECOMPUTE_BOOKED_FROM_PROC: &str = r#"
+    SELECT s.pk_show, a.str_name as str_alloc_name,
+           COALESCE(SUM(p.int_cores_reserved), 0)::bigint as int_cores_booked,
+           COALESCE(SUM(p.int_gpus_reserved), 0)::bigint as int_gpus_booked
+    FROM subscription s
+    JOIN alloc a ON s.pk_alloc = a.pk_alloc
+    LEFT JOIN host h ON h.pk_alloc = a.pk_alloc
+    LEFT JOIN proc p ON p.pk_host = h.pk_host AND p.pk_show = s.pk_show
+    GROUP BY s.pk_show, a.str_name
+"#;
+
+/// SQL query to flush an accumulated subscription booking delta to the database.
+///
+/// Uses LEAST(int_cores + delta, int_burst) to prevent exceeding the burst limit,
+/// which ensures the verify_subscription trigger never rejects the flush.
+/// GPUs don't use LEAST because there is no GPU burst limit or trigger validation
+/// in the subscription table schema.
+///
+/// Concurrent flushes from multiple scheduler instances are safe because PostgreSQL
+/// row-level locking serializes concurrent UPDATEs on the same row, so each flush
+/// sees the committed result of the previous one.
+static FLUSH_SUBSCRIPTION_DELTA: &str = r#"
+    UPDATE subscription
+    SET int_cores = LEAST(int_cores + $1, int_burst),
+        int_gpus = int_gpus + $2
+    WHERE pk_show = $3
+        AND pk_alloc = $4
+"#;
+
 /// SQL query to retrieve all subscriptions with their complete data.
 ///
 /// Returns all columns from the subscription table, which will be used to
@@ -157,6 +194,62 @@ impl AllocationDao {
         Ok(AllocationDao {
             connection_pool: pool,
         })
+    }
+
+    /// Recomputes booked core and GPU counts for all subscriptions from the proc table.
+    ///
+    /// Used on scheduler startup to seed the in-memory cache with accurate booked counts.
+    /// Returns a map of `(show_id, allocation_name) -> (booked_cores, booked_gpus)`.
+    pub async fn recompute_booked_from_proc(
+        &self,
+    ) -> Result<HashMap<(ShowId, AllocationName), (i64, i64)>> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            pk_show: String,
+            str_alloc_name: String,
+            int_cores_booked: i64,
+            int_gpus_booked: i64,
+        }
+
+        let rows: Vec<Row> = sqlx::query_as(RECOMPUTE_BOOKED_FROM_PROC)
+            .fetch_all(self.connection_pool.as_ref())
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to recompute booked cores from proc table")?;
+
+        let mut result = HashMap::new();
+        for row in rows {
+            let show_id = parse_uuid(&row.pk_show);
+            result.insert(
+                (show_id, row.str_alloc_name),
+                (row.int_cores_booked, row.int_gpus_booked),
+            );
+        }
+        Ok(result)
+    }
+
+    /// Flushes an accumulated subscription delta to the database.
+    ///
+    /// Applies `core_delta` and `gpu_delta` to the subscription row identified by
+    /// `show_id` and `alloc_id`. Cores are capped at `int_burst` using LEAST so the
+    /// `verify_subscription` trigger never rejects a flush.
+    pub async fn flush_subscription_delta(
+        &self,
+        show_id: ShowId,
+        alloc_id: Uuid,
+        core_delta: i64,
+        gpu_delta: i32,
+    ) -> Result<()> {
+        sqlx::query(FLUSH_SUBSCRIPTION_DELTA)
+            .bind(core_delta)
+            .bind(gpu_delta)
+            .bind(show_id.to_string())
+            .bind(alloc_id.to_string())
+            .execute(self.connection_pool.as_ref())
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to flush subscription delta")?;
+        Ok(())
     }
 
     /// Retrieves all subscriptions organized by show_id and allocation_name.
