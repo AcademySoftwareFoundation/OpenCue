@@ -12,7 +12,7 @@ A typical OpenCue deployment runs a single instance of Cuebot, which is shared b
 ## Deployment Instructions
 
 For instructions on deploying a Cuebot instance see
-[Deploying Cuebot](https://www.opencue.io/docs/getting-started/deploying-cuebot/) on our website.
+[Deploying Cuebot](https://docs.opencue.io/docs/getting-started/deploying-cuebot/) on our website.
 
 ## Development Setup
 
@@ -20,6 +20,6 @@ For instructions on deploying a Cuebot instance see
 > [Deployment Instructions](#deployment-instructions).
 
 For instructions on setting up a Cuebot development environment, see
-[Getting Started](https://www.opencue.io/contributing/opencue/getting-started/) in the
+[Getting Started](https://docs.opencue.io/docs/developer-guide/sandbox-testing/) in the
 Contributing section of our website.
 
