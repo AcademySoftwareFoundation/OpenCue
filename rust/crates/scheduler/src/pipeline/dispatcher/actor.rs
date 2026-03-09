@@ -364,15 +364,39 @@ impl RqdDispatcherService {
                             if last_error.is_some() {
                                 break;
                             }
-                            warn!(
-                                "({dispatch_id}) Failed to start frame {} on Db. {}",
-                                frame_str, err
-                            );
+                            match &err {
+                                DispatchError::FailedToUpdateResources(_)
+                                | DispatchError::FailedToCreateProc { .. } => {
+                                    // Resource contention during DB updates is expected in
+                                    // multi-scheduler environments.
+                                    info!(
+                                        "({dispatch_id}) Failed to start frame {} on Db. {}",
+                                        frame_str, err
+                                    );
+                                }
+                                _ => {
+                                    warn!(
+                                        "({dispatch_id}) Failed to start frame {} on Db. {}",
+                                        frame_str, err
+                                    );
+                                }
+                            }
                             last_error = Some(err);
                             // IMPORTANT: Do NOT update last_host_version here since the transaction
                             // rolled back and we didn't actually consume any resources from the database.
                             // The next iteration should use the same host state as before.
                             continue;
+                        }
+                        DispatchVirtualProcError::HostResourcesExhausted => {
+                            // Host resources were booked by another scheduler (e.g. Cuebot)
+                            // between cache refresh and dispatch. Break the loop and try another host.
+                            info!(
+                                "({dispatch_id}) Host resources exhausted for frame {} (likely booked by another scheduler)",
+                                frame_str
+                            );
+                            last_error = Some(DispatchError::HostResourcesExhausted(()));
+
+                            break;
                         }
                         DispatchVirtualProcError::FrameCouldNotBeUpdated => {
                             // The entire transaction is probably compromised, stop working on this layer
@@ -381,6 +405,13 @@ impl RqdDispatcherService {
                                 frame_str
                             );
                             non_retrieable_frames.push(frame.id);
+                            break;
+                        }
+                        DispatchVirtualProcError::ResourceLimitExceeded(err) => {
+                            // Resource limit enforced by database trigger (e.g. job max cores,
+                            // subscription burst size). This is expected in normal operation.
+                            info!("({dispatch_id}) {frame_str} {err}");
+                            last_error = Some(err);
                             break;
                         }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
@@ -420,7 +451,18 @@ impl RqdDispatcherService {
         }
 
         if let Some(error) = last_error {
-            warn!("Wasn't able to dispatch all frames: {:?}", error)
+            match &error {
+                DispatchError::ResourceLimitExceeded(_)
+                | DispatchError::AllocationOverBurst(_)
+                | DispatchError::HostResourcesExhausted(_)
+                | DispatchError::FailedToUpdateResources(_)
+                | DispatchError::FailedToCreateProc { .. } => {
+                    info!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+                _ => {
+                    warn!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+            }
         }
         Ok((last_host_version, layer))
     }
@@ -469,7 +511,7 @@ impl RqdDispatcherService {
 
         // Update database
         let updated_resources = self
-            .update_database_for_dispatch(transaction, &virtual_proc, host.id, dispatch_id)
+            .update_database_for_dispatch(transaction, &virtual_proc, host.id)
             .await?;
 
         // When running on dry_run_mode, just log the outcome
@@ -524,7 +566,6 @@ impl RqdDispatcherService {
     /// * `transaction` - Database transaction for atomic updates
     /// * `virtual_proc` - The virtual proc being dispatched
     /// * `host_id` - ID of the host receiving the dispatch
-    /// * `dispatch_id` - Unique identifier for this dispatch operation
     ///
     /// # Returns
     /// On success, returns the updated host resources from the database.
@@ -534,7 +575,6 @@ impl RqdDispatcherService {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
         host_id: Uuid,
-        dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
         self.proc_dao
             .insert(transaction, virtual_proc)
@@ -549,12 +589,31 @@ impl RqdDispatcherService {
 
         let updated_resources = self
             .host_dao
-            .update_resources(transaction, &host_id, virtual_proc, dispatch_id)
+            .update_resources(transaction, &host_id, virtual_proc)
             .await
-            .map_err(|err| {
-                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
-                    err,
-                ))
+            .map_err(|err| match err {
+                crate::dao::HostDaoError::HostResourcesExhausted => {
+                    DispatchVirtualProcError::HostResourcesExhausted
+                }
+                crate::dao::HostDaoError::ResourceLimitExceeded { message } => {
+                    DispatchVirtualProcError::ResourceLimitExceeded(
+                        DispatchError::ResourceLimitExceeded(message),
+                    )
+                }
+                crate::dao::HostDaoError::DbFailure { context, source } => {
+                    DispatchVirtualProcError::FailedToStartOnDb(
+                        DispatchError::FailedToUpdateResources(
+                            // It would be great to simply use
+                            // `miette::Report::new(source).wrap_err(context)` here, but
+                            // sqlx::Error doesn't implement Diagnostics, therefore needs to be
+                            // wrapped and unwrapped to add context.
+                            Result::<(), _>::Err(source)
+                                .into_diagnostic()
+                                .unwrap_err()
+                                .wrap_err(context),
+                        ),
+                    )
+                }
             })?;
 
         // Update frame state last to minimize lock contention. The UPDATE frame trigger
