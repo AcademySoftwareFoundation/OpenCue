@@ -380,9 +380,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::ResourceLimitExceeded(err) => {
                             // Resource limit enforced by database trigger (e.g. job max cores,
                             // subscription burst size). This is expected in normal operation.
-                            info!(
-                                "({dispatch_id}) {frame_str} {err}"
-                            );
+                            info!("({dispatch_id}) {frame_str} {err}");
                             last_error = Some(err);
                             break;
                         }
@@ -481,7 +479,7 @@ impl RqdDispatcherService {
 
         // Update database
         let updated_resources = self
-            .update_database_for_dispatch(transaction, &virtual_proc, host.id, dispatch_id)
+            .update_database_for_dispatch(transaction, &virtual_proc, host.id)
             .await?;
 
         // When running on dry_run_mode, just log the outcome
@@ -530,7 +528,6 @@ impl RqdDispatcherService {
     /// * `transaction` - Database transaction for atomic updates
     /// * `virtual_proc` - The virtual proc being dispatched
     /// * `host_id` - ID of the host receiving the dispatch
-    /// * `dispatch_id` - Unique identifier for this dispatch operation
     ///
     /// # Returns
     /// On success, returns the updated host resources from the database.
@@ -540,7 +537,6 @@ impl RqdDispatcherService {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
         host_id: Uuid,
-        dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
         self.frame_dao
             .update_frame_started(transaction, virtual_proc)
@@ -567,7 +563,7 @@ impl RqdDispatcherService {
 
         let updated_resources = self
             .host_dao
-            .update_resources(transaction, &host_id, virtual_proc, dispatch_id)
+            .update_resources(transaction, &host_id, virtual_proc)
             .await
             .map_err(|err| match err {
                 crate::dao::HostDaoError::HostResourcesExhausted => {
@@ -581,6 +577,10 @@ impl RqdDispatcherService {
                 crate::dao::HostDaoError::DbFailure { context, source } => {
                     DispatchVirtualProcError::FailedToStartOnDb(
                         DispatchError::FailedToUpdateResources(
+                            // It would be great to simply use
+                            // `miette::Report::new(source).wrap_err(context)` here, but
+                            // sqlx::Error doesn't implement Diagnostics, therefore needs to be
+                            // wrapped and unwrapped to add context.
                             Result::<(), _>::Err(source)
                                 .into_diagnostic()
                                 .unwrap_err()

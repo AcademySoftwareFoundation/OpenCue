@@ -194,6 +194,8 @@ SET int_cores_idle = int_cores_idle - $1,
 WHERE pk_host = $5
     AND int_cores_idle >= $1
     AND int_mem_idle >= $2
+    AND int_gpus_idle >= $3
+    AND int_gpu_mem_idle >= $4
 RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, NOW()
 "#;
 
@@ -369,7 +371,6 @@ impl HostDao {
         transaction: &mut Transaction<'_, Postgres>,
         host_id: &Uuid,
         virtual_proc: &VirtualProc,
-        _dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources, HostDaoError> {
         let row: Option<(i64, i64, i64, i64, DateTime<Utc>)> =
             sqlx::query_as(UPDATE_HOST_RESOURCES)
@@ -436,9 +437,7 @@ impl HostDao {
             .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|err| {
-                check_resource_limit_error(err, "Failed to update folder resources")
-            })?;
+            .map_err(|err| check_resource_limit_error(err, "Failed to update folder resources"))?;
 
         sqlx::query(UPDATE_POINT)
             .bind(virtual_proc.cores_reserved.value())
@@ -447,9 +446,7 @@ impl HostDao {
             .bind(virtual_proc.show_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|err| {
-                check_resource_limit_error(err, "Failed to update point resources")
-            })?;
+            .map_err(|err| check_resource_limit_error(err, "Failed to update point resources"))?;
 
         Ok(UpdatedHostResources {
             cores_idle,
