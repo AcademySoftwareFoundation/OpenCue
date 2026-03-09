@@ -395,10 +395,7 @@ impl HostDao {
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await
-                .map_err(|source| HostDaoError::DbFailure {
-                    context: "Failed to update host stat",
-                    source,
-                })?;
+                .map_err(|err| check_resource_limit_error(err, "Failed to update host stat"))?;
         }
 
         sqlx::query(UPDATE_SUBSCRIPTION)
@@ -418,10 +415,7 @@ impl HostDao {
             .bind(virtual_proc.layer_id.to_string())
             .execute(&mut **transaction)
             .await
-            .map_err(|source| HostDaoError::DbFailure {
-                context: "Failed to update layer resources",
-                source,
-            })?;
+            .map_err(|err| check_resource_limit_error(err, "Failed to update layer resources"))?;
 
         sqlx::query(UPDATE_JOB_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())

@@ -347,10 +347,23 @@ impl RqdDispatcherService {
                             if last_error.is_some() {
                                 break;
                             }
-                            warn!(
-                                "({dispatch_id}) Failed to start frame {} on Db. {}",
-                                frame_str, err
-                            );
+                            match &err {
+                                DispatchError::FailedToUpdateResources(_)
+                                | DispatchError::FailedToCreateProc { .. } => {
+                                    // Resource contention during DB updates is expected in
+                                    // multi-scheduler environments.
+                                    info!(
+                                        "({dispatch_id}) Failed to start frame {} on Db. {}",
+                                        frame_str, err
+                                    );
+                                }
+                                _ => {
+                                    warn!(
+                                        "({dispatch_id}) Failed to start frame {} on Db. {}",
+                                        frame_str, err
+                                    );
+                                }
+                            }
                             last_error = Some(err);
                             // IMPORTANT: Do NOT update last_host_version here since the transaction
                             // rolled back and we didn't actually consume any resources from the database.
@@ -424,7 +437,9 @@ impl RqdDispatcherService {
             match &error {
                 DispatchError::ResourceLimitExceeded(_)
                 | DispatchError::AllocationOverBurst(_)
-                | DispatchError::HostResourcesExhausted(_) => {
+                | DispatchError::HostResourcesExhausted(_)
+                | DispatchError::FailedToUpdateResources(_)
+                | DispatchError::FailedToCreateProc { .. } => {
                     info!("Wasn't able to dispatch all frames: {:?}", error)
                 }
                 _ => {
