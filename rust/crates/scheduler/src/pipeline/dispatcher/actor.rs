@@ -510,9 +510,15 @@ impl RqdDispatcherService {
     /// Updates database records for frame dispatch.
     ///
     /// This function performs three database operations atomically:
-    /// 1. Updates the frame status to "started"
-    /// 2. Inserts the virtual proc record
-    /// 3. Updates host resource allocations
+    /// 1. Inserts the virtual proc record
+    /// 2. Updates host resource allocations
+    /// 3. Updates the frame status to "started" (done last to minimize lock hold time)
+    ///
+    /// The frame UPDATE is intentionally performed last because it fires database triggers
+    /// that update `layer_stat` and `job_stat` rows. These are hot rows shared by all frames
+    /// in the same layer/job. By deferring the frame UPDATE to the end of the transaction,
+    /// the trigger-acquired row locks on `layer_stat`/`job_stat` are held only until COMMIT,
+    /// rather than being held while all subsequent resource updates execute.
     ///
     /// # Arguments
     /// * `transaction` - Database transaction for atomic updates
@@ -530,18 +536,6 @@ impl RqdDispatcherService {
         host_id: Uuid,
         dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
-        self.frame_dao
-            .update_frame_started(transaction, virtual_proc)
-            .await
-            .map_err(|err| match err {
-                FrameDaoError::FrameCouldNotBeUpdated => {
-                    DispatchVirtualProcError::FrameCouldNotBeUpdated
-                }
-                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
-                    DispatchError::FailedToStartOnDb(err),
-                ),
-            })?;
-
         self.proc_dao
             .insert(transaction, virtual_proc)
             .await
@@ -561,6 +555,22 @@ impl RqdDispatcherService {
                 DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
                     err,
                 ))
+            })?;
+
+        // Update frame state last to minimize lock contention. The UPDATE frame trigger
+        // acquires row locks on layer_stat and job_stat which are contended by all
+        // concurrent dispatches for the same layer/job. Performing this last ensures
+        // those locks are held only until the transaction commits.
+        self.frame_dao
+            .update_frame_started(transaction, virtual_proc)
+            .await
+            .map_err(|err| match err {
+                FrameDaoError::FrameCouldNotBeUpdated => {
+                    DispatchVirtualProcError::FrameCouldNotBeUpdated
+                }
+                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
+                    DispatchError::FailedToStartOnDb(err),
+                ),
             })?;
 
         Ok(updated_resources)
