@@ -10,8 +10,8 @@ development.
 
 To learn how to set up your development environment to build the
 HTML reference docs for some of the Python packages and
-modules in OpenCue, see
-[Building the OpenCue Python APIs reference docs](https://www.opencue.io/contributing/opencue/build-docs/).
+modules in OpenCue, see the build script at
+[ci/build_sphinx_docs.sh](../ci/build_sphinx_docs.sh).
 
 To view the main OpenCue docs, visit the
 [project website](https://www.opencue.io/docs). To view the source
