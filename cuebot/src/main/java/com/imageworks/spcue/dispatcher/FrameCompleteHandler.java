@@ -679,7 +679,7 @@ public class FrameCompleteHandler {
                         // I acknowledge sleeping within a threadpool is rarely a good idea as it
                         // blocks execution and can lead to backpressure. This sleep is only
                         // triggered when there are transient issues, so it is likely the following
-                        // tasks would also fails. The worst case scenario is backing up the
+                        // tasks would also fail. The worst case scenario is backing up the
                         // threadpool for 700ms, which is acceptable given the circumstances
                         Thread.sleep(backoffMs);
                     } catch (InterruptedException ie) {
@@ -693,7 +693,7 @@ public class FrameCompleteHandler {
                     logger.error("Dependency Failure: Failed to satisfy depends on " + entityDesc
                             + " in job " + jobName + " (id=" + jobId + ") after "
                             + DEPEND_MAX_RETRIES + " attempts. "
-                            + "Downstream frames may be stuck in DEPEND state. " + e);
+                            + "Downstream frames may be stuck in DEPEND state. ", e);
                 }
             }
         }
