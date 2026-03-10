@@ -83,7 +83,9 @@ pub struct QueueConfig {
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
-    pub allocation_refresh_interval: Duration,
+    pub subscription_recalculation_interval: Duration,
+    #[serde(with = "humantime_serde")]
+    pub resource_recalculation_interval: Duration,
     pub selfish_services: Vec<String>,
     pub host_booking_strategy: HostBookingStrategy,
     pub frame_memory_soft_limit: f64,
@@ -106,7 +108,8 @@ impl Default for QueueConfig {
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
-            allocation_refresh_interval: Duration::from_secs(3),
+            subscription_recalculation_interval: Duration::from_secs(3),
+            resource_recalculation_interval: Duration::from_secs(10),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy::default(),
             frame_memory_soft_limit: 1.6,

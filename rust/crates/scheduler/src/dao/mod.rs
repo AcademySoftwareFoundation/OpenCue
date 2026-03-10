@@ -18,6 +18,7 @@ mod host_dao;
 mod job_dao;
 mod layer_dao;
 mod proc_dao;
+mod resource_accounting_dao;
 
 pub use allocation_dao::AllocationDao;
 pub use cluster_dao::ClusterDao;
@@ -31,3 +32,4 @@ pub use allocation_dao::{AllocationName, ShowId};
 pub use frame_dao::FrameDaoError;
 pub use host_dao::HostDaoError;
 pub use host_dao::UpdatedHostResources;
+pub use resource_accounting_dao::ResourceAccountingDao;

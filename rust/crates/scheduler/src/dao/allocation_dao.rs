@@ -130,24 +130,6 @@ static RECOMPUTE_BOOKED_FROM_PROC: &str = r#"
     GROUP BY s.pk_show, a.str_name
 "#;
 
-/// SQL query to flush an accumulated subscription booking delta to the database.
-///
-/// Uses LEAST(int_cores + delta, int_burst) to prevent exceeding the burst limit,
-/// which ensures the verify_subscription trigger never rejects the flush.
-/// GPUs don't use LEAST because there is no GPU burst limit or trigger validation
-/// in the subscription table schema.
-///
-/// Concurrent flushes from multiple scheduler instances are safe because PostgreSQL
-/// row-level locking serializes concurrent UPDATEs on the same row, so each flush
-/// sees the committed result of the previous one.
-static FLUSH_SUBSCRIPTION_DELTA: &str = r#"
-    UPDATE subscription
-    SET int_cores = LEAST(int_cores + $1, int_burst),
-        int_gpus = int_gpus + $2
-    WHERE pk_show = $3
-        AND pk_alloc = $4
-"#;
-
 /// SQL query to retrieve all subscriptions with their complete data.
 ///
 /// Returns all columns from the subscription table, which will be used to
@@ -228,27 +210,16 @@ impl AllocationDao {
         Ok(result)
     }
 
-    /// Flushes an accumulated subscription delta to the database.
+    /// Recomputes the subscription table from the proc table.
     ///
-    /// Applies `core_delta` and `gpu_delta` to the subscription row identified by
-    /// `show_id` and `alloc_id`. Cores are capped at `int_burst` using LEAST so the
-    /// `verify_subscription` trigger never rejects a flush.
-    pub async fn flush_subscription_delta(
-        &self,
-        show_id: ShowId,
-        alloc_id: Uuid,
-        core_delta: i64,
-        gpu_delta: i32,
-    ) -> Result<()> {
-        sqlx::query(FLUSH_SUBSCRIPTION_DELTA)
-            .bind(core_delta)
-            .bind(gpu_delta)
-            .bind(show_id.to_string())
-            .bind(alloc_id.to_string())
+    /// Calls the existing `recalculate_subs()` PL/pgSQL function which handles
+    /// zeroing, burst-bypass for the `verify_subscription` trigger, and error handling.
+    pub async fn recompute_subscription_table(&self) -> Result<()> {
+        sqlx::query("SELECT recalculate_subs()")
             .execute(self.connection_pool.as_ref())
             .await
             .into_diagnostic()
-            .wrap_err("Failed to flush subscription delta")?;
+            .wrap_err("Failed to recompute subscription table from proc")?;
         Ok(())
     }
 

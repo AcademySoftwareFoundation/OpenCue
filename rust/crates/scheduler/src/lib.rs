@@ -20,3 +20,4 @@ pub mod metrics;
 pub mod models;
 pub mod pgpool;
 pub mod pipeline;
+pub mod resource_accounting;

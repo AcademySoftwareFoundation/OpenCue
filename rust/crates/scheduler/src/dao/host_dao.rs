@@ -208,35 +208,6 @@ SET int_mem_free = int_mem_free - $1,
 WHERE pk_host = $3
 "#;
 
-static UPDATE_LAYER_RESOURCE: &str = r#"
-UPDATE layer_resource
-SET int_cores = int_cores + $1,
-    int_gpus = int_gpus + $2
-WHERE pk_layer = $3
-"#;
-
-static UPDATE_JOB_RESOURCE: &str = r#"
-UPDATE job_resource
-SET int_cores = int_cores + $1,
-    int_gpus = int_gpus + $2
-WHERE pk_job = $3
-"#;
-
-static UPDATE_FOLDER_RESOURCE: &str = r#"
-UPDATE folder_resource
-SET int_cores = int_cores + $1,
-    int_gpus = int_gpus + $2
-WHERE pk_folder = (SELECT pk_folder FROM job WHERE pk_job = $3)
-"#;
-
-static UPDATE_POINT: &str = r#"
-UPDATE point
-SET int_cores = int_cores + $1,
-    int_gpus = int_gpus + $2
-WHERE pk_dept = (SELECT pk_dept FROM job WHERE pk_job = $3)
-    AND pk_show = $4
-"#;
-
 impl HostDao {
     /// Creates a new HostDao from database configuration.
     ///
@@ -389,39 +360,6 @@ impl HostDao {
                 .await
                 .map_err(|err| check_resource_limit_error(err, "Failed to update host stat"))?;
         }
-
-        sqlx::query(UPDATE_LAYER_RESOURCE)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.layer_id.to_string())
-            .execute(&mut **transaction)
-            .await
-            .map_err(|err| check_resource_limit_error(err, "Failed to update layer resources"))?;
-
-        sqlx::query(UPDATE_JOB_RESOURCE)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.job_id.to_string())
-            .execute(&mut **transaction)
-            .await
-            .map_err(|err| check_resource_limit_error(err, "Failed to update job resources"))?;
-
-        sqlx::query(UPDATE_FOLDER_RESOURCE)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.job_id.to_string())
-            .execute(&mut **transaction)
-            .await
-            .map_err(|err| check_resource_limit_error(err, "Failed to update folder resources"))?;
-
-        sqlx::query(UPDATE_POINT)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.job_id.to_string())
-            .bind(virtual_proc.show_id.to_string())
-            .execute(&mut **transaction)
-            .await
-            .map_err(|err| check_resource_limit_error(err, "Failed to update point resources"))?;
 
         Ok(UpdatedHostResources {
             cores_idle,
