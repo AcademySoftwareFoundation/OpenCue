@@ -234,6 +234,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             frame.minGpus = rs.getInt("int_gpus_min");
             frame.maxGpus = rs.getInt("int_gpus_max");
             frame.minGpuMemory = rs.getLong("int_gpu_mem_min");
+            frame.slotsRequired = rs.getInt("int_slots_required");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             frame.os = rs.getString("str_os");
@@ -252,8 +253,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + "layer.str_type AS layer_type, " + "layer.str_cmd, " + "layer.int_cores_min,"
             + "layer.int_cores_max," + "layer.b_threadable," + "layer.int_mem_min, "
             + "layer.int_gpus_min," + "layer.int_gpus_max," + "layer.int_gpu_mem_min, "
-            + "layer.str_range, " + "layer.int_chunk_size, " + "layer.str_services " + "FROM "
-            + "layer, " + "job, " + "show, "
+            + "layer.int_slots_required, " + "layer.str_range, " + "layer.int_chunk_size, "
+            + "layer.str_services " + "FROM " + "layer, " + "job, " + "show, "
             + "frame LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) " + "WHERE "
             + "job.pk_show = show.pk_show " + "AND " + "frame.pk_job = job.pk_job " + "AND "
             + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_frame = ?";

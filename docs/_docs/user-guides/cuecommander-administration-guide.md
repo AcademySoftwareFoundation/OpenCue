@@ -4,7 +4,7 @@ layout: default
 parent: User Guides
 nav_order: 38
 linkTitle: "CueCommander Administration Guide"
-date: 2025-01-13
+date: 2026-02-03
 description: >
   Comprehensive guide to using CueCommander for OpenCue render farm administration
 ---
@@ -300,6 +300,12 @@ Enables real-time monitoring and management of render hosts (nodes), including t
    - Select host to see running processes
    - Identify stuck or long-running frames
    - Kill problematic processes
+
+#### Slot-Based Booking Controls
+
+You can set a per-host slot limit from Monitor Hosts. Right-click one or more hosts and choose **Update Slot Limit...**. A value of `0` disables slot-based booking. A positive value enables slot-based booking and limits concurrent slots on the host.
+
+When a host has a slot limit, it only runs layers with `slots_required > 0`. See [Slot-Based Booking](/docs/concepts/slot-based-booking/) for details.
 
 #### Common Use Cases
 

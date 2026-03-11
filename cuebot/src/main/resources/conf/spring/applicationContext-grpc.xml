@@ -196,6 +196,7 @@
     <bean scope="prototype" id="rqdReportStatic" class="com.imageworks.spcue.servant.RqdReportStatic">
         <property name="frameCompleteHandler" ref="frameCompleteHandler" />
         <property name="hostReportHandler" ref="hostReportHandler" />
+        <property name="hostManager" ref="hostManager" />
     </bean>
 
     <bean scope="prototype" id="manageMonitoring" class="com.imageworks.spcue.servant.ManageMonitoring">

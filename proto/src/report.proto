@@ -23,6 +23,9 @@ service RqdReportInterface {
 
     // An incremental status report sent by RQD
     rpc ReportStatus(RqdReportStatusRequest) returns (RqdReportStatusResponse);
+
+    // Get the host's slot limit
+    rpc GetHostSlotsLimit(RqdReportGetHostSlotsLimitRequest) returns (RqdReportGetHostSlotsLimitResponse);
 }
 
 
@@ -109,6 +112,7 @@ message RunningFrameInfo {
     int64 used_swap_memory = 19; // kB
     int64 max_pss = 20; // kB
     int64 pss = 21; // kB
+    int32 slots_required = 22;
 };
 
 message ChildrenProcStats {
@@ -183,3 +187,12 @@ message RqdReportStatusRequest {
     HostReport host_report = 1;
 }
 message RqdReportStatusResponse {} // Empty
+
+// GetHostSlotsLimit
+message RqdReportGetHostSlotsLimitRequest {
+    string name = 1;
+}
+
+message RqdReportGetHostSlotsLimitResponse {
+    int32 slots_limit = 1;
+}

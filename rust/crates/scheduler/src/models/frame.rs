@@ -51,6 +51,7 @@ pub struct DispatchFrame {
     pub min_gpus: u32,
     pub min_gpu_memory: ByteSize,
     pub min_memory: ByteSize,
+    pub slots_required: u32,
     // On Cuebot these fields come from constants, maybe replicate these constants here
     // pub int_soft_memory_limit: i64,
     // pub int_hard_memory_limit: i64,
