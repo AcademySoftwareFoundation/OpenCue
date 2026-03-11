@@ -158,6 +158,10 @@ EMAIL_DOMAIN = __config.get('email.domain', "")
 SHOW_SUPPORT_CC_TEMPLATE = [val.strip()
                             for val
                             in __config.get('email.show_support_cc_template', '').split(',')]
+SUBSCRIPTION_CHANGE_CC_TEMPLATE = [val.strip()
+                                   for val
+                                   in __config.get('email.subscription_change_cc', '').split(',')
+                                   if val.strip()]
 
 GITHUB_CREATE_ISSUE_URL = __config.get('links.issue.create')
 URL_USERGUIDE = __config.get('links.user_guide')

@@ -133,6 +133,14 @@ email.domain: 'your.domain.com'
 #  - {show} is not required and will be replaced by the job show
 #  - Multiple addresses might be provided in a comma-separated list
 email.show_support_cc_template: "{show}-support@{domain}"
+# CC list for subscription change notifications (size/burst changes)
+#  - {domain} will be replaced by email.domain
+#  - {show} will be replaced by the subscription show name
+#  - Multiple addresses might be provided in a comma-separated list
+#  - Set to empty string ("") to disable email notifications for subscription changes
+#  - Example: "{show}-admin@{domain},resource-team@{domain}"
+#  - Example: "admin@example.com,team-lead@example.com"
+email.subscription_change_cc: ""
 
 # Unix epoch timestamp. If the user last viewed the startup notice before this time, the
 # notice will be shown.
