@@ -35,25 +35,21 @@ permalink: /
                 GitHub
             </a>
         </div>
-    </div>
-</div>
 
-<!-- Video Demo Section -->
-<section class="video-section" aria-labelledby="video-heading">
-    <div class="video-container">
-        <h2 id="video-heading" class="section-title">OpenCue is an Official ASWF project</h2>
-        <div class="video-wrapper">
-            <iframe
-                src="https://www.youtube-nocookie.com/embed/Bq_N6Jamiac"
-                title="OpenCue Overview Video"
-                frameborder="0"
-                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-                loading="lazy">
-            </iframe>
+        <div class="hero-video">
+            <div class="hero-video-wrapper">
+                <iframe
+                    src="https://www.youtube-nocookie.com/embed/HnamOCLXu3Y"
+                    title="OpenCue Overview Video"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen
+                    loading="lazy">
+                </iframe>
+            </div>
         </div>
     </div>
-</section>
+</div>
 
 <!-- Production Scale Stats Bar -->
 <section class="stats-section" aria-labelledby="stats-heading">
@@ -225,19 +221,19 @@ permalink: /
             </div>
 
             <div class="timeline-entry">
-                <span class="timeline-date">1992–2006</span>
+                <span class="timeline-date">1992-2006</span>
                 <h3 class="timeline-title">Cue1 and Cue2</h3>
                 <p class="timeline-description">The earliest generations of <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a> (SPI)'s internal queueing and render management systems.</p>
             </div>
 
             <div class="timeline-entry">
-                <span class="timeline-date">2007–2018</span>
+                <span class="timeline-date">2007-2018</span>
                 <h3 class="timeline-title">Cue3</h3>
                 <p class="timeline-description">A major internal rewrite of Cue1 and Cue2 at <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a> that powered high-throughput, feature-film rendering at SPI for over a decade.</p>
             </div>
 
             <div class="timeline-entry">
-                <span class="timeline-date">2019–2021</span>
+                <span class="timeline-date">2019-2021</span>
                 <h3 class="timeline-title">OpenCue Launch</h3>
                 <p class="timeline-description">The <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a>'s Cue3 core code was open-sourced in collaboration with Google, becoming <strong>OpenCue</strong>.</p>
             </div>
@@ -257,7 +253,7 @@ permalink: /
             <div class="timeline-video">
                 <iframe
                     src="https://www.youtube-nocookie.com/embed/0IhqqNz6q6k"
-                    title="Academy Sci-Tech Award — Matt Chambers (Cue3/OpenCue)"
+                    title="Academy Sci-Tech Award - Matt Chambers (Cue3/OpenCue)"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowfullscreen>
@@ -265,7 +261,7 @@ permalink: /
             </div>
 
             <div class="timeline-entry">
-                <span class="timeline-date">2024–2025</span>
+                <span class="timeline-date">2024-2025</span>
                 <h3 class="timeline-title">Full Alignment</h3>
                 <p class="timeline-description">OpenCue's codebase is fully migrated and synchronized with SPI's internal code, ensuring the open-source project reflects current production realities.</p>
             </div>
