@@ -18,7 +18,7 @@ use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{env, fs, path::PathBuf, time::Duration};
+use std::{collections::HashSet, env, fs, path::PathBuf, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/scheduler.yaml";
 
@@ -247,6 +247,21 @@ pub struct SchedulerConfig {
     pub alloc_tags: Vec<AllocTag>,
     pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
+}
+
+impl SchedulerConfig {
+    pub fn show_names(&self) -> Option<Vec<String>> {
+        let mut show_names: HashSet<String> =
+            HashSet::from_iter(self.entire_shows.iter().cloned());
+        for tag in &self.alloc_tags {
+            show_names.insert(tag.show.clone());
+        }
+        if show_names.is_empty() {
+            None
+        } else {
+            Some(show_names.into_iter().collect())
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

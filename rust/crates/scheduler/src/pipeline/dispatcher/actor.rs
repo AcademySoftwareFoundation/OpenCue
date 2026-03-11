@@ -23,7 +23,7 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use crate::{
-    allocation::allocation_service,
+    resource_accounting::resource_accounting_service,
     config::CONFIG,
     dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, UpdatedHostResources},
     metrics,
@@ -232,13 +232,13 @@ impl RqdDispatcherService {
         let allocation_name = host.alloc_name.clone();
         let mut last_host_version = host;
 
-        let allocation_service = allocation_service().await.map_err(|err| {
-            DispatchError::Failure(err.wrap_err("Allocation Service is not available"))
+        let resource_accounting_service = resource_accounting_service().await.map_err(|err| {
+            DispatchError::Failure(err.wrap_err("ResourceAccountingService is not available"))
         })?;
         // Use a closure for this validation to reduce the number of arguments that would be passed
         // to dispatch_virtual_proc.
         let is_subscription_bookable = |cores_requested| {
-            matches!(allocation_service.get_subscription(&allocation_name, &layer.show_id),
+            matches!(resource_accounting_service.get_subscription(&allocation_name, &layer.show_id),
                 Some(subscription) if subscription.bookable(&cores_requested)
             )
         };
@@ -323,7 +323,7 @@ impl RqdDispatcherService {
 
                     // Update the in-memory subscription cache immediately so the next
                     // bookable() check within this dispatch cycle sees the correct state.
-                    allocation_service.record_booking(
+                    resource_accounting_service.record_booking(
                         booking_show_id,
                         &booking_alloc_name,
                         booking_core_delta,
