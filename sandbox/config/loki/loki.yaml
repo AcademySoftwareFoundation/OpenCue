@@ -17,16 +17,17 @@ ingester:
 schema_config:
   configs:
   - from: 2020-01-20
-    store: boltdb
+    store: tsdb
     object_store: filesystem
     schema: v13
     index:
       prefix: index_
-      period: 168h
+      period: 24h
 
 storage_config:
-  boltdb:
-    directory: /tmp/loki/index
+  tsdb_shipper:
+    active_index_directory: /tmp/loki/tsdb-index
+    cache_location: /tmp/loki/tsdb-cache
 
   filesystem:
     directory: /tmp/loki/chunks

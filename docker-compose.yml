@@ -4,7 +4,7 @@
 # Uncomment the optional sections to enable additional functionality:
 #
 # Profiles:
-#   - default (cuebot, db, rqd)
+#   - default (cuebot, db, flyway, rqd)
 #   - cueweb (rest-gateway, cueweb)
 #   - monitoring (db-exporter, prometheus, grafana, loki)
 #   - monitoring-full (zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer)
@@ -302,7 +302,7 @@ services:
       - monitoring
       - monitoring-full
       - all
-    image: wrouesnel/postgres_exporter
+    image: prometheuscommunity/postgres-exporter:latest
     container_name: opencue-db-exporter
     environment:
       - DATA_SOURCE_URI=db:5432/postgres?sslmode=disable
@@ -313,6 +313,7 @@ services:
       - "9187:9187"
     depends_on:
       - db
+    restart: unless-stopped
 
   # Prometheus for metrics collection
   prometheus:
@@ -336,6 +337,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
 
   # Grafana for dashboards
   # Port 3001 to avoid conflict with CueWeb (3000)
@@ -344,7 +346,7 @@ services:
       - monitoring
       - monitoring-full
       - all
-    image: grafana/grafana:12.3
+    image: grafana/grafana:12.3.5
     container_name: opencue-grafana
     depends_on:
       - prometheus
@@ -375,6 +377,7 @@ services:
       - -config.file=/etc/config/loki.yaml
     ports:
       - "3100:3100"
+    restart: unless-stopped
 
   # =============================================================================
   # EVENT STREAMING SERVICES (monitoring-full)
@@ -400,6 +403,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # Kafka broker for event streaming
   kafka:
@@ -447,6 +451,7 @@ services:
       KAFKA_CLUSTERS_0_NAME: opencue
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    restart: unless-stopped
 
   # Elasticsearch for historical data storage
   elasticsearch:
@@ -484,6 +489,7 @@ services:
       - "5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    restart: unless-stopped
 
   # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
   # Note: Requires building from source (rust)
