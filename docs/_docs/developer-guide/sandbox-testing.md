@@ -99,22 +99,22 @@ CueSubmit is the job submission interface where you can create and submit render
 
 ## Full Stack Deployment
 
-For a complete sandbox deployment (Cuebot, DB, Flyway, RQD, REST Gateway, and CueWeb), use the full stack deployment script.
+For a complete sandbox deployment, use Docker Compose profiles to enable additional services beyond the core stack.
 
 ### Quick Start
 
-The easiest way to deploy the full stack:
+Deploy the full stack using profiles:
 
 ```bash
 # From the OpenCue root directory
-./sandbox/deploy_opencue_full.sh
-```
+mkdir -p /tmp/rqd/logs /tmp/rqd/shots
 
-This script will:
-- Build all required Docker images (Cuebot, REST Gateway, CueWeb)
-- Generate a JWT secret for authentication
-- Start all services (db, flyway, cuebot, rqd, rest-gateway, cueweb)
-- Display access URLs
+# Start core + Web UI
+docker compose --profile cueweb up -d
+
+# Or start everything (including monitoring)
+docker compose --profile all up -d
+```
 
 ### Services Deployed
 
@@ -185,26 +185,22 @@ cueman -h             # Show cueman help
 
 ```bash
 # Check service status
-./sandbox/deploy_opencue_full.sh status
+docker compose ps
 
 # View logs
-./sandbox/deploy_opencue_full.sh logs
+docker compose logs -f
 
 # View specific service logs
-./sandbox/deploy_opencue_full.sh logs cuebot
-./sandbox/deploy_opencue_full.sh logs rqd
-./sandbox/deploy_opencue_full.sh logs cueweb
-./sandbox/deploy_opencue_full.sh logs rest-gateway
+docker compose logs -f cuebot
+docker compose logs -f rqd
+docker compose logs -f cueweb
+docker compose logs -f rest-gateway
 
 # Stop all services
-./sandbox/deploy_opencue_full.sh down
+docker compose --profile all down
 
-# Rebuild and restart
-./sandbox/deploy_opencue_full.sh build
-./sandbox/deploy_opencue_full.sh up
-
-# Clean up everything (removes volumes and images)
-./sandbox/deploy_opencue_full.sh clean
+# Remove all data volumes
+docker compose --profile all down -v
 ```
 
 ### Manual Full Stack Deployment
@@ -301,9 +297,8 @@ docker compose logs -f cuebot
 # View RQD logs
 docker compose logs -f rqd
 
-# For full stack deployment
-./sandbox/deploy_opencue_full.sh logs cuebot
-./sandbox/deploy_opencue_full.sh logs rqd
+# View all logs
+docker compose --profile all logs -f
 ```
 
 ## Stopping the Sandbox
@@ -322,10 +317,10 @@ deactivate
 
 ```bash
 # Stop all services
-./sandbox/deploy_opencue_full.sh down
+docker compose --profile all down
 
-# Or clean up everything (removes volumes and images)
-./sandbox/deploy_opencue_full.sh clean
+# Clean up everything (removes volumes)
+docker compose --profile all down -v
 ```
 
 ## Troubleshooting
@@ -363,9 +358,9 @@ If CueGUI cannot connect to Cuebot:
 ### CueWeb Not Loading
 
 If CueWeb is not responding:
-- Check that rest-gateway is healthy: `./sandbox/deploy_opencue_full.sh status`
+- Check that rest-gateway is healthy: `docker compose ps`
 - Verify the JWT secret is set correctly
-- Check CueWeb logs: `./sandbox/deploy_opencue_full.sh logs cueweb`
+- Check CueWeb logs: `docker compose logs -f cueweb`
 
 ### REST Gateway Authentication Errors
 
