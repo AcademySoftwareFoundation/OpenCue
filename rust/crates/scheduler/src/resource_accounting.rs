@@ -112,6 +112,8 @@ impl ResourceAccountingService {
 
         tokio::spawn(async move {
             let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
+            // Skip the immediate first tick — init() already ran the initial computation.
+            interval.tick().await;
 
             loop {
                 interval.tick().await;
@@ -140,7 +142,7 @@ impl ResourceAccountingService {
 
     pub fn get_subscription(
         &self,
-        allocation_name: &String,
+        allocation_name: &str,
         show_id: &Uuid,
     ) -> Option<Subscription> {
         self.cache

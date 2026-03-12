@@ -23,7 +23,6 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use crate::{
-    resource_accounting::resource_accounting_service,
     config::CONFIG,
     dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, UpdatedHostResources},
     metrics,
@@ -34,6 +33,7 @@ use crate::{
         frame_set::FrameSet,
         messages::{DispatchLayerMessage, DispatchResult},
     },
+    resource_accounting::resource_accounting_service,
 };
 use opencue_proto::{
     host::ThreadMode,
@@ -323,6 +323,8 @@ impl RqdDispatcherService {
 
                     // Update the in-memory subscription cache immediately so the next
                     // bookable() check within this dispatch cycle sees the correct state.
+                    // In case the previous commit fails, the next resource recompute cycle
+                    // reconciles the cache
                     resource_accounting_service.record_booking(
                         booking_show_id,
                         &booking_alloc_name,

@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     dao::helpers::parse_uuid,
-    models::{Allocation, CoreSize, Subscription},
+    models::{CoreSize, Subscription},
     pgpool::connection_pool,
 };
 
@@ -62,37 +62,6 @@ impl From<SubscriptionModel> for Subscription {
     }
 }
 
-/// Database model for an allocation.
-///
-/// Maps directly to the database schema with raw column names.
-/// Should be converted to `Allocation` for business logic use.
-#[derive(sqlx::FromRow)]
-pub struct AllocationModel {
-    pub pk_alloc: String,
-    pub str_name: String,
-    pub b_allow_edit: bool,
-    pub b_default: bool,
-    pub str_tag: Option<String>,
-    pub b_billable: bool,
-    pub pk_facility: String,
-    pub b_enabled: Option<bool>,
-}
-
-impl From<AllocationModel> for Allocation {
-    fn from(val: AllocationModel) -> Self {
-        Allocation {
-            id: parse_uuid(&val.pk_alloc),
-            name: val.str_name,
-            allow_edit: val.b_allow_edit,
-            is_default: val.b_default,
-            tag: val.str_tag,
-            billable: val.b_billable,
-            facility_id: parse_uuid(&val.pk_facility),
-            enabled: val.b_enabled.unwrap_or(true),
-        }
-    }
-}
-
 //== Recompute Layer Resource
 static RECOMPUTE_LAYER_RESOURCE_FROM_PROC: &str = r#"
 UPDATE layer_resource lr
@@ -106,9 +75,12 @@ FROM (
     LEFT JOIN proc p ON p.pk_layer = lr2.pk_layer
         AND ($1::text[] IS NULL OR p.pk_show = ANY($1))
     JOIN job j ON j.pk_job = lr2.pk_job AND j.str_state <> 'FINISHED'
+        AND ($1::text[] IS NULL OR j.pk_show = ANY($1))
     GROUP BY lr2.pk_layer
 ) booked
 WHERE lr.pk_layer = booked.pk_layer
+  AND (lr.int_cores IS DISTINCT FROM COALESCE(booked.total_cores, 0)
+    OR lr.int_gpus IS DISTINCT FROM COALESCE(booked.total_gpus, 0))
 "#;
 
 //== Recompute Job Resource
@@ -124,9 +96,12 @@ FROM (
     LEFT JOIN proc p ON p.pk_job = jr2.pk_job
         AND ($1::text[] IS NULL OR p.pk_show = ANY($1))
     JOIN job j ON j.pk_job = jr2.pk_job AND j.str_state <> 'FINISHED'
+        AND ($1::text[] IS NULL OR j.pk_show = ANY($1))
     GROUP BY jr2.pk_job
 ) booked
 WHERE jr.pk_job = booked.pk_job
+  AND (jr.int_cores IS DISTINCT FROM COALESCE(booked.total_cores, 0)
+    OR jr.int_gpus IS DISTINCT FROM COALESCE(booked.total_gpus, 0))
 "#;
 
 //=== Recompute Folder Resources
@@ -140,11 +115,14 @@ FROM (
            SUM(p.int_gpus_reserved)::int AS total_gpus
     FROM folder_resource fr2
     LEFT JOIN job j ON j.pk_folder = fr2.pk_folder AND j.str_state <> 'FINISHED'
+        AND ($1::text[] IS NULL OR j.pk_show = ANY($1))
     LEFT JOIN proc p ON p.pk_job = j.pk_job
         AND ($1::text[] IS NULL OR p.pk_show = ANY($1))
     GROUP BY fr2.pk_folder
 ) booked
 WHERE fr.pk_folder = booked.pk_folder
+  AND (fr.int_cores IS DISTINCT FROM COALESCE(booked.total_cores, 0)
+    OR fr.int_gpus IS DISTINCT FROM COALESCE(booked.total_gpus, 0))
 "#;
 
 //=== Recompute Points
@@ -160,10 +138,13 @@ FROM (
     LEFT JOIN job j ON j.pk_dept = pt2.pk_dept AND j.str_state <> 'FINISHED'
     LEFT JOIN proc p ON p.pk_job = j.pk_job AND p.pk_show = pt2.pk_show
         AND ($1::text[] IS NULL OR p.pk_show = ANY($1))
+    WHERE ($1::text[] IS NULL OR pt2.pk_show = ANY($1))
     GROUP BY pt2.pk_dept, pt2.pk_show
 ) booked
 WHERE pt.pk_dept = booked.pk_dept
   AND pt.pk_show = booked.pk_show
+  AND (pt.int_cores IS DISTINCT FROM COALESCE(booked.total_cores, 0)
+    OR pt.int_gpus IS DISTINCT FROM COALESCE(booked.total_gpus, 0))
 "#;
 
 static QUERY_SHOW_IDS_BY_NAME: &str = r#"
@@ -185,13 +166,14 @@ static RECOMPUTE_BOOKED_FROM_PROC: &str = r#"
     FROM subscription s
     JOIN alloc a ON s.pk_alloc = a.pk_alloc
     LEFT JOIN host h ON h.pk_alloc = a.pk_alloc
-    LEFT JOIN proc p ON p.pk_host = h.pk_host AND p.pk_show = s.pk_show
+    LEFT JOIN proc p ON p.pk_host = h.pk_host AND p.pk_show = s.pk_show AND p.b_local = false
     GROUP BY s.pk_show, a.str_name
 "#;
 
 /// SQL to read all subscription IDs and their current burst values.
 static SELECT_SUBSCRIPTION_BURSTS: &str = r#"
     SELECT pk_subscription, int_burst FROM subscription
+    WHERE ($1::text[] IS NULL OR pk_show = ANY($1))
 "#;
 
 /// Bulk-update subscription booked cores/gpus with burst bypass.
@@ -215,9 +197,13 @@ static RECOMPUTE_SUBSCRIPTION_FROM_PROC: &str = r#"
                         AND p.pk_show = s2.pk_show
                         AND p.b_local = false
                         AND ($1::text[] IS NULL OR p.pk_show = ANY($1))
+        WHERE ($1::text[] IS NULL OR s2.pk_show = ANY($1))
         GROUP BY s2.pk_subscription
     ) booked
     WHERE s.pk_subscription = booked.pk_subscription
+      AND (s.int_cores IS DISTINCT FROM booked.total_cores
+        OR s.int_gpus IS DISTINCT FROM booked.total_gpus
+        OR s.int_burst IS DISTINCT FROM booked.total_cores)
 "#;
 
 /// Restore original burst values after the burst-bypass update.
@@ -281,34 +267,16 @@ impl ResourceAccountingDao {
             show_ids.as_ref().map(|ids| ids.iter().map(|id| id.to_string()).collect());
 
         let bind_value: Option<&[String]> = show_id_strings.as_deref();
+        let pool = self.connection_pool.as_ref();
 
-        sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC)
-            .bind(bind_value)
-            .execute(self.connection_pool.as_ref())
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to recompute layer_resource from proc")?;
-
-        sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
-            .bind(bind_value)
-            .execute(self.connection_pool.as_ref())
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to recompute job_resource from proc")?;
-
-        sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
-            .bind(bind_value)
-            .execute(self.connection_pool.as_ref())
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to recompute folder_resource from proc")?;
-
-        sqlx::query(RECOMPUTE_POINT_FROM_PROC)
-            .bind(bind_value)
-            .execute(self.connection_pool.as_ref())
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to recompute point from proc")?;
+        tokio::try_join!(
+            sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
+            sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
+            sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
+            sqlx::query(RECOMPUTE_POINT_FROM_PROC).bind(bind_value).execute(pool),
+        )
+        .into_diagnostic()
+        .wrap_err("Failed to recompute resource accounting tables from proc")?;
 
         Ok(())
     }
@@ -379,6 +347,7 @@ impl ResourceAccountingDao {
             .wrap_err("Failed to begin transaction for subscription recompute")?;
 
         let burst_rows: Vec<BurstRow> = sqlx::query_as(SELECT_SUBSCRIPTION_BURSTS)
+            .bind(bind_value)
             .fetch_all(&mut *tx)
             .await
             .into_diagnostic()

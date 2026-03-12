@@ -23,7 +23,7 @@ pub use frame::DispatchFrame;
 pub use host::Host;
 pub use job::DispatchJob;
 pub use layer::DispatchLayer;
-pub use subscription::{Allocation, Subscription};
+pub use subscription::Subscription;
 pub use virtual_proc::VirtualProc;
 
 use uuid::Uuid;
