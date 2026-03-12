@@ -36,7 +36,7 @@ The monitoring stack includes:
 | **monitoring-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
 | **Elasticsearch** | Historical data storage | 9200 |
 | **Prometheus** | Metrics collection | 9090 |
-| **Grafana** | Dashboards and visualization | 3000 |
+| **Grafana** | Dashboards and visualization | 3001 |
 | **Kafka UI** | Kafka topic browser | 8090 |
 | **Kibana** | Elasticsearch visualization | 5601 |
 
@@ -44,21 +44,24 @@ The monitoring stack includes:
 
 ### Step 1: Start the monitoring stack
 
-From the OpenCue repository root, start the full monitoring stack:
+From the OpenCue repository root, start the full monitoring stack using Docker Compose profiles:
 
 ```bash
-docker compose -f sandbox/docker-compose.monitoring-full.yml up -d
+# Start core services plus the full monitoring stack
+docker compose --profile monitoring-full up -d
 ```
 
-This command starts all monitoring services along with Cuebot configured to publish events.
+This command starts the core services (db, flyway, cuebot, rqd) along with all monitoring and event streaming services.
 
 Wait for all services to become healthy:
 
 ```bash
-docker compose -f sandbox/docker-compose.monitoring-full.yml ps
+docker compose --profile monitoring-full ps
 ```
 
 All containers should show status `Up` or `healthy`.
+
+> **Note:** To start only basic monitoring (Prometheus, Grafana, Loki) without event streaming, use `--profile monitoring` instead.
 
 ### Step 2: Verify Kafka topics
 
@@ -80,7 +83,7 @@ opencue.proc.events
 
 ### Step 3: Access Grafana
 
-1. Open Grafana at [http://localhost:3000](http://localhost:3000)
+1. Open Grafana at [http://localhost:3001](http://localhost:3001) (port 3001 to avoid conflict with CueWeb)
 2. Log in with:
    - Username: `admin`
    - Password: `admin`
@@ -184,7 +187,7 @@ The pre-configured dashboard includes:
 
 ### Grafana - Dashboards and Visualization
 
-**URL:** [http://localhost:3000](http://localhost:3000)
+**URL:** [http://localhost:3001](http://localhost:3001)
 
 **Login:** admin / admin
 
@@ -271,16 +274,16 @@ Kibana provides a UI for exploring Elasticsearch data:
 
 ## Stopping the monitoring stack
 
-To stop all monitoring services:
+To stop all services (including monitoring):
 
 ```bash
-docker compose -f sandbox/docker-compose.monitoring-full.yml down
+docker compose --profile all down
 ```
 
 To stop and remove all data volumes:
 
 ```bash
-docker compose -f sandbox/docker-compose.monitoring-full.yml down -v
+docker compose --profile all down -v
 ```
 
 ## Troubleshooting
