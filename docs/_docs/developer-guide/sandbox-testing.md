@@ -23,12 +23,15 @@ Before starting, ensure you have:
 
 ## Deployment Options
 
-The sandbox supports two deployment modes:
+The sandbox uses Docker Compose profiles for different deployment modes:
 
-| Mode | Services | Use Case |
-|------|----------|----------|
-| **Basic** | db, flyway, cuebot, rqd | Quick testing with desktop GUI clients |
-| **Full Stack** | db, flyway, cuebot, rqd, rest-gateway, cueweb | Complete deployment including web UI |
+| Profile | Services | Use Case |
+|---------|----------|----------|
+| `default` | db, flyway, cuebot, rqd | Quick testing with desktop GUI clients |
+| `cueweb` | + rest-gateway, cueweb | Web-based interface |
+| `monitoring` | + db-exporter, prometheus, grafana, loki | Metrics and log aggregation |
+| `monitoring-full` | + zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer | Event streaming and historical data |
+| `all` | Everything | Full stack |
 
 ## Basic Sandbox Setup
 
@@ -220,8 +223,8 @@ docker build -t opencue/cuebot -f cuebot/Dockerfile .
 docker build -t opencue/rest-gateway:latest -f rest_gateway/Dockerfile .
 docker build -t opencue/cueweb:latest ./cueweb
 
-# 4. Start the full stack
-docker compose -f sandbox/docker-compose.full.yml up -d
+# 4. Start the full stack using profiles
+docker compose --profile all up -d
 ```
 
 ## Testing the REST Gateway
@@ -308,8 +311,8 @@ docker compose logs -f rqd
 ### Basic Sandbox
 
 ```bash
-# Stop the Docker containers
-docker compose down
+# Stop the Docker containers (use --profile all to ensure all profiles are stopped)
+docker compose --profile all down
 
 # Deactivate the virtual environment
 deactivate
@@ -345,8 +348,8 @@ Ensure these ports are not in use by other applications.
 
 If Cuebot cannot connect to the database:
 ```bash
-# Reset the database
-docker compose down -v
+# Reset the database (removes all volumes)
+docker compose --profile all down -v
 docker compose up
 ```
 
