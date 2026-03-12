@@ -65,28 +65,29 @@ impl ResourceAccountingService {
         match dao.recompute_booked_from_proc().await {
             Ok(booked_map) => {
                 for ((show_id, alloc_name), (cores_booked, gpus_booked)) in booked_map {
-                    if let Some(show_subs) = subs.get_mut(&show_id) {
-                        if let Some(sub) = show_subs.get_mut(&alloc_name) {
-                            sub.booked_cores = CoreSize::from_multiplied(
-                                cores_booked.try_into().unwrap_or_else(|_| {
-                                    warn!(
-                                        "Recomputed booked cores overflowed i32 for \
+                    let Some(show_subs) = subs.get_mut(&show_id) else {
+                        continue;
+                    };
+                    let Some(sub) = show_subs.get_mut(&alloc_name) else {
+                        continue;
+                    };
+                    sub.booked_cores =
+                        CoreSize::from_multiplied(cores_booked.try_into().unwrap_or_else(|_| {
+                            warn!(
+                                "Recomputed booked cores overflowed i32 for \
                                          show={show_id} alloc={alloc_name}, \
                                          using subscription table value"
-                                    );
-                                    sub.booked_cores.value()
-                                }),
                             );
-                            sub.booked_gpus = gpus_booked.try_into().unwrap_or_else(|_| {
-                                warn!(
-                                    "Recomputed booked GPUs overflowed u32 for \
+                            sub.booked_cores.value()
+                        }));
+                    sub.booked_gpus = gpus_booked.try_into().unwrap_or_else(|_| {
+                        warn!(
+                            "Recomputed booked GPUs overflowed u32 for \
                                      show={show_id} alloc={alloc_name}, \
                                      using subscription table value"
-                                );
-                                sub.booked_gpus
-                            });
-                        }
-                    }
+                        );
+                        sub.booked_gpus
+                    });
                 }
             }
             Err(err) => {
@@ -105,11 +106,13 @@ impl ResourceAccountingService {
         })
     }
 
+    /// Resource recalculation loop (layer/job/folder/point/subscription tables)
     fn start_async_loop(&self) {
-        // Resource recalculation loop (layer/job/folder/point tables)
         let dao = self.dao.clone();
         let target_shows_opt = self.target_shows.clone();
 
+        // One async loop to recalculate all resource tables and the point table
+        // (subscription not included)
         tokio::spawn(async move {
             let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
             // Skip the immediate first tick — init() already ran the initial computation.
@@ -128,6 +131,7 @@ impl ResourceAccountingService {
         let dao = self.dao.clone();
         let target_shows = self.target_shows.clone();
 
+        // One separate async loop to recalculate subscriptions
         tokio::spawn(async move {
             let mut interval = time::interval(CONFIG.queue.subscription_recalculation_interval);
             // Skip the immediate first tick — init() already fetched + recomputed on startup.
@@ -140,11 +144,7 @@ impl ResourceAccountingService {
         });
     }
 
-    pub fn get_subscription(
-        &self,
-        allocation_name: &str,
-        show_id: &Uuid,
-    ) -> Option<Subscription> {
+    pub fn get_subscription(&self, allocation_name: &str, show_id: &Uuid) -> Option<Subscription> {
         self.cache
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -158,6 +158,13 @@ impl ResourceAccountingService {
     /// Call this after the frame's database transaction has been committed. The in-memory
     /// `booked_cores` update keeps `bookable()` accurate for subsequent frames in the same
     /// dispatch cycle without waiting for the next DB refresh.
+    ///
+    /// # Arguments
+    ///
+    /// * `show_id` - The UUID of the show to which the booking applies
+    /// * `alloc_name` - The name of the allocation (resource pool) being booked
+    /// * `core_delta` - The change in booked cores (positive for booking, negative for release)
+    /// * `gpu_delta` - The change in booked GPUs (positive for booking, negative for release)
     pub fn record_booking(&self, show_id: Uuid, alloc_name: &str, core_delta: i64, gpu_delta: i32) {
         let mut cache = self.cache.write().unwrap_or_else(|p| p.into_inner());
         if let Some(show_subs) = cache.get_mut(&show_id) {
@@ -188,10 +195,10 @@ impl ResourceAccountingService {
 /// Recomputes the subscription table from proc, then refreshes the in-memory cache.
 ///
 /// **Race window:** bookings committed between the DB recompute and the cache write
-/// may briefly appear as available capacity. This is acceptable because: (a) the window
-/// is bounded to ~3s, (b) host-level resource checks provide a hard safety net against
-/// actual over-dispatch, and (c) the previous delta-tracking approach added significant
-/// complexity for marginal benefit.
+/// may briefly appear as available capacity. This is acceptable because:
+///  - the window is bounded to ~3s,
+///  - host-level resource checks provide a hard safety net against actual over-dispatch, and
+///  - the delta-tracking approach adds significant complexity for marginal benefit.
 async fn recalculate_and_refresh(
     cache: &Arc<RwLock<HashMap<ShowId, HashMap<AllocationName, Subscription>>>>,
     dao: &Arc<ResourceAccountingDao>,

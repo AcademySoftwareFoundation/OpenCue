@@ -542,6 +542,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         boolean schedulerManagesResources =
                 env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
 
+        // When the scheduler is taking care of resource managements, proc destruction should not
+        // update resource tables
         if (!schedulerManagesResources) {
             if (!proc.isLocalDispatch) {
                 getJdbcTemplate().update(
@@ -579,8 +581,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             }
         }
 
+        // Local dispatches are completely handled by cuebot (no integration with the scheduler)
         if (proc.isLocalDispatch) {
-
             getJdbcTemplate().update(
                     "UPDATE " + "job_resource " + "SET " + "int_local_cores = int_local_cores - ?, "
                             + "int_local_gpus = int_local_gpus - ? " + "WHERE " + "pk_job = ?",
@@ -615,11 +617,9 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         boolean schedulerManagesResources =
                 env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
 
+        // When the scheduler is taking care of resource managements, proc creation should not
+        // update resource tables
         if (!schedulerManagesResources) {
-            /**
-             * Not keeping track of local cores this way.
-             */
-
             if (!proc.isLocalDispatch) {
                 getJdbcTemplate().update(
                         "UPDATE " + "subscription " + "SET " + "int_cores = int_cores + ?,"
@@ -635,7 +635,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     proc.coresReserved, proc.gpusReserved, proc.getLayerId());
 
             if (!proc.isLocalDispatch) {
-
                 getJdbcTemplate().update(
                         "UPDATE " + "job_resource " + "SET " + "int_cores = int_cores + ?,"
                                 + "int_gpus = int_gpus + ? " + "WHERE " + "pk_job = ?",
@@ -656,8 +655,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             }
         }
 
+        // Local dispatches are completely handled by cuebot (no integration with the scheduler)
         if (proc.isLocalDispatch) {
-
             getJdbcTemplate().update(
                     "UPDATE " + "job_resource " + "SET " + "int_local_cores = int_local_cores + ?,"
                             + "int_local_gpus = int_local_gpus + ? " + "WHERE " + "pk_job = ?",
