@@ -35,6 +35,10 @@ pub trait SystemManager {
     /// List of attributes collected from the machine. Eg. SP_OS
     fn attributes(&self) -> &HashMap<String, String>;
 
+    /// Returns the hyperthreading multiplier (threads per physical core).
+    /// A value > 1 indicates hyperthreading is enabled.
+    fn hyperthreading_multiplier(&self) -> u32;
+
     /// Creates an user if it doesn't already exist
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
 

@@ -866,6 +866,10 @@ impl SystemManager for LinuxSystem {
         &self.attributes
     }
 
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
+    }
+
     fn collect_gpu_stats(&self) -> MachineGpuStats {
         // TODO: missing implementation, returning dummy val
         MachineGpuStats {
