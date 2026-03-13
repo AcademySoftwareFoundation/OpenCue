@@ -279,7 +279,8 @@ impl RqdDispatcherService {
             // Capture booking info before virtual_proc is moved into dispatch_virtual_proc.
             let booking_show_id = virtual_proc.show_id;
             let booking_alloc_name = allocation_name.clone();
-            let booking_core_delta = virtual_proc.cores_reserved.value() as i64;
+            let cores_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
+            let booking_core_delta = cores_without_multiplier.value() as i64;
             let booking_gpu_delta = virtual_proc.gpus_reserved as i32;
 
             // Each proc should run on its own transaction
@@ -777,7 +778,10 @@ impl RqdDispatcherService {
         let cores_reserved =
             Self::calculate_core_reservation(&host, frame, memory_stranded_threshold);
 
-        if cores_reserved > host.total_cores || cores_reserved > host.idle_cores {
+        if cores_reserved.value() <= 0
+            || cores_reserved > host.total_cores
+            || cores_reserved > host.idle_cores
+        {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
                 "Not enough cores: {} < {}",
                 host.idle_cores, cores_reserved
