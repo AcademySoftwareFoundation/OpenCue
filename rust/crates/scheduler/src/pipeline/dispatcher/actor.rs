@@ -743,12 +743,21 @@ impl RqdDispatcherService {
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
         match (host.thread_mode, frame.threadable) {
-            (ThreadMode::All, _) => host.idle_cores,
+            (ThreadMode::All, true) => {
+                let mut cores = host.idle_cores;
+                if let Some(limit) = frame.layer_cores_limit {
+                    if limit.value() > 0 && cores > limit {
+                        cores = limit;
+                    }
+                }
+                cores
+            }
+            (ThreadMode::All, false) => cores_requested,
             // Limit Variable booking to at least 2 cores
             (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
-                if frame.has_selfish_service
+                let cores = if frame.has_selfish_service
                     || host
                         .idle_memory
                         .as_u64()
@@ -758,7 +767,14 @@ impl RqdDispatcherService {
                     host.idle_cores
                 } else {
                     Self::calculate_memory_balanced_core_count(host, frame, cores_requested)
+                };
+                // Apply layer_cores_limit cap
+                if let Some(limit) = frame.layer_cores_limit {
+                    if limit.value() > 0 && cores > limit {
+                        return limit;
+                    }
                 }
+                cores
             }
             _ => cores_requested,
         }
@@ -1201,6 +1217,40 @@ mod tests {
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
         assert_eq!(result, CoreSize(6)); // Should return idle_cores
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_thread_mode_all_not_threadable() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(6);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = false;
+        frame.min_cores = CoreSize(1);
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert_eq!(result, CoreSize(1)); // Non-threadable should return cores_requested
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_thread_mode_all_with_layer_limit() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(6);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
+        frame.layer_cores_limit = Some(CoreSize(2));
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert_eq!(result, CoreSize(2)); // Should cap at layer_cores_limit
     }
 
     #[tokio::test]
