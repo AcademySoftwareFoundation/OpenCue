@@ -442,8 +442,18 @@ impl LinuxSystem {
             .unwrap_or_else(|err| err.into_inner());
         sysinfo.refresh_memory();
 
+        let available_memory = sysinfo.available_memory();
+        let total_memory = sysinfo.total_memory();
+        debug!(
+            "Memory stats: available_memory={} bytes ({:.1} GiB), total_memory={} bytes ({:.1} GiB)",
+            available_memory,
+            available_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+            total_memory,
+            total_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+        );
+
         Ok(MachineDynamicInfo {
-            available_memory: sysinfo.available_memory(),
+            available_memory,
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
@@ -691,7 +701,7 @@ impl LinuxSystem {
                 ),
                 _ => Err(miette!("Invalid /proc/{pid}/statm file"))?,
             };
-            let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
+            let virtual_memory = vsize;
 
             // Try PSS, fallback to RSS if unavailable
             let pss = self.read_pss(pid).unwrap_or(rss);
@@ -815,8 +825,8 @@ impl LinuxSystem {
                                 a.1 + b.1,
                                 a.2 + b.2,
                                 a.3 + b.3,
-                                std::cmp::min(a.3, b.3),
-                                std::cmp::max(a.4, b.4),
+                                std::cmp::min(a.4, b.4),
+                                std::cmp::max(a.5, b.5),
                             )
                         })
                         .unwrap_or((0, 0, 0, 0, u64::MAX, 0))
