@@ -45,8 +45,8 @@ pub struct Subscription {
     /// Number of CPU cores allocated
     pub booked_cores: CoreSize,
 
-    /// Number of GPUs allocated
-    pub gpus: u32,
+    /// Number of GPUs currently booked against this subscription
+    pub booked_gpus: u32,
 }
 
 /// Represents an allocation (resource pool) in the system.

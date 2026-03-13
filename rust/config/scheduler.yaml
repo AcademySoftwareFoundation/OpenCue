@@ -109,9 +109,13 @@ queue:
   # Default: 250MiB
   # mem_reserved_min: 250MiB
 
-  # Interval to refresh allocation data
+  # Interval to recalculate subscription table from proc
   # Default: 3s
-  # allocation_refresh_interval: 3s
+  # subscription_recalculation_interval: 3s
+
+  # Interval to recalculate resource tables (layer/job/folder/point) from proc
+  # Default: 10s
+  # resource_recalculation_interval: 10s
 
   # List of services that are selfish (require exclusive host access)
   # Default: []

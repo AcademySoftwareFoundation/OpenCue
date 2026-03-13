@@ -10,7 +10,6 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-pub mod allocation;
 pub mod cluster;
 pub mod cluster_key;
 pub mod config;
@@ -20,3 +19,4 @@ pub mod metrics;
 pub mod models;
 pub mod pgpool;
 pub mod pipeline;
+pub mod resource_accounting;
