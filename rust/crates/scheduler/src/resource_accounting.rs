@@ -171,7 +171,7 @@ impl ResourceAccountingService {
             if let Some(sub) = show_subs.get_mut(alloc_name) {
                 let new_booked = sub.booked_cores.value() as i64 + core_delta;
                 sub.booked_cores =
-                    CoreSize::from_multiplied(new_booked.try_into().unwrap_or_else(|_| {
+                    CoreSize(new_booked.try_into().unwrap_or_else(|_| {
                         warn!(
                             "Booked cores overflowed i32 for show={show_id} \
                              alloc={alloc_name}, using previous value"
