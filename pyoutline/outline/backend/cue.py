@@ -92,7 +92,9 @@ def build_command(launcher, layer):
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
     command.append("--version %s" % outline.versions.get_version("outline"))
-    command.append("--repos %s" % outline.versions.get_repos())
+    repos = outline.versions.get_repos()
+    if repos:
+        command.append("--repos %s" % repos)
     command.append("--debug")
 
     if launcher.get("dev"):
@@ -312,7 +314,15 @@ def _serialize(launcher, use_pycuerun):
             sub_element(spec_layer, "cmd",
                         " ".join(build_command(launcher, layer)))
         else:
-            sub_element(spec_layer, "cmd", " ".join(layer.get_arg("command")))
+            cmd = layer.get_arg("command")
+            if cmd is None:
+                raise TypeError(
+                    "Layer '%s' has no command. Custom Layer subclasses require "
+                    "use_pycuerun=True." % layer.get_name())
+            if isinstance(cmd, str):
+                sub_element(spec_layer, "cmd", cmd)
+            else:
+                sub_element(spec_layer, "cmd", " ".join(cmd))
         sub_element(spec_layer, "range", str(frame_range))
         sub_element(spec_layer, "chunk", str(layer.get_chunk_size()))
 
