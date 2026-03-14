@@ -139,6 +139,16 @@ functionality. Used by client applications and custom scripts to interact with
 Cuebot's gRPC interface. OpenCue client-side Python tools, such as *CueGUI* and
 *CueAdmin*, all use PyCue for communicating with your OpenCue deployment.
 
+## PyCuerun
+
+The command-line tool for launching *PyOutline* scripts to the OpenCue render
+farm. PyCuerun serves a dual role: it submits jobs to *Cuebot* from the user's
+machine, and it executes individual *frames* on render *hosts* when invoked by
+Cuebot at dispatch time. PyCuerun is included in the PyOutline package and
+supports options for pausing, waiting, debugging, inspecting, and overriding
+frame ranges. It also handles legacy argument translation and plugin-based CLI
+extensions.
+
 ## PyOutline
 
 A Python library for creating job specifications and render job descriptions.

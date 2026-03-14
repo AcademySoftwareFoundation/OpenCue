@@ -182,6 +182,27 @@ test_cueadmin() {
 }
 
 run_job() {
+    SESSION_DIR="$(mktemp -d)"
+    export OUTLINE_CONFIG_FILE="$(mktemp)"
+    cat > "$OUTLINE_CONFIG_FILE" <<CFGEOF
+[outline]
+home =
+session_dir = ${SESSION_DIR}
+wrapper_dir = %(home)s/wrappers
+user_dir =
+bin_dir = %(home)s/bin
+backend = cue
+spec_version = 1.15
+facility = local
+domain = example.com
+maxretries = 2
+default_show = testing
+default_shot = default
+
+[plugin:local]
+module=outline.plugins.local
+enable=1
+CFGEOF
     samples/pyoutline/basic_job.py
     job_name="testing-shot01-${USER}_basic_job"
     samples/pycue/wait_for_job.py "${job_name}" --timeout 300
