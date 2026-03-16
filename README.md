@@ -63,13 +63,28 @@ docker compose up -d
 docker compose ps
 ```
 
-By default, only core services are enabled. To enable optional components (Web UI, Monitoring, Event Streaming),
-uncomment the relevant sections in `docker-compose.yml`. See the file header for detailed instructions.
+Optional components are managed via **Docker Compose profiles**:
 
-**Optional Components:**
-- **Web UI**: `rest-gateway`, `cueweb` - REST gateway and Web interface (CueWeb)
-- **Monitoring**: `prometheus`, `grafana`, `loki` - Metrics, dashboards, and logging
-- **Event Streaming**: `kafka`, `elasticsearch`, `kibana` - Historical data and analytics
+| Profile | Services |
+|---------|----------|
+| `default` | cuebot, db, flyway, rqd |
+| `cueweb` | rest-gateway, cueweb |
+| `monitoring` | db-exporter, prometheus, grafana, loki |
+| `monitoring-full` | zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer |
+| `all` | everything |
+
+```bash
+# Enable Web UI and monitoring
+docker compose --profile cueweb --profile monitoring up -d
+
+# Enable all services
+docker compose --profile all up -d
+
+# Stop all profiles (recommended to ensure everything is brought down)
+docker compose --profile all down
+```
+
+See the `docker-compose.yml` header for detailed instructions and access endpoints.
 
 ## Sandbox Environment
 
