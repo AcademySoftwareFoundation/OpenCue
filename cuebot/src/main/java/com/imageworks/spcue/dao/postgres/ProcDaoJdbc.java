@@ -27,6 +27,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -71,11 +72,23 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return false;
     }
 
-    private static final String DELETE_VIRTUAL_PROC =
-            "DELETE FROM " + "proc " + "WHERE " + "pk_proc=?";
+    private static final String DELETE_VIRTUAL_PROC = "DELETE FROM " + "proc " + "WHERE "
+            + "pk_proc=? " + "RETURNING int_cores_reserved, int_mem_reserved, "
+            + "int_gpus_reserved, int_gpu_mem_reserved";
 
     public boolean deleteVirtualProc(VirtualProc proc) {
-        if (getJdbcTemplate().update(DELETE_VIRTUAL_PROC, proc.getProcId()) == 0) {
+        try {
+            Map<String, Object> result =
+                    getJdbcTemplate().queryForMap(DELETE_VIRTUAL_PROC, proc.getProcId());
+            // Use the actual DB values at deletion time, not the potentially stale
+            // values from when the VirtualProc Java object was loaded. This prevents
+            // a memory accounting leak caused by increaseReservedMemory (and its
+            // trigger on host.int_mem_idle) racing with proc deletion.
+            proc.coresReserved = ((Number) result.get("int_cores_reserved")).intValue();
+            proc.memoryReserved = ((Number) result.get("int_mem_reserved")).longValue();
+            proc.gpusReserved = ((Number) result.get("int_gpus_reserved")).intValue();
+            proc.gpuMemoryReserved = ((Number) result.get("int_gpu_mem_reserved")).longValue();
+        } catch (EmptyResultDataAccessException e) {
             logger.info("failed to delete " + proc + " , proc does not exist.");
             return false;
         }
@@ -414,14 +427,26 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     public boolean increaseReservedMemory(ProcInterface p, long value) {
         try {
-            return getJdbcTemplate().update(
-                    "UPDATE proc SET int_mem_reserved=? WHERE pk_proc=? AND int_mem_reserved < ?",
-                    value, p.getProcId(), value) == 1;
+            Long currentReserved = getJdbcTemplate().queryForObject(
+                    "SELECT int_mem_reserved FROM proc WHERE pk_proc = ? FOR UPDATE", Long.class,
+                    p.getProcId());
+
+            if (currentReserved >= value) {
+                return false;
+            }
+
+            getJdbcTemplate().update("UPDATE proc SET int_mem_reserved = ? WHERE pk_proc = ?",
+                    value, p.getProcId());
+            // The trigger upgrade_proc_memory_usage automatically adjusts
+            // host.int_mem_idle by -(NEW.int_mem_reserved - OLD.int_mem_reserved)
+
+            return true;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
         } catch (Exception e) {
-            // check by trigger erify_host_resources
             throw new ResourceReservationFailureException(
                     "failed to increase memory reservation for proc " + p.getProcId() + " to "
-                            + value + ", proc does not have that much memory to spare.");
+                            + value + ", " + e.getMessage());
         }
     }
 
