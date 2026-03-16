@@ -101,6 +101,11 @@ public class HostReportHandler {
     @Autowired
     private PrometheusMetricsCollector prometheusMetrics;
 
+    // Reconcile idle resources roughly every 10 minutes per host.
+    // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
+    private static final long RECONCILE_INTERVAL_MS = 600_000;
+    private static final long RECONCILE_WINDOW_MS = 10_000;
+
     // Comment constants
     private static final String SUBJECT_COMMENT_FULL_TEMP_DIR =
             "Host set to REPAIR for not having enough storage "
@@ -227,6 +232,27 @@ public class HostReportHandler {
              * Verify all the frames in the report are valid. Frames that are not valid are removed.
              */
             List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
+
+            // Use modulo arithmetic to trigger reconciliation roughly once every
+            // RECONCILE_INTERVAL_MS (10 min). The check fires when the current time
+            // falls within the first RECONCILE_WINDOW_MS (10s) of each interval.
+            // Example: with RECONCILE_INTERVAL_MS=600,000 and RECONCILE_WINDOW_MS=10,000,
+            //   at t=1,209,000ms -> 1,209,000 % 600,000 = 9,000 < 10,000 -> triggers
+            //   at t=1,215,000ms -> 1,215,000 % 600,000 = 15,000 < 10,000 -> skips
+            //   at t=1,809,000ms -> 1,809,000 % 600,000 = 9,000 < 10,000 -> triggers
+            // With host reports every 10s, ~1 report per host lands in each window.
+            if (System.currentTimeMillis() % RECONCILE_INTERVAL_MS < RECONCILE_WINDOW_MS) {
+                try {
+                    if (hostManager.reconcileIdleResources(host)) {
+                        logger.warn(host.getName()
+                                + " idle memory was out of sync and has been reconciled");
+                        host = hostManager.findDispatchHost(rhost.getName());
+                    }
+                } catch (Exception e) {
+                    logger.info("Failed to reconcile idle resources for "
+                            + host.getName() + ": " + e);
+                }
+            }
 
             /*
              * Updates memory usage for the proc, frames, jobs, and layers. And LLU time for the
