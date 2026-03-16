@@ -254,8 +254,8 @@ public interface HostManager {
     void updateHostTags(DispatchHost host, RenderHost rhost);
 
     /**
-     * Reconcile idle resources by recomputing from actual proc reservations.
-     * Returns true if drift was detected and corrected.
+     * Reconcile idle resources by recomputing from actual proc reservations. Returns true if drift
+     * was detected and corrected.
      *
      * @param host HostInterface
      * @return boolean

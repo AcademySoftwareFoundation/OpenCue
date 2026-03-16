@@ -321,8 +321,8 @@ public interface HostDao {
     void updateHostResources(HostInterface host, HostReport report);
 
     /**
-     * Reconcile idle memory and GPU memory by recomputing from actual proc reservations.
-     * Returns true if drift was detected and corrected.
+     * Reconcile idle memory and GPU memory by recomputing from actual proc reservations. Returns
+     * true if drift was detected and corrected.
      *
      * @param host HostInterface
      * @return boolean

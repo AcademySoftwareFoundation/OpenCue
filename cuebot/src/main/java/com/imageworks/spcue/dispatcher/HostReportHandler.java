@@ -237,9 +237,9 @@ public class HostReportHandler {
             // RECONCILE_INTERVAL_MS (10 min). The check fires when the current time
             // falls within the first RECONCILE_WINDOW_MS (10s) of each interval.
             // Example: with RECONCILE_INTERVAL_MS=600,000 and RECONCILE_WINDOW_MS=10,000,
-            //   at t=1,209,000ms -> 1,209,000 % 600,000 = 9,000 < 10,000 -> triggers
-            //   at t=1,215,000ms -> 1,215,000 % 600,000 = 15,000 < 10,000 -> skips
-            //   at t=1,809,000ms -> 1,809,000 % 600,000 = 9,000 < 10,000 -> triggers
+            // at t=1,209,000ms -> 1,209,000 % 600,000 = 9,000 < 10,000 -> triggers
+            // at t=1,215,000ms -> 1,215,000 % 600,000 = 15,000 < 10,000 -> skips
+            // at t=1,809,000ms -> 1,809,000 % 600,000 = 9,000 < 10,000 -> triggers
             // With host reports every 10s, ~1 report per host lands in each window.
             if (System.currentTimeMillis() % RECONCILE_INTERVAL_MS < RECONCILE_WINDOW_MS) {
                 try {
@@ -249,8 +249,8 @@ public class HostReportHandler {
                         host = hostManager.findDispatchHost(rhost.getName());
                     }
                 } catch (Exception e) {
-                    logger.info("Failed to reconcile idle resources for "
-                            + host.getName() + ": " + e);
+                    logger.info(
+                            "Failed to reconcile idle resources for " + host.getName() + ": " + e);
                 }
             }
 

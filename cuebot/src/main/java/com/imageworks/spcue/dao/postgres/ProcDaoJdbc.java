@@ -428,15 +428,14 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     public boolean increaseReservedMemory(ProcInterface p, long value) {
         try {
             Long currentReserved = getJdbcTemplate().queryForObject(
-                    "SELECT int_mem_reserved FROM proc WHERE pk_proc = ? FOR UPDATE",
-                    Long.class, p.getProcId());
+                    "SELECT int_mem_reserved FROM proc WHERE pk_proc = ? FOR UPDATE", Long.class,
+                    p.getProcId());
 
             if (currentReserved >= value) {
                 return false;
             }
 
-            getJdbcTemplate().update(
-                    "UPDATE proc SET int_mem_reserved = ? WHERE pk_proc = ?",
+            getJdbcTemplate().update("UPDATE proc SET int_mem_reserved = ? WHERE pk_proc = ?",
                     value, p.getProcId());
             // The trigger upgrade_proc_memory_usage automatically adjusts
             // host.int_mem_idle by -(NEW.int_mem_reserved - OLD.int_mem_reserved)
@@ -446,8 +445,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             return false;
         } catch (Exception e) {
             throw new ResourceReservationFailureException(
-                    "failed to increase memory reservation for proc " + p.getProcId()
-                            + " to " + value + ", " + e.getMessage());
+                    "failed to increase memory reservation for proc " + p.getProcId() + " to "
+                            + value + ", " + e.getMessage());
         }
     }
 
