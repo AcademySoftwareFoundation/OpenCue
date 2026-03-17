@@ -1,16 +1,16 @@
 // OpenCue Dark color scheme for Just the Docs theme (improved contrast)
 
 // Dark mode colors with better readability
-$dark-bg: #1e1e1e;                   // Main background (lighter than before)
-$dark-sidebar: #2d2d30;              // Sidebar background
-$dark-card: #3c3c3c;                 // Card/elevated background
-$dark-border: #3e3e42;               // Border color
-$dark-border-strong: #30363d;        // Stronger border for tables/code
-$dark-text: #d4d4d4;                 // Primary text (improved contrast)
-$dark-muted: #8b8b8b;                // Muted text
-$dark-link: #58a6ff;                 // Links (GitHub blue)
-$dark-link-hover: #79c0ff;           // Link hover
-$dark-purple: #b19cd9;               // Purple accent
+$dark-bg: #0f172a;                   // Main background (deep slate)
+$dark-sidebar: #1e293b;              // Sidebar background
+$dark-card: #334155;                 // Card/elevated background
+$dark-border: #334155;               // Border color
+$dark-border-strong: #1e293b;        // Stronger border for tables/code
+$dark-text: #e2e8f0;                 // Primary text (improved contrast)
+$dark-muted: #94a3b8;                // Muted text
+$dark-link: #818cf8;                 // Links (Indigo 400)
+$dark-link-hover: #a5b4fc;           // Link hover
+$dark-purple: #818cf8;               // Indigo accent
 $dark-green: #6fc280;                // Success green
 $dark-red: #ff7979;                  // Error red
 $dark-yellow: #ffd93d;               // Warning yellow

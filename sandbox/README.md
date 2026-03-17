@@ -155,88 +155,68 @@ cuegui &
 cuesubmit &
 ```
 
-## OpenCue Full Stack Deployment
+## Docker Compose Profiles
 
-The sandbox environment includes support for deploying the complete OpenCue stack with all services:
+The main `docker-compose.yml` at the repository root uses profiles to manage optional services:
 
-- **db**: PostgreSQL database for storing OpenCue data
-- **flyway**: Database migration tool for schema management
-- **cuebot**: The OpenCue server that manages jobs, frames, and hosts
-- **rqd**: The render queue daemon that runs on render hosts
-- **rest-gateway**: HTTP/REST API gateway for web access
-- **cueweb**: Web UI for monitoring and managing OpenCue
+| Profile | Services |
+|---------|----------|
+| `default` | cuebot, db, flyway, rqd (always started) |
+| `cueweb` | rest-gateway, cueweb |
+| `monitoring` | db-exporter, prometheus, grafana, loki |
+| `monitoring-full` | zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer |
+| `all` | everything |
 
-### Quick Start with Full Stack
-
-The easiest way to deploy the full stack is using the deployment script:
+### Full Stack Deployment
 
 ```bash
 # From the OpenCue root directory
-./sandbox/deploy_opencue_full.sh
-```
-
-This script will:
-- Build all required Docker images (Cuebot, REST Gateway, CueWeb)
-- Generate a JWT secret for authentication
-- Start all services (db, flyway, cuebot, rqd, rest-gateway, cueweb)
-- Display access URLs
-
-### Manual Deployment
-
-If you prefer manual deployment:
-
-```bash
-# 1. Create required directories
 mkdir -p /tmp/rqd/logs /tmp/rqd/shots
 
-# 2. Generate a JWT secret
-export JWT_SECRET=$(openssl rand -base64 32)
+# Core only
+docker compose up -d
 
-# 3. Build the images
-docker build -t opencue/cuebot -f cuebot/Dockerfile .
-docker build -t opencue/rest-gateway:latest -f rest_gateway/Dockerfile .
-docker build -t opencue/cueweb:latest ./cueweb
+# Core + Web UI
+docker compose --profile cueweb up -d
 
-# 4. Start the full stack
-docker compose -f sandbox/docker-compose.full.yml up -d
+# Core + Web UI + Monitoring
+docker compose --profile cueweb --profile monitoring up -d
+
+# Everything
+docker compose --profile all up -d
 ```
 
 ### Access Services
 
 Once deployed, access the services at:
 
-- **CueWeb UI**: http://localhost:3000
-- **REST Gateway**: http://localhost:8448
+- **CueWeb UI**: http://localhost:3000 (requires `cueweb` profile)
+- **REST Gateway**: http://localhost:8448 (requires `cueweb` profile)
 - **Cuebot gRPC**: localhost:8443
 - **PostgreSQL**: localhost:5432
 - **RQD**: localhost:8444
+- **Grafana**: http://localhost:3001 (requires `monitoring` profile)
+- **Prometheus**: http://localhost:9090 (requires `monitoring` profile)
 
 ### Managing Services
 
 ```bash
 # Check service status
-./sandbox/deploy_opencue_full.sh status
+docker compose ps
 
 # View logs
-./sandbox/deploy_opencue_full.sh logs
+docker compose logs -f
 
 # View specific service logs
-./sandbox/deploy_opencue_full.sh logs cuebot
-./sandbox/deploy_opencue_full.sh logs rqd
-./sandbox/deploy_opencue_full.sh logs flyway
-./sandbox/deploy_opencue_full.sh logs db
-./sandbox/deploy_opencue_full.sh logs cueweb
-./sandbox/deploy_opencue_full.sh logs rest-gateway
+docker compose logs -f cuebot
+docker compose logs -f rqd
+docker compose logs -f cueweb
 
-# Stop all services
-./sandbox/deploy_opencue_full.sh down
+# Stop all services (use --profile all to ensure all profiles are stopped)
+docker compose --profile all down
 
-# Rebuild and restart
-./sandbox/deploy_opencue_full.sh build
-./sandbox/deploy_opencue_full.sh up
-
-# Clean up everything (removes volumes and images)
-./sandbox/deploy_opencue_full.sh clean
+# Remove all data volumes
+docker compose --profile all down -v
 ```
 
 ### Testing the REST Gateway
@@ -272,8 +252,14 @@ For more information on CueWeb and the REST Gateway, see:
 
 ## Monitoring
 
-To get started with monitoring there is also an additional Docker compose file which sets up
-monitoring for key services.
+To start monitoring services, use the `monitoring` or `monitoring-full` profile:
 
-To learn how to run the sandbox environment with monitoring,
-see https://www.opencue.io/docs/other-guides/monitoring-with-prometheus-loki-and-grafana/.
+```bash
+# Basic monitoring (Prometheus, Grafana, Loki)
+docker compose --profile monitoring up -d
+
+# Full monitoring with event streaming (adds Kafka, Elasticsearch, Kibana)
+docker compose --profile monitoring-full up -d
+```
+
+To learn more about monitoring, see https://docs.opencue.io/docs/other-guides/monitoring-with-prometheus-loki-and-grafana/.
