@@ -263,17 +263,26 @@ impl ResourceAccountingDao {
     }
 
     pub async fn recompute_all_from_proc(&self, show_ids: &Option<Vec<Uuid>>) -> Result<()> {
-        let show_id_strings: Option<Vec<String>> =
-            show_ids.as_ref().map(|ids| ids.iter().map(|id| id.to_string()).collect());
+        let show_id_strings: Option<Vec<String>> = show_ids
+            .as_ref()
+            .map(|ids| ids.iter().map(|id| id.to_string()).collect());
 
         let bind_value: Option<&[String]> = show_id_strings.as_deref();
         let pool = self.connection_pool.as_ref();
 
         tokio::try_join!(
-            sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
-            sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
-            sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC).bind(bind_value).execute(pool),
-            sqlx::query(RECOMPUTE_POINT_FROM_PROC).bind(bind_value).execute(pool),
+            sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC)
+                .bind(bind_value)
+                .execute(pool),
+            sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
+                .bind(bind_value)
+                .execute(pool),
+            sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
+                .bind(bind_value)
+                .execute(pool),
+            sqlx::query(RECOMPUTE_POINT_FROM_PROC)
+                .bind(bind_value)
+                .execute(pool),
         )
         .into_diagnostic()
         .wrap_err("Failed to recompute resource accounting tables from proc")?;
@@ -324,12 +333,10 @@ impl ResourceAccountingDao {
     /// The `verify_subscription` trigger fires when `NEW.int_burst = OLD.int_burst AND
     /// NEW.int_cores > OLD.int_cores`, raising an exception if cores exceed burst.
     /// Step 2 changes burst in the same UPDATE so the trigger condition is never met.
-    pub async fn recompute_subscription_table(
-        &self,
-        show_ids: &Option<Vec<Uuid>>,
-    ) -> Result<()> {
-        let show_id_strings: Option<Vec<String>> =
-            show_ids.as_ref().map(|ids| ids.iter().map(|id| id.to_string()).collect());
+    pub async fn recompute_subscription_table(&self, show_ids: &Option<Vec<Uuid>>) -> Result<()> {
+        let show_id_strings: Option<Vec<String>> = show_ids
+            .as_ref()
+            .map(|ids| ids.iter().map(|id| id.to_string()).collect());
         let bind_value: Option<&[String]> = show_id_strings.as_deref();
 
         // Step 1: Save original burst values
@@ -353,7 +360,10 @@ impl ResourceAccountingDao {
             .into_diagnostic()
             .wrap_err("Failed to read subscription burst values")?;
 
-        let ids: Vec<String> = burst_rows.iter().map(|r| r.pk_subscription.clone()).collect();
+        let ids: Vec<String> = burst_rows
+            .iter()
+            .map(|r| r.pk_subscription.clone())
+            .collect();
         let bursts: Vec<i64> = burst_rows.iter().map(|r| r.int_burst).collect();
 
         // Step 2: Bulk update cores/gpus with burst bypass
