@@ -49,5 +49,10 @@ public enum MaintenanceTask {
     /**
      * Lock the subscription recalculation task.
      */
-    LOCK_SUBSCRIPTION_RECALCULATION
+    LOCK_SUBSCRIPTION_RECALCULATION,
+
+    /**
+     * Lock the stuck dependency recovery task.
+     */
+    LOCK_STUCK_DEPENDENCY_RECOVERY
 }
