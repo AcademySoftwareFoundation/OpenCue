@@ -96,7 +96,7 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
                 + "WHERE f.pk_job = d.pk_job_depend_on "
                 + "AND f.str_state NOT IN ('SUCCEEDED', 'EATEN')) "
 
-            + "UNION "
+            + "UNION ALL "
 
             // Section 2: Layer-level depends where all frames in the layer succeeded or were eaten.
             + "SELECT pk_depend FROM depend d "
@@ -109,7 +109,7 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
                 + "WHERE f.pk_layer = d.pk_layer_depend_on "
                 + "AND f.str_state NOT IN ('SUCCEEDED', 'EATEN')) "
 
-            + "UNION "
+            + "UNION ALL "
 
             // Section 3: Frame-level depends where the specific frame succeeded or was eaten.
             + "SELECT pk_depend FROM depend d "
