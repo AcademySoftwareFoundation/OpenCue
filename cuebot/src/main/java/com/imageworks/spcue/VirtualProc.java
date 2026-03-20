@@ -149,7 +149,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                                 - frame.getMinMemory() <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
                             proc.coresReserved = wholeCores * 100;
                         } else {
-                            proc.coresReserved = getCoreSpan(host, frame.getMinMemory());
+                            proc.coresReserved =
+                                    getCoreSpan(host, frame.getMinMemory(), frame.maxCores);
                         }
                     }
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE && proc.coresReserved <= 200) {
@@ -261,6 +262,19 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * @return
      */
     public static int getCoreSpan(DispatchHost host, long minMemory) {
+        return getCoreSpan(host, minMemory, 0);
+    }
+
+    /**
+     * Allocates additional cores when the frame is using more than a single core's worth of memory,
+     * bounded by maxCores when set.
+     *
+     * @param host
+     * @param minMemory
+     * @param maxCores maximum cores allowed (0 means no limit)
+     * @return
+     */
+    public static int getCoreSpan(DispatchHost host, long minMemory, int maxCores) {
         int totalCores = (int) (Math.floor(host.cores / 100.0));
         int idleCores = (int) (Math.floor(host.idleCores / 100.0));
         if (idleCores < 1) {
@@ -270,6 +284,12 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         long memPerCore = host.idleMemory / totalCores;
         double procs = minMemory / (double) memPerCore;
         int reserveCores = (int) (Math.round(procs)) * 100;
+
+        // Respect max cores even when the memory-per-core guideline
+        // would allocate more cores than the frame is allowed to use.
+        if (maxCores > 0 && reserveCores > maxCores) {
+            reserveCores = maxCores;
+        }
 
         return reserveCores;
     }
