@@ -1076,6 +1076,31 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
+
+    reorder_dispatch_info = ["Reorder Dispatch...", None, "configure"]
+
+    def reorder_dispatch(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if not layers:
+            return
+
+        body = "Which dispatch order to set?"
+        if len(layers) > 1:
+            title = "Reorder layers"
+            for layer in layers:
+                body += '\n%s' % layer.data.name
+        else:
+            title = "Reorder layer %s" % layer.data.name
+
+        (order, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body, 1, 1, 100000, 1)
+        if not choice:
+            return
+
+        for layer in layers:
+            self.cuebotCall(layer.setDispatchOrder, "Reorder Dispatch Failed", order)
+
+        self._update()
+
     reorder_info = ["Reorder Frames...", None, "configure"]
 
     def reorder(self, rpcObjects=None):
