@@ -127,6 +127,17 @@ class Layer(object):
         return self.stub.SetTags(job_pb2.LayerSetTagsRequest(layer=self.data, tags=tags),
                                  timeout=Cuebot.Timeout)
 
+    def setDispatchOrder(self, order):
+        """Sets the dispatch order for this layer.
+
+        :type  order: int
+        :param order: layer dipsatch order
+        """
+        return self.stub.SetDispatchOrder(
+            job_pb2.LayerSetDispatchOrderRequest(layer=self.data, order=order),
+            timeout=Cuebot.Timeout)
+
+
     def setMaxCores(self, cores):
         """Sets the maximum number of cores that this layer requires.
 

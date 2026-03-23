@@ -358,6 +358,9 @@ service LayerInterface {
     // Retry the Frames of this Layer
     rpc RetryFrames(LayerRetryFramesRequest) returns (LayerRetryFramesResponse);
 
+    // Set the Dispatch Order of this Layer
+    rpc SetDispatchOrder(LayerSetDispatchOrderRequest) returns (LayerSetDispatchOrderResponse);
+
     // The maximum number of cores to run on a given frame within this layer.  Fractional core values are not allowed
     // with this setting.
     rpc SetMaxCores(LayerSetMaxCoresRequest) returns (LayerSetMaxCoresResponse);
@@ -1687,6 +1690,13 @@ message LayerRetryFramesRequest {
 }
 
 message LayerRetryFramesResponse {} // Empty
+
+message LayerSetDispatchOrderRequest {
+    Layer layer = 1;
+    int32 order = 2;
+}
+
+message LayerSetDispatchOrderResponse {} // Empty
 
 // RegisterOutputPath
 message LayerRegisterOutputPathRequest {
