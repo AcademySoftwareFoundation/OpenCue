@@ -50,6 +50,7 @@ from builtins import range
 import os
 
 from qtpy import QtCore
+import grpc
 
 import cuegui.Logger
 
@@ -213,6 +214,16 @@ class ThreadPool(QtCore.QObject):
                     if work[1]:
                         self.workComplete.emit(work, result)
                         del result
+                except grpc.RpcError as e:
+                    # Handle gRPC errors gracefully - these are often transient
+                    # pylint: disable=no-member
+                    if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
+                                                             grpc.StatusCode.UNAVAILABLE]:
+                        logger.warning("gRPC connection issue for '%s': %s - "
+                                     "UI will retry on next update", work[2], e.details())
+                    else:
+                        logger.error("gRPC error processing work for '%s': %s", work[2], e)
+                    # pylint: enable=no-member
                 except TypeError as e:
                     logger.error("TypeError in work processing for '%s': %s", work[2], e)
                 except ValueError as e:

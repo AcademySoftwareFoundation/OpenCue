@@ -389,10 +389,12 @@ public interface DispatchSupport {
      * @param frame
      * @param rss
      * @param maxRss
+     * @param pss
+     * @param maxPss
      * @param lluTime
      */
-    void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
-            long lluTime);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss, long pss,
+            long maxPss, long lluTime);
 
     /**
      * Update memory usage data for a given frame's proc record. The frame is used to update the
@@ -401,14 +403,16 @@ public interface DispatchSupport {
      * @param frame
      * @param rss
      * @param maxRss
+     * @param pss
+     * @param maxPss
      * @param vsize
      * @param maxVsize
      * @param usedGpuMemory
      * @param maxUsedGpuMemory
      */
-    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-            long maxVsize, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
-            byte[] children);
+    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long pss, long maxPss,
+            long vsize, long maxVsize, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children);
 
     /**
      * Return true if adding the given core units would put the show over its burst value.

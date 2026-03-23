@@ -2,7 +2,7 @@
 layout: default
 title: "v0.3.43 release"
 parent: Releases
-nav_order: 12
+nav_order: 13
 ---
 
 # Announcing the release of OpenCue v0.3.43

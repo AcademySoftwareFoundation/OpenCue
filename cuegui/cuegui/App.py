@@ -42,6 +42,7 @@ class CueGuiApplication(QtWidgets.QApplication):
     status = QtCore.Signal()
     quit = QtCore.Signal()
     select_layers = QtCore.Signal(list)
+    job_not_found = QtCore.Signal(object)
 
     # Thread pool
     threadpool = None

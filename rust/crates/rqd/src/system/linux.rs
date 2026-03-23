@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -14,8 +26,8 @@ use libc::{_SC_CLK_TCK, _SC_PAGESIZE};
 use chrono::{DateTime, Local};
 use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
-use miette::{Context, IntoDiagnostic, Result, miette};
-use nix::sys::signal::{Signal, kill, killpg};
+use miette::{miette, Context, IntoDiagnostic, Result};
+use nix::sys::signal::{kill, killpg, Signal};
 use opencue_proto::{
     host::HardwareState,
     report::{ChildrenProcStats, ProcStats, Stat},
@@ -43,7 +55,8 @@ pub struct LinuxSystem {
 
 #[derive(Debug)]
 struct ProcessData {
-    memory: u64,
+    rss: u64,
+    pss: u64,
     virtual_memory: u64,
     cmd: String,
     state: String,
@@ -99,8 +112,10 @@ pub struct MachineDynamicInfo {
 
 /// Aggregated Data refering to a process session
 struct SessionData {
-    /// Amount of memory used by all processes in this session
-    memory: u64,
+    /// Amount of memory used by all processes in this session calculated by rss
+    rss: u64,
+    /// Amount of memory used by all processes in this session calculated by pss
+    pss: u64,
     /// Amount of virtual memory used by all processes in this session
     virtual_memory: u64,
     /// Amount of gpu used by all processes in this session
@@ -427,8 +442,18 @@ impl LinuxSystem {
             .unwrap_or_else(|err| err.into_inner());
         sysinfo.refresh_memory();
 
+        let available_memory = sysinfo.available_memory();
+        let total_memory = sysinfo.total_memory();
+        debug!(
+            "Memory stats: available_memory={} bytes ({:.1} GiB), total_memory={} bytes ({:.1} GiB)",
+            available_memory,
+            available_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+            total_memory,
+            total_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+        );
+
         Ok(MachineDynamicInfo {
-            available_memory: sysinfo.available_memory(),
+            available_memory,
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
@@ -529,6 +554,13 @@ impl LinuxSystem {
                     }
                 }
             }
+
+            // Find session_id from stat file instead of status
+            // Depending on the OS, Kernel version or SELinux state, status might not contain NSSid
+            if session_id.is_none() {
+                session_id = self.read_session_id_from_stat(pid);
+            }
+
             match (session_id, tgid, state) {
                 (Some(session_id), Some(tgid), Some(state)) => {
                     // Only store valid states
@@ -560,6 +592,66 @@ impl LinuxSystem {
             }
         }
         Ok(())
+    }
+
+
+    // Read stats from /proc/{pid}/stat file and return session_id
+    // NSsid might be is missing from /proc/{pid}/status
+    // In this case we fallback if not found and and then use stat instead
+    fn read_session_id_from_stat(&self, pid: u32) -> Option<u32> {
+        let stat_path = format!("/proc/{}/stat", pid);
+        let stat = match std::fs::read_to_string(stat_path).into_diagnostic() {
+            Ok(s) => s,
+            Err(_) => return None, // Skip procs which status is not available
+        };
+
+        // Stats file can star with these formats:
+        //     - 105 name ...
+        //     - 105 (name) ...
+        //     - 105 (name with space) ...
+        //     - 105 (name with) (space and parenthesis) ...
+
+        let end = stat.rfind(')');
+
+        match end {
+            Some(end) => {
+                let fields: Vec<&str> = stat[end+2..].split_whitespace().collect();
+                return fields[3].parse::<u32>().ok()
+            },
+            None => {
+                let fields: Vec<&str> = stat.split_whitespace().collect();
+                return fields[5].parse::<u32>().ok()
+            }
+        }
+    }
+
+    /// Reads PSS (Proportional Set Size) from /proc/[pid]/smaps_rollup
+    ///
+    /// PSS divides shared memory proportionally among processes using it,
+    /// providing more accurate memory accounting than RSS.
+    ///
+    /// Requires Linux kernel 4.14+. Returns error if unavailable.
+    fn read_pss(&self, pid: u32) -> Result<u64> {
+        let smaps_rollup_path = format!("/proc/{}/smaps_rollup", pid);
+
+        let content = std::fs::read_to_string(&smaps_rollup_path).into_diagnostic()?;
+
+        for line in content.lines() {
+            if line.starts_with("Pss:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(pss_kb) = parts[1].parse::<u64>() {
+                        // PSS is in kB, convert to bytes
+                        return Ok(pss_kb * 1024);
+                    }
+                }
+            }
+        }
+
+        Err(miette!(
+            "Could not parse PSS from /proc/{}/smaps_rollup",
+            pid
+        ))
     }
 
     /// Reads proc data from stat and statm files:
@@ -603,14 +695,18 @@ impl LinuxSystem {
                 fields_statm[0].parse::<u64>(), // size
                 fields_statm[1].parse::<u64>(), // rss
             ) {
-                (Ok(vsize), Ok(rss)) => (vsize, rss),
+                (Ok(vsize), Ok(rss)) => (
+                    vsize.saturating_mul(self.static_info.page_size),
+                    rss.saturating_mul(self.static_info.page_size),
+                ),
                 _ => Err(miette!("Invalid /proc/{pid}/statm file"))?,
             };
+            let virtual_memory = vsize;
+
+            // Try PSS, fallback to RSS if unavailable
+            let pss = self.read_pss(pid).unwrap_or(rss);
 
             let (start_time, run_time) = self.calculate_process_time(start_time);
-            // Rss is stored in number of pages
-            let memory = rss.saturating_mul(self.static_info.page_size);
-            let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
 
             // Remove ()
             let name = if name.len() > 2 {
@@ -622,7 +718,8 @@ impl LinuxSystem {
             let cmd = cmdline.replace('\0', " ");
 
             Ok(ProcessData {
-                memory,
+                rss,
+                pss,
                 virtual_memory,
                 cmd,
                 state,
@@ -675,61 +772,70 @@ impl LinuxSystem {
             })?;
 
         // If session owner is still alive, iterate over the session and calculate memory
-        let (memory, virtual_memory, gpu_memory, start_time, run_time) = match self
-            .session_processes
-            .get(session_id)
-        {
-            Some(ref lineage) => {
-                // Process session data
-                lineage
-                    .iter()
-                    .filter_map(|pid| {
-                        match self.cached_processes.get(pid) {
-                            Some(proc) if !proc.is_dead() => {
-                                // Confirm this is a proc and not a thread
-                                let start_time_str = DateTime::<Local>::from(
-                                    UNIX_EPOCH + Duration::from_secs(proc.start_time),
-                                )
-                                .format("%Y-%m-%d %H:%M:%S")
-                                .to_string();
-                                let proc_memory = proc.memory;
-                                let proc_vmemory = proc.virtual_memory;
-                                let cmdline = proc.cmd.clone();
+        let (rss, pss, virtual_memory, gpu_memory, start_time, run_time) =
+            match self.session_processes.get(session_id) {
+                Some(ref lineage) => {
+                    // Process session data
+                    lineage
+                        .iter()
+                        .filter_map(|pid| {
+                            match self.cached_processes.get(pid) {
+                                Some(proc) if !proc.is_dead() => {
+                                    // Confirm this is a proc and not a thread
+                                    let start_time_str = DateTime::<Local>::from(
+                                        UNIX_EPOCH + Duration::from_secs(proc.start_time),
+                                    )
+                                    .format("%Y-%m-%d %H:%M:%S")
+                                    .to_string();
+                                    let proc_rss = proc.rss;
+                                    let proc_pss = proc.pss;
+                                    let proc_vmemory = proc.virtual_memory;
+                                    let cmdline = proc.cmd.clone();
 
-                                // Check for potential duplicates
-                                children.push(ProcStats {
-                                    stat: Some(Stat {
-                                        rss: proc_memory as i64,
-                                        vsize: proc_vmemory as i64,
-                                        state: proc.state.clone(),
-                                        name: proc.name.clone(),
-                                        pid: pid.to_string(),
-                                    }),
-                                    statm: None,
-                                    status: None,
-                                    cmdline,
-                                    start_time: start_time_str,
-                                });
-                                Some((proc_memory, proc_vmemory, 0, proc.start_time, proc.run_time))
+                                    // Check for potential duplicates
+                                    children.push(ProcStats {
+                                        stat: Some(Stat {
+                                            rss: proc_rss as i64,
+                                            pss: proc_pss as i64,
+                                            vsize: proc_vmemory as i64,
+                                            state: proc.state.clone(),
+                                            name: proc.name.clone(),
+                                            pid: pid.to_string(),
+                                        }),
+                                        statm: None,
+                                        status: None,
+                                        cmdline,
+                                        start_time: start_time_str,
+                                    });
+                                    Some((
+                                        proc_rss,
+                                        proc_pss,
+                                        proc_vmemory,
+                                        0,
+                                        proc.start_time,
+                                        proc.run_time,
+                                    ))
+                                }
+                                _ => None,
                             }
-                            _ => None,
-                        }
-                    })
-                    .reduce(|a, b| {
-                        (
-                            a.0 + b.0,
-                            a.1 + b.1,
-                            a.2 + b.2,
-                            std::cmp::min(a.3, b.3),
-                            std::cmp::max(a.4, b.4),
-                        )
-                    })
-                    .unwrap_or((0, 0, 0, u64::MAX, 0))
-            }
-            None => (0, 0, 0, u64::MAX, 0),
-        };
+                        })
+                        .reduce(|a, b| {
+                            (
+                                a.0 + b.0,
+                                a.1 + b.1,
+                                a.2 + b.2,
+                                a.3 + b.3,
+                                std::cmp::min(a.4, b.4),
+                                std::cmp::max(a.5, b.5),
+                            )
+                        })
+                        .unwrap_or((0, 0, 0, 0, u64::MAX, 0))
+                }
+                None => (0, 0, 0, 0, u64::MAX, 0),
+            };
         Some(SessionData {
-            memory,
+            rss,
+            pss,
             virtual_memory,
             gpu_memory,
             start_time,
@@ -768,6 +874,10 @@ impl SystemManager for LinuxSystem {
 
     fn attributes(&self) -> &HashMap<String, String> {
         &self.attributes
+    }
+
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
     }
 
     fn collect_gpu_stats(&self) -> MachineGpuStats {
@@ -828,12 +938,14 @@ impl SystemManager for LinuxSystem {
         Ok(self.calculate_proc_session_data(&pid).map(|session_data| {
             debug!(
                 "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
-                pid, session_data.memory, session_data.virtual_memory, session_data.gpu_memory
+                pid, session_data.rss, session_data.virtual_memory, session_data.gpu_memory
             );
             ProcessStats {
                 // Caller is responsible for maintaining the Max value between calls
-                max_rss: session_data.memory,
-                rss: session_data.memory,
+                max_rss: session_data.rss,
+                rss: session_data.rss,
+                max_pss: session_data.pss,
+                pss: session_data.pss,
                 max_vsize: session_data.virtual_memory,
                 vsize: session_data.virtual_memory,
                 llu_time: log_mtime,

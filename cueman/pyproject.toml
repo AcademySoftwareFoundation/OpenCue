@@ -14,6 +14,7 @@ dependencies = [
 requires-python = ">3.7"
 description = "Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities."
 readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"

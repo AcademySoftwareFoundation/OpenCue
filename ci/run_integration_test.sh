@@ -26,7 +26,7 @@ set -e
 RQD_ROOT="/tmp/rqd"
 TEST_LOGS="/tmp/opencue-test"
 DOCKER_COMPOSE_LOG="${TEST_LOGS}/docker-compose.log"
-DB_DATA_DIR="sandbox/db-data"
+DB_VOLUME_NAME="opencue_db-data"
 VENV="/tmp/opencue-integration-venv"
 
 log() {
@@ -54,8 +54,8 @@ verify_command_exists() {
 }
 
 verify_no_database() {
-    if [ -e "${DB_DATA_DIR}" ]; then
-        log ERROR "Postgres data directory ${DB_DATA_DIR} already exists"
+    if docker volume inspect "${DB_VOLUME_NAME}" &>/dev/null; then
+        log ERROR "Docker volume ${DB_VOLUME_NAME} already exists, remove it with \`docker volume rm ${DB_VOLUME_NAME}\`"
         exit 1
     fi
 }
@@ -190,8 +190,8 @@ run_job() {
 
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    docker volume rm "${DB_VOLUME_NAME}" 2>/dev/null || true
     rm -rf "${RQD_ROOT}" || true
-    rm -rf "${DB_DATA_DIR}" || true
     rm -rf "${VENV}" || true
 }
 
@@ -240,8 +240,8 @@ main() {
            --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
            -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
 
-    log INFO "Starting Docker compose..."
-    docker compose up &>"${DOCKER_COMPOSE_LOG}" &
+    log INFO "Starting Docker compose (core services only)..."
+    docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
     if [[ "$(uname -s)" == "Darwin" ]]; then
         docker_timeout=$(date -v +5M +%s)
     else

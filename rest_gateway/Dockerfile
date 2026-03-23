@@ -1,15 +1,12 @@
-FROM rockylinux:9 AS build
+FROM golang:1.24-bookworm AS build
 
-# Install Go 1.21 and dependencies
-RUN dnf install -y epel-release && \
-    dnf --enablerepo=crb install -y wget git protobuf protobuf-devel protobuf-compiler && \
-    wget https://go.dev/dl/go1.21.13.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.21.13.linux-amd64.tar.gz && \
-    rm go1.21.13.linux-amd64.tar.gz && \
-    dnf clean all
+# Install protobuf compiler
+RUN apt-get update && \
+    apt-get install -y protobuf-compiler && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
+ENV PATH=$PATH:/root/go/bin
 
 # Copy all of the staged files (protos plus go source)
 COPY ./proto /app/proto
@@ -48,7 +45,11 @@ RUN protoc -I ../proto/src/ --grpc-gateway_out ./gen/go \
 # Build project
 RUN go build -o grpc_gateway main.go
 
-FROM rockylinux:9-minimal
+FROM debian:bookworm-slim
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/opencue_gateway/grpc_gateway /app/
 
 # Ensure logs folder is created and has correct permissions
@@ -56,7 +57,7 @@ RUN mkdir -p /logs && chmod 755 /logs
 
 # Set default environment variables
 ENV CUEBOT_ENDPOINT=localhost:8443
-ENV REST_PORT=8448  
+ENV REST_PORT=8448
 ENV JWT_SECRET=default-secret-key
 
 EXPOSE 8448

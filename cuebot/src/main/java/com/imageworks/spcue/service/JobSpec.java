@@ -937,7 +937,7 @@ public class JobSpec {
 
         JobDetail job = new JobDetail();
         job.name = parent.detail.name + "_post_job_" + System.currentTimeMillis();
-        job.name = job.name.replace(user, "monitor");
+        job.name = job.name.replaceFirst(user, "monitor");
         job.state = JobState.STARTUP;
         job.isPaused = false;
         job.maxCoreUnits = 500;

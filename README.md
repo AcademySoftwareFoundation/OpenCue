@@ -48,12 +48,52 @@ Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?
 
 # Quick installation and tests
 
-Read the [OpenCue sandbox documentation](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/sandbox/README.md) 
-to learn how to set up a local OpenCue environment.
+## Docker Compose
 
-- The sandbox environment offers an easy way to run a test OpenCue deployment locally, with all components running in 
+A local environment can be easily launched using Docker Compose:
+
+```bash
+# Prerequisites
+mkdir -p /tmp/rqd/logs /tmp/rqd/shots
+
+# Start core services (db, flyway, cuebot, rqd)
+docker compose up -d
+
+# Check status
+docker compose ps
+```
+
+Optional components are managed via **Docker Compose profiles**:
+
+| Profile | Services |
+|---------|----------|
+| `default` | cuebot, db, flyway, rqd |
+| `cueweb` | rest-gateway, cueweb |
+| `monitoring` | db-exporter, prometheus, grafana, loki |
+| `monitoring-full` | zookeeper, kafka, kafka-ui, elasticsearch, kibana, monitoring-indexer |
+| `all` | everything |
+
+```bash
+# Enable Web UI and monitoring
+docker compose --profile cueweb --profile monitoring up -d
+
+# Enable all services
+docker compose --profile all up -d
+
+# Stop all profiles (recommended to ensure everything is brought down)
+docker compose --profile all down
+```
+
+See the `docker-compose.yml` header for detailed instructions and access endpoints.
+
+## Sandbox Environment
+
+Read the [OpenCue sandbox documentation](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/sandbox/README.md)
+to learn more about the sandbox environment.
+
+- The sandbox environment offers an easy way to run a test OpenCue deployment locally, with all components running in
 separate Docker containers or Python virtual environments.
-- It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for 
+- It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for
 experimentation and learning.
 
 To learn how to run the sandbox environment, see the [OpenCue Quick Starts documentation](https://www.opencue.io/docs/quick-starts/).
@@ -116,7 +156,7 @@ For meeting notes before May 2024, please refer to the OpenCue repository in the
 
 # Contact us
 
-Join the [OpenCue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q), the main space where contributors and users collaborate.
+Join the #opencue channel on the [ASWF Slack](https://slack.aswf.io), the main space where contributors and users collaborate.
 
 Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).
 

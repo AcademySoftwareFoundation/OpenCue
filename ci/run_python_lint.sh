@@ -74,6 +74,13 @@ python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
 python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
+echo "Running lint for cuenimby/..."
+pip install ./cuenimby[test] ${PIP_OPT}
+cd cuenimby
+python -m pylint --rcfile=../ci/pylintrc_main cuenimby
+python -m pylint --rcfile=../ci/pylintrc_test tests
+cd ..
+
 echo "Running lint for rqd/..."
 pip install ./rqd[test] ${PIP_OPT}
 cd rqd

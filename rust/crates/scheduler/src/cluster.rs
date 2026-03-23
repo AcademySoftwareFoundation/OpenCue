@@ -1,0 +1,515 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex, RwLock,
+    },
+    time::{Duration, SystemTime},
+};
+
+use futures::StreamExt;
+use itertools::Itertools;
+use miette::{IntoDiagnostic, Result};
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
+use tracing::{debug, error, warn};
+use uuid::Uuid;
+
+use crate::{
+    cluster_key::{Tag, TagType},
+    config::CONFIG,
+    dao::{helpers::parse_uuid, ClusterDao},
+};
+
+pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Cluster {
+    pub facility_id: Uuid,
+    pub show_id: Uuid,
+    pub tags: BTreeSet<Tag>,
+}
+
+impl std::fmt::Display for Cluster {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}:{}",
+            self.facility_id,
+            self.show_id,
+            self.tags.iter().join(",")
+        )
+    }
+}
+
+impl Cluster {
+    pub fn single_tag(facility_id: Uuid, show_id: Uuid, tag: Tag) -> Self {
+        Cluster {
+            facility_id,
+            show_id,
+            tags: BTreeSet::from([tag]),
+        }
+    }
+
+    pub fn multiple_tag(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+        Cluster {
+            facility_id,
+            show_id,
+            tags: tags.into_iter().collect(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ClusterFeed {
+    pub clusters: Arc<RwLock<Vec<Cluster>>>,
+    current_index: Arc<AtomicUsize>,
+    stop_flag: Arc<AtomicBool>,
+    sleep_map: Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+}
+
+/// Control messages for the cluster feed stream.
+///
+/// These messages are sent to the control channel returned by `ClusterFeed::stream()`
+/// to influence feed behavior during runtime.
+pub enum FeedMessage {
+    /// Stops the cluster feed stream gracefully.
+    Stop(),
+    /// Puts a specific cluster to sleep for the given duration.
+    ///
+    /// # Fields
+    ///
+    /// * `Cluster` - The cluster to put to sleep
+    /// * `Duration` - How long to sleep before the cluster can be processed again
+    Sleep(Cluster, Duration),
+}
+
+/// Builder for constructing a [`ClusterFeed`].
+///
+/// Start with [`ClusterFeed::facility`] or [`ClusterFeed::no_facility`], chain optional
+/// configuration methods, then call [`build`](ClusterFeedBuilder::build) to produce the feed.
+///
+/// # Example
+///
+/// ```ignore
+/// let feed = ClusterFeed::facility(facility_id)
+///     .with_ignore_tags(ignore_tags)
+///     .with_clusters(clusters)
+///     .with_entire_shows(shows)
+///     .build()
+///     .await?;
+/// ```
+pub struct ClusterFeedBuilder {
+    facility_id: Option<Uuid>,
+    ignore_tags: Vec<String>,
+    clusters: Vec<Cluster>,
+    entire_shows: Vec<String>,
+}
+
+impl ClusterFeedBuilder {
+    /// Adds tags to ignore when loading clusters.
+    pub fn with_ignore_tags(mut self, tags: Vec<String>) -> Self {
+        self.ignore_tags = tags;
+        self
+    }
+
+    /// Provides an explicit list of clusters instead of loading from the database.
+    pub fn with_clusters(mut self, clusters: Vec<Cluster>) -> Self {
+        self.clusters = clusters;
+        self
+    }
+
+    /// Specifies show names whose frames should be scheduled in their entirety.
+    pub fn with_entire_shows(mut self, shows: Vec<String>) -> Self {
+        self.entire_shows = shows;
+        self
+    }
+
+    /// Builds the [`ClusterFeed`].
+    ///
+    /// If explicit clusters were provided via [`with_clusters`](Self::with_clusters), they are
+    /// used directly (filtered by ignore tags). Otherwise all clusters are loaded from the
+    /// database, filtered to the configured facility and ignore tags.
+    pub async fn build(self) -> Result<ClusterFeed> {
+        let clusters = if self.clusters.is_empty() && self.entire_shows.is_empty() {
+            let all = ClusterFeed::load_clusters(self.facility_id, &self.ignore_tags, None).await?;
+            ClusterFeed::filter_clusters(all, &self.ignore_tags)
+        } else {
+            let mut clusters: HashSet<Cluster> = self.clusters.into_iter().collect();
+            if !self.entire_shows.is_empty() {
+                let show_clusters = ClusterFeed::load_clusters(
+                    self.facility_id,
+                    &self.ignore_tags,
+                    Some(self.entire_shows),
+                )
+                .await?;
+                clusters.extend(show_clusters);
+            }
+            ClusterFeed::filter_clusters(clusters.into_iter().collect(), &self.ignore_tags)
+        };
+        Ok(ClusterFeed {
+            clusters: Arc::new(RwLock::new(clusters)),
+            current_index: Arc::new(AtomicUsize::new(0)),
+            stop_flag: Arc::new(AtomicBool::new(false)),
+            sleep_map: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+}
+
+impl ClusterFeed {
+    /// Returns a builder for a feed scoped to the given facility.
+    pub fn facility(facility_id: Uuid) -> ClusterFeedBuilder {
+        ClusterFeedBuilder {
+            facility_id: Some(facility_id),
+            ignore_tags: Vec::new(),
+            clusters: Vec::new(),
+            entire_shows: Vec::new(),
+        }
+    }
+
+    /// Returns a builder for a feed not scoped to any specific facility.
+    pub fn no_facility() -> ClusterFeedBuilder {
+        ClusterFeedBuilder {
+            facility_id: None,
+            ignore_tags: Vec::new(),
+            clusters: Vec::new(),
+            entire_shows: Vec::new(),
+        }
+    }
+
+    /// Loads all clusters from the database and organizes them by tag type.
+    ///
+    /// Loads allocation clusters (one per facility+show+tag), and chunks manual/hostname tags
+    /// into groups based on configured chunk sizes. In a distributed system, this should be
+    /// scheduled and coordinated across nodes.
+    ///
+    /// # Arguments
+    ///
+    /// * `facility_id` - Optional facility ID to filter clusters
+    /// * `ignore_tags` - List of tag names to ignore when loading clusters
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
+    /// * `Err(miette::Error)` - Failed to load clusters from database
+    pub async fn load_clusters(
+        facility_id: Option<Uuid>,
+        ignore_tags: &[String],
+        shows_filter: Option<Vec<String>>,
+    ) -> Result<Vec<Cluster>> {
+        let cluster_dao = ClusterDao::new().await?;
+
+        // Fetch clusters for alloc and non_alloc tags
+        let mut clusters_stream = cluster_dao
+            .fetch_alloc_clusters(facility_id, shows_filter.clone())
+            .chain(cluster_dao.fetch_non_alloc_clusters(facility_id, shows_filter));
+        let mut clusters = Vec::new();
+        let mut manual_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut hardware_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut hostname_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+
+        // Collect all tags
+        while let Some(record) = clusters_stream.next().await {
+            match record {
+                Ok(cluster) => {
+                    // Skip tags that are in the ignore list
+                    if ignore_tags.contains(&cluster.tag) {
+                        continue;
+                    }
+
+                    let facility_id = parse_uuid(&cluster.facility_id);
+                    let show_id = parse_uuid(&cluster.show_id);
+                    match cluster.ttype.as_str() {
+                        // Each alloc tag becomes its own cluster
+                        "ALLOC" => {
+                            clusters.push(Cluster::single_tag(
+                                facility_id,
+                                show_id,
+                                Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Alloc,
+                                },
+                            ));
+                        }
+                        // Manual and hostname tags are collected to be chunked
+                        "MANUAL" => {
+                            manual_tags
+                                .entry((show_id, facility_id))
+                                .or_default()
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Manual,
+                                });
+                        }
+                        "HOSTNAME" => {
+                            hostname_tags
+                                .entry((show_id, facility_id))
+                                .or_default()
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::HostName,
+                                });
+                        }
+                        "HARDWARE" => {
+                            hardware_tags
+                                .entry((show_id, facility_id))
+                                .or_default()
+                                .insert(Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Hardware,
+                                });
+                        }
+                        _ => (),
+                    };
+                }
+                Err(err) => error!("Failed to fetch clusters. {err}"),
+            }
+        }
+
+        // Chunk Manual tags
+        for ((show_id, facility_id), tags) in manual_tags.into_iter() {
+            for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+            }
+        }
+
+        // Chunk Hostname tags
+        for ((show_id, facility_id), tags) in hostname_tags.into_iter() {
+            for chunk in &tags
+                .into_iter()
+                .chunks(CONFIG.queue.hostname_tags_chunk_size)
+            {
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+            }
+        }
+
+        // Chunk Hardware tags
+        for ((show_id, facility_id), tags) in hardware_tags.into_iter() {
+            for chunk in &tags
+                .into_iter()
+                // Hardware share the same size as manual to simplify configuration
+                .chunks(CONFIG.queue.manual_tags_chunk_size)
+            {
+                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+            }
+        }
+
+        Ok(clusters)
+    }
+
+    /// Creates a ClusterFeed from a predefined list of clusters for testing.
+    ///
+    /// # Arguments
+    ///
+    /// * `clusters` - List of clusters to iterate over
+    /// * `ignore_tags` - List of tag names to ignore when loading clusters
+    ///
+    /// # Returns
+    ///
+    /// * `ClusterFeed` - Feed configured to run once through the provided clusters
+    pub fn filter_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Vec<Cluster> {
+        if ignore_tags.is_empty() {
+            return clusters;
+        }
+        clusters
+            .into_iter()
+            .filter_map(|mut cluster| {
+                cluster.tags.retain(|tag| !ignore_tags.contains(&tag.name));
+                if cluster.tags.is_empty() {
+                    None
+                } else {
+                    Some(cluster)
+                }
+            })
+            .collect()
+    }
+
+    /// Streams clusters to a channel receiver with backpressure control.
+    ///
+    /// Creates a producer-consumer pattern where clusters are sent through a channel
+    /// to the provided sender. The stream can be controlled via the returned message
+    /// channel (for sleep/stop commands).
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - Channel sender for emitting clusters
+    ///
+    /// # Returns
+    ///
+    /// * `mpsc::Sender<FeedMessage>` - Control channel for sending sleep/stop messages
+    ///
+    /// # Behavior
+    ///
+    /// - Iterates through clusters in round-robin fashion
+    /// - Skips sleeping clusters until their wake time expires
+    /// - Applies backoff delays between rounds (varies based on sleeping cluster count)
+    /// - Stops when receiving a Stop message or when configured empty cycles limit is reached
+    /// - Automatically cleans up expired sleep entries
+    pub async fn stream(self, sender: mpsc::Sender<Cluster>) -> mpsc::Sender<FeedMessage> {
+        // Use a small channel to ensure the producer waits for items to be consumed before
+        // generating more
+        let (cancel_sender, mut feed_receiver) = mpsc::channel(8);
+
+        let stop_flag = self.stop_flag.clone();
+        let sleep_map = self.sleep_map.clone();
+
+        // Stream clusters on the caller channel
+        tokio::spawn(async move {
+            let mut all_sleeping_rounds = 0;
+            let feed = self.clusters.clone();
+            let current_index_atomic = self.current_index.clone();
+
+            loop {
+                // Check stop flag
+                if stop_flag.load(Ordering::Relaxed) {
+                    warn!("Cluster received a stop message. Stopping feed.");
+                    break;
+                }
+
+                let (item, cluster_size, completed_round) = {
+                    let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if clusters.is_empty() {
+                        break;
+                    }
+
+                    let current_index = current_index_atomic.load(Ordering::Relaxed);
+                    let item = clusters[current_index].clone();
+                    let next_index = (current_index + 1) % clusters.len();
+                    let completed_round = next_index == 0; // Detect wrap-around
+                    current_index_atomic.store(next_index, Ordering::Relaxed);
+
+                    (item, clusters.len(), completed_round)
+                };
+
+                // Skip cluster if it is marked as sleeping
+                let is_sleeping = {
+                    let mut sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                    if let Some(wake_up_time) = sleep_map_lock.get(&item) {
+                        if *wake_up_time > SystemTime::now() {
+                            // Still sleeping, skip it
+                            true
+                        } else {
+                            // Remove expired entries
+                            sleep_map_lock.remove(&item);
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+
+                if !is_sleeping && sender.send(item).await.is_err() {
+                    warn!("Cluster receiver dropped. Stopping feed.");
+                    break;
+                }
+
+                // At end of round, add backoff sleep
+                if completed_round {
+                    CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
+
+                    // Check if all/most clusters are sleeping
+                    let sleeping_count = {
+                        let sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                        sleep_map_lock.len()
+                    };
+                    if sleeping_count >= cluster_size {
+                        // Ensure this doesn't loop forever when there's a limit configured
+                        all_sleeping_rounds += 1;
+                        if let Some(max_empty_cycles) = CONFIG.queue.empty_job_cycles_before_quiting
+                        {
+                            if all_sleeping_rounds > max_empty_cycles {
+                                warn!("All clusters have been sleeping for too long");
+                                break;
+                            }
+                        }
+
+                        // All clusters sleeping, sleep longer
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                    } else if sleeping_count > 0 {
+                        // Some clusters sleeping, brief pause
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    } else {
+                        // Active work, minimal pause
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                }
+            }
+        });
+
+        // Process messages on the receiving end
+        let sleep_map = self.sleep_map.clone();
+        tokio::spawn(async move {
+            while let Some(message) = feed_receiver.recv().await {
+                match message {
+                    FeedMessage::Sleep(cluster, duration) => {
+                        if let Some(wake_up_time) = SystemTime::now().checked_add(duration) {
+                            debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
+                            {
+                                let mut sleep_map_lock =
+                                    sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                                sleep_map_lock.insert(cluster, wake_up_time);
+                            }
+                        } else {
+                            warn!(
+                                "Sleep request ignored for {:?}. Invalid duration={}s",
+                                cluster,
+                                duration.as_secs()
+                            );
+                        }
+                    }
+                    FeedMessage::Stop() => {
+                        self.stop_flag.store(true, Ordering::Relaxed);
+                        break;
+                    }
+                }
+            }
+        });
+
+        cancel_sender
+    }
+}
+
+/// Looks up a facility ID by facility name.
+///
+/// # Arguments
+///
+/// * `facility_name` - The name of the facility
+///
+/// # Returns
+///
+/// * `Ok(Uuid)` - The facility ID
+/// * `Err(miette::Error)` - If facility not found or database error
+pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
+    let cluster_dao = ClusterDao::new().await?;
+    cluster_dao
+        .get_facility_id(facility_name)
+        .await
+        .into_diagnostic()
+}
+
+/// Looks up a show ID by show name.
+///
+/// # Arguments
+///
+/// * `show_name` - The name of the show
+///
+/// # Returns
+///
+/// * `Ok(Uuid)` - The show ID
+/// * `Err(miette::Error)` - If show not found or database error
+pub async fn get_show_id(show_name: &str) -> Result<Uuid> {
+    let cluster_dao = ClusterDao::new().await?;
+    cluster_dao.get_show_id(show_name).await.into_diagnostic()
+}

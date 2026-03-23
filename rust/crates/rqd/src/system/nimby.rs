@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 //! NIMBY (Not In My BackYard) system for detecting user activity.
 //!
 //! This module provides functionality to monitor user input (mouse and keyboard)
@@ -9,15 +21,15 @@ use std::{
     env,
     path::Path,
     sync::{
-        Arc,
         atomic::{AtomicU64, Ordering},
+        Arc,
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(feature = "nimby")]
 use device_query::{DeviceEvents, DeviceEventsHandler};
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use tokio::sync::broadcast::Receiver;
 use tracing::{debug, warn};
 

@@ -1,6 +1,22 @@
-use crate::config::{LoggerType, RunnerConfig};
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
+use crate::config::RunnerConfig;
 use chrono::{DateTime, Local, Utc};
 use miette::{IntoDiagnostic, Result};
+use opencue_proto::rqd::RunFrame;
+use serde_derive::Serialize;
+use std::collections::HashMap;
+use std::time::Duration;
 use std::{
     fs::{self, File, Permissions},
     io::Write,
@@ -9,11 +25,7 @@ use std::{
     sync::{Arc, Mutex},
     time::SystemTime,
 };
-use std::collections::HashMap;
-use std::time::Duration;
-use serde_derive::Serialize;
 use tracing::error;
-use opencue_proto::rqd::RunFrame;
 use ureq::Agent;
 
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
@@ -138,9 +150,9 @@ struct LokiLabels {
 }
 
 pub struct FrameLokiLogger {
-    _agent: Agent,
-    _loki_url: String,
-    _labels: HashMap<String, String>,
+    agent: Agent,
+    loki_url: String,
+    labels: HashMap<String, String>,
 }
 
 impl FrameLokiLogger {
@@ -153,9 +165,9 @@ impl FrameLokiLogger {
         let (labels, loki_url) = Self::build_loki_components(run_frame)?;
 
         Ok(FrameLokiLogger {
-            _agent: agent,
-            _loki_url: loki_url,
-            _labels: labels,
+            agent,
+            loki_url,
+            labels,
         })
     }
 
@@ -186,15 +198,27 @@ impl FrameLoggerT for FrameLokiLogger {
         let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string();
         let payload = LokiPayload {
             streams: vec![Stream {
-                stream: self._labels.clone(),
+                stream: self.labels.clone(),
                 values: vec![[timestamp, line.to_string()]],
             }],
         };
-        let response = self._agent.post(format!("{}/loki/api/v1/push", self._loki_url))
-            .send_json(payload).into_diagnostic().unwrap();
+        if let Err(err) = self
+            .agent
+            .post(format!("{}/loki/api/v1/push", self.loki_url))
+            .send_json(payload)
+            .into_diagnostic()
+        {
+            error!("Failed to write line to loki: {err}");
+        };
     }
     fn write(&self, bytes: &[u8]) {
-        self.writeln(&*std::str::from_utf8(bytes).unwrap().to_string())
+        let unserialized = std::str::from_utf8(bytes);
+        match unserialized {
+            Ok(line) => self.writeln(line),
+            Err(err) => {
+                error!("Failed to write line to loki: {err}");
+            }
+        }
     }
 }
 
@@ -271,6 +295,7 @@ impl TestLogger {
         self.lines.lock().unwrap().pop()
     }
 
+    #[allow(dead_code)]
     pub fn all(&self) -> Vec<String> {
         self.lines.lock().unwrap().clone()
     }

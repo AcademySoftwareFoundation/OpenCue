@@ -1124,7 +1124,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         JobStats.Builder statsBuilder = JobStats.newBuilder()
                 .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                 .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
-                .setTotalFrames(rs.getInt("int_frame_count"))
+                .setMaxPss(rs.getLong("int_max_pss")).setTotalFrames(rs.getInt("int_frame_count"))
                 .setTotalLayers(rs.getInt("int_layer_count"))
                 .setWaitingFrames(rs.getInt("int_waiting_count"))
                 .setRunningFrames(rs.getInt("int_running_count"))
@@ -1188,6 +1188,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                     .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
+                    .setMaxPss(rs.getLong("int_max_pss"))
                     .setTotalFrames(rs.getInt("int_total_count"))
                     .setWaitingFrames(rs.getInt("int_waiting_count"))
                     .setRunningFrames(rs.getInt("int_running_count"))
@@ -1253,6 +1254,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             UpdatedFrame.newBuilder().setId(SqlUtil.getString(rs, "pk_frame"))
                                     .setExitStatus(rs.getInt("int_exit_status"))
                                     .setMaxRss(rs.getInt("int_mem_max_used"))
+                                    .setMaxPss(rs.getLong("int_pss_max_used"))
                                     .setRetryCount(rs.getInt("int_retries"))
                                     .setState(
                                             FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
@@ -1309,8 +1311,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
                     .setLayerName(SqlUtil.getString(rs, "layer_name"))
                     .setUsedMemory(rs.getLong("int_mem_used"))
+                    .setUsedPss(rs.getLong("int_pss_used"))
                     .setReservedMemory(rs.getLong("int_mem_reserved"))
                     .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
+                    .setMaxPss(rs.getLong("int_pss_max_used"))
                     .setCheckpointState(
                             CheckpointState.valueOf(SqlUtil.getString(rs, "str_checkpoint_state")))
                     .setCheckpointCount(rs.getInt("int_checkpoint_count"));
@@ -1454,7 +1458,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "frame.int_dispatch_order," + "frame.ts_started," + "frame.ts_stopped,"
             + "frame.ts_llu," + "frame.int_retries," + "frame.str_state," + "frame.str_host,"
             + "frame.int_cores," + "frame.int_gpus," + "frame.int_mem_max_used,"
-            + "frame.int_mem_used, " + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
+            + "frame.int_mem_used, " + "frame.int_pss_max_used," + "frame.int_pss_used, "
+            + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
             + "frame.str_checkpoint_state," + "frame.int_checkpoint_count,"
             + "frame.int_total_past_core_time," + "frame.int_total_past_gpu_time,"
             + "layer.str_name AS layer_name," + "job.str_name AS job_name,"
@@ -1496,6 +1501,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     + "frame.str_host," + "frame.int_cores," + "frame.int_gpus," + "frame.ts_llu,"
                     + "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used,"
                     + "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used,"
+                    + "COALESCE(proc.int_pss_max_used, frame.int_pss_max_used) AS int_pss_max_used,"
                     + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer," + "frame "
                     + "LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) "
                     + "LEFT JOIN frame_state_display_overrides ON "
@@ -1608,7 +1614,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "job_usage.int_core_time_fail, " + "job_usage.int_gpu_time_success, "
             + "job_usage.int_gpu_time_fail, " + "job_usage.int_frame_success_count, "
             + "job_usage.int_frame_fail_count, " + "job_usage.int_clock_time_high,"
-            + "job_usage.int_clock_time_success," + "job_mem.int_max_rss,"
+            + "job_usage.int_clock_time_success," + "job_mem.int_max_rss," + "job_mem.int_max_pss,"
             + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"
             + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
             + "job.str_loki_url " + "FROM " + "job," + "folder," + "show," + "facility,"
@@ -1627,11 +1633,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "layer_usage.int_frame_success_count, " + "layer_usage.int_frame_fail_count, "
             + "layer_usage.int_clock_time_low, " + "layer_usage.int_clock_time_high,"
             + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_fail,"
-            + "layer_mem.int_max_rss," + "layer_resource.int_cores," + "layer_resource.int_gpus "
-            + "FROM " + "layer, " + "job," + "layer_stat, " + "layer_resource, " + "layer_usage, "
-            + "layer_mem " + "WHERE " + "layer.pk_job = job.pk_job " + "AND "
-            + "layer.pk_layer = layer_stat.pk_layer " + "AND "
-            + "layer.pk_layer = layer_resource.pk_layer " + "AND "
+            + "layer_mem.int_max_rss," + "layer_mem.int_max_pss," + "layer_resource.int_cores,"
+            + "layer_resource.int_gpus " + "FROM " + "layer, " + "job," + "layer_stat, "
+            + "layer_resource, " + "layer_usage, " + "layer_mem " + "WHERE "
+            + "layer.pk_job = job.pk_job " + "AND " + "layer.pk_layer = layer_stat.pk_layer "
+            + "AND " + "layer.pk_layer = layer_resource.pk_layer " + "AND "
             + "layer.pk_layer = layer_usage.pk_layer " + "AND "
             + "layer.pk_layer = layer_mem.pk_layer";
 
@@ -1645,7 +1651,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "layer_usage.int_frame_fail_count, " + "layer_usage.int_clock_time_low, "
             + "layer_usage.int_clock_time_high, " + "layer_usage.int_clock_time_success, "
             + "layer_usage.int_clock_time_fail, " + "layer_mem.int_max_rss, "
-            + "layer_resource.int_cores, " + "layer_resource.int_gpus, "
+            + "layer_mem.int_max_pss, " + "layer_resource.int_cores, " + "layer_resource.int_gpus, "
             + "limit_names.str_limit_names " + "FROM " + "layer " + "JOIN "
             + "job ON layer.pk_job = job.pk_job " + "JOIN "
             + "layer_stat ON layer.pk_layer = layer_stat.pk_layer " + "JOIN "
@@ -1746,8 +1752,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     + "frame.int_number," + "frame.int_dispatch_order," + "frame.ts_started,"
                     + "frame.ts_stopped," + "frame.ts_llu," + "frame.int_retries,"
                     + "frame.str_state," + "frame.str_host," + "frame.int_cores,"
-                    + "frame.int_mem_max_used," + "frame.int_mem_used, "
-                    + "frame.int_mem_reserved, " + "frame.int_gpus,"
+                    + "frame.int_mem_max_used," + "frame.int_mem_used, " + "frame.int_pss_max_used,"
+                    + "frame.int_pss_used, " + "frame.int_mem_reserved, " + "frame.int_gpus,"
                     + "frame.int_gpu_mem_max_used, " + "frame.int_gpu_mem_used, "
                     + "frame.int_gpu_mem_reserved, " + "frame.str_checkpoint_state,"
                     + "frame.int_checkpoint_count," + "frame.int_total_past_core_time,"

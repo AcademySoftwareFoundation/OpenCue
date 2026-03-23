@@ -4,7 +4,7 @@ import Image from "next/image";
 import React from "react";
 import { Button } from "@/components/ui/button"
 import oktaicon from "../../public/okta-logo.png";
-import { FaGithub } from "react-icons/fa"
+import { FaGithub, FaAddressBook } from "react-icons/fa"
 import { FcGoogle } from "react-icons/fc"
 
 export function OktaSignInButton({onClick}: {onClick: ()=> void}) {
@@ -42,6 +42,19 @@ export function GithubSignInButton({onClick}: {onClick: ()=> void}) {
         >
             <FaGithub className="mr-2" />
             Github
+        </Button>
+    );
+}
+
+export function LdapSignInButton({onClick}: {onClick: ()=> void}) {
+    return (
+        <Button
+            className="w-full"
+            aria-label="Sign in with Domain Account"
+            onClick={onClick}
+        >
+            <FaAddressBook className="mr-2" />
+            LDAP
         </Button>
     );
 }

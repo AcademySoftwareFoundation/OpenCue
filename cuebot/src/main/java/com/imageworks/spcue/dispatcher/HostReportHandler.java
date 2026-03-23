@@ -68,6 +68,11 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.HostEvent;
+
 public class HostReportHandler {
 
     private static final Logger logger = LogManager.getLogger(HostReportHandler.class);
@@ -84,6 +89,8 @@ public class HostReportHandler {
     private JobManager jobManager;
     private JobDao jobDao;
     private LayerDao layerDao;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     @Autowired
     private Environment env;
@@ -93,6 +100,11 @@ public class HostReportHandler {
 
     @Autowired
     private PrometheusMetricsCollector prometheusMetrics;
+
+    // Reconcile idle resources roughly every 10 minutes per host.
+    // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
+    private static final long RECONCILE_INTERVAL_MS = 600_000;
+    private static final long RECONCILE_WINDOW_MS = 10_000;
 
     // Comment constants
     private static final String SUBJECT_COMMENT_FULL_TEMP_DIR =
@@ -162,6 +174,12 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
+            // Record Prometheus metric for host report
+            if (prometheusMetrics != null) {
+                String facility = report.getHost().getFacility();
+                prometheusMetrics.recordHostReport(facility != null ? facility : "unknown");
+            }
+
             long swapOut = 0;
             if (report.getHost().getAttributesMap().containsKey("swapout")) {
                 swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
@@ -193,6 +211,9 @@ public class HostReportHandler {
                  */
                 if (isBoot) {
                     hostManager.setHostResources(host, report);
+
+                    // Update host tags during boot to ensure they're current
+                    hostManager.updateHostTags(host, report.getHost());
                 }
 
                 dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
@@ -211,6 +232,27 @@ public class HostReportHandler {
              * Verify all the frames in the report are valid. Frames that are not valid are removed.
              */
             List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
+
+            // Use modulo arithmetic to trigger reconciliation roughly once every
+            // RECONCILE_INTERVAL_MS (10 min). The check fires when the current time
+            // falls within the first RECONCILE_WINDOW_MS (10s) of each interval.
+            // Example: with RECONCILE_INTERVAL_MS=600,000 and RECONCILE_WINDOW_MS=10,000,
+            // at t=1,209,000ms -> 1,209,000 % 600,000 = 9,000 < 10,000 -> triggers
+            // at t=1,215,000ms -> 1,215,000 % 600,000 = 15,000 < 10,000 -> skips
+            // at t=1,809,000ms -> 1,809,000 % 600,000 = 9,000 < 10,000 -> triggers
+            // With host reports every 10s, ~1 report per host lands in each window.
+            if (System.currentTimeMillis() % RECONCILE_INTERVAL_MS < RECONCILE_WINDOW_MS) {
+                try {
+                    if (hostManager.reconcileIdleResources(host)) {
+                        logger.warn(host.getName()
+                                + " idle memory was out of sync and has been reconciled");
+                        host = hostManager.findDispatchHost(rhost.getName());
+                    }
+                } catch (Exception e) {
+                    logger.info(
+                            "Failed to reconcile idle resources for " + host.getName() + ": " + e);
+                }
+            }
 
             /*
              * Updates memory usage for the proc, frames, jobs, and layers. And LLU time for the
@@ -276,11 +318,15 @@ public class HostReportHandler {
                 msg = "The cue has no pending jobs";
             }
 
+            boolean bookingOff =
+                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false);
             /*
              * If a message was set, the host is not bookable. Log the message and move on.
              */
             if (msg != null) {
                 logger.trace(msg);
+            } else if (bookingOff) {
+                logger.debug("Booking has been turned off on Cuebot's configuration");
             } else {
                 // check again. The dangling local host assignment could be removed.
                 hasLocalJob = bookingManager.hasLocalHostAssignment(host);
@@ -361,10 +407,14 @@ public class HostReportHandler {
             return;
         }
 
+        HardwareState previousState = host.hardwareState;
+        boolean stateChanged = false;
+
         switch (host.hardwareState) {
             case DOWN:
                 hostManager.setHostState(host, HardwareState.UP);
                 host.hardwareState = HardwareState.UP;
+                stateChanged = true;
                 break;
             case REBOOTING:
             case REBOOT_WHEN_IDLE:
@@ -372,6 +422,7 @@ public class HostReportHandler {
                 if (isBoot) {
                     hostManager.setHostState(host, HardwareState.UP);
                     host.hardwareState = HardwareState.UP;
+                    stateChanged = true;
                 }
                 break;
             case REPAIR:
@@ -380,7 +431,13 @@ public class HostReportHandler {
             default:
                 hostManager.setHostState(host, reportState);
                 host.hardwareState = reportState;
+                stateChanged = true;
                 break;
+        }
+
+        // Publish host state change event
+        if (stateChanged) {
+            publishHostEvent(host, previousState, null);
         }
     }
 
@@ -834,11 +891,12 @@ public class HostReportHandler {
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame, rf.getRss(), rf.getMaxRss(),
-                    rf.getLluTime());
+                    rf.getPss(), rf.getMaxPss(), rf.getLluTime());
 
-            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(), rf.getVsize(),
-                    rf.getMaxVsize(), rf.getUsedGpuMemory(), rf.getMaxUsedGpuMemory(),
-                    rf.getUsedSwapMemory(), rf.getChildren().toByteArray());
+            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(), rf.getPss(),
+                    rf.getMaxPss(), rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
+                    rf.getMaxUsedGpuMemory(), rf.getUsedSwapMemory(),
+                    rf.getChildren().toByteArray());
         }
 
         updateJobMemoryUsage(rFrames);
@@ -852,6 +910,7 @@ public class HostReportHandler {
      */
     private void updateJobMemoryUsage(List<RunningFrameInfo> frames) {
         final Map<JobEntity, Long> jobs = new HashMap<JobEntity, Long>(frames.size());
+        final Map<JobEntity, Long> jobsPss = new HashMap<JobEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame : frames) {
             JobEntity job = new JobEntity(frame.getJobId());
@@ -862,10 +921,22 @@ public class HostReportHandler {
             } else {
                 jobs.put(job, frame.getMaxRss());
             }
+
+            if (jobsPss.containsKey(job)) {
+                if (jobsPss.get(job) < frame.getMaxPss()) {
+                    jobsPss.put(job, frame.getMaxPss());
+                }
+            } else {
+                jobsPss.put(job, frame.getMaxPss());
+            }
         }
 
         for (Map.Entry<JobEntity, Long> set : jobs.entrySet()) {
             jobDao.updateMaxRSS(set.getKey(), set.getValue());
+        }
+
+        for (Map.Entry<JobEntity, Long> set : jobsPss.entrySet()) {
+            jobDao.updateMaxPSS(set.getKey(), set.getValue());
         }
     }
 
@@ -876,6 +947,7 @@ public class HostReportHandler {
      */
     private void updateLayerMemoryUsage(List<RunningFrameInfo> frames) {
         final Map<LayerEntity, Long> layers = new HashMap<LayerEntity, Long>(frames.size());
+        final Map<LayerEntity, Long> layersPss = new HashMap<LayerEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame : frames) {
             LayerEntity layer = new LayerEntity(frame.getLayerId());
@@ -886,12 +958,25 @@ public class HostReportHandler {
             } else {
                 layers.put(layer, frame.getMaxRss());
             }
+
+            if (layersPss.containsKey(layer)) {
+                if (layersPss.get(layer) < frame.getMaxPss()) {
+                    layersPss.put(layer, frame.getMaxPss());
+                }
+            } else {
+                layersPss.put(layer, frame.getMaxPss());
+            }
         }
 
         /* Attempt to update the max RSS value for the job **/
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
             layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
+        }
+
+        /* Attempt to update the max PSS value for the layer **/
+        for (Map.Entry<LayerEntity, Long> set : layersPss.entrySet()) {
+            layerDao.updateLayerMaxPSS(set.getKey(), set.getValue(), false);
         }
     }
 
@@ -1083,5 +1168,34 @@ public class HostReportHandler {
 
     public void setKillQueue(ThreadPoolExecutor killQueue) {
         this.killQueue = killQueue;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    /**
+     * Publishes a host state change event to Kafka for monitoring purposes.
+     */
+    private void publishHostEvent(DispatchHost host, HardwareState previousState, String reason) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        try {
+            HostEvent event = monitoringEventBuilder.buildHostEvent(EventType.HOST_STATE_CHANGED,
+                    host, previousState, host.lockState, reason);
+            kafkaEventPublisher.publishHostEvent(event);
+        } catch (Exception e) {
+            logger.trace("Failed to publish host event: {}", e.getMessage());
+        }
     }
 }

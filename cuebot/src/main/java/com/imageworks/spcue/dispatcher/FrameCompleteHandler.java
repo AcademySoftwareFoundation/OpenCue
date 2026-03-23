@@ -29,6 +29,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
@@ -56,6 +57,13 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
+import com.imageworks.spcue.grpc.monitoring.JobEvent;
+import com.imageworks.spcue.grpc.monitoring.LayerEvent;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing FrameComplete reports
@@ -66,6 +74,9 @@ public class FrameCompleteHandler {
     private static final Logger logger = LogManager.getLogger(FrameCompleteHandler.class);
 
     private static final Random randomNumber = new Random();
+
+    private static final int DEPEND_MAX_RETRIES = 3;
+    private static final long DEPEND_INITIAL_BACKOFF_MS = 100;
 
     private HostManager hostManager;
     private JobManager jobManager;
@@ -83,6 +94,9 @@ public class FrameCompleteHandler {
     private ServiceDao serviceDao;
     private ShowDao showDao;
     private Environment env;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing. Since there are so many
@@ -256,6 +270,11 @@ public class FrameCompleteHandler {
         try {
 
             /*
+             * Publish frame complete event to Kafka for monitoring
+             */
+            publishFrameCompleteEvent(report, frame, frameDetail, newFrameState, proc);
+
+            /*
              * The default behavior is to keep the proc on the same job.
              */
             boolean unbookProc = proc.unbooked;
@@ -266,10 +285,38 @@ public class FrameCompleteHandler {
 
             if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
                     && newFrameState.equals(FrameState.EATEN))) {
-                jobManagerSupport.satisfyWhatDependsOn(frame);
+                satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
+                        "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")",
+                        job.getName(), job.getJobId());
+
                 isLayerComplete = jobManager.isLayerComplete(frame);
                 if (isLayerComplete) {
-                    jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
+                    satisfyDependsWithRetry(
+                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
+                            "layer " + frame.getLayerId(), job.getName(), job.getJobId());
+
+                    // Record layer max runtime and memory metrics
+                    if (prometheusMetrics != null) {
+                        ExecutionSummary layerSummary =
+                                jobManager.getExecutionSummary((LayerInterface) frame);
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
+                                frame.show, frame.shot, layerDetail.type.toString());
+                        if (layerSummary.highMemoryKb > 0) {
+                            prometheusMetrics.recordLayerMaxMemory(
+                                    layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
+                                    layerDetail.type.toString());
+                        }
+                    }
+
+                    // Publish layer completed event to Kafka
+                    if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        LayerEvent layerEvent =
+                                monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
+                                        layerDetail, frame.getName(), frame.show);
+                        kafkaEventPublisher.publishLayerEvent(layerEvent);
+                    }
                 }
             }
 
@@ -570,12 +617,16 @@ public class FrameCompleteHandler {
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
-                // exemption code 256
             } else if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE
                     || report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE)
                     && (frame.retries < job.maxRetries)) {
+                // exemption code 256
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(report.getExitStatus()).build();
+                newState = FrameState.WAITING;
+            } else if (report.getHost().getNimbyLocked() && report.getExitSignal() == 15) {
+                // If frame got killed because the host was nimby locked,
+                // retry even if retry count is higher than maxretrycount
                 newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;
@@ -597,6 +648,54 @@ public class FrameCompleteHandler {
             return newState;
         } else {
             return FrameState.SUCCEEDED;
+        }
+    }
+
+    /**
+     * Retries a dependency satisfaction operation up to DEPEND_MAX_RETRIES times with exponential
+     * backoff (100ms, 200ms, 400ms).
+     *
+     * Dependency satisfaction is critical — a transient failure (e.g. connection pool exhaustion)
+     * can leave downstream frames permanently stuck in DEPEND state.
+     */
+    private void satisfyDependsWithRetry(Runnable operation, String entityDesc, String jobName,
+            String jobId) {
+        for (int attempt = 1; attempt <= DEPEND_MAX_RETRIES; attempt++) {
+            try {
+                operation.run();
+                return;
+            } catch (Exception e) {
+                // Ideally DataAccessException should be the target to be caught, but pool
+                // exhaustion is not categorized as such.
+                // Pool exhaustion throws CannotCreateTransactionException (TransactionException)
+                // which can only be caught in this context as a general Exception
+                if (attempt < DEPEND_MAX_RETRIES) {
+                    // Exponential backoff: 100ms, 200ms, 400ms (bit-shift doubles each attempt)
+                    long backoffMs = DEPEND_INITIAL_BACKOFF_MS * (1L << (attempt - 1));
+                    logger.warn("Failed to satisfy depends on " + entityDesc + " in job " + jobName
+                            + " (attempt " + attempt + "/" + DEPEND_MAX_RETRIES + "), retrying in "
+                            + backoffMs + "ms: " + e);
+                    try {
+                        // I acknowledge sleeping within a threadpool is rarely a good idea as it
+                        // blocks execution and can lead to backpressure. This sleep is only
+                        // triggered when there are transient issues, so it is likely the following
+                        // tasks would also fail. The worst case scenario is backing up the
+                        // threadpool for 700ms, which is acceptable given the circumstances
+                        Thread.sleep(backoffMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        logger.error("Dependency Failure: Interrupted while retrying depends on "
+                                + entityDesc + " in job " + jobName + " (id=" + jobId + "). "
+                                + "Downstream frames may be stuck in DEPEND state.");
+                        return;
+                    }
+                } else {
+                    logger.error("Dependency Failure: Failed to satisfy depends on " + entityDesc
+                            + " in job " + jobName + " (id=" + jobId + ") after "
+                            + DEPEND_MAX_RETRIES + " attempts. "
+                            + "Downstream frames may be stuck in DEPEND state. ", e);
+                }
+            }
         }
     }
 
@@ -719,6 +818,47 @@ public class FrameCompleteHandler {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
+
+    /**
+     * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
+     * asynchronously to avoid blocking the dispatch thread.
+     */
+    private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
+            FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
+        // Record Prometheus metrics for frame completion
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
+        }
+
+        // Publish to Kafka if enabled
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
+                frameDetail.state, frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 
 }

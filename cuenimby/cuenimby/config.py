@@ -46,7 +46,7 @@ class Config:
             config_path: Path to config file. If None, uses default location.
         """
         if config_path is None:
-            config_dir = Path.home() / ".opencue"
+            config_dir = Path.home() / ".config/opencue"
             config_dir.mkdir(exist_ok=True)
             config_path = config_dir / "cuenimby.json"
 
@@ -57,14 +57,14 @@ class Config:
         """Load configuration from file or create default."""
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                 # Merge with defaults for any missing keys
                 merged_config = self.DEFAULT_CONFIG.copy()
                 merged_config.update(config)
                 return merged_config
             except Exception as e:
-                logger.error(f"Failed to load config: {e}")
+                logger.error("Failed to load config: %s", e)
                 return self.DEFAULT_CONFIG.copy()
         else:
             # Create default config file
@@ -74,10 +74,10 @@ class Config:
     def save(self) -> None:
         """Save current configuration to file."""
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2)
         except Exception as e:
-            logger.error(f"Failed to save config: {e}")
+            logger.error("Failed to save config: %s", e)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""

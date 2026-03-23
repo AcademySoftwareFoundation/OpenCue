@@ -27,6 +27,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -71,11 +72,23 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return false;
     }
 
-    private static final String DELETE_VIRTUAL_PROC =
-            "DELETE FROM " + "proc " + "WHERE " + "pk_proc=?";
+    private static final String DELETE_VIRTUAL_PROC = "DELETE FROM " + "proc " + "WHERE "
+            + "pk_proc=? " + "RETURNING int_cores_reserved, int_mem_reserved, "
+            + "int_gpus_reserved, int_gpu_mem_reserved";
 
     public boolean deleteVirtualProc(VirtualProc proc) {
-        if (getJdbcTemplate().update(DELETE_VIRTUAL_PROC, proc.getProcId()) == 0) {
+        try {
+            Map<String, Object> result =
+                    getJdbcTemplate().queryForMap(DELETE_VIRTUAL_PROC, proc.getProcId());
+            // Use the actual DB values at deletion time, not the potentially stale
+            // values from when the VirtualProc Java object was loaded. This prevents
+            // a memory accounting leak caused by increaseReservedMemory (and its
+            // trigger on host.int_mem_idle) racing with proc deletion.
+            proc.coresReserved = ((Number) result.get("int_cores_reserved")).intValue();
+            proc.memoryReserved = ((Number) result.get("int_mem_reserved")).longValue();
+            proc.gpusReserved = ((Number) result.get("int_gpus_reserved")).intValue();
+            proc.gpuMemoryReserved = ((Number) result.get("int_gpu_mem_reserved")).longValue();
+        } catch (EmptyResultDataAccessException e) {
             logger.info("failed to delete " + proc + " , proc does not exist.");
             return false;
         }
@@ -171,16 +184,16 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 frame.getFrameId()) == 1;
     }
 
-    private static final String UPDATE_PROC_MEMORY_USAGE =
-            "UPDATE " + "proc " + "SET " + "int_mem_used = ?, " + "int_mem_max_used = ?,"
-                    + "int_virt_used = ?, " + "int_virt_max_used = ?, " + "int_gpu_mem_used = ?, "
-                    + "int_gpu_mem_max_used = ?, " + "int_swap_used = ?, " + "bytea_children = ?, "
-                    + "ts_ping = current_timestamp " + "WHERE " + "pk_frame = ?";
+    private static final String UPDATE_PROC_MEMORY_USAGE = "UPDATE " + "proc " + "SET "
+            + "int_mem_used = ?, " + "int_mem_max_used = ?," + "int_pss_used = ?, "
+            + "int_pss_max_used = ?, " + "int_virt_used = ?, " + "int_virt_max_used = ?, "
+            + "int_gpu_mem_used = ?, " + "int_gpu_mem_max_used = ?, " + "int_swap_used = ?, "
+            + "bytea_children = ?, " + "ts_ping = current_timestamp " + "WHERE " + "pk_frame = ?";
 
     @Override
-    public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long vss,
-            long maxVss, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
-            byte[] children) {
+    public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long pss,
+            long maxPss, long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children) {
         /*
          * This method is going to repeat for a proc every 1 minute, so if the proc is being touched
          * by another thread, then return quietly without updating memory usage.
@@ -202,13 +215,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                                 conn.prepareStatement(UPDATE_PROC_MEMORY_USAGE);
                         updateProc.setLong(1, rss);
                         updateProc.setLong(2, maxRss);
-                        updateProc.setLong(3, vss);
-                        updateProc.setLong(4, maxVss);
-                        updateProc.setLong(5, usedGpuMemory);
-                        updateProc.setLong(6, maxUsedGpuMemory);
-                        updateProc.setLong(7, usedSwapMemory);
-                        updateProc.setBytes(8, children);
-                        updateProc.setString(9, f.getFrameId());
+                        updateProc.setLong(3, pss);
+                        updateProc.setLong(4, maxPss);
+                        updateProc.setLong(5, vss);
+                        updateProc.setLong(6, maxVss);
+                        updateProc.setLong(7, usedGpuMemory);
+                        updateProc.setLong(8, maxUsedGpuMemory);
+                        updateProc.setLong(9, usedSwapMemory);
+                        updateProc.setBytes(10, children);
+                        updateProc.setString(11, f.getFrameId());
                         return updateProc;
                     }
                 });
@@ -412,14 +427,26 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     public boolean increaseReservedMemory(ProcInterface p, long value) {
         try {
-            return getJdbcTemplate().update(
-                    "UPDATE proc SET int_mem_reserved=? WHERE pk_proc=? AND int_mem_reserved < ?",
-                    value, p.getProcId(), value) == 1;
+            Long currentReserved = getJdbcTemplate().queryForObject(
+                    "SELECT int_mem_reserved FROM proc WHERE pk_proc = ? FOR UPDATE", Long.class,
+                    p.getProcId());
+
+            if (currentReserved >= value) {
+                return false;
+            }
+
+            getJdbcTemplate().update("UPDATE proc SET int_mem_reserved = ? WHERE pk_proc = ?",
+                    value, p.getProcId());
+            // The trigger upgrade_proc_memory_usage automatically adjusts
+            // host.int_mem_idle by -(NEW.int_mem_reserved - OLD.int_mem_reserved)
+
+            return true;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
         } catch (Exception e) {
-            // check by trigger erify_host_resources
             throw new ResourceReservationFailureException(
                     "failed to increase memory reservation for proc " + p.getProcId() + " to "
-                            + value + ", proc does not have that much memory to spare.");
+                            + value + ", " + e.getMessage());
         }
     }
 

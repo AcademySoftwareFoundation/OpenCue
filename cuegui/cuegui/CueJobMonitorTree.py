@@ -411,8 +411,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             current = set(self._items.keys())
             if current == set(rpcObjects[1]):
-                # Only updates if return rpcObjects doesn't equal current _items
+                # Same items exist - update their data in place
                 collapsed = self.__getCollapsed()
+                self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
                 self.__setCollapsed(collapsed)
                 self.redraw()
             else:

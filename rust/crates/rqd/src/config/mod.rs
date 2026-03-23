@@ -1,13 +1,29 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 pub mod error;
 
 use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
+lazy_static! {
+    pub static ref CONFIG: Config = Config::load().expect("Failed to load config file");
+}
 //===Config Types===
 
 #[derive(Debug, Deserialize, Clone)]
@@ -85,6 +101,7 @@ pub struct MachineConfig {
     #[serde(with = "humantime_serde")]
     pub nimby_start_retry_interval: Duration,
     pub nimby_display_xauthority_path: String,
+    pub memory_oom_margin_percentage: u32,
 }
 
 impl Default for MachineConfig {
@@ -107,6 +124,7 @@ impl Default for MachineConfig {
             nimby_display_file_path: None,
             nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
+            memory_oom_margin_percentage: 96,
         }
     }
 }
@@ -212,7 +230,7 @@ pub struct Config {
 
 impl Config {
     // load the current config from the system config and environment variables
-    pub fn load() -> Result<Self, RqdConfigError> {
+    fn load() -> Result<Self, RqdConfigError> {
         let mut required = false;
         let config_file = match env::var("OPENCUE_RQD_CONFIG") {
             Ok(v) => {

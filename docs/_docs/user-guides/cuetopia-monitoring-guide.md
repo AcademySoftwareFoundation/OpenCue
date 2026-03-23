@@ -2,7 +2,7 @@
 title: "CueGUI: Cuetopia Monitoring System"
 layout: default
 parent: User Guides
-nav_order: 32
+nav_order: 37
 linkTitle: "Cuetopia Monitoring Guide"
 date: 2025-01-07
 description: >
@@ -106,6 +106,7 @@ Notes:
 | **Age** | Time since job launch (HH:MM format)                                                                                                                                                | Calculated from `start_time` | Real-time |
 | **Launched** | Job launch timestamp                                                                                                                                                                | `job.data.start_time` | Static |
 | **Finished** | Job completion timestamp                                                                                                                                                            | `job.data.stop_time` | On completion |
+| **User Color** | User-assigned color name (preset or custom RGB format) | `__userColors` dictionary | On color change |
 | **Progress** | Visual progress bar                                                                                                                                                                 | Composite of all frame states | Real-time |
 
 #### Additional Columns (Hidden by Default)
@@ -148,6 +149,8 @@ Right-clicking on a job provides these actions:
 
 The Monitor Jobs view allows you to organize jobs visually by applying background colors. This feature is particularly useful when working with many concurrent renders, allowing you to group jobs by project, priority, department, or any other categorization scheme.
 
+Jobs with assigned colors are also easily sortable using the **User Color** column, making it simple to find and group all jobs of a specific color.
+
 #### Setting Job Colors
 
 To apply a color to one or more jobs:
@@ -157,6 +160,10 @@ To apply a color to one or more jobs:
 3. **Choose Color**: Navigate to "Set user color" submenu
 
 ![Set User Color Menu with 15 Options](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_15_color_options.png)
+
+#### Sorting by User Color
+
+Click the **User Color** column header to sort jobs by their assigned colors. Click again to reverse the sort order. This allows you to quickly organize large job lists by color, making it easy to find jobs belonging to specific projects, priorities, or departments.
 
 #### Available Color Options
 
@@ -188,6 +195,8 @@ For complete flexibility, use the **"Set Custom Color (RGB)..."** option to crea
 4. Click OK to apply the custom color
 
 ![Custom Color Dialog](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_set_custom_color.png)
+
+**Note**: Custom colors are displayed in the **User Color** column as "RGB(R,G,B)" format (e.g., "RGB(255,20,20)"), making it easy to identify and sort by custom color values. All jobs with the same custom RGB values will be grouped together when sorting by the User Color column.
 
 #### Color Management
 
@@ -627,6 +636,90 @@ CueGUI saves user preferences:
 - Job monitoring list
 
 Settings stored in: `~/.config/opencue/cuegui.ini`
+
+### Job Interaction Permissions
+
+CueGUI includes a permission system that controls which jobs users can modify. This is particularly important in production environments where artists should generally only manage their own jobs, but administrators and show TDs need the ability to retry or modify jobs across all users.
+
+#### Permission Model
+
+By default, users can only perform certain actions (kill, retry dead frames, auto-eating) on jobs they own. To manage jobs owned by other users, you must enable **Job Interaction** mode.
+
+**Default Behavior (Job Interaction Disabled)**:
+- Can only modify jobs you own (matching your username)
+- Actions on other users' jobs will be blocked with a permission error
+- Provides safety against accidentally modifying others' work
+
+**Job Interaction Enabled**:
+- Can modify any job regardless of owner
+- Intended for administrators, Production Services and Resources (PSR) teams, and Developers
+- Should be used with caution
+
+#### Protected Actions
+
+The following actions require ownership or enabled Job Interaction:
+
+- **Kill Jobs**: Terminate jobs and running frames
+- **Retry Dead Frames**: Retry all frames that failed
+- **Auto Eating (Enable/Disable)**: Toggle automatic eating of dead frames
+- **Eat Dead Frames**: Mark dead frames as complete
+- **Layer Operations**: Retry layers, modify layer settings
+- **Frame Operations**: Retry specific frames
+
+**Note**: Pause and Resume operations are NOT protected and can be performed on any job.
+
+#### Enabling/Disabling Job Interaction
+
+To enable or disable Job Interaction:
+
+1. Open the **File** menu in CueGUI (either Cuetopia or CueCommander)
+2. Select either:
+   - **Enable Job Interaction** (if currently disabled)
+   - **Disable Job Interaction** (if currently enabled)
+3. Confirm the restart prompt
+4. CueGUI will close and must be restarted for the change to take effect
+
+- **Enable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_enable_job_interaction.png)
+
+- **Disable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_disable_job_interaction.png)
+
+The setting is persistent across sessions and stored in your user preferences.
+
+#### When to Enable Job Interaction
+
+**Enable Job Interaction when**:
+- You are part of the Pipeline team, Production Services and Resources (PSR) team, system administrator performing daily maintenance
+- Retrying jobs across multiple users is part of your workflow
+- Providing production support for render issues
+- Managing jobs during off-hours or emergencies
+
+**Keep Job Interaction Disabled when**:
+- Working as an artist managing only your own jobs
+- Safety and preventing accidental modifications is a priority
+- You don't regularly need to manage others' jobs
+
+#### Permission Error Messages
+
+If you attempt an action on someone else's job without Job Interaction enabled, you'll see an error message like:
+
+```
+You do not have permissions to retry dead for some of the selected jobs owned by <USERNAME>
+
+Job actions can still be enabled at File > Enable Job Interaction, but caution is advised.
+```
+
+This message confirms the action was blocked and reminds you how to enable permissions if needed.
+
+#### Best Practices
+
+1. **Enable Only When Needed**: Keep Job Interaction disabled during normal artist/end-user work
+2. **Communicate**: Inform job owners when modifying their jobs
+3. **Document Changes**: Note why jobs were killed or retried for tracking
+4. **Verify Ownership**: Double-check job names before performing destructive actions
 
 ### Plugin Integration
 

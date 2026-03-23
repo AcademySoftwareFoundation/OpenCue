@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Module housing node implementations that work with NodeGraphQtPy"""
+"""Module housing node implementations that work with NodeGraphQt"""
 
 
 from .layer import CueLayerNode

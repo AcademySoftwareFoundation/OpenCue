@@ -77,13 +77,11 @@ following containers:
 you might run many hundreds of RQD rendering servers.>
 
 The Docker Compose deployment process also configures the database and applies
-any database migrations. The deployment process creates a `db-data` directory
-in the `sandbox` directory. The `db-data` directory is mounted as a volume in
-the PostgreSQL database container and stores the contents of the database. If
-you stop your database container, all data is preserved as long as you don't
-remove this directory. If you need to start from scratch with a fresh
-database, remove the contents of this directory and restart the containers
-with the `docker-compose` command.
+any database migrations. The database data is stored in a named Docker volume
+(`db-data`). If you stop your database container, all data is preserved as long
+as you don't remove this volume. If you need to start from scratch with a fresh
+database, run `docker compose --profile all down -v` to remove all volumes and
+restart the containers.
 
 Docker Compose mounts volumes for the RQD rendering server on the host
 operating system under `/tmp/rqd/logs` and `/tmp/rqd/shots`. RQD saves logs
@@ -270,17 +268,13 @@ Terminal window:
 To delete the resources you created in this guide, run the following commands
 from the second shell:
 
-1.  To stop the sandbox environment, run the following command:
+1.  To stop the sandbox environment and remove containers:
 
-        docker-compose stop
+        docker compose --profile all down
 
-1.  To free up storage space, delete the containers:
+1.  To also remove all data volumes (database, etc.):
 
-        docker-compose rm
-
-1.  To delete the PostgreSQL data directory created by the database setup process:
-
-        rm -rf sandbox/db-data
+        docker compose --profile all down -v
 
 1.  To delete the virtual environment for the Python client packages:
 

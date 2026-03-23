@@ -3,7 +3,16 @@
 # TODO: Remove once these crates are stable and ready for public use
 /crates/cuebot-config
 /crates/dist-lock
-/crates/scheduler
 
 .DS_Store
 config/rqd.local_docker.yaml
+/sandbox/kafka*
+/reference
+Cargo.lock
+
+# Localized files only meant for building docker images locally
+proto
+
+# Agent files
+AGENTS.md
+CLAUDE.md

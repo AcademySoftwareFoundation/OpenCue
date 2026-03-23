@@ -49,18 +49,31 @@ cd OpenCue
 ### 4. Start OpenCue services
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-This starts:
+This starts the core services:
 - PostgreSQL database
 - Cuebot server
 - RQD (on the local machine)
 
+To enable optional components, use Docker Compose profiles:
+
+```bash
+# Start with Web UI
+docker compose --profile cueweb up -d
+
+# Start with monitoring
+docker compose --profile monitoring up -d
+
+# Start everything
+docker compose --profile all up -d
+```
+
 ### 5. Verify services are running
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 You should see all services in "Up" state.

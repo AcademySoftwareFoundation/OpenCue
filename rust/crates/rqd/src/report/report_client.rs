@@ -1,16 +1,29 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use crate::config::{Config, GrpcConfig};
+use crate::config::CONFIG;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
-use miette::{IntoDiagnostic, Result, miette};
+use miette::{miette, IntoDiagnostic, Result};
 use opencue_proto::report::{self as pb, rqd_report_interface_client::RqdReportInterfaceClient};
 use rand::rng;
 use rand::seq::IndexedRandom;
-use tokio::sync::RwLock;
+use tokio::sync::{OnceCell, RwLock};
 use tonic::transport::Channel;
-use tower::ServiceBuilder;
 use tower::util::rng::HasherRng;
+use tower::ServiceBuilder;
 use tracing::info;
 
 use super::retry::backoff::{ExponentialBackoffMaker, MakeBackoff};
@@ -18,26 +31,49 @@ use super::retry::backoff_policy::BackoffPolicy;
 use super::retry::{Retry, RetryLayer};
 
 pub(crate) struct ReportClient {
-    config: GrpcConfig,
     refresh_at: RwLock<Option<SystemTime>>,
     client: RwLock<RqdReportInterfaceClient<Retry<BackoffPolicy, Channel>>>,
 }
 
+static REPORT_CLIENT: OnceCell<Arc<ReportClient>> = OnceCell::const_new();
+
+/// Gets or initializes the singleton instance of the ReportClient.
+///
+/// This function returns a reference-counted pointer to the global ReportClient instance.
+/// The client is initialized lazily on first access. If the client is already initialized,
+/// this returns the existing instance. Otherwise, it creates a new client by calling
+/// `ReportClient::build()`.
+///
+/// # Returns
+///
+/// Returns `Ok(Arc<ReportClient>)` on success, or an error if the client fails to initialize.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The gRPC endpoint configuration is invalid or empty
+/// - The connection to the cuebot server cannot be established
+pub async fn instance() -> Result<Arc<ReportClient>> {
+    REPORT_CLIENT
+        .get_or_try_init(|| async { Ok(Arc::new(ReportClient::build().await?)) })
+        .await
+        .map(Arc::clone)
+}
+
 impl ReportClient {
-    pub async fn build(config: &Config) -> Result<Self> {
-        let should_refresh_connection = config.grpc.connection_expires_after
+    async fn build() -> Result<Self> {
+        let should_refresh_connection = CONFIG.grpc.connection_expires_after
             > Duration::from_secs(0)
-            && config.grpc.cuebot_endpoints.len() > 1;
+            && CONFIG.grpc.cuebot_endpoints.len() > 1;
         let refresh_at = should_refresh_connection
-            .then(|| SystemTime::now().checked_add(config.grpc.connection_expires_after))
+            .then(|| SystemTime::now().checked_add(CONFIG.grpc.connection_expires_after))
             .flatten();
 
-        let (endpoint, client) = Self::connect(&config.grpc)?;
-        Self::log_connection(refresh_at, &config.grpc.cuebot_endpoints, &endpoint);
+        let (endpoint, client) = Self::connect()?;
+        Self::log_connection(refresh_at, &CONFIG.grpc.cuebot_endpoints, &endpoint);
 
         // Return the constructed client
         Ok(Self {
-            config: config.grpc.clone(),
             client: RwLock::new(client),
             refresh_at: RwLock::new(refresh_at),
         })
@@ -61,13 +97,11 @@ impl ReportClient {
         );
     }
 
-    fn connect(
-        config: &GrpcConfig,
-    ) -> Result<(
+    fn connect() -> Result<(
         String,
         RqdReportInterfaceClient<Retry<BackoffPolicy, Channel>>,
     )> {
-        let endpoint = Self::draw_endpoint(&config.cuebot_endpoints)?;
+        let endpoint = Self::draw_endpoint(&CONFIG.grpc.cuebot_endpoints)?;
         let endpoint = if !endpoint.starts_with("http") {
             format!("http://{}", endpoint)
         } else {
@@ -79,9 +113,9 @@ impl ReportClient {
 
         // Use a backoff strategy to retry failed requests
         let backoff = ExponentialBackoffMaker::new(
-            config.backoff_delay_min,
-            config.backoff_delay_max,
-            config.backoff_jitter_percentage,
+            CONFIG.grpc.backoff_delay_min,
+            CONFIG.grpc.backoff_delay_max,
+            CONFIG.grpc.backoff_jitter_percentage,
             HasherRng::default(),
         )
         .into_diagnostic()?
@@ -89,7 +123,7 @@ impl ReportClient {
 
         // Requests will retry indefinitely
         let retry_policy = BackoffPolicy {
-            attempts: Some(config.backoff_retry_attempts),
+            attempts: Some(CONFIG.grpc.backoff_retry_attempts),
             backoff,
         };
         let retry_layer = RetryLayer::new(retry_policy);
@@ -114,16 +148,16 @@ impl ReportClient {
                 info!("Report grpc connection expired. Reconnecting..");
                 // Update connection
                 let mut lock = self.client.write().await;
-                let (endpoint, conn_lock) = Self::connect(&self.config)?;
+                let (endpoint, conn_lock) = Self::connect()?;
                 *lock = conn_lock;
                 drop(lock);
 
                 // Update next refresh_at
                 let mut lock = self.refresh_at.write().await;
                 let next_expire_time =
-                    SystemTime::now().checked_add(self.config.connection_expires_after);
+                    SystemTime::now().checked_add(CONFIG.grpc.connection_expires_after);
                 *lock = next_expire_time;
-                Self::log_connection(next_expire_time, &self.config.cuebot_endpoints, &endpoint);
+                Self::log_connection(next_expire_time, &CONFIG.grpc.cuebot_endpoints, &endpoint);
                 drop(lock);
 
                 Ok(self.client.read().await.clone())

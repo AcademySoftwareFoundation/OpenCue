@@ -366,6 +366,15 @@ public interface JobDao {
     void updateMaxRSS(JobInterface job, long maxRss);
 
     /**
+     * Update jobs max PSS. Only updates if the passed in value is greater than the current value of
+     * int_max_pss
+     *
+     * @param job
+     * @param maxPss
+     */
+    void updateMaxPSS(JobInterface job, long maxPss);
+
+    /**
      * Inserts a key/value pair into the jobs env table
      *
      * @param job

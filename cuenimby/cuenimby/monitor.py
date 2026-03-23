@@ -27,14 +27,22 @@ from opencue_proto import host_pb2
 
 logger = logging.getLogger(__name__)
 
+HOST_PING_LIMIT = 60  # seconds
 
 class HostState(Enum):
     """Host state enumeration."""
-    AVAILABLE = "available"
-    WORKING = "working"
-    DISABLED = "disabled"
-    NIMBY_LOCKED = "nimby_locked"
-    UNKNOWN = "unknown"
+    STARTING = "Starting"
+    AVAILABLE = "Available"
+    WORKING = "Working"
+    NIMBY_LOCKED = "🔒 NIMBY locked"
+    HOST_LOCKED = "🔒 Host locked"
+    HOST_DOWN = "❌ Host down, RQD is not running"
+    NO_HOST = "❌ Machine not found on CueBot, check if RQD is running"
+    HOST_LAGGING = f"⚠️ Host ping above limit ({HOST_PING_LIMIT} sec), check if RQD is running"
+    CUEBOT_UNREACHABLE = "❌ CueBot unreachable"
+    ERROR = "❌ Error"
+    REPAIR = "🔧 Under Repair, check with your tech team..."
+    UNKNOWN = "⚠️ Unknown status..."
 
 
 class HostMonitor:
@@ -45,7 +53,9 @@ class HostMonitor:
         cuebot_host: str,
         cuebot_port: int,
         hostname: Optional[str] = None,
-        poll_interval: int = 5
+        poll_interval: int = 5,
+        state_change_callbacks: Optional[List[Callable[[HostState, HostState], None]]] = None,
+        frame_started_callbacks: Optional[List[Callable[[str, str], None]]] = None,
     ):
         """Initialize host monitor.
 
@@ -63,32 +73,69 @@ class HostMonitor:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._host: Optional[Host] = None
-        self._current_state = HostState.UNKNOWN
         self._running_frames: List[str] = []
+
+        self._current_state = HostState.UNKNOWN
 
         # Callbacks
         self._state_change_callbacks: List[Callable[[HostState, HostState], None]] = []
         self._frame_started_callbacks: List[Callable[[str, str], None]] = []
 
+        for callback in (state_change_callbacks or []):
+            self.on_state_change(callback)
+        for callback in (frame_started_callbacks or []):
+            self.on_frame_started(callback)
+
         # Initialize Cuebot connection
         self._init_cuebot()
 
+    @property
+    def current_state(self) -> HostState:
+        """Get current stored host state."""
+        return self._current_state
+
+    @current_state.setter
+    def current_state(self, new_state: HostState) -> None:
+        """Set current host state."""
+        # Check for state changes
+        if new_state == self._current_state:
+            return
+        old_state = self._current_state
+        self._current_state = new_state
+        logger.info("State changed: %s -> %s", old_state.value, new_state.value)
+
+        for callback in self._state_change_callbacks:
+            callback(old_state, new_state)
+
     def _init_cuebot(self) -> None:
         """Initialize connection to Cuebot."""
+        self.current_state = HostState.STARTING
         try:
             opencue.Cuebot.setHosts([f"{self.cuebot_host}:{self.cuebot_port}"])
-            logger.info(f"Connected to Cuebot at {self.cuebot_host}:{self.cuebot_port}")
         except Exception as e:
-            logger.error(f"Failed to connect to Cuebot: {e}")
-            raise
+            logger.error("Failed to connect to Cuebot: %s", e)
+            self.current_state = HostState.CUEBOT_UNREACHABLE
+        else:
+            logger.info("Connected to Cuebot at %s:%d", self.cuebot_host, self.cuebot_port)
 
     def _get_host(self) -> Optional[Host]:
         """Get host object from Cuebot."""
         try:
-            return opencue.api.findHost(self.hostname)
+            host = opencue.api.findHost(self.hostname)
         except Exception as e:
-            logger.error(f"Failed to find host {self.hostname}: {e}")
+            if "failed to connect to all addresses" in str(e):
+                self.current_state = HostState.CUEBOT_UNREACHABLE
+                logger.error("Failed to contact CueBot at %s:%d",
+                             self.cuebot_host, self.cuebot_port)
+            elif "Object does not exist" in str(e):
+                self.current_state = HostState.NO_HOST
+            else:
+                self.current_state = HostState.UNKNOWN
+            logger.error("Failed to find host %s: %s", self.hostname, e)
             return None
+        else:
+            self.current_state = self._determine_state(host)
+            return host
 
     def _determine_state(self, host: Host) -> HostState:
         """Determine current host state.
@@ -102,11 +149,16 @@ class HostMonitor:
         try:
             # Check lock state
             lock_state = host.lockState()
+            state = host.state()
 
             if lock_state == host_pb2.LockState.Value('NIMBY_LOCKED'):
                 return HostState.NIMBY_LOCKED
-            elif lock_state == host_pb2.LockState.Value('LOCKED'):
-                return HostState.DISABLED
+            if lock_state == host_pb2.LockState.Value('LOCKED'):
+                return HostState.HOST_LOCKED
+            if state == host_pb2.HardwareState.Value('REPAIR'):
+                return HostState.REPAIR
+            if state == host_pb2.HardwareState.Value('DOWN'):
+                return HostState.HOST_DOWN
 
             # Check if working
             procs = host.getProcs()
@@ -115,11 +167,14 @@ class HostMonitor:
 
             # Check if available
             if lock_state == host_pb2.LockState.Value('OPEN'):
-                return HostState.AVAILABLE
-
+                if host.pingLast() > HOST_PING_LIMIT:
+                    return HostState.HOST_LAGGING
+                if state == host_pb2.HardwareState.Value('UP'):
+                    return HostState.AVAILABLE
             return HostState.UNKNOWN
+
         except Exception as e:
-            logger.error(f"Failed to determine state: {e}")
+            logger.error("Failed to determine state: %s", e)
             return HostState.UNKNOWN
 
     def _check_new_frames(self, procs) -> None:
@@ -134,17 +189,18 @@ class HostMonitor:
         for frame_id in new_frames:
             # Find the proc for this frame
             for proc in procs:
-                if proc.data.name == frame_id:
-                    try:
-                        frame = proc.getFrame()
-                        job_name = frame.data.job_name if hasattr(frame.data, 'job_name') else "Unknown"
-                        frame_name = frame.data.name if hasattr(frame.data, 'name') else frame_id
+                if proc.data.name != frame_id:
+                    continue
+                try:
+                    frame = proc.getFrame()
+                    job_name = getattr(frame.data, 'job_name', "Unknown")
+                    frame_name = getattr(frame.data, 'name', frame_id)
 
-                        for callback in self._frame_started_callbacks:
-                            callback(job_name, frame_name)
-                    except Exception as e:
-                        logger.error(f"Failed to get frame info: {e}")
-                    break
+                    for callback in self._frame_started_callbacks:
+                        callback(job_name, frame_name)
+                except Exception as e:
+                    logger.error("Failed to get frame info: %s", e)
+                break
 
         self._running_frames = current_frame_ids
 
@@ -155,23 +211,13 @@ class HostMonitor:
                 host = self._get_host()
                 if host:
                     self._host = host
-                    new_state = self._determine_state(host)
-
-                    # Check for state changes
-                    if new_state != self._current_state:
-                        old_state = self._current_state
-                        self._current_state = new_state
-                        logger.info(f"State changed: {old_state.value} -> {new_state.value}")
-
-                        for callback in self._state_change_callbacks:
-                            callback(old_state, new_state)
-
+                    self.current_state = self._determine_state(host)
                     # Check for new frames
                     procs = host.getProcs()
                     self._check_new_frames(procs)
 
             except Exception as e:
-                logger.error(f"Error polling state: {e}")
+                logger.error("Error polling state: %s", e)
 
             time.sleep(self.poll_interval)
 
@@ -186,12 +232,12 @@ class HostMonitor:
             host = self._get_host()
             if host:
                 self._host = host
-                self._current_state = self._determine_state(host)
-                logger.info(f"Initial state: {self._current_state.value}")
+                self.current_state = self._determine_state(host)
+                logger.info("Initial state: %s", self.current_state.value)
             else:
                 logger.warning("Could not fetch initial host state")
         except Exception as e:
-            logger.error(f"Error fetching initial state: {e}")
+            logger.error("Error fetching initial state: %s", e)
 
         self._running = True
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -204,10 +250,6 @@ class HostMonitor:
         if self._thread:
             self._thread.join(timeout=5)
         logger.info("Monitor stopped")
-
-    def get_current_state(self) -> HostState:
-        """Get current host state."""
-        return self._current_state
 
     def get_host(self) -> Optional[Host]:
         """Get current host object."""
@@ -223,24 +265,19 @@ class HostMonitor:
             RuntimeError: If host object is not available or lock operation fails.
         """
         if not self._host:
+            self.current_state = HostState.NO_HOST
             raise RuntimeError("Host not available. Cannot lock host.")
 
         try:
             self._host.lock()
             # Update state immediately to reflect the change
-            old_state = self._current_state
-            self._current_state = HostState.DISABLED
+            self.current_state = HostState.HOST_LOCKED
             logger.info("Host locked")
-
-            # Trigger state change callbacks
-            if old_state != self._current_state:
-                for callback in self._state_change_callbacks:
-                    callback(old_state, self._current_state)
-
             return True
         except Exception as e:
-            logger.error(f"Failed to lock host: {e}")
-            raise RuntimeError(f"Failed to lock host: {e}") from e
+            self.current_state = self._determine_state(self._host)
+            logger.error("Failed to lock host: %s", e)
+            raise RuntimeError("Failed to lock host: %s" % e) from e
 
     def unlock_host(self) -> bool:
         """Unlock the host (enable rendering).
@@ -252,24 +289,19 @@ class HostMonitor:
             RuntimeError: If host object is not available or unlock operation fails.
         """
         if not self._host:
+            self.current_state = HostState.NO_HOST
             raise RuntimeError("Host not available. Cannot unlock host.")
 
         try:
             self._host.unlock()
             # Update state immediately to reflect the change
-            old_state = self._current_state
-            self._current_state = HostState.AVAILABLE
+            self.current_state = HostState.AVAILABLE
             logger.info("Host unlocked")
-
-            # Trigger state change callbacks
-            if old_state != self._current_state:
-                for callback in self._state_change_callbacks:
-                    callback(old_state, self._current_state)
-
             return True
         except Exception as e:
-            logger.error(f"Failed to unlock host: {e}")
-            raise RuntimeError(f"Failed to unlock host: {e}") from e
+            self.current_state = self._determine_state(self._host)
+            logger.error("Failed to unlock host: %s", e)
+            raise RuntimeError("Failed to unlock host: %s" % e) from e
 
     def on_state_change(self, callback: Callable[[HostState, HostState], None]) -> None:
         """Register callback for state changes.

@@ -809,6 +809,15 @@ class Job(object):
         :return: most memory used by any frame in kB"""
         return self.data.job_stats.max_rss
 
+    def maxPss(self):
+        """Returns the highest amount of PSS that any frame in this job used.
+
+        Value is within 5% of the actual highest frame.
+
+        :rtype:  long
+        :return: most PSS used by any frame in kB"""
+        return self.data.job_stats.max_pss
+
     def shutdownIfCompleted(self):
         """Shutdown the job if it is completed."""
         self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),

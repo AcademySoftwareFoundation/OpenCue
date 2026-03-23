@@ -232,6 +232,8 @@ DISABLED_ACTION_TYPES = [action_type.strip()
 
 SEARCH_JOBS_APPEND_RESULTS = __config.get('search_jobs.append_results', True)
 
+NOTIFY_JOB_NOT_FOUND = __config.get('job_monitor.notify_job_not_found', False)
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3

@@ -1,7 +1,7 @@
 # Contributing to OpenCue
 
 So, you want to contribute to OpenCue? To find out how you can help, refer to OpenCue's
-[contribution guidelines](https://www.opencue.io/contributing/opencue/contributing/).
+[contribution guidelines](https://docs.opencue.io/docs/developer-guide/contributing/).
 
 ## Guideline for new issues
 GitHub issues are a great place to start a conversation! Issues aren’t restricted to bugs; we happily welcome feature requests and other suggestions submitted as issues. 

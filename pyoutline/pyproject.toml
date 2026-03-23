@@ -9,11 +9,13 @@ build-backend = "hatchling.build"
 name = "opencue_pyoutline"
 dynamic = ["version"]
 dependencies = [
-    "opencue_pycue"
+    "opencue_pycue",
+    "typing_extensions; python_version < '3.12'",  # Unpack
 ]
 requires-python = ">3.7"
 description = "PyOutline is a Python library for building and managing OpenCue job definitions. It provides an API to create outlines that describe jobs, layers, and tasks, making it easier to construct repeatable workflows for rendering pipelines."
 readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"

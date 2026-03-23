@@ -38,7 +38,7 @@ import cuegui.Utils
 class ProcChildren(QtWidgets.QWidget):
     """Widget for displaying Host statistics for a Proc's child processes."""
 
-    HEADERS = ["PID", "Name", "Start Time", "Rss (KB)", "VSize (KB)",
+    HEADERS = ["PID", "Name", "Start Time", "Rss (KB)", "Pss (KB)", "VSize (KB)",
                "Statm Rss (KB)", "Statm Size (KB)", "Cmd line"]
 
     def __init__(self, job, layer, hosts, parent=None):
@@ -107,6 +107,7 @@ class ProcChildren(QtWidgets.QWidget):
                                 QtGui.QStandardItem(proc.stat.name),
                                 QtGui.QStandardItem(proc.start_time),
                                 QtGui.QStandardItem(str(proc.stat.rss)),
+                                QtGui.QStandardItem(str(proc.stat.pss)),
                                 QtGui.QStandardItem(str(proc.stat.vsize)),
                                 QtGui.QStandardItem(str(proc.statm.rss)),
                                 QtGui.QStandardItem(str(proc.statm.size)),

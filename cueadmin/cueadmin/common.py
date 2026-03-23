@@ -978,6 +978,8 @@ class ActionUtil(object):
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_PRIORITY,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+            opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+            opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MEMORY,
         ):
             act.integer_value = int(value)
             act.value_type = opencue.api.filter_pb2.INTEGER_TYPE
@@ -986,11 +988,21 @@ class ActionUtil(object):
             opencue.api.filter_pb2.SET_JOB_MIN_CORES,
             opencue.api.filter_pb2.SET_JOB_MAX_CORES,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
+            opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+            opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+            opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+            opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+            opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES,
+            opencue.api.filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES,
         ):
             act.float_value = float(value)
             act.value_type = opencue.api.filter_pb2.FLOAT_TYPE
 
-        elif act.type == opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
+        elif act.type in (
+            opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+            opencue.api.filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+            opencue.api.filter_pb2.SET_ALL_PRE_LAYER_TAGS,
+        ):
             act.string_value = value
             act.value_type = opencue.api.filter_pb2.STRING_TYPE
 

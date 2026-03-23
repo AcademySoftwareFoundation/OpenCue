@@ -182,106 +182,74 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Add page metadata (version info and last updated)
   function addPageMetadata() {
+    // Skip the home page — metadata box doesn't belong on the hero
+    if (document.querySelector('.hero-section')) return;
+
     const lastModified = '{{ page.last_modified_date | date: "%B %d, %Y" }}';
     const currentVersion = '{{ site.version | default: site.versioning.default_version }}';
     const defaultVersion = '{{ site.versioning.default_version }}';
     const pageHeader = document.querySelector('.main-content h1');
-    
+
     if (pageHeader && !document.getElementById('page-metadata')) {
       const metadataElement = document.createElement('div');
       metadataElement.id = 'page-metadata';
-      metadataElement.style.cssText = `
-        background: var(--color-grey-lt-000, #f8f9fa);
-        border: 1px solid var(--color-grey-lt-100, #e9ecef);
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin: 16px 0 24px 0;
-        font-size: 14px;
-      `;
-      
+      metadataElement.className = 'page-metadata-bar';
+
       // Create metadata content
-      let metadataContent = `
-        <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 12px; justify-content: center;">
-          <span style="display: flex; align-items: center; gap: 8px;">
+      let metadataContent = '<div class="metadata-items">';
+      metadataContent += `
+          <span class="metadata-item">
             <strong>Documentation Version:</strong>
-            <span style="background: var(--color-blue-100, #dbeafe); color: var(--color-blue-700, #1d4ed8); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+            <span class="metadata-version-tag">
               ${currentVersion === 'main' || currentVersion === '{{ site.versioning.default_version }}' ? `${currentVersion} (latest)` : currentVersion}
             </span>
           </span>
       `;
-      
+
       // Add last updated date if available
       if (lastModified && lastModified !== '') {
         metadataContent += `
-          <span style="display: flex; align-items: center; gap: 8px;">
+          <span class="metadata-item">
             <strong>Last Updated:</strong>
             <time>${lastModified}</time>
           </span>
         `;
       }
-      
+
       metadataContent += `
-          <span style="display: flex; align-items: center; gap: 8px;">
+          <span class="metadata-item">
             <strong>Versions:</strong>
             <span>v{{ site.doc_version }}</span>
           </span>
         </div>
       `;
-      
+
       // Add version warning if not on default version or main
       if (currentVersion !== defaultVersion && currentVersion !== 'main') {
         metadataContent += `
-          <div style="
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 12px 16px;
-            border-radius: 0 4px 4px 0;
-            margin-top: 12px;
-          ">
-            <span style="color: #92400e; font-weight: 500;">
-              ⚠️ You are viewing documentation for version <strong>${currentVersion}</strong>. 
-              <a href="{{ site.baseurl }}/" style="color: #b45309; font-weight: 600; text-decoration: underline;">
+          <div class="metadata-version-warning">
+            <span>
+              ⚠️ You are viewing documentation for version <strong>${currentVersion}</strong>.
+              <a href="{{ site.baseurl }}/">
                 View latest documentation →
               </a>
             </span>
           </div>
         `;
       }
-      
+
       metadataElement.innerHTML = metadataContent;
-      
+
       // Insert after the main heading
       pageHeader.parentNode.insertBefore(metadataElement, pageHeader.nextSibling);
-      
+
       // Update styles for dark mode if needed
       updatePageMetadataStyles();
     }
   }
   
-  // Function to update page metadata styles for dark mode
-  function updatePageMetadataStyles() {
-    const metadata = document.getElementById('page-metadata');
-    if (metadata) {
-      const isDark = document.body.classList.contains('dark-mode');
-      
-      if (isDark) {
-        metadata.style.background = '#374151';
-        metadata.style.borderColor = '#6b7280';
-        metadata.style.color = '#f9fafb';
-        
-        // Update version tag colors for dark mode
-        const versionTag = metadata.querySelector('span[style*="background: var(--color-blue-100"]');
-        if (versionTag) {
-          versionTag.style.background = '#1e3a8a';
-          versionTag.style.color = '#93c5fd';
-        }
-      } else {
-        metadata.style.background = '#f8f9fa';
-        metadata.style.borderColor = '#e9ecef';
-        metadata.style.color = '#212529';
-      }
-    }
-  }
+  // Dark mode styles are now handled via CSS classes — no JS needed
+  function updatePageMetadataStyles() {}
   
   // Listen for theme changes to update styles
   const observer = new MutationObserver(function(mutations) {

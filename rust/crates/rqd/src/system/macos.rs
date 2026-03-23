@@ -1,3 +1,15 @@
+// Copyright Contributors to the OpenCue Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// or implied. See the License for the specific language governing permissions and limitations under
+// the License.
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -12,8 +24,8 @@ use std::{
 use chrono::{DateTime, Local};
 use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
-use miette::{Context, IntoDiagnostic, Result, miette};
-use nix::sys::signal::{Signal, kill, killpg};
+use miette::{miette, Context, IntoDiagnostic, Result};
+use nix::sys::signal::{kill, killpg, Signal};
 use opencue_proto::{
     host::HardwareState,
     report::{ChildrenProcStats, ProcStats, Stat},
@@ -73,8 +85,10 @@ pub struct MachineDynamicInfo {
 
 /// Aggregated Data refering to a process session
 struct SessionData {
-    /// Amount of memory used by all processes in this session
-    memory: u64,
+    /// Amount of memory used by all processes in this session calculated by rss
+    rss: u64,
+    /// Amount of memory used by all processes in this session calculated by pss
+    pss: u64,
     /// Amount of virtual memory used by all processes in this session
     virtual_memory: u64,
     /// Amount of gpu used by all processes in this session
@@ -586,6 +600,8 @@ impl MacOsSystem {
                                 children.push(ProcStats {
                                     stat: Some(Stat {
                                         rss: proc_memory as i64,
+                                        // Fallback to RSS as PSS is not available on sysinfo
+                                        pss: proc_memory as i64,
                                         vsize: proc_vmemory as i64,
                                         state: proc.status().to_string(),
                                         name: proc.name().to_string_lossy().to_string(),
@@ -622,7 +638,9 @@ impl MacOsSystem {
             None => (0, 0, 0, u64::MAX, 0),
         };
         Some(SessionData {
-            memory,
+            rss: memory,
+            // Not tracking PSS for macos
+            pss: memory,
             virtual_memory,
             gpu_memory,
             start_time,
@@ -661,6 +679,10 @@ impl SystemManager for MacOsSystem {
 
     fn attributes(&self) -> &HashMap<String, String> {
         &self.attributes
+    }
+
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
     }
 
     fn collect_gpu_stats(&self) -> MachineGpuStats {
@@ -722,12 +744,14 @@ impl SystemManager for MacOsSystem {
         Ok(self.calculate_proc_session_data(&pid).map(|session_data| {
             debug!(
                 "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
-                pid, session_data.memory, session_data.virtual_memory, session_data.gpu_memory
+                pid, session_data.rss, session_data.virtual_memory, session_data.gpu_memory
             );
             ProcessStats {
                 // Caller is responsible for maintaining the Max value between calls
-                max_rss: session_data.memory,
-                rss: session_data.memory,
+                max_rss: session_data.rss,
+                rss: session_data.rss,
+                max_pss: session_data.pss,
+                pss: session_data.pss,
                 max_vsize: session_data.virtual_memory,
                 vsize: session_data.virtual_memory,
                 llu_time: log_mtime,

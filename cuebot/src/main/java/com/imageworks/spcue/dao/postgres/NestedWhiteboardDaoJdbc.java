@@ -86,8 +86,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
             + "job_resource.int_min_cores, " + "job_resource.int_min_gpus, "
             + "job_resource.int_max_cores, " + "job_resource.int_max_gpus, "
-            + "job_mem.int_max_rss " + "FROM " + "show, " + "dept, " + "folder_level, "
-            + "folder_resource, " + "folder " + "LEFT JOIN " + "job " + "ON "
+            + "job_mem.int_max_rss, " + "job_mem.int_max_pss " + "FROM " + "show, " + "dept, "
+            + "folder_level, " + "folder_resource, " + "folder " + "LEFT JOIN " + "job " + "ON "
             + " (folder.pk_folder = job.pk_folder AND job.str_state='PENDING') " + "LEFT JOIN "
             + "facility " + "ON " + "(job.pk_facility = facility.pk_facility) " + "LEFT JOIN "
             + "job_stat " + "ON " + "(job.pk_job = job_stat.pk_job) " + "LEFT JOIN "
@@ -290,6 +290,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             + "host_stat.int_load, " + "proc.pk_proc, " + "proc.int_cores_reserved AS proc_cores, "
             + "proc.int_gpus_reserved AS proc_gpus, " + "proc.int_mem_reserved AS proc_memory, "
             + "proc.int_mem_used AS used_memory, " + "proc.int_mem_max_used AS max_memory, "
+            + "proc.int_pss_used AS used_pss, " + "proc.int_pss_max_used AS max_pss, "
             + "proc.int_gpu_mem_reserved AS proc_gpu_memory, " + "proc.ts_ping, "
             + "proc.ts_booked, " + "proc.ts_dispatched, " + "proc.b_unbooked, "
             + "redirect.str_name AS str_redirect, " + "job.str_name AS job_name, "
@@ -390,6 +391,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                                     .setReservedMemory(rs.getLong("proc_memory"))
                                     .setReservedGpuMemory(rs.getLong("proc_gpu_memory"))
                                     .setUsedMemory(rs.getLong("used_memory"))
+                                    .setUsedPss(rs.getLong("used_pss"))
+                                    .setMaxPss(rs.getLong("max_pss"))
                                     .setFrameName(rs.getString("frame_name"))
                                     .setJobName(rs.getString("job_name"))
                                     .setShowName(rs.getString("show_name"))

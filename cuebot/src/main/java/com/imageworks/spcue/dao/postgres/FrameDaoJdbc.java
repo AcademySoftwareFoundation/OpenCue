@@ -293,6 +293,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             frame.layerId = rs.getString("pk_layer");
             frame.showId = rs.getString("pk_show");
             frame.maxRss = rs.getLong("int_mem_max_used");
+            frame.maxPss = rs.getLong("int_pss_max_used");
             frame.name = rs.getString("str_name");
             frame.number = rs.getInt("int_number");
             frame.dispatchOrder = rs.getInt("int_dispatch_order");
@@ -709,14 +710,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 RESOURCE_USAGE_MAPPER, f.getFrameId());
     }
 
-    private static final String UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME = "UPDATE " + "frame "
-            + "SET " + "ts_updated = current_timestamp," + "int_mem_max_used = ?,"
-            + "int_mem_used = ?," + "ts_llu = ? " + "WHERE " + "pk_frame = ? ";
+    private static final String UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME =
+            "UPDATE " + "frame " + "SET " + "ts_updated = current_timestamp,"
+                    + "int_mem_max_used = ?," + "int_mem_used = ?," + "int_pss_max_used = ?,"
+                    + "int_pss_used = ?," + "ts_llu = ? " + "WHERE " + "pk_frame = ? ";
 
     @Override
     public void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss,
-            long lluTime) {
-        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME, maxRss, rss,
+            long maxPss, long pss, long lluTime) {
+        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME, maxRss, rss, maxPss, pss,
                 new Timestamp(lluTime * 1000l), f.getFrameId());
     }
 

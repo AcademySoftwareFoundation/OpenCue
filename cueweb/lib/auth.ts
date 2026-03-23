@@ -3,6 +3,17 @@ import { NextAuthOptions } from "next-auth";
 import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
+import CredentialsProvider from "next-auth/providers/credentials";
+import ldap from "ldapjs";
+import fs from "fs";
+
+/**
+ * Escapes special characters in LDAP DN components to prevent injection attacks.
+ * Characters that have special meaning in DNs: , = + < > # ; \ "
+ */
+function escapeLdapDn(str: string): string {
+    return str.replace(/[,=+<>#;\\"\x00]/g, (char) => `\\${char}`);
+}
 
 const providerConfigs = [
     {
@@ -30,6 +41,14 @@ const providerConfigs = [
             clientSecret: "GITHUB_SECRET",
         },
     },
+    {
+        type: "LDAP",
+        envKeys: {
+            url: "LDAP_URI",
+            login_dn: "LDAP_LOGIN_DN",
+            certificate: "LDAP_CERTIFICATE",
+        }
+    },
 ];
 
 interface Settings {
@@ -46,6 +65,58 @@ function loadProviderConfig(type: string, envKeys: any) {
         settings[key] = value;
     }
     return settings;
+}
+
+function buildLdapProvider(settings: Settings) {
+    return CredentialsProvider({
+        name: "Domain Account",
+        credentials: {
+            name: { label: "Login", type: "text", placeholder: "" },
+            password: { label: "Password", type: "password" },
+        },
+
+        async authorize(credentials, req) {
+            if (!credentials || !credentials.name || !credentials.password)
+                return null;
+
+            // Configure TLS options if certificate is provided
+            let tls = {}
+            if(settings.certificate){
+                tls = {
+                    rejectUnauthorized: true,
+                    ca: [fs.readFileSync(settings.certificate)],
+                }
+            }
+
+            const client = ldap.createClient({
+                url: settings.url,
+                timeout: 5000,
+                connectTimeout: 3000,
+                tlsOptions: tls,
+            })
+
+
+            return new Promise((resolve, reject) => {
+                const dn = settings.login_dn.replace("{login}", escapeLdapDn(credentials.name))
+                client.bind(dn, credentials.password, (error: Error | null) => {
+                    client.unbind((unbindErr: Error | null) => {
+                        if (unbindErr) {
+                            console.error(`LDAP unbind error: ${unbindErr.message}`)
+                        }
+                    })
+                    if (error) {
+                        console.error(`LDAP bind failed for user: ${error.message}`)
+                        resolve(null)
+                    } else {
+                        resolve({
+                            id: credentials.name,
+                            name: credentials.name,
+                        })
+                    }
+                })
+            })
+        },
+    });
 }
 
 const providers = providerConfigs.map(({ type, provider, envKeys }) => {
@@ -68,6 +139,8 @@ const providers = providerConfigs.map(({ type, provider, envKeys }) => {
             clientId: settings.clientId,
             clientSecret: settings.clientSecret,
         });
+    } else if (type === "LDAP") {
+        return buildLdapProvider(settings);
     }
     return null;
 }).filter(provider => provider !== null) as any;
@@ -76,6 +149,4 @@ export const authOptions: NextAuthOptions = {
     providers,
     // Additional NextAuth configurations can be added here
 };
-
-
 

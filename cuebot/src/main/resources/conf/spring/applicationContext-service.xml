@@ -179,6 +179,8 @@
     <property name="layerDao" ref="layerDao" />
     <property name="frameDao" ref="frameDao" />
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="dispatchSupport" class="com.imageworks.spcue.dispatcher.DispatchSupportService">
@@ -195,6 +197,8 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="bookingManager" ref="bookingManager" />
     <property name="bookingDao" ref="bookingDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="filterManager" class="com.imageworks.spcue.service.FilterManagerService">
@@ -248,6 +252,10 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="emailSupport" ref="emailSupport"/>
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">
@@ -379,6 +387,9 @@
     <property name="whiteboardDao" ref="whiteboardDao" />
     <property name="serviceDao" ref="serviceDao" />
     <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">
@@ -394,6 +405,8 @@
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="killQueue" ref="killQueue"/>
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <!-- ##################################################################################### -->
@@ -409,6 +422,7 @@
     <property name="historicalSupport" ref="historicalSupport" />
     <property name="departmentManager" ref="departmentManager" />
     <property name="jobManager" ref="jobManager" />
+    <property name="dependManager" ref="dependManager" />
   </bean>
 
   <bean id="hardwareCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
@@ -578,6 +592,32 @@
     <property name="repeatInterval" value="60000" />
   </bean>
 
+  <bean id="subscriptionRecalculation" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="recalculateSubscriptions" />
+  </bean>
+
+  <bean id="subscriptionRecalculationTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="subscriptionRecalculation" />
+    <!-- 10 minute start delay to let the cue get up and running -->
+    <property name="startDelay" value="600000" />
+    <!-- repeat every 2 hours by default (configurable via maintenance.subscription_recalculation_interval_ms) -->
+    <property name="repeatInterval" value="${maintenance.subscription_recalculation_interval_ms}" />
+  </bean>
+
+  <bean id="stuckDependencyRecovery" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="recoverStuckDependencies" />
+  </bean>
+
+  <bean id="stuckDependencyRecoveryTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="stuckDependencyRecovery" />
+    <!-- 10 minute start delay to let the cue get up and running -->
+    <property name="startDelay" value="600000" />
+    <!-- repeat every 10 minutes by default (configurable via maintenance.stuck_dependency_recovery_interval_ms) -->
+    <property name="repeatInterval" value="${maintenance.stuck_dependency_recovery_interval_ms}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -594,6 +634,8 @@
         <ref bean="killQueueSchedule" />
         <ref bean="updateShowsStatusTrigger" />
         <ref bean="collectPrometheusMetricsTrigger" />
+        <ref bean="subscriptionRecalculationTrigger" />
+        <ref bean="stuckDependencyRecoveryTrigger" />
       </list>
     </property>
   </bean>
