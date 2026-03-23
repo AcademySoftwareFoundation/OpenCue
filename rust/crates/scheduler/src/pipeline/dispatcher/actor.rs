@@ -37,7 +37,10 @@ use crate::{
 };
 use opencue_proto::{
     host::ThreadMode,
-    rqd::{rqd_interface_client::RqdInterfaceClient, RqdStaticLaunchFrameRequest, RunFrame},
+    rqd::{
+        rqd_interface_client::RqdInterfaceClient, RqdStaticKillRunningFrameRequest,
+        RqdStaticLaunchFrameRequest, RunFrame,
+    },
 };
 
 /// Actor wrapper for RqdDispatcher that provides message-based dispatch operations.
@@ -283,49 +286,23 @@ impl RqdDispatcherService {
             let booking_core_delta = cores_without_multiplier.value() as i64;
             let booking_gpu_delta = virtual_proc.gpus_reserved as i32;
 
-            // Each proc should run on its own transaction
-            let mut proc_transaction = begin_transaction()
-                .await
-                .map_err(DispatchError::DbFailure)?;
-
-            // Before dispatching, confirm the layer still has limits
-            if !self
-                .layer_dao
-                .check_limits(&mut proc_transaction, &layer)
-                .await
-                .map_err(DispatchError::DbFailure)?
-            {
-                proc_transaction
-                    .rollback()
-                    .await
-                    .map_err(DispatchError::DbFailure)?;
-                info!("({dispatch_id}) Skiping layer {}, reached limits", layer);
-
-                // Skip the entire layer
-                break;
-            }
-
             match self
                 .dispatch_virtual_proc(
                     dispatch_id,
                     virtual_proc,
                     updated_host,
-                    &mut proc_transaction,
+                    &layer,
                     &is_subscription_bookable,
                     allocation_capacity,
                 )
                 .await
             {
                 Ok((new_host, new_allocation_capacity)) => {
-                    proc_transaction
-                        .commit()
-                        .await
-                        .map_err(DispatchError::DbFailure)?;
-
                     // Update the in-memory subscription cache immediately so the next
                     // bookable() check within this dispatch cycle sees the correct state.
-                    // In case the previous commit fails, the next resource recompute cycle
-                    // reconciles the cache
+                    // Note: if the RQD launch failed, compensation does NOT roll back this
+                    // cache entry — the periodic resource recompute cycle reconciles it.
+                    // Until then, the stale entry is conservative (over-estimates usage).
                     resource_accounting_service.record_booking(
                         booking_show_id,
                         &booking_alloc_name,
@@ -346,16 +323,15 @@ impl RqdDispatcherService {
                     last_host_version = new_host;
                 }
                 Err(err) => {
-                    proc_transaction
-                        .rollback()
-                        .await
-                        .map_err(DispatchError::DbFailure)?;
-
                     match err {
                         DispatchVirtualProcError::AllocationOverBurst(err) => {
                             info!("({dispatch_id}) {frame_str} {err}");
 
                             last_error = Some(err);
+                            break;
+                        }
+                        DispatchVirtualProcError::LayerLimitReached => {
+                            info!("({dispatch_id}) Skipping layer {}, reached limits", layer);
                             break;
                         }
                         DispatchVirtualProcError::FailedToStartOnDb(err) => {
@@ -416,6 +392,7 @@ impl RqdDispatcherService {
                             break;
                         }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
+                            // Compensation already ran inside dispatch_virtual_proc.
                             // An error here means connection with this host is probably broken,
                             // there's no reason to attempt the next frame
                             warn!(
@@ -472,26 +449,22 @@ impl RqdDispatcherService {
     ///
     /// This function encapsulates the complete dispatch process for a single virtual proc:
     /// 1. Validates allocation capacity against subscription limits
-    /// 2. Updates frame status in the database
-    /// 3. Launches the frame on RQD (or logs in dry-run mode)
-    /// 4. Updates host resources and proc records in the database
+    /// 2. Checks layer limits
+    /// 3. Updates frame status, proc record, and host resources in the database
+    /// 4. Commits the transaction (releasing all DB locks before the network call)
+    /// 5. Launches the frame on RQD (or logs in dry-run mode)
+    /// 6. On RQD failure, compensates by undoing database changes
     ///
-    /// # Arguments
-    /// * `virtual_proc` - The virtual proc to dispatch
-    /// * `updated_host` - The host with updated resource allocations
-    /// * `transaction` - Database transaction for atomic updates
-    /// * `is_subscription_bookable` - Closure to check if subscription can accept more cores
-    /// * `allocation_capacity` - Current available allocation capacity
-    ///
-    /// # Returns
-    /// On success, returns a tuple of (updated host, new allocation capacity).
-    /// On failure, returns a `DispatchVirtualProcError` indicating the specific failure mode.
+    /// The transaction is committed before the RQD call to avoid holding row-level
+    /// locks on `job_stat`/`layer_stat` during network I/O. If the RQD call fails,
+    /// compensation logic deletes the proc, restores host resources, and clears
+    /// the frame back to WAITING state.
     async fn dispatch_virtual_proc(
         &self,
         dispatch_id: Uuid,
         virtual_proc: VirtualProc,
         host: Host,
-        transaction: &mut Transaction<'_, Postgres>,
+        layer: &DispatchLayer,
         is_subscription_bookable: &impl Fn(CoreSize) -> bool,
         allocation_capacity: CoreSize,
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
@@ -510,24 +483,58 @@ impl RqdDispatcherService {
         }
         let new_allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
 
-        // Update database
-        let updated_resources = self
-            .update_database_for_dispatch(transaction, &virtual_proc, host.id)
-            .await?;
+        // Begin a per-proc transaction for DB updates
+        let mut proc_transaction = begin_transaction().await.map_err(|e| {
+            DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e))
+        })?;
+
+        // Confirm the layer still has limits before proceeding
+        if !self
+            .layer_dao
+            .check_limits(&mut proc_transaction, layer)
+            .await
+            .map_err(|e| DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e)))?
+        {
+            proc_transaction.rollback().await.map_err(|e| {
+                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e))
+            })?;
+            return Err(DispatchVirtualProcError::LayerLimitReached);
+        }
+
+        // Update database (insert proc, update host resources, start frame)
+        let updated_resources = match self
+            .update_database_for_dispatch(&mut proc_transaction, &virtual_proc, host.id)
+            .await
+        {
+            Ok(resources) => resources,
+            Err(err) => {
+                let _ = proc_transaction.rollback().await;
+                return Err(err);
+            }
+        };
+
+        // Commit BEFORE the RQD call to release job_stat/layer_stat row locks immediately
+        proc_transaction.commit().await.map_err(|e| {
+            DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e))
+        })?;
 
         // When running on dry_run_mode, just log the outcome
-        if self.dry_run_mode {
+        if !self.dry_run_mode {
+            if let Err(err) = self.launch_on_rqd(&virtual_proc, &host, true).await {
+                // RQD launch failed after DB commit — compensate
+                self.compensate_failed_dispatch(dispatch_id, &virtual_proc, &host.name)
+                    .await;
+
+                return Err(DispatchVirtualProcError::RqdConnectionFailed {
+                    host: host.to_string(),
+                    error: miette!("{}", err),
+                });
+            }
+        } else {
             debug!(
                 "(DRY_RUN) ({dispatch_id}) Dispatching {} on {}",
                 virtual_proc, &host
             );
-        } else {
-            self.launch_on_rqd(&virtual_proc, &host, true)
-                .await
-                .map_err(|err| DispatchVirtualProcError::RqdConnectionFailed {
-                    host: host.to_string(),
-                    error: miette!("{}", err),
-                })?;
         }
 
         // Update the host struct with the actual database values after the update
@@ -689,6 +696,106 @@ impl RqdDispatcherService {
                     }
                 }
             }
+        }
+    }
+
+    /// Compensates a failed RQD launch by undoing database changes.
+    ///
+    /// Called when the database transaction was committed successfully but the RQD
+    /// gRPC call failed. Deletes the proc, restores host resources, and clears the
+    /// frame back to WAITING state. Each step proceeds even if a prior one fails,
+    /// as partial compensation is better than none.
+    ///
+    /// **Ordering matters:** the proc must be deleted before clearing the frame,
+    /// because `clear_frame`'s SQL guard only clears frames with no associated proc.
+    /// If `delete` fails, `clear_frame` will safely no-op thanks to that guard.
+    /// However, `restore_resources` runs unconditionally — if the proc delete failed
+    /// but restore succeeded, idle resources would be over-counted until the next
+    /// host report reconciles them. This is acceptable because a failed proc delete
+    /// will surface as an error log and the host report cycle corrects the drift.
+    ///
+    /// **Subscription cache:** the in-memory subscription cache is NOT rolled back
+    /// here. The booking recorded in `record_booking` will remain until the next
+    /// periodic resource recompute cycle reconciles it from the database. During
+    /// that window, dispatch decisions may over-estimate subscription usage, which
+    /// is conservative (may skip bookable work) rather than dangerous (won't over-book).
+    async fn compensate_failed_dispatch(
+        &self,
+        dispatch_id: Uuid,
+        virtual_proc: &VirtualProc,
+        host_name: &str,
+    ) {
+        warn!(
+            "({dispatch_id}) Running compensation for failed RQD launch of proc {} on {}",
+            virtual_proc.proc_id, host_name
+        );
+
+        let mut tx = match begin_transaction().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                error!("({dispatch_id}) Compensation: failed to begin transaction: {e}");
+                return;
+            }
+        };
+
+        if let Err(e) = self.proc_dao.delete(&mut tx, &virtual_proc.proc_id).await {
+            error!(
+                "({dispatch_id}) Compensation: failed to delete proc {}: {e}",
+                virtual_proc.proc_id
+            );
+        }
+
+        if let Err(e) = self
+            .host_dao
+            .restore_resources(&mut tx, &virtual_proc.host_id, virtual_proc)
+            .await
+        {
+            error!("({dispatch_id}) Compensation: failed to restore host resources: {e}");
+        }
+
+        match self.frame_dao.clear_frame(&mut tx, &virtual_proc.frame_id).await {
+            Ok(true) => info!("({dispatch_id}) Compensation: cleared frame {} back to WAITING", virtual_proc.frame_id),
+            Ok(false) => warn!("({dispatch_id}) Compensation: frame {} not cleared (proc still exists or already changed)", virtual_proc.frame_id),
+            Err(e) => error!("({dispatch_id}) Compensation: failed to clear frame {}: {e}", virtual_proc.frame_id),
+        }
+
+        if let Err(e) = tx.commit().await {
+            error!("({dispatch_id}) Compensation: failed to commit: {e}");
+        }
+
+        // Best-effort kill on RQD as precaution in case the frame was actually launched
+        self.kill_running_frame_on_rqd(
+            host_name,
+            &virtual_proc.frame_id,
+            "Compensation: RQD launch failed after DB commit",
+        )
+        .await;
+    }
+
+    /// Best-effort attempt to kill a running frame on RQD.
+    ///
+    /// Used as a precaution during dispatch compensation — if the gRPC connection was
+    /// lost but RQD actually received and launched the frame, this ensures it gets
+    /// cleaned up. All errors are logged and swallowed.
+    async fn kill_running_frame_on_rqd(&self, host_name: &str, frame_id: &Uuid, reason: &str) {
+        let mut client = match self
+            .get_rqd_connection(host_name, CONFIG.rqd.grpc_port)
+            .await
+        {
+            Ok(client) => client,
+            Err(e) => {
+                warn!("Could not connect to RQD to kill frame {frame_id}: {e}");
+                return;
+            }
+        };
+
+        let request = RqdStaticKillRunningFrameRequest {
+            frame_id: frame_id.to_string(),
+            message: reason.to_string(),
+            ..Default::default()
+        };
+        if let Err(e) = client.kill_running_frame(request).await {
+            info!("Best-effort kill_running_frame failed for frame {frame_id}: {e}");
         }
     }
 

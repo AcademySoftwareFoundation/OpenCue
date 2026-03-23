@@ -18,6 +18,7 @@ use miette::{Diagnostic, Result};
 use opencue_proto::job::FrameExitStatus;
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
@@ -176,6 +177,20 @@ WHERE pk_frame = $6
     AND int_version = $7
 "#;
 
+/// Resets a frame from RUNNING back to WAITING state during dispatch compensation.
+/// The subquery guard ensures the associated proc has been deleted first.
+/// Exit status 299 corresponds to EXIT_STATUS_FRAME_CLEARED from Cuebot.
+static CLEAR_FRAME: &str = r#"
+UPDATE frame SET
+    str_state = 'WAITING',
+    int_exit_status = 299,
+    ts_stopped = current_timestamp,
+    ts_updated = current_timestamp,
+    int_version = int_version + 1
+WHERE pk_frame = $1
+    AND pk_frame NOT IN (SELECT proc.pk_frame FROM proc WHERE proc.pk_frame = $1)
+"#;
+
 static UPDATE_RETRY_COUNT: &str = r#"
 UPDATE frame SET
     int_retries = int_retries + 1
@@ -251,6 +266,27 @@ impl FrameDao {
             .map_err(FrameDaoError::DbFailure)?;
 
         Ok(())
+    }
+
+    /// Clears a frame back to WAITING state during dispatch compensation.
+    ///
+    /// Used when an RQD launch fails after the database transaction has been committed.
+    /// The associated proc must be deleted before calling this method, as the SQL
+    /// includes a guard that only clears the frame if no proc references it.
+    ///
+    /// Returns `true` if the frame was cleared, `false` if the guard prevented it.
+    pub async fn clear_frame(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        frame_id: &Uuid,
+    ) -> Result<bool, FrameDaoError> {
+        let result = sqlx::query(CLEAR_FRAME)
+            .bind(frame_id.to_string())
+            .execute(&mut **transaction)
+            .await
+            .map_err(FrameDaoError::DbFailure)?;
+
+        Ok(result.rows_affected() > 0)
     }
 }
 

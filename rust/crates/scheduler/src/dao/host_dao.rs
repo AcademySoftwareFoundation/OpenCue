@@ -185,6 +185,26 @@ WHERE LOWER(a.pk_facility) = LOWER($2)
     AND ht.str_tag = $3
 "#;
 
+static RESTORE_HOST_RESOURCES: &str = r#"
+UPDATE host
+SET int_cores_idle = int_cores_idle + $1,
+    int_mem_idle = int_mem_idle + $2,
+    int_gpus_idle = int_gpus_idle + $3,
+    int_gpu_mem_idle = int_gpu_mem_idle + $4
+WHERE pk_host = $5
+    AND int_cores_idle + $1 <= int_cores
+    AND int_mem_idle + $2 <= int_mem
+    AND int_gpus_idle + $3 <= int_gpus
+    AND int_gpu_mem_idle + $4 <= int_gpu_mem
+"#;
+
+static RESTORE_HOST_STAT: &str = r#"
+UPDATE host_stat
+SET int_mem_free = int_mem_free + $1,
+    int_gpu_mem_free = int_gpu_mem_free + $2
+WHERE pk_host = $3
+"#;
+
 static UPDATE_HOST_RESOURCES: &str = r#"
 UPDATE host
 SET int_cores_idle = int_cores_idle - $1,
@@ -368,5 +388,41 @@ impl HostDao {
             gpu_mem_idle,
             last_updated,
         })
+    }
+
+    /// Restores host resources after a failed RQD launch.
+    ///
+    /// This is the reverse of `update_resources` — it adds back the cores, memory, and GPUs
+    /// that were reserved during dispatch. Used during compensation when the database was
+    /// committed but the RQD launch failed.
+    pub async fn restore_resources(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        host_id: &Uuid,
+        virtual_proc: &VirtualProc,
+    ) -> Result<(), HostDaoError> {
+        sqlx::query(RESTORE_HOST_RESOURCES)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+            .bind(host_id.to_string())
+            .execute(&mut **transaction)
+            .await
+            .map_err(|err| check_resource_limit_error(err, "Failed to restore host resources"))?;
+
+        if CONFIG.host_cache.update_stat_on_book {
+            sqlx::query(RESTORE_HOST_STAT)
+                .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind(host_id.to_string())
+                .execute(&mut **transaction)
+                .await
+                .map_err(|err| {
+                    check_resource_limit_error(err, "Failed to restore host stat")
+                })?;
+        }
+
+        Ok(())
     }
 }

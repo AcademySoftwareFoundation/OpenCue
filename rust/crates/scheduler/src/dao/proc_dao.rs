@@ -14,6 +14,7 @@ use futures::TryFutureExt;
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, Transaction};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{config::CONFIG, models::VirtualProc, pgpool::connection_pool};
 
@@ -66,6 +67,8 @@ pub struct ProcDao {
 /// 13. `int_gpu_mem_pre_reserved` - Pre-reserved GPU memory (bytes)
 /// 14. `int_gpu_mem_used` - Initial GPU memory usage (bytes)
 /// 15. `b_local` - Whether this is a local dispatch (boolean)
+static DELETE_PROC: &str = "DELETE FROM proc WHERE pk_proc = $1";
+
 static INSERT_PROC: &str = r#"
     INSERT INTO proc (
         pk_proc,
@@ -175,6 +178,23 @@ impl ProcDao {
             })
             .await?;
 
+        Ok(())
+    }
+
+    /// Deletes a proc record from the database.
+    ///
+    /// Used during dispatch compensation when an RQD launch fails after the database
+    /// has already been committed. The proc must be deleted before the associated frame
+    /// can be cleared back to WAITING state.
+    pub async fn delete(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        proc_id: &Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(DELETE_PROC)
+            .bind(proc_id.to_string())
+            .execute(&mut **transaction)
+            .await?;
         Ok(())
     }
 }
