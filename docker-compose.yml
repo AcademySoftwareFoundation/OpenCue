@@ -1,6 +1,6 @@
 # OpenCue Docker Compose Configuration
 #
-# By default, only the core services are enabled (db, flyway, cuebot, rqd).
+# By default, only the core services are enabled (db, flyway, cuebot, rqd (Rust)).
 # Uncomment the optional sections to enable additional functionality:
 #
 # Profiles:
@@ -188,10 +188,11 @@ services:
   # Runs on render hosts and executes frames assigned by Cuebot
   # Note: In a production environment, this should be disabled from the stack and only run on render hosts
   rqd:
-    image: opencue/rqd
+    build:
+      context: ./
+      dockerfile: ./rust/Dockerfile.rqd
     environment:
-      - PYTHONUNBUFFERED=1
-      - CUEBOT_HOSTNAME=cuebot
+      - OPENRQD_GRPC_CUEBOT_ENDPOINTS=cuebot:8443
     depends_on:
       cuebot:
         condition: service_healthy

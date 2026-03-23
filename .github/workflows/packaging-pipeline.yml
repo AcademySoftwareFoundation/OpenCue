@@ -173,10 +173,12 @@ jobs:
         include:
           - component: cuebot
             NAME: Cuebot
+            DOCKERFILE: cuebot/Dockerfile
             ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
 
           - component: rqd
             NAME: RQD
+            DOCKERFILE: rust/Dockerfile.rqd
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
@@ -227,7 +229,7 @@ jobs:
       - name: Build Docker image
         run: |
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
-          docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name} \
+          docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
             --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
             --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
             --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \

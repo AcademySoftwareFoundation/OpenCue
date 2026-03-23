@@ -68,7 +68,7 @@ impl Default for GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
             rqd_interface: None,
-            cuebot_endpoints: vec!["localhost:4343".to_string()],
+            cuebot_endpoints: vec!["localhost:8443".to_string()],
             connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
