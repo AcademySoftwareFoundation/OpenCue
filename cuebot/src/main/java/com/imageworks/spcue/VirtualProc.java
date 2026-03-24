@@ -259,7 +259,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      *
      * @param host
      * @param minMemory
-     * @param maxCores maximum cores allowed in core units (using core_multiplier: 100 = 1, 0 = no limit)
+     * @param maxCores maximum cores allowed in core units (using core_multiplier: 100 = 1, 0 = no
+     *        limit)
      * @return
      */
     public static int getCoreSpan(DispatchHost host, long minMemory, int maxCores) {
