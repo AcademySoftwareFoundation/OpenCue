@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use miette::{miette, Context, IntoDiagnostic};
 use structopt::StructOpt;
+#[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
@@ -223,6 +224,8 @@ async fn async_main() -> miette::Result<()> {
     });
 
     // Watch for sigusr1 and sigusr2, when received toggle between info/debug levels
+    // Note: Unix signals (SIGUSR1/SIGUSR2) are not available on Windows
+    #[cfg(unix)]
     tokio::spawn(async move {
         let mut sigusr1 =
             signal(SignalKind::user_defined1()).expect("Failed to register signal listener");

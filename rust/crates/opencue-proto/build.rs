@@ -17,7 +17,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
-    let protos_dir = PathBuf::from("src/protos");
+    let protos_dir = {
+        let path = PathBuf::from("src/protos");
+        if path.is_dir() {
+            path
+        } else {
+            // Windows: git stores symlinks as text files containing the target path
+            let target = std::fs::read_to_string(&path)?;
+            let resolved = path.parent().unwrap().join(target.trim()).canonicalize()?;
+            // Strip \\?\ prefix that Windows canonicalize adds (protoc doesn't understand it)
+            let s = resolved.to_string_lossy();
+            PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
+        }
+    };
     let crate_dir = PathBuf::from("src");
     let mut proto_files = Vec::<String>::new();
 
