@@ -526,6 +526,10 @@ impl SystemManager for WindowsSystem {
         &self.attributes
     }
 
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
+    }
+
     fn create_user_if_unexisting(&self, username: &str, uid: u32, _gid: u32) -> Result<u32> {
         let current_user = std::env::var("USERNAME").unwrap_or_default();
         if !current_user.is_empty() && current_user != username {
