@@ -181,7 +181,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             /*
              * Check to ensure we haven't exceeded max cores.
              */
-            if (frame.maxCores > 0 && proc.coresReserved >= frame.maxCores) {
+            if (frame.maxCores > 0 && proc.coresReserved > frame.maxCores) {
                 proc.coresReserved = frame.maxCores;
             }
 
