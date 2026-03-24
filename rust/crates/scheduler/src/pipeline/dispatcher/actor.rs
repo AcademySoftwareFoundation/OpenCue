@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
-    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, UpdatedHostResources},
+    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, ProcDaoError, UpdatedHostResources},
     metrics,
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
@@ -376,13 +376,15 @@ impl RqdDispatcherService {
                             break;
                         }
                         DispatchVirtualProcError::FrameCouldNotBeUpdated => {
-                            // The entire transaction is probably compromised, stop working on this layer
+                            // Frame was already claimed by another dispatcher — skip it
+                            // and continue with the next frame. No proc or host resources
+                            // were consumed since the frame update is the first operation.
                             info!(
-                                "({dispatch_id}) Frame {} couldn't be updated on the database. Version has changed.",
+                                "({dispatch_id}) Frame {} already claimed by another dispatcher. Skipping.",
                                 frame_str
                             );
                             non_retrieable_frames.push(frame.id);
-                            break;
+                            continue;
                         }
                         DispatchVirtualProcError::ResourceLimitExceeded(err) => {
                             // Resource limit enforced by database trigger (e.g. job max cores,
@@ -560,15 +562,16 @@ impl RqdDispatcherService {
     /// Updates database records for frame dispatch.
     ///
     /// This function performs three database operations atomically:
-    /// 1. Inserts the virtual proc record
-    /// 2. Updates host resource allocations
-    /// 3. Updates the frame status to "started" (done last to minimize lock hold time)
+    /// 1. Updates the frame status to "started" (done first as the concurrency guard)
+    /// 2. Inserts the virtual proc record
+    /// 3. Updates host resource allocations
     ///
-    /// The frame UPDATE is intentionally performed last because it fires database triggers
-    /// that update `layer_stat` and `job_stat` rows. These are hot rows shared by all frames
-    /// in the same layer/job. By deferring the frame UPDATE to the end of the transaction,
-    /// the trigger-acquired row locks on `layer_stat`/`job_stat` are held only until COMMIT,
-    /// rather than being held while all subsequent resource updates execute.
+    /// The frame UPDATE is performed first because it acts as an optimistic lock via
+    /// `AND int_version = $7 AND str_state = 'WAITING'`. If two dispatchers race on the
+    /// same frame, only one will successfully update the row — the other sees 0 rows
+    /// affected and aborts cleanly before inserting a proc or consuming host resources.
+    /// The tradeoff is that the frame UPDATE trigger acquires row locks on `layer_stat`
+    /// and `job_stat` which are held until COMMIT, but this is accepted for correctness.
     ///
     /// # Arguments
     /// * `transaction` - Database transaction for atomic updates
@@ -584,15 +587,41 @@ impl RqdDispatcherService {
         virtual_proc: &VirtualProc,
         host_id: Uuid,
     ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
+        // Update frame state first — this serves as the optimistic concurrency guard.
+        // The WHERE clause (str_state = 'WAITING' AND int_version = ...) ensures only
+        // one dispatcher can claim a given frame.
+        self.frame_dao
+            .update_frame_started(transaction, virtual_proc)
+            .await
+            .map_err(|err| match err {
+                FrameDaoError::FrameCouldNotBeUpdated => {
+                    DispatchVirtualProcError::FrameCouldNotBeUpdated
+                }
+                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
+                    DispatchError::FailedToStartOnDb(err),
+                ),
+            })?;
+
+        // Insert proc record. ON CONFLICT (pk_frame) DO NOTHING provides a safety net
+        // in case the frame was already claimed despite the version guard above.
         self.proc_dao
             .insert(transaction, virtual_proc)
             .await
-            .map_err(|(error, frame_id, host_id)| {
-                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToCreateProc {
+            .map_err(|err| match err {
+                ProcDaoError::ProcAlreadyExists { .. } => {
+                    DispatchVirtualProcError::FrameCouldNotBeUpdated
+                }
+                ProcDaoError::DbFailure {
                     error,
                     frame_id,
                     host_id,
-                })
+                } => DispatchVirtualProcError::FailedToStartOnDb(
+                    DispatchError::FailedToCreateProc {
+                        error,
+                        frame_id,
+                        host_id,
+                    },
+                ),
             })?;
 
         let updated_resources = self
@@ -622,22 +651,6 @@ impl RqdDispatcherService {
                         ),
                     )
                 }
-            })?;
-
-        // Update frame state last to minimize lock contention. The UPDATE frame trigger
-        // acquires row locks on layer_stat and job_stat which are contended by all
-        // concurrent dispatches for the same layer/job. Performing this last ensures
-        // those locks are held only until the transaction commits.
-        self.frame_dao
-            .update_frame_started(transaction, virtual_proc)
-            .await
-            .map_err(|err| match err {
-                FrameDaoError::FrameCouldNotBeUpdated => {
-                    DispatchVirtualProcError::FrameCouldNotBeUpdated
-                }
-                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
-                    DispatchError::FailedToStartOnDb(err),
-                ),
             })?;
 
         Ok(updated_resources)
