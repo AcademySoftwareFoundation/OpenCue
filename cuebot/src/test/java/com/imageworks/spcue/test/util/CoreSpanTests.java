@@ -204,9 +204,6 @@ public class CoreSpanTests extends TestCase {
         host.cores = 4800;
         host.idleCores = 4800;
 
-        // Without maxCores constraint: 80G / (256G/48) ≈ 15 cores = 1500
-        assertEquals(1500, VirtualProc.getCoreSpan(host, CueUtil.GB * 80));
-
         // With maxCores = 100 (1 core): capped to 100
         assertEquals(100, VirtualProc.getCoreSpan(host, CueUtil.GB * 80, 100));
 

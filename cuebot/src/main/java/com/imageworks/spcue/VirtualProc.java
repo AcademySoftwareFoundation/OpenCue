@@ -254,18 +254,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     }
 
     /**
-     * Allocates additional cores when the frame is using more 50% more than a single cores worth of
-     * memory.
-     *
-     * @param host
-     * @param minMemory
-     * @return
-     */
-    public static int getCoreSpan(DispatchHost host, long minMemory) {
-        return getCoreSpan(host, minMemory, 0);
-    }
-
-    /**
      * Allocates additional cores when the frame is using more than a single core's worth of memory,
      * bounded by maxCores when set.
      *
