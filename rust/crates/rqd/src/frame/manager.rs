@@ -149,6 +149,7 @@ impl FrameManager {
         let thread_ids = hyperthreaded.then_some(thread_ids);
 
         let resource_id = run_frame.resource_id();
+        let hyperthreading_multiplier = self.machine.get_hyperthreading_multiplier().await;
         let running_frame = Arc::new(RunningFrame::init(
             run_frame,
             uid,
@@ -156,6 +157,7 @@ impl FrameManager {
             thread_ids,
             gpu_list,
             self.machine.get_host_name().await,
+            hyperthreading_multiplier,
         ));
 
         if cfg!(feature = "containerized_frames") && CONFIG.runner.run_on_docker {

@@ -442,8 +442,18 @@ impl LinuxSystem {
             .unwrap_or_else(|err| err.into_inner());
         sysinfo.refresh_memory();
 
+        let available_memory = sysinfo.available_memory();
+        let total_memory = sysinfo.total_memory();
+        debug!(
+            "Memory stats: available_memory={} bytes ({:.1} GiB), total_memory={} bytes ({:.1} GiB)",
+            available_memory,
+            available_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+            total_memory,
+            total_memory as f64 / (1024.0 * 1024.0 * 1024.0),
+        );
+
         Ok(MachineDynamicInfo {
-            available_memory: sysinfo.available_memory(),
+            available_memory,
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
@@ -544,6 +554,13 @@ impl LinuxSystem {
                     }
                 }
             }
+
+            // Find session_id from stat file instead of status
+            // Depending on the OS, Kernel version or SELinux state, status might not contain NSSid
+            if session_id.is_none() {
+                session_id = self.read_session_id_from_stat(pid);
+            }
+
             match (session_id, tgid, state) {
                 (Some(session_id), Some(tgid), Some(state)) => {
                     // Only store valid states
@@ -575,6 +592,37 @@ impl LinuxSystem {
             }
         }
         Ok(())
+    }
+
+
+    // Read stats from /proc/{pid}/stat file and return session_id
+    // NSsid might be is missing from /proc/{pid}/status
+    // In this case we fallback if not found and and then use stat instead
+    fn read_session_id_from_stat(&self, pid: u32) -> Option<u32> {
+        let stat_path = format!("/proc/{}/stat", pid);
+        let stat = match std::fs::read_to_string(stat_path).into_diagnostic() {
+            Ok(s) => s,
+            Err(_) => return None, // Skip procs which status is not available
+        };
+
+        // Stats file can star with these formats:
+        //     - 105 name ...
+        //     - 105 (name) ...
+        //     - 105 (name with space) ...
+        //     - 105 (name with) (space and parenthesis) ...
+
+        let end = stat.rfind(')');
+
+        match end {
+            Some(end) => {
+                let fields: Vec<&str> = stat[end+2..].split_whitespace().collect();
+                return fields[3].parse::<u32>().ok()
+            },
+            None => {
+                let fields: Vec<&str> = stat.split_whitespace().collect();
+                return fields[5].parse::<u32>().ok()
+            }
+        }
     }
 
     /// Reads PSS (Proportional Set Size) from /proc/[pid]/smaps_rollup
@@ -653,7 +701,7 @@ impl LinuxSystem {
                 ),
                 _ => Err(miette!("Invalid /proc/{pid}/statm file"))?,
             };
-            let virtual_memory = vsize.saturating_mul(self.static_info.page_size);
+            let virtual_memory = vsize;
 
             // Try PSS, fallback to RSS if unavailable
             let pss = self.read_pss(pid).unwrap_or(rss);
@@ -777,8 +825,8 @@ impl LinuxSystem {
                                 a.1 + b.1,
                                 a.2 + b.2,
                                 a.3 + b.3,
-                                std::cmp::min(a.3, b.3),
-                                std::cmp::max(a.4, b.4),
+                                std::cmp::min(a.4, b.4),
+                                std::cmp::max(a.5, b.5),
                             )
                         })
                         .unwrap_or((0, 0, 0, 0, u64::MAX, 0))
@@ -826,6 +874,10 @@ impl SystemManager for LinuxSystem {
 
     fn attributes(&self) -> &HashMap<String, String> {
         &self.attributes
+    }
+
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
     }
 
     fn collect_gpu_stats(&self) -> MachineGpuStats {

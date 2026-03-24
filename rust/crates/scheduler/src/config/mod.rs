@@ -187,27 +187,6 @@ impl DatabaseConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
-pub struct TopicConfig {
-    pub topic_name: String,
-    pub num_partitions: i32,
-    pub replication_factor: i32,
-    #[serde(with = "humantime_serde")]
-    pub retention: Duration,
-}
-
-impl Default for TopicConfig {
-    fn default() -> TopicConfig {
-        TopicConfig {
-            topic_name: "general_job_queue".to_string(),
-            num_partitions: 12,
-            replication_factor: 3,
-            retention: Duration::from_secs(300),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(default)]
 pub struct RqdConfig {
     pub grpc_port: u32,
     pub dry_run_mode: bool,
@@ -261,8 +240,9 @@ impl Default for HostCacheConfig {
 #[serde(default)]
 pub struct SchedulerConfig {
     pub facility: Option<String>,
+    pub entire_shows: Vec<String>,
     pub alloc_tags: Vec<AllocTag>,
-    pub manual_tags: Vec<String>,
+    pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
 }
 
@@ -270,6 +250,12 @@ pub struct SchedulerConfig {
 pub struct AllocTag {
     pub show: String,
     pub tag: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ManualTags {
+    pub show: String,
+    pub tags: Vec<String>,
 }
 
 //===Config Loader===

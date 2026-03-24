@@ -2,7 +2,7 @@
 layout: default
 title: "Dec 5, 2019: LA Pipeline Developers Meetup"
 parent: News
-nav_order: 6
+nav_order: 7
 ---
 
 # JLA Pipeline Developers Meetup

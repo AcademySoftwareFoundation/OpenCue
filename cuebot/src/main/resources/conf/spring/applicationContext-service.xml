@@ -422,6 +422,7 @@
     <property name="historicalSupport" ref="historicalSupport" />
     <property name="departmentManager" ref="departmentManager" />
     <property name="jobManager" ref="jobManager" />
+    <property name="dependManager" ref="dependManager" />
   </bean>
 
   <bean id="hardwareCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
@@ -604,6 +605,19 @@
     <property name="repeatInterval" value="${maintenance.subscription_recalculation_interval_ms}" />
   </bean>
 
+  <bean id="stuckDependencyRecovery" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="recoverStuckDependencies" />
+  </bean>
+
+  <bean id="stuckDependencyRecoveryTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="stuckDependencyRecovery" />
+    <!-- 10 minute start delay to let the cue get up and running -->
+    <property name="startDelay" value="600000" />
+    <!-- repeat every 10 minutes by default (configurable via maintenance.stuck_dependency_recovery_interval_ms) -->
+    <property name="repeatInterval" value="${maintenance.stuck_dependency_recovery_interval_ms}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -621,6 +635,7 @@
         <ref bean="updateShowsStatusTrigger" />
         <ref bean="collectPrometheusMetricsTrigger" />
         <ref bean="subscriptionRecalculationTrigger" />
+        <ref bean="stuckDependencyRecoveryTrigger" />
       </list>
     </property>
   </bean>

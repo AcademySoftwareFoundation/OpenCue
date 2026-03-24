@@ -34,14 +34,12 @@ The sandbox deployment described here utilizes:
 ## Deploying OpenCue with external monitoring services
 
 You deploy the sandbox environment using
-[Docker Compose]([https://docs.docker.com/compose/]), which runs the following containers:
+[Docker Compose](https://docs.docker.com/compose/) profiles. The `monitoring` profile runs the following services alongside the core OpenCue stack:
 
-* a Prometheus exporter that queries the OpenCue API for system stats
-* a Prometheus exporter for PostgreSQL server metrics
+* a PostgreSQL exporter for Prometheus
 * a Prometheus instance for metrics storage
 * a Loki instance for log storage
 * a Grafana instance
-* the same OpenCue components deployed in the quick start, configured to send logs to Loki
 
 To deploy the sandbox environment:
 
@@ -53,18 +51,15 @@ To deploy the sandbox environment:
 
        cd OpenCue
 
-4. To deploy the sandbox environment, run the `docker-compose` command:
+4. To deploy the sandbox environment with monitoring, run the following command:
 
-       docker-compose --project-directory . -f ./docker-compose.yml -f sandbox/docker-compose.monitoring.yml up
+       docker compose --profile monitoring up
 
    The command produces a lot of output. When the setup process completes, you see output similar to
    the following example:
 
-       rqd_1     | 2019-09-03 16:56:09,906 WARNING   rqd3-__main__   RQD Starting Up
-       rqd_1     | 2019-09-03 16:56:10,395 WARNING   rqd3-rqcore     RQD Started
-       cuebot_1  | 2019-09-03 16:56:10,405 WARN pool-1-thread-1 com.imageworks.spcue.dispatcher.HostReportHandler - Unable
-        to find host 172.18.0.5,org.springframework.dao.EmptyResultDataAccessException: Failed to find host 172.18.0.5 , c
-        reating host.
+       rqd-1     | WARNING   openrqd-__main__  : RQD Starting Up
+       rqd-1     | WARNING   openrqd-rqcore    : RQD Started
 
 Leave this shell running in the background.
 
@@ -73,7 +68,7 @@ Leave this shell running in the background.
 To view the data exported by the monitoring stack, log into the Grafana endpoint provided by the
 sandbox environment.
 
-1. Open your browser and visit <http://localhost:3000/>.
+1. Open your browser and visit <http://localhost:3001/>.
 2. Log in with the default admin account:
     * User: admin
     * Password: admin
@@ -88,33 +83,17 @@ sandbox environment.
 
    ![Grafana PostgreSQL metrics](/assets/images/grafana_cuebot_metrics.png)
 
-## Customizing exported data
-
-The OpenCue repository contains a few key files that can be used as examples for your own
-deployment:
-
-* Our
-  [custom Prometheus exporter](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/connectors/prometheus_metrics)
-  that uses the OpenCue API to fetch metrics from the Cuebot.
-* The
-  [example Cuebot and PostgreSQL dashboards](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/sandbox/config/grafana/dashboards)
-  .
-
 ## Stopping and deleting the sandbox environment
 
 To delete the resources you created in this guide, run the following commands from the second shell:
 
 1. To stop the sandbox environment, run the following command:
 
-       docker-compose --project-directory . -f ./docker-compose.yml -f sandbox/docker-compose.monitoring.yml stop
+       docker compose --profile all down
 
-1. To free up storage space, delete the containers:
+2. To also remove all data volumes:
 
-       docker-compose --project-directory . -f ./docker-compose.yml -f sandbox/docker-compose.monitoring.yml rm
-
-1. To delete the PostgreSQL data directory created by the database setup process:
-
-       rm -rf sandbox/db-data
+       docker compose --profile all down -v
 
 ## What's next?
 

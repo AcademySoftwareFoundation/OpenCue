@@ -34,7 +34,6 @@ docs/bin/
 sandbox/kafka-data
 sandbox/zookeeper-data
 sandbox/zookeeper-logs
-sandbox/rqd/shots/
 docs/_data/version.yml
 target/*
 
@@ -46,3 +45,7 @@ CLAUDE.md
 docs/nav_order_index.txt
 rust/.cargo/config.toml
 sandbox/pgadmin-data/*
+.claude/settings.json
+plans/*
+.entire/.gitignore
+.entire/settings.json

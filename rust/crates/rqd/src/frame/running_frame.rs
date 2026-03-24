@@ -10,6 +10,8 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
+use opencue_proto::job::LayerSetTimeoutRequest;
+use std::cmp;
 #[cfg(unix)]
 use std::os::fd::IntoRawFd;
 #[cfg(unix)]
@@ -134,6 +136,7 @@ impl RunningFrame {
         cpu_list: Option<Vec<u32>>,
         gpu_list: Option<Vec<u32>>,
         hostname: String,
+        hyperthreading_multiplier: u32,
     ) -> Self {
         let job_id = request.job_id();
         let frame_id = request.frame_id();
@@ -166,7 +169,14 @@ impl RunningFrame {
             ))
             .to_string_lossy()
             .to_string();
-        let env_vars = Self::setup_env_vars(&config, &request, hostname.clone(), log_path.clone());
+        let env_vars = Self::setup_env_vars(
+            &config,
+            &request,
+            hostname.clone(),
+            log_path.clone(),
+            cpu_list.as_ref().map(|l| l.len() as i32),
+            hyperthreading_multiplier,
+        );
 
         // Protection against frames that want to become root
         let gid = if request.gid <= 0 {
@@ -211,7 +221,7 @@ impl RunningFrame {
         hostname: String,
         duration: Duration,
     ) -> Self {
-        let instance = Self::init(request, uid, config, cpu_list, gpu_list, hostname);
+        let instance = Self::init(request, uid, config, cpu_list, gpu_list, hostname, 1);
 
         {
             let mut state = instance
@@ -431,6 +441,8 @@ impl RunningFrame {
         request: &RunFrame,
         hostname: String,
         log_path: String,
+        affinity_thread_count: Option<i32>,
+        hyperthreading_multiplier: u32,
     ) -> HashMap<String, String> {
         let path_env_var = match config.use_host_path_env_var {
             true => env::var("PATH").unwrap_or("".to_string()),
@@ -453,6 +465,31 @@ impl RunningFrame {
         env_vars.insert("minspace".to_string(), "200".to_string());
         env_vars.insert("CUE3".to_string(), "True".to_string());
         env_vars.insert("SP_NOMYCSHRC".to_string(), "1".to_string());
+
+        // CUE_THREADS should be the max between what the server requested and
+        // what was actually assigned
+        let cue_threads_from_server = env_vars
+            .remove("CUE_THREADS")
+            .and_then(|thread_count_str| thread_count_str.parse().ok())
+            .unwrap_or(request.num_cores);
+        let assigned = affinity_thread_count.unwrap_or(0);
+        let cue_threads = cmp::max(cue_threads_from_server, assigned);
+        env_vars.insert("CUE_THREADS".to_string(), cue_threads.to_string());
+
+        // When a frame has CPU affinity, set CUE_HT so scripts/renderers
+        // know whether hyperthreading is enabled
+        if affinity_thread_count.is_some() {
+            env_vars.insert(
+                "CUE_HT".to_string(),
+                if hyperthreading_multiplier > 1 {
+                    "True"
+                } else {
+                    "False"
+                }
+                .to_string(),
+            );
+        }
+
         env_vars
     }
 
@@ -1404,7 +1441,7 @@ Render Frame Completed
             frame_name: self.request.frame_name.clone(),
             layer_id: self.request.layer_id.clone(),
             num_cores: self.request.num_cores,
-            start_time: start_time as i64,
+            start_time: (start_time * 1000) as i64,
             max_rss: (stats.max_rss / KIB) as i64,
             rss: (stats.rss / KIB) as i64,
             max_pss: (stats.max_pss / KIB) as i64,
@@ -1534,6 +1571,7 @@ mod tests {
             None,
             None,
             "localhost".to_string(),
+            1,
         )
     }
 

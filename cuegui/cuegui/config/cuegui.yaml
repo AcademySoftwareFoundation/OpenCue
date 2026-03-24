@@ -178,3 +178,8 @@ filter_dialog.disabled_action_types: ''
 #  - True: search result will append jobs to the current list of monitored jobs
 #  - False: repopulate the jobs table with the search result
 search_jobs.append_results: True
+
+# Whether to show a popup notification when monitored jobs are no longer available
+# (e.g., moved to historical data). Jobs are still auto-removed from the monitor list
+# regardless of this setting.
+job_monitor.notify_job_not_found: False
