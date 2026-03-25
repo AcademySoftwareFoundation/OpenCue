@@ -192,7 +192,7 @@ services:
       context: ./
       dockerfile: ./rust/Dockerfile.rqd
     environment:
-      - OPENRQD_GRPC_CUEBOT_ENDPOINTS=cuebot:8443
+      - OPENRQD_GRPC_CUEBOT__ENDPOINTS=cuebot:8443
     depends_on:
       cuebot:
         condition: service_healthy
