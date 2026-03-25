@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy workspace files
-COPY rust/Cargo.toml rust/Cargo.lock ./
+COPY rust/Cargo.toml ./
+COPY rust/Cargo.lock* ./
 
 # Copy all crate directories
 COPY rust/crates ./crates
