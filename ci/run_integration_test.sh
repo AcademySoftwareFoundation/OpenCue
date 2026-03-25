@@ -224,7 +224,11 @@ main() {
     log INFO "Building Cuebot image..."
     docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
     log INFO "Building RQD image..."
-    docker build -t opencue/rqd -f rust/Dockerfile.rqd . &>"${TEST_LOGS}/docker-build-rqd.log"
+    if ! docker build -t opencue/rqd -f rust/Dockerfile.rqd . &>"${TEST_LOGS}/docker-build-rqd.log"; then
+        log ERROR "RQD Docker build failed. Build log:"
+        cat "${TEST_LOGS}/docker-build-rqd.log"
+        exit 1
+    fi
 
     log INFO "Starting Docker compose (core services only)..."
     docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
