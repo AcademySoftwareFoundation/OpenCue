@@ -193,6 +193,7 @@ services:
       dockerfile: ./rust/Dockerfile.rqd
     environment:
       - OPENRQD__GRPC__CUEBOT_ENDPOINTS=cuebot:8443
+      - OPENRQD__MACHINE__USE_IP_AS_HOSTNAME=true
     depends_on:
       cuebot:
         condition: service_healthy
