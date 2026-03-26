@@ -50,9 +50,6 @@ COPY --from=builder /build/target/release/openrqd /app/openrqd
 # Copy resources
 COPY --from=builder /build/crates/rqd/resources /app/resources
 
-# Switch to non-root user
-USER rqd
-
 # RQD gRPC server
 EXPOSE 8444
 
