@@ -79,6 +79,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         # Initialize notifier
         if self.config.show_notifications:
             self.notifier = Notifier()
+            self.notifier.set_tray_icon(self)
 
         # Initialize monitor
         self.monitor = HostMonitor(
@@ -305,7 +306,35 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             elif sys.platform == "win32":  # Windows
                 os.startfile(config_path)
             else:  # Linux and others
-                subprocess.run(["xdg-open", config_path], check=True)
+                # Prefer $EDITOR/$VISUAL, then try common terminal editors
+                editor = (os.environ.get("VISUAL")
+                          or os.environ.get("EDITOR")
+                          or shutil.which("xdg-open"))
+                if editor and editor != shutil.which("xdg-open"):
+                    # Launch editor in a terminal so the user can interact
+                    terminal = shutil.which("xterm") or shutil.which("gnome-terminal")
+                    if terminal and "xterm" in terminal:
+                        subprocess.Popen([terminal, "-e", editor, config_path])
+                    elif terminal:
+                        subprocess.Popen([terminal, "--", editor, config_path])
+                    else:
+                        subprocess.Popen([editor, config_path])
+                elif shutil.which("xdg-open"):
+                    # Try xdg-open; if it fails, fall back to xterm + vi
+                    result = subprocess.run(
+                        ["xdg-open", config_path],
+                        capture_output=True, text=True, check=False
+                    )
+                    if result.returncode != 0:
+                        logger.warning("xdg-open failed (exit %d), falling back to vi",
+                                       result.returncode)
+                        term = shutil.which("xterm")
+                        if term:
+                            subprocess.Popen([term, "-e", "vi", config_path])
+                        else:
+                            raise RuntimeError("No editor or terminal found to open config")
+                else:
+                    raise RuntimeError("No editor or xdg-open found")
             logger.info("Opened config file: %s", config_path)
         except Exception as e:
             logger.error("Failed to open config file: %s", e)
