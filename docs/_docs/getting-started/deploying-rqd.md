@@ -92,7 +92,7 @@ To build and run the Rust RQD Docker image from source:
 
 ```shell
 docker build -t opencue/rqd -f rust/Dockerfile.rqd rust/
-docker run -td --name rqd01 --env OPENRQD_GRPC_CUEBOT_ENDPOINTS=${CUEBOT_HOSTNAME}:8443 --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
+docker run -td --name rqd01 --env OPENRQD__GRPC__CUEBOT_ENDPOINTS=${CUEBOT_HOSTNAME}:8443 --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
 ```
 
 ### Option 2 (Legacy): Downloading and running Python RQD from DockerHub
