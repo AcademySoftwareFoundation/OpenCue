@@ -149,7 +149,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                                 - frame.getMinMemory() <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
                             proc.coresReserved = wholeCores * 100;
                         } else {
-                            proc.coresReserved = getCoreSpan(host, frame.getMinMemory());
+                            proc.coresReserved =
+                                    getCoreSpan(host, frame.getMinMemory(), frame.maxCores);
                         }
                     }
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE && proc.coresReserved <= 200) {
@@ -180,7 +181,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             /*
              * Check to ensure we haven't exceeded max cores.
              */
-            if (frame.maxCores > 0 && proc.coresReserved >= frame.maxCores) {
+            if (frame.maxCores > 0 && proc.coresReserved > frame.maxCores) {
                 proc.coresReserved = frame.maxCores;
             }
 
@@ -253,14 +254,16 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     }
 
     /**
-     * Allocates additional cores when the frame is using more 50% more than a single cores worth of
-     * memory.
+     * Allocates additional cores when the frame is using more than a single core's worth of memory,
+     * bounded by maxCores when set.
      *
      * @param host
      * @param minMemory
+     * @param maxCores maximum cores allowed in core units (using core_multiplier: 100 = 1, 0 = no
+     *        limit)
      * @return
      */
-    public static int getCoreSpan(DispatchHost host, long minMemory) {
+    public static int getCoreSpan(DispatchHost host, long minMemory, int maxCores) {
         int totalCores = (int) (Math.floor(host.cores / 100.0));
         int idleCores = (int) (Math.floor(host.idleCores / 100.0));
         if (idleCores < 1) {
@@ -270,6 +273,12 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         long memPerCore = host.idleMemory / totalCores;
         double procs = minMemory / (double) memPerCore;
         int reserveCores = (int) (Math.round(procs)) * 100;
+
+        // Respect max cores even when the memory-per-core guideline
+        // would allocate more cores than the frame is allowed to use.
+        if (maxCores > 0 && reserveCores > maxCores) {
+            reserveCores = maxCores;
+        }
 
         return reserveCores;
     }

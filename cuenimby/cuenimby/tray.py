@@ -79,6 +79,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         # Initialize notifier
         if self.config.show_notifications:
             self.notifier = Notifier()
+            self.notifier.set_tray_icon(self)
 
         # Initialize monitor
         self.monitor = HostMonitor(
@@ -228,13 +229,11 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
     # pylint: disable=consider-using-with
     def launch_cuegui(self) -> None:
-        """Launch CueGUI application."""
+        """Launch CueGUI application using the command from config."""
         try:
-            if self._cuegui_available():
-                subprocess.Popen(["cuegui"])
-                logger.info("Launched CueGUI")
-            else:
-                raise FileNotFoundError("cuegui executable not found in PATH")
+            cmd = self.config.cuegui_command
+            subprocess.Popen(cmd)
+            logger.info("Launched CueGUI: %s", cmd)
         except Exception as e:
             logger.error("Failed to launch CueGUI: %s", e)
             if self.notifier:
@@ -245,7 +244,8 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
     def _cuegui_available(self) -> bool:
         """Check if CueGUI is available."""
-        return shutil.which("cuegui") is not None
+        cmd = self.config.cuegui_command
+        return shutil.which(cmd[0]) is not None
 
     def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
@@ -306,7 +306,35 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             elif sys.platform == "win32":  # Windows
                 os.startfile(config_path)
             else:  # Linux and others
-                subprocess.run(["xdg-open", config_path], check=True)
+                # Prefer $EDITOR/$VISUAL, then try common terminal editors
+                editor = (os.environ.get("VISUAL")
+                          or os.environ.get("EDITOR")
+                          or shutil.which("xdg-open"))
+                if editor and editor != shutil.which("xdg-open"):
+                    # Launch editor in a terminal so the user can interact
+                    terminal = shutil.which("xterm") or shutil.which("gnome-terminal")
+                    if terminal and "xterm" in terminal:
+                        subprocess.Popen([terminal, "-e", editor, config_path])
+                    elif terminal:
+                        subprocess.Popen([terminal, "--", editor, config_path])
+                    else:
+                        subprocess.Popen([editor, config_path])
+                elif shutil.which("xdg-open"):
+                    # Try xdg-open; if it fails, fall back to xterm + vi
+                    result = subprocess.run(
+                        ["xdg-open", config_path],
+                        capture_output=True, text=True, check=False
+                    )
+                    if result.returncode != 0:
+                        logger.warning("xdg-open failed (exit %d), falling back to vi",
+                                       result.returncode)
+                        term = shutil.which("xterm")
+                        if term:
+                            subprocess.Popen([term, "-e", "vi", config_path])
+                        else:
+                            raise RuntimeError("No editor or terminal found to open config")
+                else:
+                    raise RuntimeError("No editor or xdg-open found")
             logger.info("Opened config file: %s", config_path)
         except Exception as e:
             logger.error("Failed to open config file: %s", e)
@@ -349,7 +377,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.menu.addSeparator()
 
-        self.cuegui_action = self.menu.addAction("Launch CueGUI")
+        self.cuegui_action = self.menu.addAction(self.config.cuegui_label)
         self.cuegui_action.triggered.connect(self.launch_cuegui)
         self.cuegui_action.setEnabled(self._cuegui_available())
 
@@ -383,12 +411,13 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.scheduler_action.setChecked(self._scheduler_enabled())
 
+        label = self.config.cuegui_label
         if self._cuegui_available():
             self.cuegui_action.setEnabled(True)
-            self.cuegui_action.setText("Launch CueGUI")
+            self.cuegui_action.setText(label)
         else:
             self.cuegui_action.setEnabled(False)
-            self.cuegui_action.setText("Launch CueGUI (not installed)")
+            self.cuegui_action.setText(f"{label} (not installed)")
 
     def start(self) -> None:
         """Start the tray application."""

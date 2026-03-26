@@ -33,6 +33,8 @@ class Config:
         "poll_interval": 5,  # seconds
         "show_notifications": True,
         "notification_duration": 5,  # seconds
+        "cuegui_command": ["cuegui"],
+        "cuegui_label": "Launch CueGUI",
         "scheduler_enabled": False,
         "schedule": {
             # Example: "monday": {"start": "09:00", "end": "18:00", "state": "disabled"}
@@ -117,6 +119,16 @@ class Config:
     def scheduler_enabled(self) -> bool:
         """Check if scheduler is enabled."""
         return self.config["scheduler_enabled"]
+
+    @property
+    def cuegui_command(self) -> list:
+        """Get CueGUI launch command."""
+        return self.config.get("cuegui_command", ["cuegui"])
+
+    @property
+    def cuegui_label(self) -> str:
+        """Get CueGUI menu label."""
+        return self.config.get("cuegui_label", "Launch CueGUI")
 
     @property
     def schedule(self) -> Dict[str, Any]:
