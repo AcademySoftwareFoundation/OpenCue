@@ -244,7 +244,11 @@ impl Config {
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
-            .add_source(Environment::with_prefix("OPENRQD").separator("_"))
+            .add_source(
+                Environment::with_prefix("OPENRQD")
+                    .separator("_")
+                    .list_separator(","),
+            )
             .build()
             .map_err(|err| {
                 RqdConfigError::LoadConfigError(format!(
