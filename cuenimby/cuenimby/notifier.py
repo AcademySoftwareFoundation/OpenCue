@@ -76,20 +76,30 @@ class Notifier:
                 except ImportError:
                     self.notifier = None
             elif self.system == "Linux":
-                # Linux - use notify2 or notify-send
+                # Linux - use notify2 if D-Bus notification service is reachable
                 try:
+                    # pylint: disable=import-outside-toplevel
+                    import subprocess as _sp
+                    # Check if D-Bus notification service exists before importing notify2
+                    result = _sp.run(
+                        ["dbus-send", "--session", "--print-reply",
+                         "--dest=org.freedesktop.DBus", "/org/freedesktop/DBus",
+                         "org.freedesktop.DBus.ListNames"],
+                        capture_output=True, text=True, timeout=3, check=False
+                    )
+                    if "org.freedesktop.Notifications" not in (result.stdout or ""):
+                        raise RuntimeError("D-Bus notification service not available")
                     # pylint: disable=import-outside-toplevel
                     import notify2
                     notify2.init(app_name)
-                    # Test that D-Bus notification service is reachable
-                    test_n = notify2.Notification("", "")
-                    test_n.show()
-                    test_n.close()
                     self.notifier = NotifierType.NOTIFY2
                     self.notify2 = notify2
                 except Exception:
-                    logger.info("notify2 D-Bus notifications unavailable, using fallback")
-                    self.notifier = NotifierType.NOTIFY_SEND
+                    # D-Bus notifications unavailable; notify-send uses the same
+                    # service so skip it too. set_tray_icon() will activate the
+                    # QSystemTrayIcon fallback.
+                    logger.info("D-Bus notifications unavailable, will use tray balloon fallback")
+                    self.notifier = None
             else:
                 self.notifier = None
         except Exception as e:

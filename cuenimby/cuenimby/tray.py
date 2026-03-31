@@ -21,7 +21,7 @@ import sys
 from typing import Optional
 import shutil
 
-from qtpy import QtWidgets, QtGui
+from qtpy import QtCore, QtWidgets, QtGui
 
 from .config import Config
 from .monitor import HostMonitor, HostState
@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     """System tray application for NIMBY control."""
+
+    # Signal to safely update state from monitor thread to Qt main thread
+    _state_changed_signal = QtCore.Signal(object, object)
 
     # Icon for different states
     ICONS = {
@@ -69,6 +72,9 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.monitor: Optional[HostMonitor] = None
         self.notifier: Optional[Notifier] = None
         self.scheduler: Optional[NimbyScheduler] = None
+
+        # Connect cross-thread signal for state changes
+        self._state_changed_signal.connect(self._handle_state_change)
 
         self._init_components()
 
@@ -111,13 +117,12 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.setToolTip(f"CueNIMBY - {state.value}")
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
-        """Handle state change.
-
-        Args:
-            old_state: Previous state.
-            new_state: New state.
-        """
+        """Handle state change from monitor thread — emit signal to main thread."""
         logger.info("State changed: %s -> %s", old_state.value, new_state.value)
+        self._state_changed_signal.emit(old_state, new_state)
+
+    def _handle_state_change(self, old_state: HostState, new_state: HostState) -> None:
+        """Handle state change on the Qt main thread (connected via signal)."""
         self._update_icon(state=new_state)
 
         # Send notifications
@@ -200,6 +205,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         if enabled:
             self.notifier = Notifier()
+            self.notifier.set_tray_icon(self)
             logger.info("Notifications enabled")
         else:
             self.notifier = None
@@ -306,35 +312,24 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             elif sys.platform == "win32":  # Windows
                 os.startfile(config_path)
             else:  # Linux and others
-                # Prefer $EDITOR/$VISUAL, then try common terminal editors
                 editor = (os.environ.get("VISUAL")
                           or os.environ.get("EDITOR")
-                          or shutil.which("xdg-open"))
-                if editor and editor != shutil.which("xdg-open"):
-                    # Launch editor in a terminal so the user can interact
+                          or shutil.which("gedit")
+                          or shutil.which("nano")
+                          or "vi")
+                gui_editors = ("gedit", "kate", "mousepad", "xed")
+                if any(editor.endswith(g) for g in gui_editors):
+                    # GUI editors launch directly, no terminal needed
+                    subprocess.Popen([editor, config_path])
+                else:
+                    # Terminal editors need a terminal emulator
                     terminal = shutil.which("xterm") or shutil.which("gnome-terminal")
                     if terminal and "xterm" in terminal:
                         subprocess.Popen([terminal, "-e", editor, config_path])
                     elif terminal:
                         subprocess.Popen([terminal, "--", editor, config_path])
                     else:
-                        subprocess.Popen([editor, config_path])
-                elif shutil.which("xdg-open"):
-                    # Try xdg-open; if it fails, fall back to xterm + vi
-                    result = subprocess.run(
-                        ["xdg-open", config_path],
-                        capture_output=True, text=True, check=False
-                    )
-                    if result.returncode != 0:
-                        logger.warning("xdg-open failed (exit %d), falling back to vi",
-                                       result.returncode)
-                        term = shutil.which("xterm")
-                        if term:
-                            subprocess.Popen([term, "-e", "vi", config_path])
-                        else:
-                            raise RuntimeError("No editor or terminal found to open config")
-                else:
-                    raise RuntimeError("No editor or xdg-open found")
+                        raise RuntimeError("No terminal emulator found to open config")
             logger.info("Opened config file: %s", config_path)
         except Exception as e:
             logger.error("Failed to open config file: %s", e)
