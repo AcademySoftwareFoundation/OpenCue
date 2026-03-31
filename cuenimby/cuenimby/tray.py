@@ -16,6 +16,7 @@
 
 import logging
 import os
+import shlex
 import subprocess
 import sys
 from typing import Optional
@@ -34,8 +35,9 @@ logger = logging.getLogger(__name__)
 class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     """System tray application for NIMBY control."""
 
-    # Signal to safely update state from monitor thread to Qt main thread
+    # Signals to safely update from monitor thread to Qt main thread
     _state_changed_signal = QtCore.Signal(object, object)
+    _frame_started_signal = QtCore.Signal(str, str)
 
     # Icon for different states
     ICONS = {
@@ -73,8 +75,9 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.notifier: Optional[Notifier] = None
         self.scheduler: Optional[NimbyScheduler] = None
 
-        # Connect cross-thread signal for state changes
+        # Connect cross-thread signals for state changes and frame starts
         self._state_changed_signal.connect(self._handle_state_change)
+        self._frame_started_signal.connect(self._handle_frame_started)
 
         self._init_components()
 
@@ -149,12 +152,11 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                     self.notifier.notify_host_recovered()
 
     def _on_frame_started(self, job_name: str, frame_name: str) -> None:
-        """Handle frame start.
+        """Handle frame start from monitor thread — emit signal to main thread."""
+        self._frame_started_signal.emit(job_name, frame_name)
 
-        Args:
-            job_name: Job name.
-            frame_name: Frame name.
-        """
+    def _handle_frame_started(self, job_name: str, frame_name: str) -> None:
+        """Handle frame start on the Qt main thread (connected via signal)."""
         logger.info("Frame started: %s/%s", job_name, frame_name)
         if self.notifier:
             self.notifier.notify_job_started(job_name, frame_name)
@@ -317,17 +319,19 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                           or shutil.which("gedit")
                           or shutil.which("nano")
                           or "vi")
+                editor_cmd = shlex.split(editor)
+                editor_name = os.path.basename(editor_cmd[0])
                 gui_editors = ("gedit", "kate", "mousepad", "xed")
-                if any(editor.endswith(g) for g in gui_editors):
+                if editor_name in gui_editors:
                     # GUI editors launch directly, no terminal needed
-                    subprocess.Popen([editor, config_path])
+                    subprocess.Popen([*editor_cmd, config_path])
                 else:
                     # Terminal editors need a terminal emulator
                     terminal = shutil.which("xterm") or shutil.which("gnome-terminal")
                     if terminal and "xterm" in terminal:
-                        subprocess.Popen([terminal, "-e", editor, config_path])
+                        subprocess.Popen([terminal, "-e", *editor_cmd, config_path])
                     elif terminal:
-                        subprocess.Popen([terminal, "--", editor, config_path])
+                        subprocess.Popen([terminal, "--", *editor_cmd, config_path])
                     else:
                         raise RuntimeError("No terminal emulator found to open config")
             logger.info("Opened config file: %s", config_path)
