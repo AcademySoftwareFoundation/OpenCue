@@ -239,10 +239,19 @@ impl JobQueueCli {
 
 fn main() -> miette::Result<()> {
     let _sentry_guard = sentry::init(sentry::ClientOptions {
-        dsn: CONFIG
-            .sentry_dsn
-            .as_deref()
-            .and_then(|s| if s.is_empty() { None } else { s.parse().ok() }),
+        dsn: CONFIG.sentry_dsn.as_deref().and_then(|s| {
+            if s.is_empty() {
+                None
+            } else {
+                match s.parse() {
+                    Ok(dsn) => Some(dsn),
+                    Err(err) => {
+                        eprintln!("Invalid Sentry dsn. Sentry is disabled. {}", err);
+                        None
+                    }
+                }
+            }
+        }),
         release: sentry::release_name!(),
         ..Default::default()
     });
