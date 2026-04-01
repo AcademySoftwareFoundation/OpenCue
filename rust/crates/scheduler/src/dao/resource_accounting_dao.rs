@@ -271,21 +271,39 @@ impl ResourceAccountingDao {
         let pool = self.connection_pool.as_ref();
 
         tokio::try_join!(
-            sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC)
-                .bind(bind_value)
-                .execute(pool),
-            sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
-                .bind(bind_value)
-                .execute(pool),
-            sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
-                .bind(bind_value)
-                .execute(pool),
-            sqlx::query(RECOMPUTE_POINT_FROM_PROC)
-                .bind(bind_value)
-                .execute(pool),
-        )
-        .into_diagnostic()
-        .wrap_err("Failed to recompute resource accounting tables from proc")?;
+            async {
+                sqlx::query(RECOMPUTE_LAYER_RESOURCE_FROM_PROC)
+                    .bind(bind_value)
+                    .execute(pool)
+                    .await
+                    .into_diagnostic()
+                    .wrap_err("Failed to recompute layer resource from proc")
+            },
+            async {
+                sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
+                    .bind(bind_value)
+                    .execute(pool)
+                    .await
+                    .into_diagnostic()
+                    .wrap_err("Failed to recompute job resource from proc")
+            },
+            async {
+                sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
+                    .bind(bind_value)
+                    .execute(pool)
+                    .await
+                    .into_diagnostic()
+                    .wrap_err("Failed to recompute folder resource from proc")
+            },
+            async {
+                sqlx::query(RECOMPUTE_POINT_FROM_PROC)
+                    .bind(bind_value)
+                    .execute(pool)
+                    .await
+                    .into_diagnostic()
+                    .wrap_err("Failed to recompute point from proc")
+            },
+        )?;
 
         Ok(())
     }
