@@ -1,4 +1,12 @@
 # =============================================================================
+# SENTRY CONFIGURATION
+# =============================================================================
+# Sentry DSN for error tracking. When not set, Sentry is disabled (no-op).
+# Can also be set via the OPENSCHEDULER_SENTRY_DSN environment variable.
+# Default: None
+# sentry_dsn: https://examplePublicKey@o0.ingest.sentry.io/0
+
+# =============================================================================
 # LOGGING CONFIGURATION
 # =============================================================================
 logging:

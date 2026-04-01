@@ -238,6 +238,15 @@ impl JobQueueCli {
 }
 
 fn main() -> miette::Result<()> {
+    let _sentry_guard = sentry::init(sentry::ClientOptions {
+        dsn: CONFIG
+            .sentry_dsn
+            .as_deref()
+            .and_then(|s| if s.is_empty() { None } else { s.parse().ok() }),
+        release: sentry::release_name!(),
+        ..Default::default()
+    });
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(CONFIG.queue.worker_threads)
         .enable_all()
@@ -273,6 +282,9 @@ async fn async_main() -> miette::Result<()> {
         None
     };
     let subs = subs.with(file_appender_layer);
+
+    let sentry_layer = sentry::integrations::tracing::layer();
+    let subs = subs.with(sentry_layer);
 
     tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
 
