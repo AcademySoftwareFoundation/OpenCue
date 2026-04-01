@@ -447,18 +447,20 @@ enum MonitoringEventType {
 
 ### Full monitoring stack
 
-The `docker-compose.monitoring-full.yml` includes:
+The `monitoring-full` profile (enabled via `docker compose --profile monitoring-full up -d`) includes:
 
 | Service | Image | Ports |
 |---------|-------|-------|
-| zookeeper | confluentinc/cp-zookeeper:7.4.0 | 2181 |
-| kafka | confluentinc/cp-kafka:7.4.0 | 9092, 29092 |
+| db-exporter | prometheuscommunity/postgres-exporter:latest | 9187 |
+| prometheus | prom/prometheus:v3.9.1 | 9090 |
+| grafana | grafana/grafana:12.3.5 | 3001 |
+| loki | grafana/loki:3.6.0 | 3100 |
+| zookeeper | confluentinc/cp-zookeeper:7.7.7 | 2181 |
+| kafka | confluentinc/cp-kafka:7.7.7 | 9092, 29092 |
 | kafka-ui | provectuslabs/kafka-ui:latest | 8090 |
 | monitoring-indexer | opencue/monitoring-indexer | - |
-| elasticsearch | elasticsearch:8.8.0 | 9200, 9300 |
-| kibana | kibana:8.8.0 | 5601 |
-| prometheus | prom/prometheus:v2.45.0 | 9090 |
-| grafana | grafana/grafana:10.0.0 | 3000 |
+| elasticsearch | docker.elastic.co/elasticsearch/elasticsearch:9.3.0 | 9200, 9300 |
+| kibana | docker.elastic.co/kibana/kibana:9.3.0 | 5601 |
 
 ### Environment variables
 

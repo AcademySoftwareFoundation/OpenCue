@@ -61,14 +61,23 @@ Ensure you have:
 
 ### Option 1: Docker Compose (recommended for testing)
 
-Use the provided Docker Compose file for a complete monitoring stack:
+Use Docker Compose profiles to start the monitoring stack:
 
 ```bash
 cd /path/to/OpenCue
-docker compose -f sandbox/docker-compose.monitoring-full.yml up -d
+
+# Start core services with full monitoring (Kafka, Elasticsearch, Prometheus, Grafana, etc.)
+docker compose --profile monitoring-full up -d
+
+# Or start core services with basic monitoring only (Prometheus, Grafana, Loki)
+docker compose --profile monitoring up -d
 ```
 
-This starts all monitoring services with default configurations suitable for development and testing.
+This starts the core services along with the selected monitoring services. To stop everything:
+
+```bash
+docker compose --profile all down
+```
 
 ### Option 2: Production deployment
 
@@ -225,7 +234,7 @@ The `monitoring-indexer` is a standalone Rust service that consumes events from 
    docker run -d --name prometheus \
      -p 9090:9090 \
      -v /path/to/prometheus.yml:/etc/prometheus/prometheus.yml \
-     prom/prometheus:v2.45.0
+     prom/prometheus:v3.9.1
    ```
 
 #### Deploying Grafana (optional)
@@ -236,7 +245,7 @@ The `monitoring-indexer` is a standalone Rust service that consumes events from 
    docker run -d --name grafana \
      -p 3000:3000 \
      -e GF_SECURITY_ADMIN_PASSWORD=admin \
-     grafana/grafana:10.0.0
+     grafana/grafana:12.3
    ```
 
 2. Configure Prometheus as a data source in Grafana.

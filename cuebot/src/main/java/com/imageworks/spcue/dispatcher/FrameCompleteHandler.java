@@ -75,6 +75,9 @@ public class FrameCompleteHandler {
 
     private static final Random randomNumber = new Random();
 
+    private static final int DEPEND_MAX_RETRIES = 3;
+    private static final long DEPEND_INITIAL_BACKOFF_MS = 100;
+
     private HostManager hostManager;
     private JobManager jobManager;
     private RedirectManager redirectManager;
@@ -282,10 +285,15 @@ public class FrameCompleteHandler {
 
             if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
                     && newFrameState.equals(FrameState.EATEN))) {
-                jobManagerSupport.satisfyWhatDependsOn(frame);
+                satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
+                        "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")",
+                        job.getName(), job.getJobId());
+
                 isLayerComplete = jobManager.isLayerComplete(frame);
                 if (isLayerComplete) {
-                    jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
+                    satisfyDependsWithRetry(
+                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
+                            "layer " + frame.getLayerId(), job.getName(), job.getJobId());
 
                     // Record layer max runtime and memory metrics
                     if (prometheusMetrics != null) {
@@ -640,6 +648,54 @@ public class FrameCompleteHandler {
             return newState;
         } else {
             return FrameState.SUCCEEDED;
+        }
+    }
+
+    /**
+     * Retries a dependency satisfaction operation up to DEPEND_MAX_RETRIES times with exponential
+     * backoff (100ms, 200ms, 400ms).
+     *
+     * Dependency satisfaction is critical — a transient failure (e.g. connection pool exhaustion)
+     * can leave downstream frames permanently stuck in DEPEND state.
+     */
+    private void satisfyDependsWithRetry(Runnable operation, String entityDesc, String jobName,
+            String jobId) {
+        for (int attempt = 1; attempt <= DEPEND_MAX_RETRIES; attempt++) {
+            try {
+                operation.run();
+                return;
+            } catch (Exception e) {
+                // Ideally DataAccessException should be the target to be caught, but pool
+                // exhaustion is not categorized as such.
+                // Pool exhaustion throws CannotCreateTransactionException (TransactionException)
+                // which can only be caught in this context as a general Exception
+                if (attempt < DEPEND_MAX_RETRIES) {
+                    // Exponential backoff: 100ms, 200ms, 400ms (bit-shift doubles each attempt)
+                    long backoffMs = DEPEND_INITIAL_BACKOFF_MS * (1L << (attempt - 1));
+                    logger.warn("Failed to satisfy depends on " + entityDesc + " in job " + jobName
+                            + " (attempt " + attempt + "/" + DEPEND_MAX_RETRIES + "), retrying in "
+                            + backoffMs + "ms: " + e);
+                    try {
+                        // I acknowledge sleeping within a threadpool is rarely a good idea as it
+                        // blocks execution and can lead to backpressure. This sleep is only
+                        // triggered when there are transient issues, so it is likely the following
+                        // tasks would also fail. The worst case scenario is backing up the
+                        // threadpool for 700ms, which is acceptable given the circumstances
+                        Thread.sleep(backoffMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        logger.error("Dependency Failure: Interrupted while retrying depends on "
+                                + entityDesc + " in job " + jobName + " (id=" + jobId + "). "
+                                + "Downstream frames may be stuck in DEPEND state.");
+                        return;
+                    }
+                } else {
+                    logger.error("Dependency Failure: Failed to satisfy depends on " + entityDesc
+                            + " in job " + jobName + " (id=" + jobId + ") after "
+                            + DEPEND_MAX_RETRIES + " attempts. "
+                            + "Downstream frames may be stuck in DEPEND state. ", e);
+                }
+            }
         }
     }
 

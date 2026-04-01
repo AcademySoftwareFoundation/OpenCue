@@ -860,6 +860,11 @@ impl RqdDispatcherService {
         frame: &DispatchFrame,
         memory_stranded_threshold: ByteSize,
     ) -> CoreSize {
+        // Don't thread non-threadable layers
+        if !frame.threadable {
+            return CoreSize(1);
+        }
+
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
         match (host.thread_mode, frame.threadable) {
@@ -1400,15 +1405,46 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert_eq!(result, CoreSize(3)); // Should return cores_requested
+        assert_eq!(result, CoreSize(1)); // Non-threadable frames are clamped to 1 core
     }
 
     #[tokio::test]
-    async fn test_calculate_core_reservation_insufficient_cores() {
+    async fn test_calculate_core_reservation_not_threadable_thread_mode_all() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(6);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = false;
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert_eq!(result, CoreSize(1)); // Non-threadable frames are clamped to 1 core even in All mode
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_not_threadable_single_core() {
+        let host = create_test_host();
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = false;
+        frame.min_cores = CoreSize(1);
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert_eq!(result, CoreSize(1)); // Already 1 core, no clamping needed
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_insufficient_cores_threadable() {
         let mut host = create_test_host();
         host.idle_cores = CoreSize(2);
 
         let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
         frame.min_cores = CoreSize(10); // More than available
 
         let memory_threshold = ByteSize::mib(500);
@@ -1417,6 +1453,23 @@ mod tests {
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
         // Method shouldn't check for resource availability
         assert_eq!(result, CoreSize(10));
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_insufficient_cores_not_threadable() {
+        let mut host = create_test_host();
+        host.idle_cores = CoreSize(2);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = false;
+        frame.min_cores = CoreSize(10); // More than available
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        // Non-threadable frames are clamped to 1 core
+        assert_eq!(result, CoreSize(1));
     }
 
     #[test]

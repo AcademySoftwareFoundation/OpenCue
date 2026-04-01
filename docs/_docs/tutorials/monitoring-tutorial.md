@@ -417,7 +417,7 @@ Extend the Python consumer to:
 To stop the monitoring stack:
 
 ```bash
-docker compose -f sandbox/docker-compose.monitoring-full.yml down
+docker compose --profile all down
 ```
 
 To preserve your Grafana dashboards, export them first:

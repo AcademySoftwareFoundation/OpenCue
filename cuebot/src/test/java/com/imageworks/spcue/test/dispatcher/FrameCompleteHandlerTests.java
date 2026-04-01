@@ -56,6 +56,16 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+
+import org.springframework.transaction.CannotCreateTransactionException;
+
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.service.JobManagerSupport;
 
 @ContextConfiguration
 public class FrameCompleteHandlerTests extends TransactionalTest {
@@ -419,5 +429,109 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     @Rollback(true)
     public void testMinMemIncreaseShowOverride() {
         executeMinMemIncrease(10485760, true);
+    }
+
+    /**
+     * Helper that runs the depend flow with a spy on jobManagerSupport that throws on
+     * satisfyWhatDependsOn(FrameInterface) for the first {@code failCount} calls, then delegates to
+     * the real implementation.
+     */
+    private void executeDependWithRetry(int failCount, int expectedDependCount,
+            FrameState expectedDependState) {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        LayerDetail layerFirst = layerDao.findLayerDetail(job, "layer_first");
+        LayerDetail layerSecond = layerDao.findLayerDetail(job, "layer_second");
+        FrameDetail frameFirst = frameDao.findFrameDetail(job, "0000-layer_first");
+        FrameDetail frameSecond = frameDao.findFrameDetail(job, "0000-layer_second");
+
+        assertEquals(1, frameSecond.dependCount);
+        assertEquals(FrameState.DEPEND, frameSecond.state);
+
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        assertEquals(job.getId(), proc.getJobId());
+        assertEquals(layerFirst.getId(), proc.getLayerId());
+        assertEquals(frameFirst.getId(), proc.getFrameId());
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.SUCCEEDED, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+
+        // Spy on jobManagerSupport to simulate transient failures
+        JobManagerSupport originalSupport = frameCompleteHandler.getJobManagerSupport();
+        JobManagerSupport spySupport = spy(originalSupport);
+
+        final int[] frameCallCount = {0};
+        doAnswer(invocation -> {
+            frameCallCount[0]++;
+            if (frameCallCount[0] <= failCount) {
+                throw new CannotCreateTransactionException(
+                        "Simulated pool exhaustion (call " + frameCallCount[0] + ")");
+            }
+            invocation.callRealMethod();
+            return null;
+        }).when(spySupport).satisfyWhatDependsOn(any(FrameInterface.class));
+
+        final int[] layerCallCount = {0};
+        doAnswer(invocation -> {
+            layerCallCount[0]++;
+            if (layerCallCount[0] <= failCount) {
+                throw new CannotCreateTransactionException(
+                        "Simulated pool exhaustion (call " + layerCallCount[0] + ")");
+            }
+            invocation.callRealMethod();
+            return null;
+        }).when(spySupport).satisfyWhatDependsOn(any(LayerInterface.class));
+
+        frameCompleteHandler.setJobManagerSupport(spySupport);
+        try {
+            frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                    dispatchFrame, FrameState.SUCCEEDED, frameDetail);
+        } finally {
+            frameCompleteHandler.setJobManagerSupport(originalSupport);
+        }
+
+        assertTrue(jobManager.isLayerComplete(layerFirst));
+        assertFalse(jobManager.isLayerComplete(layerSecond));
+
+        frameSecond = frameDao.findFrameDetail(job, "0000-layer_second");
+        assertEquals(expectedDependCount, frameSecond.dependCount);
+        assertEquals(expectedDependState, frameSecond.state);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependRetrySucceedsOnSecondAttempt() {
+        // First call fails, second succeeds — depend should be satisfied
+        executeDependWithRetry(1, 0, FrameState.WAITING);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependRetrySucceedsOnThirdAttempt() {
+        // First two calls fail, third succeeds — depend should be satisfied
+        executeDependWithRetry(2, 0, FrameState.WAITING);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependRetryExhausted() {
+        // All three calls fail — depend remains unsatisfied, frame stays in DEPEND
+        executeDependWithRetry(3, 1, FrameState.DEPEND);
     }
 }

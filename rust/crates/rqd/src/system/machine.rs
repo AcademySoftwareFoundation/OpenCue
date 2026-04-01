@@ -634,6 +634,10 @@ pub trait Machine {
 
     async fn get_host_name(&self) -> String;
 
+    /// Returns the hyperthreading multiplier (threads per physical core).
+    /// A value > 1 indicates hyperthreading is enabled.
+    async fn get_hyperthreading_multiplier(&self) -> u32;
+
     /// Send a signal to kill a process
     ///
     /// # Returns Errors:
@@ -731,6 +735,11 @@ impl Machine for MachineMonitor {
         lock.as_ref()
             .map(|h| h.name.clone())
             .unwrap_or("noname".to_string())
+    }
+
+    async fn get_hyperthreading_multiplier(&self) -> u32 {
+        let system = self.system_manager.lock().await;
+        system.hyperthreading_multiplier()
     }
 
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()> {
