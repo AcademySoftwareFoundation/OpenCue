@@ -86,8 +86,8 @@ WHERE lr.pk_layer = booked.pk_layer
 //== Recompute Job Resource
 static RECOMPUTE_JOB_RESOURCE_FROM_PROC: &str = r#"
 UPDATE job_resource jr
-SET int_cores = COALESCE(booked.total_cores, 0),
-    int_gpus = COALESCE(booked.total_gpus, 0)
+SET int_cores = LEAST(COALESCE(booked.total_cores, 0), jr.int_max_cores),
+    int_gpus = LEAST(COALESCE(booked.total_gpus, 0), jr.int_max_gpus)
 FROM (
     SELECT jr2.pk_job,
            SUM(p.int_cores_reserved)::int AS total_cores,
@@ -107,8 +107,8 @@ WHERE jr.pk_job = booked.pk_job
 //=== Recompute Folder Resources
 static RECOMPUTE_FOLDER_RESOURCE_FROM_PROC: &str = r#"
 UPDATE folder_resource fr
-SET int_cores = COALESCE(booked.total_cores, 0),
-    int_gpus = COALESCE(booked.total_gpus, 0)
+SET int_cores = LEAST(COALESCE(booked.total_cores, 0), fr.int_max_cores),
+    int_gpus = LEAST(COALESCE(booked.total_gpus, 0), fr.int_max_gpus)
 FROM (
     SELECT fr2.pk_folder,
            SUM(p.int_cores_reserved)::int AS total_cores,
