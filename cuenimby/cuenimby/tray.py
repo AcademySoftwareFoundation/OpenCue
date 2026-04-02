@@ -16,12 +16,13 @@
 
 import logging
 import os
+import shlex
 import subprocess
 import sys
 from typing import Optional
 import shutil
 
-from qtpy import QtWidgets, QtGui
+from qtpy import QtCore, QtWidgets, QtGui
 
 from .config import Config
 from .monitor import HostMonitor, HostState
@@ -33,6 +34,10 @@ logger = logging.getLogger(__name__)
 
 class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     """System tray application for NIMBY control."""
+
+    # Signals to safely update from monitor thread to Qt main thread
+    _state_changed_signal = QtCore.Signal(object, object)
+    _frame_started_signal = QtCore.Signal(str, str)
 
     # Icon for different states
     ICONS = {
@@ -70,6 +75,10 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.notifier: Optional[Notifier] = None
         self.scheduler: Optional[NimbyScheduler] = None
 
+        # Connect cross-thread signals for state changes and frame starts
+        self._state_changed_signal.connect(self._handle_state_change)
+        self._frame_started_signal.connect(self._handle_frame_started)
+
         self._init_components()
 
         logger.info("CueNIMBY tray initialized")
@@ -79,6 +88,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         # Initialize notifier
         if self.config.show_notifications:
             self.notifier = Notifier()
+            self.notifier.set_tray_icon(self)
 
         # Initialize monitor
         self.monitor = HostMonitor(
@@ -110,13 +120,12 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.setToolTip(f"CueNIMBY - {state.value}")
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
-        """Handle state change.
-
-        Args:
-            old_state: Previous state.
-            new_state: New state.
-        """
+        """Handle state change from monitor thread — emit signal to main thread."""
         logger.info("State changed: %s -> %s", old_state.value, new_state.value)
+        self._state_changed_signal.emit(old_state, new_state)
+
+    def _handle_state_change(self, old_state: HostState, new_state: HostState) -> None:
+        """Handle state change on the Qt main thread (connected via signal)."""
         self._update_icon(state=new_state)
 
         # Send notifications
@@ -143,12 +152,11 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                     self.notifier.notify_host_recovered()
 
     def _on_frame_started(self, job_name: str, frame_name: str) -> None:
-        """Handle frame start.
+        """Handle frame start from monitor thread — emit signal to main thread."""
+        self._frame_started_signal.emit(job_name, frame_name)
 
-        Args:
-            job_name: Job name.
-            frame_name: Frame name.
-        """
+    def _handle_frame_started(self, job_name: str, frame_name: str) -> None:
+        """Handle frame start on the Qt main thread (connected via signal)."""
         logger.info("Frame started: %s/%s", job_name, frame_name)
         if self.notifier:
             self.notifier.notify_job_started(job_name, frame_name)
@@ -199,6 +207,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         if enabled:
             self.notifier = Notifier()
+            self.notifier.set_tray_icon(self)
             logger.info("Notifications enabled")
         else:
             self.notifier = None
@@ -228,13 +237,11 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
     # pylint: disable=consider-using-with
     def launch_cuegui(self) -> None:
-        """Launch CueGUI application."""
+        """Launch CueGUI application using the command from config."""
         try:
-            if self._cuegui_available():
-                subprocess.Popen(["cuegui"])
-                logger.info("Launched CueGUI")
-            else:
-                raise FileNotFoundError("cuegui executable not found in PATH")
+            cmd = self.config.cuegui_command
+            subprocess.Popen(cmd)
+            logger.info("Launched CueGUI: %s", cmd)
         except Exception as e:
             logger.error("Failed to launch CueGUI: %s", e)
             if self.notifier:
@@ -245,7 +252,8 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
     def _cuegui_available(self) -> bool:
         """Check if CueGUI is available."""
-        return shutil.which("cuegui") is not None
+        cmd = self.config.cuegui_command
+        return shutil.which(cmd[0]) is not None
 
     def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
@@ -306,7 +314,26 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             elif sys.platform == "win32":  # Windows
                 os.startfile(config_path)
             else:  # Linux and others
-                subprocess.run(["xdg-open", config_path], check=True)
+                editor = (os.environ.get("VISUAL")
+                          or os.environ.get("EDITOR")
+                          or shutil.which("gedit")
+                          or shutil.which("nano")
+                          or "vi")
+                editor_cmd = shlex.split(editor)
+                editor_name = os.path.basename(editor_cmd[0])
+                gui_editors = ("gedit", "kate", "mousepad", "xed")
+                if editor_name in gui_editors:
+                    # GUI editors launch directly, no terminal needed
+                    subprocess.Popen([*editor_cmd, config_path])
+                else:
+                    # Terminal editors need a terminal emulator
+                    terminal = shutil.which("xterm") or shutil.which("gnome-terminal")
+                    if terminal and "xterm" in terminal:
+                        subprocess.Popen([terminal, "-e", *editor_cmd, config_path])
+                    elif terminal:
+                        subprocess.Popen([terminal, "--", *editor_cmd, config_path])
+                    else:
+                        raise RuntimeError("No terminal emulator found to open config")
             logger.info("Opened config file: %s", config_path)
         except Exception as e:
             logger.error("Failed to open config file: %s", e)
@@ -349,7 +376,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.menu.addSeparator()
 
-        self.cuegui_action = self.menu.addAction("Launch CueGUI")
+        self.cuegui_action = self.menu.addAction(self.config.cuegui_label)
         self.cuegui_action.triggered.connect(self.launch_cuegui)
         self.cuegui_action.setEnabled(self._cuegui_available())
 
@@ -383,12 +410,13 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.scheduler_action.setChecked(self._scheduler_enabled())
 
+        label = self.config.cuegui_label
         if self._cuegui_available():
             self.cuegui_action.setEnabled(True)
-            self.cuegui_action.setText("Launch CueGUI")
+            self.cuegui_action.setText(label)
         else:
             self.cuegui_action.setEnabled(False)
-            self.cuegui_action.setText("Launch CueGUI (not installed)")
+            self.cuegui_action.setText(f"{label} (not installed)")
 
     def start(self) -> None:
         """Start the tray application."""

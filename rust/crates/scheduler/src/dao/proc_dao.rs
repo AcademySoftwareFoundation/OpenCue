@@ -14,6 +14,7 @@ use futures::TryFutureExt;
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, Transaction};
 use std::sync::Arc;
+use bytesize::{KB};
 
 use crate::{config::CONFIG, models::VirtualProc, pgpool::connection_pool};
 
@@ -157,12 +158,12 @@ impl ProcDao {
             .bind(virtual_proc.frame_id.to_string())
             .bind(virtual_proc.cores_reserved.value())
             // Memory is represented as KB on the database
-            .bind(virtual_proc.memory_reserved.0 as i64 / 1024)
-            .bind(virtual_proc.memory_reserved.0 as i64 / 1024)
-            .bind(CONFIG.queue.mem_reserved_min.0 as i64 / 1024)
+            .bind((virtual_proc.memory_reserved.0 / KB) as i64)
+            .bind((virtual_proc.memory_reserved.0 / KB) as i64)
+            .bind((CONFIG.queue.mem_reserved_min.0 / KB) as i64)
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.gpu_memory_reserved.0 as i64 / 1024)
-            .bind(virtual_proc.gpu_memory_reserved.0 as i64 / 1024)
+            .bind((virtual_proc.gpu_memory_reserved.0 / KB) as i64)
+            .bind((virtual_proc.gpu_memory_reserved.0 / KB) as i64)
             .bind(0)
             .bind(virtual_proc.is_local_dispatch)
             .execute(&mut **transaction)
