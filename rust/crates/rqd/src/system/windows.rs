@@ -453,7 +453,7 @@ impl WindowsSystem {
         })
     }
 
-    fn kill_session_internal(&self, session_pid: u32, force: bool) -> Result<()> {
+    fn kill_session_internal(&self, session_pid: u32) -> Result<()> {
         let lineage = self.collect_lineage(session_pid);
         if lineage.is_empty() {
             return Err(miette!("Failed to find session {} to kill", session_pid));
@@ -474,7 +474,7 @@ impl WindowsSystem {
         for pid in lineage.into_iter().rev() {
             let pid = Pid::from_u32(pid);
             if let Some(proc) = sysinfo.process(pid) {
-                let killed = if force { proc.kill() } else { proc.kill() };
+                let killed = proc.kill();
                 if !killed {
                     failed_pids.push(pid.as_u32());
                 }
@@ -581,11 +581,12 @@ impl SystemManager for WindowsSystem {
     }
 
     fn kill_session(&self, session_pid: u32) -> Result<()> {
-        self.kill_session_internal(session_pid, false)
+        self.kill_session_internal(session_pid)
     }
 
     fn force_kill_session(&self, session_pid: u32) -> Result<()> {
-        self.kill_session_internal(session_pid, true)
+        // There's no such thing in Windows. Fallback to a regular kill cmd
+        self.kill_session_internal(session_pid)
     }
 
     fn force_kill(&self, pids: &[u32]) -> Result<()> {

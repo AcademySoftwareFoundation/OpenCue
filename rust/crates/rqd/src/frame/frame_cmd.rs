@@ -250,17 +250,16 @@ impl FrameCmdBuilder {
     }
 
     #[cfg(target_os = "linux")]
-    // Exit files are only used for recovery mode and this feature is disabled at the moment for
-    // linux for not being stable
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
+        // Meant for the recovery mode feature. Which is disabled on linux for not being stable
+        // self.exit_file_path = Some(exit_file_path);
         self
     }
 
     #[cfg(target_os = "windows")]
-    // Exit files are only used for recovery mode and this feature is disabled at the moment for
-    // linux for not being stable
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
-        self.exit_file_path = Some(exit_file_path);
+        // Meant for the recovery mode feature. Which is disabled on windows for not being stable
+        // self.exit_file_path = Some(exit_file_path);
         self
     }
 
