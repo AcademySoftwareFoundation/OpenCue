@@ -317,8 +317,8 @@ def _serialize(launcher, use_pycuerun):
             cmd = layer.get_arg("command")
             if cmd is None:
                 raise TypeError(
-                    "Layer '%s' has no command. Custom Layer subclasses require "
-                    "use_pycuerun=True." % layer.get_name())
+                    "Layer '%s' has no command set. Set a 'command' argument on "
+                    "the layer or enable use_pycuerun." % layer.get_name())
             if isinstance(cmd, str):
                 sub_element(spec_layer, "cmd", cmd)
             else:
