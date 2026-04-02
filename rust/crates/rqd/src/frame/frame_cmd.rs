@@ -162,6 +162,19 @@ impl FrameCmdBuilder {
 
     #[cfg(target_os = "windows")]
     pub fn build(&mut self) -> Result<(&mut Command, String)> {
+        // Validate that the configured shell is cmd.exe (the only supported shell on Windows)
+        let shell_lower = self.shell.to_lowercase();
+        let shell_name = std::path::Path::new(&shell_lower)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(&shell_lower);
+        if shell_name != "cmd.exe" && shell_name != "cmd" {
+            return Err(miette!(
+                "Unsupported shell on Windows: '{}'. Only cmd.exe is supported.",
+                self.shell
+            ));
+        }
+
         let args: Vec<&str> = self
             .cmd
             .as_std()
@@ -183,7 +196,9 @@ impl FrameCmdBuilder {
         file.write_all(script.as_bytes()).into_diagnostic()?;
         drop(file);
 
-        self.cmd = Command::new(&self.entrypoint_file_path);
+        let mut cmd = Command::new(&self.shell);
+        cmd.arg("/c").arg(&self.entrypoint_file_path);
+        self.cmd = cmd;
         Ok((&mut self.cmd, script.clone()))
     }
 
