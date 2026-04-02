@@ -61,6 +61,19 @@ impl FrameCmdBuilder {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn new(shell: &String, entrypoint_file_path: String) -> Self {
+        let cmd = Command::new(shell);
+        Self {
+            cmd,
+            shell: shell.clone(),
+            exit_file_path: None,
+            become_user: None,
+            entrypoint_file_path,
+            end_cmd: None,
+        }
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub fn build(&mut self) -> Result<(&mut Command, String)> {
         use std::os::unix::fs::PermissionsExt;
@@ -147,6 +160,48 @@ impl FrameCmdBuilder {
         Ok((&mut self.cmd, script.clone()))
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn build(&mut self) -> Result<(&mut Command, String)> {
+        // Validate that the configured shell is cmd.exe (the only supported shell on Windows)
+        let shell_lower = self.shell.to_lowercase();
+        let shell_name = std::path::Path::new(&shell_lower)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(&shell_lower);
+        if shell_name != "cmd.exe" && shell_name != "cmd" {
+            return Err(miette!(
+                "Unsupported shell on Windows: '{}'. Only cmd.exe is supported.",
+                self.shell
+            ));
+        }
+
+        let args: Vec<&str> = self
+            .cmd
+            .as_std()
+            .get_args()
+            .filter_map(|arg| arg.to_str())
+            .collect();
+        let cmd_str = args.join(" ");
+        let mut file = File::create(&self.entrypoint_file_path).into_diagnostic()?;
+
+        let script = match &self.exit_file_path {
+            Some(exit_file_path) => format!(
+                "@echo off\r\n{}\r\nset exit_code=%ERRORLEVEL%\r\necho %exit_code% > {}\r\nexit /b %exit_code%\r\n",
+                cmd_str, exit_file_path
+            ),
+            None => format!("@echo off\r\n{}\r\n", cmd_str),
+        };
+
+        self.end_cmd = Some(script.clone());
+        file.write_all(script.as_bytes()).into_diagnostic()?;
+        drop(file);
+
+        let mut cmd = Command::new(&self.shell);
+        cmd.arg("/c").arg(&self.entrypoint_file_path);
+        self.cmd = cmd;
+        Ok((&mut self.cmd, script.clone()))
+    }
+
     /// Adds a taskset reservation for the `proc_list`:
     /// ```bash
     ///   taskset -p 1,2,3
@@ -168,7 +223,7 @@ impl FrameCmdBuilder {
 
     #[cfg(target_os = "windows")]
     // taskset is noop on windows. There's not a native way to allocate threads to sockets
-    pub fn with_taskset(&mut self, cpu_list: Vec<u32>) -> &mut Self {
+    pub fn with_taskset(&mut self, _cpu_list: Vec<u32>) -> &mut Self {
         self
     }
 
@@ -210,16 +265,16 @@ impl FrameCmdBuilder {
     }
 
     #[cfg(target_os = "linux")]
-    // Exit files are only used for recovery mode and this feature is disabled at the moment for
-    // linux for not being stable
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
+        // Meant for the recovery mode feature. Which is disabled on linux for not being stable
+        // self.exit_file_path = Some(exit_file_path);
         self
     }
 
     #[cfg(target_os = "windows")]
-    // Exit files are only used for recovery mode and this feature is disabled at the moment for
-    // linux for not being stable
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
+        // Meant for the recovery mode feature. Which is disabled on windows for not being stable
+        // self.exit_file_path = Some(exit_file_path);
         self
     }
 

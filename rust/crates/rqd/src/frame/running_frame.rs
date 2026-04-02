@@ -162,7 +162,11 @@ impl RunningFrame {
             .to_string_lossy()
             .to_string();
         let entrypoint_file_path = std::path::Path::new(&config.temp_path)
-            .join(format!("{}.sh", frame_file_prefix))
+            .join(format!(
+                "{}.{}",
+                frame_file_prefix,
+                Self::entrypoint_extension()
+            ))
             .to_string_lossy()
             .to_string();
         let env_vars = Self::setup_env_vars(
@@ -499,6 +503,16 @@ impl RunningFrame {
         "C:/Windows/system32;C:/Windows;C:/Windows/System32/Wbem"
     }
 
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn entrypoint_extension() -> &'static str {
+        "sh"
+    }
+
+    #[cfg(target_os = "windows")]
+    fn entrypoint_extension() -> &'static str {
+        "bat"
+    }
+
     /// Runs the frame as a subprocess.
     ///
     /// This method is the main entry point for executing a frame. It:
@@ -661,6 +675,7 @@ impl RunningFrame {
         Ok((exit_code, exit_signal))
     }
 
+    #[cfg(unix)]
     fn interprete_output(exit_status: ExitStatus) -> (i32, Option<i32>) {
         let mut exit_signal = exit_status.signal();
         let mut exit_code = exit_status.code().unwrap_or(1);
@@ -674,9 +689,92 @@ impl RunningFrame {
         (exit_code, exit_signal)
     }
 
+    #[cfg(windows)]
+    fn interprete_output(exit_status: ExitStatus) -> (i32, Option<i32>) {
+        let exit_code = exit_status.code().unwrap_or(1);
+        (exit_code, None)
+    }
+
     #[cfg(target_os = "windows")]
-    pub fn run_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
-        todo!("Windows runner needs to be implemented")
+    pub async fn run_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
+        logger.writeln(self.write_header().as_str());
+
+        let mut command =
+            FrameCmdBuilder::new(&self.config.shell_path, self.entrypoint_file_path.clone());
+        if self.config.run_as_user {
+            return Err(miette!(
+                "`runner.run_as_user` is not supported on Windows yet"
+            ));
+        }
+        if self.config.desktop_mode {
+            command.with_nice();
+        }
+        if let Some(cpu_list) = &self.thread_ids {
+            command.with_taskset(cpu_list.clone());
+        }
+
+        let raw_stdout = Self::setup_raw_file(&self.raw_stdout_path).await?;
+        let raw_stderr = Self::setup_raw_file(&self.raw_stderr_path).await?;
+
+        let (cmd, cmd_str) = command
+            .with_frame_cmd(self.request.command.clone())
+            .with_exit_file(self.exit_file_path.clone())
+            .build()?;
+
+        cmd.envs(&self.env_vars)
+            .current_dir(&self.config.temp_path)
+            .stdout(Stdio::from(raw_stdout))
+            .stderr(Stdio::from(raw_stderr));
+        trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
+        logger.writeln(format!("Running {}:", self.entrypoint_file_path).as_str());
+
+        let mut child = cmd.spawn().into_diagnostic().map_err(|e| {
+            miette!(
+                "Failed to spawn process for command '{}': {}",
+                self.request.command,
+                e
+            )
+        })?;
+
+        let pid = child.id().ok_or(miette!(
+            "Failed to get process ID after spawn - \
+            process may have failed to start or already finished"
+        ))?;
+        self.start(pid);
+
+        info!("Frame {self} started with pid {pid}");
+
+        let _ = self.create_snapshot().await;
+
+        let (log_pipe_handle, sender) = self.spawn_logger(logger).await;
+
+        let output = child.wait().await;
+        if sender.send(()).await.is_err() {
+            warn!("Failed to notify log thread");
+        }
+        if let Err(err) = log_pipe_handle.await {
+            warn!("Failed to join log thread. {}", err);
+        }
+        let output = output
+            .into_diagnostic()
+            .wrap_err(format!("Command for {self} didn't start!"))?;
+
+        let (exit_code, exit_signal) = Self::interprete_output(output);
+
+        let msg = match exit_code {
+            0 => format!("Frame {}(pid={}) finished successfully", self, pid),
+            _ => format!(
+                "Frame {}(pid={}) finished with exit_code={} and exit_signal={}. Log: {}",
+                self,
+                pid,
+                exit_code,
+                exit_signal.unwrap_or(0),
+                self.log_path,
+            ),
+        };
+        info!(msg);
+
+        Ok((exit_code, exit_signal))
     }
 
     /// Spawns a new thread to pipe raw logs (stdout and stderr) into a logger
@@ -723,7 +821,6 @@ impl RunningFrame {
     ///
     /// # Errors
     /// Returns an error if the frame doesn't have a valid PID or if process monitoring fails
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(super) async fn recover_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
         logger.writeln(self.write_header().as_str());
 
@@ -748,9 +845,16 @@ impl RunningFrame {
 
         info!("Frame {} finished successfully with pid={}", self, pid);
 
-        // If a recovered frame fails to read the exit code from
-        // the exit file, mark the frame as killed (SIGTERM)
-        Ok(self.read_exit_file().await.unwrap_or((1, Some(143))))
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            // If a recovered frame fails to read the exit code from
+            // the exit file, mark the frame as killed (SIGTERM)
+            Ok(self.read_exit_file().await.unwrap_or((1, Some(143))))
+        }
+        #[cfg(target_os = "windows")]
+        {
+            Ok(self.read_exit_file().await.unwrap_or((1, None)))
+        }
     }
 
     /// Get the process ID (PID) of the running frame process
@@ -818,15 +922,22 @@ impl RunningFrame {
             miette!(msg)
         })?;
 
-        // When a process is terminated by a signal, the exit status is calculated as:
-        // `128 + signal_number`
-        // For example:
-        // - SIGTERM (15) → exit code 143 (128+15)
-        // - SIGKILL (9) → exit code 137 (128+9)
-        if exit_code < 128 {
+        #[cfg(unix)]
+        {
+            // When a process is terminated by a signal, the exit status is calculated as:
+            // `128 + signal_number`
+            // For example:
+            // - SIGTERM (15) → exit code 143 (128+15)
+            // - SIGKILL (9) → exit code 137 (128+9)
+            if exit_code < 128 {
+                Ok((exit_code, None))
+            } else {
+                Ok((1, Some(exit_code - 128)))
+            }
+        }
+        #[cfg(windows)]
+        {
             Ok((exit_code, None))
-        } else {
-            Ok((1, Some(exit_code - 128)))
         }
     }
 
@@ -877,6 +988,27 @@ impl RunningFrame {
         Ok(())
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn wait(&self) -> Result<()> {
+        let pid = self.pid().ok_or(miette!(
+            "Failed to wait for frame. Process have never started: {}",
+            self
+        ))?;
+
+        let mut sysinfo = System::new();
+        loop {
+            sysinfo.refresh_processes(
+                sysinfo::ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+                true,
+            );
+            if sysinfo.process(Pid::from_u32(pid)).is_none() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(1500));
+        }
+        Ok(())
+    }
+
     /// Retrieves the process ID (PID) that should be killed when terminating this frame
     ///
     /// # Returns
@@ -917,6 +1049,7 @@ impl RunningFrame {
         }
     }
 
+    #[cfg(unix)]
     async fn setup_raw_fd(path: &str) -> Result<RawFd> {
         let file = tokio::fs::OpenOptions::new()
             .create(true)
@@ -927,6 +1060,19 @@ impl RunningFrame {
             .into_diagnostic()?;
 
         Ok(file.into_std().await.into_raw_fd())
+    }
+
+    #[cfg(windows)]
+    async fn setup_raw_file(path: &str) -> Result<std::fs::File> {
+        let file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(path)
+            .await
+            .into_diagnostic()?;
+
+        Ok(file.into_std().await)
     }
 
     async fn pipe_output_to_logger(

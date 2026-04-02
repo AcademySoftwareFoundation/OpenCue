@@ -79,7 +79,6 @@ class SerializeTest(unittest.TestCase):
             '{scripts_dir}/shell.outline '
             '-e #IFRAME#-cmd '
             '--version latest '
-            '--repos  '
             '--debug'.format(scripts_dir=SCRIPTS_DIR), layer.find('cmd').text)
         self.assertEqual(1, len(layer.findall('range')))
         self.assertEqual('1000-1000', layer.find('range').text)
@@ -152,7 +151,7 @@ class BuildCommandTest(unittest.TestCase):
             [
                 '/wrappers/opencue_wrap_frame', '', '/bin/pycuerun',
                 '%s/shell.outline -e #IFRAME#-cmd' % SCRIPTS_DIR,
-                '--version latest', '--repos ', '--debug',
+                '--version latest', '--debug',
             ],
             outline.backend.cue.build_command(self.launcher, self.layer))
 
@@ -169,7 +168,7 @@ class BuildCommandTest(unittest.TestCase):
                     '%s/strace.log' % self.ol.get_session().get_path(self.layer),
                     '/wrappers/opencue_wrap_frame_no_ss', '', '/bin/pycuerun',
                     '%s -e #IFRAME#-cmd' % self.ol.get_path(),
-                    '--version latest', '--repos ', '--debug',
+                    '--version latest', '--debug',
                 ],
                 outline.backend.cue.build_command(self.launcher, self.layer))
 
@@ -184,7 +183,7 @@ class BuildCommandTest(unittest.TestCase):
             [
                 wrapperPath, '', '/bin/pycuerun',
                 '%s/shell.outline -e #IFRAME#-cmd' % SCRIPTS_DIR,
-                '--version latest', '--repos ', '--debug', '--dev',
+                '--version latest', '--debug', '--dev',
                 '--dev-user %s' % devUser,
             ],
             outline.backend.cue.build_command(self.launcher, self.layer))

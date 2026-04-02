@@ -10,15 +10,21 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
+use std::{
+    net::{TcpListener, TcpStream},
+    time::Instant,
+};
 use tempfile::TempDir;
 use tokio::time::sleep;
 
 static INIT: Once = Once::new();
+static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Ensure dummy-cuebot is built before running tests
 fn ensure_dummy_cuebot_built() {
@@ -44,6 +50,12 @@ fn ensure_dummy_cuebot_built() {
 fn get_binary_path(binary_name: &str) -> String {
     ensure_dummy_cuebot_built();
 
+    let binary_name = if cfg!(windows) {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name.to_string()
+    };
+
     // Check if we're running in debug or release mode by looking for the binaries
     let release_path = format!("../../target/release/{}", binary_name);
     let debug_path = format!("../../target/debug/{}", binary_name);
@@ -57,6 +69,78 @@ fn get_binary_path(binary_name: &str) -> String {
         // Default to debug path as that's what tests typically use
         debug_path
     }
+}
+
+fn machine_paths() -> (&'static str, &'static str, &'static str, &'static str) {
+    if cfg!(windows) {
+        (
+            "now_available_on_windows",
+            "now_available_on_windows",
+            "now_available_on_windows",
+            "now_available_on_windows",
+        )
+    } else {
+        (
+            "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4",
+            "../../crates/rqd/resources/distro-release/rocky",
+            "../../crates/rqd/resources/proc/stat",
+            "../../crates/rqd/resources/proc/loadavg",
+        )
+    }
+}
+
+fn quoted_if_needed(path: &str) -> String {
+    if path.contains(' ') {
+        format!("\"{}\"", path)
+    } else {
+        path.to_string()
+    }
+}
+
+fn yaml_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+// --- OS-specific command helpers ---
+
+fn sleep_and_echo_cmd(message: &str) -> String {
+    if cfg!(windows) {
+        format!("ping -n 2 127.0.0.1 > NUL & echo {}", message)
+    } else {
+        format!("sleep 1 && echo '{}'", message)
+    }
+}
+
+fn env_echo_cmd() -> String {
+    if cfg!(windows) {
+        "echo %TEST_VAR% %ANOTHER_VAR%".to_string()
+    } else {
+        "echo $TEST_VAR $ANOTHER_VAR".to_string()
+    }
+}
+
+fn echo_cmd(message: &str) -> String {
+    if cfg!(windows) {
+        format!("echo {}", message)
+    } else {
+        format!("echo '{}'", message)
+    }
+}
+
+fn memory_fork_script_path() -> &'static str {
+    if cfg!(windows) {
+        "../../crates/rqd/resources/test_scripts/memory_fork.cmd"
+    } else {
+        "../../crates/rqd/resources/test_scripts/memory_fork.sh"
+    }
+}
+
+fn timeout_secs() -> u64 {
+    if cfg!(windows) { 20 } else { 15 }
+}
+
+fn wait_millis() -> u64 {
+    if cfg!(windows) { 10000 } else { 8000 }
 }
 
 /// Helper function to monitor server output for frame completion
@@ -154,36 +238,111 @@ fn monitor_server_output(
     (success, all_output)
 }
 
-/// Test that verifies openrqd can start, accept frame launches, and complete them successfully
-#[tokio::test]
-async fn test_openrqd_frame_execution_with_completion() {
-    // Create temporary directory for test configuration
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test_config.yaml");
+fn collect_child_output(child: &mut std::process::Child) -> (String, String) {
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        let _ = out.read_to_string(&mut stdout);
+    }
+    if let Some(mut err) = child.stderr.take() {
+        let _ = err.read_to_string(&mut stderr);
+    }
+    (stdout, stderr)
+}
 
-    // Create test configuration with shorter report interval
-    let test_config = format!(
+fn wait_for_port_open(child: &mut std::process::Child, port: u16, label: &str, timeout_secs: u64) {
+    let start = Instant::now();
+    loop {
+        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            return;
+        }
+
+        if let Ok(Some(status)) = child.try_wait() {
+            let (stdout, stderr) = collect_child_output(child);
+            panic!(
+                "{} exited early with status {}.\nstdout:\n{}\nstderr:\n{}",
+                label, status, stdout, stderr
+            );
+        }
+
+        if start.elapsed().as_secs() >= timeout_secs {
+            let _ = child.kill();
+            let _ = child.wait();
+            let (stdout, stderr) = collect_child_output(child);
+            panic!(
+                "{} did not open port {} within {}s.\nstdout:\n{}\nstderr:\n{}",
+                label, port, timeout_secs, stdout, stderr
+            );
+        }
+
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn get_free_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("Failed to bind to an ephemeral port")
+        .local_addr()
+        .expect("Failed to read local_addr")
+        .port()
+}
+
+fn get_two_free_ports() -> (u16, u16) {
+    let first = get_free_port();
+    let mut second = get_free_port();
+    while second == first {
+        second = get_free_port();
+    }
+    (first, second)
+}
+
+fn integration_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    TEST_MUTEX.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+// --- Test environment setup ---
+
+struct TestEnv {
+    _temp_dir: TempDir,
+    dummy_server: std::process::Child,
+    openrqd: std::process::Child,
+    rqd_port: u16,
+}
+
+fn make_test_config(
+    temp_dir: &TempDir,
+    rqd_port: u16,
+    cuebot_port: u16,
+    monitor_interval: &str,
+    worker_threads: u32,
+) -> String {
+    let temp_dir_str = yaml_path(temp_dir.path());
+    let tmp_dir_str = yaml_path(&temp_dir.path().join("tmp"));
+    let snapshots_dir_str = yaml_path(&temp_dir.path().join("snapshots"));
+    let (cpuinfo_path, distro_release_path, proc_stat_path, proc_loadavg_path) = machine_paths();
+
+    format!(
         r#"
 logging:
   level: debug
   path: "{}/test.log"
-  file_appender: true
+  file_appender: false
 
 machine:
-  monitor_interval: 2s
+  monitor_interval: {}
   use_ip_as_hostname: false
   nimby_mode: false
   facility: test
-  worker_threads: 2
+  worker_threads: {}
   temp_path: "{}"
-  cpuinfo_path: "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
-  distro_release_path: "../../crates/rqd/resources/distro-release/rocky"
-  proc_stat_path: "../../crates/rqd/resources/proc/stat"
-  proc_loadavg_path: "../../crates/rqd/resources/proc/loadavg"
+  cpuinfo_path: "{}"
+  distro_release_path: "{}"
+  proc_stat_path: "{}"
+  proc_loadavg_path: "{}"
 
 grpc:
-  rqd_port: 18600
-  cuebot_endpoints: ["localhost:14500"]
+  rqd_port: {}
+  cuebot_endpoints: ["127.0.0.1:{}"]
 
 runner:
   run_on_docker: false
@@ -191,25 +350,38 @@ runner:
   temp_path: "{}"
   snapshots_path: "{}"
 "#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
-    );
+        temp_dir_str,
+        monitor_interval,
+        worker_threads,
+        tmp_dir_str,
+        cpuinfo_path,
+        distro_release_path,
+        proc_stat_path,
+        proc_loadavg_path,
+        rqd_port,
+        cuebot_port,
+        tmp_dir_str,
+        snapshots_dir_str
+    )
+}
 
+fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
+    let temp_dir = TempDir::new().unwrap();
+    let config_path = temp_dir.path().join("test_config.yaml");
+    let (rqd_port, cuebot_port) = get_two_free_ports();
+
+    let test_config = make_test_config(&temp_dir, rqd_port, cuebot_port, monitor_interval, worker_threads);
     std::fs::write(&config_path, test_config).unwrap();
 
-    // Start dummy-cuebot report server
-    let dummy_server = Command::new(get_binary_path("dummy-cuebot"))
-        .args(["report-server", "--port", "14500"])
+    let mut dummy_server = Command::new(get_binary_path("dummy-cuebot"))
+        .args(["report-server", "--port", &cuebot_port.to_string()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to start dummy-cuebot server");
 
-    sleep(Duration::from_millis(1000)).await;
+    wait_for_port_open(&mut dummy_server, cuebot_port, "dummy-cuebot", 10);
 
-    // Start openrqd with test config
     let mut openrqd = Command::new(get_binary_path("openrqd"))
         .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
         .stdout(Stdio::piped())
@@ -217,21 +389,45 @@ runner:
         .spawn()
         .expect("Failed to start openrqd");
 
-    sleep(Duration::from_millis(5000)).await;
+    wait_for_port_open(&mut openrqd, rqd_port, "openrqd", 20);
 
-    // Test launching a simple frame that runs for a moment to ensure proper completion
-    let frame_output = Command::new(get_binary_path("dummy-cuebot"))
-        .args([
-            "rqd-client",
-            "--hostname",
-            "localhost",
-            "--port",
-            "18600",
-            "launch-frame",
-            "sleep 1 && echo 'Test frame execution'",
-        ])
+    TestEnv {
+        _temp_dir: temp_dir,
+        dummy_server,
+        openrqd,
+        rqd_port,
+    }
+}
+
+fn launch_frame(rqd_port: u16, command: &str, extra_args: &[&str]) -> std::process::Output {
+    let mut args = vec![
+        "rqd-client",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+    ];
+    let port_str = rqd_port.to_string();
+    args.push(&port_str);
+    args.push("launch-frame");
+    args.extend_from_slice(extra_args);
+    args.push(command);
+
+    Command::new(get_binary_path("dummy-cuebot"))
+        .args(&args)
         .output()
-        .expect("Failed to launch frame");
+        .expect("Failed to launch frame")
+}
+
+// --- Tests ---
+
+/// Test that verifies openrqd can start, accept frame launches, and complete them successfully
+#[tokio::test]
+async fn test_openrqd_frame_execution_with_completion() {
+    let _guard = integration_test_lock();
+    let env = setup_test_env("2s", 2);
+    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
+
+    let frame_output = launch_frame(rqd_port, &sleep_and_echo_cmd("Test frame execution"), &[]);
 
     assert!(
         frame_output.status.success(),
@@ -239,17 +435,12 @@ runner:
         String::from_utf8_lossy(&frame_output.stderr)
     );
 
-    // Monitor server output for frame completion in a separate thread
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 15));
+    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+    sleep(Duration::from_millis(wait_millis())).await;
 
-    // Wait for frame to complete
-    sleep(Duration::from_millis(8000)).await;
-
-    // Stop RQD
     let _ = openrqd.kill();
     let _ = openrqd.wait();
 
-    // Check results from server monitoring
     let (success, output) = server_handle.join().unwrap();
 
     if !success {
@@ -263,81 +454,15 @@ runner:
 /// Test launching a frame with environment variables and verify completion
 #[tokio::test]
 async fn test_frame_with_environment_variables_and_completion() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test_config.yaml");
+    let _guard = integration_test_lock();
+    let env = setup_test_env("2s", 2);
+    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
 
-    let test_config = format!(
-        r#"
-logging:
-  level: debug
-  path: "{}/test.log"
-  file_appender: true
-
-machine:
-  monitor_interval: 2s
-  use_ip_as_hostname: false
-  nimby_mode: false
-  facility: test
-  worker_threads: 2
-  temp_path: "{}"
-  cpuinfo_path: "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
-  distro_release_path: "../../crates/rqd/resources/distro-release/rocky"
-  proc_stat_path: "../../crates/rqd/resources/proc/stat"
-  proc_loadavg_path: "../../crates/rqd/resources/proc/loadavg"
-
-grpc:
-  rqd_port: 18601
-  cuebot_endpoints: ["localhost:14501"]
-
-runner:
-  run_on_docker: false
-  default_uid: 1000
-  temp_path: "{}"
-  snapshots_path: "{}"
-"#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
+    let frame_output = launch_frame(
+        rqd_port,
+        &env_echo_cmd(),
+        &["--env", "TEST_VAR=test_value,ANOTHER_VAR=another_value"],
     );
-
-    std::fs::write(&config_path, test_config).unwrap();
-
-    // Start dummy-cuebot report server
-    let dummy_server = Command::new(get_binary_path("dummy-cuebot"))
-        .args(["report-server", "--port", "14501"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start dummy-cuebot server");
-
-    sleep(Duration::from_millis(1000)).await;
-
-    // Start openrqd
-    let mut openrqd = Command::new(get_binary_path("openrqd"))
-        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start openrqd");
-
-    sleep(Duration::from_millis(5000)).await;
-
-    // Test launching a frame with environment variables
-    let frame_output = Command::new(get_binary_path("dummy-cuebot"))
-        .args([
-            "rqd-client",
-            "--hostname",
-            "localhost",
-            "--port",
-            "18601",
-            "launch-frame",
-            "--env",
-            "TEST_VAR=test_value,ANOTHER_VAR=another_value",
-            "echo $TEST_VAR $ANOTHER_VAR",
-        ])
-        .output()
-        .expect("Failed to launch frame with env vars");
 
     assert!(
         frame_output.status.success(),
@@ -345,16 +470,12 @@ runner:
         String::from_utf8_lossy(&frame_output.stderr)
     );
 
-    // Monitor server output for frame completion
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 15));
+    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+    sleep(Duration::from_millis(wait_millis())).await;
 
-    sleep(Duration::from_millis(8000)).await;
-
-    // Clean up
     let _ = openrqd.kill();
     let _ = openrqd.wait();
 
-    // Verify completion
     let (success, output) = server_handle.join().unwrap();
 
     if !success {
@@ -365,83 +486,15 @@ runner:
     println!("Frame with environment variables completed successfully!");
 }
 
-/// Test launching a frame as current user
+/// Test launching a frame as current user (unix only)
+#[cfg(unix)]
 #[tokio::test]
 async fn test_frame_run_as_user() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test_config.yaml");
+    let _guard = integration_test_lock();
+    let env = setup_test_env("5s", 2);
+    let TestEnv { mut dummy_server, mut openrqd, rqd_port, .. } = env;
 
-    let test_config = format!(
-        r#"
-logging:
-  level: debug
-  path: "{}/test.log"
-  file_appender: true
-
-machine:
-  monitor_interval: 5s
-  use_ip_as_hostname: false
-  nimby_mode: false
-  facility: test
-  worker_threads: 2
-  temp_path: "{}"
-  cpuinfo_path: "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
-  distro_release_path: "../../crates/rqd/resources/distro-release/rocky"
-  proc_stat_path: "../../crates/rqd/resources/proc/stat"
-  proc_loadavg_path: "../../crates/rqd/resources/proc/loadavg"
-
-grpc:
-  rqd_port: 18602
-  cuebot_endpoints: ["localhost:14502"]
-
-runner:
-  run_on_docker: false
-  default_uid: 1000
-  temp_path: "{}"
-  snapshots_path: "{}"
-"#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
-    );
-
-    std::fs::write(&config_path, test_config).unwrap();
-
-    // Start dummy-cuebot report server
-    let mut dummy_server = Command::new(get_binary_path("dummy-cuebot"))
-        .args(["report-server", "--port", "14502"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start dummy-cuebot server");
-
-    sleep(Duration::from_millis(1000)).await;
-
-    // Start openrqd
-    let mut openrqd = Command::new(get_binary_path("openrqd"))
-        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start openrqd");
-
-    sleep(Duration::from_millis(5000)).await;
-
-    // Test launching a frame as current user
-    let frame_output = Command::new(get_binary_path("dummy-cuebot"))
-        .args([
-            "rqd-client",
-            "--hostname",
-            "localhost",
-            "--port",
-            "18602",
-            "launch-frame",
-            "--run-as-user",
-            "whoami",
-        ])
-        .output()
-        .expect("Failed to launch frame as user");
+    let frame_output = launch_frame(rqd_port, "whoami", &["--run-as-user"]);
 
     assert!(
         frame_output.status.success(),
@@ -451,7 +504,6 @@ runner:
 
     sleep(Duration::from_millis(2000)).await;
 
-    // Clean up
     let _ = openrqd.kill();
     let _ = dummy_server.kill();
     let _ = openrqd.wait();
@@ -461,79 +513,12 @@ runner:
 /// Test using the test script from resources
 #[tokio::test]
 async fn test_memory_fork_script() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test_config.yaml");
+    let _guard = integration_test_lock();
+    let env = setup_test_env("5s", 2);
+    let TestEnv { mut dummy_server, mut openrqd, rqd_port, .. } = env;
 
-    let test_config = format!(
-        r#"
-logging:
-  level: debug
-  path: "{}/test.log"
-  file_appender: true
-
-machine:
-  monitor_interval: 5s
-  use_ip_as_hostname: false
-  nimby_mode: false
-  facility: test
-  worker_threads: 2
-  temp_path: "{}"
-  cpuinfo_path: "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
-  distro_release_path: "../../crates/rqd/resources/distro-release/rocky"
-  proc_stat_path: "../../crates/rqd/resources/proc/stat"
-  proc_loadavg_path: "../../crates/rqd/resources/proc/loadavg"
-
-grpc:
-  rqd_port: 18603
-  cuebot_endpoints: ["localhost:14503"]
-
-runner:
-  run_on_docker: false
-  default_uid: 1000
-  temp_path: "{}"
-  snapshots_path: "{}"
-"#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
-    );
-
-    std::fs::write(&config_path, test_config).unwrap();
-
-    // Start dummy-cuebot report server
-    let mut dummy_server = Command::new(get_binary_path("dummy-cuebot"))
-        .args(["report-server", "--port", "14503"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start dummy-cuebot server");
-
-    sleep(Duration::from_millis(1000)).await;
-
-    // Start openrqd
-    let mut openrqd = Command::new(get_binary_path("openrqd"))
-        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start openrqd");
-
-    sleep(Duration::from_millis(5000)).await;
-
-    // Test launching the memory fork script
-    let frame_output = Command::new(get_binary_path("dummy-cuebot"))
-        .args([
-            "rqd-client",
-            "--hostname",
-            "localhost",
-            "--port",
-            "18603",
-            "launch-frame",
-            "../../crates/rqd/resources/test_scripts/memory_fork.sh",
-        ])
-        .output()
-        .expect("Failed to launch memory fork script");
+    let script_path = memory_fork_script_path();
+    let frame_output = launch_frame(rqd_port, &quoted_if_needed(script_path), &[]);
 
     assert!(
         frame_output.status.success(),
@@ -541,10 +526,8 @@ runner:
         String::from_utf8_lossy(&frame_output.stderr)
     );
 
-    // Give the script time to execute
     sleep(Duration::from_millis(3000)).await;
 
-    // Clean up
     let _ = openrqd.kill();
     let _ = dummy_server.kill();
     let _ = openrqd.wait();
@@ -554,21 +537,20 @@ runner:
 /// Test error handling when trying to connect to non-existent RQD
 #[tokio::test]
 async fn test_connection_error_handling() {
-    // Try to connect to non-existent RQD
+    let _guard = integration_test_lock();
     let output = Command::new(get_binary_path("dummy-cuebot"))
         .args([
             "rqd-client",
             "--hostname",
-            "localhost",
+            "127.0.0.1",
             "--port",
             "19999", // Non-existent port
             "launch-frame",
-            "echo 'This should fail'",
+            &echo_cmd("This should fail"),
         ])
         .output()
         .expect("Failed to run dummy-cuebot command");
 
-    // Should fail to connect
     assert!(
         !output.status.success(),
         "Expected connection failure but command succeeded"
@@ -576,7 +558,10 @@ async fn test_connection_error_handling() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Failed to connect") || stderr.contains("Connection refused"),
+        stderr.contains("Failed to connect")
+            || stderr.contains("Connection refused")
+            || stderr.contains("error connecting")
+            || stderr.contains("transport error"),
         "Expected connection error message but got: {}",
         stderr
     );
@@ -585,81 +570,15 @@ async fn test_connection_error_handling() {
 /// Test that multiple frames can be launched sequentially and all complete successfully
 #[tokio::test]
 async fn test_multiple_frames_sequential_with_completion() {
-    let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test_config.yaml");
+    let _guard = integration_test_lock();
+    let env = setup_test_env("2s", 4);
+    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
 
-    let test_config = format!(
-        r#"
-logging:
-  level: debug
-  path: "{}/test.log"
-  file_appender: true
-
-machine:
-  monitor_interval: 2s
-  use_ip_as_hostname: false
-  nimby_mode: false
-  facility: test
-  worker_threads: 4
-  temp_path: "{}"
-  cpuinfo_path: "../../crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
-  distro_release_path: "../../crates/rqd/resources/distro-release/rocky"
-  proc_stat_path: "../../crates/rqd/resources/proc/stat"
-  proc_loadavg_path: "../../crates/rqd/resources/proc/loadavg"
-
-grpc:
-  rqd_port: 18604
-  cuebot_endpoints: ["localhost:14504"]
-
-runner:
-  run_on_docker: false
-  default_uid: 1000
-  temp_path: "{}"
-  snapshots_path: "{}"
-"#,
-        temp_dir.path().to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("tmp").to_str().unwrap(),
-        temp_dir.path().join("snapshots").to_str().unwrap()
-    );
-
-    std::fs::write(&config_path, test_config).unwrap();
-
-    // Start dummy-cuebot report server
-    let dummy_server = Command::new(get_binary_path("dummy-cuebot"))
-        .args(["report-server", "--port", "14504"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start dummy-cuebot server");
-
-    sleep(Duration::from_millis(1000)).await;
-
-    // Start openrqd
-    let mut openrqd = Command::new(get_binary_path("openrqd"))
-        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start openrqd");
-
-    sleep(Duration::from_millis(5000)).await;
-
-    // Launch multiple frames sequentially
     const NUM_FRAMES: usize = 3;
+    let frame_delay = if cfg!(windows) { Duration::from_secs(10) } else { Duration::from_millis(500) };
+
     for i in 1..=NUM_FRAMES {
-        let frame_output = Command::new(get_binary_path("dummy-cuebot"))
-            .args([
-                "rqd-client",
-                "--hostname",
-                "localhost",
-                "--port",
-                "18604",
-                "launch-frame",
-                &format!("echo 'Frame {}'", i),
-            ])
-            .output()
-            .expect("Failed to launch frame");
+        let frame_output = launch_frame(rqd_port, &echo_cmd(&format!("Frame {}", i)), &[]);
 
         assert!(
             frame_output.status.success(),
@@ -668,21 +587,18 @@ runner:
             String::from_utf8_lossy(&frame_output.stderr)
         );
 
-        // Small delay between frames
-        sleep(Duration::from_millis(500)).await;
+        sleep(frame_delay).await;
     }
 
-    // Monitor server output for all frame completions
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, 20));
+    let monitor_timeout = if cfg!(windows) { 25 } else { 20 };
+    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, monitor_timeout));
 
-    // Give frames time to execute
-    sleep(Duration::from_millis(10000)).await;
+    let post_launch_wait = if cfg!(windows) { 12000 } else { 10000 };
+    sleep(Duration::from_millis(post_launch_wait)).await;
 
-    // Clean up
     let _ = openrqd.kill();
     let _ = openrqd.wait();
 
-    // Verify all frames completed
     let (success, output) = server_handle.join().unwrap();
 
     if !success {
