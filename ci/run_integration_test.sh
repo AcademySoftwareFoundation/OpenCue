@@ -182,9 +182,7 @@ test_cueadmin() {
 }
 
 run_job() {
-    SESSION_BASE="${HOME}/.opencue/sessions"
-    mkdir -p "${SESSION_BASE}"
-    SESSION_DIR="$(mktemp -d "${SESSION_BASE}/session.XXXXXX")"
+    SESSION_DIR="$(mktemp -d "${HOME}/.opencue/sessions/session.XXXXXX")"
     OUTLINE_CONFIG_FILE="$(mktemp)"
     export OUTLINE_CONFIG_FILE
     cat > "$OUTLINE_CONFIG_FILE" <<CFGEOF
@@ -263,6 +261,10 @@ main() {
     docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${OPENCUE_PROTO_PACKAGE_PATH}" \
            --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
            -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
+
+    # Pre-create bind-mount directories so Docker doesn't create them as root
+    mkdir -p "${HOME}/.opencue/sessions"
+    mkdir -p /tmp/opencue
 
     log INFO "Starting Docker compose (core services only)..."
     docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
