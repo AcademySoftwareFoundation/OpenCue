@@ -559,7 +559,7 @@ impl SystemManager for WindowsSystem {
 
         Ok(self.calculate_proc_session_data(&pid).map(|session_data| {
             debug!(
-                "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
+                "Collect frame stats for {}. rss: {}kb virtual: {}kb gpu: {}kb",
                 pid, session_data.rss, session_data.virtual_memory, session_data.gpu_memory
             );
             ProcessStats {
