@@ -188,6 +188,8 @@ UPDATE frame SET
     ts_updated = current_timestamp,
     int_version = int_version + 1
 WHERE pk_frame = $1
+    AND str_state = 'RUNNING'
+    AND int_version = $2
     AND pk_frame NOT IN (SELECT proc.pk_frame FROM proc WHERE proc.pk_frame = $1)
 "#;
 
@@ -279,9 +281,11 @@ impl FrameDao {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         frame_id: &Uuid,
+        frame_version: u32,
     ) -> Result<bool, FrameDaoError> {
         let result = sqlx::query(CLEAR_FRAME)
             .bind(frame_id.to_string())
+            .bind(frame_version as i32)
             .execute(&mut **transaction)
             .await
             .map_err(FrameDaoError::DbFailure)?;

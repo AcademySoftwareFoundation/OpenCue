@@ -401,6 +401,8 @@ impl HostDao {
         host_id: &Uuid,
         virtual_proc: &VirtualProc,
     ) -> Result<(), HostDaoError> {
+        // Silently ignoring empty row updates here, as empty updates means resources have already
+        // been reconciled either by the reconciliation scheduled job or Cuebot.
         sqlx::query(RESTORE_HOST_RESOURCES)
             .bind(virtual_proc.cores_reserved.value())
             .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
@@ -418,9 +420,7 @@ impl HostDao {
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await
-                .map_err(|err| {
-                    check_resource_limit_error(err, "Failed to restore host stat")
-                })?;
+                .map_err(|err| check_resource_limit_error(err, "Failed to restore host stat"))?;
         }
 
         Ok(())

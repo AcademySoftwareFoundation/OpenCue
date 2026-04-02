@@ -24,7 +24,9 @@ use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
-    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, ProcDaoError, UpdatedHostResources},
+    dao::{
+        FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, ProcDaoError, UpdatedHostResources,
+    },
     metrics,
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
@@ -615,13 +617,13 @@ impl RqdDispatcherService {
                     error,
                     frame_id,
                     host_id,
-                } => DispatchVirtualProcError::FailedToStartOnDb(
-                    DispatchError::FailedToCreateProc {
+                } => {
+                    DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToCreateProc {
                         error,
                         frame_id,
                         host_id,
-                    },
-                ),
+                    })
+                }
             })?;
 
         let updated_resources = self
@@ -766,7 +768,7 @@ impl RqdDispatcherService {
             error!("({dispatch_id}) Compensation: failed to restore host resources: {e}");
         }
 
-        match self.frame_dao.clear_frame(&mut tx, &virtual_proc.frame_id).await {
+        match self.frame_dao.clear_frame(&mut tx, &virtual_proc.frame_id, virtual_proc.frame.version).await {
             Ok(true) => info!("({dispatch_id}) Compensation: cleared frame {} back to WAITING", virtual_proc.frame_id),
             Ok(false) => warn!("({dispatch_id}) Compensation: frame {} not cleared (proc still exists or already changed)", virtual_proc.frame_id),
             Err(e) => error!("({dispatch_id}) Compensation: failed to clear frame {}: {e}", virtual_proc.frame_id),
