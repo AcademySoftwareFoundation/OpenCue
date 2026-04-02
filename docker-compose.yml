@@ -204,8 +204,8 @@ services:
       - /tmp/rqd/shots:/tmp/rqd/shots
       # Mount session and temp dirs so rqd can access outline.yaml and user_dir
       # created by pycuerun on the host
-      - ${HOME}/.opencue/sessions:${HOME}/.opencue/sessions:ro
-      - /tmp/opencue:/tmp/opencue:ro
+      - ${HOME}/.opencue/sessions:${HOME}/.opencue/sessions
+      - /tmp/opencue:/tmp/opencue
       - /var/folders:/var/folders:ro
     restart: unless-stopped
     # Uncomment for Loki logging (requires loki service)

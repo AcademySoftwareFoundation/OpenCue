@@ -182,8 +182,10 @@ test_cueadmin() {
 }
 
 run_job() {
-    SESSION_DIR="$(mktemp -d)"
-    export OUTLINE_CONFIG_FILE="$(mktemp)"
+    mkdir -p /tmp/opencue
+    SESSION_DIR="$(mktemp -d /tmp/opencue/outline-session.XXXXXX)"
+    OUTLINE_CONFIG_FILE="$(mktemp)"
+    export OUTLINE_CONFIG_FILE
     cat > "$OUTLINE_CONFIG_FILE" <<CFGEOF
 [outline]
 home =
