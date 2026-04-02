@@ -86,29 +86,25 @@ Make sure you also complete the following steps:
 1.  On macOS you might also need to
     [increase Docker's RAM limit](https://docs.docker.com/docker-for-mac/#advanced).
 
-### Option 1: Downloading and running RQD from DockerHub
+### Option 1: Building and running Rust RQD from source (Recommended)
 
-To download and run the pre-built Docker image from DockerHub:
+To build and run the Rust RQD Docker image from source:
+
+```shell
+docker build -t opencue/rqd -f rust/Dockerfile.rqd rust/
+docker run -td --name rqd01 --env OPENRQD__GRPC__CUEBOT_ENDPOINTS=${CUEBOT_HOSTNAME}:8443 --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
+```
+
+### Option 2 (Legacy): Downloading and running Python RQD from DockerHub
+
+> **Note:** The Python RQD is deprecated. Consider using the Rust RQD (Option 1) for improved performance and resource efficiency.
+
+To download and run the pre-built Python RQD Docker image from DockerHub:
 
 ```shell
 docker pull opencue/rqd
 docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
 ```
-
-### Option 2: Building and running RQD from source
-
-To build and run the RQD Docker image from source:
-
-```shell
-docker build -t opencue/rqd -f rqd/Dockerfile .
-docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
-```
-
-<!-- -   **In both Option 1 and 2**, if running the RQD container in your local machine, use the `--add-host` flag on the `docker run` command as follows:
-
-    ```shell
-    docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
-    ``` -->
 
 ### Option 3: Installing from pypi
 

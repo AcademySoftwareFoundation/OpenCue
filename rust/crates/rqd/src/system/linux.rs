@@ -339,7 +339,7 @@ impl LinuxSystem {
             let addr = addrs_iter
                 .next()
                 .ok_or_else(|| miette::miette!("Failed to find IP for {}", hostname))?;
-            Ok(addr.to_string())
+            Ok(addr.ip().to_string())
         } else {
             Ok(hostname)
         }
@@ -594,7 +594,6 @@ impl LinuxSystem {
         Ok(())
     }
 
-
     // Read stats from /proc/{pid}/stat file and return session_id
     // NSsid might be is missing from /proc/{pid}/status
     // In this case we fallback if not found and and then use stat instead
@@ -615,12 +614,12 @@ impl LinuxSystem {
 
         match end {
             Some(end) => {
-                let fields: Vec<&str> = stat[end+2..].split_whitespace().collect();
-                return fields[3].parse::<u32>().ok()
-            },
+                let fields: Vec<&str> = stat[end + 2..].split_whitespace().collect();
+                return fields[3].parse::<u32>().ok();
+            }
             None => {
                 let fields: Vec<&str> = stat.split_whitespace().collect();
-                return fields[5].parse::<u32>().ok()
+                return fields[5].parse::<u32>().ok();
             }
         }
     }

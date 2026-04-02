@@ -16,7 +16,7 @@ use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
@@ -47,11 +47,30 @@ impl Default for LoggingConfig {
     }
 }
 
+/// Deserializes a value that can be either a single comma-separated string or a sequence of strings.
+fn string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    match StringOrVec::deserialize(deserializer)? {
+        StringOrVec::String(s) => Ok(s.split(',').map(|item| item.trim().to_string()).collect()),
+        StringOrVec::Vec(v) => Ok(v),
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
     pub rqd_interface: Option<String>,
+    #[serde(deserialize_with = "string_or_vec")]
     pub cuebot_endpoints: Vec<String>,
     #[serde(with = "humantime_serde")]
     pub connection_expires_after: Duration,
@@ -68,7 +87,7 @@ impl Default for GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
             rqd_interface: None,
-            cuebot_endpoints: vec!["localhost:4343".to_string()],
+            cuebot_endpoints: vec!["localhost:8443".to_string()],
             connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
@@ -250,7 +269,11 @@ impl Config {
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
-            .add_source(Environment::with_prefix("OPENRQD").separator("_"))
+            .add_source(
+                Environment::with_prefix("OPENRQD")
+                    .separator("__")
+                    .list_separator(","),
+            )
             .build()
             .map_err(|err| {
                 RqdConfigError::LoadConfigError(format!(
