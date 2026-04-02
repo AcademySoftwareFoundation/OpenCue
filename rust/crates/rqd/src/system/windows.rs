@@ -458,6 +458,7 @@ impl WindowsSystem {
     }
 
     fn kill_session_internal(&self, session_pid: u32) -> Result<()> {
+        self.refresh_procs_cache();
         let lineage = self.collect_lineage(session_pid);
         if lineage.is_empty() {
             return Err(miette!("Failed to find session {} to kill", session_pid));
