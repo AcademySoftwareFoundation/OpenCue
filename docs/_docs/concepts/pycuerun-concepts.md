@@ -60,7 +60,7 @@ PyCuerun serves two distinct roles:
 
 When you run `pycuerun my_script.outline`, it acts as a **launcher**:
 
-```
+```text
 pycuerun my_script.outline
     |
     v
@@ -71,7 +71,7 @@ Parse outline script --> Setup outline --> Serialize to job spec --> Submit to C
 
 When a job runs on the render farm, Cuebot invokes pycuerun to **execute individual frames**:
 
-```
+```text
 pycuerun -e 5-render my_script.outline
     |
     v
@@ -84,7 +84,7 @@ This dual role means pycuerun must be installed on both submission machines and 
 
 When submitting to the OpenCue backend, pycuerun wraps each layer's command in a chain:
 
-```
+```text
 opencue_wrap_frame --> pycuerun -e {frame}-{layer} script.outline
 ```
 

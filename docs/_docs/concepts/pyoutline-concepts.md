@@ -71,7 +71,7 @@ layer = Shell("render", command=["maya", "-render", "scene.ma"], range="1-100")
 
 A **Frame** is the smallest unit of work. Each frame within a layer represents one execution of the layer's command with a specific frame number. The `#IFRAME#` token in commands gets replaced with the current frame number at execution time.
 
-```
+```text
 Layer "render" with range 1-10:
   Frame 1: maya -render -s 1 -e 1 scene.ma
   Frame 2: maya -render -s 2 -e 2 scene.ma
@@ -163,7 +163,7 @@ Session directories are stored at `~/.opencue/sessions/<show-shot-user>/<uuid>/`
 
 An outline progresses through three modes:
 
-```
+```text
 INIT  -->  SETUP  -->  READY
 ```
 

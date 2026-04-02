@@ -188,7 +188,9 @@ services:
   # Runs on render hosts and executes frames assigned by Cuebot
   # Note: In a production environment, this should be disabled from the stack and only run on render hosts
   rqd:
-    image: opencue/rqd
+    build:
+      context: ./
+      dockerfile: ./rqd/Dockerfile
     environment:
       - PYTHONUNBUFFERED=1
       - CUEBOT_HOSTNAME=cuebot
@@ -200,6 +202,11 @@ services:
     volumes:
       - /tmp/rqd/logs:/tmp/rqd/logs
       - /tmp/rqd/shots:/tmp/rqd/shots
+      # Mount session and temp dirs so rqd can access outline.yaml and user_dir
+      # created by pycuerun on the host
+      - ${HOME}/.opencue/sessions:${HOME}/.opencue/sessions
+      - /tmp/opencue:/tmp/opencue
+      - /var/folders:/var/folders:ro
     restart: unless-stopped
     # Uncomment for Loki logging (requires loki service)
     # logging:

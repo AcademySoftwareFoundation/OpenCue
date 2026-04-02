@@ -94,20 +94,19 @@ INIT (mode=0)                SETUP (mode=1)              READY (mode=2)
 ### Layer Metaclass System
 
 The `LayerType` metaclass intercepts layer construction to:
-1. Automatically register layers with the current outline
-2. Initialize plugins on the layer
-3. Fire `AFTER_INIT` events
+1. Automatically register layers with the current outline when `register` is enabled
+2. Initialize plugins on the layer by calling each plugin's `init(layer)`
 
 ```python
 class LayerType(type):
     def __call__(cls, *args, **kwargs):
         layer = super().__call__(*args, **kwargs)
-        # Auto-register with current outline
-        outline = current_outline()
-        if outline:
-            outline.add_layer(layer)
+        # Auto-register with current outline if register arg is set
+        if current_outline() and layer.get_arg("register"):
+            current_outline().add_layer(layer)
         # Initialize plugins
-        PluginManager.init_plugin_all(layer)
+        for plugin in PluginManager.get_plugins():
+            plugin.init(layer)
         return layer
 ```
 
@@ -300,7 +299,8 @@ Create custom backends for alternative execution environments.
 
 ### Backend Interface
 
-A backend module must implement:
+A backend module must implement `launch`, `serialize`, and `build_command`.
+Note that signatures for `build_command` vary by backend:
 
 ```python
 def launch(launcher, use_pycuerun=True):
@@ -326,12 +326,14 @@ def serialize(launcher):
     """
     pass
 
-def build_command(launcher_or_outline, layer):
-    """Build the command string for a layer.
+# Cue backend (outline/backend/cue.py):
+def build_command(launcher, layer):
+    """Build the command string for a layer."""
+    pass
 
-    Returns:
-        List of command arguments
-    """
+# Local backend (outline/backend/local.py):
+def build_command(ol, layer, frame):
+    """Build the command string for a layer and specific frame."""
     pass
 ```
 

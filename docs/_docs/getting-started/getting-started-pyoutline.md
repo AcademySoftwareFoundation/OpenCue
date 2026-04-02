@@ -70,8 +70,9 @@ pycuerun --help
 PyOutline reads configuration from the following locations in priority order:
 
 1. Path specified by the `OUTLINE_CONFIG_FILE` environment variable
-2. `~/.config/opencue/outline.cfg` (user profile)
-3. Built-in defaults
+2. Path specified by the `OL_CONFIG` environment variable (deprecated)
+3. `~/.config/opencue/outline.cfg` (user profile)
+4. Built-in defaults
 
 Create a custom configuration file if needed:
 

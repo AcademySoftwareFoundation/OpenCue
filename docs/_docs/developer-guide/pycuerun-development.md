@@ -55,7 +55,7 @@ PyCuerun is the command-line frontend for PyOutline. It serves two roles:
 
 ### High-Level Flow
 
-```
+```text
 pycuerun [options] script.outline [frame_range]
          │
          ▼
@@ -97,7 +97,7 @@ pycuerun [options] script.outline [frame_range]
 
 ### Component Relationships
 
-```
+```text
 bin/pycuerun                   CLI entry point, PyCuerun class
     │
     ├── bin/cuerunbase.py      AbstractCuerun base class, version setup
@@ -115,7 +115,7 @@ bin/pycuerun                   CLI entry point, PyCuerun class
 
 ### Class Hierarchy
 
-```
+```text
 AbstractCuerun (cuerunbase.py)
 │   - handle_core_arguments()     # Version, debug, verbose
 │   - __setup_parser()            # Creates CuerunOptionParser
@@ -167,7 +167,7 @@ pycuerun --help
 
 ## Code Organization
 
-```
+```text
 pyoutline/
 ├── bin/
 │   ├── pycuerun                  # Main CLI entry point
@@ -217,7 +217,7 @@ PyCuerun operates in three distinct modes, selected by CLI flags.
 
 Loads an outline script, sets up the session, serializes to XML, and submits to Cuebot.
 
-```
+```text
 pycuerun script.outline
 ```
 
@@ -393,7 +393,7 @@ When launching to the OpenCue backend, pycuerun serializes the outline into XML.
 
 The `build_command()` function in `backend/cue.py` constructs the per-layer command:
 
-```
+```text
 [strace ...] <wrapper> <user_dir> <pycuerun> <script> -e #IFRAME#-<layer> --version <ver> --repos <repos> --debug [--dev] [--dev-user <user>]
 ```
 

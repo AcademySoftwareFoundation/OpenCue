@@ -87,7 +87,7 @@ Outline(name, frame_range=None, **args)
 | `get_session()` | Get the associated Session object |
 | `put_file(path, rename=None)` | Store a file in the session |
 | `get_file(name)` | Get a file from the session |
-| `put_data(key, data)` | Store data in the session |
+| `put_data(key, data, force=False)` | Store data in the session |
 | `get_data(key)` | Retrieve data from the session |
 
 ### Lifecycle
@@ -168,7 +168,7 @@ Layer(name, **args)
 | `put_file(path, rename=None)` | Copy a file into the session |
 | `get_file(name)` | Get a file path from the session |
 | `sym_file(path)` | Create a symlink in the session |
-| `put_data(key, data)` | Store data in the session |
+| `put_data(key, data, force=False)` | Store data in the session |
 | `get_data(key)` | Retrieve data from the session |
 
 ### Execution Hooks (override in subclasses)
@@ -216,9 +216,12 @@ Always has exactly one frame. Immune from frame range intersection with the outl
 Runs before the parent layer. Extends `Frame`.
 
 ```python
-LayerPreProcess(name, **args)
+LayerPreProcess(creator, **args)
 ```
 
+`creator` is the parent layer. The preprocess layer is auto-named
+`{creator_name}_preprocess` (or custom `suffix`), automatically set as a utility
+layer, and configured with a dependency to run before the parent layer unlocks.
 Outputs stored via `put_data()` are available to the parent layer.
 
 ---
@@ -360,7 +363,7 @@ Session(outline)
 | `put_file(path, layer=None, rename=None)` | Copy file into session |
 | `get_file(name, layer=None)` | Get file path from session |
 | `sym_file(path, layer=None)` | Create symlink in session |
-| `put_data(key, data, layer=None)` | Store serialized data |
+| `put_data(key, data, layer=None, force=False)` | Store serialized data |
 | `get_data(key, layer=None)` | Retrieve serialized data |
 | `get_path(layer=None)` | Get session directory path |
 | `save()` | Save session state |
