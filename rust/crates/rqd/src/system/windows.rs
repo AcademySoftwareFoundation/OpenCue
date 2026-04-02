@@ -231,7 +231,7 @@ impl WindowsSystem {
             let addr = addrs_iter
                 .next()
                 .ok_or_else(|| miette::miette!("Failed to find IP for {}", hostname))?;
-            Ok(addr.to_string())
+            Ok(addr.ip().to_string())
         } else {
             Ok(hostname)
         }
