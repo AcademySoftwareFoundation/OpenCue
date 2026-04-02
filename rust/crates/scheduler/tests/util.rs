@@ -123,6 +123,7 @@ pub fn create_test_config() -> Config {
         },
         host_cache: host_cache_config,
         scheduler: SchedulerConfig::default(),
+        sentry_dsn: None,
     }
 }
 

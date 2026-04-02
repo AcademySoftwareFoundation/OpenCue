@@ -36,6 +36,7 @@ lazy_static! {
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(default)]
 pub struct Config {
+    pub sentry_dsn: Option<String>,
     pub logging: LoggingConfig,
     pub queue: QueueConfig,
     pub database: DatabaseConfig,
