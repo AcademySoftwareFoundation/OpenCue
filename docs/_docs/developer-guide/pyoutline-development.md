@@ -299,7 +299,8 @@ Create custom backends for alternative execution environments.
 
 ### Backend Interface
 
-A backend module must implement:
+A backend module must implement `launch`, `serialize`, and `build_command`.
+Note that signatures for `build_command` vary by backend:
 
 ```python
 def launch(launcher, use_pycuerun=True):
@@ -325,12 +326,14 @@ def serialize(launcher):
     """
     pass
 
-def build_command(launcher_or_outline, layer):
-    """Build the command string for a layer.
+# Cue backend (outline/backend/cue.py):
+def build_command(launcher, layer):
+    """Build the command string for a layer."""
+    pass
 
-    Returns:
-        List of command arguments
-    """
+# Local backend (outline/backend/local.py):
+def build_command(ol, layer, frame):
+    """Build the command string for a layer and specific frame."""
     pass
 ```
 

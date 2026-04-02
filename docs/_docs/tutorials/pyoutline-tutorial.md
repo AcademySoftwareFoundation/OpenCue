@@ -228,7 +228,7 @@ outline.cuerun.launch(ol)
 
 Sessions automatically serialize data as YAML, so you can exchange complex Python objects between frames.
 
-## Tutorial 6: Pre and Post Processing
+## Tutorial 6: Pre- and Post-Processing
 
 Create `tutorial_06.py`:
 

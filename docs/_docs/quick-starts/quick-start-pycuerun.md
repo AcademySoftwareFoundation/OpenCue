@@ -22,7 +22,7 @@ PyCuerun is the command-line tool for launching PyOutline scripts to OpenCue. It
 
 Ensure you have:
 - OpenCue sandbox environment running
-- Python 3.7 or later installed
+- Python 3.8 or later installed
 - PyCue and PyOutline installed (`pip install opencue-pycue opencue-pyoutline`)
 - `CUEBOT_HOSTS` environment variable set
 

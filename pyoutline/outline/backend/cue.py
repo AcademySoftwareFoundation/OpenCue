@@ -93,8 +93,8 @@ def build_command(launcher, layer):
                                           layer.get_name()))
     command.append("--version %s" % outline.versions.get_version("outline"))
     repos = outline.versions.get_repos()
-    if repos:
-        command.append("--repos %s" % repos)
+    if repos and repos.strip():
+        command.append("--repos %s" % repos.strip())
     command.append("--debug")
 
     if launcher.get("dev"):
