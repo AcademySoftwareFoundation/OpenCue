@@ -701,6 +701,11 @@ impl RunningFrame {
 
         let mut command =
             FrameCmdBuilder::new(&self.config.shell_path, self.entrypoint_file_path.clone());
+        if self.config.run_as_user {
+            return Err(miette!(
+                "`runner.run_as_user` is not supported on Windows yet"
+            ));
+        }
         if self.config.desktop_mode {
             command.with_nice();
         }
@@ -720,7 +725,6 @@ impl RunningFrame {
             .current_dir(&self.config.temp_path)
             .stdout(Stdio::from(raw_stdout))
             .stderr(Stdio::from(raw_stderr));
-
         trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
         logger.writeln(format!("Running {}:", self.entrypoint_file_path).as_str());
 
