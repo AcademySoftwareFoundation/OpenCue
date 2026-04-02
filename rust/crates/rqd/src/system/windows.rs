@@ -46,7 +46,6 @@ pub struct WindowsSystem {
     sysinfo_system: Mutex<sysinfo::System>,
     // Cache of monitored processes and their lineage
     session_processes: DashMap<u32, Vec<u32>>,
-    monitored_sessions: DashSet<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -135,7 +134,6 @@ impl WindowsSystem {
             ]),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
             session_processes: DashMap::new(),
-            monitored_sessions: DashSet::new(),
         })
     }
 
@@ -165,6 +163,14 @@ impl WindowsSystem {
             thread_id_lookup_table,
         );
 
+        // The sysinfo crate does not expose CPU socket/physical ID information.
+        // On Linux, num_sockets is derived from the "physical id" field in /proc/cpuinfo,
+        // which has no equivalent in sysinfo's cross-platform API.
+        // Getting the actual socket count on Windows would require calling
+        // GetLogicalProcessorInformationEx via Win32 FFI or an additional crate.
+        // Hardcoding to 1 means multi-socket Windows machines will report all cores
+        // under a single socket, which affects core-to-socket mapping in the scheduler
+        // but not total core/thread counts.
         Ok(ProcessorInfoData {
             hyperthreading_multiplier,
             num_sockets: 1,
@@ -360,8 +366,6 @@ impl WindowsSystem {
     }
 
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
-        self.monitored_sessions.insert(*session_id);
-
         let mut sysinfo = self
             .sysinfo_system
             .lock()
