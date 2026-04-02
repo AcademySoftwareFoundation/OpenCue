@@ -35,7 +35,7 @@ use crate::{
         frame_set::FrameSet,
         messages::{DispatchLayerMessage, DispatchResult},
     },
-    resource_accounting::resource_accounting_service,
+    resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
 use opencue_proto::{
     host::ThreadMode,
@@ -281,13 +281,6 @@ impl RqdDispatcherService {
                 updated_host.id, updated_host.idle_cores
             );
 
-            // Capture booking info before virtual_proc is moved into dispatch_virtual_proc.
-            let booking_show_id = virtual_proc.show_id;
-            let booking_alloc_name = allocation_name.clone();
-            let cores_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
-            let booking_core_delta = cores_without_multiplier.value() as i64;
-            let booking_gpu_delta = virtual_proc.gpus_reserved as i32;
-
             match self
                 .dispatch_virtual_proc(
                     dispatch_id,
@@ -296,22 +289,11 @@ impl RqdDispatcherService {
                     &layer,
                     &is_subscription_bookable,
                     allocation_capacity,
+                    &resource_accounting_service,
                 )
                 .await
             {
                 Ok((new_host, new_allocation_capacity)) => {
-                    // Update the in-memory subscription cache immediately so the next
-                    // bookable() check within this dispatch cycle sees the correct state.
-                    // Note: if the RQD launch failed, compensation does NOT roll back this
-                    // cache entry — the periodic resource recompute cycle reconciles it.
-                    // Until then, the stale entry is conservative (over-estimates usage).
-                    resource_accounting_service.record_booking(
-                        booking_show_id,
-                        &booking_alloc_name,
-                        booking_core_delta,
-                        booking_gpu_delta,
-                    );
-
                     // Track successful frame dispatch
                     metrics::increment_frames_dispatched(&frame.show_name);
 
@@ -471,9 +453,16 @@ impl RqdDispatcherService {
         layer: &DispatchLayer,
         is_subscription_bookable: &impl Fn(CoreSize) -> bool,
         allocation_capacity: CoreSize,
+        resource_accounting_service: &ResourceAccountingService,
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
         trace!("({dispatch_id}) Built virtual proc {}", virtual_proc);
         let cores_reserved_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
+
+        // Derive booking deltas from virtual_proc/host for subscription cache updates
+        let booking_show_id = virtual_proc.show_id;
+        let booking_alloc_name = &host.alloc_name;
+        let booking_core_delta = cores_reserved_without_multiplier.value() as i64;
+        let booking_gpu_delta = virtual_proc.gpus_reserved as i32;
 
         // Check allocation capacity in two ways
         //  - Check the cached subscription to account for external bookings
@@ -522,10 +511,27 @@ impl RqdDispatcherService {
             DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e))
         })?;
 
+        // Update the in-memory subscription cache immediately after commit so the next
+        // bookable() check within this dispatch cycle sees the correct state.
+        resource_accounting_service.record_booking(
+            booking_show_id,
+            booking_alloc_name,
+            booking_core_delta,
+            booking_gpu_delta,
+        );
+
         // When running on dry_run_mode, just log the outcome
         if !self.dry_run_mode {
             if let Err(err) = self.launch_on_rqd(&virtual_proc, &host, true).await {
-                // RQD launch failed after DB commit — compensate
+                // RQD launch failed after DB commit — roll back the subscription cache entry
+                resource_accounting_service.record_booking(
+                    booking_show_id,
+                    booking_alloc_name,
+                    -booking_core_delta,
+                    -booking_gpu_delta,
+                );
+
+                // Compensate the DB commit
                 self.compensate_failed_dispatch(dispatch_id, &virtual_proc, &host.name)
                     .await;
 
