@@ -37,7 +37,10 @@ def _load_default_config() -> Dict[str, Any]:
     if os.getenv("CUEBOT_HOST"):
         config["cuebot_host"] = os.getenv("CUEBOT_HOST")
     if os.getenv("CUEBOT_PORT"):
-        config["cuebot_port"] = int(os.getenv("CUEBOT_PORT"))
+        try:
+            config["cuebot_port"] = int(os.getenv("CUEBOT_PORT"))
+        except ValueError:
+            logger.warning("Invalid CUEBOT_PORT value: %s, using default", os.getenv("CUEBOT_PORT"))
     return config
 
 
