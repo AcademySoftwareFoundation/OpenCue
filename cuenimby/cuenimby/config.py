@@ -30,7 +30,8 @@ def _load_default_config() -> Dict[str, Any]:
     try:
         with open(_DEFAULT_CONFIG_FILE, 'r', encoding='utf-8') as f:
             config = json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to load default config from %s: %s", _DEFAULT_CONFIG_FILE, e)
         config = {}
     # Environment variables override the file defaults
     if os.getenv("CUEBOT_HOST"):
