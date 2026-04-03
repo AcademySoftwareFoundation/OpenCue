@@ -80,12 +80,14 @@ class Config:
             # Seed user config from default_config.json
             self.config = self.DEFAULT_CONFIG.copy()
             self.save()
-            logger.info("Created user config at %s", self.config_path)
+            if self.config_path.exists():
+                logger.info("Created user config at %s", self.config_path)
             return self.config
 
     def save(self) -> None:
         """Save current configuration to file."""
         try:
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2)
         except Exception as e:
