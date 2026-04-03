@@ -14,32 +14,36 @@
 
 """Configuration management for CueNIMBY."""
 
-import os
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_CONFIG_FILE = Path(__file__).parent / "default_cuenimby_config.json"
+
+
+def _load_default_config() -> Dict[str, Any]:
+    """Load default configuration from default_config.json."""
+    try:
+        with open(_DEFAULT_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except Exception:
+        config = {}
+    # Environment variables override the file defaults
+    if os.getenv("CUEBOT_HOST"):
+        config["cuebot_host"] = os.getenv("CUEBOT_HOST")
+    if os.getenv("CUEBOT_PORT"):
+        config["cuebot_port"] = int(os.getenv("CUEBOT_PORT"))
+    return config
+
 
 class Config:
     """Manages CueNIMBY configuration."""
 
-    DEFAULT_CONFIG = {
-        "cuebot_host": os.getenv("CUEBOT_HOST", "localhost"),
-        "cuebot_port": int(os.getenv("CUEBOT_PORT", "8443")),
-        "hostname": None,  # Auto-detect if None
-        "poll_interval": 5,  # seconds
-        "show_notifications": True,
-        "notification_duration": 5,  # seconds
-        "cuegui_command": ["cuegui"],
-        "cuegui_label": "Launch CueGUI",
-        "scheduler_enabled": False,
-        "schedule": {
-            # Example: "monday": {"start": "09:00", "end": "18:00", "state": "disabled"}
-        }
-    }
+    DEFAULT_CONFIG = _load_default_config()
 
     def __init__(self, config_path: Optional[str] = None):
         """Initialize configuration.
@@ -56,7 +60,7 @@ class Config:
         self.config = self._load_config()
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file or create default."""
+        """Load configuration from file or create from defaults."""
         if self.config_path.exists():
             try:
                 with open(self.config_path, 'r', encoding='utf-8') as f:
@@ -69,9 +73,11 @@ class Config:
                 logger.error("Failed to load config: %s", e)
                 return self.DEFAULT_CONFIG.copy()
         else:
-            # Create default config file
+            # Seed user config from default_config.json
+            self.config = self.DEFAULT_CONFIG.copy()
             self.save()
-            return self.DEFAULT_CONFIG.copy()
+            logger.info("Created user config at %s", self.config_path)
+            return self.config
 
     def save(self) -> None:
         """Save current configuration to file."""
