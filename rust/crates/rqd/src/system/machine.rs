@@ -103,6 +103,15 @@ pub async fn instance() -> Result<Arc<MachineMonitor>> {
 }
 
 impl MachineMonitor {
+    #[cfg(feature = "nimby")]
+    fn initial_nimby_state(config: &MachineConfig) -> LockState {
+        if config.nimby_mode && config.nimby_lock_by_default {
+            LockState::NimbyLocked
+        } else {
+            LockState::Open
+        }
+    }
+
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
     fn init(report_client: Arc<ReportClient>) -> Result<Self> {
@@ -167,6 +176,9 @@ impl MachineMonitor {
             Arc::new(None)
         };
 
+        #[cfg(feature = "nimby")]
+        let initial_nimby_state = Self::initial_nimby_state(&CONFIG.machine);
+
         Ok(Self {
             maching_config: CONFIG.machine.clone(),
             report_client,
@@ -178,7 +190,7 @@ impl MachineMonitor {
             #[cfg(feature = "nimby")]
             nimby,
             #[cfg(feature = "nimby")]
-            nimby_state: RwLock::new(LockState::Open),
+            nimby_state: RwLock::new(initial_nimby_state),
             core_manager,
         })
     }
@@ -186,10 +198,17 @@ impl MachineMonitor {
     /// Starts an async loop that will update the machine state every `monitor_interval_seconds`.
     pub async fn start(&self, startup_flag: oneshot::Sender<()>) -> Result<()> {
         let report_client = self.report_client.clone();
+        #[allow(unused_assignments)]
+        let mut nimby_locked = false;
+
+        #[cfg(feature = "nimby")]
+        {
+            nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+        }
 
         let host_state = {
             let system_lock = self.system_manager.lock().await;
-            Self::inspect_host_state(&self.maching_config, &system_lock, false)?
+            Self::inspect_host_state(&self.maching_config, &system_lock, nimby_locked)?
         };
 
         let core_info = {
@@ -221,6 +240,9 @@ impl MachineMonitor {
         interrupt_lock.replace(term_sender);
         drop(interrupt_lock);
 
+        #[cfg(feature = "nimby")]
+        let mut last_lock_state = *self.nimby_state.read().await;
+        #[cfg(not(feature = "nimby"))]
         let mut last_lock_state = LockState::Open;
         loop {
             select! {
@@ -582,6 +604,50 @@ impl MachineMonitor {
             free_gpu_mem: gpu_stats.free_memory as i64,
             total_gpu_mem: gpu_stats.total_memory as i64,
         })
+    }
+}
+
+#[cfg(all(test, feature = "nimby"))]
+mod tests {
+    use opencue_proto::host::LockState;
+
+    use super::MachineMonitor;
+    use crate::config::MachineConfig;
+
+    #[test]
+    fn initial_nimby_state_is_open_by_default() {
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&MachineConfig::default()),
+            LockState::Open
+        );
+    }
+
+    #[test]
+    fn initial_nimby_state_is_locked_when_nimby_lock_by_default_is_enabled() {
+        let config = MachineConfig {
+            nimby_mode: true,
+            nimby_lock_by_default: true,
+            ..MachineConfig::default()
+        };
+
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&config),
+            LockState::NimbyLocked
+        );
+    }
+
+    #[test]
+    fn initial_nimby_state_stays_open_when_nimby_mode_is_disabled() {
+        let config = MachineConfig {
+            nimby_mode: false,
+            nimby_lock_by_default: true,
+            ..MachineConfig::default()
+        };
+
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&config),
+            LockState::Open
+        );
     }
 }
 
