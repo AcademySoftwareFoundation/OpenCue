@@ -93,4 +93,14 @@ def load_config_from_file():
         with open(user_config_file, encoding="utf-8") as file_object:
             config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
+    # Handle external facilities
+    external_facility_key = "cuebot.external_facility"
+    cuebot_facility_key = "cuebot.facility"
+    if config and config.get(external_facility_key) and config.get(cuebot_facility_key):
+        facility = os.getenv("CUEBOT_FACILITY", config.get("cuebot.facility_default"))
+        # Facility is external
+        if facility in config[external_facility_key]:
+            # Keep only the external facility on cuebot.facility
+            config[cuebot_facility_key] = { facility: config[cuebot_facility_key][facility] }
+
     return config

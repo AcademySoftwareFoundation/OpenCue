@@ -42,7 +42,9 @@ EXPECTED_DEFAULT_CONFIG = {
             'cuebot2.example.com:8443',
             'cuebot3.example.com:8443'
         ],
+        'external': ['external.example.com:8443'],
     },
+    'cuebot.external_facility': ['external'],
 }
 
 USER_CONFIG = """
@@ -55,6 +57,28 @@ cuebot.facility:
     - fake-cuebot-03:9012
 """
 
+EXTERNAL_FACILITY_CONFIG = """
+cuebot.facility_default: ext-facility
+cuebot.facility:
+  local:
+    - localhost:8443
+  ext-facility:
+    - ext-cuebot-01:8443
+cuebot.external_facility:
+  - ext-facility
+"""
+
+NON_EXTERNAL_FACILITY_CONFIG = """
+cuebot.facility_default: local
+cuebot.facility:
+  local:
+    - localhost:8443
+  other:
+    - other-cuebot:8443
+cuebot.external_facility:
+  - ext-facility
+"""
+
 
 class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
@@ -65,6 +89,8 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
             del os.environ['OPENCUE_CONFIG_FILE']
         if 'OPENCUE_CONF' in os.environ:
             del os.environ['OPENCUE_CONF']
+        if 'CUEBOT_FACILITY' in os.environ:
+            del os.environ['CUEBOT_FACILITY']
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('os.path.expanduser', new=mock.Mock(return_value='/home/username'))
@@ -139,6 +165,52 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         # Settings not defined in user config should still have default values.
         self.assertEqual(10000, config['cuebot.timeout'])
         self.assertEqual(3, config['cuebot.exception_retries'])
+
+    def test__should_filter_facility_when_default_is_external(self):
+        """When facility_default is an external facility, only that facility should remain."""
+        config_file_path = '/path/to/config.yaml'
+        self.fs.create_file(config_file_path, contents=EXTERNAL_FACILITY_CONFIG)
+        os.environ['OPENCUE_CONFIG_FILE'] = config_file_path
+
+        config = opencue.config.load_config_from_file()
+
+        self.assertEqual({'ext-facility': ['ext-cuebot-01:8443']}, config['cuebot.facility'])
+
+    @mock.patch.dict(os.environ, {'CUEBOT_FACILITY': 'ext-facility'})
+    def test__should_filter_facility_when_env_var_is_external(self):
+        """When CUEBOT_FACILITY env var points to an external facility, only that facility
+        should remain."""
+        config_file_path = '/path/to/config.yaml'
+        self.fs.create_file(config_file_path, contents=NON_EXTERNAL_FACILITY_CONFIG)
+        os.environ['OPENCUE_CONFIG_FILE'] = config_file_path
+
+        config = opencue.config.load_config_from_file()
+
+        # CUEBOT_FACILITY overrides facility_default; ext-facility is external so filtering applies
+        self.assertEqual({'ext-facility': config['cuebot.facility'].get('ext-facility')},
+                         config['cuebot.facility'])
+
+    def test__should_not_filter_facility_when_default_is_not_external(self):
+        """When the active facility is not in the external list, all facilities are kept."""
+        config_file_path = '/path/to/config.yaml'
+        self.fs.create_file(config_file_path, contents=NON_EXTERNAL_FACILITY_CONFIG)
+        os.environ['OPENCUE_CONFIG_FILE'] = config_file_path
+
+        config = opencue.config.load_config_from_file()
+
+        self.assertIn('local', config['cuebot.facility'])
+        self.assertIn('other', config['cuebot.facility'])
+
+    def test__should_not_filter_when_no_external_facility_config(self):
+        """When cuebot.external_facility is not set, no filtering should occur."""
+        config_file_path = '/path/to/config.yaml'
+        self.fs.create_file(config_file_path, contents=USER_CONFIG)
+        os.environ['OPENCUE_CONFIG_FILE'] = config_file_path
+
+        config = opencue.config.load_config_from_file()
+
+        self.assertIn('fake-facility-01', config['cuebot.facility'])
+        self.assertIn('fake-facility-02', config['cuebot.facility'])
 
 
 if __name__ == '__main__':

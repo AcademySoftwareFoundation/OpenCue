@@ -98,6 +98,34 @@ This file may be stored in:
 * the [shared config directory](#shared-config-directory)
 * or at a path of your choosing, specified via the `OPENCUE_CONFIG_FILE` environment variable.
 
+#### External facilities
+
+The `cuebot.external_facility` setting allows you to restrict which facilities are visible
+to CueGUI and PyCue clients. When the active facility (determined by the `CUEBOT_FACILITY`
+environment variable or the `cuebot.facility_default` setting) is listed in
+`cuebot.external_facility`, only that facility's cuebot servers will be available — all
+other facilities are removed from the configuration.
+
+This is useful for external or remote sites that should only connect to their own dedicated
+cuebot servers and should not have access to other facility endpoints.
+
+Example configuration in `opencue.yaml`:
+
+```yaml
+cuebot.facility_default: external
+cuebot.facility:
+  local:
+    - localhost:8443
+  external:
+    - external-cuebot.example.com:8443
+cuebot.external_facility:
+  - external
+```
+
+With this configuration, when the active facility is `external`, only
+`external-cuebot.example.com:8443` will be available. The `local` facility entry
+will be filtered out.
+
 ### outline module
 
 The `outline` module contains a library for constructing OpenCue jobs. Its settings will
