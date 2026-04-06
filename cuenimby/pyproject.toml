@@ -51,6 +51,9 @@ default-version = "0.0.0"
 [tool.hatch.build.targets.wheel]
 packages = ["cuenimby"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"cuenimby/default_cuenimby_config.json" = "cuenimby/default_cuenimby_config.json"
+
 [project.scripts]
 cuenimby = "cuenimby.__main__:main"
 
