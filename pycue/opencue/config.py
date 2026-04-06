@@ -100,6 +100,12 @@ def load_config_from_file():
         facility = os.getenv("CUEBOT_FACILITY", config.get("cuebot.facility_default"))
         # Facility is external
         if facility in config[external_facility_key]:
+            if facility not in config[cuebot_facility_key]:
+                raise ValueError(
+                    "Facility %s is listed on cuebot.external_facility but not in cuebot.facility" %
+                    facility
+                )
+
             # Keep only the external facility on cuebot.facility
             config[cuebot_facility_key] = { facility: config[cuebot_facility_key][facility] }
 

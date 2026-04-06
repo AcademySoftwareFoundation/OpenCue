@@ -75,6 +75,8 @@ cuebot.facility:
     - localhost:8443
   other:
     - other-cuebot:8443
+  ext-facility:
+    - ext-cuebot-01:8443
 cuebot.external_facility:
   - ext-facility
 """
@@ -187,8 +189,7 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         config = opencue.config.load_config_from_file()
 
         # CUEBOT_FACILITY overrides facility_default; ext-facility is external so filtering applies
-        self.assertEqual({'ext-facility': config['cuebot.facility'].get('ext-facility')},
-                         config['cuebot.facility'])
+        self.assertEqual({'ext-facility': ['ext-cuebot-01:8443']}, config['cuebot.facility'])
 
     def test__should_not_filter_facility_when_default_is_not_external(self):
         """When the active facility is not in the external list, all facilities are kept."""
