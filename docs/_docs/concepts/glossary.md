@@ -90,6 +90,11 @@ done based on physical locations to help guide jobs to hosts in that location.
 Both *jobs* and *allocations* belong to a facility. Jobs submitted to a facility
 will only run on allocations within that same facility.
 
+A facility can be marked as *external* via the `cuebot.external_facility`
+configuration setting. When an external facility is active, clients are
+restricted to only that facility's cuebot servers, preventing access to
+other facility endpoints.
+
 ## Frames
 
 An individual command that's contained in a *layer*.
