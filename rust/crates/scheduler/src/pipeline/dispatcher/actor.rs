@@ -1898,4 +1898,46 @@ mod tests {
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_zero_cores_rejected() {
+        let mut host = create_test_host();
+        host.idle_cores = CoreSize(0);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.min_cores = CoreSize(0);
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcherService::consume_host_virtual_resources(
+            &frame,
+            &host,
+            memory_threshold,
+        )
+        .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_variable_threadable_with_layer_limit() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::Variable;
+        host.total_cores = CoreSize(8);
+        host.total_memory = ByteSize::gib(32);
+        host.idle_cores = CoreSize(8);
+        host.idle_memory = ByteSize::gib(32);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
+        frame.min_cores = CoreSize(3); // > 2 to avoid the Variable small-request guard
+        frame.min_memory = ByteSize::gib(16); // High memory → memory-balanced gives 4 cores
+        frame.layer_cores_limit = Some(CoreSize(3));
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result =
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+        // Memory-balanced would give 4 cores (16GB / 4GB-per-core), but layer limit caps at 3
+        assert_eq!(result, CoreSize(3));
+    }
 }

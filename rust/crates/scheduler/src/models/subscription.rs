@@ -95,3 +95,51 @@ impl Subscription {
             && self.booked_cores.value() + cores_required.value() <= self.burst.value()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_subscription(booked_cores: i32, burst: i32) -> Subscription {
+        Subscription {
+            id: Uuid::new_v4(),
+            allocation_id: Uuid::new_v4(),
+            allocation_name: "test-alloc".to_string(),
+            show_id: Uuid::new_v4(),
+            size: 100,
+            burst: CoreSize(burst),
+            booked_cores: CoreSize(booked_cores),
+            booked_gpus: 0,
+        }
+    }
+
+    #[test]
+    fn test_can_book_within_burst() {
+        let sub = make_subscription(100, 200);
+        assert!(sub.can_book(&CoreSize(50)));
+    }
+
+    #[test]
+    fn test_can_book_exactly_at_burst() {
+        let sub = make_subscription(150, 200);
+        assert!(sub.can_book(&CoreSize(50)));
+    }
+
+    #[test]
+    fn test_can_book_exceeds_burst() {
+        let sub = make_subscription(180, 200);
+        assert!(!sub.can_book(&CoreSize(50)));
+    }
+
+    #[test]
+    fn test_can_book_frozen_subscription_zero_burst() {
+        let sub = make_subscription(0, 0);
+        assert!(!sub.can_book(&CoreSize(1)));
+    }
+
+    #[test]
+    fn test_can_book_frozen_subscription_negative_burst() {
+        let sub = make_subscription(0, -10);
+        assert!(!sub.can_book(&CoreSize(1)));
+    }
+}

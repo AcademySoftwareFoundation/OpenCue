@@ -434,3 +434,41 @@ impl ResourceAccountingDao {
         Ok(subscriptions_by_show)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::CoreSize;
+
+    fn make_subscription_model(int_cores: i32, int_burst: i64) -> SubscriptionModel {
+        SubscriptionModel {
+            pk_subscription: Uuid::new_v4().to_string(),
+            pk_alloc: Uuid::new_v4().to_string(),
+            str_alloc_name: "test-alloc".to_string(),
+            pk_show: Uuid::new_v4().to_string(),
+            int_size: 100,
+            int_burst,
+            int_cores,
+            int_gpus: 2,
+        }
+    }
+
+    #[test]
+    fn test_subscription_model_negative_cores_clamped_to_zero() {
+        let model = make_subscription_model(-5, 200);
+        let sub: Subscription = model.into();
+        assert_eq!(sub.booked_cores, CoreSize(0));
+    }
+
+    #[test]
+    fn test_subscription_model_normal_conversion() {
+        let model = make_subscription_model(50, 200);
+        let sub: Subscription = model.into();
+
+        assert_eq!(sub.booked_cores, CoreSize::from_multiplied(50));
+        assert_eq!(sub.burst, CoreSize::from_multiplied(200));
+        assert_eq!(sub.size, 100);
+        assert_eq!(sub.booked_gpus, 2);
+        assert_eq!(sub.allocation_name, "test-alloc");
+    }
+}

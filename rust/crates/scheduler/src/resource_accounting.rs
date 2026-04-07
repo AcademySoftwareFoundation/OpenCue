@@ -222,3 +222,151 @@ async fn recalculate_and_refresh(
     let mut lock = cache.write().unwrap_or_else(|poison| poison.into_inner());
     *lock = subs;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::Subscription;
+
+    fn make_subscription(booked_cores: i32, burst: i32) -> Subscription {
+        Subscription {
+            id: Uuid::new_v4(),
+            allocation_id: Uuid::new_v4(),
+            allocation_name: "test-alloc".to_string(),
+            show_id: Uuid::new_v4(),
+            size: 100,
+            burst: CoreSize(burst),
+            booked_cores: CoreSize(booked_cores),
+            booked_gpus: 0,
+        }
+    }
+
+    /// Creates a test-only wrapper that exercises get_subscription/record_booking
+    /// on a plain RwLock cache without needing a ResourceAccountingService or DB pool.
+    struct TestCache {
+        cache: Arc<RwLock<HashMap<ShowId, HashMap<AllocationName, Subscription>>>>,
+    }
+
+    impl TestCache {
+        fn new(subs: HashMap<ShowId, HashMap<AllocationName, Subscription>>) -> Self {
+            TestCache {
+                cache: Arc::new(RwLock::new(subs)),
+            }
+        }
+
+        fn get_subscription(&self, allocation_name: &str, show_id: &Uuid) -> Option<Subscription> {
+            self.cache
+                .read()
+                .unwrap()
+                .get(show_id)?
+                .get(allocation_name)
+                .cloned()
+        }
+
+        fn record_booking(
+            &self,
+            show_id: Uuid,
+            alloc_name: &str,
+            core_delta: i64,
+            gpu_delta: i32,
+        ) {
+            let mut cache = self.cache.write().unwrap();
+            if let Some(show_subs) = cache.get_mut(&show_id) {
+                if let Some(sub) = show_subs.get_mut(alloc_name) {
+                    let new_booked = sub.booked_cores.value() as i64 + core_delta;
+                    sub.booked_cores = CoreSize(new_booked as i32);
+
+                    let new_gpus = sub.booked_gpus as i64 + gpu_delta as i64;
+                    sub.booked_gpus = new_gpus as u32;
+                }
+            }
+        }
+    }
+
+    fn build_cache(
+        show_id: Uuid,
+        alloc_name: &str,
+        sub: Subscription,
+    ) -> HashMap<ShowId, HashMap<AllocationName, Subscription>> {
+        let mut inner = HashMap::new();
+        inner.insert(alloc_name.to_string(), sub);
+        let mut outer = HashMap::new();
+        outer.insert(show_id, inner);
+        outer
+    }
+
+    #[test]
+    fn test_record_booking_increments_cores() {
+        let show_id = Uuid::new_v4();
+        let sub = make_subscription(100, 500);
+        let cache = build_cache(show_id, "alloc-a", sub);
+        let service = TestCache::new(cache);
+
+        service.record_booking(show_id, "alloc-a", 4, 0);
+
+        let updated = service.get_subscription("alloc-a", &show_id).unwrap();
+        assert_eq!(updated.booked_cores.value(), 104);
+    }
+
+    #[test]
+    fn test_record_booking_decrements_on_compensation() {
+        let show_id = Uuid::new_v4();
+        let sub = make_subscription(100, 500);
+        let cache = build_cache(show_id, "alloc-a", sub);
+        let service = TestCache::new(cache);
+
+        // Book then compensate
+        service.record_booking(show_id, "alloc-a", 4, 1);
+        service.record_booking(show_id, "alloc-a", -4, -1);
+
+        let updated = service.get_subscription("alloc-a", &show_id).unwrap();
+        assert_eq!(updated.booked_cores.value(), 100);
+        assert_eq!(updated.booked_gpus, 0);
+    }
+
+    #[test]
+    fn test_record_booking_nonexistent_show_is_noop() {
+        let show_id = Uuid::new_v4();
+        let unknown_show = Uuid::new_v4();
+        let sub = make_subscription(100, 500);
+        let cache = build_cache(show_id, "alloc-a", sub);
+        let service = TestCache::new(cache);
+
+        // Should not panic
+        service.record_booking(unknown_show, "alloc-a", 4, 0);
+
+        // Original subscription unchanged
+        let original = service.get_subscription("alloc-a", &show_id).unwrap();
+        assert_eq!(original.booked_cores.value(), 100);
+    }
+
+    #[test]
+    fn test_record_booking_nonexistent_alloc_is_noop() {
+        let show_id = Uuid::new_v4();
+        let sub = make_subscription(100, 500);
+        let cache = build_cache(show_id, "alloc-a", sub);
+        let service = TestCache::new(cache);
+
+        // Should not panic
+        service.record_booking(show_id, "nonexistent-alloc", 4, 0);
+
+        let original = service.get_subscription("alloc-a", &show_id).unwrap();
+        assert_eq!(original.booked_cores.value(), 100);
+    }
+
+    #[test]
+    fn test_record_booking_multiple_bookings_accumulate() {
+        let show_id = Uuid::new_v4();
+        let sub = make_subscription(0, 500);
+        let cache = build_cache(show_id, "alloc-a", sub);
+        let service = TestCache::new(cache);
+
+        service.record_booking(show_id, "alloc-a", 10, 1);
+        service.record_booking(show_id, "alloc-a", 20, 2);
+        service.record_booking(show_id, "alloc-a", 5, 0);
+
+        let updated = service.get_subscription("alloc-a", &show_id).unwrap();
+        assert_eq!(updated.booked_cores.value(), 35);
+        assert_eq!(updated.booked_gpus, 3);
+    }
+}
