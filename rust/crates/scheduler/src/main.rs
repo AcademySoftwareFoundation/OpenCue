@@ -293,7 +293,16 @@ async fn async_main() -> miette::Result<()> {
     };
     let subs = subs.with(file_appender_layer);
 
-    let sentry_layer = sentry::integrations::tracing::layer();
+    let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
+        // Register sqlx WARN messages as Sentry issues (events) instead of breadcrumbs
+        if (metadata.target().starts_with("sqlx") && *metadata.level() == tracing::Level::WARN)
+            || metadata.level() <= &tracing::Level::ERROR
+        {
+            sentry::integrations::tracing::EventFilter::Event
+        } else {
+            sentry::integrations::tracing::EventFilter::Breadcrumb
+        }
+    });
     let subs = subs.with(sentry_layer);
 
     tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
