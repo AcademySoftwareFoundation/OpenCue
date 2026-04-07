@@ -185,6 +185,10 @@ impl MatchingService {
         }
     }
 
+    fn host_matches_layer_os(host: &Host, os: Option<&str>) -> bool {
+        os.is_none() || host.str_os.as_deref() == os
+    }
+
     /// Validates whether a host is suitable for a specific layer.
     ///
     /// Subscriptions: Check whether this hosts' subscription can book at least one frame
@@ -206,7 +210,7 @@ impl MatchingService {
         os: Option<&str>,
     ) -> bool {
         // Check OS compatibility
-        if host.str_os.as_deref() != os {
+        if !Self::host_matches_layer_os(host, os) {
             return false;
         }
 
@@ -498,5 +502,57 @@ impl MatchingService {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bytesize::ByteSize;
+    use opencue_proto::host::ThreadMode;
+    use uuid::Uuid;
+
+    use super::MatchingService;
+    use crate::models::{CoreSize, Host};
+
+    fn host_with_os(str_os: Option<&str>) -> Host {
+        Host::new_for_test(
+            Uuid::new_v4(),
+            "test-host".to_string(),
+            str_os.map(str::to_string),
+            CoreSize::from_multiplied(100),
+            ByteSize::gb(64),
+            CoreSize::from_multiplied(100),
+            ByteSize::gb(64),
+            0,
+            ByteSize::gb(0),
+            ThreadMode::Variable,
+            CoreSize::from_multiplied(100),
+            Uuid::new_v4(),
+            "test-alloc".to_string(),
+        )
+    }
+
+    #[test]
+    fn host_matches_when_layer_os_is_not_set() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(MatchingService::host_matches_layer_os(&host, None));
+    }
+
+    #[test]
+    fn host_matches_when_layer_os_matches_host_os() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(MatchingService::host_matches_layer_os(&host, Some("Linux")));
+    }
+
+    #[test]
+    fn host_does_not_match_when_layer_os_differs_from_host_os() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(!MatchingService::host_matches_layer_os(
+            &host,
+            Some("Windows")
+        ));
     }
 }
