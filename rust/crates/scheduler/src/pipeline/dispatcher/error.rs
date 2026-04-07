@@ -67,6 +67,9 @@ pub enum DispatchVirtualProcError {
     #[error("Failed to start frame on database")]
     FailedToStartOnDb(DispatchError),
 
+    #[error("Layer has reached its dispatch limits")]
+    LayerLimitReached,
+
     #[error("Host resources exhausted (likely booked by another scheduler)")]
     HostResourcesExhausted,
 

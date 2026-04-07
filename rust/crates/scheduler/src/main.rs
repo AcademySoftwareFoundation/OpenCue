@@ -27,7 +27,6 @@ use crate::{
     config::CONFIG,
 };
 
-mod allocation;
 mod cluster;
 mod cluster_key;
 mod config;
@@ -37,6 +36,7 @@ mod metrics;
 mod models;
 mod pgpool;
 mod pipeline;
+mod resource_accounting;
 
 // scheduler --facility eat --alloc_tags=show:tag,show:tag,show:tag --manual_tags=tag1,tag2
 #[derive(StructOpt, Debug)]
