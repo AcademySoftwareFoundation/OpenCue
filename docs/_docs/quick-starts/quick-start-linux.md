@@ -187,22 +187,17 @@ OpenCue provides several client tools:
 
 To remove the sandbox environment:
 
-1. **Stop services:**
+1. **Stop services and remove containers:**
    ```bash
-   docker compose stop
+   docker compose --profile all down
    ```
 
-2. **Remove containers:**
+2. **Remove data volumes (database, Prometheus, Grafana, Elasticsearch):**
    ```bash
-   docker compose rm
+   docker compose --profile all down -v
    ```
 
-3. **Delete database data:**
-   ```bash
-   rm -rf sandbox/db-data
-   ```
-
-4. **Remove Python virtual environment:**
+3. **Remove Python virtual environment:**
    ```bash
    rm -rf sandbox-venv
    ```

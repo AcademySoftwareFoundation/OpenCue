@@ -144,7 +144,7 @@ jobs:
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+          su -c "cd cuebot && ./gradlew build --stacktrace" aswfuser
 
   test_python_2024:
     needs: build_opencue_packages
@@ -191,7 +191,7 @@ jobs:
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+          su -c "cd cuebot && ./gradlew build --stacktrace" aswfuser
 
   integration_test:
     needs: build_opencue_packages

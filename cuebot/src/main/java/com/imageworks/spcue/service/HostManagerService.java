@@ -410,6 +410,12 @@ public class HostManagerService implements HostManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
+    public boolean reconcileIdleResources(HostInterface host) {
+        return hostDao.reconcileIdleResources(host);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
     public void updateHostTags(DispatchHost host, RenderHost rhost) {
         // Remove existing hardware tags and re-add current tags from report
         hostDao.removeTagsByType(host, HostTagType.HARDWARE);

@@ -16,7 +16,7 @@ use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
@@ -47,11 +47,30 @@ impl Default for LoggingConfig {
     }
 }
 
+/// Deserializes a value that can be either a single comma-separated string or a sequence of strings.
+fn string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    match StringOrVec::deserialize(deserializer)? {
+        StringOrVec::String(s) => Ok(s.split(',').map(|item| item.trim().to_string()).collect()),
+        StringOrVec::Vec(v) => Ok(v),
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
     pub rqd_interface: Option<String>,
+    #[serde(deserialize_with = "string_or_vec")]
     pub cuebot_endpoints: Vec<String>,
     #[serde(with = "humantime_serde")]
     pub connection_expires_after: Duration,
@@ -68,7 +87,7 @@ impl Default for GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
             rqd_interface: None,
-            cuebot_endpoints: vec!["localhost:4343".to_string()],
+            cuebot_endpoints: vec!["localhost:8443".to_string()],
             connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
@@ -87,6 +106,7 @@ pub struct MachineConfig {
     pub override_real_values: Option<OverrideConfig>,
     pub custom_tags: Vec<String>,
     pub nimby_mode: bool,
+    pub nimby_lock_by_default: bool,
     pub facility: String,
     pub cpuinfo_path: String,
     pub distro_release_path: String,
@@ -112,6 +132,7 @@ impl Default for MachineConfig {
             override_real_values: None,
             custom_tags: vec![],
             nimby_mode: false,
+            nimby_lock_by_default: false,
             facility: "cloud".to_string(),
             cpuinfo_path: "/proc/cpuinfo".to_string(),
             distro_release_path: "/etc/os-release".to_string(),
@@ -126,6 +147,44 @@ impl Default for MachineConfig {
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
             memory_oom_margin_percentage: 96,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::Builder;
+
+    use super::{Config, MachineConfig};
+
+    #[test]
+    fn machine_config_defaults_to_unlocked_nimby_startup() {
+        assert!(!MachineConfig::default().nimby_lock_by_default);
+    }
+
+    #[test]
+    fn load_file_reads_nimby_lock_by_default() {
+        let mut config_file = Builder::new()
+            .suffix(".yaml")
+            .tempfile()
+            .expect("temp config file");
+        writeln!(
+            config_file,
+            "machine:\n  nimby_mode: true\n  nimby_lock_by_default: true"
+        )
+        .expect("write config");
+
+        let config = Config::load_file(
+            config_file
+                .path()
+                .to_str()
+                .expect("config path should be valid UTF-8"),
+        )
+        .expect("config should load");
+
+        assert!(config.machine.nimby_mode);
+        assert!(config.machine.nimby_lock_by_default);
     }
 }
 
@@ -171,6 +230,15 @@ pub struct DockerMountConfig {
 
 impl Default for RunnerConfig {
     fn default() -> Self {
+        let shell_path = if cfg!(target_os = "windows") {
+            "cmd.exe".to_string()
+        } else {
+            "/bin/bash".to_string()
+        };
+        let home_dir = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or("/tmp".to_string());
+
         Self {
             run_on_docker: false,
             default_uid: 1000,
@@ -180,11 +248,8 @@ impl Default for RunnerConfig {
             desktop_mode: false,
             run_as_user: false,
             temp_path: std::env::temp_dir().to_str().unwrap_or("/tmp").to_string(),
-            shell_path: "/bin/bash".to_string(),
-            snapshots_path: format!(
-                "{}/.rqd/snapshots",
-                std::env::var("HOME").unwrap_or("/tmp".to_string())
-            ),
+            shell_path,
+            snapshots_path: format!("{}/.rqd/snapshots", home_dir),
             kill_monitor_interval: Duration::from_secs(120),
             kill_monitor_timeout: Duration::from_secs(1200),
             force_kill_after_timeout: false,
@@ -244,7 +309,11 @@ impl Config {
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
-            .add_source(Environment::with_prefix("OPENRQD").separator("_"))
+            .add_source(
+                Environment::with_prefix("OPENRQD")
+                    .separator("__")
+                    .list_separator(","),
+            )
             .build()
             .map_err(|err| {
                 RqdConfigError::LoadConfigError(format!(

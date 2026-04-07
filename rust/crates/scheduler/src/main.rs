@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use miette::{miette, Context, IntoDiagnostic};
 use structopt::StructOpt;
+#[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
@@ -251,6 +252,24 @@ impl JobQueueCli {
 }
 
 fn main() -> miette::Result<()> {
+    let _sentry_guard = sentry::init(sentry::ClientOptions {
+        dsn: CONFIG.sentry_dsn.as_deref().and_then(|s| {
+            if s.is_empty() {
+                None
+            } else {
+                match s.parse() {
+                    Ok(dsn) => Some(dsn),
+                    Err(err) => {
+                        eprintln!("Invalid Sentry dsn. Sentry is disabled. {}", err);
+                        None
+                    }
+                }
+            }
+        }),
+        release: sentry::release_name!(),
+        ..Default::default()
+    });
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(CONFIG.queue.worker_threads)
         .enable_all()
@@ -287,6 +306,9 @@ async fn async_main() -> miette::Result<()> {
     };
     let subs = subs.with(file_appender_layer);
 
+    let sentry_layer = sentry::integrations::tracing::layer();
+    let subs = subs.with(sentry_layer);
+
     tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
 
     // Start Prometheus metrics HTTP server in background
@@ -298,6 +320,8 @@ async fn async_main() -> miette::Result<()> {
     });
 
     // Watch for sigusr1 and sigusr2, when received toggle between info/debug levels
+    // Note: Unix signals (SIGUSR1/SIGUSR2) are not available on Windows
+    #[cfg(unix)]
     tokio::spawn(async move {
         let mut sigusr1 =
             signal(SignalKind::user_defined1()).expect("Failed to register signal listener");

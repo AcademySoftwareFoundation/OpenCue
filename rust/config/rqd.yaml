@@ -83,6 +83,11 @@ machine:
   # Default: false
   # nimby_mode: false
 
+  # Start in a NIMBY-locked state before any user activity is detected
+  # Requires nimby_mode: true
+  # Default: false
+  # nimby_lock_by_default: false
+
   # How long a system must be idle before triggering NIMBY lock
   # Default: 15 minutes
   # nimby_idle_threshold: 900s
@@ -171,6 +176,7 @@ runner:
   # desktop_mode: false
 
   # Run jobs as the user who submitted them
+  # (Only available on Unix systems)
   # Default: false
   # run_as_user: false
 

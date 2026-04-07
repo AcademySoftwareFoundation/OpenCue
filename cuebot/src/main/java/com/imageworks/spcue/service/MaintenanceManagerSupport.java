@@ -27,6 +27,7 @@ import io.sentry.Sentry;
 
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
@@ -62,6 +63,8 @@ public class MaintenanceManagerSupport {
     private HistoricalSupport historicalSupport;
 
     private DepartmentManager departmentManager;
+
+    private DependManager dependManager;
 
     private static final long WAIT_FOR_HOST_REPORTS_MS = 600000;
 
@@ -243,6 +246,61 @@ public class MaintenanceManagerSupport {
         }
     }
 
+    /**
+     * Recovers frames stuck in DEPEND state due to transient failures during dependency
+     * satisfaction. Runs in two phases:
+     *
+     * Phase 1: Finds active depends whose depended-on entity is already complete and satisfies them
+     * through the normal code path (handles composite depends and publishes events). Each
+     * {@code satisfyDepend} call runs in its own transaction via {@code DependManagerService}'s
+     * {@code @Transactional}, providing per-depend isolation.
+     *
+     * Phase 2: Fixes frames still stuck in DEPEND by resetting int_depend_count to 0 where no
+     * active depends target them. The DB trigger {@code update_frame_dep_to_wait} handles the
+     * DEPEND to WAITING transition. This UPDATE auto-commits as a single statement transaction.
+     */
+    public void recoverStuckDependencies() {
+        if (!env.getProperty("maintenance.stuck_dependency_recovery_enabled", Boolean.class,
+                true)) {
+            return;
+        }
+
+        // Use a MaintenanceTask lock to prevent multiple instances from racing each other
+        if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_STUCK_DEPENDENCY_RECOVERY)) {
+            return;
+        }
+        try {
+            int batchSize = env.getProperty("maintenance.stuck_dependency_recovery_batch_size",
+                    Integer.class, 1000);
+
+            // Phase 1: Satisfy stale active depends through normal code path
+            List<String> staleDependIds = maintenanceDao.findStaleDependIds(batchSize);
+            int satisfiedCount = 0;
+            for (String dependId : staleDependIds) {
+                try {
+                    LightweightDependency depend = dependManager.getDepend(dependId);
+                    dependManager.satisfyDepend(depend);
+                    satisfiedCount++;
+                } catch (Exception e) {
+                    logger.warn("failed to satisfy stale depend " + dependId + ": " + e);
+                }
+            }
+            if (satisfiedCount > 0) {
+                logger.info("recovered " + satisfiedCount + " stale active depends");
+            }
+
+            // Phase 2: Fix count mismatches via SQL
+            int fixedFrames = maintenanceDao.fixStuckDependCounts(batchSize);
+            if (fixedFrames > 0) {
+                logger.info("fixed depend counts for " + fixedFrames + " stuck frames");
+            }
+        } catch (Exception e) {
+            logger.warn("failed to recover stuck dependencies: " + e);
+        } finally {
+            maintenanceDao.unlockTask(MaintenanceTask.LOCK_STUCK_DEPENDENCY_RECOVERY);
+        }
+    }
+
     public FrameDao getFrameDao() {
         return frameDao;
     }
@@ -301,6 +359,14 @@ public class MaintenanceManagerSupport {
 
     public void setJobManager(JobManager jobManager) {
         this.jobManager = jobManager;
+    }
+
+    public DependManager getDependManager() {
+        return dependManager;
+    }
+
+    public void setDependManager(DependManager dependManager) {
+        this.dependManager = dependManager;
     }
 
 }

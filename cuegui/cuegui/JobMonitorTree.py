@@ -354,16 +354,18 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             item = self._items[jobKey]
             self.removeItem(item)
 
-        # Add job name to pending list for batched notification
-        jobName = job.data.name if hasattr(job, 'data') else str(job)
-        self.__pendingNotFoundJobs.append(jobName)
+        # Only show notification dialog if enabled in config
+        if cuegui.Constants.NOTIFY_JOB_NOT_FOUND:
+            # Add job name to pending list for batched notification
+            jobName = job.data.name if hasattr(job, 'data') else str(job)
+            self.__pendingNotFoundJobs.append(jobName)
 
-        # Start or restart the timer to batch multiple notifications
-        if self.__notFoundTimer is None:
-            self.__notFoundTimer = QtCore.QTimer(self)
-            self.__notFoundTimer.setSingleShot(True)
-            self.__notFoundTimer.timeout.connect(self.__showBatchedJobNotFoundDialog)
-        self.__notFoundTimer.start(500)  # 500ms delay to collect multiple notifications
+            # Start or restart the timer to batch multiple notifications
+            if self.__notFoundTimer is None:
+                self.__notFoundTimer = QtCore.QTimer(self)
+                self.__notFoundTimer.setSingleShot(True)
+                self.__notFoundTimer.timeout.connect(self.__showBatchedJobNotFoundDialog)
+            self.__notFoundTimer.start(500)  # 500ms delay to collect multiple notifications
 
         # Clean up the notification tracking after a delay to allow re-notification
         # if the user adds the same job again later

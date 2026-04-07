@@ -29,4 +29,5 @@ pub use proc_dao::ProcDao;
 
 pub use allocation_dao::{AllocationName, ShowId};
 pub use frame_dao::FrameDaoError;
+pub use host_dao::HostDaoError;
 pub use host_dao::UpdatedHostResources;

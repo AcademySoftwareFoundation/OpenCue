@@ -50,7 +50,6 @@ pub struct MacOsSystem {
     sysinfo_system: Mutex<sysinfo::System>,
     // Cache of monitored processes and their lineage
     session_processes: DashMap<u32, Vec<u32>>,
-    monitored_sessions: DashSet<u32>,
 }
 
 #[derive(Debug)]
@@ -148,7 +147,6 @@ impl MacOsSystem {
             ]),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
             session_processes: DashMap::new(),
-            monitored_sessions: DashSet::new(),
         })
     }
 
@@ -546,8 +544,6 @@ impl MacOsSystem {
     /// Returns `None` if the process that created the session ID doesn't exist or cannot be
     /// accessed.
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
-        self.monitored_sessions.insert(*session_id);
-
         let mut sysinfo = self
             .sysinfo_system
             .lock()
@@ -679,6 +675,10 @@ impl SystemManager for MacOsSystem {
 
     fn attributes(&self) -> &HashMap<String, String> {
         &self.attributes
+    }
+
+    fn hyperthreading_multiplier(&self) -> u32 {
+        self.static_info.hyperthreading_multiplier
     }
 
     fn collect_gpu_stats(&self) -> MachineGpuStats {
@@ -1187,7 +1187,6 @@ mod tests {
             attributes: HashMap::new(),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
             session_processes: DashMap::new(),
-            monitored_sessions: DashSet::new(),
         }
     }
 }

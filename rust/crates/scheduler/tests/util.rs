@@ -124,6 +124,7 @@ pub fn create_test_config() -> Config {
         host_cache: host_cache_config,
         scheduler: SchedulerConfig::default(),
         orchestrator: Default::default(),
+        sentry_dsn: None,
     }
 }
 

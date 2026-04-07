@@ -436,8 +436,11 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 "UPDATE " + "host " + "SET " + "b_nimby=?," + "int_cores=?," + "int_cores_idle=?,"
                         + "int_mem=?," + "int_mem_idle=?, " + "int_gpus=?," + "int_gpus_idle=?,"
                         + "int_gpu_mem=?," + "int_gpu_mem_idle=? " + "WHERE " + "pk_host=? "
-                        + "AND " + "int_cores = int_cores_idle " + "AND "
-                        + "int_mem = int_mem_idle " + "AND " + "int_gpus = int_gpus_idle",
+                        + "AND ("
+                        + "(int_cores = int_cores_idle " + "AND "
+                        + "int_mem = int_mem_idle " + "AND " + "int_gpus = int_gpus_idle) "
+                        + "OR NOT EXISTS "
+                        + "(SELECT 1 FROM proc WHERE proc.pk_host = host.pk_host))",
                 report.getHost().getNimbyEnabled(), cores, cores, memory, memory, gpus, gpus,
                 gpu_memory, gpu_memory, host.getId());
     }
@@ -628,10 +631,27 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 h.getHostId()) > 0;
     }
 
+    private static final String RECONCILE_IDLE_RESOURCES =
+            "UPDATE host SET "
+            + "int_mem_idle = int_mem - COALESCE("
+            + "  (SELECT SUM(int_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0), "
+            + "int_gpu_mem_idle = int_gpu_mem - COALESCE("
+            + "  (SELECT SUM(int_gpu_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0) "
+            + "WHERE pk_host = ? "
+            + "AND (int_mem_idle != int_mem - COALESCE("
+            + "  (SELECT SUM(int_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0) "
+            + "OR int_gpu_mem_idle != int_gpu_mem - COALESCE("
+            + "  (SELECT SUM(int_gpu_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0))";
+
+    @Override
+    public boolean reconcileIdleResources(HostInterface host) {
+        return getJdbcTemplate().update(RECONCILE_IDLE_RESOURCES, host.getHostId()) > 0;
+    }
+
     /**
      * Checks if the passed in name looks like a fully qualified domain name. If so, returns the
      * hostname without the domain. Otherwise returns the passed in name unchanged.
-     * 
+     *
      * @param fqdn - String
      * @return String - hostname
      */

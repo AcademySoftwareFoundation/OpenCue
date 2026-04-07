@@ -26,7 +26,7 @@ set -e
 RQD_ROOT="/tmp/rqd"
 TEST_LOGS="/tmp/opencue-test"
 DOCKER_COMPOSE_LOG="${TEST_LOGS}/docker-compose.log"
-DB_DATA_DIR="sandbox/db-data"
+DB_VOLUME_NAME="opencue_db-data"
 VENV="/tmp/opencue-integration-venv"
 
 log() {
@@ -54,8 +54,8 @@ verify_command_exists() {
 }
 
 verify_no_database() {
-    if [ -e "${DB_DATA_DIR}" ]; then
-        log ERROR "Postgres data directory ${DB_DATA_DIR} already exists"
+    if docker volume inspect "${DB_VOLUME_NAME}" &>/dev/null; then
+        log ERROR "Docker volume ${DB_VOLUME_NAME} already exists, remove it with \`docker volume rm ${DB_VOLUME_NAME}\`"
         exit 1
     fi
 }
@@ -182,6 +182,28 @@ test_cueadmin() {
 }
 
 run_job() {
+    SESSION_DIR="$(mktemp -d "${HOME}/.opencue/sessions/session.XXXXXX")"
+    OUTLINE_CONFIG_FILE="$(mktemp)"
+    export OUTLINE_CONFIG_FILE
+    cat > "$OUTLINE_CONFIG_FILE" <<CFGEOF
+[outline]
+home =
+session_dir = ${SESSION_DIR}
+wrapper_dir = %(home)s/wrappers
+user_dir =
+bin_dir = %(home)s/bin
+backend = cue
+spec_version = 1.15
+facility = local
+domain = example.com
+maxretries = 2
+default_show = testing
+default_shot = default
+
+[plugin:local]
+module=outline.plugins.local
+enable=1
+CFGEOF
     samples/pyoutline/basic_job.py
     job_name="testing-shot01-${USER}_basic_job"
     samples/pycue/wait_for_job.py "${job_name}" --timeout 300
@@ -190,8 +212,8 @@ run_job() {
 
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    docker volume rm "${DB_VOLUME_NAME}" 2>/dev/null || true
     rm -rf "${RQD_ROOT}" || true
-    rm -rf "${DB_DATA_DIR}" || true
     rm -rf "${VENV}" || true
 }
 
@@ -223,22 +245,16 @@ main() {
 
     log INFO "Building Cuebot image..."
     docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
-    if [[ ! -e "${OPENCUE_PROTO_PACKAGE_PATH}" ]]; then
-      rm -rf proto/dist/*.*
-      python -m build proto
-      OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.tar.gz)
-      export OPENCUE_PROTO_PACKAGE_PATH
-    fi
-    if [[ ! -e "${OPENCUE_RQD_PACKAGE_PATH}" ]]; then
-      rm -rf rqd/dist/*.*
-      python -m build rqd
-      OPENCUE_RQD_PACKAGE_PATH=$(ls -1 rqd/dist/*.tar.gz)
-      export OPENCUE_RQD_PACKAGE_PATH
-    fi
     log INFO "Building RQD image..."
-    docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${OPENCUE_PROTO_PACKAGE_PATH}" \
-           --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
-           -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
+    if ! docker build -t opencue/rqd -f rust/Dockerfile.rqd . &>"${TEST_LOGS}/docker-build-rqd.log"; then
+        log ERROR "RQD Docker build failed. Build log:"
+        cat "${TEST_LOGS}/docker-build-rqd.log"
+        exit 1
+    fi
+
+    # Pre-create bind-mount directories so Docker doesn't create them as root
+    mkdir -p "${HOME}/.opencue/sessions"
+    mkdir -p /tmp/opencue
 
     log INFO "Starting Docker compose (core services only)..."
     docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &

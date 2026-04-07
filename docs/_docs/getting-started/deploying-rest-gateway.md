@@ -30,23 +30,27 @@ You also need:
 - Access to the Cuebot gRPC endpoint (typically port 8443)
 - A secure JWT secret for authentication
 
-## Quick Start with Docker (Recommended)
+## Quick Start with Docker Compose (Recommended)
 
-**Important:** The REST Gateway is not included in OpenCue's main `docker-compose.yml` and must be deployed separately.
+The REST Gateway and CueWeb are included in OpenCue's main `docker-compose.yml` under the `cueweb` profile.
 
-### Step 1: Start OpenCue Stack
+### Step 1: Start OpenCue Stack with Web UI
 
 From the OpenCue repository root:
 
 ```bash
-# Start core OpenCue services (database, cuebot, rqd)
-docker compose up -d
+# Start core services plus REST Gateway and CueWeb
+docker compose --profile cueweb up -d
 
 # Check service status
 docker compose ps
 ```
 
-### Step 2: Deploy REST Gateway Separately
+The REST Gateway will be available at `http://localhost:8448` and CueWeb at `http://localhost:3000`.
+
+### Step 2: Deploy REST Gateway Separately (Alternative)
+
+If you prefer to run the REST Gateway as a standalone container:
 
 ```bash
 # Generate JWT secret for REST API authentication
@@ -64,8 +68,6 @@ docker run -d --name opencue-rest-gateway \
   -e LOG_LEVEL=info \
   opencue-rest-gateway:latest
 ```
-
-The REST Gateway will be available at `http://localhost:8448` alongside the OpenCue stack.
 
 ### Step 3: Run Comprehensive Tests
 

@@ -415,14 +415,11 @@ for show in shows:
 
 ## Deploy with CueWeb
 
-For a complete web interface, deploy CueWeb alongside the REST Gateway using the full stack deployment:
+For a complete web interface, deploy CueWeb alongside the REST Gateway using the `cueweb` profile:
 
 ```bash
-# Use the convenience script (builds all images and starts all services)
-./sandbox/deploy_opencue_full.sh
-
-# Or manually with docker compose
-docker compose -f sandbox/docker-compose.full.yml up -d
+# Start core services + Web UI (REST Gateway + CueWeb)
+docker compose --profile cueweb up -d
 ```
 
 This deploys:

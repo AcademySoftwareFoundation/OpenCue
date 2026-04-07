@@ -1,17 +1,30 @@
-**Link the Issue(s) this Pull Request is related to.**
+## Related Issues
+<!-- 
 One line for each Issue. If merging this Pull Request should auto-close the Issue on that line,
 preface the Issue URL/Number with "Fixes". Every Pull Request should have at least one Issue
 linked.
+-->
 
-**Summarize your change.**
+## Summarize your change.
+<!-- 
 If it's a simple change, a sentence or two is probably sufficient. If it's a complex change,
 adding a list of the three or four main points can be helpful.
 
 It's also helpful to describe **why** you're making this change.
+-->
+
+<!-- (Optional)
+## LLM usage disclosure
+What models were used? What were they used for?
+Example:
+Claude Opus was used for investigating the root cause and creating unit tests.
+-->
 
 <!--
 For a step-by-step list to walk you through the pull request process, see
-https://www.opencue.io/contributing/.
+https://docs.opencue.io/docs/developer-guide/contributing/.
+
+For more information about AI usage: https://docs.opencue.io/docs/developer-guide/ai-policy
 
 Please add unit tests for any new code. This helps our project maintain code quality and ensure
 future changes don't break anything. If you're stuck on this or not sure how to proceed, feel
