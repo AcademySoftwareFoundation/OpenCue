@@ -103,6 +103,15 @@ pub async fn instance() -> Result<Arc<MachineMonitor>> {
 }
 
 impl MachineMonitor {
+    #[cfg(feature = "nimby")]
+    fn initial_nimby_state(config: &MachineConfig) -> LockState {
+        if config.nimby_mode && config.nimby_lock_by_default {
+            LockState::NimbyLocked
+        } else {
+            LockState::Open
+        }
+    }
+
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
     fn init(report_client: Arc<ReportClient>) -> Result<Self> {
@@ -167,6 +176,9 @@ impl MachineMonitor {
             Arc::new(None)
         };
 
+        #[cfg(feature = "nimby")]
+        let initial_nimby_state = Self::initial_nimby_state(&CONFIG.machine);
+
         Ok(Self {
             maching_config: CONFIG.machine.clone(),
             report_client,
@@ -178,7 +190,7 @@ impl MachineMonitor {
             #[cfg(feature = "nimby")]
             nimby,
             #[cfg(feature = "nimby")]
-            nimby_state: RwLock::new(LockState::Open),
+            nimby_state: RwLock::new(initial_nimby_state),
             core_manager,
         })
     }
@@ -187,9 +199,14 @@ impl MachineMonitor {
     pub async fn start(&self, startup_flag: oneshot::Sender<()>) -> Result<()> {
         let report_client = self.report_client.clone();
 
+        #[cfg(feature = "nimby")]
+        let nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+        #[cfg(not(feature = "nimby"))]
+        let nimby_locked = false;
+
         let host_state = {
             let system_lock = self.system_manager.lock().await;
-            Self::inspect_host_state(&self.maching_config, &system_lock, false)?
+            Self::inspect_host_state(&self.maching_config, &system_lock, nimby_locked)?
         };
 
         let core_info = {
@@ -215,12 +232,25 @@ impl MachineMonitor {
         // Start nimby monitor
         #[cfg(feature = "nimby")]
         self.start_nimby(term_receiver.resubscribe()).await;
+
+        // When the host starts in NIMBY-locked state (via nimby_lock_by_default),
+        // apply the same side effects as a normal lock transition so that cores
+        // are actually reserved and no new frames can be scheduled.
+        #[cfg(feature = "nimby")]
+        if nimby_locked {
+            info!("Host starting in nimby-locked state, locking all cores");
+            self.lock_all_cores().await;
+        }
+
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
         let mut interrupt_lock = self.interrupt.lock().await;
         interrupt_lock.replace(term_sender);
         drop(interrupt_lock);
 
+        #[cfg(feature = "nimby")]
+        let mut last_lock_state = *self.nimby_state.read().await;
+        #[cfg(not(feature = "nimby"))]
         let mut last_lock_state = LockState::Open;
         loop {
             select! {
@@ -281,8 +311,12 @@ impl MachineMonitor {
             (true, LockState::NimbyLocked) => Ok(current_state),
             // Continues open
             (false, LockState::Open) => Ok(current_state),
-            // Became unlocked
-            (false, LockState::NimbyLocked) => {
+            // Became unlocked — only transition when the nimby system has
+            // actually observed user activity before.  Without this guard a
+            // host that starts NIMBY-locked via `nimby_lock_by_default` would
+            // immediately auto-unlock because `is_user_active()` returns
+            // `false` when no interaction has ever been recorded.
+            (false, LockState::NimbyLocked) if nimby.has_activity_been_recorded() => {
                 let new_state = LockState::Open;
 
                 // Update registered state
@@ -294,6 +328,10 @@ impl MachineMonitor {
                 self.unlock_all_cores().await;
                 Ok(new_state)
             }
+            // Continues locked (includes the case where no activity has been
+            // recorded yet, so a default-locked host stays locked until the
+            // user has been active and then becomes idle)
+            (false, LockState::NimbyLocked) => Ok(current_state),
             // NoOp
             _ => Ok(current_state),
         }
@@ -585,6 +623,50 @@ impl MachineMonitor {
     }
 }
 
+#[cfg(all(test, feature = "nimby"))]
+mod tests {
+    use opencue_proto::host::LockState;
+
+    use super::MachineMonitor;
+    use crate::config::MachineConfig;
+
+    #[test]
+    fn initial_nimby_state_is_open_by_default() {
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&MachineConfig::default()),
+            LockState::Open
+        );
+    }
+
+    #[test]
+    fn initial_nimby_state_is_locked_when_nimby_lock_by_default_is_enabled() {
+        let config = MachineConfig {
+            nimby_mode: true,
+            nimby_lock_by_default: true,
+            ..MachineConfig::default()
+        };
+
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&config),
+            LockState::NimbyLocked
+        );
+    }
+
+    #[test]
+    fn initial_nimby_state_stays_open_when_nimby_mode_is_disabled() {
+        let config = MachineConfig {
+            nimby_mode: false,
+            nimby_lock_by_default: true,
+            ..MachineConfig::default()
+        };
+
+        assert_eq!(
+            MachineMonitor::initial_nimby_state(&config),
+            LockState::Open
+        );
+    }
+}
+
 /// Performe actions on a machine with an async lock
 #[async_trait]
 pub trait Machine {
@@ -828,13 +910,10 @@ impl Machine for MachineMonitor {
                 system_manager.refresh_procs();
             }
 
-            #[allow(unused_assignments)]
-            let mut nimby_locked = false;
-
             #[cfg(feature = "nimby")]
-            {
-                nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
-            }
+            let nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+            #[cfg(not(feature = "nimby"))]
+            let nimby_locked = false;
 
             Self::inspect_host_state(&self.maching_config, &system_manager, nimby_locked)?
         }; // Scope ensures all mutex are released

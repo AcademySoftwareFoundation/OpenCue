@@ -106,6 +106,7 @@ pub struct MachineConfig {
     pub override_real_values: Option<OverrideConfig>,
     pub custom_tags: Vec<String>,
     pub nimby_mode: bool,
+    pub nimby_lock_by_default: bool,
     pub facility: String,
     pub cpuinfo_path: String,
     pub distro_release_path: String,
@@ -131,6 +132,7 @@ impl Default for MachineConfig {
             override_real_values: None,
             custom_tags: vec![],
             nimby_mode: false,
+            nimby_lock_by_default: false,
             facility: "cloud".to_string(),
             cpuinfo_path: "/proc/cpuinfo".to_string(),
             distro_release_path: "/etc/os-release".to_string(),
@@ -145,6 +147,44 @@ impl Default for MachineConfig {
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
             memory_oom_margin_percentage: 96,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::Builder;
+
+    use super::{Config, MachineConfig};
+
+    #[test]
+    fn machine_config_defaults_to_unlocked_nimby_startup() {
+        assert!(!MachineConfig::default().nimby_lock_by_default);
+    }
+
+    #[test]
+    fn load_file_reads_nimby_lock_by_default() {
+        let mut config_file = Builder::new()
+            .suffix(".yaml")
+            .tempfile()
+            .expect("temp config file");
+        writeln!(
+            config_file,
+            "machine:\n  nimby_mode: true\n  nimby_lock_by_default: true"
+        )
+        .expect("write config");
+
+        let config = Config::load_file(
+            config_file
+                .path()
+                .to_str()
+                .expect("config path should be valid UTF-8"),
+        )
+        .expect("config should load");
+
+        assert!(config.machine.nimby_mode);
+        assert!(config.machine.nimby_lock_by_default);
     }
 }
 
