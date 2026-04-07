@@ -90,9 +90,8 @@ impl Subscription {
         self.burst.value() <= 0
     }
 
-    pub fn bookable(&self, cores_required: &CoreSize) -> bool {
-        !self.is_frozen() &&
-        // Booking the amount requested should leave at least one cores reminding
-        self.booked_cores.value() + cores_required.value() < self.burst.value()
+    pub fn can_book(&self, cores_required: &CoreSize) -> bool {
+        !self.is_frozen()
+            && self.booked_cores.value() + cores_required.value() <= self.burst.value()
     }
 }

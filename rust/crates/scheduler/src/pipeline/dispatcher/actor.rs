@@ -244,7 +244,7 @@ impl RqdDispatcherService {
         // to dispatch_virtual_proc.
         let is_subscription_bookable = |cores_requested| {
             matches!(resource_accounting_service.get_subscription(&allocation_name, &layer.show_id),
-                Some(subscription) if subscription.bookable(&cores_requested)
+                Some(subscription) if subscription.can_book(&cores_requested)
             )
         };
 

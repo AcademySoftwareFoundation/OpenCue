@@ -224,7 +224,6 @@ static SELECT_ALL_SUBSCRIPTIONS: &str = r#"
         s.int_size,
         s.int_burst,
         s.int_cores,
-        s.float_tier,
         s.int_gpus
     FROM subscription s
     JOIN alloc a ON s.pk_alloc = a.pk_alloc

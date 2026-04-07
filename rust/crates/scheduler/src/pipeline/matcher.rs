@@ -210,8 +210,10 @@ impl MatchingService {
             return false;
         }
 
-        if let Some(subscription) = resource_accounting_service.get_subscription(&host.alloc_name, show_id) {
-            if !subscription.bookable(&cores_requested) {
+        if let Some(subscription) =
+            resource_accounting_service.get_subscription(&host.alloc_name, show_id)
+        {
+            if !subscription.can_book(&cores_requested) {
                 return false;
             }
         } else {
