@@ -10,10 +10,10 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use futures::TryFutureExt;
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, Transaction};
 use std::sync::Arc;
+use uuid::Uuid;
 use bytesize::{KB};
 
 use crate::{config::CONFIG, models::VirtualProc, pgpool::connection_pool};
@@ -67,6 +67,8 @@ pub struct ProcDao {
 /// 13. `int_gpu_mem_pre_reserved` - Pre-reserved GPU memory (bytes)
 /// 14. `int_gpu_mem_used` - Initial GPU memory usage (bytes)
 /// 15. `b_local` - Whether this is a local dispatch (boolean)
+static DELETE_PROC: &str = "DELETE FROM proc WHERE pk_proc = $1";
+
 static INSERT_PROC: &str = r#"
     INSERT INTO proc (
         pk_proc,
@@ -87,6 +89,7 @@ static INSERT_PROC: &str = r#"
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
     )
+    ON CONFLICT (pk_frame) DO NOTHING
 "#;
 
 impl ProcDao {
@@ -148,8 +151,8 @@ impl ProcDao {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
-    ) -> Result<(), (sqlx::Error, String, String)> {
-        sqlx::query(INSERT_PROC)
+    ) -> Result<(), ProcDaoError> {
+        let result = sqlx::query(INSERT_PROC)
             .bind(virtual_proc.proc_id.to_string())
             .bind(virtual_proc.host_id.to_string())
             .bind(virtual_proc.show_id.to_string())
@@ -167,15 +170,48 @@ impl ProcDao {
             .bind(0)
             .bind(virtual_proc.is_local_dispatch)
             .execute(&mut **transaction)
-            .map_err(|err| {
-                (
-                    err,
-                    virtual_proc.frame_id.to_string(),
-                    virtual_proc.host_id.to_string(),
-                )
-            })
-            .await?;
+            .await
+            .map_err(|err| ProcDaoError::DbFailure {
+                error: err,
+                frame_id: virtual_proc.frame_id.to_string(),
+                host_id: virtual_proc.host_id.to_string(),
+            })?;
+
+        if result.rows_affected() == 0 {
+            return Err(ProcDaoError::ProcAlreadyExists {
+                frame_id: virtual_proc.frame_id.to_string(),
+            });
+        }
 
         Ok(())
     }
+
+    /// Deletes a proc record from the database.
+    ///
+    /// Used during dispatch compensation when an RQD launch fails after the database
+    /// has already been committed. The proc must be deleted before the associated frame
+    /// can be cleared back to WAITING state.
+    pub async fn delete(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        proc_id: &Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(DELETE_PROC)
+            .bind(proc_id.to_string())
+            .execute(&mut **transaction)
+            .await?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum ProcDaoError {
+    /// A proc for this frame already exists (another dispatcher claimed it first).
+    ProcAlreadyExists { frame_id: String },
+    /// Database error during proc insertion.
+    DbFailure {
+        error: sqlx::Error,
+        frame_id: String,
+        host_id: String,
+    },
 }

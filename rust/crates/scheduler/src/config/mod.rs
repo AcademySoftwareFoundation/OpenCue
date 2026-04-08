@@ -18,7 +18,7 @@ use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{env, fs, path::PathBuf, time::Duration};
+use std::{collections::HashSet, env, fs, path::PathBuf, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/scheduler.yaml";
 
@@ -85,7 +85,9 @@ pub struct QueueConfig {
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
-    pub allocation_refresh_interval: Duration,
+    pub subscription_recalculation_interval: Duration,
+    #[serde(with = "humantime_serde")]
+    pub resource_recalculation_interval: Duration,
     pub selfish_services: Vec<String>,
     pub host_booking_strategy: HostBookingStrategy,
     pub frame_memory_soft_limit: f64,
@@ -108,7 +110,8 @@ impl Default for QueueConfig {
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
-            allocation_refresh_interval: Duration::from_secs(3),
+            subscription_recalculation_interval: Duration::from_secs(3),
+            resource_recalculation_interval: Duration::from_secs(10),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy::default(),
             frame_memory_soft_limit: 1.6,
@@ -246,6 +249,21 @@ pub struct SchedulerConfig {
     pub alloc_tags: Vec<AllocTag>,
     pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
+}
+
+impl SchedulerConfig {
+    pub fn show_names(&self) -> Option<Vec<String>> {
+        let mut show_names: HashSet<String> =
+            HashSet::from_iter(self.entire_shows.iter().cloned());
+        for tag in &self.alloc_tags {
+            show_names.insert(tag.show.clone());
+        }
+        if show_names.is_empty() {
+            None
+        } else {
+            Some(show_names.into_iter().collect())
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

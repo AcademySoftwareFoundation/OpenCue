@@ -21,7 +21,6 @@ use std::{
 use uuid::Uuid;
 
 use crate::{
-    allocation::{allocation_service, AllocationService},
     cluster::Cluster,
     cluster_key::Tag,
     config::CONFIG,
@@ -37,6 +36,7 @@ use crate::{
         },
         layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
     },
+    resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
 use actix::Addr;
 use miette::{Context, Result};
@@ -59,7 +59,7 @@ pub struct MatchingService {
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
-    allocation_service: Arc<AllocationService>,
+    resource_accounting_service: Arc<ResourceAccountingService>,
 }
 
 impl MatchingService {
@@ -85,9 +85,9 @@ impl MatchingService {
         let max_concurrent_transactions = (CONFIG.database.pool_size as usize).saturating_sub(1);
 
         let dispatcher_service = rqd_dispatcher_service().await?;
-        let allocation_service = allocation_service()
+        let resource_accounting_service = resource_accounting_service()
             .await
-            .wrap_err("Failed to initialize AllocationService for MatchingService")?;
+            .wrap_err("Failed to initialize ResourceAccountingService for MatchingService")?;
 
         Ok(MatchingService {
             host_service,
@@ -95,7 +95,7 @@ impl MatchingService {
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
-            allocation_service,
+            resource_accounting_service,
         })
     }
 
@@ -206,7 +206,7 @@ impl MatchingService {
         _layer_id: &Uuid,
         show_id: &Uuid,
         cores_requested: CoreSize,
-        allocation_service: &AllocationService,
+        resource_accounting_service: &ResourceAccountingService,
         os: Option<&str>,
     ) -> bool {
         // Check OS compatibility
@@ -214,8 +214,10 @@ impl MatchingService {
             return false;
         }
 
-        if let Some(subscription) = allocation_service.get_subscription(&host.alloc_name, show_id) {
-            if !subscription.bookable(&cores_requested) {
+        if let Some(subscription) =
+            resource_accounting_service.get_subscription(&host.alloc_name, show_id)
+        {
+            if !subscription.can_book(&cores_requested) {
                 return false;
             }
         } else {
@@ -278,7 +280,7 @@ impl MatchingService {
             let layer_id = layer.id;
             let show_id = layer.show_id;
             let cores_requested = layer.cores_min;
-            let allocation_service = self.allocation_service.clone();
+            let resource_accounting_service = self.resource_accounting_service.clone();
             let os = layer.str_os.clone();
 
             let host_candidate = self
@@ -295,7 +297,7 @@ impl MatchingService {
                             &layer_id,
                             &show_id,
                             cores_requested,
-                            &allocation_service,
+                            &resource_accounting_service,
                             os.as_deref(),
                         )
                     },

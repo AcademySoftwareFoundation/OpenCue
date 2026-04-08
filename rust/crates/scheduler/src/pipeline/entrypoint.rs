@@ -25,6 +25,7 @@ use crate::dao::JobDao;
 use crate::metrics;
 use crate::models::DispatchJob;
 use crate::pipeline::MatchingService;
+use crate::resource_accounting::resource_accounting_service;
 
 /// Runs the scheduler feed loop, processing jobs for each cluster.
 ///
@@ -41,6 +42,9 @@ use crate::pipeline::MatchingService;
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error occurred during processing
 pub async fn run(cluster_feed: Arc<ClusterFeed>) -> miette::Result<()> {
+    // Initialize the resource accounting service (starts its periodic recomputation loop).
+    resource_accounting_service().await?;
+
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
