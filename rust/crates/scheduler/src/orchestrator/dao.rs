@@ -149,11 +149,14 @@ impl OrchestratorDao {
         instance_id: Uuid,
         jobs_queried: f64,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(UPDATE_HEARTBEAT)
+        let result = sqlx::query(UPDATE_HEARTBEAT)
             .bind(instance_id.to_string())
             .bind(jobs_queried)
             .execute(&*self.connection_pool)
             .await?;
+        if result.rows_affected() == 0 {
+            return Err(sqlx::Error::RowNotFound);
+        }
         Ok(())
     }
 
