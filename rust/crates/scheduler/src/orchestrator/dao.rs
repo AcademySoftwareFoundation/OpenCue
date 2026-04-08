@@ -15,17 +15,22 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use miette::{IntoDiagnostic, Result};
-use sqlx::{Pool, Postgres};
+use sqlx::postgres::{PgConnectOptions, PgConnection};
+use sqlx::{ConnectOptions, Connection, Pool, Postgres};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::dao::helpers::parse_uuid;
-
 use crate::cluster::Cluster;
+use crate::config::CONFIG;
+use crate::dao::helpers::parse_uuid;
 use crate::pgpool::connection_pool;
 
 /// Data Access Object for orchestrator tables (scheduler_instance and scheduler_cluster_assignment).
 pub struct OrchestratorDao {
     connection_pool: Arc<Pool<Postgres>>,
+    /// Dedicated connection for holding the session-level advisory lock.
+    /// Lives outside the pool so the lock is retained as long as this connection is open.
+    leader_conn: Mutex<Option<PgConnection>>,
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
@@ -122,7 +127,17 @@ impl OrchestratorDao {
         let pool = connection_pool().await.into_diagnostic()?;
         Ok(OrchestratorDao {
             connection_pool: pool,
+            leader_conn: Mutex::new(None),
         })
+    }
+
+    async fn open_dedicated_connection() -> Result<PgConnection, sqlx::Error> {
+        let options: PgConnectOptions = CONFIG
+            .database
+            .connection_url()
+            .parse::<PgConnectOptions>()?
+            .application_name("opencue-leader-lock");
+        options.connect().await
     }
 
     // --- Instance operations ---
@@ -263,13 +278,56 @@ impl OrchestratorDao {
 
     // --- Leader election ---
 
-    /// Attempts to acquire the advisory lock. Returns true if acquired.
-    /// Uses a dedicated connection (not from the pool) to hold the session-level lock.
+    /// Attempts to acquire the advisory lock using a dedicated connection outside the pool.
+    ///
+    /// If the lock is already held (dedicated connection exists), verifies liveness via ping.
+    /// If the connection died, drops it and attempts re-acquisition on a fresh connection.
+    /// If the lock is acquired, the dedicated connection is kept alive to hold the lock.
     pub async fn try_acquire_leader_lock(&self, lock_id: i64) -> Result<bool, sqlx::Error> {
+        let mut guard = self.leader_conn.lock().await;
+
+        // If we already have a connection, the lock is already held — verify liveness.
+        if let Some(ref mut conn) = *guard {
+            match conn.ping().await {
+                Ok(()) => return Ok(true),
+                Err(_) => {
+                    // Connection died — lock is lost. Fall through to re-acquire.
+                    *guard = None;
+                }
+            }
+        }
+
+        // Open a new dedicated connection and attempt to acquire the lock.
+        let mut conn = Self::open_dedicated_connection().await?;
         let row: (bool,) = sqlx::query_as(TRY_ADVISORY_LOCK)
             .bind(lock_id)
-            .fetch_one(&*self.connection_pool)
+            .fetch_one(&mut conn)
             .await?;
-        Ok(row.0)
+
+        if row.0 {
+            *guard = Some(conn);
+            Ok(true)
+        } else {
+            // Another leader holds it — drop this connection.
+            Ok(false)
+        }
+    }
+
+    /// Releases the advisory lock by closing the dedicated connection.
+    /// If no lock is held, this is a no-op.
+    pub async fn release_leader_lock(&self) {
+        let mut guard = self.leader_conn.lock().await;
+        if let Some(conn) = guard.take() {
+            let _ = conn.close().await;
+        }
+    }
+
+    /// Returns true if the dedicated leader connection is alive and the lock is presumably held.
+    pub async fn is_leader_lock_held(&self) -> bool {
+        let mut guard = self.leader_conn.lock().await;
+        match guard.as_mut() {
+            Some(conn) => conn.ping().await.is_ok(),
+            None => false,
+        }
     }
 }

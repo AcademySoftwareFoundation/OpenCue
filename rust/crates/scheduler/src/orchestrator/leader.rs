@@ -101,6 +101,15 @@ impl LeaderElection {
                         }
                     }
 
+                    // Verify the lock is still held (dedicated connection alive)
+                    if !dao.is_leader_lock_held().await {
+                        warn!("Leader lock connection lost — demoting");
+                        is_leader.store(false, Ordering::Relaxed);
+                        crate::metrics::set_orchestrator_is_leader(false);
+                        election_ticker.reset();
+                        continue;
+                    }
+
                     // We are the leader — run one distribution cycle
                     match distributor
                         .distribute(&dao, &ignore_tags, failure_threshold)
@@ -109,8 +118,8 @@ impl LeaderElection {
                         Ok(()) => {}
                         Err(e) => {
                             error!("Distribution cycle failed: {}", e);
-                            // If distribution fails, it might be a DB issue.
-                            // Demote and re-enter election after interval.
+                            // Release the lock so another instance can take over quickly.
+                            dao.release_leader_lock().await;
                             is_leader.store(false, Ordering::Relaxed);
                             warn!("Demoted from leader due to distribution failure");
                             crate::metrics::set_orchestrator_is_leader(false);
@@ -155,7 +164,8 @@ impl LeaderElection {
                 }
             }
 
-            // On shutdown, demote
+            // On shutdown, release the lock and demote
+            dao.release_leader_lock().await;
             is_leader.store(false, Ordering::Relaxed);
             crate::metrics::set_orchestrator_is_leader(false);
         })
