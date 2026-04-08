@@ -20,8 +20,11 @@ use miette::Result;
 use tokio::sync::watch;
 use tracing::info;
 
+use std::sync::atomic::Ordering;
+
 use crate::cluster::ClusterFeed;
 use crate::config::CONFIG;
+use crate::metrics::ORCHESTRATOR_ENABLED;
 
 use instance::InstanceManager;
 use leader::LeaderElection;
@@ -43,6 +46,8 @@ use sync::ClusterSync;
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error during setup or pipeline execution
 pub async fn run(facility: Option<String>, ignore_tags: Vec<String>) -> Result<()> {
+    ORCHESTRATOR_ENABLED.store(true, Ordering::Relaxed);
+
     // Shutdown signal: send `true` to stop all loops
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 

@@ -58,6 +58,7 @@ axum = "0.7"
 tower-http = { version = "0.5", features = ["trace"] }
 urlencoding = "2.1"
 gethostname = "0.4"
+rand = "0.8"
 
 [features]
 default = []

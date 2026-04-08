@@ -16,8 +16,12 @@ use prometheus::{
     register_counter, register_counter_vec, register_histogram, register_int_gauge, Counter,
     CounterVec, Encoder, Histogram, IntGauge, TextEncoder,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tracing::{error, info};
+
+/// Whether the scheduler is running in orchestrated mode.
+pub static ORCHESTRATOR_ENABLED: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
     // Job metrics from entrypoint.rs
@@ -134,14 +138,15 @@ async fn metrics_handler() -> impl IntoResponse {
 /// This function runs indefinitely and only returns if the server fails to start
 /// Handler for the /health endpoint
 async fn health_handler() -> impl IntoResponse {
-    let assigned = ORCHESTRATOR_ASSIGNED_CLUSTERS.get();
-    if assigned > 0 {
-        (axum::http::StatusCode::OK, "ok")
-    } else {
+    if ORCHESTRATOR_ENABLED.load(Ordering::Relaxed)
+        && ORCHESTRATOR_ASSIGNED_CLUSTERS.get() == 0
+    {
         (
             axum::http::StatusCode::SERVICE_UNAVAILABLE,
             "no clusters assigned",
         )
+    } else {
+        (axum::http::StatusCode::OK, "ok")
     }
 }
 

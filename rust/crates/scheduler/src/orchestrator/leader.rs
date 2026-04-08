@@ -88,15 +88,19 @@ impl LeaderElection {
 
         tokio::spawn(async move {
             let mut distributor = Distributor::new();
+            let mut distribution_ticker = tokio::time::interval(distribution_interval);
+            let mut election_ticker = tokio::time::interval(election_interval);
 
             loop {
-                // Check for shutdown
-                if *shutdown.borrow() {
-                    info!("Leader election loop shutting down");
-                    break;
-                }
-
                 if is_leader.load(Ordering::Relaxed) {
+                    tokio::select! {
+                        _ = distribution_ticker.tick() => {}
+                        _ = shutdown.changed() => {
+                            info!("Leader loop received shutdown signal");
+                            break;
+                        }
+                    }
+
                     // We are the leader — run one distribution cycle
                     match distributor
                         .distribute(&dao, &ignore_tags, failure_threshold)
@@ -110,47 +114,42 @@ impl LeaderElection {
                             is_leader.store(false, Ordering::Relaxed);
                             warn!("Demoted from leader due to distribution failure");
                             crate::metrics::set_orchestrator_is_leader(false);
-                        }
-                    }
-
-                    // Wait for next distribution cycle or shutdown
-                    tokio::select! {
-                        _ = tokio::time::sleep(distribution_interval) => {}
-                        _ = shutdown.changed() => {
-                            info!("Leader loop received shutdown signal");
-                            break;
+                            // Reset election ticker so we wait a full interval before retrying
+                            election_ticker.reset();
                         }
                     }
                 } else {
+                    tokio::select! {
+                        _ = election_ticker.tick() => {}
+                        _ = shutdown.changed() => {
+                            info!("Election loop received shutdown signal");
+                            break;
+                        }
+                    }
+
                     // Not leader — try to acquire the lock
                     match dao.try_acquire_leader_lock(ORCHESTRATOR_LOCK_ID).await {
                         Ok(true) => {
+                            // Became the leader
                             info!("Acquired leader lock — this instance is now the leader");
                             is_leader.store(true, Ordering::Relaxed);
                             crate::metrics::set_orchestrator_is_leader(true);
                             // Reset distributor state for fresh snapshots
                             distributor = Distributor::new();
                             // Seed assignment ages from existing DB assignments so they
-                            // get a full TTL grace period before redistribution
+                            // get a grace period before redistribution
                             match dao.get_all_assignments().await {
                                 Ok(assignments) => distributor.seed_ages(&assignments),
                                 Err(e) => warn!("Failed to seed assignment ages: {}", e),
                             }
+                            // Reset distribution ticker so first cycle runs after a full interval
+                            distribution_ticker.reset();
                         }
                         Ok(false) => {
                             // Another instance holds the lock
                         }
                         Err(e) => {
                             warn!("Failed to attempt leader lock acquisition: {}", e);
-                        }
-                    }
-
-                    // Wait before retrying election or shutdown
-                    tokio::select! {
-                        _ = tokio::time::sleep(election_interval) => {}
-                        _ = shutdown.changed() => {
-                            info!("Election loop received shutdown signal");
-                            break;
                         }
                     }
                 }

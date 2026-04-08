@@ -20,7 +20,7 @@ use uuid::Uuid;
 use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
 
-use super::dao::OrchestratorDao;
+use super::dao::{ClusterAssignmentRow, OrchestratorDao};
 
 /// Worker-side cluster synchronization.
 ///
@@ -58,42 +58,7 @@ impl ClusterSync {
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
-                        match dao.get_assignments_for_instance(instance_id).await {
-                            Ok(assignments) => {
-                                let clusters: Vec<Cluster> = assignments
-                                    .into_iter()
-                                    .filter_map(|row| {
-                                        match serde_json::from_str::<Cluster>(&row.str_cluster_json) {
-                                            Ok(cluster) => Some(cluster),
-                                            Err(e) => {
-                                                error!(
-                                                    "Failed to deserialize cluster assignment: {}. JSON: {}",
-                                                    e, row.str_cluster_json
-                                                );
-                                                None
-                                            }
-                                        }
-                                    })
-                                    .collect();
-
-                                let count = clusters.len();
-                                cluster_feed.update_clusters(clusters);
-                                crate::metrics::set_orchestrator_assigned_clusters(count);
-
-                                debug!(
-                                    instance_id = %instance_id,
-                                    "Synced {} cluster assignment(s)",
-                                    count
-                                );
-                            }
-                            Err(e) => {
-                                error!(
-                                    instance_id = %instance_id,
-                                    "Failed to poll cluster assignments: {}",
-                                    e
-                                );
-                            }
-                        }
+                        sync_assignments(instance_id, &dao, &cluster_feed).await;
                     }
                     _ = shutdown.changed() => {
                         info!(instance_id = %instance_id, "Cluster sync loop shutting down");
@@ -102,5 +67,49 @@ impl ClusterSync {
                 }
             }
         })
+    }
+}
+
+async fn sync_assignments(
+    instance_id: Uuid,
+    dao: &OrchestratorDao,
+    cluster_feed: &ClusterFeed,
+) {
+    let assignments = match dao.get_assignments_for_instance(instance_id).await {
+        Ok(a) => a,
+        Err(e) => {
+            error!(
+                instance_id = %instance_id,
+                "Failed to poll cluster assignments: {}", e
+            );
+            return;
+        }
+    };
+
+    let clusters: Vec<Cluster> = assignments
+        .into_iter()
+        .filter_map(|row| parse_cluster(row))
+        .collect();
+
+    let count = clusters.len();
+    cluster_feed.update_clusters(clusters);
+    crate::metrics::set_orchestrator_assigned_clusters(count);
+
+    debug!(
+        instance_id = %instance_id,
+        "Synced {} cluster assignment(s)", count
+    );
+}
+
+fn parse_cluster(row: ClusterAssignmentRow) -> Option<Cluster> {
+    match serde_json::from_str::<Cluster>(&row.str_cluster_json) {
+        Ok(cluster) => Some(cluster),
+        Err(e) => {
+            error!(
+                "Failed to deserialize cluster assignment: {}. JSON: {}",
+                e, row.str_cluster_json
+            );
+            None
+        }
     }
 }

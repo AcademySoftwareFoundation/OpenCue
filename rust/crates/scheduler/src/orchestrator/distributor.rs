@@ -13,6 +13,8 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use rand::Rng;
+
 use miette::{IntoDiagnostic, Result};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -53,14 +55,20 @@ impl Distributor {
 
     /// Seeds assignment ages from existing database assignments.
     ///
-    /// Called on leader promotion to give existing assignments a full TTL grace period
-    /// before they become eligible for redistribution. This prevents a thundering-herd
-    /// redistribution when a new leader takes over.
+    /// Called on leader promotion to give existing assignments a jittered age
+    /// spread across the TTL window. This prevents a thundering-herd redistribution
+    /// when a new leader takes over by staggering expiration times.
     pub fn seed_ages(&mut self, current_assignments: &HashMap<String, Uuid>) {
         let now = Instant::now();
+        let ttl = CONFIG.orchestrator.assignment_ttl;
+        let mut rng = rand::thread_rng();
         self.assignment_ages = current_assignments
             .keys()
-            .map(|cluster_id| (cluster_id.clone(), now))
+            .map(|cluster_id| {
+                let random_age =
+                    Duration::from_secs_f64(rng.gen_range(0.0..ttl.as_secs_f64()));
+                (cluster_id.clone(), now - random_age)
+            })
             .collect();
     }
 
@@ -93,6 +101,7 @@ impl Distributor {
                             true
                         }
                     }
+                    // Assignments with no birth date live forever
                     None => true,
                 },
             )
