@@ -934,7 +934,7 @@ mod scheduler_smoke_test {
 
     async fn test_dispatch_manual_tag_flow_inner(test_data: TestData) {
         // Create a cluster feed with MANUAL tags (chunked)
-        let manual_cluster = Cluster::multiple_tag(
+        let manual_cluster = Cluster::from_tags(
             test_data.facility_id,
             test_data.show_id,
             vec![Tag {
