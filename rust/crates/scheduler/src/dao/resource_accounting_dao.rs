@@ -242,6 +242,12 @@ impl ResourceAccountingDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        ResourceAccountingDao {
+            connection_pool: pool,
+        }
+    }
+
     pub async fn query_show_ids_by_names(&self, show_names: Vec<String>) -> Result<Vec<Uuid>> {
         #[derive(sqlx::FromRow)]
         struct Row {

@@ -291,6 +291,27 @@ impl ClusterFeed {
         shows_filter: Option<Vec<String>>,
     ) -> Result<Vec<Cluster>> {
         let cluster_dao = ClusterDao::new().await?;
+        Self::load_clusters_inner(cluster_dao, facility_id, ignore_tags, shows_filter).await
+    }
+
+    /// Loads clusters using an externally provided connection pool.
+    /// Useful for testing with an embedded database.
+    pub async fn load_clusters_with_pool(
+        pool: Arc<sqlx::Pool<sqlx::Postgres>>,
+        facility_id: Option<Uuid>,
+        ignore_tags: &[String],
+        shows_filter: Option<Vec<String>>,
+    ) -> Result<Vec<Cluster>> {
+        let cluster_dao = ClusterDao::with_pool(pool);
+        Self::load_clusters_inner(cluster_dao, facility_id, ignore_tags, shows_filter).await
+    }
+
+    async fn load_clusters_inner(
+        cluster_dao: ClusterDao,
+        facility_id: Option<Uuid>,
+        ignore_tags: &[String],
+        shows_filter: Option<Vec<String>>,
+    ) -> Result<Vec<Cluster>> {
 
         // Fetch clusters for alloc and non_alloc tags
         let mut clusters_stream = cluster_dao

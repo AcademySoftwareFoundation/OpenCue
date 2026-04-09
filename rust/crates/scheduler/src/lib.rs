@@ -17,6 +17,7 @@ pub mod dao;
 pub mod host_cache;
 pub mod metrics;
 pub mod models;
+pub mod orchestrator;
 pub mod pgpool;
 pub mod pipeline;
 pub mod resource_accounting;

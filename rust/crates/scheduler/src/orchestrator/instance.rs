@@ -65,6 +65,22 @@ impl InstanceManager {
         })
     }
 
+    /// Creates an instance manager with an externally provided DAO.
+    /// Useful for testing with an embedded database.
+    pub fn with_dao(dao: Arc<OrchestratorDao>, facility: Option<String>, capacity: i32) -> Self {
+        let instance_id = Uuid::new_v4();
+        let hostname = gethostname::gethostname().to_string_lossy().to_string();
+        let pid = std::process::id();
+        let instance_name = format!("{}:{}", hostname, pid);
+        InstanceManager {
+            instance_id,
+            instance_name,
+            facility,
+            capacity,
+            dao,
+        }
+    }
+
     /// Registers this instance in the scheduler_instance table.
     ///
     /// Inserts a row with the instance's ID, name, facility, and capacity so that
@@ -108,9 +124,18 @@ impl InstanceManager {
     ///
     /// A `JoinHandle` for the spawned heartbeat task.
     pub fn start_heartbeat(&self, mut shutdown: watch::Receiver<bool>) -> JoinHandle<()> {
+        self.start_heartbeat_with_interval(CONFIG.orchestrator.heartbeat_interval, shutdown)
+    }
+
+    /// Starts the heartbeat loop with an explicit interval.
+    /// Useful for testing with fast intervals without depending on CONFIG.
+    pub fn start_heartbeat_with_interval(
+        &self,
+        interval: std::time::Duration,
+        mut shutdown: watch::Receiver<bool>,
+    ) -> JoinHandle<()> {
         let instance_id = self.instance_id;
         let dao = self.dao.clone();
-        let interval = CONFIG.orchestrator.heartbeat_interval;
 
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(interval);

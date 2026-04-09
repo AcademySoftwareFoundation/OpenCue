@@ -22,7 +22,6 @@ use uuid::Uuid;
 
 use crate::cluster::Cluster;
 use crate::config::CONFIG;
-use crate::dao::helpers::parse_uuid;
 use crate::pgpool::connection_pool;
 
 /// Data Access Object for orchestrator tables (scheduler_instance and scheduler_cluster_assignment).
@@ -31,12 +30,15 @@ pub struct OrchestratorDao {
     /// Dedicated connection for holding the session-level advisory lock.
     /// Lives outside the pool so the lock is retained as long as this connection is open.
     leader_conn: Mutex<Option<PgConnection>>,
+    /// Optional override for the connection URL used by the dedicated leader connection.
+    /// When set, `open_dedicated_connection` uses this instead of `CONFIG.database.connection_url()`.
+    connection_url: Option<String>,
 }
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 #[allow(dead_code)]
 pub struct InstanceRow {
-    pub pk_instance: String,
+    pub pk_instance: Uuid,
     pub str_name: String,
     pub str_facility: Option<String>,
     pub int_capacity: i32,
@@ -47,8 +49,8 @@ pub struct InstanceRow {
 #[derive(sqlx::FromRow, Debug, Clone)]
 #[allow(dead_code)]
 pub struct ClusterAssignmentRow {
-    pub pk_assignment: String,
-    pub pk_instance: String,
+    pub pk_assignment: Uuid,
+    pub pk_instance: Uuid,
     pub str_cluster_id: String,
     pub str_cluster_json: String,
     pub int_version: i32,
@@ -128,13 +130,24 @@ impl OrchestratorDao {
         Ok(OrchestratorDao {
             connection_pool: pool,
             leader_conn: Mutex::new(None),
+            connection_url: None,
         })
     }
 
-    async fn open_dedicated_connection() -> Result<PgConnection, sqlx::Error> {
-        let options: PgConnectOptions = CONFIG
-            .database
-            .connection_url()
+    pub fn with_pool(pool: Arc<Pool<Postgres>>, connection_url: String) -> Self {
+        OrchestratorDao {
+            connection_pool: pool,
+            leader_conn: Mutex::new(None),
+            connection_url: Some(connection_url),
+        }
+    }
+
+    async fn open_dedicated_connection(connection_url: &Option<String>) -> Result<PgConnection, sqlx::Error> {
+        let url = match connection_url {
+            Some(url) => url.clone(),
+            None => CONFIG.database.connection_url(),
+        };
+        let options: PgConnectOptions = url
             .parse::<PgConnectOptions>()?
             .application_name("opencue-leader-lock");
         options.connect().await
@@ -150,7 +163,7 @@ impl OrchestratorDao {
         capacity: i32,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(INSERT_INSTANCE)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .bind(name)
             .bind(facility)
             .bind(capacity)
@@ -165,7 +178,7 @@ impl OrchestratorDao {
         jobs_queried: f64,
     ) -> Result<(), sqlx::Error> {
         let result = sqlx::query(UPDATE_HEARTBEAT)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .bind(jobs_queried)
             .execute(&*self.connection_pool)
             .await?;
@@ -177,7 +190,7 @@ impl OrchestratorDao {
 
     pub async fn set_draining(&self, instance_id: Uuid) -> Result<(), sqlx::Error> {
         sqlx::query(SET_DRAINING)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .execute(&*self.connection_pool)
             .await?;
         Ok(())
@@ -185,7 +198,7 @@ impl OrchestratorDao {
 
     pub async fn delete_instance(&self, instance_id: Uuid) -> Result<(), sqlx::Error> {
         sqlx::query(DELETE_INSTANCE)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .execute(&*self.connection_pool)
             .await?;
         Ok(())
@@ -196,14 +209,11 @@ impl OrchestratorDao {
         failure_threshold: Duration,
     ) -> Result<Vec<Uuid>, sqlx::Error> {
         let interval = format!("{} seconds", failure_threshold.as_secs());
-        let rows: Vec<(String,)> = sqlx::query_as(DELETE_DEAD_INSTANCES)
+        let rows: Vec<(Uuid,)> = sqlx::query_as(DELETE_DEAD_INSTANCES)
             .bind(interval)
             .fetch_all(&*self.connection_pool)
             .await?;
-        Ok(rows
-            .into_iter()
-            .map(|(id,)| crate::dao::helpers::parse_uuid(&id))
-            .collect())
+        Ok(rows.into_iter().map(|(id,)| id).collect())
     }
 
     pub async fn get_live_instances(
@@ -217,7 +227,7 @@ impl OrchestratorDao {
             .await?;
         Ok(rows
             .into_iter()
-            .map(|r| (parse_uuid(&r.pk_instance), r))
+            .map(|r| (r.pk_instance, r))
             .collect())
     }
 
@@ -228,7 +238,7 @@ impl OrchestratorDao {
         instance_id: Uuid,
     ) -> Result<Vec<ClusterAssignmentRow>, sqlx::Error> {
         sqlx::query_as::<_, ClusterAssignmentRow>(QUERY_ASSIGNMENTS_FOR_INSTANCE)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .fetch_all(&*self.connection_pool)
             .await
     }
@@ -243,7 +253,7 @@ impl OrchestratorDao {
             .await?;
         Ok(rows
             .into_iter()
-            .map(|r| (r.str_cluster_id, parse_uuid(&r.pk_instance)))
+            .map(|r| (r.str_cluster_id, r.pk_instance))
             .collect())
     }
 
@@ -257,7 +267,7 @@ impl OrchestratorDao {
         let cluster_json =
             serde_json::to_string(cluster).expect("Failed to serialize Cluster to JSON");
         sqlx::query(UPSERT_ASSIGNMENT)
-            .bind(instance_id.to_string())
+            .bind(instance_id)
             .bind(&cluster.id)
             .bind(cluster_json)
             .execute(&*self.connection_pool)
@@ -298,7 +308,7 @@ impl OrchestratorDao {
         }
 
         // Open a new dedicated connection and attempt to acquire the lock.
-        let mut conn = Self::open_dedicated_connection().await?;
+        let mut conn = Self::open_dedicated_connection(&self.connection_url).await?;
         let row: (bool,) = sqlx::query_as(TRY_ADVISORY_LOCK)
             .bind(lock_id)
             .fetch_one(&mut conn)

@@ -192,6 +192,12 @@ impl ClusterDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        ClusterDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Fetches all allocation-based clusters from the database.
     ///
     /// Returns clusters defined by facility, show, and allocation tag combinations.

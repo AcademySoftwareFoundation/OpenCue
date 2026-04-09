@@ -114,6 +114,12 @@ impl ProcDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        ProcDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Inserts a new proc record into the database within an existing transaction.
     ///
     /// Creates a database record representing the allocation of compute resources from a host

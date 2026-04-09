@@ -11,10 +11,10 @@
 // the License.
 
 pub mod dao;
-mod distributor;
-mod instance;
-mod leader;
-mod sync;
+pub mod distributor;
+pub mod instance;
+pub mod leader;
+pub mod sync;
 
 use miette::Result;
 use tokio::sync::watch;

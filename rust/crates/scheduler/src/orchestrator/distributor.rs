@@ -450,7 +450,7 @@ mod tests {
         jobs_queried: f64,
     ) -> InstanceRow {
         InstanceRow {
-            pk_instance: id.to_string(),
+            pk_instance: id,
             str_name: format!("test:{}", id),
             str_facility: facility.map(String::from),
             int_capacity: capacity,
