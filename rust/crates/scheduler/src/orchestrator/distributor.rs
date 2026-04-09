@@ -255,7 +255,7 @@ impl Distributor {
     /// Strategy:
     /// 1. Preserve stable assignments (cluster stays on same live instance).
     /// 2. Assign unassigned clusters to the instance with the lowest load ratio.
-    fn compute_assignments(
+    pub fn compute_assignments(
         all_clusters: &[Cluster],
         rated_instances: &HashMap<Uuid, (InstanceRow, f64)>,
         active_assignments: &HashMap<String, Uuid>,
