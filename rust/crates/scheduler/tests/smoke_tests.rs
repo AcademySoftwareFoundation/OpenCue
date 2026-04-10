@@ -1120,19 +1120,19 @@ mod scheduler_smoke_test {
 
         sqlx::query("INSERT INTO facility (pk_facility, str_name) VALUES ($1, $2)")
             .bind(facility_id.to_string())
-            .bind(format!("reslimit_facility_{}", test_suffix))
+            .bind(format!("integ_test_reslimit_facility_{}", test_suffix))
             .execute(&mut *tx)
             .await?;
 
         sqlx::query("INSERT INTO dept (pk_dept, str_name) VALUES ($1, $2)")
             .bind(dept_id.to_string())
-            .bind(format!("reslimit_dept_{}", test_suffix))
+            .bind(format!("integ_test_reslimit_dept_{}", test_suffix))
             .execute(&mut *tx)
             .await?;
 
         sqlx::query("INSERT INTO show (pk_show, str_name) VALUES ($1, $2)")
             .bind(show_id.to_string())
-            .bind(format!("reslimit_show_{}", test_suffix))
+            .bind(format!("integ_test_reslimit_show_{}", test_suffix))
             .execute(&mut *tx)
             .await?;
 
@@ -1140,11 +1140,11 @@ mod scheduler_smoke_test {
             &mut tx,
             show_id,
             dept_id,
-            &format!("reslimit_folder_{}", test_suffix),
+            &format!("integ_test_reslimit_folder_{}", test_suffix),
         )
         .await?;
 
-        let alloc_name = format!("reslimit_alloc_{}", test_suffix);
+        let alloc_name = format!("integ_test_reslimit_alloc_{}", test_suffix);
         let alloc_id = create_allocation(&mut tx, facility_id, &alloc_name, &alloc_name).await?;
         create_subscription(&mut tx, alloc_id, show_id, 10000 * 100, 990000 * 100).await?;
 
