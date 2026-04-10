@@ -12,12 +12,13 @@
 
 use std::sync::Arc;
 
-use miette::{IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, WrapErr};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::cluster::get_facility_id;
 use crate::config::CONFIG;
 use crate::metrics::JOBS_QUERIED_TOTAL;
 
@@ -29,7 +30,8 @@ use super::dao::OrchestratorDao;
 pub struct InstanceManager {
     pub instance_id: Uuid,
     instance_name: String,
-    facility: Option<String>,
+    /// Resolved facility UUID (as string), or None if unscoped.
+    facility_id: Option<String>,
     capacity: i32,
     dao: Arc<OrchestratorDao>,
 }
@@ -39,16 +41,17 @@ impl InstanceManager {
     ///
     /// Generates a unique instance ID, builds an instance name from hostname and PID,
     /// and initializes the orchestrator DAO for database operations.
+    /// If a facility name is provided, it is resolved to its UUID immediately.
     ///
     /// # Arguments
     ///
-    /// * `facility` - Optional facility name to scope this instance to a specific facility
+    /// * `facility_name` - Optional facility name to scope this instance to a specific facility
     ///
     /// # Returns
     ///
     /// * `Ok(InstanceManager)` - Successfully created instance manager
-    /// * `Err(miette::Error)` - Failed to establish database connection
-    pub async fn new(facility: Option<String>) -> Result<Self> {
+    /// * `Err(miette::Error)` - Failed to establish database connection or resolve facility name
+    pub async fn new(facility_name: Option<String>) -> Result<Self> {
         let instance_id = Uuid::new_v4();
         let hostname = gethostname::gethostname().to_string_lossy().to_string();
         let pid = std::process::id();
@@ -56,10 +59,20 @@ impl InstanceManager {
         let capacity = CONFIG.orchestrator.capacity as i32;
         let dao = Arc::new(OrchestratorDao::new().await?);
 
+        let facility_id = match &facility_name {
+            Some(name) => Some(
+                get_facility_id(name)
+                    .await
+                    .wrap_err_with(|| format!("facility '{}' not found", name))?
+                    .to_string(),
+            ),
+            None => None,
+        };
+
         Ok(InstanceManager {
             instance_id,
             instance_name,
-            facility,
+            facility_id,
             capacity,
             dao,
         })
@@ -67,7 +80,7 @@ impl InstanceManager {
 
     /// Creates an instance manager with an externally provided DAO.
     /// Useful for testing with an embedded database.
-    pub fn with_dao(dao: Arc<OrchestratorDao>, facility: Option<String>, capacity: i32) -> Self {
+    pub fn with_dao(dao: Arc<OrchestratorDao>, facility_id: Option<String>, capacity: i32) -> Self {
         let instance_id = Uuid::new_v4();
         let hostname = gethostname::gethostname().to_string_lossy().to_string();
         let pid = std::process::id();
@@ -75,7 +88,7 @@ impl InstanceManager {
         InstanceManager {
             instance_id,
             instance_name,
-            facility,
+            facility_id,
             capacity,
             dao,
         }
@@ -95,7 +108,7 @@ impl InstanceManager {
             .register_instance(
                 self.instance_id,
                 &self.instance_name,
-                self.facility.as_deref(),
+                self.facility_id.as_deref(),
                 self.capacity,
             )
             .await
@@ -103,7 +116,7 @@ impl InstanceManager {
         info!(
             instance_id = %self.instance_id,
             name = %self.instance_name,
-            facility = ?self.facility,
+            facility_id = ?self.facility_id,
             capacity = self.capacity,
             "Registered scheduler instance"
         );

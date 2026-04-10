@@ -138,7 +138,7 @@ mod orchestration_tests {
         let (pool, url) = create_test_db("deregister").await;
 
         let dao = Arc::new(OrchestratorDao::with_pool(pool.clone(), url));
-        let mgr = InstanceManager::with_dao(dao.clone(), Some("test-facility".to_string()), 100);
+        let mgr = InstanceManager::with_dao(dao.clone(), None, 100);
         mgr.register().await.expect("register should succeed");
 
         // Verify it exists
@@ -162,7 +162,7 @@ mod orchestration_tests {
 
         let mgr1 = InstanceManager::with_dao(dao.clone(), None, 100);
         let mgr2 = InstanceManager::with_dao(dao.clone(), None, 200);
-        let mgr3 = InstanceManager::with_dao(dao.clone(), Some("facility-a".to_string()), 50);
+        let mgr3 = InstanceManager::with_dao(dao.clone(), None, 50);
 
         mgr1.register().await.unwrap();
         mgr2.register().await.unwrap();
@@ -181,6 +181,112 @@ mod orchestration_tests {
         let instances = dao.get_live_instances(Duration::from_secs(30)).await.unwrap();
         assert_eq!(instances.len(), 2);
         assert!(!instances.contains_key(&mgr2.instance_id));
+    }
+
+    // ── Test: Facility-scoped instance registration ───────────────────────
+
+    #[tokio::test]
+    async fn test_facility_scoped_instance_registration() {
+        let (pool, url) = create_test_db("facility_register").await;
+        let dao = Arc::new(OrchestratorDao::with_pool(pool.clone(), url));
+
+        // Well-known facility UUIDs from seed data
+        let local_facility_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1";
+        let cloud_facility_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa0";
+
+        let mgr_local = InstanceManager::with_dao(dao.clone(), Some(local_facility_id.to_string()), 100);
+        let mgr_cloud = InstanceManager::with_dao(dao.clone(), Some(cloud_facility_id.to_string()), 100);
+        let mgr_unscoped = InstanceManager::with_dao(dao.clone(), None, 100);
+
+        mgr_local.register().await.unwrap();
+        mgr_cloud.register().await.unwrap();
+        mgr_unscoped.register().await.unwrap();
+
+        let instances = dao.get_live_instances(Duration::from_secs(30)).await.unwrap();
+        assert_eq!(instances.len(), 3);
+
+        // Verify facility IDs are stored correctly
+        assert_eq!(
+            instances[&mgr_local.instance_id].pk_facility.as_deref(),
+            Some(local_facility_id)
+        );
+        assert_eq!(
+            instances[&mgr_cloud.instance_id].pk_facility.as_deref(),
+            Some(cloud_facility_id)
+        );
+        assert_eq!(
+            instances[&mgr_unscoped.instance_id].pk_facility,
+            None
+        );
+    }
+
+    // ── Test: Facility-scoped cluster assignment ────────────────────────
+
+    #[tokio::test]
+    async fn test_facility_scoped_cluster_assignment() {
+        let (pool, url) = create_test_db("facility_assign").await;
+        let dao = Arc::new(OrchestratorDao::with_pool(pool.clone(), url));
+
+        // Well-known facility UUIDs from seed data
+        let local_facility_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1";
+        let cloud_facility_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa0";
+        let local_uuid = Uuid::parse_str(local_facility_id).unwrap();
+        let cloud_uuid = Uuid::parse_str(cloud_facility_id).unwrap();
+
+        // Register facility-scoped instances
+        let mgr_local = InstanceManager::with_dao(dao.clone(), Some(local_facility_id.to_string()), 100);
+        let mgr_cloud = InstanceManager::with_dao(dao.clone(), Some(cloud_facility_id.to_string()), 100);
+        mgr_local.register().await.unwrap();
+        mgr_cloud.register().await.unwrap();
+
+        // Create clusters scoped to each facility
+        let show = Uuid::new_v4();
+        let local_clusters: Vec<Cluster> = (0..3)
+            .map(|i| Cluster::single_tag(
+                local_uuid,
+                show,
+                Tag { name: format!("local_tag{}", i), ttype: TagType::Alloc },
+            ))
+            .collect();
+        let cloud_clusters: Vec<Cluster> = (0..3)
+            .map(|i| Cluster::single_tag(
+                cloud_uuid,
+                show,
+                Tag { name: format!("cloud_tag{}", i), ttype: TagType::Alloc },
+            ))
+            .collect();
+        let all_clusters: Vec<Cluster> = local_clusters.iter().chain(&cloud_clusters).cloned().collect();
+
+        // Compute assignments
+        let instances = dao.get_live_instances(Duration::from_secs(30)).await.unwrap();
+        let rated = rated_instances_from_dao(instances);
+        let assignments = Distributor::compute_assignments(&all_clusters, &rated, &HashMap::new());
+
+        assert_eq!(assignments.len(), 6);
+
+        // Local clusters must go to local instance, cloud clusters to cloud instance
+        for c in &local_clusters {
+            assert_eq!(
+                assignments[&c.id], mgr_local.instance_id,
+                "local cluster {} should be assigned to local instance",
+                c.id
+            );
+        }
+        for c in &cloud_clusters {
+            assert_eq!(
+                assignments[&c.id], mgr_cloud.instance_id,
+                "cloud cluster {} should be assigned to cloud instance",
+                c.id
+            );
+        }
+
+        // Write assignments to DB and verify round-trip
+        for cluster in &all_clusters {
+            let inst = assignments[&cluster.id];
+            dao.upsert_assignment(inst, cluster).await.unwrap();
+        }
+        let stored = dao.get_all_assignments().await.unwrap();
+        assert_eq!(stored.len(), 6);
     }
 
     // ── Test 5: Leader election loop (live async) ────────────────────────

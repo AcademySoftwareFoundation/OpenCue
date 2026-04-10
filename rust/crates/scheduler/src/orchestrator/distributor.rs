@@ -21,6 +21,7 @@ use uuid::Uuid;
 
 use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
+use crate::dao::helpers::parse_uuid;
 
 use super::dao::{InstanceRow, OrchestratorDao};
 
@@ -29,15 +30,6 @@ use super::dao::{InstanceRow, OrchestratorDao};
 struct RateSnapshot {
     jobs_queried: f64,
     timestamp: Instant,
-}
-
-/// Resolved facility binding for an instance.
-/// Captures both the configured facility name and its resolved UUID from the facility table.
-struct InstanceFacility {
-    /// Facility name as configured on the instance (e.g. "spi"). `None` means unscoped.
-    name: Option<String>,
-    /// UUID resolved via the facility table. `None` when unscoped or when the name didn't resolve.
-    id: Option<Uuid>,
 }
 
 /// The distributor runs on the leader instance. It loads all clusters from the database,
@@ -286,13 +278,10 @@ impl Distributor {
         let all_rates_zero = rated_instances.values().all(|(_, rate)| *rate == 0.0);
 
         // Build facility map for affinity filtering
-        let instance_facilities: HashMap<Uuid, InstanceFacility> = rated_instances
+        let instance_facilities: HashMap<Uuid, Option<Uuid>> = rated_instances
             .iter()
             .map(|(&id, (inst, _))| {
-                (id, InstanceFacility {
-                    name: inst.str_facility.clone(),
-                    id: inst.str_facility_id,
-                })
+                (id, inst.pk_facility.as_deref().map(parse_uuid))
             })
             .collect();
 
@@ -376,21 +365,13 @@ impl Distributor {
     /// Checks whether a cluster is eligible to run on a given instance based on facility.
     fn is_facility_eligible(
         cluster: &Cluster,
-        instance_facilities: &HashMap<Uuid, InstanceFacility>,
+        instance_facilities: &HashMap<Uuid, Option<Uuid>>,
         instance_id: Uuid,
     ) -> bool {
         match instance_facilities.get(&instance_id) {
-            Some(InstanceFacility { name: Some(_), id: Some(facility_id) }) => {
-                // Instance is scoped to a resolved facility — cluster must match
+            Some(Some(facility_id)) => {
+                // Instance is scoped to a facility — cluster must match
                 cluster.facility_id == *facility_id
-            }
-            Some(InstanceFacility { name: Some(name), id: None }) => {
-                // Instance has a facility name that didn't resolve — no cluster can match
-                warn!(
-                    "Instance {} has unresolved facility name '{}'",
-                    instance_id, name
-                );
-                false
             }
             _ => {
                 // Instance has no facility scope — accepts all clusters
@@ -448,7 +429,7 @@ mod tests {
     use crate::cluster::Cluster;
     use crate::cluster_key::{Tag, TagType};
 
-    use super::{Distributor, InstanceFacility, InstanceRow};
+    use super::{Distributor, InstanceRow};
 
     fn make_cluster(facility_id: Uuid, show_id: Uuid, tag: &str) -> Cluster {
         Cluster::single_tag(
@@ -474,8 +455,7 @@ mod tests {
         InstanceRow {
             pk_instance: id,
             str_name: format!("test:{}", id),
-            str_facility_id: facility,
-            str_facility: facility.map(|f| f.to_string()),
+            pk_facility: facility.map(|f| f.to_string()),
             int_capacity: capacity,
             float_jobs_queried: jobs_queried,
             b_draining: false,
@@ -939,10 +919,7 @@ mod tests {
         let cluster = make_cluster(facility, show, "tag");
         let instance_id = Uuid::new_v4();
 
-        let facilities = HashMap::from([(instance_id, InstanceFacility {
-            name: Some(facility.to_string()),
-            id: Some(facility),
-        })]);
+        let facilities = HashMap::from([(instance_id, Some(facility))]);
 
         assert!(Distributor::is_facility_eligible(&cluster, &facilities, instance_id));
     }
@@ -955,10 +932,7 @@ mod tests {
         let cluster = make_cluster(facility_a, show, "tag");
         let instance_id = Uuid::new_v4();
 
-        let facilities = HashMap::from([(instance_id, InstanceFacility {
-            name: Some(facility_b.to_string()),
-            id: Some(facility_b),
-        })]);
+        let facilities = HashMap::from([(instance_id, Some(facility_b))]);
 
         assert!(!Distributor::is_facility_eligible(&cluster, &facilities, instance_id));
     }
@@ -970,43 +944,12 @@ mod tests {
         let cluster = make_cluster(facility, show, "tag");
         let instance_id = Uuid::new_v4();
 
-        let facilities = HashMap::from([(instance_id, InstanceFacility {
-            name: None,
-            id: None,
-        })]);
+        let facilities: HashMap<Uuid, Option<Uuid>> = HashMap::from([(instance_id, None)]);
 
         assert!(Distributor::is_facility_eligible(&cluster, &facilities, instance_id));
     }
 
-    #[test]
-    fn test_facility_eligible_unresolved_name_rejects() {
-        let facility = Uuid::new_v4();
-        let show = Uuid::new_v4();
-        let cluster = make_cluster(facility, show, "tag");
-        let instance_id = Uuid::new_v4();
-
-        // Instance has a facility name but it didn't resolve to a UUID
-        let facilities = HashMap::from([(instance_id, InstanceFacility {
-            name: Some("nonexistent".to_string()),
-            id: None,
-        })]);
-
-        assert!(!Distributor::is_facility_eligible(&cluster, &facilities, instance_id));
-    }
-
     // --- compute_assignments facility tests ---
-
-    fn make_instance_unresolved_facility(id: Uuid, name: &str, capacity: i32) -> InstanceRow {
-        InstanceRow {
-            pk_instance: id,
-            str_name: format!("test:{}", id),
-            str_facility_id: None,
-            str_facility: Some(name.to_string()),
-            int_capacity: capacity,
-            float_jobs_queried: 0.0,
-            b_draining: false,
-        }
-    }
 
     #[test]
     fn test_facility_scoped_instances_no_cross_assignment() {
@@ -1050,36 +993,6 @@ mod tests {
                 "Cluster {} (facility_b) should be on inst_b",
                 c.id
             );
-        }
-    }
-
-    #[test]
-    fn test_unresolved_facility_instance_gets_no_clusters() {
-        let facility = Uuid::new_v4();
-        let show = Uuid::new_v4();
-
-        let clusters: Vec<Cluster> = (0..4)
-            .map(|i| make_cluster(facility, show, &format!("tag{}", i)))
-            .collect();
-
-        let inst_good = Uuid::new_v4();
-        let inst_bad = Uuid::new_v4();
-        let rated_instances: HashMap<Uuid, (InstanceRow, f64)> = [
-            (inst_good, (make_instance(inst_good, None, 100), 0.0)),
-            (
-                inst_bad,
-                (make_instance_unresolved_facility(inst_bad, "bogus", 100), 0.0),
-            ),
-        ]
-        .into();
-
-        let assignments =
-            Distributor::compute_assignments(&clusters, &rated_instances, &HashMap::new());
-
-        // All clusters should go to inst_good; inst_bad has an unresolved facility
-        assert_eq!(assignments.len(), 4);
-        for id in assignments.values() {
-            assert_eq!(*id, inst_good);
         }
     }
 

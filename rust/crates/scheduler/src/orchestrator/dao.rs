@@ -40,8 +40,7 @@ pub struct OrchestratorDao {
 pub struct InstanceRow {
     pub pk_instance: Uuid,
     pub str_name: String,
-    pub str_facility_id: Option<Uuid>,
-    pub str_facility: Option<String>,
+    pub pk_facility: Option<String>,
     pub int_capacity: i32,
     pub float_jobs_queried: f64,
     pub b_draining: bool,
@@ -60,7 +59,7 @@ pub struct ClusterAssignmentRow {
 // --- Instance queries ---
 
 static INSERT_INSTANCE: &str = r#"
-INSERT INTO scheduler_instance (pk_instance, str_name, str_facility, int_capacity, ts_heartbeat, ts_registered)
+INSERT INTO scheduler_instance (pk_instance, str_name, pk_facility, int_capacity, ts_heartbeat, ts_registered)
 VALUES ($1, $2, $3, $4, NOW(), NOW())
 "#;
 
@@ -88,11 +87,10 @@ RETURNING pk_instance
 "#;
 
 static QUERY_LIVE_INSTANCES: &str = r#"
-SELECT si.pk_instance, si.str_name, f.pk_facility AS str_facility_id, si.str_facility, si.int_capacity, si.float_jobs_queried, si.b_draining
-FROM scheduler_instance si
-LEFT JOIN facility f ON LOWER(f.str_name) = LOWER(si.str_facility)
-WHERE si.ts_heartbeat >= NOW() - $1::interval
-  AND si.b_draining = FALSE
+SELECT pk_instance, str_name, pk_facility, int_capacity, float_jobs_queried, b_draining
+FROM scheduler_instance
+WHERE ts_heartbeat >= NOW() - $1::interval
+  AND b_draining = FALSE
 "#;
 
 // --- Cluster assignment queries ---

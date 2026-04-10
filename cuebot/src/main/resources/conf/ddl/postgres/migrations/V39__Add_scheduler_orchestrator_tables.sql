@@ -3,7 +3,7 @@
 CREATE TABLE scheduler_instance (
     pk_instance    UUID PRIMARY KEY,
     str_name       VARCHAR(256) NOT NULL,
-    str_facility   VARCHAR(256),
+    pk_facility    VARCHAR(36) REFERENCES facility(pk_facility),
     ts_heartbeat   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ts_registered  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     int_capacity   INTEGER NOT NULL DEFAULT 100,
