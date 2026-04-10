@@ -18,8 +18,8 @@ use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::cluster::get_facility_id;
 use crate::config::CONFIG;
+use crate::dao::ClusterDao;
 use crate::metrics::JOBS_QUERIED_TOTAL;
 
 use super::dao::OrchestratorDao;
@@ -60,12 +60,16 @@ impl InstanceManager {
         let dao = Arc::new(OrchestratorDao::new().await?);
 
         let facility_id = match &facility_name {
-            Some(name) => Some(
-                get_facility_id(name)
-                    .await
-                    .wrap_err_with(|| format!("facility '{}' not found", name))?
-                    .to_string(),
-            ),
+            Some(name) => {
+                let cluster_dao = ClusterDao::new().await?;
+                Some(
+                    cluster_dao
+                        .get_facility_id(name)
+                        .await
+                        .into_diagnostic()
+                        .wrap_err_with(|| format!("facility '{}' not found", name))?,
+                )
+            }
             None => None,
         };
 

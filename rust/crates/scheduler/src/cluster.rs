@@ -21,7 +21,7 @@ use std::{
 
 use futures::StreamExt;
 use itertools::Itertools;
-use miette::{IntoDiagnostic, Result};
+use miette::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
@@ -619,35 +619,3 @@ impl ClusterFeed {
     }
 }
 
-/// Looks up a facility ID by facility name.
-///
-/// # Arguments
-///
-/// * `facility_name` - The name of the facility
-///
-/// # Returns
-///
-/// * `Ok(Uuid)` - The facility ID
-/// * `Err(miette::Error)` - If facility not found or database error
-pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
-    let cluster_dao = ClusterDao::new().await?;
-    cluster_dao
-        .get_facility_id(facility_name)
-        .await
-        .into_diagnostic()
-}
-
-/// Looks up a show ID by show name.
-///
-/// # Arguments
-///
-/// * `show_name` - The name of the show
-///
-/// # Returns
-///
-/// * `Ok(Uuid)` - The show ID
-/// * `Err(miette::Error)` - If show not found or database error
-pub async fn get_show_id(show_name: &str) -> Result<Uuid> {
-    let cluster_dao = ClusterDao::new().await?;
-    cluster_dao.get_show_id(show_name).await.into_diagnostic()
-}

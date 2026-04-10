@@ -296,12 +296,12 @@ impl ClusterDao {
     ///
     /// * `Ok(Uuid)` - The facility ID
     /// * `Err(sqlx::Error)` - If facility not found or database error
-    pub async fn get_facility_id(&self, facility_name: &str) -> Result<Uuid, sqlx::Error> {
+    pub async fn get_facility_id(&self, facility_name: &str) -> Result<String, sqlx::Error> {
         let row: (String,) = sqlx::query_as(QUERY_FACILITY_ID)
             .bind(facility_name)
             .fetch_one(&*self.connection_pool)
             .await?;
-        Ok(parse_uuid(&row.0))
+        Ok(row.0)
     }
 
     /// Looks up a show ID by show name.
