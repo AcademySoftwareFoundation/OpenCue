@@ -84,10 +84,28 @@ WHERE lr.pk_layer = booked.pk_layer
 "#;
 
 //== Recompute Job Resource
+
+/// SQL to save original max-cores/max-gpus values before the trigger-bypass update.
+static SELECT_JOB_RESOURCE_MAX: &str = r#"
+    SELECT jr.pk_job_resource, jr.int_max_cores, jr.int_max_gpus
+    FROM job_resource jr
+    JOIN job j ON j.pk_job = jr.pk_job AND j.str_state <> 'FINISHED'
+    WHERE ($1::text[] IS NULL OR j.pk_show = ANY($1))
+"#;
+
+/// Bulk-update job_resource booked cores/gpus with trigger bypass.
+///
+/// Sets `int_max_cores = total_cores` and `int_max_gpus = total_gpus` to prevent the
+/// `verify_job_resources` trigger from raising an exception when
+/// `int_cores > int_max_cores`. The trigger fires when
+/// `NEW.int_max_cores = OLD.int_max_cores AND NEW.int_cores > OLD.int_cores`.
+/// By changing `int_max_cores` in the same UPDATE, the trigger condition is not met.
 static RECOMPUTE_JOB_RESOURCE_FROM_PROC: &str = r#"
 UPDATE job_resource jr
-SET int_cores = LEAST(COALESCE(booked.total_cores, 0), jr.int_max_cores),
-    int_gpus = LEAST(COALESCE(booked.total_gpus, 0), jr.int_max_gpus)
+SET int_cores = COALESCE(booked.total_cores, 0),
+    int_gpus = COALESCE(booked.total_gpus, 0),
+    int_max_cores = COALESCE(booked.total_cores, 0),
+    int_max_gpus = COALESCE(booked.total_gpus, 0)
 FROM (
     SELECT jr2.pk_job,
            SUM(p.int_cores_reserved)::int AS total_cores,
@@ -104,11 +122,22 @@ WHERE jr.pk_job = booked.pk_job
     OR jr.int_gpus IS DISTINCT FROM COALESCE(booked.total_gpus, 0))
 "#;
 
+/// Restore original max-cores/max-gpus values after the trigger-bypass update.
+static RESTORE_JOB_RESOURCE_MAX: &str = r#"
+    UPDATE job_resource jr
+    SET int_max_cores = restore.max_cores,
+        int_max_gpus = restore.max_gpus
+    FROM (SELECT unnest($1::text[]) AS id,
+                 unnest($2::int[]) AS max_cores,
+                 unnest($3::int[]) AS max_gpus) restore
+    WHERE jr.pk_job_resource = restore.id
+"#;
+
 //=== Recompute Folder Resources
 static RECOMPUTE_FOLDER_RESOURCE_FROM_PROC: &str = r#"
 UPDATE folder_resource fr
-SET int_cores = LEAST(COALESCE(booked.total_cores, 0), fr.int_max_cores),
-    int_gpus = LEAST(COALESCE(booked.total_gpus, 0), fr.int_max_gpus)
+SET int_cores = COALESCE(booked.total_cores, 0),
+    int_gpus = COALESCE(booked.total_gpus, 0)
 FROM (
     SELECT fr2.pk_folder,
            SUM(p.int_cores_reserved)::int AS total_cores,
@@ -278,14 +307,7 @@ impl ResourceAccountingDao {
                     .into_diagnostic()
                     .wrap_err("Failed to recompute layer resource from proc")
             },
-            async {
-                sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
-                    .bind(bind_value)
-                    .execute(pool)
-                    .await
-                    .into_diagnostic()
-                    .wrap_err("Failed to recompute job resource from proc")
-            },
+            self.recompute_job_resource_from_proc(bind_value),
             async {
                 sqlx::query(RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
                     .bind(bind_value)
@@ -303,6 +325,72 @@ impl ResourceAccountingDao {
                     .wrap_err("Failed to recompute point from proc")
             },
         )?;
+
+        Ok(())
+    }
+
+    /// Recomputes job_resource from the proc table using a transactional trigger bypass.
+    ///
+    /// Uses a transaction with three steps:
+    /// 1. Read original max_cores/max_gpus values
+    /// 2. Bulk update cores/gpus with trigger bypass (sets max_cores/max_gpus = total to
+    ///    avoid `verify_job_resources` trigger)
+    /// 3. Restore original max_cores/max_gpus values
+    async fn recompute_job_resource_from_proc(
+        &self,
+        bind_value: Option<&[String]>,
+    ) -> std::result::Result<(), miette::Report> {
+        #[derive(sqlx::FromRow)]
+        struct MaxRow {
+            pk_job_resource: String,
+            int_max_cores: i32,
+            int_max_gpus: i32,
+        }
+
+        let mut tx = self
+            .connection_pool
+            .begin()
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to begin transaction for job resource recompute")?;
+
+        // Step 1: Save original max values
+        let max_rows: Vec<MaxRow> = sqlx::query_as(SELECT_JOB_RESOURCE_MAX)
+            .bind(bind_value)
+            .fetch_all(&mut *tx)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to read job resource max values")?;
+
+        let ids: Vec<String> = max_rows
+            .iter()
+            .map(|r| r.pk_job_resource.clone())
+            .collect();
+        let max_cores: Vec<i32> = max_rows.iter().map(|r| r.int_max_cores).collect();
+        let max_gpus: Vec<i32> = max_rows.iter().map(|r| r.int_max_gpus).collect();
+
+        // Step 2: Bulk update cores/gpus with trigger bypass
+        sqlx::query(RECOMPUTE_JOB_RESOURCE_FROM_PROC)
+            .bind(bind_value)
+            .execute(&mut *tx)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to recompute job resource cores/gpus from proc")?;
+
+        // Step 3: Restore original max values
+        sqlx::query(RESTORE_JOB_RESOURCE_MAX)
+            .bind(&ids)
+            .bind(&max_cores)
+            .bind(&max_gpus)
+            .execute(&mut *tx)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to restore job resource max values")?;
+
+        tx.commit()
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to commit job resource recompute transaction")?;
 
         Ok(())
     }
