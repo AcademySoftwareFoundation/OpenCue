@@ -178,14 +178,20 @@ WITH dispatch_frames AS (
         f.int_layer_order,
         f.int_version,
         f.ts_updated,
-        -- Accumulate the number of cores that would be consumed
+        -- Accumulate the number of cores that would be consumed across all layers of the job
         SUM(l.int_cores_min) OVER (
-            PARTITION BY l.pk_layer
-            ORDER BY f.int_dispatch_order, f.int_layer_order
+            ORDER BY l.int_dispatch_order, f.int_dispatch_order, f.int_layer_order
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS aggr_job_cores,
+        -- Accumulate the number of gpus that would be consumed across all layers of the job
+        SUM(l.int_gpus_min) OVER (
+            ORDER BY l.int_dispatch_order, f.int_dispatch_order, f.int_layer_order
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS aggr_job_gpus,
         jr.int_max_cores as job_resource_core_limit,
         jr.int_cores as job_resource_consumed_cores,
+        jr.int_max_gpus as job_resource_gpu_limit,
+        jr.int_gpus as job_resource_consumed_gpus,
         -- Add row number to limit frames per layer
         ROW_NUMBER() OVER (
             PARTITION BY l.pk_layer
@@ -205,6 +211,7 @@ limited_frames AS (
     SELECT * FROM dispatch_frames
     WHERE frame_rank <= $3  -- limit frames per layer
         AND (job_resource_core_limit <= 0 OR (aggr_job_cores + job_resource_consumed_cores <= job_resource_core_limit))
+        AND (job_resource_gpu_limit <= 0 OR (aggr_job_gpus + job_resource_consumed_gpus <= job_resource_gpu_limit))
 )
 SELECT DISTINCT
     -- Layer fields
