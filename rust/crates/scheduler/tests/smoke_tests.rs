@@ -568,6 +568,34 @@ mod scheduler_smoke_test {
         layers: Vec<(&str, &str, i64, i64, i64, i64)>, // (layer_name, tag, min_cores, min_mem, min_gpus, min_gpu_mem)
         frames_by_layer: usize,
     ) -> Result<TestJob, sqlx::Error> {
+        create_job_scenario_with_limits(
+            pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            job_name,
+            layers,
+            frames_by_layer,
+            None, // no core limit
+            None, // no gpu limit
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn create_job_scenario_with_limits(
+        pool: &Pool<Postgres>,
+        show_id: Uuid,
+        facility_id: Uuid,
+        dept_id: Uuid,
+        folder_id: Uuid,
+        job_name: &str,
+        layers: Vec<(&str, &str, i64, i64, i64, i64)>, // (layer_name, tag, min_cores, min_mem, min_gpus, min_gpu_mem)
+        frames_by_layer: usize,
+        max_cores: Option<i64>,  // job_resource.int_max_cores (in 100x units), None = use DB default
+        max_gpus: Option<i64>,   // job_resource.int_max_gpus, None = use DB default
+    ) -> Result<TestJob, sqlx::Error> {
         let mut tx = pool.begin().await?;
         let job_id = Uuid::new_v4();
 
@@ -596,21 +624,19 @@ mod scheduler_smoke_test {
                 .fetch_one(&mut *tx)
                 .await?;
 
+        let total_waiting_frames = (layers.len() * frames_by_layer) as i64;
         if existing_job_stat == 0 {
-            let total_waiting_frames = layers.len() * 3; // 3 frames per layer
             sqlx::query(
                 "INSERT INTO job_stat (pk_job_stat, pk_job, int_waiting_count) VALUES ($1, $2, $3)",
             )
             .bind(Uuid::new_v4().to_string())
             .bind(job_id.to_string())
-            .bind(total_waiting_frames as i64)
+            .bind(total_waiting_frames)
             .execute(&mut *tx)
             .await?;
         } else {
-            // Update existing job_stat
-            let total_waiting_frames = layers.len() * 3; // 3 frames per layer
             sqlx::query("UPDATE job_stat SET int_waiting_count = $1 WHERE pk_job = $2")
-                .bind(total_waiting_frames as i64)
+                .bind(total_waiting_frames)
                 .bind(job_id.to_string())
                 .execute(&mut *tx)
                 .await?;
@@ -626,17 +652,21 @@ mod scheduler_smoke_test {
 
         if existing_job_resource == 0 {
             sqlx::query(
-                "INSERT INTO job_resource (pk_job_resource, pk_job, int_priority) VALUES ($1, $2, $3)",
+                "INSERT INTO job_resource (pk_job_resource, pk_job, int_priority, int_max_cores, int_max_gpus) VALUES ($1, $2, $3, $4, $5)",
             )
             .bind(Uuid::new_v4().to_string())
             .bind(job_id.to_string())
             .bind(1)
+            .bind(max_cores.unwrap_or(10000)) // DB default is 10000
+            .bind(max_gpus.unwrap_or(100))    // DB default is 100
             .execute(&mut *tx)
             .await?;
         } else {
             // Update existing job_resource
-            sqlx::query("UPDATE job_resource SET int_priority = $1 WHERE pk_job = $2")
+            sqlx::query("UPDATE job_resource SET int_priority = $1, int_max_cores = $2, int_max_gpus = $3 WHERE pk_job = $4")
                 .bind(1)
+                .bind(max_cores.unwrap_or(10000))
+                .bind(max_gpus.unwrap_or(100))
                 .bind(job_id.to_string())
                 .execute(&mut *tx)
                 .await?;
@@ -672,8 +702,8 @@ mod scheduler_smoke_test {
             .bind(Uuid::new_v4().to_string())
             .bind(layer_id.to_string())
             .bind(job_id.to_string())
-            .bind(3) // 3 waiting frames
-            .bind(3) // 3 total frames
+            .bind(frames_by_layer as i64)
+            .bind(frames_by_layer as i64)
             .execute(&mut *tx)
             .await?;
 
@@ -1070,6 +1100,262 @@ mod scheduler_smoke_test {
                 panic!("❌ No matching hosts integration test failed: {}", e);
             }
         }
+    }
+
+    // ============================================================
+    // Job resource limit enforcement tests
+    // ============================================================
+
+    /// Helper to set up a minimal test environment for job resource limit tests.
+    /// Returns (pool, show_id, facility_id, dept_id, folder_id, alloc_id, test_suffix).
+    async fn setup_resource_limit_test(
+        test_suffix: &str,
+    ) -> Result<(Arc<Pool<Postgres>>, Uuid, Uuid, Uuid, Uuid, Uuid, String), sqlx::Error> {
+        let pool = setup_test_database().await?;
+        let mut tx = pool.begin().await?;
+
+        let facility_id = Uuid::new_v4();
+        let dept_id = Uuid::new_v4();
+        let show_id = Uuid::new_v4();
+
+        sqlx::query("INSERT INTO facility (pk_facility, str_name) VALUES ($1, $2)")
+            .bind(facility_id.to_string())
+            .bind(format!("reslimit_facility_{}", test_suffix))
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("INSERT INTO dept (pk_dept, str_name) VALUES ($1, $2)")
+            .bind(dept_id.to_string())
+            .bind(format!("reslimit_dept_{}", test_suffix))
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query("INSERT INTO show (pk_show, str_name) VALUES ($1, $2)")
+            .bind(show_id.to_string())
+            .bind(format!("reslimit_show_{}", test_suffix))
+            .execute(&mut *tx)
+            .await?;
+
+        let folder_id = create_folder(
+            &mut tx,
+            show_id,
+            dept_id,
+            &format!("reslimit_folder_{}", test_suffix),
+        )
+        .await?;
+
+        let alloc_name = format!("reslimit_alloc_{}", test_suffix);
+        let alloc_id = create_allocation(&mut tx, facility_id, &alloc_name, &alloc_name).await?;
+        create_subscription(&mut tx, alloc_id, show_id, 10000 * 100, 990000 * 100).await?;
+
+        tx.commit().await?;
+
+        let _ = OVERRIDE_CONFIG.set(create_test_config());
+
+        Ok((pool, show_id, facility_id, dept_id, folder_id, alloc_id, test_suffix.to_string()))
+    }
+
+    /// Count total frames returned across all layers from query_layers
+    fn count_dispatch_frames(layers: &[scheduler::models::DispatchLayer]) -> usize {
+        layers.iter().map(|l| l.frames.len()).sum()
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_job_resource_core_limit_multi_layer() {
+        // Bug regression: PARTITION BY l.pk_layer caused each layer to independently
+        // accumulate cores, effectively multiplying the limit by the number of layers.
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("multi_layer_core").await.expect("setup failed");
+
+        // 2 layers, each with int_cores_min=1 (100 in DB units), 4 frames per layer = 8 frames total.
+        // int_max_cores=400 means at most 4 frames across the entire job.
+        let tag = format!("reslimit_tag_{}", suffix);
+        let job = create_job_scenario_with_limits(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("reslimit_multi_layer_job_{}", suffix),
+            vec![
+                (&format!("reslimit_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+                (&format!("reslimit_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+            ],
+            4,             // 4 frames per layer
+            Some(400),     // int_max_cores = 400 (4 cores in 100x units)
+            None,
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        info!("Multi-layer core limit test: got {} frames (limit=4 cores, 2 layers x 4 frames)", total_frames);
+
+        // With the fix, total frames should be at most 4 (400 cores / 100 per frame).
+        // Before the fix, each layer independently allowed 4 frames = 8 total.
+        assert!(
+            total_frames <= 4,
+            "Expected at most 4 frames but got {}. \
+             The job_resource core limit is not being enforced across layers.",
+            total_frames,
+        );
+        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_job_resource_core_limit_single_layer() {
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("single_layer_core").await.expect("setup failed");
+
+        // 1 layer with int_cores_min=1 (100 in DB units), 10 frames.
+        // int_max_cores=300 means at most 3 frames.
+        let tag = format!("reslimit_tag_{}", suffix);
+        let job = create_job_scenario_with_limits(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("reslimit_single_layer_job_{}", suffix),
+            vec![
+                (&format!("reslimit_layer_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+            ],
+            10,            // 10 frames
+            Some(300),     // int_max_cores = 300 (3 cores)
+            None,
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        info!("Single-layer core limit test: got {} frames (limit=3 cores, 10 available)", total_frames);
+
+        assert!(
+            total_frames <= 3,
+            "Expected at most 3 frames but got {}. \
+             The job_resource core limit is not being enforced.",
+            total_frames,
+        );
+        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_job_resource_no_core_limit() {
+        // When int_max_cores <= 0, no limit should be applied.
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("no_core_limit").await.expect("setup failed");
+
+        let tag = format!("reslimit_tag_{}", suffix);
+        let job = create_job_scenario_with_limits(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("reslimit_no_limit_job_{}", suffix),
+            vec![
+                (&format!("reslimit_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+                (&format!("reslimit_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+            ],
+            4,            // 4 frames per layer = 8 total
+            Some(0),      // int_max_cores = 0 means no limit
+            None,
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        info!("No core limit test: got {} frames (no limit, 8 available)", total_frames);
+
+        // All 8 frames should be returned (subject to dispatch_frames_per_layer_limit config)
+        assert!(
+            total_frames > 4,
+            "Expected more than 4 frames when no core limit is set, but got {}",
+            total_frames,
+        );
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_job_resource_gpu_limit_multi_layer() {
+        // Verify that GPU limits are also enforced across layers.
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("multi_layer_gpu").await.expect("setup failed");
+
+        // 2 layers, each with int_gpus_min=1, 4 frames per layer = 8 frames total.
+        // int_max_gpus=3 means at most 3 frames across the entire job.
+        let tag = format!("reslimit_tag_{}", suffix);
+        let job = create_job_scenario_with_limits(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("reslimit_gpu_job_{}", suffix),
+            vec![
+                (&format!("reslimit_gpu_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 1, 1024 * 1024),
+                (&format!("reslimit_gpu_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 1, 1024 * 1024),
+            ],
+            4,             // 4 frames per layer
+            None,          // no core limit restriction
+            Some(3),       // int_max_gpus = 3
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        info!("Multi-layer GPU limit test: got {} frames (limit=3 GPUs, 2 layers x 4 frames)", total_frames);
+
+        assert!(
+            total_frames <= 3,
+            "Expected at most 3 frames but got {}. \
+             The job_resource GPU limit is not being enforced across layers.",
+            total_frames,
+        );
+        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
     }
 
     // #[tokio::test]
