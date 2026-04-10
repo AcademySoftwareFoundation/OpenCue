@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use rand::Rng;
@@ -163,6 +163,30 @@ impl Distributor {
             warn!("No live instances available for cluster distribution");
             return Ok(());
         }
+
+        // Filter clusters to only those whose facility has at least one live instance.
+        // This avoids warning spam when running facility-scoped instances that can't
+        // serve clusters from other facilities.
+        let has_unscoped_instance = instances.values().any(|inst| inst.pk_facility.is_none());
+        let all_clusters = if has_unscoped_instance {
+            // An unscoped instance accepts all clusters, so no filtering needed
+            all_clusters
+        } else {
+            let covered_facilities: HashSet<Uuid> = instances
+                .values()
+                .filter_map(|inst| inst.pk_facility.as_deref().map(parse_uuid))
+                .collect();
+            let (eligible, skipped): (Vec<_>, Vec<_>) = all_clusters
+                .into_iter()
+                .partition(|c| covered_facilities.contains(&c.facility_id));
+            if !skipped.is_empty() {
+                debug!(
+                    "Skipped {} cluster(s) from facilities with no live instance",
+                    skipped.len()
+                );
+            }
+            eligible
+        };
 
         // Read current assignments, expired included (cluster_id -> instance_id)
         let current_assignments = dao.get_all_assignments().await.into_diagnostic()?;
