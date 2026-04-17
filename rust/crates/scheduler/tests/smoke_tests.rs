@@ -1358,6 +1358,127 @@ mod scheduler_smoke_test {
         assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
     }
 
+    // ============================================================
+    // Tag delimiter tolerance: str_tags may be stored as 'a|b' or 'a | b'
+    // ============================================================
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_query_layers_matches_tags_without_spaces() {
+        // Regression: layers stored with 'tag1|tag2' (no spaces) were dropped
+        // by string_to_array(..., ' | ') and never dispatched.
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("tag_nospace").await.expect("setup failed");
+
+        let tag_a = format!("tag_a_{}", suffix);
+        let tag_b = format!("tag_b_{}", suffix);
+        let stored_tags = format!("{}|{}", tag_a, tag_b);
+
+        let job = create_job_scenario(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("tag_nospace_job_{}", suffix),
+            vec![(
+                &format!("tag_nospace_layer_{}", suffix),
+                &stored_tags,
+                1,
+                1024 * 1024,
+                0,
+                0,
+            )],
+            3,
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag_a.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        assert!(
+            total_frames > 0,
+            "Expected frames for no-space tag format '{}' when querying '{}', got 0",
+            stored_tags,
+            tag_a,
+        );
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    #[serial]
+    async fn test_query_layers_matches_mixed_tag_delimiters() {
+        // Some rows end up with inconsistent delimiters ('a|b | c'); the query
+        // should still match any individual tag.
+        let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
+            setup_resource_limit_test("tag_mixed").await.expect("setup failed");
+
+        let tag_a = format!("tag_a_{}", suffix);
+        let tag_b = format!("tag_b_{}", suffix);
+        let tag_c = format!("tag_c_{}", suffix);
+        let stored_tags = format!("{}|{} | {}", tag_a, tag_b, tag_c);
+
+        let job = create_job_scenario(
+            &pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            &format!("tag_mixed_job_{}", suffix),
+            vec![(
+                &format!("tag_mixed_layer_{}", suffix),
+                &stored_tags,
+                1,
+                1024 * 1024,
+                0,
+                0,
+            )],
+            3,
+        )
+        .await
+        .expect("failed to create job");
+
+        let layer_dao = scheduler::dao::LayerDao::new()
+            .await
+            .expect("failed to create LayerDao");
+
+        // Query for the middle tag which is adjacent to both delimiter styles.
+        let layers = layer_dao
+            .query_layers(job.id, vec![tag_b.clone()])
+            .await
+            .expect("query_layers failed");
+
+        let total_frames = count_dispatch_frames(&layers);
+        assert!(
+            total_frames > 0,
+            "Expected frames for mixed-delimiter tags '{}' when querying '{}', got 0",
+            stored_tags,
+            tag_b,
+        );
+
+        // Returned DispatchLayer.tags should be normalized (trimmed, no empties).
+        let returned_tags = &layers[0].tags;
+        assert!(
+            returned_tags.contains(&tag_a)
+                && returned_tags.contains(&tag_b)
+                && returned_tags.contains(&tag_c),
+            "DispatchLayer.tags should be normalized to [{}, {}, {}], got {:?}",
+            tag_a,
+            tag_b,
+            tag_c,
+            returned_tags,
+        );
+    }
+
     // #[tokio::test]
     // #[traced_test]
     // async fn test_full_service_cluster_discovery() {

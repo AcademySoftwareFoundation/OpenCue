@@ -139,7 +139,12 @@ impl DispatchLayer {
                 .try_into()
                 .expect("gpus_min should fit on a i32"),
             gpu_mem_min: ByteSize::kb(layer.int_gpu_mem_min as u64),
-            tags: layer.str_tags.split(" | ").map(|t| t.to_string()).collect(),
+            tags: layer
+                .str_tags
+                .split('|')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect(),
             frames: frames.into_iter().map(|f| f.into()).collect(),
         }
     }
@@ -204,7 +209,7 @@ WITH dispatch_frames AS (
         INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
     WHERE j.pk_job = $1
         AND ls.int_waiting_count > 0
-        AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
+        AND string_to_array(REPLACE($2, ' ', ''), '|') && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
         AND f.str_state = 'WAITING'
 ),
 limited_frames AS (
@@ -277,7 +282,7 @@ FROM job j
     LEFT JOIN limited_frames lf ON l.pk_layer = lf.pk_layer
 WHERE j.pk_job = $1
     AND ls.int_waiting_count > 0
-    AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
+    AND string_to_array(REPLACE($2, ' ', ''), '|') && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
 ORDER BY
     l.int_dispatch_order,
     lf.int_dispatch_order,
