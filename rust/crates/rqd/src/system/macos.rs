@@ -34,7 +34,7 @@ use sysinfo::{
     DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessStatus,
     ProcessesToUpdate, RefreshKind,
 };
-use tracing::debug;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
@@ -108,29 +108,62 @@ impl MacOsSystem {
     pub fn init(config: &MachineConfig) -> Result<Self> {
         let data = Self::read_cpuinfo(&config.cpuinfo_path)?;
 
-        let identified_os = config
-            .override_real_values
-            .clone()
-            .and_then(|c| c.os)
-            .unwrap_or_else(|| {
-                Self::read_distro(&config.distro_release_path).unwrap_or("macos".to_string())
-            });
+        let overrides = config.override_real_values.clone().unwrap_or_default();
+        if config.override_real_values.is_some() {
+            info!(
+                "Applying override_real_values: cores={:?}, procs={:?}, memory_size={:?}, hostname={:?}, os={:?}, workstation_mode={:?}",
+                overrides.cores,
+                overrides.procs,
+                overrides.memory_size,
+                overrides.hostname,
+                overrides.os,
+                overrides.workstation_mode,
+            );
+        }
+
+        let identified_os = overrides.os.clone().unwrap_or_else(|| {
+            Self::read_distro(&config.distro_release_path).unwrap_or("macos".to_string())
+        });
 
         // Initialize sysinfo collector
         let sysinfo = sysinfo::System::new_with_specifics(
             RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
         );
-        let total_memory = sysinfo.total_memory();
+        let real_total_memory = sysinfo.total_memory();
+        let total_memory = overrides
+            .memory_size
+            .map(|b| b.as_u64())
+            .unwrap_or(real_total_memory);
+        if total_memory > real_total_memory {
+            warn!(
+                "override_real_values.memory_size ({} bytes) exceeds real total memory ({} bytes); \
+                 the scheduler may dispatch frames the host cannot fit and they will OOM.",
+                total_memory, real_total_memory,
+            );
+        }
         let total_swap = sysinfo.total_swap();
+
+        let hostname = match overrides.hostname.clone() {
+            Some(h) => h,
+            None => Self::get_hostname(config.use_ip_as_hostname)?,
+        };
+        let num_sockets = overrides
+            .procs
+            .map(|p| p as u32)
+            .unwrap_or(data.num_sockets);
+        let cores_per_socket = overrides
+            .cores
+            .map(|c| c as u32)
+            .unwrap_or(data.cores_per_socket);
 
         Ok(Self {
             config: config.clone(),
             static_info: MachineStaticInfo {
-                hostname: Self::get_hostname(config.use_ip_as_hostname)?,
+                hostname,
                 total_memory,
                 total_swap,
-                num_sockets: data.num_sockets,
-                cores_per_socket: data.cores_per_socket,
+                num_sockets,
+                cores_per_socket,
                 hyperthreading_multiplier: data.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(config),
@@ -399,7 +432,10 @@ impl MacOsSystem {
         Ok(MachineDynamicInfo {
             // sysinfo.available_memory() would be the best way to infer available memory, but it
             // returns 0 on M macs
-            available_memory: sysinfo.total_memory() - sysinfo.used_memory(),
+            available_memory: self
+                .static_info
+                .total_memory
+                .saturating_sub(sysinfo.used_memory()),
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,

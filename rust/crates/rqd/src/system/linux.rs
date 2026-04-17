@@ -33,7 +33,7 @@ use opencue_proto::{
     report::{ChildrenProcStats, ProcStats, Stat},
 };
 use sysinfo::{DiskRefreshKind, Disks, MemoryRefreshKind, RefreshKind};
-use tracing::debug;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
@@ -134,20 +134,53 @@ impl LinuxSystem {
     ///
     /// sysinfo needs to have been initialized.
     pub fn init(config: &MachineConfig, cpu_initial_info: ProcessorInfoData) -> Result<Self> {
-        let identified_os = config
-            .override_real_values
-            .clone()
-            .and_then(|c| c.os)
-            .unwrap_or_else(|| {
-                Self::read_distro(&config.distro_release_path).unwrap_or("linux".to_string())
-            });
+        let overrides = config.override_real_values.clone().unwrap_or_default();
+        if config.override_real_values.is_some() {
+            info!(
+                "Applying override_real_values: cores={:?}, procs={:?}, memory_size={:?}, hostname={:?}, os={:?}, workstation_mode={:?}",
+                overrides.cores,
+                overrides.procs,
+                overrides.memory_size,
+                overrides.hostname,
+                overrides.os,
+                overrides.workstation_mode,
+            );
+        }
+
+        let identified_os = overrides.os.clone().unwrap_or_else(|| {
+            Self::read_distro(&config.distro_release_path).unwrap_or("linux".to_string())
+        });
 
         // Initialize sysinfo collector
         let sysinfo = sysinfo::System::new_with_specifics(
             RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
         );
-        let total_memory = sysinfo.total_memory();
+        let real_total_memory = sysinfo.total_memory();
+        let total_memory = overrides
+            .memory_size
+            .map(|b| b.as_u64())
+            .unwrap_or(real_total_memory);
+        if total_memory > real_total_memory {
+            warn!(
+                "override_real_values.memory_size ({} bytes) exceeds real total memory ({} bytes); \
+                 the scheduler may dispatch frames the host cannot fit and they will OOM.",
+                total_memory, real_total_memory,
+            );
+        }
         let total_swap = sysinfo.total_swap();
+
+        let hostname = match overrides.hostname.clone() {
+            Some(h) => h,
+            None => Self::get_hostname(config.use_ip_as_hostname)?,
+        };
+        let num_sockets = overrides
+            .procs
+            .map(|p| p as u32)
+            .unwrap_or(cpu_initial_info.num_sockets);
+        let cores_per_socket = overrides
+            .cores
+            .map(|c| c as u32)
+            .unwrap_or(cpu_initial_info.cores_per_socket);
 
         // Both sysconf values return -1 if not available
         let page_size: u64 = unsafe { libc::sysconf(_SC_PAGESIZE) }
@@ -162,11 +195,11 @@ impl LinuxSystem {
         Ok(Self {
             config: config.clone(),
             static_info: MachineStaticInfo {
-                hostname: Self::get_hostname(config.use_ip_as_hostname)?,
+                hostname,
                 total_memory,
                 total_swap,
-                num_sockets: cpu_initial_info.num_sockets,
-                cores_per_socket: cpu_initial_info.cores_per_socket,
+                num_sockets,
+                cores_per_socket,
                 hyperthreading_multiplier: cpu_initial_info.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(config),
@@ -442,8 +475,11 @@ impl LinuxSystem {
             .unwrap_or_else(|err| err.into_inner());
         sysinfo.refresh_memory();
 
-        let available_memory = sysinfo.available_memory();
-        let total_memory = sysinfo.total_memory();
+        let real_total = sysinfo.total_memory();
+        let real_available = sysinfo.available_memory();
+        let used = real_total.saturating_sub(real_available);
+        let total_memory = self.static_info.total_memory;
+        let available_memory = total_memory.saturating_sub(used);
         debug!(
             "Memory stats: available_memory={} bytes ({:.1} GiB), total_memory={} bytes ({:.1} GiB)",
             available_memory,
