@@ -1,4 +1,3 @@
-
 ---
 layout: default
 title: "v1.19.1 release"
@@ -8,9 +7,9 @@ nav_order: 0
 
 # Announcing the release of OpenCue v1.19.1
 
-### OpenCue v1.19.1 release notes
+## OpenCue v1.19.1 release notes
 
-#### April 13, 2026
+### April 13, 2026
 
 ---
 
@@ -240,19 +239,19 @@ This release brings major new capabilities including a distributed scheduler wri
 * 2d2ce13dc246e056a60364bfa7040a1d8783cede [rust] Add Copyright header on all rust files (#2114)
 * 3599a1edc67a0c4a6e778395b0b100e83efb9c80 [cuegui] Fix ETA calculation type error and UTF-8 decoding in FrameMonitorTree (#2119)
 * ce61412b723c4020a6676842e175a228b3026daa [cuegui] Fix layer tags validation to allow dashes and underscores (#2120)
-* 8b39636198486380e34f7f394d83546907167a1c [RQD][FIX] Remove code duplication (#2123)
+* 8b39636198486380e34f7f394d83546907167a1c [RQD]\[FIX] Remove code duplication (#2123)
 * b6633a30c605ca8b8d7b81462d4c6df1ae9e488e docs: add Docker setup for building documentation (#2130)
 * 9d7fafcd7396300433aa985c92229401af69e578 [cueweb/docs] Update cueweb documentation with correct healthcheck using wget instead of curl (#2132)
 * 081cbc18767936b3a0fe481fd93e34863abf9e89 Bump uri from 1.0.3 to 1.0.4 in /docs (#2135)
 * 5519f7de32ee824aedcdcd9b4962c54652159cd6 [docs] Revert uri gem to 1.0.3 in Gemfile.lock (#2136)
 * aba6471e76b6562ea9a151bf79fb8633450c1ec5 [docs] Remove obsolete version attribute from docker-compose.yml (#2137)
-* ce6a8ff8af3198da104c38269104bcd4ab7f64e6 [RQD][FIX] Fix hyperthreading cores reservation (#2124)
-* b81ba27dfad9d8f2776824aafe0a9810e00c44a5 [RQD][FIX] Skip os.chown for Windows (#2122)
-* 624775ba966b267af00e0ca8c4bfd8566152dd30 [RQD][FIX] Windows log rotation retries (#2121)
+* ce6a8ff8af3198da104c38269104bcd4ab7f64e6 [RQD]\[FIX] Fix hyperthreading cores reservation (#2124)
+* b81ba27dfad9d8f2776824aafe0a9810e00c44a5 [RQD]\[FIX] Skip os.chown for Windows (#2122)
+* 624775ba966b267af00e0ca8c4bfd8566152dd30 [RQD]\[FIX] Windows log rotation retries (#2121)
 * 2a27f490daf9872090be51ac5391ccfdca445528 [cuebot/cuegui/pycue/rqd] Store PSS and MaxPSS (#2112)
 * 55e4c98ac50d3b2b3ec8bf4077a7cab13618c3b6 [rust] Enforce home version to stay compatible with rust 187 (#2145)
 * 71ef9810a27fdb49fabcad2edac623f8e513fff8 [rqd/cicd] Only build rqd crate when packaging rqd binary (#2149)
-* 8ec37c7be9b72c5e78fa815792b67f2ae325c1c0 [cuebot][FIX] Hardware tags update on Host restart (#2125)
+* 8ec37c7be9b72c5e78fa815792b67f2ae325c1c0 [cuebot]\[FIX] Hardware tags update on Host restart (#2125)
 * 01bd30d196e4fa05c8cd24db4ba2f2fa0a35dd8e [pycue] Fix service timeout LLU getter (#2146)
 * c4b0cace267329a57c21de30e166c6a78651769f [cuegui/cuebot] Fix UI freeze on gRPC connection drops and add job unavailable notification (#2143)
 * 453d6f4f407d8621c39dfa33e2a61ece38d20f75 [cuebot] Add scheduled subscription recalculation task (#2134)
