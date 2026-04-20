@@ -88,6 +88,8 @@ impl Cluster {
 
     /// Creates a cluster from explicitly provided tags (e.g. CLI arguments).
     /// The ID is derived from the sorted tag names.
+    /// **Attention:** If `tags` contains tags of different `ttype`s, the generated ID will only
+    /// contain the type of the first tag, which is unexpected behavior.
     pub fn from_tags(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
         let tag_type = tags.first().map_or("unknown", |t| t.ttype.as_str());
         let sorted_tags: BTreeSet<Tag> = tags.into_iter().collect();
@@ -246,8 +248,8 @@ impl ClusterFeed {
         {
             let mut clusters = self.clusters.write().unwrap_or_else(|p| p.into_inner());
             *clusters = new_clusters;
+            self.current_index.store(0, Ordering::Relaxed);
         }
-        self.current_index.store(0, Ordering::Relaxed);
     }
 
     /// Returns a builder for a feed scoped to the given facility.
@@ -312,7 +314,6 @@ impl ClusterFeed {
         ignore_tags: &[String],
         shows_filter: Option<Vec<String>>,
     ) -> Result<Vec<Cluster>> {
-
         // Fetch clusters for alloc and non_alloc tags
         let mut clusters_stream = cluster_dao
             .fetch_alloc_clusters(facility_id, shows_filter.clone())
@@ -618,4 +619,3 @@ impl ClusterFeed {
         cancel_sender
     }
 }
-
