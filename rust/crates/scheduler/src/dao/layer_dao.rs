@@ -308,6 +308,12 @@ impl LayerDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        LayerDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Fetches layers with their frames in a single batched database query.
     ///
     /// Uses a single SQL query with joins to fetch both layers and their frames,

@@ -41,7 +41,7 @@ use crate::resource_accounting::resource_accounting_service;
 ///
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error occurred during processing
-pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
+pub async fn run(cluster_feed: Arc<ClusterFeed>) -> miette::Result<()> {
     // Initialize the resource accounting service (starts its periodic recomputation loop).
     resource_accounting_service().await?;
 

@@ -45,7 +45,7 @@ CLAUDE.md
 docs/nav_order_index.txt
 rust/.cargo/config.toml
 sandbox/pgadmin-data/*
-.claude/settings.json
 plans/*
+.claude/settings.json
 .entire/.gitignore
 .entire/settings.json

@@ -130,6 +130,12 @@ impl JobDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        JobDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Queries for pending jobs by show, facility, and tag criteria.
     ///
     /// Finds jobs that are ready for dispatch based on subscription availability,

@@ -25,6 +25,7 @@ use crate::{
     cluster::{Cluster, ClusterFeed},
     cluster_key::{Tag, TagType},
     config::CONFIG,
+    dao::{helpers::parse_uuid, ClusterDao},
 };
 
 mod cluster;
@@ -34,6 +35,7 @@ mod dao;
 mod host_cache;
 mod metrics;
 mod models;
+mod orchestrator;
 mod pgpool;
 mod pipeline;
 mod resource_accounting;
@@ -71,6 +73,13 @@ pub struct JobQueueCli {
         long_help = "A list of tags to ignore when loading clusters."
     )]
     ignore_tags: Vec<String>,
+
+    #[structopt(
+        long,
+        short = "o",
+        long_help = "Run in orchestrated mode. Clusters are assigned by the orchestrator leader."
+    )]
+    orchestrated: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -171,12 +180,23 @@ impl JobQueueCli {
     async fn run(&self) -> miette::Result<()> {
         let (facility, entire_shows, alloc_tags, manual_tags, ignore_tags) = self.resolve_config();
 
+        // Orchestrated mode — delegate to orchestrator module
+        if self.orchestrated {
+            return orchestrator::run(facility, ignore_tags).await;
+        }
+
+        let cluster_dao = ClusterDao::new().await?;
+
         // Lookup facility_id from facility name
         let facility_id = match &facility {
             Some(facility) => Some(
-                cluster::get_facility_id(facility)
-                    .await
-                    .wrap_err("Invalid facility name")?,
+                parse_uuid(
+                    &cluster_dao
+                        .get_facility_id(facility)
+                        .await
+                        .into_diagnostic()
+                        .wrap_err("Invalid facility name")?,
+                ),
             ),
             None => None,
         };
@@ -186,8 +206,10 @@ impl JobQueueCli {
         if let Some(facility_id) = &facility_id {
             // Build Cluster::ComposedKey for each alloc_tag (show:tag format)
             for alloc_tag in &alloc_tags {
-                let show_id = cluster::get_show_id(&alloc_tag.show)
+                let show_id = cluster_dao
+                    .get_show_id(&alloc_tag.show)
                     .await
+                    .into_diagnostic()
                     .wrap_err(format!("Could not find show {}.", alloc_tag.show))?;
                 clusters.push(Cluster::single_tag(
                     *facility_id,
@@ -201,10 +223,12 @@ impl JobQueueCli {
 
             // Build Cluster::TagsKey for manual_tags
             for manual_tag in &manual_tags {
-                let show_id = cluster::get_show_id(&manual_tag.show)
+                let show_id = cluster_dao
+                    .get_show_id(&manual_tag.show)
                     .await
+                    .into_diagnostic()
                     .wrap_err(format!("Could not find show {}.", manual_tag.show))?;
-                clusters.push(Cluster::multiple_tag(
+                clusters.push(Cluster::from_tags(
                     *facility_id,
                     show_id,
                     manual_tag

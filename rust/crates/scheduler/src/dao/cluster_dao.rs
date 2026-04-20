@@ -192,6 +192,12 @@ impl ClusterDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        ClusterDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Fetches all allocation-based clusters from the database.
     ///
     /// Returns clusters defined by facility, show, and allocation tag combinations.
@@ -209,7 +215,7 @@ impl ClusterDao {
         &self,
         facility_id: Option<Uuid>,
         shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
         match (facility_id, shows_filter) {
             (Some(fid), Some(show_names)) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(
@@ -253,7 +259,7 @@ impl ClusterDao {
         &self,
         facility_id: Option<Uuid>,
         shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
         match (facility_id, shows_filter) {
             (Some(fid), Some(show_names)) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(
@@ -290,12 +296,12 @@ impl ClusterDao {
     ///
     /// * `Ok(Uuid)` - The facility ID
     /// * `Err(sqlx::Error)` - If facility not found or database error
-    pub async fn get_facility_id(&self, facility_name: &str) -> Result<Uuid, sqlx::Error> {
+    pub async fn get_facility_id(&self, facility_name: &str) -> Result<String, sqlx::Error> {
         let row: (String,) = sqlx::query_as(QUERY_FACILITY_ID)
             .bind(facility_name)
             .fetch_one(&*self.connection_pool)
             .await?;
-        Ok(parse_uuid(&row.0))
+        Ok(row.0)
     }
 
     /// Looks up a show ID by show name.

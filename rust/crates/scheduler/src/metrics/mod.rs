@@ -13,11 +13,15 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_counter, register_counter_vec, register_histogram, Counter, CounterVec, Encoder,
-    Histogram, TextEncoder,
+    register_counter, register_counter_vec, register_histogram, register_int_gauge, Counter,
+    CounterVec, Encoder, Histogram, IntGauge, TextEncoder,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tracing::{error, info};
+
+/// Whether the scheduler is running in orchestrated mode.
+pub static ORCHESTRATOR_ENABLED: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
     // Job metrics from entrypoint.rs
@@ -70,6 +74,31 @@ lazy_static! {
         vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
     )
     .expect("Failed to register job_query_duration_seconds histogram");
+
+    // Orchestrator metrics
+    pub static ref ORCHESTRATOR_ASSIGNED_CLUSTERS: IntGauge = register_int_gauge!(
+        "scheduler_orchestrator_assigned_clusters",
+        "Number of clusters assigned to this instance"
+    )
+    .expect("Failed to register orchestrator_assigned_clusters gauge");
+
+    pub static ref ORCHESTRATOR_IS_LEADER: IntGauge = register_int_gauge!(
+        "scheduler_orchestrator_is_leader",
+        "Whether this instance is the orchestrator leader (1 = leader, 0 = worker)"
+    )
+    .expect("Failed to register orchestrator_is_leader gauge");
+
+    pub static ref ORCHESTRATOR_INSTANCES_ALIVE: IntGauge = register_int_gauge!(
+        "scheduler_orchestrator_instances_alive",
+        "Total number of live scheduler instances (leader only)"
+    )
+    .expect("Failed to register orchestrator_instances_alive gauge");
+
+    pub static ref ORCHESTRATOR_REBALANCE_TOTAL: Counter = register_counter!(
+        "scheduler_orchestrator_rebalance_total",
+        "Total number of cluster distribution rebalance events"
+    )
+    .expect("Failed to register orchestrator_rebalance_total counter");
 }
 
 /// Handler for the /metrics endpoint
@@ -107,8 +136,24 @@ async fn metrics_handler() -> impl IntoResponse {
 /// # Returns
 ///
 /// This function runs indefinitely and only returns if the server fails to start
+/// Handler for the /health endpoint
+async fn health_handler() -> impl IntoResponse {
+    if ORCHESTRATOR_ENABLED.load(Ordering::Relaxed)
+        && ORCHESTRATOR_ASSIGNED_CLUSTERS.get() == 0
+    {
+        (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "no clusters assigned",
+        )
+    } else {
+        (axum::http::StatusCode::OK, "ok")
+    }
+}
+
 pub async fn start_server(addr: &str) -> miette::Result<()> {
-    let app = Router::new().route("/metrics", get(metrics_handler));
+    let app = Router::new()
+        .route("/metrics", get(metrics_handler))
+        .route("/health", get(health_handler));
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -165,4 +210,30 @@ pub fn observe_time_to_book(duration: Duration) {
 #[inline]
 pub fn observe_job_query_duration(duration: Duration) {
     JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
+}
+
+// --- Orchestrator metrics ---
+
+/// Set the number of clusters assigned to this instance
+#[inline]
+pub fn set_orchestrator_assigned_clusters(count: usize) {
+    ORCHESTRATOR_ASSIGNED_CLUSTERS.set(count as i64);
+}
+
+/// Set whether this instance is the orchestrator leader
+#[inline]
+pub fn set_orchestrator_is_leader(is_leader: bool) {
+    ORCHESTRATOR_IS_LEADER.set(if is_leader { 1 } else { 0 });
+}
+
+/// Set the total number of live instances (leader only)
+#[inline]
+pub fn set_orchestrator_instances_alive(count: usize) {
+    ORCHESTRATOR_INSTANCES_ALIVE.set(count as i64);
+}
+
+/// Increment the rebalance counter
+#[inline]
+pub fn increment_orchestrator_rebalance() {
+    ORCHESTRATOR_REBALANCE_TOTAL.inc();
 }

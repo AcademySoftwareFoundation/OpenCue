@@ -1,0 +1,1 @@
+../../../../cuebot/src/main/resources/conf/ddl/postgres/seed_data.sql

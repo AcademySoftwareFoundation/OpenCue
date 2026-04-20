@@ -241,3 +241,42 @@ scheduler:
   # ignore_tags:
   #   - tag_to_ignore1
   #   - tag_to_ignore2
+
+# =============================================================================
+# ORCHESTRATOR CONFIGURATION
+# =============================================================================
+# Controls leader election, heartbeating, and cluster distribution for
+# multi-instance deployments. All durations use humantime format (e.g. 5s, 30s).
+# orchestrator:
+  # How often this instance updates its heartbeat
+  # Default: 5s
+  # heartbeat_interval: 5s
+
+  # Instance is considered dead after this duration without heartbeat
+  # Default: 30s
+  # failure_threshold: 30s
+
+  # How often the leader recalculates cluster distribution
+  # Default: 10s
+  # distribution_interval: 10s
+
+  # How often workers poll for assignment changes
+  # Default: 5s
+  # poll_interval: 5s
+
+  # How often non-leaders attempt to acquire the leader lock
+  # Default: 10s
+  # election_interval: 10s
+
+  # Relative capacity weight of this instance (higher = more clusters assigned)
+  # Default: 100
+  # capacity: 100
+
+  # Graceful shutdown timeout before force-killing in-flight work
+  # Default: 30s
+  # shutdown_timeout: 30s
+
+  # How long a cluster assignment is preserved before becoming eligible for
+  # redistribution. Prevents new instances from remaining idle.
+  # Default: 120s
+  # assignment_ttl: 120s
