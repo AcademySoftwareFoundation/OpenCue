@@ -90,6 +90,8 @@ import com.imageworks.spcue.grpc.job.LayerReorderFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerReorderFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerRetryFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerRetryFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerSetDispatchOrderRequest;
+import com.imageworks.spcue.grpc.job.LayerSetDispatchOrderResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMaxCoresResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinCoresRequest;
@@ -231,6 +233,17 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
             layerDao.updateLayerTags(layer, new HashSet<>(request.getTagsList()));
             responseObserver.onNext(LayerSetTagsResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setDispatchOrder(LayerSetDispatchOrderRequest request,
+            StreamObserver<LayerSetDispatchOrderResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.setLayerDispatchOrder(layer, request.getOrder());
+            responseObserver.onNext(LayerSetDispatchOrderResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
     }
