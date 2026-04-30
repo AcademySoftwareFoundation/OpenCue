@@ -596,7 +596,7 @@ class SubscriptionTests(unittest.TestCase):
         findShowMock.assert_called_with(TEST_SHOW)
         findAllocMock.assert_called_with(allocName)
         showMock.createSubscription.assert_called_with(
-            allocMock.data, numCores, burstCores
+            allocMock, float(numCores), float(burstCores)
         )
 
     @mock.patch("opencue.api.findShow")

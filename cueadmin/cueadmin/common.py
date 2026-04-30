@@ -1378,7 +1378,7 @@ def handleArgs(args):
             % (opencue.rep(show), opencue.rep(alloc)),
             args.force,
             show.createSubscription,
-            alloc.data,
+            alloc,
             float(args.create_sub[2]),
             float(args.create_sub[3]),
         )
