@@ -256,7 +256,8 @@ Enables real-time monitoring and management of render hosts (nodes), including t
 - **Physical**: Physical memory state
 - **GPU Memory**: GPU memory statistics
 - **Idle/Total Memory**: Memory availability
-- **Temp Available**: Temporary disk space
+- **Temp**: Used (red) vs available (green) `/mcp/` space, shown as a bar
+- **Temp Free**: Free `/mcp/` space with the percent free in parentheses (e.g. `99.2G (50%)`); the percent makes it easier to compare hosts with different `/mcp/` sizes
 - **Cores**: CPU core information
 - **Idle GPU/Total GPU**: GPU availability
 - **Ping**: Network responsiveness

@@ -83,7 +83,11 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
         try:
             self._drawBackground(painter, option, index)
 
-            rect = option.rect.adjusted(2, 6, -2, -6)
+            # Padding (2px top/bottom) keeps the bar visible on platforms
+            # where Qt's default tree row is short — notably macOS, where
+            # rows are ~14-16px tall. Larger padding (e.g. 6px) consumes
+            # the entire row on macOS and the bar disappears.
+            rect = option.rect.adjusted(2, 2, -2, -2)
             ratio = rect.width() / float(total)
             length = int(ceil(ratio * (used)))
             painter.fillRect(rect,
@@ -375,6 +379,20 @@ class HostGpuBarDelegate(AbstractDelegate):
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
                                      *index.data(QtCore.Qt.UserRole + 3))
+        else:
+            AbstractDelegate.paint(self, painter, option, index)
+
+
+class HostTempBarDelegate(AbstractDelegate):
+    """Delegate for the host temp (/mcp) field."""
+
+    def __init__(self, parent, *args):
+        AbstractDelegate.__init__(self, parent, *args)
+
+    def paint(self, painter, option, index):
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
+            self._paintDifferenceBar(painter, option, index,
+                                     *index.data(QtCore.Qt.UserRole + 4))
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
