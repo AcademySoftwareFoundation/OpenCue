@@ -330,14 +330,21 @@ impl WindowsSystem {
             .wrap_err_with(|| {
                 format!("Could not canonicalize temp path {}", self.config.temp_path)
             })?;
-        // canonicalize returns a verbatim path (\\?\...) on Windows; strip
-        // that prefix so the result matches drive-letter mount points like
-        // "C:\" reported by sysinfo, since Path::starts_with is component-based.
+        // canonicalize returns a verbatim path on Windows; convert it back to
+        // a normal form so the result matches the mount points reported by
+        // sysinfo (Path::starts_with is component-based, so "\\?\C:" won't
+        // match "C:"). Two cases: \\?\UNC\server\share\... → \\server\share\...,
+        // and \\?\C:\... → C:\....
         let canonical_str = canonical.to_string_lossy().into_owned();
-        let stripped = canonical_str
-            .strip_prefix(r"\\?\")
-            .unwrap_or(&canonical_str);
-        let resolved = std::path::PathBuf::from(stripped);
+        let resolved = if let Some(unc) = canonical_str.strip_prefix(r"\\?\UNC\") {
+            std::path::PathBuf::from(format!(r"\\{unc}"))
+        } else {
+            std::path::PathBuf::from(
+                canonical_str
+                    .strip_prefix(r"\\?\")
+                    .unwrap_or(&canonical_str),
+            )
+        };
         let mut diskinfo =
             Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
         let idx = diskinfo

@@ -38,6 +38,10 @@ fn main() -> miette::Result<()> {
 }
 
 async fn async_main() -> miette::Result<()> {
+    // Ensure provisioned paths (snapshots, machine temp) exist before any
+    // subsystem touches them.
+    CONFIG.setup()?;
+
     let log_level =
         tracing::Level::from_str(CONFIG.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()
