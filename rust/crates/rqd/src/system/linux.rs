@@ -32,7 +32,7 @@ use opencue_proto::{
     host::HardwareState,
     report::{ChildrenProcStats, ProcStats, Stat},
 };
-use sysinfo::{DiskRefreshKind, Disks, MemoryRefreshKind, RefreshKind};
+use sysinfo::{MemoryRefreshKind, RefreshKind};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -522,32 +522,26 @@ impl LinuxSystem {
         load_val.ok_or(miette!("Couldn't find load average"))
     }
 
-    /// Reads storage information from the temporary mount point and extracts
+    /// Reads storage information for the configured temp path and extracts
     /// the total space and available space.
+    ///
+    /// Uses `statvfs` directly so the path is followed through symlinks and
+    /// stats the actual underlying filesystem. The previous `sysinfo`-based
+    /// mount-list lookup misreported any host where `temp_path` was a symlink,
+    /// because the prefix match could fall back to the root filesystem.
     ///
     /// # Returns
     ///
     /// A `Result` containing a tuple of total space and available space in bytes.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
-        let mut diskinfo =
-            Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
-        let tmp_disk = diskinfo.list_mut().iter_mut().find(|disk| {
-            self.config.temp_path.starts_with(
-                disk.mount_point()
-                    .to_str()
-                    .unwrap_or("invalid_path_will_never_match"),
-            )
-        });
-        match tmp_disk {
-            Some(disk) => {
-                disk.refresh_specifics(DiskRefreshKind::everything());
-                Ok((disk.total_space(), disk.available_space()))
-            }
-            None => Err(miette!(
-                "Could not locate disk for temp path {}",
-                self.config.temp_path
-            )),
-        }
+        let stat = nix::sys::statvfs::statvfs(self.config.temp_path.as_str())
+            .into_diagnostic()
+            .wrap_err_with(|| {
+                format!("statvfs failed for temp path {}", self.config.temp_path)
+            })?;
+        let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
+        let available_space = stat.blocks_available() as u64 * stat.block_size() as u64;
+        Ok((total_space, available_space))
     }
 
     fn refresh_procs_cache(&self) -> Result<()> {

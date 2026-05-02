@@ -370,6 +370,13 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
     let config_path = temp_dir.path().join("test_config.yaml");
     let (rqd_port, cuebot_port) = get_two_free_ports();
 
+    // The yaml config below points machine.temp_path / runner.temp_path at
+    // <temp_dir>/tmp and runner.snapshots_path at <temp_dir>/snapshots. These
+    // must exist before openrqd starts: machine stats collection uses statvfs
+    // on temp_path, which fails with ENOENT if the directory is missing.
+    std::fs::create_dir_all(temp_dir.path().join("tmp")).unwrap();
+    std::fs::create_dir_all(temp_dir.path().join("snapshots")).unwrap();
+
     let test_config = make_test_config(&temp_dir, rqd_port, cuebot_port, monitor_interval, worker_threads);
     std::fs::write(&config_path, test_config).unwrap();
 
