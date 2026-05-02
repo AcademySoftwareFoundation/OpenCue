@@ -540,7 +540,7 @@ impl LinuxSystem {
                 format!("statvfs failed for temp path {}", self.config.temp_path)
             })?;
         let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
-        let available_space = stat.blocks_available() as u64 * stat.block_size() as u64;
+        let available_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
         Ok((total_space, available_space))
     }
 

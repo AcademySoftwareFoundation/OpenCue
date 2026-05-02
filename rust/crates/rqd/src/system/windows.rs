@@ -317,18 +317,39 @@ impl WindowsSystem {
         })
     }
 
-    /// Reads storage information from the temporary mount point and extracts
+    /// Reads storage information for the configured temp path and extracts
     /// the total space and available space.
+    ///
+    /// Resolves the temp path through junctions/symlinks first so the lookup
+    /// hits the real underlying volume, and picks the longest matching mount
+    /// point so a deeper mount wins over the root drive.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
         let temp_path = std::path::Path::new(&self.config.temp_path);
+        let canonical = std::fs::canonicalize(temp_path)
+            .into_diagnostic()
+            .wrap_err_with(|| {
+                format!("Could not canonicalize temp path {}", self.config.temp_path)
+            })?;
+        // canonicalize returns a verbatim path (\\?\...) on Windows; strip
+        // that prefix so the result matches drive-letter mount points like
+        // "C:\" reported by sysinfo, since Path::starts_with is component-based.
+        let canonical_str = canonical.to_string_lossy().into_owned();
+        let stripped = canonical_str
+            .strip_prefix(r"\\?\")
+            .unwrap_or(&canonical_str);
+        let resolved = std::path::PathBuf::from(stripped);
         let mut diskinfo =
             Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
-        let tmp_disk = diskinfo
-            .list_mut()
-            .iter_mut()
-            .find(|disk| temp_path.starts_with(disk.mount_point()));
-        match tmp_disk {
-            Some(disk) => {
+        let idx = diskinfo
+            .list()
+            .iter()
+            .enumerate()
+            .filter(|(_, disk)| resolved.starts_with(disk.mount_point()))
+            .max_by_key(|(_, disk)| disk.mount_point().as_os_str().len())
+            .map(|(i, _)| i);
+        match idx {
+            Some(i) => {
+                let disk = &mut diskinfo.list_mut()[i];
                 disk.refresh_specifics(DiskRefreshKind::everything());
                 Ok((disk.total_space(), disk.available_space()))
             }
