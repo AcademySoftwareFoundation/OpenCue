@@ -47,6 +47,27 @@ logger = cuegui.Logger.getLogger(__file__)
 COMMENT_COLUMN = 1
 
 
+def _tempFreeRatio(host):
+    """Free /mcp as a fraction of total (0.0-1.0). Falls back to free amount
+    when total_mcp is unknown so sorting still produces a sensible order."""
+    total = host.data.total_mcp
+    if not total:
+        return host.data.free_mcp
+    return host.data.free_mcp / float(total)
+
+
+def _formatTempCell(host):
+    """Cell text for the Temp column: '<free> (NN%)'. When total_mcp is
+    unknown (e.g. RQD that did not initialize it), shows just the free
+    amount."""
+    free = host.data.free_mcp
+    total = host.data.total_mcp
+    free_str = cuegui.Utils.memoryToString(free)
+    if not total:
+        return free_str
+    return "%s (%d%%)" % (free_str, int(round(100.0 * free / total)))
+
+
 class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget for displaying a list of hosts."""
 
@@ -93,10 +114,17 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
                        sort=lambda host: host.data.idle_memory,
                        tip="The amount of unreserved memory.")
-        self.addColumn("Temp available", 70, id=9,
+        self.addColumn("Temp", 70, id=9,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
-                       sort=lambda host: host.data.free_mcp,
-                       tip="The amount of free space in /mcp/")
+                       sort=_tempFreeRatio,
+                       delegate=cuegui.ItemDelegate.HostTempBarDelegate,
+                       tip="The amount of used /mcp/ space (red) vs available (green).")
+        self.addColumn("Temp Free", 90, id=23,
+                       data=_formatTempCell,
+                       sort=_tempFreeRatio,
+                       tip="Free /mcp/ space. The number in parentheses is the\n"
+                           "percent free; hosts have different /mcp sizes, so the\n"
+                           "percent makes it easier to compare across hosts.")
         self.addColumn("Cores", 60, id=10,
                        data=lambda host: "%.2f" % host.data.cores,
                        sort=lambda host: host.data.cores,
@@ -375,5 +403,9 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return [self.rpcObject.data.total_gpu_memory -
                     self.rpcObject.data.free_gpu_memory,
                     self.rpcObject.data.total_gpu_memory]
+
+        if role == QtCore.Qt.UserRole + 4:
+            return [self.rpcObject.data.total_mcp - self.rpcObject.data.free_mcp,
+                    self.rpcObject.data.total_mcp]
 
         return cuegui.Constants.QVARIANT_NULL
