@@ -12,6 +12,7 @@
 
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
+    panic::AssertUnwindSafe,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
@@ -19,7 +20,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use itertools::Itertools;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
@@ -367,114 +368,134 @@ impl ClusterFeed {
 
         // Stream clusters on the caller channel
         tokio::spawn(async move {
-            let mut all_sleeping_rounds = 0;
-            let feed = self.clusters.clone();
-            let current_index_atomic = self.current_index.clone();
+            let task = AssertUnwindSafe(async move {
+                let mut all_sleeping_rounds = 0;
+                let feed = self.clusters.clone();
+                let current_index_atomic = self.current_index.clone();
 
-            loop {
-                // Check stop flag
-                if stop_flag.load(Ordering::Relaxed) {
-                    warn!("Cluster received a stop message. Stopping feed.");
-                    break;
-                }
-
-                let (item, cluster_size, completed_round) = {
-                    let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
-                    if clusters.is_empty() {
+                loop {
+                    // Check stop flag
+                    if stop_flag.load(Ordering::Relaxed) {
+                        warn!("Cluster received a stop message. Stopping feed.");
                         break;
                     }
 
-                    let current_index = current_index_atomic.load(Ordering::Relaxed);
-                    let item = clusters[current_index].clone();
-                    let next_index = (current_index + 1) % clusters.len();
-                    let completed_round = next_index == 0; // Detect wrap-around
-                    current_index_atomic.store(next_index, Ordering::Relaxed);
+                    let (item, cluster_size, completed_round) = {
+                        let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+                        if clusters.is_empty() {
+                            break;
+                        }
 
-                    (item, clusters.len(), completed_round)
-                };
+                        let current_index = current_index_atomic.load(Ordering::Relaxed);
+                        let item = clusters[current_index].clone();
+                        let next_index = (current_index + 1) % clusters.len();
+                        let completed_round = next_index == 0; // Detect wrap-around
+                        current_index_atomic.store(next_index, Ordering::Relaxed);
 
-                // Skip cluster if it is marked as sleeping
-                let is_sleeping = {
-                    let mut sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                    if let Some(wake_up_time) = sleep_map_lock.get(&item) {
-                        if *wake_up_time > SystemTime::now() {
-                            // Still sleeping, skip it
-                            true
+                        (item, clusters.len(), completed_round)
+                    };
+
+                    // Skip cluster if it is marked as sleeping
+                    let is_sleeping = {
+                        let mut sleep_map_lock =
+                            sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                        if let Some(wake_up_time) = sleep_map_lock.get(&item) {
+                            if *wake_up_time > SystemTime::now() {
+                                // Still sleeping, skip it
+                                true
+                            } else {
+                                // Remove expired entries
+                                sleep_map_lock.remove(&item);
+                                false
+                            }
                         } else {
-                            // Remove expired entries
-                            sleep_map_lock.remove(&item);
                             false
                         }
-                    } else {
-                        false
-                    }
-                };
-
-                if !is_sleeping && sender.send(item).await.is_err() {
-                    warn!("Cluster receiver dropped. Stopping feed.");
-                    break;
-                }
-
-                // At end of round, add backoff sleep
-                if completed_round {
-                    CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
-
-                    // Check if all/most clusters are sleeping
-                    let sleeping_count = {
-                        let sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                        sleep_map_lock.len()
                     };
-                    if sleeping_count >= cluster_size {
-                        // Ensure this doesn't loop forever when there's a limit configured
-                        all_sleeping_rounds += 1;
-                        if let Some(max_empty_cycles) = CONFIG.queue.empty_job_cycles_before_quiting
-                        {
-                            if all_sleeping_rounds > max_empty_cycles {
-                                warn!("All clusters have been sleeping for too long");
-                                break;
-                            }
-                        }
 
-                        // All clusters sleeping, sleep longer
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                    } else if sleeping_count > 0 {
-                        // Some clusters sleeping, brief pause
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    } else {
-                        // Active work, minimal pause
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    if !is_sleeping {
+                        if sender.send(item).await.is_err() {
+                            warn!("Cluster receiver dropped. Stopping feed.");
+                            break;
+                        }
+                    } else if !completed_round {
+                        // Skipped a sleeping cluster mid-round; yield so we don't starve the runtime.
+                        tokio::task::yield_now().await;
+                    }
+
+                    // At end of round, add backoff sleep
+                    if completed_round {
+                        CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
+
+                        // Check if all/most clusters are sleeping
+                        let sleeping_count = {
+                            let sleep_map_lock =
+                                sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                            sleep_map_lock.len()
+                        };
+                        if sleeping_count >= cluster_size {
+                            // Ensure this doesn't loop forever when there's a limit configured
+                            all_sleeping_rounds += 1;
+                            if let Some(max_empty_cycles) =
+                                CONFIG.queue.empty_job_cycles_before_quiting
+                            {
+                                if all_sleeping_rounds > max_empty_cycles {
+                                    warn!("All clusters have been sleeping for too long");
+                                    break;
+                                }
+                            }
+
+                            // All clusters sleeping, sleep longer
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                        } else if sleeping_count > 0 {
+                            // Some clusters sleeping, brief pause
+                            all_sleeping_rounds = 0;
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        } else {
+                            // Active work, minimal pause
+                            all_sleeping_rounds = 0;
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        }
                     }
                 }
+            });
+            if let Err(e) = task.catch_unwind().await {
+                error!("Cluster feed producer task panicked: {:?}", e);
             }
         });
 
         // Process messages on the receiving end
         let sleep_map = self.sleep_map.clone();
         tokio::spawn(async move {
-            while let Some(message) = feed_receiver.recv().await {
-                match message {
-                    FeedMessage::Sleep(cluster, duration) => {
-                        let requested_wake_up_time = SystemTime::now().checked_add(duration);
-                        if let Some(wake_up_time) = requested_wake_up_time {
-                            debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
-                            {
-                                let mut sleep_map_lock =
-                                    sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                                sleep_map_lock.insert(cluster, wake_up_time);
+            let task = AssertUnwindSafe(async move {
+                while let Some(message) = feed_receiver.recv().await {
+                    match message {
+                        FeedMessage::Sleep(cluster, duration) => {
+                            let requested_wake_up_time = SystemTime::now().checked_add(duration);
+                            if let Some(wake_up_time) = requested_wake_up_time {
+                                debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
+                                {
+                                    let mut sleep_map_lock =
+                                        sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                                    sleep_map_lock.insert(cluster, wake_up_time);
+                                }
+                            } else {
+                                warn!(
+                                    "Sleep request ignored for {:?}. Invalid duration={}s",
+                                    cluster,
+                                    duration.as_secs()
+                                );
                             }
-                        } else {
-                            warn!(
-                                "Sleep request ignored for {:?}. Invalid duration={}s",
-                                cluster,
-                                duration.as_secs()
-                            );
+                        }
+                        FeedMessage::Stop() => {
+                            self.stop_flag.store(true, Ordering::Relaxed);
+                            break;
                         }
                     }
-                    FeedMessage::Stop() => {
-                        self.stop_flag.store(true, Ordering::Relaxed);
-                        break;
-                    }
                 }
+            });
+            if let Err(e) = task.catch_unwind().await {
+                error!("Cluster feed receiver task panicked: {:?}", e);
             }
         });
 
