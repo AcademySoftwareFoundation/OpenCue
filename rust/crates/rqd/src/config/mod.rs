@@ -381,6 +381,25 @@ impl Config {
                 ))
             })?;
         }
+        // Ensure machine temp path exists. read_temp_storage calls statvfs
+        // directly on this path, which fails with ENOENT if missing; frame
+        // launch also uses temp_path as its working dir. create_dir_all is
+        // a no-op when the directory already exists, so the only path it
+        // surfaces an error for is the genuinely-broken case (parent missing,
+        // permission denied, etc.).
+        let temp_path = Path::new(&self.machine.temp_path);
+        fs::create_dir_all(temp_path).map_err(|err| {
+            RqdConfigError::InvalidPath(format!(
+                "Failed to create machine temp dir at {:?}: {err}",
+                temp_path
+            ))
+        })?;
+        if !temp_path.is_dir() {
+            return Err(RqdConfigError::InvalidPath(format!(
+                "Machine temp path is not a directory: {:?}",
+                temp_path
+            )));
+        }
         Ok(())
     }
 }
