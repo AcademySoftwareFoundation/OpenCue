@@ -12,12 +12,14 @@
 
 use std::{
     collections::HashMap,
+    panic::AssertUnwindSafe,
     sync::{Arc, RwLock},
 };
 
+use futures::FutureExt;
 use miette::Result;
 use tokio::{sync::OnceCell, time};
-use tracing::warn;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -71,15 +73,17 @@ impl ResourceAccountingService {
                     let Some(sub) = show_subs.get_mut(&alloc_name) else {
                         continue;
                     };
-                    sub.booked_cores =
-                        CoreSize::from_multiplied(cores_booked.try_into().unwrap_or_else(|_| {
+                    sub.booked_cores = match cores_booked.try_into() {
+                        Ok(multiplied) => CoreSize::from_multiplied(multiplied),
+                        Err(_) => {
                             warn!(
                                 "Recomputed booked cores overflowed i32 for \
                                          show={show_id} alloc={alloc_name}, \
                                          using subscription table value"
                             );
-                            sub.booked_cores.value()
-                        }));
+                            sub.booked_cores
+                        }
+                    };
                     sub.booked_gpus = gpus_booked.try_into().unwrap_or_else(|_| {
                         warn!(
                             "Recomputed booked GPUs overflowed u32 for \
@@ -114,15 +118,20 @@ impl ResourceAccountingService {
         // One async loop to recalculate all resource tables and the point table
         // (subscription not included)
         tokio::spawn(async move {
-            let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
-            // Skip the immediate first tick — init() already ran the initial computation.
-            interval.tick().await;
-
-            loop {
+            let task = AssertUnwindSafe(async move {
+                let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
+                // Skip the immediate first tick — init() already ran the initial computation.
                 interval.tick().await;
-                if let Err(err) = dao.recompute_all_from_proc(&target_shows_opt).await {
-                    warn!("Failed to recompute resource accounting tables from proc: {err}");
+
+                loop {
+                    interval.tick().await;
+                    if let Err(err) = dao.recompute_all_from_proc(&target_shows_opt).await {
+                        warn!("Failed to recompute resource accounting tables from proc: {err}");
+                    }
                 }
+            });
+            if let Err(e) = task.catch_unwind().await {
+                error!("Resource recalculation loop panicked: {:?}", e);
             }
         });
 
@@ -133,13 +142,18 @@ impl ResourceAccountingService {
 
         // One separate async loop to recalculate subscriptions
         tokio::spawn(async move {
-            let mut interval = time::interval(CONFIG.queue.subscription_recalculation_interval);
-            // Skip the immediate first tick — init() already fetched + recomputed on startup.
-            interval.tick().await;
-
-            loop {
+            let task = AssertUnwindSafe(async move {
+                let mut interval = time::interval(CONFIG.queue.subscription_recalculation_interval);
+                // Skip the immediate first tick — init() already fetched + recomputed on startup.
                 interval.tick().await;
-                recalculate_and_refresh(&cache, &dao, &target_shows).await;
+
+                loop {
+                    interval.tick().await;
+                    recalculate_and_refresh(&cache, &dao, &target_shows).await;
+                }
+            });
+            if let Err(e) = task.catch_unwind().await {
+                error!("Subscription recalculation loop panicked: {:?}", e);
             }
         });
     }
