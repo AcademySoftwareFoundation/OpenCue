@@ -360,7 +360,7 @@ impl ClusterFeed {
     pub async fn stream(self, sender: mpsc::Sender<Cluster>) -> mpsc::Sender<FeedMessage> {
         // Use a small channel to ensure the producer waits for items to be consumed before
         // generating more
-        let (cancel_sender, mut feed_receiver) = mpsc::channel(8);
+        let (feed_sender, mut feed_receiver) = mpsc::channel(8);
 
         let stop_flag = self.stop_flag.clone();
         let sleep_map = self.sleep_map.clone();
@@ -454,7 +454,8 @@ impl ClusterFeed {
             while let Some(message) = feed_receiver.recv().await {
                 match message {
                     FeedMessage::Sleep(cluster, duration) => {
-                        if let Some(wake_up_time) = SystemTime::now().checked_add(duration) {
+                        let requested_wake_up_time = SystemTime::now().checked_add(duration);
+                        if let Some(wake_up_time) = requested_wake_up_time {
                             debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
                             {
                                 let mut sleep_map_lock =
@@ -477,7 +478,7 @@ impl ClusterFeed {
             }
         });
 
-        cancel_sender
+        feed_sender
     }
 }
 
