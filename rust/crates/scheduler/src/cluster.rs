@@ -17,7 +17,7 @@ use std::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
     },
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use futures::{FutureExt, StreamExt};
@@ -32,6 +32,7 @@ use crate::{
     cluster_key::{Tag, TagType},
     config::CONFIG,
     dao::{helpers::parse_uuid, ClusterDao},
+    metrics::observe_cluster_round_trip,
 };
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
@@ -366,6 +367,13 @@ impl ClusterFeed {
         let stop_flag = self.stop_flag.clone();
         let sleep_map = self.sleep_map.clone();
 
+        // Tracks the last emission time per active cluster, for round-trip histogram.
+        // Entries are dropped when a cluster is put to sleep so wake-up doesn't produce
+        // a spurious sample covering the sleep duration.
+        let last_sent_map: Arc<Mutex<HashMap<Cluster, Instant>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let last_sent_map_producer = last_sent_map.clone();
+
         // Stream clusters on the caller channel
         tokio::spawn(async move {
             let task = AssertUnwindSafe(async move {
@@ -414,9 +422,16 @@ impl ClusterFeed {
                     };
 
                     if !is_sleeping {
-                        if sender.send(item).await.is_err() {
+                        if sender.send(item.clone()).await.is_err() {
                             warn!("Cluster receiver dropped. Stopping feed.");
                             break;
+                        }
+                        let now = Instant::now();
+                        let mut last_sent_lock = last_sent_map_producer
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner());
+                        if let Some(prev) = last_sent_lock.insert(item, now) {
+                            observe_cluster_round_trip(now.duration_since(prev));
                         }
                     } else if !completed_round {
                         // Skipped a sleeping cluster mid-round; yield so we don't starve the runtime.
@@ -466,6 +481,7 @@ impl ClusterFeed {
 
         // Process messages on the receiving end
         let sleep_map = self.sleep_map.clone();
+        let last_sent_map_receiver = last_sent_map.clone();
         tokio::spawn(async move {
             let task = AssertUnwindSafe(async move {
                 while let Some(message) = feed_receiver.recv().await {
@@ -474,6 +490,12 @@ impl ClusterFeed {
                             let requested_wake_up_time = SystemTime::now().checked_add(duration);
                             if let Some(wake_up_time) = requested_wake_up_time {
                                 debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
+                                {
+                                    let mut last_sent_lock = last_sent_map_receiver
+                                        .lock()
+                                        .unwrap_or_else(|p| p.into_inner());
+                                    last_sent_lock.remove(&cluster);
+                                }
                                 {
                                     let mut sleep_map_lock =
                                         sleep_map.lock().unwrap_or_else(|p| p.into_inner());
