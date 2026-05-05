@@ -104,8 +104,8 @@ impl Default for QueueConfig {
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
             stream: StreamConfig::default(),
-            manual_tags_chunk_size: 100,
-            hostname_tags_chunk_size: 300,
+            manual_tags_chunk_size: 50,
+            hostname_tags_chunk_size: 50,
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
@@ -252,8 +252,7 @@ pub struct SchedulerConfig {
 
 impl SchedulerConfig {
     pub fn show_names(&self) -> Option<Vec<String>> {
-        let mut show_names: HashSet<String> =
-            HashSet::from_iter(self.entire_shows.iter().cloned());
+        let mut show_names: HashSet<String> = HashSet::from_iter(self.entire_shows.iter().cloned());
         for tag in &self.alloc_tags {
             show_names.insert(tag.show.clone());
         }
