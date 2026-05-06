@@ -78,7 +78,7 @@ pub struct Allocation {
     pub billable: bool,
 
     /// Facility ID that owns this allocation
-    pub facility_id: Uuid,
+    pub facility_id: String,
 
     /// Whether this allocation is enabled
     pub enabled: bool,

@@ -19,7 +19,7 @@ use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
 use std::{
     cmp::Ordering,
     sync::{
-        atomic::{self, AtomicU64},
+        atomic::{self, AtomicBool, AtomicU64},
         Arc,
     },
     time::{Duration, SystemTime},
@@ -46,6 +46,18 @@ pub struct HostCacheService {
     cache_hit: Arc<AtomicU64>,
     cache_miss: Arc<AtomicU64>,
     concurrency_semaphore: Arc<Semaphore>,
+    /// Set while a `refresh_cache` task is in flight. Skips overlapping ticks
+    /// when the previous refresh hasn't completed (e.g. under DB pressure).
+    refresh_in_progress: Arc<AtomicBool>,
+}
+
+/// RAII guard that resets `refresh_in_progress` on drop, including on panic.
+struct RefreshGuard(Arc<AtomicBool>);
+
+impl Drop for RefreshGuard {
+    fn drop(&mut self) {
+        self.0.store(false, atomic::Ordering::Release);
+    }
 }
 
 /// Use a reservation system to prevent race conditions when trying to book a host
@@ -75,8 +87,25 @@ impl Actor for HostCacheService {
 
         ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
             let service = service_for_monitor.clone();
+            // Skip this tick if the previous refresh is still running. Under DB
+            // pressure, refreshes can take longer than the monitoring interval,
+            // and stacking spawns multiplies PG load.
+            if service
+                .refresh_in_progress
+                .swap(true, atomic::Ordering::AcqRel)
+            {
+                debug!("host_cache refresh skipped: previous run still in flight");
+                return;
+            }
             let actor_clone = service.clone();
-            ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
+            let flag = service.refresh_in_progress.clone();
+            ctx.spawn(
+                async move {
+                    let _guard = RefreshGuard(flag);
+                    service.refresh_cache().await;
+                }
+                .into_actor(&actor_clone),
+            );
         });
 
         ctx.run_interval(CONFIG.host_cache.clean_up_interval, move |_act, _ctx| {
@@ -181,6 +210,7 @@ impl HostCacheService {
                 CONFIG.host_cache.concurrent_fetch_permit,
             )),
             reserved_hosts: Arc::new(HashMap::new()),
+            refresh_in_progress: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -205,7 +235,7 @@ impl HostCacheService {
     /// * `Err(HostCacheError)` - No suitable host found or database error
     async fn check_out<F>(
         &self,
-        facility_id: Uuid,
+        facility_id: String,
         show_id: Uuid,
         tags: Vec<Tag>,
         cores: CoreSize,
@@ -365,13 +395,13 @@ impl HostCacheService {
     #[allow(clippy::map_entry)]
     fn gen_cache_keys(
         &self,
-        facility_id: Uuid,
+        facility_id: String,
         show_id: Uuid,
         tags: Vec<Tag>,
     ) -> impl IntoIterator<Item = ClusterKey> {
         tags.into_iter()
-            .map(|tag| ClusterKey {
-                facility_id,
+            .map(move |tag| ClusterKey {
+                facility_id: facility_id.clone(),
                 show_id,
                 tag,
             })
@@ -472,7 +502,7 @@ impl HostCacheService {
         let tag = key.tag.to_string();
         let hosts = self
             .host_dao
-            .fetch_hosts_by_show_facility_tag(key.show_id, key.facility_id, &tag)
+            .fetch_hosts_by_show_facility_tag(key.show_id, &key.facility_id, &tag)
             .await
             .into_diagnostic()?;
 

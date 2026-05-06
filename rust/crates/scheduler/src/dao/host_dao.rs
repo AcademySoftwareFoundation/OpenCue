@@ -179,7 +179,7 @@ FROM host h
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
     INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
     INNER JOIN host_tag ht ON h.pk_host = ht.pk_host
-WHERE LOWER(a.pk_facility) = LOWER($2)
+WHERE a.pk_facility = $2
     AND h.str_lock_state = 'OPEN'
     AND hs.str_state = 'UP'
     AND ht.str_tag = $3
@@ -265,12 +265,12 @@ impl HostDao {
     pub async fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
         show_id: Uuid,
-        facility_id: Uuid,
+        facility_id: &'a str,
         tag: &'a str,
     ) -> Result<Vec<HostModel>, sqlx::Error> {
         let out = sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
             .bind(show_id.to_string())
-            .bind(facility_id.to_string())
+            .bind(facility_id)
             .bind(tag)
             .fetch_all(&*self.connection_pool)
             .await;

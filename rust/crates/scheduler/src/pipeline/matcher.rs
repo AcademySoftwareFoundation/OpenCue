@@ -286,7 +286,7 @@ impl MatchingService {
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
-                    facility_id: layer.facility_id,
+                    facility_id: layer.facility_id.clone(),
                     show_id: layer.show_id,
                     tags,
                     cores: cores_requested,

@@ -12,7 +12,6 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::{stream, StreamExt};
 use tokio::sync::mpsc;
@@ -64,7 +63,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                 let jobs = job_fetcher
                     .query_pending_jobs_by_show_facility_and_tags(
                         cluster.show_id,
-                        cluster.facility_id,
+                        &cluster.facility_id,
                         cluster.tags.iter().map(|tag| tag.name.clone()),
                     )
                     .await;
@@ -91,7 +90,10 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         // queries with no outcome
                         if processed_jobs.load(Ordering::Relaxed) == 0 {
                             let _ = feed_sender
-                                .send(FeedMessage::Sleep(cluster, Duration::from_secs(3)))
+                                .send(FeedMessage::Sleep(
+                                    cluster,
+                                    CONFIG.queue.cluster_empty_sleep,
+                                ))
                                 .await;
                         }
 

@@ -39,7 +39,7 @@ pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Cluster {
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
     pub tags: BTreeSet<Tag>,
 }
@@ -57,7 +57,7 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
-    pub fn single_tag(facility_id: Uuid, show_id: Uuid, tag: Tag) -> Self {
+    pub fn single_tag(facility_id: String, show_id: Uuid, tag: Tag) -> Self {
         Cluster {
             facility_id,
             show_id,
@@ -65,7 +65,7 @@ impl Cluster {
         }
     }
 
-    pub fn multiple_tag(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+    pub fn multiple_tag(facility_id: String, show_id: Uuid, tags: Vec<Tag>) -> Self {
         Cluster {
             facility_id,
             show_id,
@@ -114,7 +114,7 @@ pub enum FeedMessage {
 ///     .await?;
 /// ```
 pub struct ClusterFeedBuilder {
-    facility_id: Option<Uuid>,
+    facility_id: Option<String>,
     ignore_tags: Vec<String>,
     clusters: Vec<Cluster>,
     entire_shows: Vec<String>,
@@ -172,7 +172,7 @@ impl ClusterFeedBuilder {
 
 impl ClusterFeed {
     /// Returns a builder for a feed scoped to the given facility.
-    pub fn facility(facility_id: Uuid) -> ClusterFeedBuilder {
+    pub fn facility(facility_id: String) -> ClusterFeedBuilder {
         ClusterFeedBuilder {
             facility_id: Some(facility_id),
             ignore_tags: Vec::new(),
@@ -207,7 +207,7 @@ impl ClusterFeed {
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
     pub async fn load_clusters(
-        facility_id: Option<Uuid>,
+        facility_id: Option<String>,
         ignore_tags: &[String],
         shows_filter: Option<Vec<String>>,
     ) -> Result<Vec<Cluster>> {
@@ -215,12 +215,12 @@ impl ClusterFeed {
 
         // Fetch clusters for alloc and non_alloc tags
         let mut clusters_stream = cluster_dao
-            .fetch_alloc_clusters(facility_id, shows_filter.clone())
+            .fetch_alloc_clusters(facility_id.clone(), shows_filter.clone())
             .chain(cluster_dao.fetch_non_alloc_clusters(facility_id, shows_filter));
         let mut clusters = Vec::new();
-        let mut manual_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hardware_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hostname_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        let mut manual_tags: HashMap<(Uuid, String), HashSet<Tag>> = HashMap::new();
+        let mut hardware_tags: HashMap<(Uuid, String), HashSet<Tag>> = HashMap::new();
+        let mut hostname_tags: HashMap<(Uuid, String), HashSet<Tag>> = HashMap::new();
 
         // Collect all tags
         while let Some(record) = clusters_stream.next().await {
@@ -231,7 +231,7 @@ impl ClusterFeed {
                         continue;
                     }
 
-                    let facility_id = parse_uuid(&cluster.facility_id);
+                    let facility_id = cluster.facility_id;
                     let show_id = parse_uuid(&cluster.show_id);
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster
@@ -283,7 +283,11 @@ impl ClusterFeed {
         // Chunk Manual tags
         for ((show_id, facility_id), tags) in manual_tags.into_iter() {
             for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
@@ -293,7 +297,11 @@ impl ClusterFeed {
                 .into_iter()
                 .chunks(CONFIG.queue.hostname_tags_chunk_size)
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
@@ -304,7 +312,11 @@ impl ClusterFeed {
                 // Hardware share the same size as manual to simplify configuration
                 .chunks(CONFIG.queue.manual_tags_chunk_size)
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
@@ -533,9 +545,9 @@ impl ClusterFeed {
 ///
 /// # Returns
 ///
-/// * `Ok(Uuid)` - The facility ID
+/// * `Ok(String)` - The facility ID (verbatim from the DB, canonical casing)
 /// * `Err(miette::Error)` - If facility not found or database error
-pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
+pub async fn get_facility_id(facility_name: &str) -> Result<String> {
     let cluster_dao = ClusterDao::new().await?;
     cluster_dao
         .get_facility_id(facility_name)

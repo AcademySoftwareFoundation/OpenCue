@@ -121,7 +121,7 @@ impl DispatchLayer {
         DispatchLayer {
             id: parse_uuid(&layer.pk_layer),
             job_id: parse_uuid(&layer.pk_job),
-            facility_id: parse_uuid(&layer.pk_facility),
+            facility_id: layer.pk_facility,
             show_id: parse_uuid(&layer.pk_show),
             job_name: layer.str_job_name,
             layer_name: layer.str_name,

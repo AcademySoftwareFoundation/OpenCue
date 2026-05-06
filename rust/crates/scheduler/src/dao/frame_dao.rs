@@ -113,7 +113,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             id: parse_uuid(&val.pk_frame),
             frame_name: val.str_frame_name,
             show_id: parse_uuid(&val.pk_show),
-            facility_id: parse_uuid(&val.pk_facility),
+            facility_id: val.pk_facility,
             job_id: parse_uuid(&val.pk_job),
             layer_id: parse_uuid(&val.pk_layer),
             command: val.str_cmd,

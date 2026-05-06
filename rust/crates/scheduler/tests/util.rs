@@ -89,10 +89,12 @@ pub fn create_test_config() -> Config {
             core_multiplier: 100,
             memory_stranded_threshold: bytesize::ByteSize::mb(100),
             job_back_off_duration: Duration::from_secs(10),
+            cluster_empty_sleep: Duration::from_secs(30),
             stream: scheduler::config::StreamConfig {
                 cluster_buffer_size: 4,
                 job_buffer_size: 8,
             },
+            max_jobs_per_cluster_pass: 20,
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
             host_candidate_attempts_per_layer: 5,
@@ -592,7 +594,7 @@ pub async fn create_test_data(
         // Clusters. Chunk manual tags in approximatelly 4 groups
         for chunk in tags.chunks(tags.len() / 4) {
             let cluster = Cluster::multiple_tag(
-                facility_id,
+                facility_id.to_string(),
                 show_id,
                 chunk
                     .iter()
@@ -626,7 +628,7 @@ pub async fn create_test_data(
 
     for (alloc_id, alloc_name) in allocs.iter() {
         let cluster = Cluster::single_tag(
-            facility_id,
+            facility_id.to_string(),
             show_id,
             Tag {
                 name: alloc_name.clone(),

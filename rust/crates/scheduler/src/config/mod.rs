@@ -77,7 +77,17 @@ pub struct QueueConfig {
     pub memory_stranded_threshold: ByteSize,
     #[serde(with = "humantime_serde")]
     pub job_back_off_duration: Duration,
+    /// Duration a cluster sleeps after a pass returned no dispatchable jobs.
+    /// Larger values reduce empty-pass query load on the database.
+    #[serde(with = "humantime_serde")]
+    pub cluster_empty_sleep: Duration,
     pub stream: StreamConfig,
+    /// Maximum number of jobs returned per cluster pass. Caps the per-pass
+    /// dispatch cost so a big-show cluster doesn't iterate thousands of jobs
+    /// in a single round. Strict `ORDER BY priority DESC` means low-priority
+    /// jobs are deferred to subsequent passes when the high-priority backlog
+    /// drains.
+    pub max_jobs_per_cluster_pass: i64,
     pub manual_tags_chunk_size: usize,
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attempts_per_layer: usize,
@@ -103,7 +113,9 @@ impl Default for QueueConfig {
             core_multiplier: 100,
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
+            cluster_empty_sleep: Duration::from_secs(30),
             stream: StreamConfig::default(),
+            max_jobs_per_cluster_pass: 20,
             manual_tags_chunk_size: 50,
             hostname_tags_chunk_size: 50,
             host_candidate_attempts_per_layer: 10,

@@ -1291,7 +1291,7 @@ mod tests {
             id: Uuid::new_v4(),
             frame_name: "0001-test_frame".to_string(),
             show_id: Uuid::new_v4(),
-            facility_id: Uuid::new_v4(),
+            facility_id: Uuid::new_v4().to_string(),
             job_id: Uuid::new_v4(),
             layer_id: Uuid::new_v4(),
             command: "echo 'test command'".to_string(),

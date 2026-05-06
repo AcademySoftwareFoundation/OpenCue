@@ -190,7 +190,7 @@ impl JobQueueCli {
                     .await
                     .wrap_err(format!("Could not find show {}.", alloc_tag.show))?;
                 clusters.push(Cluster::single_tag(
-                    *facility_id,
+                    facility_id.clone(),
                     show_id,
                     Tag {
                         name: alloc_tag.tag.clone(),
@@ -205,7 +205,7 @@ impl JobQueueCli {
                     .await
                     .wrap_err(format!("Could not find show {}.", manual_tag.show))?;
                 clusters.push(Cluster::multiple_tag(
-                    *facility_id,
+                    facility_id.clone(),
                     show_id,
                     manual_tag
                         .tags
