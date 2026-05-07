@@ -29,8 +29,8 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link HostReportQueue} shutdown behavior. Submits via the inherited
- * {@code ThreadPoolExecutor.execute(Runnable)} to avoid building real protobuf reports —
- * shutdown semantics depend only on the underlying executor, not the report type.
+ * {@code ThreadPoolExecutor.execute(Runnable)} to avoid building real protobuf reports — shutdown
+ * semantics depend only on the underlying executor, not the report type.
  */
 public class HostReportQueueShutdownTests {
 

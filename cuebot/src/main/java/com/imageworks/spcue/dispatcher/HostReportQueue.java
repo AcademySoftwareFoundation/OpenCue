@@ -128,8 +128,8 @@ public class HostReportQueue extends ThreadPoolExecutor {
             while (this.getQueue().size() != 0 || this.getActiveCount() != 0) {
                 if (System.currentTimeMillis() - startTime > shutdownDrainMs) {
                     logger.warn("report pool drain timed out after " + shutdownDrainMs + "ms; "
-                            + this.getQueue().size() + " queued, "
-                            + this.getActiveCount() + " active");
+                            + this.getQueue().size() + " queued, " + this.getActiveCount()
+                            + " active");
                     break;
                 }
                 try {
@@ -142,8 +142,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
             super.shutdown();
             try {
                 if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
-                    logger.warn(
-                            "report pool: forcing shutdownNow after awaitTermination expired");
+                    logger.warn("report pool: forcing shutdownNow after awaitTermination expired");
                     super.shutdownNow();
                 }
             } catch (InterruptedException e) {

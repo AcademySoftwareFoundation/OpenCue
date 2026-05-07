@@ -31,8 +31,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Unit tests for {@link HealthyThreadPool} shutdown behavior. No Spring context required —
- * these test the executor semantics directly.
+ * Unit tests for {@link HealthyThreadPool} shutdown behavior. No Spring context required — these
+ * test the executor semantics directly.
  */
 public class HealthyThreadPoolShutdownTests {
 

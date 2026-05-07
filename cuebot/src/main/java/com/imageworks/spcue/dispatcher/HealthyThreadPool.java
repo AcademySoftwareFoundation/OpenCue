@@ -93,8 +93,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
             // The pool is being torn down. Run synchronously on the caller thread so
             // the work isn't lost — for FrameCompleteReports this is the dependency
             // satisfaction / job completion / event publish path.
-            logger.warn(name
-                    + ": pool shutting down; running task synchronously on caller thread");
+            logger.warn(name + ": pool shutting down; running task synchronously on caller thread");
             try {
                 r.run();
             } catch (RuntimeException e) {

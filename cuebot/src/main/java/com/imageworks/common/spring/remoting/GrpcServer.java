@@ -74,9 +74,8 @@ public class GrpcServer implements ApplicationContextAware {
         server.shutdown();
         try {
             if (!server.awaitTermination(grpcShutdownGraceMs, TimeUnit.MILLISECONDS)) {
-                logger.warn("gRPC server " + this.name
-                        + " did not terminate gracefully within " + grpcShutdownGraceMs
-                        + "ms; forcing shutdownNow");
+                logger.warn("gRPC server " + this.name + " did not terminate gracefully within "
+                        + grpcShutdownGraceMs + "ms; forcing shutdownNow");
                 server.shutdownNow();
                 server.awaitTermination(5, TimeUnit.SECONDS);
             }
