@@ -66,7 +66,7 @@ public class GrpcServer implements ApplicationContextAware {
     }
 
     public void shutdown() {
-        if (server == null || server.isShutdown()) {
+        if (server == null || server.isTerminated()) {
             return;
         }
         logger.info("gRPC server shutting down on " + this.name + " at port " + this.port

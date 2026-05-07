@@ -94,13 +94,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
             // the work isn't lost — for FrameCompleteReports this is the dependency
             // satisfaction / job completion / event publish path.
             logger.warn(name + ": pool shutting down; running task synchronously on caller thread");
-            try {
-                r.run();
-            } catch (RuntimeException e) {
-                logger.error(name + ": synchronous fallback task failed", e);
-                throw new RqdRetryReportException(
-                        "cuebot shutting down, synchronous fallback failed", e);
-            }
+            runTaskSynchronouslyWithRetryWrap(r);
             return;
         }
         taskCache.put(r.getKey(), r);
@@ -110,7 +104,17 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
             // Race with shutdown: the underlying executor was just shut down. Run
             // synchronously rather than dropping the task.
             logger.warn(name + ": rejected by pool, running synchronously", ree);
+            runTaskSynchronouslyWithRetryWrap(r);
+        }
+    }
+
+    private void runTaskSynchronouslyWithRetryWrap(Runnable r) {
+        try {
             r.run();
+        } catch (RuntimeException e) {
+            logger.error(name + ": synchronous fallback task failed", e);
+            throw new RqdRetryReportException("cuebot shutting down, synchronous fallback failed",
+                    e);
         }
     }
 
