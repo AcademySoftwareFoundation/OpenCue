@@ -31,7 +31,7 @@
     <!-- depends-on forces Spring to destroy the gRPC server BEFORE these beans, so
          in-flight RPCs can finish submitting work to the queues before they shut down. -->
     <bean id="manageGrpcServer" class="com.imageworks.common.spring.remoting.GrpcServer" init-method="start" destroy-method="shutdown"
-          depends-on="frameCompleteHandler,hostReportHandler,dispatchQueue,manageQueue,bookingQueue,reportQueue,killQueue,jmsMover,kafkaEventPublisher">
+          depends-on="frameCompleteHandler,hostReportHandler,dispatchQueue,manageQueue,bookingQueue,reportQueue,killQueue">
         <constructor-arg index="0" type="java.lang.String">
             <value>cueBotGrpc</value>
         </constructor-arg>
@@ -50,4 +50,3 @@
     </bean>
 
 </beans>
-

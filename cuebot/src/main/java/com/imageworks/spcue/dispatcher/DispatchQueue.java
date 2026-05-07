@@ -80,7 +80,7 @@ public class DispatchQueue implements QueueHealthCheck {
         healthyDispatchPool.shutdown();
     }
 
-    public void setShutdownDrainMs(int shutdownDrainMs) {
+    public void setShutdownDrainMs(long shutdownDrainMs) {
         healthyDispatchPool.setShutdownDrainMs(shutdownDrainMs);
     }
 

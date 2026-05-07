@@ -37,7 +37,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     private boolean wasHealthy = true;
     protected final AtomicBoolean isShutdown = new AtomicBoolean(false);
     private final int baseSleepTimeMillis;
-    private int shutdownDrainMs = 60000;
+    private long shutdownDrainMs = 60000;
 
     /**
      * Start a thread pool
@@ -102,19 +102,26 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
             super.execute(r);
         } catch (RejectedExecutionException ree) {
             // Race with shutdown: the underlying executor was just shut down. Run
-            // synchronously rather than dropping the task.
+            // synchronously rather than dropping the task. afterExecute() won't fire
+            // for a rejected task, so the helper takes care of cache invalidation.
             logger.warn(name + ": rejected by pool, running synchronously", ree);
             runTaskSynchronouslyWithRetryWrap(r);
         }
     }
 
-    private void runTaskSynchronouslyWithRetryWrap(Runnable r) {
+    private void runTaskSynchronouslyWithRetryWrap(KeyRunnable r) {
+        // Mirror the async path's dedup lifecycle: register the key so a concurrent
+        // submission with the same key sees it and returns early at the top of
+        // execute(), then invalidate when the task completes (same as afterExecute).
+        taskCache.put(r.getKey(), r);
         try {
             r.run();
         } catch (RuntimeException e) {
             logger.error(name + ": synchronous fallback task failed", e);
             throw new RqdRetryReportException("cuebot shutting down, synchronous fallback failed",
                     e);
+        } finally {
+            taskCache.invalidate(r.getKey());
         }
     }
 
@@ -223,7 +230,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
                 || (getRejectedTaskCount() < this.poolSize / healthThreshold);
     }
 
-    public void setShutdownDrainMs(int shutdownDrainMs) {
+    public void setShutdownDrainMs(long shutdownDrainMs) {
         this.shutdownDrainMs = shutdownDrainMs;
     }
 

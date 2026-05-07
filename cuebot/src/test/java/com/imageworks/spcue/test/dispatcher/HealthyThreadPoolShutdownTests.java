@@ -108,6 +108,47 @@ public class HealthyThreadPoolShutdownTests {
     }
 
     @Test
+    public void execute_afterShutdown_dedupsConcurrentSameKeySubmission() throws Exception {
+        // While one synchronous-fallback task is mid-execution, a second submission with
+        // the same key from another thread must be deduped (return early), not run again.
+        HealthyThreadPool pool = new HealthyThreadPool("t4", 6, 3, 100, 1, 1);
+        pool.setShutdownDrainMs(1000);
+        pool.shutdown();
+
+        AtomicInteger ran = new AtomicInteger();
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        Thread first = new Thread(() -> pool.execute(new KeyRunnable("dup") {
+            @Override
+            public void run() {
+                firstStarted.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                ran.incrementAndGet();
+            }
+        }));
+        first.start();
+        assertTrue(firstStarted.await(2, TimeUnit.SECONDS));
+
+        // Second submission with the same key while first is still running.
+        pool.execute(new KeyRunnable("dup") {
+            @Override
+            public void run() {
+                ran.incrementAndGet();
+            }
+        });
+
+        release.countDown();
+        first.join(5000);
+
+        assertEquals("second same-key submission must be deduped", 1, ran.get());
+    }
+
+    @Test
     public void execute_afterShutdown_runsSynchronouslyOnCallerThread() {
         HealthyThreadPool pool = new HealthyThreadPool("t3", 6, 3, 100, 1, 1);
         pool.setShutdownDrainMs(1000);

@@ -36,7 +36,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
     private int queueCapacity;
-    private int shutdownDrainMs = 60000;
+    private long shutdownDrainMs = 60000;
 
     private Cache<String, HostReportWrapper> hostMap =
             CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.HOURS).build();
@@ -75,6 +75,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public void execute(DispatchHandleHostReport newReport) {
         if (isShutdown.get()) {
+            // HostReports should never be processed when the server is shutting down.
+            // Different from other queues, host reports are safe to be dropped and processing
+            // them could lead to an explosion of new tasks at the time when we want to drain
+            // the service.
             return;
         }
         HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
@@ -114,7 +118,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
         return queueCapacity;
     }
 
-    public void setShutdownDrainMs(int shutdownDrainMs) {
+    public void setShutdownDrainMs(long shutdownDrainMs) {
         this.shutdownDrainMs = shutdownDrainMs;
     }
 
