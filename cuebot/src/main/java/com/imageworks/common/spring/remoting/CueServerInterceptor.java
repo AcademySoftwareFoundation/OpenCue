@@ -1,5 +1,6 @@
 package com.imageworks.common.spring.remoting;
 
+import com.imageworks.spcue.dispatcher.RqdRetryReportException;
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener;
 import io.grpc.Grpc;
 import io.grpc.Metadata;
@@ -27,6 +28,13 @@ public class CueServerInterceptor implements ServerInterceptor {
             public void onHalfClose() {
                 try {
                     super.onHalfClose();
+                } catch (RqdRetryReportException e) {
+                    // Map to UNAVAILABLE so RQD's RetryOnRpcErrorClientInterceptor retries
+                    // the report against the next cuebot instance.
+                    logger.warn("Cuebot shutting down — asking RQD to retry: " + e.getMessage());
+                    serverCall.close(Status.UNAVAILABLE.withCause(e)
+                            .withDescription("cuebot shutting down: " + e.getMessage()),
+                            new Metadata());
                 } catch (Exception e) {
                     logger.error("Caught an unexpected error.", e);
                     serverCall.close(Status.INTERNAL.withCause(e)

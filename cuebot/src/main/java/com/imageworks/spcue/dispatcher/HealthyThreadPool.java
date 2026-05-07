@@ -4,10 +4,11 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Date;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -36,6 +37,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     private boolean wasHealthy = true;
     protected final AtomicBoolean isShutdown = new AtomicBoolean(false);
     private final int baseSleepTimeMillis;
+    private int shutdownDrainMs = 60000;
 
     /**
      * Start a thread pool
@@ -84,13 +86,32 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     }
 
     public void execute(KeyRunnable r) {
-        if (isShutdown.get()) {
-            logger.info(name + ": Task ignored, queue on hold or shutdown");
+        if (taskCache.getIfPresent(r.getKey()) != null) {
             return;
         }
-        if (taskCache.getIfPresent(r.getKey()) == null) {
-            taskCache.put(r.getKey(), r);
+        if (isShutdown.get() || super.isShutdown()) {
+            // The pool is being torn down. Run synchronously on the caller thread so
+            // the work isn't lost — for FrameCompleteReports this is the dependency
+            // satisfaction / job completion / event publish path.
+            logger.warn(name
+                    + ": pool shutting down; running task synchronously on caller thread");
+            try {
+                r.run();
+            } catch (RuntimeException e) {
+                logger.error(name + ": synchronous fallback task failed", e);
+                throw new RqdRetryReportException(
+                        "cuebot shutting down, synchronous fallback failed", e);
+            }
+            return;
+        }
+        taskCache.put(r.getKey(), r);
+        try {
             super.execute(r);
+        } catch (RejectedExecutionException ree) {
+            // Race with shutdown: the underlying executor was just shut down. Run
+            // synchronously rather than dropping the task.
+            logger.warn(name + ": rejected by pool, running synchronously", ree);
+            r.run();
         }
     }
 
@@ -199,22 +220,38 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
                 || (getRejectedTaskCount() < this.poolSize / healthThreshold);
     }
 
+    public void setShutdownDrainMs(int shutdownDrainMs) {
+        this.shutdownDrainMs = shutdownDrainMs;
+    }
+
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down thread pool " + name + ", currently " + getActiveCount()
-                    + " active threads.");
+                    + " active threads, " + getQueue().size() + " queued.");
             final long startTime = System.currentTimeMillis();
-            while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
+            // Wait until BOTH the queue is empty AND no workers are still running.
+            while (this.getQueue().size() != 0 || this.getActiveCount() != 0) {
+                if (System.currentTimeMillis() - startTime > shutdownDrainMs) {
+                    logger.warn(name + ": drain timed out after " + shutdownDrainMs + "ms; "
+                            + getQueue().size() + " queued, " + getActiveCount() + " active");
+                    break;
+                }
                 try {
-                    if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(
-                                name + " thread pool failed to shutdown properly");
-                    }
                     Thread.sleep(250);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
+            }
+            super.shutdown();
+            try {
+                if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warn(name + ": forcing shutdownNow after awaitTermination expired");
+                    super.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                super.shutdownNow();
             }
         }
     }

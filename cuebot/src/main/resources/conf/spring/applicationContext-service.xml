@@ -82,6 +82,7 @@
     <constructor-arg index="4" type="int">
       <value>${booking_queue.threadpool.max_pool_size}</value>
     </constructor-arg>
+    <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms}"/>
   </bean>
 
   <bean id="dispatchQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue" destroy-method="shutdown">
@@ -103,6 +104,7 @@
     <constructor-arg index="5" type="int">
       <value>${dispatch.threadpool.max_pool_size}</value>
     </constructor-arg>
+    <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms}"/>
   </bean>
 
   <bean id="manageQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue"   destroy-method="shutdown">
@@ -124,6 +126,7 @@
     <constructor-arg index="5" type="int">
       <value>${dispatch.threadpool.max_pool_size}</value>
     </constructor-arg>
+    <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms}"/>
   </bean>
   <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
     <constructor-arg index="0" type="int">
@@ -135,6 +138,7 @@
     <constructor-arg index="2" type="int">
       <value>${report_queue.queueSize}</value>
     </constructor-arg>
+    <property name="shutdownDrainMs" value="${host_report_queue.shutdown_drain_ms}"/>
   </bean>
   <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
     <constructor-arg index="0" type="int">
@@ -146,6 +150,7 @@
     <constructor-arg index="2" type="int">
       <value>${kill_queue.queueSize}</value>
     </constructor-arg>
+    <property name="shutdownDrainMs" value="${host_report_queue.shutdown_drain_ms}"/>
   </bean>
 
 

@@ -36,6 +36,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
     private int queueCapacity;
+    private int shutdownDrainMs = 60000;
 
     private Cache<String, HostReportWrapper> hostMap =
             CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.HOURS).build();
@@ -113,25 +114,41 @@ public class HostReportQueue extends ThreadPoolExecutor {
         return queueCapacity;
     }
 
+    public void setShutdownDrainMs(int shutdownDrainMs) {
+        this.shutdownDrainMs = shutdownDrainMs;
+    }
+
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down report pool, currently " + this.getActiveCount()
-                    + " active threads.");
+                    + " active threads, " + this.getQueue().size() + " queued.");
 
             final long startTime = System.currentTimeMillis();
-            while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
+            // Wait until BOTH the queue is empty AND no workers are still running.
+            while (this.getQueue().size() != 0 || this.getActiveCount() != 0) {
+                if (System.currentTimeMillis() - startTime > shutdownDrainMs) {
+                    logger.warn("report pool drain timed out after " + shutdownDrainMs + "ms; "
+                            + this.getQueue().size() + " queued, "
+                            + this.getActiveCount() + " active");
+                    break;
+                }
                 try {
-                    logger.info("report pool is waiting for " + this.getQueue().size()
-                            + " more units to complete");
-                    if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(
-                                "report thread pool failed to shutdown properly");
-                    }
                     Thread.sleep(250);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
+            }
+            super.shutdown();
+            try {
+                if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warn(
+                            "report pool: forcing shutdownNow after awaitTermination expired");
+                    super.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                super.shutdownNow();
             }
         }
     }

@@ -3,6 +3,7 @@ package com.imageworks.common.spring.remoting;
 
 import java.io.IOException;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -49,6 +50,7 @@ public class GrpcServer implements ApplicationContextAware {
     private String name;
     private int port;
     private int maxMessageBytes;
+    private long grpcShutdownGraceMs = 30000;
     private Server server;
     private ApplicationContext applicationContext;
 
@@ -64,10 +66,28 @@ public class GrpcServer implements ApplicationContextAware {
     }
 
     public void shutdown() {
-        if (!server.isShutdown()) {
-            logger.info("gRPC server shutting down on " + this.name + " at port " + this.port);
-            server.shutdown();
+        if (server == null || server.isShutdown()) {
+            return;
         }
+        logger.info("gRPC server shutting down on " + this.name + " at port " + this.port
+                + ", awaiting termination up to " + grpcShutdownGraceMs + "ms");
+        server.shutdown();
+        try {
+            if (!server.awaitTermination(grpcShutdownGraceMs, TimeUnit.MILLISECONDS)) {
+                logger.warn("gRPC server " + this.name
+                        + " did not terminate gracefully within " + grpcShutdownGraceMs
+                        + "ms; forcing shutdownNow");
+                server.shutdownNow();
+                server.awaitTermination(5, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            server.shutdownNow();
+        }
+    }
+
+    public void setGrpcShutdownGraceMs(long grpcShutdownGraceMs) {
+        this.grpcShutdownGraceMs = grpcShutdownGraceMs;
     }
 
     public void start() throws IOException {
