@@ -126,28 +126,16 @@ public class HostReportQueue extends ThreadPoolExecutor {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down report pool, currently " + this.getActiveCount()
                     + " active threads, " + this.getQueue().size() + " queued.");
-
-            final long startTime = System.currentTimeMillis();
-            // Wait until BOTH the queue is empty AND no workers are still running.
-            while (this.getQueue().size() != 0 || this.getActiveCount() != 0) {
-                if (System.currentTimeMillis() - startTime > shutdownDrainMs) {
+            super.shutdown();
+            try {
+                if (!super.awaitTermination(shutdownDrainMs, TimeUnit.MILLISECONDS)) {
                     logger.warn("report pool drain timed out after " + shutdownDrainMs + "ms; "
                             + this.getQueue().size() + " queued, " + this.getActiveCount()
                             + " active");
-                    break;
-                }
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-            super.shutdown();
-            try {
-                if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
-                    logger.warn("report pool: forcing shutdownNow after awaitTermination expired");
                     super.shutdownNow();
+                    if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                        logger.warn("report pool: failed to terminate after shutdownNow");
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

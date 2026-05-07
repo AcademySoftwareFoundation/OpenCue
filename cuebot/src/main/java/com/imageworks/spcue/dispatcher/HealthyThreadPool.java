@@ -238,26 +238,15 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down thread pool " + name + ", currently " + getActiveCount()
                     + " active threads, " + getQueue().size() + " queued.");
-            final long startTime = System.currentTimeMillis();
-            // Wait until BOTH the queue is empty AND no workers are still running.
-            while (this.getQueue().size() != 0 || this.getActiveCount() != 0) {
-                if (System.currentTimeMillis() - startTime > shutdownDrainMs) {
-                    logger.warn(name + ": drain timed out after " + shutdownDrainMs + "ms; "
-                            + getQueue().size() + " queued, " + getActiveCount() + " active");
-                    break;
-                }
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
             super.shutdown();
             try {
-                if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
-                    logger.warn(name + ": forcing shutdownNow after awaitTermination expired");
+                if (!super.awaitTermination(shutdownDrainMs, TimeUnit.MILLISECONDS)) {
+                    logger.warn(name + ": drain timed out after " + shutdownDrainMs + "ms; "
+                            + getQueue().size() + " queued, " + getActiveCount() + " active");
                     super.shutdownNow();
+                    if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                        logger.warn(name + ": failed to terminate after shutdownNow");
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

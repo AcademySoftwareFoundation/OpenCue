@@ -31,7 +31,7 @@ public class CueServerInterceptor implements ServerInterceptor {
                 } catch (RqdRetryReportException e) {
                     // Map to UNAVAILABLE so RQD's RetryOnRpcErrorClientInterceptor retries
                     // the report against the next cuebot instance.
-                    logger.warn("Cuebot shutting down — asking RQD to retry: " + e.getMessage());
+                    logger.warn("Cuebot shutting down - asking RQD to retry: " + e.getMessage());
                     serverCall.close(Status.UNAVAILABLE.withCause(e).withDescription(
                             "cuebot shutting down: " + e.getMessage()), new Metadata());
                 } catch (Exception e) {
