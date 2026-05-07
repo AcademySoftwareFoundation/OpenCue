@@ -46,7 +46,7 @@
         <constructor-arg index="3" type="java.lang.Integer">
             <value>${grpc.max_message_bytes}</value>
         </constructor-arg>
-        <property name="grpcShutdownGraceMs" value="${grpc.shutdown_grace_ms}"/>
+        <property name="grpcShutdownGraceMs" value="${grpc.shutdown_grace_ms:30000}"/>
     </bean>
 
 </beans>
