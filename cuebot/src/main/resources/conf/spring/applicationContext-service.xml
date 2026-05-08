@@ -66,7 +66,7 @@
     <property name="queueCapacity" value="500" />
   </bean>
 
-  <bean id="bookingQueue" class="com.imageworks.spcue.dispatcher.BookingQueue" lazy-init="true" destroy-method="shutdown">
+  <bean id="bookingQueue" class="com.imageworks.spcue.dispatcher.BookingQueue" lazy-init="true" destroy-method="shutdown" depends-on="cueDataSource">
     <constructor-arg index="0" type="int">
       <value>${booking_queue.threadpool.health_threshold}</value>
     </constructor-arg>
@@ -85,7 +85,7 @@
     <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms:60000}"/>
   </bean>
 
-  <bean id="dispatchQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue" destroy-method="shutdown">
+  <bean id="dispatchQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue" destroy-method="shutdown" depends-on="cueDataSource">
     <constructor-arg index="0" type="java.lang.String">
       <value>DispatchQueue</value>
     </constructor-arg>
@@ -107,7 +107,7 @@
     <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms:60000}"/>
   </bean>
 
-  <bean id="manageQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue"   destroy-method="shutdown">
+  <bean id="manageQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue"   destroy-method="shutdown" depends-on="cueDataSource">
     <constructor-arg index="0" type="java.lang.String">
       <value>ManageQueue</value>
     </constructor-arg>
@@ -128,7 +128,7 @@
     </constructor-arg>
     <property name="shutdownDrainMs" value="${healthy_threadpool.shutdown_drain_ms:60000}"/>
   </bean>
-  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown" depends-on="cueDataSource">
     <constructor-arg index="0" type="int">
       <value>${report_queue.threadPoolSizeInitial}</value>
     </constructor-arg>
@@ -140,7 +140,7 @@
     </constructor-arg>
     <property name="shutdownDrainMs" value="${host_report_queue.shutdown_drain_ms:60000}"/>
   </bean>
-  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown" depends-on="cueDataSource">
     <constructor-arg index="0" type="int">
       <value>${kill_queue.threadPoolSizeInitial}</value>
     </constructor-arg>
