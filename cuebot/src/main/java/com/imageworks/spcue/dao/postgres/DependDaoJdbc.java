@@ -406,9 +406,10 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             + "FROM depend "
             + "WHERE b_active = ? "
             + "AND pk_job_depend_on = ? "
-            + "AND (pk_frame_depend_on = ? "
-                + "AND str_type IN (?, ?, ?)) "
-            + "OR (pk_layer_depend_on = ? AND str_type = ? AND b_any = true)";
+            + "AND ( "
+                + "(pk_frame_depend_on = ? AND str_type IN (?, ?, ?)) "
+                + "OR (pk_layer_depend_on = ? AND str_type = ? AND b_any = true)"
+            + ")";
     // spotless:on
 
     @Override
