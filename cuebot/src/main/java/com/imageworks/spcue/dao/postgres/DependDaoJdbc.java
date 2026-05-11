@@ -65,11 +65,26 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 }
             };
 
-    private static final String INSERT_DEPEND = "INSERT INTO " + "depend " + "(" + "pk_depend,"
-            + "pk_parent," + "pk_job_depend_er," + "pk_layer_depend_er," + "pk_frame_depend_er,"
-            + "pk_job_depend_on," + "pk_layer_depend_on," + "pk_frame_depend_on," + "str_type,"
-            + "b_any, " + "str_target, " + "b_active, " + "str_signature, " + "b_composite " + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_DEPEND =
+            "INSERT INTO depend ("
+                + "pk_depend, "
+                + "pk_parent, "
+                + "pk_job_depend_er, "
+                + "pk_layer_depend_er, "
+                + "pk_frame_depend_er, "
+                + "pk_job_depend_on, "
+                + "pk_layer_depend_on, "
+                + "pk_frame_depend_on, "
+                + "str_type, "
+                + "b_any, "
+                + "str_target, "
+                + "b_active, "
+                + "str_signature, "
+                + "b_composite"
+            + ") "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // spotless:on
 
     @Override
     public void insertDepend(JobOnJob d) {
@@ -184,18 +199,26 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.isComposite());
     }
 
-    private static final String UPDATE_FRAME_STATE = "UPDATE " + "frame " + "SET "
-            + "str_state='DEPEND' " + "WHERE " + "int_depend_count != 0 " + "AND "
-            + "frame.str_state NOT IN ('SUCCEEDED','EATEN','RUNNING','DEPEND') " + "AND "
-            + "frame.pk_frame = ?";
+    // spotless:off
+    private static final String UPDATE_FRAME_STATE =
+            "UPDATE frame "
+            + "SET str_state = 'DEPEND' "
+            + "WHERE int_depend_count != 0 "
+            + "AND frame.str_state NOT IN ('SUCCEEDED', 'EATEN', 'RUNNING', 'DEPEND') "
+            + "AND frame.pk_frame = ?";
+    // spotless:on
 
     @Override
     public void updateFrameState(FrameInterface f) {
         getJdbcTemplate().update(UPDATE_FRAME_STATE, f.getFrameId());
     }
 
-    private static final String UPDATE_DEPEND_COUNT = "UPDATE " + "frame " + "SET "
-            + "int_depend_count = int_depend_count + 1 " + "WHERE " + "pk_frame = ?";
+    // spotless:off
+    private static final String UPDATE_DEPEND_COUNT =
+            "UPDATE frame "
+            + "SET int_depend_count = int_depend_count + 1 "
+            + "WHERE pk_frame = ?";
+    // spotless:on
 
     @Override
     public void incrementDependCount(FrameInterface f) {
@@ -206,17 +229,25 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         }
     }
 
+    // spotless:off
     private static final String DECREMENT_DEPEND_COUNT =
-            "UPDATE " + "frame " + "SET " + "int_depend_count = int_depend_count -1 " + "WHERE "
-                    + "pk_frame = ? " + "AND " + "int_depend_count > 0";
+            "UPDATE frame "
+            + "SET int_depend_count = int_depend_count - 1 "
+            + "WHERE pk_frame = ? "
+            + "AND int_depend_count > 0";
+    // spotless:on
 
     @Override
     public boolean decrementDependCount(FrameInterface f) {
         return getJdbcTemplate().update(DECREMENT_DEPEND_COUNT, f.getFrameId()) == 1;
     }
 
+    // spotless:off
     private static final String IS_FRAME_DISPATCHABLE =
-            "SELECT int_depend_count = 0 FROM frame WHERE pk_frame = ?";
+            "SELECT int_depend_count = 0 "
+            + "FROM frame "
+            + "WHERE pk_frame = ?";
+    // spotless:on
 
     @Override
     public boolean isFrameDispatchable(FrameInterface f) {
@@ -224,8 +255,12 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 Boolean.class, f.getFrameId()));
     }
 
-    private static final String[] DELETE_DEPEND =
-            {"DELETE FROM depend WHERE pk_parent=?", "DELETE FROM depend WHERE pk_depend=?"};
+    // spotless:off
+    private static final String[] DELETE_DEPEND = {
+            "DELETE FROM depend WHERE pk_parent = ?",
+            "DELETE FROM depend WHERE pk_depend = ?"
+    };
+    // spotless:on
 
     @Override
     public void deleteDepend(LightweightDependency depend) {
@@ -235,15 +270,20 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         getJdbcTemplate().update(DELETE_DEPEND[1], depend.getId());
     }
 
-    private static final String GET_LIGHTWEIGHT_DEPEND = "SELECT * FROM depend WHERE pk_depend=?";
+    // spotless:off
+    private static final String GET_LIGHTWEIGHT_DEPEND =
+            "SELECT * FROM depend WHERE pk_depend = ?";
+    // spotless:on
 
     @Override
     public LightweightDependency getDepend(String id) {
         return getJdbcTemplate().queryForObject(GET_LIGHTWEIGHT_DEPEND, DEPEND_MAPPER, id);
     }
 
+    // spotless:off
     private static final String GET_LIGHTWEIGHT_DEPEND_BY_SIGNATURE =
-            "SELECT * FROM depend WHERE str_signature=?";
+            "SELECT * FROM depend WHERE str_signature = ?";
+    // spotless:on
 
     @Override
     public LightweightDependency getDependBySignature(String s) {
@@ -251,13 +291,26 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 s);
     }
 
-    private static final String GET_WHAT_DEPENDS_ON_JOB = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "pk_job_depend_on=? " + "AND " + "b_active = true " + "AND "
-            + "str_type IN (?,?,?)";
+    // spotless:off
+    private static final String GET_WHAT_DEPENDS_ON_JOB =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE pk_job_depend_on = ? "
+            + "AND b_active = true "
+            + "AND str_type IN (?, ?, ?)";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatDependsOn(JobInterface job) {
@@ -266,13 +319,27 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 DependType.FRAME_ON_JOB.toString());
     }
 
-    private static final String GET_WHAT_DEPENDS_ON_JOB_WITH_TARGET = "SELECT "
-            + "depend.pk_depend," + "depend.str_type," + "depend.str_target," + "depend.b_any,"
-            + "depend.pk_parent," + "depend.b_active," + "depend.pk_frame_depend_er,"
-            + "depend.pk_frame_depend_on," + "depend.pk_layer_depend_er,"
-            + "depend.pk_layer_depend_on," + "depend.pk_job_depend_er," + "depend.pk_job_depend_on "
-            + "FROM " + "depend " + "WHERE " + "pk_job_depend_on=? " + "AND " + "b_active = true "
-            + "AND " + "str_target = ? " + "AND " + "str_type IN (?,?,?)";
+    // spotless:off
+    private static final String GET_WHAT_DEPENDS_ON_JOB_WITH_TARGET =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE pk_job_depend_on = ? "
+            + "AND b_active = true "
+            + "AND str_target = ? "
+            + "AND str_type IN (?, ?, ?)";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target) {
@@ -285,13 +352,27 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         }
     }
 
-    private static final String GET_WHAT_DEPENDS_ON_LAYER = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "pk_job_depend_on=? " + "AND " + "pk_layer_depend_on=? " + "AND "
-            + "str_type IN (?,?,?) " + "AND " + "b_active = ?";
+    // spotless:off
+    private static final String GET_WHAT_DEPENDS_ON_LAYER =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE pk_job_depend_on = ? "
+            + "AND pk_layer_depend_on = ? "
+            + "AND str_type IN (?, ?, ?) "
+            + "AND b_active = ?";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatDependsOn(LayerInterface layer) {
@@ -307,14 +388,28 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 DependType.LAYER_ON_LAYER.toString(), DependType.FRAME_ON_LAYER.toString(), active);
     }
 
-    private static final String GET_WHAT_DEPENDS_ON_FRAME = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "b_active = ? " + "AND " + "pk_job_depend_on = ? " + "AND "
-            + "(pk_frame_depend_on = ? " + "AND " + "str_type IN (?,?,?)) " + "OR "
-            + "(pk_layer_depend_on = ? AND str_type = ? AND b_any = true)";
+    // spotless:off
+    private static final String GET_WHAT_DEPENDS_ON_FRAME =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE b_active = ? "
+            + "AND pk_job_depend_on = ? "
+            + "AND (pk_frame_depend_on = ? "
+                + "AND str_type IN (?, ?, ?)) "
+            + "OR (pk_layer_depend_on = ? AND str_type = ? AND b_any = true)";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatDependsOn(FrameInterface frame) {
@@ -329,9 +424,17 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 frame.getLayerId(), DependType.LAYER_ON_LAYER.toString());
     }
 
-    private static final String SET_INACTIVE = "UPDATE " + "depend " + "SET " + "b_active=false,"
-            + "ts_satisfied=current_timestamp," + "str_signature=pk_depend " + "WHERE "
-            + "pk_depend = ? " + "AND " + "b_active = true " + "AND " + "b_composite = false";
+    // spotless:off
+    private static final String SET_INACTIVE =
+            "UPDATE depend "
+            + "SET "
+                + "b_active = false, "
+                + "ts_satisfied = current_timestamp, "
+                + "str_signature = pk_depend "
+            + "WHERE pk_depend = ? "
+            + "AND b_active = true "
+            + "AND b_composite = false";
+    // spotless:on
 
     @Override
     public boolean setInactive(LightweightDependency depend) {
@@ -339,8 +442,13 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         return depend.active;
     }
 
-    private static final String SET_ACTIVE = "UPDATE " + "depend " + "SET " + "b_active=true "
-            + "WHERE " + "pk_depend=? " + "AND " + "b_active=false";
+    // spotless:off
+    private static final String SET_ACTIVE =
+            "UPDATE depend "
+            + "SET b_active = true "
+            + "WHERE pk_depend = ? "
+            + "AND b_active = false";
+    // spotless:on
 
     @Override
     public boolean setActive(LightweightDependency depend) {
@@ -352,13 +460,27 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         return depend.active;
     }
 
-    private static final String GET_CHILD_DEPENDS = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "depend.pk_job_depend_er = ? " + "AND " + "depend.pk_job_depend_on = ? "
-            + "AND " + "depend.pk_parent = ? " + "AND " + "depend.b_active = true ";
+    // spotless:off
+    private static final String GET_CHILD_DEPENDS =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE depend.pk_job_depend_er = ? "
+            + "AND depend.pk_job_depend_on = ? "
+            + "AND depend.pk_parent = ? "
+            + "AND depend.b_active = true";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getChildDepends(LightweightDependency depend) {
@@ -366,13 +488,26 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 depend.dependOnJobId, depend.id);
     }
 
-    private static final String GET_WHAT_THIS_JOB_DEPENDS_ON = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "depend.pk_job_depend_er = ? " + "AND " + "depend.b_active = true "
-            + "AND " + "depend.pk_parent IS NULL ";
+    // spotless:off
+    private static final String GET_WHAT_THIS_JOB_DEPENDS_ON =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE depend.pk_job_depend_er = ? "
+            + "AND depend.b_active = true "
+            + "AND depend.pk_parent IS NULL";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target) {
@@ -386,13 +521,27 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
 
     }
 
-    private static final String GET_WHAT_THIS_LAYER_DEPENDS_ON = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "depend.pk_layer_depend_er = ? " + "AND " + "depend.b_active = true "
-            + "AND " + "depend.pk_parent IS NULL " + "AND " + "depend.str_type IN (?,?,?,?) ";
+    // spotless:off
+    private static final String GET_WHAT_THIS_LAYER_DEPENDS_ON =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE depend.pk_layer_depend_er = ? "
+            + "AND depend.b_active = true "
+            + "AND depend.pk_parent IS NULL "
+            + "AND depend.str_type IN (?, ?, ?, ?)";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer,
@@ -411,13 +560,26 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         }
     }
 
-    private static final String GET_WHAT_THIS_FRAME_DEPENDS_ON = "SELECT " + "depend.pk_depend,"
-            + "depend.str_type," + "depend.str_target," + "depend.b_any," + "depend.pk_parent,"
-            + "depend.b_active," + "depend.pk_frame_depend_er," + "depend.pk_frame_depend_on,"
-            + "depend.pk_layer_depend_er," + "depend.pk_layer_depend_on,"
-            + "depend.pk_job_depend_er," + "depend.pk_job_depend_on " + "FROM " + "depend "
-            + "WHERE " + "depend.pk_frame_depend_er = ? " + "AND " + "depend.b_active = true "
-            + "AND " + "depend.str_type IN (?,?,?) ";
+    // spotless:off
+    private static final String GET_WHAT_THIS_FRAME_DEPENDS_ON =
+            "SELECT "
+                + "depend.pk_depend, "
+                + "depend.str_type, "
+                + "depend.str_target, "
+                + "depend.b_any, "
+                + "depend.pk_parent, "
+                + "depend.b_active, "
+                + "depend.pk_frame_depend_er, "
+                + "depend.pk_frame_depend_on, "
+                + "depend.pk_layer_depend_er, "
+                + "depend.pk_layer_depend_on, "
+                + "depend.pk_job_depend_er, "
+                + "depend.pk_job_depend_on "
+            + "FROM depend "
+            + "WHERE depend.pk_frame_depend_er = ? "
+            + "AND depend.b_active = true "
+            + "AND depend.str_type IN (?, ?, ?)";
+    // spotless:on
 
     @Override
     public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame,
