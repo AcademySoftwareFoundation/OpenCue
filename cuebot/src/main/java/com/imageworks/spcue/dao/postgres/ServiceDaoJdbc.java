@@ -89,12 +89,25 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 }
             };
 
+    // spotless:off
     private static final String QUERY_FOR_SERVICE =
-            "SELECT " + "service.pk_service," + "service.str_name," + "service.b_threadable,"
-                    + "service.int_cores_min," + "service.int_cores_max," + "service.int_mem_min,"
-                    + "service.int_gpus_min," + "service.int_gpus_max," + "service.int_gpu_mem_min,"
-                    + "service.str_tags, " + "service.int_timeout, " + "service.int_timeout_llu, "
-                    + "service.int_min_memory_increase " + "FROM " + "service ";
+            "SELECT "
+                + "service.pk_service,"
+                + "service.str_name,"
+                + "service.b_threadable,"
+                + "service.int_cores_min,"
+                + "service.int_cores_max,"
+                + "service.int_mem_min,"
+                + "service.int_gpus_min,"
+                + "service.int_gpus_max,"
+                + "service.int_gpu_mem_min,"
+                + "service.str_tags, "
+                + "service.int_timeout, "
+                + "service.int_timeout_llu, "
+                + "service.int_min_memory_increase "
+            + "FROM "
+                + "service ";
+    // spotless:on
 
     @Override
     public ServiceEntity get(String id) {
@@ -102,15 +115,29 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 QUERY_FOR_SERVICE + " WHERE (pk_service=? OR str_name=?)", SERVICE_MAPPER, id, id);
     }
 
+    // spotless:off
     private static final String QUERY_FOR_SERVICE_OVER =
-            "SELECT " + "show_service.pk_show_service," + "show_service.str_name,"
-                    + "show_service.b_threadable," + "show_service.int_cores_min,"
-                    + "show_service.int_cores_max, " + "show_service.int_mem_min,"
-                    + "show_service.int_gpus_min," + "show_service.int_gpus_max, "
-                    + "show_service.int_gpu_mem_min," + "show_service.str_tags,"
-                    + "show_service.int_timeout," + "show_service.int_timeout_llu,"
-                    + "show_service.int_min_memory_increase," + "show.pk_show " + "FROM "
-                    + "show_service," + "show " + "WHERE " + "show_service.pk_show = show.pk_show ";
+            "SELECT "
+                + "show_service.pk_show_service,"
+                + "show_service.str_name,"
+                + "show_service.b_threadable,"
+                + "show_service.int_cores_min,"
+                + "show_service.int_cores_max, "
+                + "show_service.int_mem_min,"
+                + "show_service.int_gpus_min,"
+                + "show_service.int_gpus_max, "
+                + "show_service.int_gpu_mem_min,"
+                + "show_service.str_tags,"
+                + "show_service.int_timeout,"
+                + "show_service.int_timeout_llu,"
+                + "show_service.int_min_memory_increase,"
+                + "show.pk_show "
+            + "FROM "
+                + "show_service,"
+                + "show "
+            + "WHERE "
+                + "show_service.pk_show = show.pk_show ";
+    // spotless:on
 
     @Override
     public ServiceOverrideEntity getOverride(String id, String show) {
@@ -137,11 +164,25 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 Integer.class, service, show) > 0;
     }
 
-    private static final String INSERT_SERVICE = "INSERT INTO " + "service " + "(" + "pk_service,"
-            + "str_name," + "b_threadable," + "int_cores_min," + "int_cores_max, " + "int_mem_min,"
-            + "int_gpus_min," + "int_gpus_max, " + "int_gpu_mem_min," + "str_tags," + "int_timeout,"
-            + "int_timeout_llu, " + "int_min_memory_increase "
-            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_SERVICE =
+            "INSERT INTO service ("
+                + "pk_service,"
+                + "str_name,"
+                + "b_threadable,"
+                + "int_cores_min,"
+                + "int_cores_max, "
+                + "int_mem_min,"
+                + "int_gpus_min,"
+                + "int_gpus_max, "
+                + "int_gpu_mem_min,"
+                + "str_tags,"
+                + "int_timeout,"
+                + "int_timeout_llu, "
+                + "int_min_memory_increase "
+            + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insert(ServiceEntity service) {
@@ -153,11 +194,26 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 service.timeout_llu, service.minMemoryIncrease);
     }
 
-    private static final String INSERT_SERVICE_WITH_SHOW = "INSERT INTO " + "show_service " + "("
-            + "pk_show_service," + "pk_show, " + "str_name," + "b_threadable," + "int_cores_min,"
-            + "int_cores_max," + "int_mem_min," + "int_gpus_min," + "int_gpus_max,"
-            + "int_gpu_mem_min," + "str_tags," + "int_timeout," + "int_timeout_llu, "
-            + "int_min_memory_increase " + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_SERVICE_WITH_SHOW =
+            "INSERT INTO show_service ("
+                + "pk_show_service,"
+                + "pk_show, "
+                + "str_name,"
+                + "b_threadable,"
+                + "int_cores_min,"
+                + "int_cores_max,"
+                + "int_mem_min,"
+                + "int_gpus_min,"
+                + "int_gpus_max,"
+                + "int_gpu_mem_min,"
+                + "str_tags,"
+                + "int_timeout,"
+                + "int_timeout_llu, "
+                + "int_min_memory_increase "
+            + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insert(ServiceOverrideEntity service) {
@@ -168,11 +224,26 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 service.timeout, service.timeout_llu, service.minMemoryIncrease);
     }
 
-    private static final String UPDATE_SERVICE = "UPDATE " + "service " + "SET " + "str_name=?,"
-            + "b_threadable=?," + "int_cores_min=?," + "int_cores_max=?," + "int_mem_min=?,"
-            + "int_gpus_min=?," + "int_gpus_max=?," + "int_gpu_mem_min=?," + "str_tags=?,"
-            + "int_timeout=?," + "int_timeout_llu=?, " + "int_min_memory_increase=? " + "WHERE "
-            + "pk_service = ?";
+    // spotless:off
+    private static final String UPDATE_SERVICE =
+            "UPDATE "
+                + "service "
+            + "SET "
+                + "str_name=?,"
+                + "b_threadable=?,"
+                + "int_cores_min=?,"
+                + "int_cores_max=?,"
+                + "int_mem_min=?,"
+                + "int_gpus_min=?,"
+                + "int_gpus_max=?,"
+                + "int_gpu_mem_min=?,"
+                + "str_tags=?,"
+                + "int_timeout=?,"
+                + "int_timeout_llu=?, "
+                + "int_min_memory_increase=? "
+            + "WHERE "
+                + "pk_service = ?";
+    // spotless:on
 
     @Override
     public void update(ServiceEntity service) {
@@ -182,11 +253,26 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 service.minMemoryIncrease, service.getId());
     }
 
-    private static final String UPDATE_SERVICE_WITH_SHOW = "UPDATE " + "show_service " + "SET "
-            + "str_name=?," + "b_threadable=?," + "int_cores_min=?," + "int_cores_max=?,"
-            + "int_mem_min=?," + "int_gpus_min=?," + "int_gpus_max=?," + "int_gpu_mem_min=?,"
-            + "str_tags=?," + "int_timeout=?," + "int_timeout_llu=?, "
-            + "int_min_memory_increase=? " + "WHERE " + "pk_show_service = ?";
+    // spotless:off
+    private static final String UPDATE_SERVICE_WITH_SHOW =
+            "UPDATE "
+                + "show_service "
+            + "SET "
+                + "str_name=?,"
+                + "b_threadable=?,"
+                + "int_cores_min=?,"
+                + "int_cores_max=?,"
+                + "int_mem_min=?,"
+                + "int_gpus_min=?,"
+                + "int_gpus_max=?,"
+                + "int_gpu_mem_min=?,"
+                + "str_tags=?,"
+                + "int_timeout=?,"
+                + "int_timeout_llu=?, "
+                + "int_min_memory_increase=? "
+            + "WHERE "
+                + "pk_show_service = ?";
+    // spotless:on
 
     @Override
     public void update(ServiceOverrideEntity service) {

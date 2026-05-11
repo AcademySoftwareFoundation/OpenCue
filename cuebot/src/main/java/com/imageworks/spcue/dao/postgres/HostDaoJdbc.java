@@ -53,7 +53,6 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
-// spotless:off
 public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
     @Autowired
@@ -116,6 +115,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     };
 
+    // spotless:off
     private static final String GET_HOST_DETAIL =
             "SELECT "
             + "  host.pk_host, "
@@ -144,6 +144,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "WHERE "
             + "  host.pk_host = host_stat.pk_host "
             + "  AND host.pk_alloc = alloc.pk_alloc ";
+    // spotless:on
 
     @Override
     public void lockForUpdate(HostInterface host) {
@@ -175,6 +176,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 HOST_DETAIL_MAPPER, name);
     }
 
+    // spotless:off
     private static final String GET_HOST =
             "SELECT "
             + "  host.pk_host, "
@@ -186,6 +188,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  alloc "
             + "WHERE "
             + "  host.pk_alloc = alloc.pk_alloc ";
+    // spotless:on
 
     @Override
     public HostInterface getHost(String id) {
@@ -233,6 +236,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 }
             };
 
+    // spotless:off
     public static final String GET_DISPATCH_HOST =
             "SELECT "
             + "  host.pk_host, "
@@ -260,6 +264,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  ON (host.pk_host = host_stat.pk_host) "
             + "INNER JOIN alloc "
             + "  ON (host.pk_alloc = alloc.pk_alloc) ";
+    // spotless:on
 
     @Override
     public DispatchHost findDispatchHost(String name) {
@@ -278,6 +283,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 DISPATCH_HOST_MAPPER, id);
     }
 
+    // spotless:off
     private static final String[] INSERT_HOST_DETAIL = {
             "INSERT INTO host ("
             + "  pk_host, "
@@ -315,6 +321,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  str_os "
             + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     };
+    // spotless:on
 
     @Override
     public void insertRenderHost(RenderHost host, AllocationInterface a, boolean useLongNames) {
@@ -381,6 +388,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }, new ArrayList<SqlParameter>());
     }
 
+    // spotless:off
     private static final String UPDATE_RENDER_HOST =
             "UPDATE host_stat "
             + "SET "
@@ -398,6 +406,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  str_os = ? "
             + "WHERE "
             + "  pk_host = ?";
+    // spotless:on
 
     @Override
     public void updateHostStats(HostInterface host, long totalMemory, long freeMemory,
@@ -432,15 +441,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         long gpu_memory = report.getHost().getTotalGpuMem();
         int gpus = report.getHost().getNumGpus();
 
-        getJdbcTemplate().update(
-                "UPDATE " + "host " + "SET " + "b_nimby=?," + "int_cores=?," + "int_cores_idle=?,"
-                        + "int_mem=?," + "int_mem_idle=?, " + "int_gpus=?," + "int_gpus_idle=?,"
-                        + "int_gpu_mem=?," + "int_gpu_mem_idle=? " + "WHERE " + "pk_host=? "
-                        + "AND ("
-                        + "(int_cores = int_cores_idle " + "AND "
-                        + "int_mem = int_mem_idle " + "AND " + "int_gpus = int_gpus_idle) "
-                        + "OR NOT EXISTS "
-                        + "(SELECT 1 FROM proc WHERE proc.pk_host = host.pk_host))",
+        getJdbcTemplate().update("UPDATE " + "host " + "SET " + "b_nimby=?," + "int_cores=?,"
+                + "int_cores_idle=?," + "int_mem=?," + "int_mem_idle=?, " + "int_gpus=?,"
+                + "int_gpus_idle=?," + "int_gpu_mem=?," + "int_gpu_mem_idle=? " + "WHERE "
+                + "pk_host=? " + "AND (" + "(int_cores = int_cores_idle " + "AND "
+                + "int_mem = int_mem_idle " + "AND " + "int_gpus = int_gpus_idle) "
+                + "OR NOT EXISTS " + "(SELECT 1 FROM proc WHERE proc.pk_host = host.pk_host))",
                 report.getHost().getNimbyEnabled(), cores, cores, memory, memory, gpus, gpus,
                 gpu_memory, gpu_memory, host.getId());
     }
@@ -464,19 +470,23 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         getJdbcTemplate().update("DELETE FROM host WHERE pk_host=?", host.getHostId());
     }
 
+    // spotless:off
     private static final String DELETE_DOWN_HOST_COMMENTS =
             "DELETE FROM comments "
             + "USING host_stat "
             + "WHERE "
             + "  comments.pk_host = host_stat.pk_host "
             + "  AND host_stat.str_state = ?";
+    // spotless:on
 
+    // spotless:off
     private static final String DELETE_DOWN_HOSTS =
             "DELETE FROM host "
             + "USING host_stat "
             + "WHERE "
             + "  host.pk_host = host_stat.pk_host "
             + "  AND host_stat.str_state = ?";
+    // spotless:on
 
     @Override
     public void deleteDownHosts() {
@@ -515,6 +525,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 host.getHostId(), LockState.OPEN.toString()) > 0;
     }
 
+    // spotless:off
     private static final String INSERT_TAG =
             "INSERT INTO host_tag ("
             + "  pk_host_tag, "
@@ -523,6 +534,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  str_tag_type, "
             + "  b_constant "
             + ") VALUES (?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void tagHost(String id, String tag, HostTagType type) {
@@ -595,12 +607,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     }
 
+    // spotless:off
     private static final String IS_HOST_UP =
             "SELECT COUNT(1) "
             + "FROM host_stat "
             + "WHERE "
             + "  host_stat.str_state = ? "
             + "  AND host_stat.pk_host = ?";
+    // spotless:on
 
     @Override
     public boolean isHostUp(HostInterface host) {
@@ -608,6 +622,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 HardwareState.UP.toString(), host.getHostId()) == 1;
     }
 
+    // spotless:off
     private static final String IS_PREFER_SHOW =
             "SELECT COUNT(1) "
             + "FROM "
@@ -618,6 +633,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host.pk_host = deed.pk_host "
             + "  AND deed.pk_owner = owner.pk_owner "
             + "  AND host.pk_host = ?";
+    // spotless:on
 
     @Override
     public boolean isPreferShow(HostInterface h) {
@@ -631,6 +647,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 h.getHostId()) > 0;
     }
 
+    // spotless:off
     private static final String RECONCILE_IDLE_RESOURCES =
             "UPDATE host SET "
             + "int_mem_idle = int_mem - COALESCE("
@@ -642,6 +659,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  (SELECT SUM(int_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0) "
             + "OR int_gpu_mem_idle != int_gpu_mem - COALESCE("
             + "  (SELECT SUM(int_gpu_mem_reserved) FROM proc WHERE proc.pk_host = host.pk_host), 0))";
+    // spotless:on
 
     @Override
     public boolean reconcileIdleResources(HostInterface host) {
@@ -708,5 +726,3 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
 }
-
-// spotless:on

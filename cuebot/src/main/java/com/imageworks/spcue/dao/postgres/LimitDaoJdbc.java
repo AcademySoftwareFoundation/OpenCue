@@ -81,12 +81,21 @@ public class LimitDaoJdbc extends JdbcDaoSupport implements LimitDao {
                 + "WHERE " + "pk_limit_record = ?", maxValue, limit.getId());
     }
 
-    private static final String GET_LIMIT_BASE = "SELECT " + "limit_record.pk_limit_record, "
-            + "limit_record.str_name, " + "limit_record.int_max_value,"
-            + "SUM(layer_stat.int_running_count) AS int_current_running " + "FROM "
-            + "limit_record " + "LEFT JOIN "
-            + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-            + "LEFT JOIN " + "layer ON layer.pk_layer = layer_limit.pk_layer " + "LEFT JOIN "
-            + "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
+    // spotless:off
+    private static final String GET_LIMIT_BASE =
+            "SELECT "
+                + "limit_record.pk_limit_record, "
+                + "limit_record.str_name, "
+                + "limit_record.int_max_value,"
+                + "SUM(layer_stat.int_running_count) AS int_current_running "
+            + "FROM "
+                + "limit_record "
+            + "LEFT JOIN "
+                + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+            + "LEFT JOIN "
+                + "layer ON layer.pk_layer = layer_limit.pk_layer "
+            + "LEFT JOIN "
+                + "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
+    // spotless:on
 
 }
