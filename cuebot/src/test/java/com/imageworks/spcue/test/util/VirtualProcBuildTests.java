@@ -30,8 +30,8 @@ import com.imageworks.spcue.util.CueUtil;
 /**
  * Characterization tests for {@link VirtualProc#build(DispatchHost, DispatchFrame, String...)}.
  *
- * Pin every observable branch of the current implementation. Used as a safety net for a
- * subsequent readability-only refactor of the method body.
+ * Pin every observable branch of the current implementation. Used as a safety net for a subsequent
+ * readability-only refactor of the method body.
  */
 public class VirtualProcBuildTests extends TestCase {
 

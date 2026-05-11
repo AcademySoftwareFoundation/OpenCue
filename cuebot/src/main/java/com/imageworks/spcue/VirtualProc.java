@@ -86,8 +86,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         if (host.strandedCores > 0) {
             proc.coresReserved += host.strandedCores;
         }
-        proc.canHandleNegativeCoresRequest =
-                host.canHandleNegativeCoresRequest(proc.coresReserved);
+        proc.canHandleNegativeCoresRequest = host.canHandleNegativeCoresRequest(proc.coresReserved);
 
         int requested = proc.coresReserved;
         if (requested == 0) {
@@ -152,8 +151,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         }
     }
 
-    private static int baseReservationByMode(DispatchHost host, DispatchFrame frame,
-            int wholeCores, int requested, String[] selfishServices) {
+    private static int baseReservationByMode(DispatchHost host, DispatchFrame frame, int wholeCores,
+            int requested, String[] selfishServices) {
         if (host.threadMode == ThreadMode.ALL_VALUE) {
             return wholeCores * 100;
         }
@@ -199,8 +198,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         if (cores <= host.idleCores) {
             return cores;
         }
-        if (host.threadMode == ThreadMode.VARIABLE_VALUE && frame.threadable
-                && wholeCores == 1) {
+        if (host.threadMode == ThreadMode.VARIABLE_VALUE && frame.threadable && wholeCores == 1) {
             throw new JobDispatchException(
                     "Do not allow threadable frame running one core on a ThreadMode.Variable host.");
         }
