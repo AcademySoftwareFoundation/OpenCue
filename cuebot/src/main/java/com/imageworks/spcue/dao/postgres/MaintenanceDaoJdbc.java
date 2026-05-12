@@ -27,26 +27,54 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
 
     private static final String HOST_DOWN_INTERVAL = "interval '300' second";
 
+    // spotless:off
     private static final String UPDATE_HOSTS_DOWN =
-            "UPDATE " + "host_stat " + "SET " + "str_state = ? " + "WHERE " + "str_state = 'UP' "
-                    + "AND " + "current_timestamp - ts_ping > " + HOST_DOWN_INTERVAL;
+            "UPDATE "
+                + "host_stat "
+            + "SET "
+                + "str_state = ? "
+            + "WHERE "
+                + "str_state = 'UP' "
+            + "AND "
+                + "current_timestamp - ts_ping > " + HOST_DOWN_INTERVAL;
+    // spotless:on
 
     public int setUpHostsToDown() {
         return getJdbcTemplate().update(UPDATE_HOSTS_DOWN, HardwareState.DOWN.toString());
     }
 
-    public static final String LOCK_TASK = "UPDATE " + "task_lock " + "SET " + "int_lock = ?, "
-            + "ts_lastrun = current_timestamp " + "WHERE " + "str_name = ? " + "AND "
-            + "(int_lock = ? OR ? - int_lock > int_timeout)";
+    // spotless:off
+    public static final String LOCK_TASK =
+            "UPDATE "
+                + "task_lock "
+            + "SET "
+                + "int_lock = ?, "
+                + "ts_lastrun = current_timestamp "
+            + "WHERE "
+                + "str_name = ? "
+            + "AND "
+                + "(int_lock = ? OR ? - int_lock > int_timeout)";
+    // spotless:on
 
     public boolean lockTask(MaintenanceTask task) {
         long now = System.currentTimeMillis();
         return getJdbcTemplate().update(LOCK_TASK, now, task.toString(), 0, now) == 1;
     }
 
-    public static final String LOCK_TASK_MIN = "UPDATE " + "task_lock " + "SET " + "int_lock = ?, "
-            + "ts_lastrun = current_timestamp " + "WHERE " + "str_name= ? " + "AND "
-            + "int_lock = ? " + "AND " + "interval_to_seconds(current_timestamp - ts_lastrun) > ? ";
+    // spotless:off
+    public static final String LOCK_TASK_MIN =
+            "UPDATE "
+                + "task_lock "
+            + "SET "
+                + "int_lock = ?, "
+                + "ts_lastrun = current_timestamp "
+            + "WHERE "
+                + "str_name= ? "
+            + "AND "
+                + "int_lock = ? "
+            + "AND "
+                + "interval_to_seconds(current_timestamp - ts_lastrun) > ? ";
+    // spotless:on
 
     public boolean lockTask(MaintenanceTask task, int minutes) {
         long now = System.currentTimeMillis();
@@ -141,11 +169,21 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
                     + "SELECT 1 FROM depend d "
                     + "WHERE d.b_active = true "
                     + "AND d.pk_job_depend_er = f.pk_job "
-                    + "AND ("
-                        + "d.pk_frame_depend_er = f.pk_frame "
-                        + "OR (d.pk_layer_depend_er = f.pk_layer AND d.pk_frame_depend_er IS NULL) "
-                        + "OR (d.pk_layer_depend_er IS NULL AND d.pk_frame_depend_er IS NULL)"
-                    + ")"
+                    + "AND d.pk_frame_depend_er = f.pk_frame"
+                + ") "
+                + "AND NOT EXISTS ("
+                    + "SELECT 1 FROM depend d "
+                    + "WHERE d.b_active = true "
+                    + "AND d.pk_job_depend_er = f.pk_job "
+                    + "AND d.pk_layer_depend_er = f.pk_layer "
+                    + "AND d.pk_frame_depend_er IS NULL"
+                + ") "
+                + "AND NOT EXISTS ("
+                    + "SELECT 1 FROM depend d "
+                    + "WHERE d.b_active = true "
+                    + "AND d.pk_job_depend_er = f.pk_job "
+                    + "AND d.pk_layer_depend_er IS NULL "
+                    + "AND d.pk_frame_depend_er IS NULL"
                 + ") "
                 + "LIMIT ?"
             + ")";

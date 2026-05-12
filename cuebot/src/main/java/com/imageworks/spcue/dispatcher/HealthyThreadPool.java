@@ -4,10 +4,11 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Date;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -36,6 +37,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     private boolean wasHealthy = true;
     protected final AtomicBoolean isShutdown = new AtomicBoolean(false);
     private final int baseSleepTimeMillis;
+    private long shutdownDrainMs = 60000;
 
     /**
      * Start a thread pool
@@ -84,13 +86,42 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     }
 
     public void execute(KeyRunnable r) {
-        if (isShutdown.get()) {
-            logger.info(name + ": Task ignored, queue on hold or shutdown");
+        if (taskCache.getIfPresent(r.getKey()) != null) {
             return;
         }
-        if (taskCache.getIfPresent(r.getKey()) == null) {
-            taskCache.put(r.getKey(), r);
+        if (isShutdown.get() || super.isShutdown()) {
+            // The pool is being torn down. Run synchronously on the caller thread so
+            // the work isn't lost — for FrameCompleteReports this is the dependency
+            // satisfaction / job completion / event publish path.
+            logger.warn(name + ": pool shutting down; running task synchronously on caller thread");
+            runTaskSynchronouslyWithRetryWrap(r);
+            return;
+        }
+        taskCache.put(r.getKey(), r);
+        try {
             super.execute(r);
+        } catch (RejectedExecutionException ree) {
+            // Race with shutdown: the underlying executor was just shut down. Run
+            // synchronously rather than dropping the task. afterExecute() won't fire
+            // for a rejected task, so the helper takes care of cache invalidation.
+            logger.warn(name + ": rejected by pool, running synchronously", ree);
+            runTaskSynchronouslyWithRetryWrap(r);
+        }
+    }
+
+    private void runTaskSynchronouslyWithRetryWrap(KeyRunnable r) {
+        // Mirror the async path's dedup lifecycle: register the key so a concurrent
+        // submission with the same key sees it and returns early at the top of
+        // execute(), then invalidate when the task completes (same as afterExecute).
+        taskCache.put(r.getKey(), r);
+        try {
+            r.run();
+        } catch (RuntimeException e) {
+            logger.error(name + ": synchronous fallback task failed", e);
+            throw new RqdRetryReportException("cuebot shutting down, synchronous fallback failed",
+                    e);
+        } finally {
+            taskCache.invalidate(r.getKey());
         }
     }
 
@@ -199,22 +230,27 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
                 || (getRejectedTaskCount() < this.poolSize / healthThreshold);
     }
 
+    public void setShutdownDrainMs(long shutdownDrainMs) {
+        this.shutdownDrainMs = shutdownDrainMs;
+    }
+
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down thread pool " + name + ", currently " + getActiveCount()
-                    + " active threads.");
-            final long startTime = System.currentTimeMillis();
-            while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
-                try {
-                    if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(
-                                name + " thread pool failed to shutdown properly");
+                    + " active threads, " + getQueue().size() + " queued.");
+            super.shutdown();
+            try {
+                if (!super.awaitTermination(shutdownDrainMs, TimeUnit.MILLISECONDS)) {
+                    logger.warn(name + ": drain timed out after " + shutdownDrainMs + "ms; "
+                            + getQueue().size() + " queued, " + getActiveCount() + " active");
+                    super.shutdownNow();
+                    if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                        logger.warn(name + ": failed to terminate after shutdownNow");
                     }
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                super.shutdownNow();
             }
         }
     }
