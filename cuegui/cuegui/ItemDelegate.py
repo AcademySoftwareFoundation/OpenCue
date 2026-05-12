@@ -77,7 +77,7 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
             QtWidgets.QItemDelegate.paint(self, painter, option, index)
 
     def _paintDifferenceBar(self, painter, option, index, used, total):
-        if not total:
+        if not total or total <= 0:
             return
         painter.save()
         try:
@@ -88,8 +88,15 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
             # rows are ~14-16px tall. Larger padding (e.g. 6px) consumes
             # the entire row on macOS and the bar disappears.
             rect = option.rect.adjusted(2, 2, -2, -2)
+            # Clamp used to [0, total]. Down or misreporting hosts can
+            # publish free > total (seen on DOWN hosts where /mcp (/tmp) metrics
+            # were never refreshed), which makes used negative and the
+            # free-fill rect extend past the cell - bleeding the bar's
+            # green into the columns to the left.
+            used = max(0, min(used, total))
             ratio = rect.width() / float(total)
-            length = int(ceil(ratio * (used)))
+            length = int(ceil(ratio * used))
+            painter.setClipRect(rect)
             painter.fillRect(rect,
                              self.__colorUsed)
             painter.fillRect(rect.adjusted(length, 0, 0, 0),
