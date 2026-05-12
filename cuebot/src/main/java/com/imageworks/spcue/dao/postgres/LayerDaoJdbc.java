@@ -55,8 +55,17 @@ import org.apache.logging.log4j.LogManager;
 public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     private final long MEM_RESERVED_MIN;
     private static final Logger logger = LogManager.getLogger(LayerDaoJdbc.class);
-    private static final String INSERT_OUTPUT_PATH = "INSERT INTO " + "layer_output " + "( "
-            + "pk_layer_output," + "pk_layer," + "pk_job," + "str_filespec " + ") VALUES (?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_OUTPUT_PATH =
+            "INSERT INTO layer_output "
+                + "( "
+                    + "pk_layer_output,"
+                    + "pk_layer,"
+                    + "pk_job,"
+                    + "str_filespec "
+                + ") "
+            + "VALUES (?,?,?,?)";
+    // spotless:on
 
     @Autowired
     public LayerDaoJdbc(Environment env) {
@@ -70,8 +79,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 layer.getLayerId(), layer.getJobId(), filespec);
     }
 
-    private static final String GET_OUTPUT = "SELECT " + "str_filespec " + "FROM " + "layer_output "
-            + "WHERE " + "pk_layer = ? " + "ORDER BY " + "ser_order";
+    // spotless:off
+    private static final String GET_OUTPUT =
+            "SELECT "
+                + "str_filespec "
+            + "FROM layer_output "
+            + "WHERE pk_layer = ? "
+            + "ORDER BY ser_order";
+    // spotless:on
 
     private static final RowMapper<String> OUTPUT_MAPPER = new RowMapper<String>() {
         public String mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -84,8 +99,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         return getJdbcTemplate().query(GET_OUTPUT, OUTPUT_MAPPER, layer.getLayerId());
     }
 
+    // spotless:off
     private static final String IS_LAYER_DISPATCHABLE =
-            "SELECT " + "int_waiting_count " + "FROM " + "layer_stat " + "WHERE " + "pk_layer=?";
+            "SELECT "
+                + "int_waiting_count "
+            + "FROM layer_stat "
+            + "WHERE pk_layer=?";
+    // spotless:on
 
     @Override
     public boolean isLayerDispatchable(LayerInterface l) {
@@ -93,9 +113,18 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.getLayerId()) > 0;
     }
 
-    private static final String IS_LAYER_COMPLETE = "SELECT " + "SUM ( " + "int_waiting_count + "
-            + "int_running_count + " + "int_dead_count + " + "int_depend_count " + ") " + "FROM "
-            + "layer_stat " + "WHERE " + "pk_layer=?";
+    // spotless:off
+    private static final String IS_LAYER_COMPLETE =
+            "SELECT "
+                + "SUM ( "
+                    + "int_waiting_count + "
+                    + "int_running_count + "
+                    + "int_dead_count + "
+                    + "int_depend_count "
+                + ") "
+            + "FROM layer_stat "
+            + "WHERE pk_layer=?";
+    // spotless:on
 
     public boolean isLayerComplete(LayerInterface l) {
         if (isLaunching(l)) {
@@ -105,8 +134,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.getLayerId()) == 0;
     }
 
+    // spotless:off
     private static final String IS_LAUNCHING =
-            "SELECT " + "str_state " + "FROM " + "job " + "WHERE " + "pk_job=?";
+            "SELECT "
+                + "str_state "
+            + "FROM job "
+            + "WHERE pk_job=?";
+    // spotless:on
 
     @Override
     public boolean isLaunching(LayerInterface l) {
@@ -114,8 +148,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 .equals(JobState.STARTUP.toString());
     }
 
+    // spotless:off
     private static final String IS_THREADABLE =
-            "SELECT " + "b_threadable " + "FROM " + "layer " + "WHERE " + "pk_layer = ?";
+            "SELECT "
+                + "b_threadable "
+            + "FROM layer "
+            + "WHERE pk_layer = ?";
+    // spotless:on
 
     @Override
     public boolean isThreadable(LayerInterface l) {
@@ -125,14 +164,37 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     /**
      * Query for layers table. Where clauses are appended later
      */
-    public static final String GET_LAYER_DETAIL = "SELECT " + "layer.*, " + "job.pk_show, "
-            + "job.pk_facility " + "FROM " + "layer," + "job," + "show " + "WHERE "
-            + "layer.pk_job = job.pk_job " + "AND " + "job.pk_show = show.pk_show ";
+    // spotless:off
+    public static final String GET_LAYER_DETAIL =
+            "SELECT "
+                + "layer.*, "
+                + "job.pk_show, "
+                + "job.pk_facility "
+            + "FROM "
+                + "layer,"
+                + "job,"
+                + "show "
+            + "WHERE "
+                + "layer.pk_job = job.pk_job "
+                + "AND job.pk_show = show.pk_show ";
+    // spotless:on
 
+    // spotless:off
     private static final String GET_LAYER =
-            "SELECT " + "layer.pk_layer," + "layer.pk_job," + "job.pk_show," + "job.pk_facility, "
-                    + "layer.str_name " + "FROM " + "layer," + "job," + "show " + "WHERE "
-                    + "layer.pk_job = job.pk_job " + "AND " + "job.pk_show = show.pk_show ";
+            "SELECT "
+                + "layer.pk_layer,"
+                + "layer.pk_job,"
+                + "job.pk_show,"
+                + "job.pk_facility, "
+                + "layer.str_name "
+            + "FROM "
+                + "layer,"
+                + "job,"
+                + "show "
+            + "WHERE "
+                + "layer.pk_job = job.pk_job "
+                + "AND job.pk_show = show.pk_show ";
+    // spotless:on
 
     /**
      * Maps a ResultSet to a LayerDetail
@@ -236,12 +298,32 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 id);
     }
 
-    private static final String INSERT_LAYER = "INSERT INTO " + "layer " + "(" + "pk_layer, "
-            + "pk_job, " + "str_name, " + "str_cmd, " + "str_range, " + "int_chunk_size, "
-            + "int_dispatch_order, " + "str_tags, " + "str_type," + "int_cores_min, "
-            + "int_cores_max, " + "b_threadable, " + "int_mem_min, " + "int_gpus_min, "
-            + "int_gpus_max, " + "int_gpu_mem_min, " + "str_services, " + "int_timeout,"
-            + "int_timeout_llu " + ") " + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_LAYER =
+            "INSERT INTO layer "
+                + "("
+                    + "pk_layer, "
+                    + "pk_job, "
+                    + "str_name, "
+                    + "str_cmd, "
+                    + "str_range, "
+                    + "int_chunk_size, "
+                    + "int_dispatch_order, "
+                    + "str_tags, "
+                    + "str_type,"
+                    + "int_cores_min, "
+                    + "int_cores_max, "
+                    + "b_threadable, "
+                    + "int_mem_min, "
+                    + "int_gpus_min, "
+                    + "int_gpus_max, "
+                    + "int_gpu_mem_min, "
+                    + "str_services, "
+                    + "int_timeout,"
+                    + "int_timeout_llu "
+                + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertLayerDetail(LayerDetail l) {
@@ -268,9 +350,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 layer.getLayerId());
     }
 
+    // spotless:off
     private static final String BALANCE_MEM =
-            "UPDATE " + "layer " + "SET " + "int_mem_min = ? " + "WHERE " + "pk_layer = ? " + "AND "
-                    + "int_mem_min > ? " + "AND " + "b_optimize = true";
+            "UPDATE layer "
+            + "SET int_mem_min = ? "
+            + "WHERE pk_layer = ? "
+            + "AND int_mem_min > ? "
+            + "AND b_optimize = true";
+    // spotless:on
 
     @Override
     public boolean balanceLayerMinMemory(LayerInterface layer, long frameMaxRss) {
@@ -341,8 +428,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 layer.getLayerId());
     }
 
+    // spotless:off
     private static final String UPDATE_LAYER_MAX_RSS =
-            "UPDATE " + "layer_mem " + "SET " + "int_max_rss = ? " + "WHERE " + "pk_layer = ?";
+            "UPDATE layer_mem "
+            + "SET int_max_rss = ? "
+            + "WHERE pk_layer = ?";
+    // spotless:on
 
     @Override
     public void updateLayerMaxRSS(LayerInterface layer, long val, boolean force) {
@@ -357,8 +448,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         getJdbcTemplate().update(sb.toString(), options);
     }
 
+    // spotless:off
     private static final String UPDATE_LAYER_MAX_PSS =
-            "UPDATE " + "layer_mem " + "SET " + "int_max_pss = ? " + "WHERE " + "pk_layer = ?";
+            "UPDATE layer_mem "
+            + "SET int_max_pss = ? "
+            + "WHERE pk_layer = ?";
+    // spotless:on
 
     @Override
     public void updateLayerMaxPSS(LayerInterface layer, long val, boolean force) {
@@ -425,13 +520,25 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 }, layer.getLayerId());
     }
 
+    // spotless:off
     private static final String GET_EXECUTION_SUMMARY =
-            "SELECT " + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail,"
-                    + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail,"
-                    + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_high,"
-                    + "layer_mem.int_max_rss " + "FROM " + "layer," + "layer_usage, " + "layer_mem "
-                    + "WHERE " + "layer.pk_layer = layer_usage.pk_layer " + "AND "
-                    + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_layer = ?";
+            "SELECT "
+                + "layer_usage.int_core_time_success,"
+                + "layer_usage.int_core_time_fail,"
+                + "layer_usage.int_gpu_time_success,"
+                + "layer_usage.int_gpu_time_fail,"
+                + "layer_usage.int_clock_time_success,"
+                + "layer_usage.int_clock_time_high,"
+                + "layer_mem.int_max_rss "
+            + "FROM "
+                + "layer,"
+                + "layer_usage, "
+                + "layer_mem "
+            + "WHERE "
+                + "layer.pk_layer = layer_usage.pk_layer "
+                + "AND layer.pk_layer = layer_mem.pk_layer "
+                + "AND layer.pk_layer = ?";
+    // spotless:on
 
     @Override
     public ExecutionSummary getExecutionSummary(LayerInterface layer) {
@@ -452,8 +559,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 }, layer.getLayerId());
     }
 
-    private static final String INSERT_LAYER_ENV = "INSERT INTO " + "layer_env " + "("
-            + "pk_layer_env, pk_layer, pk_job, str_key, str_value " + ") " + "VALUES (?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_LAYER_ENV =
+            "INSERT INTO layer_env "
+                + "("
+                    + "pk_layer_env, pk_layer, pk_job, str_key, str_value "
+                + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertLayerEnvironment(LayerInterface layer, Map<String, String> env) {
@@ -483,12 +596,21 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         return result;
     }
 
+    // spotless:off
     private static final String FIND_PAST_MAX_RSS =
-            "SELECT " + "layer_mem.int_max_rss " + "FROM " + "layer, " + "layer_mem, "
-                    + "layer_stat " + "WHERE " + "layer.pk_layer = layer_stat.pk_layer " + "AND "
-                    + "layer.pk_layer = layer_mem.pk_layer " + "AND " + "layer.pk_job = ? " + "AND "
-                    + "layer.str_name = ? " + "AND "
-                    + "layer_stat.int_succeeded_count >= ceil(layer_stat.int_total_count * .5) ";
+            "SELECT "
+                + "layer_mem.int_max_rss "
+            + "FROM "
+                + "layer, "
+                + "layer_mem, "
+                + "layer_stat "
+            + "WHERE "
+                + "layer.pk_layer = layer_stat.pk_layer "
+                + "AND layer.pk_layer = layer_mem.pk_layer "
+                + "AND layer.pk_job = ? "
+                + "AND layer.str_name = ? "
+                + "AND layer_stat.int_succeeded_count >= ceil(layer_stat.int_total_count * .5) ";
+    // spotless:on
 
     @Override
     public long findPastMaxRSS(JobInterface job, String name) {
@@ -577,13 +699,25 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 layer.getLayerId());
     }
 
-    private static final String IS_OPTIMIZABLE = "SELECT " + "COUNT(1) " + "FROM " + "layer, "
-            + "layer_stat, " + "layer_usage " + "WHERE " + "layer.pk_layer = layer_stat.pk_layer "
-            + "AND " + "layer.pk_layer = layer_usage.pk_layer " + "AND " + "layer.pk_layer = ? "
-            + "AND " + "layer.int_cores_min = 100 " + "AND " + "layer.int_gpus_min = 0 " + "AND "
-            + "str_tags LIKE '%general%' " + "AND " + "str_tags NOT LIKE '%util%' " + "AND "
-            + "layer_stat.int_succeeded_count >= ? " + "AND "
-            + "(layer_usage.int_core_time_success / layer_stat.int_succeeded_count) <= ?";
+    // spotless:off
+    private static final String IS_OPTIMIZABLE =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "layer, "
+                + "layer_stat, "
+                + "layer_usage "
+            + "WHERE "
+                + "layer.pk_layer = layer_stat.pk_layer "
+                + "AND layer.pk_layer = layer_usage.pk_layer "
+                + "AND layer.pk_layer = ? "
+                + "AND layer.int_cores_min = 100 "
+                + "AND layer.int_gpus_min = 0 "
+                + "AND str_tags LIKE '%general%' "
+                + "AND str_tags NOT LIKE '%util%' "
+                + "AND layer_stat.int_succeeded_count >= ? "
+                + "AND (layer_usage.int_core_time_success / layer_stat.int_succeeded_count) <= ?";
+    // spotless:on
 
     @Override
     public boolean isOptimizable(LayerInterface l, int succeeded, float avg) {
@@ -595,12 +729,23 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 succeeded, avg) > 0;
     }
 
+    // spotless:off
     private static final String THREAD_STATS =
-            "SELECT " + "avg(interval_to_seconds(ts_stopped - ts_started)) AS avg, " + "int_cores, "
-                    + "int_gpus " + "FROM " + "frame " + "WHERE " + "frame.pk_layer = ? " + "AND "
-                    + "frame.int_checkpoint_count = 0 " + "AND " + "int_cores > 0 " + "AND "
-                    + "int_gpus > 0 " + "GROUP BY " + "int_cores, " + "int_gpus " + "ORDER BY "
-                    + "int_cores DESC ";
+            "SELECT "
+                + "avg(interval_to_seconds(ts_stopped - ts_started)) AS avg, "
+                + "int_cores, "
+                + "int_gpus "
+            + "FROM frame "
+            + "WHERE frame.pk_layer = ? "
+            + "AND frame.int_checkpoint_count = 0 "
+            + "AND int_cores > 0 "
+            + "AND int_gpus > 0 "
+            + "GROUP BY "
+                + "int_cores, "
+                + "int_gpus "
+            + "ORDER BY "
+                + "int_cores DESC ";
+    // spotless:on
 
     @Override
     public List<ThreadStats> getThreadStats(LayerInterface layer) {
@@ -651,17 +796,37 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         }
     }
 
-    private static final String INSERT_LIMIT = "INSERT INTO "
-            + "layer_limit (pk_layer_limit,pk_layer,pk_limit_record)" + "VALUES (?,?,?)";
+    // spotless:off
+    private static final String INSERT_LIMIT =
+            "INSERT INTO layer_limit (pk_layer_limit,pk_layer,pk_limit_record)"
+            + "VALUES (?,?,?)";
+    // spotless:on
 
-    private static final String GET_LIMITS = "SELECT " + "limit_record.pk_limit_record, "
-            + "limit_record.str_name, " + "limit_record.int_max_value " + "FROM " + "layer_limit,"
-            + "limit_record " + "WHERE " + "layer_limit.pk_layer = ? "
-            + "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+    // spotless:off
+    private static final String GET_LIMITS =
+            "SELECT "
+                + "limit_record.pk_limit_record, "
+                + "limit_record.str_name, "
+                + "limit_record.int_max_value "
+            + "FROM "
+                + "layer_limit,"
+                + "limit_record "
+            + "WHERE "
+                + "layer_limit.pk_layer = ? "
+                + "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+    // spotless:on
 
-    private static final String GET_LIMIT_NAMES = "SELECT " + "limit_record.str_name " + "FROM "
-            + "layer_limit, " + "limit_record " + "WHERE " + "layer_limit.pk_layer = ? "
-            + "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+    // spotless:off
+    private static final String GET_LIMIT_NAMES =
+            "SELECT "
+                + "limit_record.str_name "
+            + "FROM "
+                + "layer_limit, "
+                + "limit_record "
+            + "WHERE "
+                + "layer_limit.pk_layer = ? "
+                + "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+    // spotless:on
 
     private static final RowMapper<LimitEntity> LIMIT_MAPPER = new RowMapper<LimitEntity>() {
         public LimitEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
