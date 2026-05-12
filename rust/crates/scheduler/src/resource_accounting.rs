@@ -118,20 +118,22 @@ impl ResourceAccountingService {
         // One async loop to recalculate all resource tables and the point table
         // (subscription not included)
         tokio::spawn(async move {
-            let task = AssertUnwindSafe(async move {
-                let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
-                // Skip the immediate first tick — init() already ran the initial computation.
-                interval.tick().await;
+            let mut interval = time::interval(CONFIG.queue.resource_recalculation_interval);
+            // Skip the immediate first tick — init() already ran the initial computation.
+            interval.tick().await;
 
-                loop {
-                    interval.tick().await;
+            loop {
+                interval.tick().await;
+                let result = AssertUnwindSafe(async {
                     if let Err(err) = dao.recompute_all_from_proc(&target_shows_opt).await {
                         warn!("Failed to recompute resource accounting tables from proc: {err}");
                     }
+                })
+                .catch_unwind()
+                .await;
+                if let Err(e) = result {
+                    error!("Resource recalculation iteration panicked: {:?}", e);
                 }
-            });
-            if let Err(e) = task.catch_unwind().await {
-                error!("Resource recalculation loop panicked: {:?}", e);
             }
         });
 
@@ -142,18 +144,20 @@ impl ResourceAccountingService {
 
         // One separate async loop to recalculate subscriptions
         tokio::spawn(async move {
-            let task = AssertUnwindSafe(async move {
-                let mut interval = time::interval(CONFIG.queue.subscription_recalculation_interval);
-                // Skip the immediate first tick — init() already fetched + recomputed on startup.
-                interval.tick().await;
+            let mut interval = time::interval(CONFIG.queue.subscription_recalculation_interval);
+            // Skip the immediate first tick — init() already fetched + recomputed on startup.
+            interval.tick().await;
 
-                loop {
-                    interval.tick().await;
+            loop {
+                interval.tick().await;
+                let result = AssertUnwindSafe(async {
                     recalculate_and_refresh(&cache, &dao, &target_shows).await;
+                })
+                .catch_unwind()
+                .await;
+                if let Err(e) = result {
+                    error!("Subscription recalculation iteration panicked: {:?}", e);
                 }
-            });
-            if let Err(e) = task.catch_unwind().await {
-                error!("Subscription recalculation loop panicked: {:?}", e);
             }
         });
     }

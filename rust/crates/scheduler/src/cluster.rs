@@ -12,6 +12,7 @@
 
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
+    ops::ControlFlow,
     panic::AssertUnwindSafe,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -387,23 +388,23 @@ impl ClusterFeed {
         let last_sent_map_producer = last_sent_map.clone();
 
         // Stream clusters on the caller channel
+        let feed = self.clusters.clone();
+        let current_index_atomic = self.current_index.clone();
         tokio::spawn(async move {
-            let task = AssertUnwindSafe(async move {
-                let mut all_sleeping_rounds = 0;
-                let feed = self.clusters.clone();
-                let current_index_atomic = self.current_index.clone();
+            let mut all_sleeping_rounds: usize = 0;
 
-                loop {
+            loop {
+                let iteration = async {
                     // Check stop flag
                     if stop_flag.load(Ordering::Relaxed) {
                         warn!("Cluster received a stop message. Stopping feed.");
-                        break;
+                        return ControlFlow::Break(());
                     }
 
                     let (item, cluster_size, completed_round) = {
                         let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
                         if clusters.is_empty() {
-                            break;
+                            return ControlFlow::Break(());
                         }
 
                         let current_index = current_index_atomic.load(Ordering::Relaxed);
@@ -436,7 +437,7 @@ impl ClusterFeed {
                     if !is_sleeping {
                         if sender.send(item.clone()).await.is_err() {
                             warn!("Cluster receiver dropped. Stopping feed.");
-                            break;
+                            return ControlFlow::Break(());
                         }
                         let now = Instant::now();
                         let mut last_sent_lock = last_sent_map_producer
@@ -468,7 +469,7 @@ impl ClusterFeed {
                             {
                                 if all_sleeping_rounds > max_empty_cycles {
                                     warn!("All clusters have been sleeping for too long");
-                                    break;
+                                    return ControlFlow::Break(());
                                 }
                             }
 
@@ -484,19 +485,29 @@ impl ClusterFeed {
                             tokio::time::sleep(Duration::from_millis(10)).await;
                         }
                     }
+                    ControlFlow::Continue(())
+                };
+
+                match AssertUnwindSafe(iteration).catch_unwind().await {
+                    Ok(ControlFlow::Break(())) => break,
+                    Ok(ControlFlow::Continue(())) => {}
+                    Err(e) => {
+                        error!("Cluster feed producer iteration panicked: {:?}", e);
+                    }
                 }
-            });
-            if let Err(e) = task.catch_unwind().await {
-                error!("Cluster feed producer task panicked: {:?}", e);
             }
         });
 
         // Process messages on the receiving end
+        let stop_flag_recv = self.stop_flag.clone();
         let sleep_map = self.sleep_map.clone();
         let last_sent_map_receiver = last_sent_map.clone();
         tokio::spawn(async move {
-            let task = AssertUnwindSafe(async move {
-                while let Some(message) = feed_receiver.recv().await {
+            loop {
+                let iteration = async {
+                    let Some(message) = feed_receiver.recv().await else {
+                        return ControlFlow::Break(());
+                    };
                     match message {
                         FeedMessage::Sleep(cluster, duration) => {
                             let requested_wake_up_time = SystemTime::now().checked_add(duration);
@@ -520,16 +531,22 @@ impl ClusterFeed {
                                     duration.as_secs()
                                 );
                             }
+                            ControlFlow::Continue(())
                         }
                         FeedMessage::Stop() => {
-                            self.stop_flag.store(true, Ordering::Relaxed);
-                            break;
+                            stop_flag_recv.store(true, Ordering::Relaxed);
+                            ControlFlow::Break(())
                         }
                     }
+                };
+
+                match AssertUnwindSafe(iteration).catch_unwind().await {
+                    Ok(ControlFlow::Break(())) => break,
+                    Ok(ControlFlow::Continue(())) => {}
+                    Err(e) => {
+                        error!("Cluster feed receiver iteration panicked: {:?}", e);
+                    }
                 }
-            });
-            if let Err(e) = task.catch_unwind().await {
-                error!("Cluster feed receiver task panicked: {:?}", e);
             }
         });
 
