@@ -88,11 +88,7 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
             # rows are ~14-16px tall. Larger padding (e.g. 6px) consumes
             # the entire row on macOS and the bar disappears.
             rect = option.rect.adjusted(2, 2, -2, -2)
-            # Clamp used to [0, total]. Down or misreporting hosts can
-            # publish free > total (seen on DOWN hosts where /mcp (/tmp) metrics
-            # were never refreshed), which makes used negative and the
-            # free-fill rect extend past the cell - bleeding the bar's
-            # green into the columns to the left.
+            # Clamp used to [0, total]. Down or misreporting hosts can publish free > total
             used = max(0, min(used, total))
             ratio = rect.width() / float(total)
             length = int(ceil(ratio * used))
