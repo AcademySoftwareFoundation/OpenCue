@@ -256,8 +256,9 @@ Enables real-time monitoring and management of render hosts (nodes), including t
 - **Physical**: Physical memory state
 - **GPU Memory**: GPU memory statistics
 - **Idle/Total Memory**: Memory availability
-- **Temp**: Used (red) vs available (green) `/mcp/` space, shown as a bar
-- **Temp Free**: Free `/mcp/` space with the percent free in parentheses (e.g. `99.2G (50%)`); the percent makes it easier to compare hosts with different `/mcp/` sizes
+- **Temp**: Used (red) vs available (green) `/mcp/` space, shown as a bar; sorted by percent free
+- **Temp Free**: Free `/mcp/` space as an absolute value (e.g. `23.5G`). Sorted by the numeric free amount, so `900G` ranks above `400G` and `1.0G`
+- **Temp Free %**: Percent of `/mcp/` free (e.g. `50%`). Sorted by ratio so it tracks the **Temp** bar; useful for comparing hosts with different `/mcp/` sizes
 - **Cores**: CPU core information
 - **Idle GPU/Total GPU**: GPU availability
 - **Ping**: Network responsiveness
