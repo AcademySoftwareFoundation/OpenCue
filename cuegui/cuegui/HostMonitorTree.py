@@ -124,12 +124,12 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("Temp Free", 90, id=23,
                        data=_formatTempFreeAmount,
                        sort=lambda host: host.data.free_mcp,
-                       tip="Free /mcp/ space (e.g. '23.5G'). Sorted by absolute\n"
-                           "free amount, so 900G ranks above 400G and 1.0G.")
+                       tip="Free /mcp/ space. Sorted by absolute\n"
+                           "free amount.")
         self.addColumn("Temp Free %", 100, id=24,
                        data=_formatTempFreePercent,
                        sort=_tempFreeRatio,
-                       tip="Percent of /mcp/ free (e.g. '50%'). Sorted by ratio,\n"
+                       tip="Percent of /mcp/ free. Sorted by ratio,\n"
                            "matching the adjacent 'Temp' bar. Empty when a host\n"
                            "has not reported a total /mcp/ size.")
         self.addColumn("Cores", 60, id=10,
