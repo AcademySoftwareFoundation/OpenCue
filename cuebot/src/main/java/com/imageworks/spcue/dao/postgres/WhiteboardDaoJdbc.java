@@ -1099,6 +1099,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setHasComment(rs.getBoolean("b_comment"))
                     .setAutoEat(rs.getBoolean("b_autoeat"))
                     .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                    .setWaitTime(getWaitTime(rs, rs.getTimestamp("ts_started")))
                     .setOs(SqlUtil.getString(rs, "str_os"))
                     .setLokiUrl(SqlUtil.getString(rs, "str_loki_url"));
 
@@ -1118,6 +1119,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             return jobBuilder.build();
         }
     };
+
+    /**
+     * Reads ts_wait from the result set and returns it as epoch seconds. Falls
+     * back to the supplied submission timestamp when ts_wait is NULL (frames
+     * still in DEPEND don't yet have a wait time).
+     */
+    static int getWaitTime(ResultSet rs, Timestamp submissionFallback) throws SQLException {
+        Timestamp tsWait = rs.getTimestamp("ts_wait");
+        if (tsWait != null) {
+            return (int) (tsWait.getTime() / 1000);
+        }
+        if (submissionFallback != null) {
+            return (int) (submissionFallback.getTime() / 1000);
+        }
+        return 0;
+    }
 
     public static JobStats mapJobStats(ResultSet rs) throws SQLException {
 
@@ -1183,7 +1200,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             Arrays.asList(SqlUtil.getString(rs, "str_limit_names").split(",")))
                     .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
                     .setTimeout(rs.getInt("int_timeout"))
-                    .setTimeoutLlu(rs.getInt("int_timeout_llu"));
+                    .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                    // layer.ts_wait is NOT NULL by schema (defaults to layer
+                    // creation time), so no submission-time fallback is needed.
+                    .setWaitTime(getWaitTime(rs, null));
 
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
@@ -1344,6 +1364,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             } else {
                 builder.setLluTime(0);
             }
+            // Frames in DEPEND have ts_wait NULL; fall back to the job's
+            // submission time so callers always get a usable value.
+            builder.setWaitTime(getWaitTime(rs, rs.getTimestamp("job_ts_started")));
 
             builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
             builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
@@ -1490,6 +1513,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "frame.ts_started,"
                 + "frame.ts_stopped,"
                 + "frame.ts_llu,"
+                + "frame.ts_wait,"
                 + "frame.int_retries,"
                 + "frame.str_state,"
                 + "frame.str_host,"
@@ -1507,6 +1531,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "frame.int_total_past_gpu_time,"
                 + "layer.str_name AS layer_name,"
                 + "job.str_name AS job_name,"
+                + "job.ts_started AS job_ts_started,"
                 + "frame_state_display_overrides.* "
             + "FROM "
                 + "job, "
@@ -1876,6 +1901,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "job.b_paused,"
                 + "job.ts_started,"
                 + "job.ts_stopped,"
+                + "job.ts_wait,"
                 + "job.b_comment,"
                 + "job.b_autoeat,"
                 + "job.str_os,"
@@ -2237,6 +2263,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "frame.ts_started,"
                 + "frame.ts_stopped,"
                 + "frame.ts_llu,"
+                + "frame.ts_wait,"
                 + "frame.int_retries,"
                 + "frame.str_state,"
                 + "frame.str_host,"
@@ -2256,6 +2283,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "frame.int_total_past_gpu_time,"
                 + "layer.str_name AS layer_name,"
                 + "job.str_name AS job_name, "
+                + "job.ts_started AS job_ts_started, "
                 + "frame_state_display_overrides.*, "
                 + "ROW_NUMBER() OVER "
                 + "(ORDER BY frame.int_dispatch_order ASC, layer.int_dispatch_order ASC) AS row_number "

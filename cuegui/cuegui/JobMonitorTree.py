@@ -184,18 +184,24 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.start_time),
                        sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
-        self.addColumn("Finished", 100, id=14,
+        self.addColumn("Available", 100, id=14,
+                       data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.wait_time),
+                       sort=lambda job: job.data.wait_time,
+                       tip="The time the job became eligible to run - i.e. when it left\n"
+                           "a dependency state. Jobs that were never blocked by a dependency\n"
+                           "show the job's submission time.")
+        self.addColumn("Finished", 100, id=15,
                        data=lambda job: (job.data.stop_time > 0
                                          and cuegui.Utils.dateToMMDDHHMM(job.data.stop_time)
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
-        self.addColumn("User Color", 100, id=15,
+        self.addColumn("User Color", 100, id=16,
                        data=lambda job: self._getUserColorName(cuegui.Utils.getObjectKey(job)),
                        sort=lambda job: self._getUserColorSortKey(cuegui.Utils.getObjectKey(job)),
                        tip="User-assigned color for this job.\n"
                            "Click column header to sort by color.")
-        self.addColumn("Progress", 0, id=16,
+        self.addColumn("Progress", 0, id=17,
                        delegate=cuegui.ItemDelegate.JobProgressBarDelegate,
                        tip="A visual overview of the progress of each job.\n"
                            "Green \t is succeeded\n"

@@ -312,6 +312,24 @@ class Frame(object):
         """
         return self.data.stop_time
 
+    def availableTime(self):
+        """Returns the epoch timestamp of the frame's available time.
+
+        This is the moment the frame became eligible to run - i.e. when its
+        state transitioned out of DEPEND into WAITING. Frames that were never
+        blocked by a dependency report the job's submission time instead, so
+        the value is always meaningful.
+
+        Subtract from ``startTime()`` to measure how long a frame waited to be
+        picked up by a render proc:
+
+            wait_for_pickup = frame.startTime() - frame.availableTime()
+
+        :rtype:  int
+        :return: frame available time as an epoch
+        """
+        return self.data.wait_time
+
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
 

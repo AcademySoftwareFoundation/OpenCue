@@ -22,6 +22,7 @@ from __future__ import absolute_import
 import getpass
 import os
 import platform
+import time
 import unittest
 
 import mock
@@ -491,6 +492,17 @@ class JobTests(unittest.TestCase):
             job_pb2.JobStaggerFramesRequest(job=job.data, range=frameRange, stagger=stagger),
             timeout=mock.ANY)
 
+    def testAvailableTimeEpoch(self, getStubMock):
+        waitTime = 1700000000
+        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", wait_time=waitTime))
+        self.assertEqual(job.availableTime(), waitTime)
+
+    def testAvailableTimeFormatted(self, getStubMock):
+        waitTime = 1700000000
+        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", wait_time=waitTime))
+        expected = time.strftime("%Y", time.localtime(waitTime))
+        self.assertEqual(job.availableTime("%Y"), expected)
+
     def testFrameStateTotals(self, getStubMock):
         runningFrames = 10
         waitingFrames = 50
@@ -534,20 +546,21 @@ class NestedJobTests(unittest.TestCase):
         maxCores = 6
         logDir = '/path/to/logs'
         isPaused = False
+        waitTime = 1700000000
         nestedJob = opencue.wrappers.job.NestedJob(
             job_pb2.NestedJob(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
                               group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                               min_cores=minCores, max_cores=maxCores, log_dir=logDir,
-                              is_paused=isPaused))
+                              is_paused=isPaused, wait_time=waitTime))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
                         group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                         min_cores=minCores, max_cores=maxCores, log_dir=logDir,
-                        is_paused=isPaused))
+                        is_paused=isPaused, wait_time=waitTime))
 
         asJob = nestedJob.asJob()
         attrs = ['id', 'state', 'name', 'shot', 'show', 'user', 'group', 'facility', 'os', 'uid',
-                 'priority', 'minCores', 'maxCores', 'logDir', 'isPaused']
+                 'priority', 'minCores', 'maxCores', 'logDir', 'isPaused', 'availableTime']
         for attr in attrs:
             self.assertEqual(getattr(job, attr)(), getattr(asJob, attr)())
             self.assertEqual(getattr(nestedJob, attr)(), getattr(asJob, attr)())

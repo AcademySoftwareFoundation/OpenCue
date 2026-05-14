@@ -22,6 +22,7 @@ from __future__ import absolute_import
 import getpass
 import os
 import platform
+import time
 import unittest
 
 import mock
@@ -409,6 +410,19 @@ class LayerTests(unittest.TestCase):
         stubMock.StaggerFrames.assert_called_with(
             job_pb2.LayerStaggerFramesRequest(layer=layer.data, range=frameRange, stagger=stagger),
             timeout=mock.ANY)
+
+    def testAvailableTimeEpoch(self, getStubMock):
+        waitTime = 1700000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, wait_time=waitTime))
+        self.assertEqual(layer.availableTime(), waitTime)
+
+    def testAvailableTimeFormatted(self, getStubMock):
+        waitTime = 1700000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, wait_time=waitTime))
+        expected = time.strftime("%Y", time.localtime(waitTime))
+        self.assertEqual(layer.availableTime("%Y"), expected)
 
 
 class LayerEnumTests(unittest.TestCase):
