@@ -68,7 +68,7 @@ mod stress_test {
         clean_up_test_data(test_prefix).await
     }
 
-    #[actix::test]
+    #[tokio::test]
     // #[traced_test]
     async fn test_stress_small() {
         let desc = TestDescription {

@@ -18,7 +18,6 @@ debug = true
 opencue-proto = { path = "../opencue-proto" }
 
 # External Dependencies
-actix = "0.13"
 chrono = "0.4.38"
 futures = { workspace = true }
 scc = "3.1"

@@ -10,7 +10,6 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
 use bytesize::{ByteSize, KIB, MIB};
 use chrono::Utc;
 use futures::FutureExt;
@@ -62,47 +61,28 @@ pub struct RqdDispatcherService {
     dry_run_mode: bool,
 }
 
-impl Actor for RqdDispatcherService {
-    type Context = actix::Context<Self>;
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        info!("RqdDispatcherService actor started");
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!("RqdDispatcherService actor stopped");
-    }
-}
-
-impl Handler<DispatchLayerMessage> for RqdDispatcherService {
-    type Result = ResponseActFuture<Self, Result<DispatchResult, DispatchError>>;
-
-    fn handle(&mut self, msg: DispatchLayerMessage, _ctx: &mut Self::Context) -> Self::Result {
+impl RqdDispatcherService {
+    /// Dispatches a layer's frames to the given host.
+    ///
+    /// The host advisory lock is acquired inside the per-proc transaction
+    /// (see [`dispatch_virtual_proc`]), not at the layer level, so it
+    /// auto-releases on commit/rollback and doesn't pin a connection during
+    /// the gRPC call.
+    pub async fn dispatch_layer(
+        &self,
+        msg: DispatchLayerMessage,
+    ) -> Result<DispatchResult, DispatchError> {
         let DispatchLayerMessage { layer, host } = msg;
-
-        let dispatcher = self.clone();
         debug!(
-            "Received dispatch message for layer {} on host {}",
+            "Received dispatch request for layer {} on host {}",
             layer.layer_name, host.name
         );
-
-        // No outer transaction here: the host advisory lock now lives inside
-        // each per-proc transaction (see dispatch_virtual_proc) as a
-        // transaction-scoped lock that auto-releases on commit/rollback. The
-        // outer tx previously held an idle connection across all gRPC calls
-        // for no DB work of its own.
-        Box::pin(
-            async move {
-                dispatcher.dispatch(&layer, host).await.map(
-                    |(updated_host, updated_layer)| DispatchResult {
-                        updated_host,
-                        updated_layer,
-                    },
-                )
-            }
-            .into_actor(self)
-            .map(|result, _actor, _ctx| result),
-        )
+        self.dispatch(&layer, host)
+            .await
+            .map(|(updated_host, updated_layer)| DispatchResult {
+                updated_host,
+                updated_layer,
+            })
     }
 }
 

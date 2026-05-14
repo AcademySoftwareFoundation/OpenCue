@@ -32,7 +32,6 @@ use crate::{
     },
     resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
-use actix::Addr;
 use miette::{Context, Result};
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, trace, warn};
@@ -48,9 +47,9 @@ pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 /// - Matching layers to available host candidates
 /// - Dispatching frames to selected hosts via the RQD dispatcher
 pub struct MatchingService {
-    host_service: Addr<HostCacheService>,
+    host_service: HostCacheService,
     layer_dao: LayerDao,
-    dispatcher_service: Addr<RqdDispatcherService>,
+    dispatcher_service: RqdDispatcherService,
     concurrency_semaphore: Arc<Semaphore>,
     resource_accounting_service: Arc<ResourceAccountingService>,
 }
@@ -278,13 +277,13 @@ impl MatchingService {
 
             let host_candidate = self
                 .host_service
-                .send(CheckOut {
-                    facility_id: layer.facility_id,
-                    show_id: layer.show_id,
+                .check_out(
+                    layer.facility_id,
+                    layer.show_id,
                     tags,
-                    cores: cores_requested,
-                    memory: layer.mem_min,
-                    validation: move |host| {
+                    cores_requested,
+                    layer.mem_min,
+                    move |host| {
                         Self::validate_match(
                             host,
                             &layer_id,
@@ -294,9 +293,8 @@ impl MatchingService {
                             os.as_deref(),
                         )
                     },
-                })
-                .await
-                .expect("Host Cache actor is unresponsive");
+                )
+                .await;
 
             match host_candidate {
                 Ok(CheckedOutHost(cluster_key, host)) => {
@@ -307,21 +305,20 @@ impl MatchingService {
 
                     match self
                         .dispatcher_service
-                        .send(DispatchLayerMessage {
+                        .dispatch_layer(DispatchLayerMessage {
                             layer, // Move ownership here
                             host,
                         })
                         .await
-                        .expect("Dispatcher actor is unresponsive")
                     {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
                         }) => {
-                            self.host_service
-                                .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
-                                .await
-                                .expect("Host Cache actor is unresponsive");
+                            self.host_service.check_in_payload(
+                                cluster_key,
+                                CheckInPayload::Host(updated_host),
+                            );
 
                             if updated_layer.frames.is_empty() {
                                 // Stop on the first successful attempt
@@ -350,13 +347,10 @@ impl MatchingService {
                                 &layer_job_id,
                                 &host_before_dispatch,
                             );
-                            self.host_service
-                                .send(CheckIn(
-                                    cluster_key,
-                                    CheckInPayload::Invalidate(host_before_dispatch.id),
-                                ))
-                                .await
-                                .expect("Host Cache actor is unresponsive");
+                            self.host_service.check_in_payload(
+                                cluster_key,
+                                CheckInPayload::Invalidate(host_before_dispatch.id),
+                            );
                             try_again = false; // Can't continue without the layer
                         }
                     };

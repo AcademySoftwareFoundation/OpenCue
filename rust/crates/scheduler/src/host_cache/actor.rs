@@ -10,8 +10,6 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use actix::{Actor, ActorFutureExt, AsyncContext, Handler, ResponseActFuture, WrapFuture};
-
 use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
@@ -147,93 +145,56 @@ impl HostReservation {
     }
 }
 
-impl Actor for HostCacheService {
-    type Context = actix::Context<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        let service_for_monitor = self.clone();
-        let service_for_clean_up = self.clone();
-
-        ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
-            let service = service_for_monitor.clone();
-            let actor_clone = service.clone();
-            ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
-        });
-
-        ctx.run_interval(CONFIG.host_cache.clean_up_interval, move |_act, _ctx| {
-            let service = service_for_clean_up.clone();
-
-            // Clean up stale hosts from the host store
-            service.cleanup_stale_hosts();
-        });
-
-        info!("HostCacheService actor started");
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!("HostCacheService actor stopped");
-    }
-}
-
-impl<F> Handler<CheckOut<F>> for HostCacheService
-where
-    F: Fn(&Host) -> bool + 'static,
-{
-    type Result = ResponseActFuture<Self, Result<CheckedOutHost, HostCacheError>>;
-
-    fn handle(&mut self, msg: CheckOut<F>, _ctx: &mut Self::Context) -> Self::Result {
-        let CheckOut {
-            facility_id,
-            show_id,
-            tags,
-            cores,
-            memory,
-            validation,
-        } = msg;
-
-        let service = self.clone();
-
-        Box::pin(
-            async move {
-                let out = service
-                    .check_out(facility_id, show_id, tags, cores, memory, validation)
-                    .await;
-                if let Ok(host) = &out {
-                    debug!("Checked out {}", host.1);
-                }
-                out
+impl HostCacheService {
+    /// Spawns the background tasks that periodically refresh and prune the
+    /// cache. Returns immediately; the spawned tasks live for the lifetime
+    /// of the process.
+    pub fn spawn_background_tasks(&self) {
+        let monitor = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.host_cache.monitoring_interval);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            // First tick fires immediately; skip it to mirror Actix
+            // `run_interval` semantics which fire after the first interval.
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                monitor.refresh_cache().await;
             }
-            .into_actor(self)
-            .map(|result, _, _| result),
-        )
+        });
+
+        let cleaner = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.host_cache.clean_up_interval);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                cleaner.cleanup_stale_hosts();
+            }
+        });
+
+        info!("HostCacheService background tasks spawned");
     }
-}
 
-impl Handler<CheckIn> for HostCacheService {
-    type Result = ();
-
-    fn handle(&mut self, msg: CheckIn, _ctx: &mut Self::Context) -> Self::Result {
-        let CheckIn(cluster_key, payload) = msg;
+    /// Public wrapper around the internal `check_in` that adds debug logging
+    /// and handles the Invalidate path uniformly.
+    pub fn check_in_payload(&self, cluster_key: ClusterKey, payload: CheckInPayload) {
         match payload {
             CheckInPayload::Host(host) => {
                 let host_str = format!("{}", host);
                 self.check_in(cluster_key, host);
-
                 debug!("Checked in {}", &host_str);
             }
             CheckInPayload::Invalidate(host_id) => {
                 let _ = self.reserved_hosts.remove_sync(&host_id);
-
                 debug!("Checked in {} (invalid)", &host_id);
             }
         }
     }
-}
 
-impl Handler<CacheRatio> for HostCacheService {
-    type Result = CacheRatioResponse;
-
-    fn handle(&mut self, _msg: CacheRatio, _ctx: &mut Self::Context) -> Self::Result {
+    /// Returns the current cache hit/miss snapshot.
+    pub fn cache_ratio(&self) -> CacheRatioResponse {
         CacheRatioResponse {
             hit: self.cache_hit.load(atomic::Ordering::Relaxed),
             miss: self.cache_miss.load(atomic::Ordering::Relaxed),
@@ -285,7 +246,7 @@ impl HostCacheService {
     ///
     /// * `Ok(CheckedOutHost)` - Host with cluster key
     /// * `Err(HostCacheError)` - No suitable host found or database error
-    async fn check_out<F>(
+    pub async fn check_out<F>(
         &self,
         facility_id: Uuid,
         show_id: Uuid,
