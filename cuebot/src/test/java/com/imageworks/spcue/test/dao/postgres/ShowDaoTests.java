@@ -219,6 +219,44 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateSchedulerManaged() {
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        assertFalse(show.schedulerManaged);
+        assertFalse(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+
+        showDao.updateSchedulerManaged(show, true);
+        assertTrue(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+
+        // Re-read entity to confirm the SHOW_MAPPER picks up the new column.
+        ShowEntity reread = showDao.findShowDetail(SHOW_NAME);
+        assertTrue(reread.schedulerManaged);
+
+        showDao.updateSchedulerManaged(show, false);
+        assertFalse(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsSchedulerManagedReadYourWrites() {
+        // Default false, cached after first read.
+        assertFalse(showDao.isSchedulerManaged(SHOW_ID));
+        // Local cache must be refreshed by the writer so the same Cuebot sees its
+        // own write immediately (the ~30s TTL is only for stale reads on other
+        // Cuebots in the fleet).
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        showDao.updateSchedulerManaged(show, true);
+        assertTrue(showDao.isSchedulerManaged(SHOW_ID));
+        showDao.updateSchedulerManaged(show, false);
+        assertFalse(showDao.isSchedulerManaged(SHOW_ID));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testArchiveShow() {
         // Create a show to be archived
         ShowEntity showToArchive = new ShowEntity();

@@ -211,6 +211,28 @@ class Show(object):
             timeout=Cuebot.Timeout)
         return response
 
+    def setSchedulerManaged(self, value):
+        """Sets whether accounting for this show is owned by the Rust scheduler.
+
+        :type  value: bool
+        :param value: True to hand accounting to the Rust scheduler, False to keep
+            Cuebot-managed (default)
+        :rtype:  show_pb2.ShowSetSchedulerManagedResponse
+        :return: response is empty
+        """
+        response = self.stub.SetSchedulerManaged(show_pb2.ShowSetSchedulerManagedRequest(
+            show=self.data, enabled=value),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def schedulerManaged(self):
+        """Returns whether accounting for this show is owned by the Rust scheduler.
+
+        :rtype:  bool
+        :return: True if scheduler-managed, False if Cuebot-managed
+        """
+        return self.data.scheduler_managed
+
     def findFilter(self, name):
         """Finds a filter by name.
 

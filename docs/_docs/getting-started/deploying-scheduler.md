@@ -249,17 +249,24 @@ To prevent Cuebot and the Scheduler from competing for the same work, you must c
 
 ### Understanding Exclusion Configuration
 
-Cuebot supports two exclusion mechanisms in `opencue.properties`:
+Cuebot supports two exclusion mechanisms:
 
-1. **Global Booking Disable**: Turn off all booking in Cuebot
+1. **Global Booking Disable** (in `opencue.properties`): Turn off all booking in Cuebot
    ```properties
    dispatcher.turn_off_booking=true
    ```
 
-2. **Selective Exclusion**: Skip specific show:facility.allocation combinations
-   ```properties
-   dispatcher.exclusion_list=show1:facility.alloc1,show2:facility.alloc2
+2. **Per-show Scheduler Ownership** (`show.b_scheduler_managed` column, toggled by operators):
+   Mark a show as managed by the standalone scheduler. Cuebot then skips that show in
+   dispatch and the standalone scheduler dispatches its frames. Toggle with `cueadmin`:
+   ```bash
+   cueadmin -scheduler-managed myshow on
+   cueadmin -scheduler-managed myshow off
    ```
+
+   Granularity is **per show**, not per show:allocation. If you need to scope dispatch
+   to a subset of a show's allocations, configure that on the scheduler side via
+   `alloc_tags` / `manual_tags`.
 
 ### Migration Strategy
 
@@ -272,16 +279,15 @@ We recommend a **gradual migration** approach:
    cue-scheduler --facility spi --alloc_tags=testshow:test
    ```
 
-2. **Configure Cuebot exclusion**:
-   ```properties
-   # In opencue.properties
-   dispatcher.exclusion_list=testshow:spi.test
+2. **Hand the show to the scheduler**:
+   ```bash
+   cueadmin -scheduler-managed testshow on
    ```
 
 3. **Monitor both systems**:
    - Watch scheduler metrics at `http://scheduler-host:9090/metrics`
-   - Verify Cuebot logs show exclusion working
-   - Confirm frames dispatch successfully
+   - Verify Cuebot no longer dispatches new frames for `testshow`
+   - Confirm frames dispatch successfully from the scheduler
 
 #### Phase 2: Expand Coverage
 
@@ -297,9 +303,9 @@ We recommend a **gradual migration** approach:
          tag: priority
    ```
 
-2. **Update Cuebot exclusion list**:
-   ```properties
-   dispatcher.exclusion_list=testshow:spi.test,mainshow:spi.general,mainshow:spi.priority
+2. **Mark each additional show as scheduler-managed**:
+   ```bash
+   cueadmin -scheduler-managed mainshow on
    ```
 
 #### Phase 3: Full Migration (Optional)
@@ -312,28 +318,12 @@ dispatcher.turn_off_booking=true
 
 At this point, all dispatching is handled by the scheduler.
 
-### Exclusion List Format
+### Notes on Granularity
 
-The exclusion list uses the format: `show:facility.allocation`
-
-**Examples**:
-
-```properties
-# Single allocation
-dispatcher.exclusion_list=myshow:spi.general
-
-# Multiple allocations
-dispatcher.exclusion_list=show1:spi.general,show1:spi.priority,show2:la.render
-
-# Manual and hostname tags are NOT excluded via this list
-# They don't belong to specific allocations, so configure them separately in scheduler
-```
-
-**Important Notes**:
-
-- Manual tags and hostname tags are processed by the scheduler but are NOT part of the exclusion list (they don't have allocation associations)
-- Configure manual/hostname tags via the scheduler's `manual_tags` configuration
-- The exclusion list only applies to allocation-based clusters
+- Marking a show as scheduler-managed applies to the whole show across all allocations.
+- Manual tags and hostname tags are configured on the scheduler side (`manual_tags`);
+  they are not show-scoped.
+- To return a show to Cuebot dispatch, run `cueadmin -scheduler-managed myshow off`.
 
 ## Configuration Reference
 

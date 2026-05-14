@@ -1239,6 +1239,8 @@ public class DispatchQuery {
      * Looks for shows that are under their burst for a particular
      * type of proc.  The show has to be at least one whole proc
      * under their burst to be considered for booking.
+     * Scheduler-managed shows are excluded; their dispatch is owned
+     * by the standalone Rust scheduler.
      */
     public static final String FIND_SHOWS =
         "SELECT " +
@@ -1261,7 +1263,9 @@ public class DispatchQuery {
         "AND " +
              "s.int_burst - s.int_cores >= 100 " +
         "AND " +
-            "s.int_cores < s.int_burst ";
+            "s.int_cores < s.int_burst " +
+        "AND " +
+            "show.b_scheduler_managed = false ";
 
 }
 

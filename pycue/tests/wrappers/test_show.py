@@ -188,6 +188,27 @@ class ShowTests(unittest.TestCase):
             show_pb2.ShowSetActiveRequest(show=show.data, value=TEST_ENABLE_VALUE),
             timeout=mock.ANY)
 
+    def testSetSchedulerManaged(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetSchedulerManaged.return_value = show_pb2.ShowSetSchedulerManagedResponse()
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        show.setSchedulerManaged(True)
+
+        stubMock.SetSchedulerManaged.assert_called_with(
+            show_pb2.ShowSetSchedulerManagedRequest(show=show.data, enabled=True),
+            timeout=mock.ANY)
+
+    def testSchedulerManaged(self, getStubMock):
+        del getStubMock
+        show = opencue.wrappers.show.Show(
+            show_pb2.Show(name=TEST_SHOW_NAME, scheduler_managed=True))
+        self.assertTrue(show.schedulerManaged())
+        show = opencue.wrappers.show.Show(
+            show_pb2.Show(name=TEST_SHOW_NAME, scheduler_managed=False))
+        self.assertFalse(show.schedulerManaged())
+
     def testSetDefaultMaxCores(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.SetDefaultMaxCores.return_value = show_pb2.ShowSetDefaultMaxCoresResponse()
