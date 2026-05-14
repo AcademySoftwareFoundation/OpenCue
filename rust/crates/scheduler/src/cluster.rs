@@ -233,6 +233,11 @@ impl ClusterFeedBuilder {
             }
             ClusterFeed::filter_clusters(clusters.into_iter().collect(), &self.ignore_tags)
         };
+        // Stripping ignored tags can collapse different inputs into the same
+        // Cluster identity (same facility / show / surviving tag set), so
+        // dedupe via a HashSet before seeding the heap to avoid scheduling
+        // the same logical cluster twice.
+        let clusters: HashSet<Cluster> = clusters.into_iter().collect();
         let now = Instant::now();
         let mut heap = BinaryHeap::with_capacity(clusters.len().max(1));
         for cluster in clusters {
@@ -282,7 +287,12 @@ impl ClusterFeed {
     /// * `clusters` - Explicit list of clusters to feed.
     /// * `ignore_tags` - Tag names to drop; a cluster whose tag set becomes empty is excluded.
     pub fn load_from_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Self {
-        let filtered = Self::filter_clusters(clusters, ignore_tags);
+        // Dedupe after ignore-tag filtering for the same reason as `build()`:
+        // stripping tags can fold distinct inputs onto the same Cluster
+        // identity, and we don't want the heap to schedule the duplicate.
+        let filtered: HashSet<Cluster> = Self::filter_clusters(clusters, ignore_tags)
+            .into_iter()
+            .collect();
         let now = Instant::now();
         let mut heap = BinaryHeap::with_capacity(filtered.len().max(1));
         for cluster in filtered {
@@ -527,16 +537,43 @@ impl ClusterFeed {
                     }
                 }
 
+                // Final shutdown gate before we publish. Without this, a stop
+                // arriving between the eligibility wait and the send below
+                // would still let us emit one more cluster (and a possibly
+                // long-blocked send couldn't be preempted at all). Race the
+                // channel reservation against a stop notification so we exit
+                // promptly if the consumer closed or shutdown is signalled.
+                if stop_flag_dispatch.load(Ordering::Relaxed) {
+                    break;
+                }
+                let permit = loop {
+                    tokio::select! {
+                        reserve = sender.reserve() => {
+                            match reserve {
+                                Ok(p) => break Some(p),
+                                Err(_) => {
+                                    warn!("Cluster receiver dropped. Stopping feed.");
+                                    break None;
+                                }
+                            }
+                        }
+                        _ = notify_dispatch.notified() => {
+                            if stop_flag_dispatch.load(Ordering::Relaxed) {
+                                break None;
+                            }
+                            // Notify but no stop yet — keep waiting for a slot.
+                        }
+                    }
+                };
+                let Some(permit) = permit else { break };
+
+                // Only count a poll once we have a slot and are about to publish.
                 CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
                 metrics::increment_cluster_polls(
                     &scheduled.cluster.show_id,
                     &scheduled.cluster.facility_id,
                 );
-
-                if sender.send(scheduled.cluster).await.is_err() {
-                    warn!("Cluster receiver dropped. Stopping feed.");
-                    break;
-                }
+                permit.send(scheduled.cluster);
             }
         });
 

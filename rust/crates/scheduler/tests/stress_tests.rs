@@ -68,7 +68,7 @@ mod stress_test {
         clean_up_test_data(test_prefix).await
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
     // #[traced_test]
     async fn test_stress_small() {
         let desc = TestDescription {

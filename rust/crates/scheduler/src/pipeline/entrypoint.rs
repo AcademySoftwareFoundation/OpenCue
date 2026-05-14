@@ -108,17 +108,26 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         (processed, stop)
                     }
                     Err(err) => {
-                        // Don't halt the entire scheduler for a single cluster's
-                        // fetch error (network blip, transient DB load). Treat
-                        // the cluster as empty for this cycle so it gets the
-                        // configured back-off and other clusters keep running.
-                        // The `empty_job_cycles_before_quiting` safety net still
-                        // applies if the error persists across all clusters.
                         error!(
                             "Failed to fetch jobs for cluster {}: {}",
                             cluster, err
                         );
-                        (0, false)
+                        // Don't halt the scheduler for a single cluster's fetch
+                        // error (network blip, transient DB load). Treat it as
+                        // an empty cycle so the cluster gets the configured
+                        // back-off and other clusters keep running, but feed
+                        // the same atomic counter the success path uses so the
+                        // `empty_job_cycles_before_quiting` safety net actually
+                        // trips if fetches keep failing across the feed.
+                        let stop = match CONFIG.queue.empty_job_cycles_before_quiting {
+                            Some(limit) => {
+                                let new_count =
+                                    cycles_without_jobs.fetch_add(1, Ordering::SeqCst) + 1;
+                                new_count >= limit
+                            }
+                            None => false,
+                        };
+                        (0, stop)
                     }
                 };
 

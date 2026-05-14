@@ -117,6 +117,9 @@ impl MatchingService {
         match layers {
             Ok(layers) => {
                 let processed_layers = AtomicUsize::new(0);
+                // Track peer-lock skips separately from real waste — see the
+                // wasted-attempts guard below.
+                let layers_skipped_by_lock = AtomicUsize::new(0);
 
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
@@ -143,6 +146,8 @@ impl MatchingService {
                                 "Layer skipped. {} already being processed by another scheduler.",
                                 layer
                             );
+                            layers_skipped_by_lock.fetch_add(1, Ordering::Relaxed);
+                            metrics::increment_layers_skipped_by_lock();
                             continue;
                         }
                         Err(err) => {
@@ -164,7 +169,13 @@ impl MatchingService {
                     processed_layers.fetch_add(1, Ordering::Relaxed);
                 }
 
-                if processed_layers.load(Ordering::Relaxed) == 0 {
+                // Only flag a job as "wasted" when we actually attempted
+                // dispatch but found nothing to do. Peer-lock skips are not
+                // waste — the work is being done on another scheduler — so
+                // they don't count against this metric.
+                if processed_layers.load(Ordering::Relaxed) == 0
+                    && layers_skipped_by_lock.load(Ordering::Relaxed) == 0
+                {
                     WASTED_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
                     metrics::increment_wasted_attempts();
                     debug!("Job {} didn't process any layer", job_disp);

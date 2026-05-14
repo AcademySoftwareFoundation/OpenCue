@@ -14,8 +14,9 @@ use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
     register_counter, register_counter_vec, register_gauge_vec, register_histogram, Counter,
-    CounterVec, Encoder, GaugeVec, Histogram, TextEncoder,
+    CounterVec, Encoder, Gauge, GaugeVec, Histogram, TextEncoder,
 };
+use scc::HashMap as SccHashMap;
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -97,6 +98,17 @@ lazy_static! {
     )
     .expect("Failed to register cluster_last_dispatched_jobs gauge");
 
+    /// Per-cluster `Counter` handles cached so the per-call `Uuid::to_string()`
+    /// allocations into `with_label_values` happen at most once per
+    /// `(show_id, facility_id)` pair, instead of on every dispatch loop pop.
+    /// Subsequent increments just bump an `Arc`-backed counter.
+    static ref CLUSTER_POLL_COUNTERS:
+        SccHashMap<(uuid::Uuid, uuid::Uuid), Counter> = SccHashMap::new();
+
+    /// Same caching as above for the per-cluster `last_dispatched_jobs` gauge.
+    static ref CLUSTER_LAST_DISPATCHED_GAUGES:
+        SccHashMap<(uuid::Uuid, uuid::Uuid), Gauge> = SccHashMap::new();
+
     // Matcher metrics mirroring the in-process atomics in pipeline/matcher.rs.
     pub static ref HOSTS_ATTEMPTED_TOTAL: Counter = register_counter!(
         "scheduler_hosts_attempted_total",
@@ -106,9 +118,15 @@ lazy_static! {
 
     pub static ref WASTED_ATTEMPTS_TOTAL: Counter = register_counter!(
         "scheduler_wasted_attempts_total",
-        "Jobs that processed zero layers (e.g. all locked by another scheduler)"
+        "Jobs that processed zero layers and where every layer was free (i.e. no host candidate found)"
     )
     .expect("Failed to register wasted_attempts_total counter");
+
+    pub static ref LAYERS_SKIPPED_BY_LOCK_TOTAL: Counter = register_counter!(
+        "scheduler_layers_skipped_by_lock_total",
+        "Layers skipped because another scheduler held the row lock (expected in multi-replica deployments, not wasted work)"
+    )
+    .expect("Failed to register layers_skipped_by_lock_total counter");
 }
 
 /// Handler for the /metrics endpoint
@@ -206,28 +224,42 @@ pub fn observe_job_query_duration(duration: Duration) {
     JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
 }
 
-/// Helper function to increment cluster polls counter.
+/// Helper function to increment the cluster polls counter.
 ///
 /// Bumps both the per-cluster `scheduler_cluster_polls_total` and the global
 /// `scheduler_cluster_rounds_total` so dashboards can use whichever is cheaper.
+///
+/// The per-cluster `Counter` is cached in [`CLUSTER_POLL_COUNTERS`] so the
+/// `Uuid::to_string()` allocations only run on the first sighting of each
+/// `(show_id, facility_id)` pair.
 #[inline]
 pub fn increment_cluster_polls(show_id: &uuid::Uuid, facility_id: &uuid::Uuid) {
-    CLUSTER_POLLS_TOTAL
-        .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
-        .inc();
+    let key = (*show_id, *facility_id);
+    let entry = CLUSTER_POLL_COUNTERS.entry_sync(key).or_insert_with(|| {
+        CLUSTER_POLLS_TOTAL.with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
+    });
+    entry.get().inc();
     CLUSTER_ROUNDS_TOTAL.inc();
 }
 
 /// Records the number of jobs dispatched in the most recent cycle for a cluster.
+///
+/// Uses the [`CLUSTER_LAST_DISPATCHED_GAUGES`] cache to avoid per-call
+/// `Uuid::to_string()` allocations on the control-loop hot path.
 #[inline]
 pub fn set_cluster_last_dispatched_jobs(
     show_id: &uuid::Uuid,
     facility_id: &uuid::Uuid,
     count: usize,
 ) {
-    CLUSTER_LAST_DISPATCHED_JOBS
-        .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
-        .set(count as f64);
+    let key = (*show_id, *facility_id);
+    let entry = CLUSTER_LAST_DISPATCHED_GAUGES
+        .entry_sync(key)
+        .or_insert_with(|| {
+            CLUSTER_LAST_DISPATCHED_JOBS
+                .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
+        });
+    entry.get().set(count as f64);
 }
 
 /// Records a host-candidate selection attempt.
@@ -236,8 +268,16 @@ pub fn increment_hosts_attempted() {
     HOSTS_ATTEMPTED_TOTAL.inc();
 }
 
-/// Records a job that processed zero layers (e.g. all locked by another scheduler).
+/// Records a job that processed zero layers AND none were skipped due to a
+/// peer-scheduler lock, i.e. a real "no host candidate" miss, not contention.
 #[inline]
 pub fn increment_wasted_attempts() {
     WASTED_ATTEMPTS_TOTAL.inc();
+}
+
+/// Records a layer skipped because another scheduler currently holds its row lock.
+/// Expected in multi-replica deployments — the work is happening elsewhere, not lost.
+#[inline]
+pub fn increment_layers_skipped_by_lock() {
+    LAYERS_SKIPPED_BY_LOCK_TOTAL.inc();
 }
