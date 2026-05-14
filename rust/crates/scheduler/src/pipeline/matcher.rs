@@ -176,6 +176,7 @@ impl MatchingService {
 
                 if processed_layers.load(Ordering::Relaxed) == 0 {
                     WASTED_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    metrics::increment_wasted_attempts();
                     debug!("Job {} didn't process any layer", job_disp);
                 }
             }
@@ -250,6 +251,7 @@ impl MatchingService {
         while try_again && attempts > 0 {
             attempts -= 1;
             HOSTS_ATTEMPTED.fetch_add(1, Ordering::Relaxed);
+            metrics::increment_hosts_attempted();
 
             // Take ownership of the layer for this iteration
             let layer = current_layer_version

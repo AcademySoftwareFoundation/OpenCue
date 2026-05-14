@@ -96,6 +96,19 @@ lazy_static! {
         &["show_id", "facility_id"]
     )
     .expect("Failed to register cluster_last_dispatched_jobs gauge");
+
+    // Matcher metrics mirroring the in-process atomics in pipeline/matcher.rs.
+    pub static ref HOSTS_ATTEMPTED_TOTAL: Counter = register_counter!(
+        "scheduler_hosts_attempted_total",
+        "Total host-candidate selection attempts across all layers"
+    )
+    .expect("Failed to register hosts_attempted_total counter");
+
+    pub static ref WASTED_ATTEMPTS_TOTAL: Counter = register_counter!(
+        "scheduler_wasted_attempts_total",
+        "Jobs that processed zero layers (e.g. all locked by another scheduler)"
+    )
+    .expect("Failed to register wasted_attempts_total counter");
 }
 
 /// Handler for the /metrics endpoint
@@ -215,4 +228,16 @@ pub fn set_cluster_last_dispatched_jobs(
     CLUSTER_LAST_DISPATCHED_JOBS
         .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
         .set(count as f64);
+}
+
+/// Records a host-candidate selection attempt.
+#[inline]
+pub fn increment_hosts_attempted() {
+    HOSTS_ATTEMPTED_TOTAL.inc();
+}
+
+/// Records a job that processed zero layers (e.g. all locked by another scheduler).
+#[inline]
+pub fn increment_wasted_attempts() {
+    WASTED_ATTEMPTS_TOTAL.inc();
 }
