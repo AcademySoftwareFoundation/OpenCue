@@ -119,7 +119,16 @@ impl Ord for Scheduled {
             }
         }
         // Deterministic tiebreaker on the cluster identity.
-        self.cluster.cmp(&other.cluster)
+        let by_cluster = self.cluster.cmp(&other.cluster);
+        if by_cluster != CmpOrdering::Equal {
+            return by_cluster;
+        }
+        // Keep Ord consistent with Eq even when productivity bias is disabled.
+        // Without this final comparison, two entries that differ only by
+        // `last_dispatched_jobs` would yield `Ordering::Equal` here while
+        // `PartialEq::eq` returns false, violating the Ord/Eq contract that
+        // BinaryHeap relies on.
+        self.last_dispatched_jobs.cmp(&other.last_dispatched_jobs)
     }
 }
 impl PartialOrd for Scheduled {
@@ -580,6 +589,11 @@ impl ClusterFeed {
                     }
                 }
             }
+            // Ensure the dispatch loop exits even if the control channel
+            // is dropped without an explicit Stop (e.g. consumer panics).
+            // Without this the dispatcher would spin on the empty-queue wake.
+            stop_flag_ctrl.store(true, Ordering::Relaxed);
+            notify_ctrl.notify_one();
         });
 
         control_sender
@@ -641,6 +655,23 @@ mod tests {
             next_eligible_at: at,
             last_dispatched_jobs: jobs,
         }
+    }
+
+    /// Rust's `Ord` / `Eq` contract requires `cmp(a, b) == Equal` to imply
+    /// `a == b`. `BinaryHeap` relies on this. The bias toggle must not break it.
+    #[test]
+    fn ord_and_eq_stay_consistent_for_differing_jobs() {
+        let cluster = make_cluster("same");
+        let now = Instant::now();
+        let a = scheduled(cluster.clone(), now, 0);
+        let b = scheduled(cluster, now, 99);
+
+        assert_ne!(a, b, "PartialEq sees them as distinct");
+        assert_ne!(
+            a.cmp(&b),
+            CmpOrdering::Equal,
+            "Ord must not return Equal for two values PartialEq considers distinct"
+        );
     }
 
     #[test]

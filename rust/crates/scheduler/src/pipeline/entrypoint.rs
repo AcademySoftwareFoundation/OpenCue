@@ -90,12 +90,17 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
 
                         let stop = match CONFIG.queue.empty_job_cycles_before_quiting {
                             Some(limit) => {
-                                if processed == 0 {
-                                    cycles_without_jobs.fetch_add(1, Ordering::Relaxed);
+                                // Combine the update and read into a single atomic
+                                // operation so concurrent clusters can't race between
+                                // a fetch_add/store and a separate load. SeqCst gives
+                                // us a strict total order across all clusters.
+                                let new_count = if processed == 0 {
+                                    cycles_without_jobs.fetch_add(1, Ordering::SeqCst) + 1
                                 } else {
-                                    cycles_without_jobs.store(0, Ordering::Relaxed);
-                                }
-                                cycles_without_jobs.load(Ordering::Relaxed) >= limit
+                                    cycles_without_jobs.swap(0, Ordering::SeqCst);
+                                    0
+                                };
+                                new_count >= limit
                             }
                             None => false,
                         };
@@ -103,8 +108,17 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         (processed, stop)
                     }
                     Err(err) => {
-                        error!("Failed to fetch job: {}", err);
-                        (0, true)
+                        // Don't halt the entire scheduler for a single cluster's
+                        // fetch error (network blip, transient DB load). Treat
+                        // the cluster as empty for this cycle so it gets the
+                        // configured back-off and other clusters keep running.
+                        // The `empty_job_cycles_before_quiting` safety net still
+                        // applies if the error persists across all clusters.
+                        error!(
+                            "Failed to fetch jobs for cluster {}: {}",
+                            cluster, err
+                        );
+                        (0, false)
                     }
                 };
 
