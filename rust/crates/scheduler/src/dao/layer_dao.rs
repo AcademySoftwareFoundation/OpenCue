@@ -289,6 +289,23 @@ ORDER BY
     lf.int_layer_order
 "#;
 
+/// Guard returned by [`LayerDao::try_lock_layer`] holding an open transaction
+/// that has a row-level lock on the layer. Drop / commit the guard to release
+/// the lock so other schedulers can pick the layer up.
+pub struct LayerLockGuard {
+    transaction: sqlx::Transaction<'static, Postgres>,
+}
+
+impl LayerLockGuard {
+    /// Releases the lock by committing the underlying empty transaction.
+    /// Dropping the guard without calling this also releases (via implicit
+    /// rollback) but that path logs an extra rollback failure on some
+    /// sqlx versions; prefer this explicit release on the happy path.
+    pub async fn release(self) -> Result<(), sqlx::Error> {
+        self.transaction.commit().await
+    }
+}
+
 impl LayerDao {
     /// Creates a new LayerDao from database configuration.
     ///
@@ -337,6 +354,37 @@ impl LayerDao {
         debug!("Got {} frames", combined_models.len());
 
         Ok(self.group_layers_and_frames(combined_models))
+    }
+
+    /// Attempts to acquire a row-level lock on a layer via
+    /// `SELECT … FOR UPDATE SKIP LOCKED`.
+    ///
+    /// Used to deduplicate dispatch attempts across concurrent scheduler
+    /// processes / replicas — if another scheduler already holds the row's
+    /// lock, this returns `Ok(None)` immediately (no waiting) and the caller
+    /// should skip the layer.
+    ///
+    /// The lock is scoped to the returned [`LayerLockGuard`]'s transaction and
+    /// is released when the guard is committed or dropped.
+    pub async fn try_lock_layer(
+        &self,
+        layer_id: Uuid,
+    ) -> Result<Option<LayerLockGuard>, sqlx::Error> {
+        let mut tx = self.connection_pool.begin().await?;
+        let locked: Option<String> = sqlx::query_scalar(
+            "SELECT pk_layer FROM layer WHERE pk_layer = $1 FOR UPDATE SKIP LOCKED",
+        )
+        .bind(layer_id.to_string())
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        if locked.is_some() {
+            Ok(Some(LayerLockGuard { transaction: tx }))
+        } else {
+            // No row returned means another transaction already locked it.
+            let _ = tx.rollback().await;
+            Ok(None)
+        }
     }
 
     /// Groups flat query results into layers with their associated frames.

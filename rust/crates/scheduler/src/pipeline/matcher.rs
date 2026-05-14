@@ -10,12 +10,9 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 use uuid::Uuid;
@@ -28,13 +25,10 @@ use crate::{
     host_cache::{host_cache_service, messages::*, HostCacheService},
     metrics,
     models::{CoreSize, DispatchJob, DispatchLayer, Host},
-    pipeline::{
-        dispatcher::{
-            error::DispatchError,
-            messages::{DispatchLayerMessage, DispatchResult},
-            rqd_dispatcher_service, RqdDispatcherService,
-        },
-        layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
+    pipeline::dispatcher::{
+        error::DispatchError,
+        messages::{DispatchLayerMessage, DispatchResult},
+        rqd_dispatcher_service, RqdDispatcherService,
     },
     resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
@@ -55,7 +49,6 @@ pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 /// - Dispatching frames to selected hosts via the RQD dispatcher
 pub struct MatchingService {
     host_service: Addr<HostCacheService>,
-    layer_permit_service: Addr<LayerPermitService>,
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
@@ -78,11 +71,13 @@ impl MatchingService {
     pub async fn new() -> Result<Self> {
         let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
-        let layer_permit_service = layer_permit_service().await?;
 
-        // Limiting the concurrency here is necessary to avoid consuming the entire
-        // database connection pool
-        let max_concurrent_transactions = (CONFIG.database.pool_size as usize).saturating_sub(1);
+        // Each concurrent layer now holds two connections: one for the
+        // SKIP LOCKED layer lock (held for the whole dispatch) and one for
+        // its per-proc transaction. Halve the semaphore relative to the
+        // pool so we don't risk exhausting it.
+        let pool_size = CONFIG.database.pool_size as usize;
+        let max_concurrent_transactions = (pool_size / 2).saturating_sub(1).max(1);
 
         let dispatcher_service = rqd_dispatcher_service().await?;
         let resource_accounting_service = resource_accounting_service()
@@ -91,7 +86,6 @@ impl MatchingService {
 
         Ok(MatchingService {
             host_service,
-            layer_permit_service,
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
@@ -128,8 +122,9 @@ impl MatchingService {
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
                     let layer_disp = format!("{}", layer);
-                    // Limiting the concurrency here is necessary to avoid consuming the entire
-                    // database connection pool
+                    // Limit concurrent layer processing to stay within the DB
+                    // connection budget — each layer holds a SKIP-LOCKED lock
+                    // transaction plus its per-proc transactions.
                     let _permit = self
                         .concurrency_semaphore
                         .acquire()
@@ -138,40 +133,36 @@ impl MatchingService {
 
                     let cluster = cluster.clone();
 
-                    // Holding a permit for a layer is intended to eliminate a race condition
-                    // between concurrent cluster_rounds attempting to process the same layer.
-                    // The race condition is mitigated, but not complitely avoided, as the permit
-                    // is acquired after the layers and frames have been queried. Acquiring the
-                    // permit before querying would require breaking 'query_layers' into separate
-                    // queries, one per layer, which greatly impacts performance. The rare cases
-                    // that race each other are controlled by the frame.int_version lock on
-                    // frame_dao.lock_for_update
-                    let layer_permit = self
-                        .layer_permit_service
-                        .send(Request {
-                            id: layer.id,
-                            duration: Duration::from_secs(2 * layer.frames.len() as u64),
-                        })
-                        .await
-                        .expect("Layer permit service is not available");
+                    // Try to acquire a row-level SELECT … FOR UPDATE SKIP LOCKED
+                    // on the layer. This both deduplicates dispatch across
+                    // concurrent schedulers (single-process or multi-replica)
+                    // and replaces the in-memory LayerPermitService.
+                    let lock_guard = match self.layer_dao.try_lock_layer(layer.id).await {
+                        Ok(Some(guard)) => guard,
+                        Ok(None) => {
+                            debug!(
+                                "Layer skipped. {} already being processed by another scheduler.",
+                                layer
+                            );
+                            continue;
+                        }
+                        Err(err) => {
+                            error!("Failed to lock layer {}: {:?}", layer_disp, err);
+                            continue;
+                        }
+                    };
 
-                    if layer_permit {
-                        let layer_id = layer.id;
-                        self.process_layer(layer, cluster).await;
-                        debug!("{}: Processed layer", layer_disp);
+                    self.process_layer(layer, cluster).await;
+                    debug!("{}: Processed layer", layer_disp);
 
-                        self.layer_permit_service
-                            .send(Release { id: layer_id })
-                            .await
-                            .expect("Layer permit service is not available");
-
-                        processed_layers.fetch_add(1, Ordering::Relaxed);
-                    } else {
-                        debug!(
-                            "Layer skipped. {} already being processed by another task.",
-                            layer
-                        );
+                    if let Err(err) = lock_guard.release().await {
+                        // Releasing only fails if the connection is dead, in which
+                        // case sqlx has already rolled back implicitly so the lock
+                        // is gone — log and move on.
+                        warn!("Failed to release layer lock for {}: {:?}", layer_disp, err);
                     }
+
+                    processed_layers.fetch_add(1, Ordering::Relaxed);
                 }
 
                 if processed_layers.load(Ordering::Relaxed) == 0 {
