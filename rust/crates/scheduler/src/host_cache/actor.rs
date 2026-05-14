@@ -48,8 +48,14 @@ pub struct HostCacheService {
     concurrency_semaphore: Arc<Semaphore>,
 }
 
-/// Use a reservation system to prevent race conditions when trying to book a host
-/// that belongs to multiple groups.
+/// Reservation guard preventing a host from being booked twice while it's
+/// checked out. The primary lifecycle is explicit: `check_out` reserves and
+/// `check_in` / `Invalidate` releases. [`expired`](Self::expired) is only a
+/// safety net for leaked reservations (e.g. a task panics between check-out
+/// and check-in). The TTL is configurable via
+/// [`HostCacheConfig::host_reservation_safety_ttl`] and should be larger than
+/// the longest plausible dispatch so a slow RQD call cannot accidentally
+/// release the reservation mid-flight.
 struct HostReservation {
     reserved_time: SystemTime,
 }
@@ -62,7 +68,8 @@ impl HostReservation {
     }
 
     pub fn expired(&self) -> bool {
-        self.reserved_time.elapsed().unwrap_or_default() > Duration::from_secs(10)
+        self.reserved_time.elapsed().unwrap_or_default()
+            > CONFIG.host_cache.host_reservation_safety_ttl
     }
 }
 

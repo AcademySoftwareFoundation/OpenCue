@@ -232,6 +232,12 @@ pub struct HostCacheConfig {
     #[serde(with = "humantime_serde")]
     pub host_staleness_threshold: Duration,
     pub update_stat_on_book: bool,
+    /// Safety net for leaked host reservations. The reservation system relies
+    /// on explicit `check_in` / `Invalidate` calls; this TTL only fires when a
+    /// task crashes or otherwise drops a checked-out host without releasing it.
+    /// Should be larger than the longest plausible dispatch (slow RQD, retries).
+    #[serde(with = "humantime_serde")]
+    pub host_reservation_safety_ttl: Duration,
 }
 
 impl Default for HostCacheConfig {
@@ -246,6 +252,7 @@ impl Default for HostCacheConfig {
             concurrent_fetch_permit: 4,
             host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
             update_stat_on_book: false,
+            host_reservation_safety_ttl: Duration::from_secs(5 * 60), // 5 minutes
         }
     }
 }
