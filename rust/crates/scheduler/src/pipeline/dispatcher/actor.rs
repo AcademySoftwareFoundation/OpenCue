@@ -86,38 +86,19 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
             layer.layer_name, host.name
         );
 
+        // No outer transaction here: the host advisory lock now lives inside
+        // each per-proc transaction (see dispatch_virtual_proc) as a
+        // transaction-scoped lock that auto-releases on commit/rollback. The
+        // outer tx previously held an idle connection across all gRPC calls
+        // for no DB work of its own.
         Box::pin(
             async move {
-                // Note: In a real implementation, we would need to coordinate with a transaction manager
-                // or pass the transaction through the message. For now, we'll create a new transaction
-                // within the dispatcher's database operations.
-
-                // Create a database transaction scope
-                let mut transaction = begin_transaction()
-                    .await
-                    .map_err(DispatchError::DbFailure)?;
-
-                match dispatcher.dispatch(&layer, host, &mut transaction).await {
-                    Ok((updated_host, updated_layer)) => {
-                        // Commit the transaction
-                        transaction
-                            .commit()
-                            .await
-                            .map_err(DispatchError::DbFailure)?;
-
-                        Ok(DispatchResult {
-                            updated_host,
-                            updated_layer,
-                        })
-                    }
-                    Err(e) => {
-                        // Rollback the transaction on error
-                        if let Err(rollback_err) = transaction.rollback().await {
-                            error!("Failed to rollback transaction: {}", rollback_err);
-                        }
-                        Err(e)
-                    }
-                }
+                dispatcher.dispatch(&layer, host).await.map(
+                    |(updated_host, updated_layer)| DispatchResult {
+                        updated_host,
+                        updated_layer,
+                    },
+                )
             }
             .into_actor(self)
             .map(|result, _actor, _ctx| result),
@@ -158,52 +139,34 @@ impl RqdDispatcherService {
         })
     }
 
-    /// Dispatches a layer to a specific host with proper locking and error handling.
+    /// Dispatches a layer to a specific host.
     ///
-    /// The dispatch process:
-    /// 1. Acquires an exclusive lock on the target host
-    /// 2. Performs the actual dispatch operation
-    /// 3. Ensures the host lock is always released, even on panic or failure
+    /// The host advisory lock is acquired per-proc as a transaction-scoped
+    /// lock inside [`dispatch_virtual_proc`], not at the layer level. This
+    /// keeps the lock hold time bounded to the per-frame DB transaction
+    /// (committed before the gRPC call) instead of spanning the entire
+    /// layer's dispatch.
     ///
     /// # Arguments
     /// * `layer` - The layer containing frames to dispatch
     /// * `host` - The target host for frame execution
     ///
     /// # Returns
-    /// * `Ok(())` on successful dispatch
+    /// * `Ok((updated_host, remaining_layer))` on successful dispatch
     /// * `Err(DispatchError)` on various failure conditions
     async fn dispatch(
         &self,
         layer: &DispatchLayer,
         host: Host,
-        transaction: &mut Transaction<'_, Postgres>,
     ) -> Result<(Host, DispatchLayer), DispatchError> {
         let host_id = host.id;
         let host_disp = format!("{}", &host);
         let layer_disp = format!("{}", &layer);
 
-        // Acquire lock first
-        if !self
-            .host_dao
-            .lock(transaction, &host.id)
-            .await
-            .map_err(DispatchError::Failure)?
-        {
-            return Err(DispatchError::HostLock(host.name.clone()));
-        }
-
-        // Ensure unlock is always called, regardless of panics or fails
         let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
             .catch_unwind()
             .await;
 
-        // Always attempt to unlock, regardless of outcome. Failing to unlock here can be ignored as
-        // endint the transaction will automatically unlock.
-        if let Err(unlock_err) = self.host_dao.unlock(transaction, &host_id).await {
-            trace!("Failed to unlock host {}: {}", host_disp, unlock_err);
-        }
-
-        // Handle the result from dispatch_inner
         match result {
             Ok(result) => {
                 if result.is_ok() {
@@ -480,6 +443,24 @@ impl RqdDispatcherService {
         let mut proc_transaction = begin_transaction().await.map_err(|e| {
             DispatchVirtualProcError::FailedToStartOnDb(DispatchError::DbFailure(e))
         })?;
+
+        // Acquire a transaction-scoped advisory lock on the host. Using
+        // pg_try_advisory_xact_lock so the lock is released automatically
+        // when this proc transaction commits or rolls back, and concurrent
+        // dispatchers fail fast on the same host instead of waiting.
+        let host_locked = self
+            .host_dao
+            .try_xact_lock(&mut proc_transaction, &host.id)
+            .await
+            .map_err(|e| {
+                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::Failure(e))
+            })?;
+        if !host_locked {
+            let _ = proc_transaction.rollback().await;
+            return Err(DispatchVirtualProcError::FailedToStartOnDb(
+                DispatchError::HostLock(host.name.clone()),
+            ));
+        }
 
         // Confirm the layer still has limits before proceeding
         if !self
