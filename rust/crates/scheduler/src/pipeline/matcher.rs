@@ -41,7 +41,7 @@ use crate::{
 use actix::Addr;
 use miette::{Context, Result};
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 pub static HOSTS_ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
 pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
@@ -385,27 +385,21 @@ impl MatchingService {
                             try_again = false;
                         }
                         crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
-                            // CRITICAL: Database connection failure in host cache query
-                            //
-                            // When the host cache cannot query the database, the matching service
-                            // cannot reliably find hosts for job dispatch. This is a systemic
-                            // failure that affects all job processing.
-                            //
-                            // We panic here rather than propagating an error because:
-                            // 1. The entire service is compromised - no jobs can be matched
-                            // 2. Graceful degradation is not possible without host candidates
-                            // 3. The orchestration layer (e.g., Kubernetes) should restart the
-                            //    service to re-establish database connectivity
-                            // 4. Bubbling the error up would add unnecessary complexity for a
-                            //    condition that always requires service restart
-                            //
-                            // This allows the orchestration layer to handle the failure through
-                            // its standard restart policies rather than attempting partial recovery.
-                            panic!(
-                                "Host cache failed to query database - service is non-functional \
-                                and requires restart. Error: {}",
+                            // Transient DB query failure. The host_cache circuit breaker
+                            // applies exponential backoff and will short-circuit further
+                            // queries until it recovers. After
+                            // CONFIG.host_cache.db_circuit_breaker.failure_threshold
+                            // consecutive failures the host cache exits the process cleanly
+                            // so the orchestrator (k8s, systemd) restarts us. From the
+                            // matcher's perspective we just skip this layer for now —
+                            // other clusters keep running, and the next cycle may find
+                            // candidates once the breaker closes again.
+                            warn!(
+                                "Host cache query failed for layer {} — skipping for now: {}",
+                                current_layer_version.as_ref().unwrap(),
                                 err
-                            )
+                            );
+                            try_again = false;
                         }
                     }
                 }

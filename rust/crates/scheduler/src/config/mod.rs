@@ -238,6 +238,35 @@ pub struct HostCacheConfig {
     /// Should be larger than the longest plausible dispatch (slow RQD, retries).
     #[serde(with = "humantime_serde")]
     pub host_reservation_safety_ttl: Duration,
+    /// Circuit-breaker configuration for host-cache DB queries.
+    pub db_circuit_breaker: DbCircuitBreakerConfig,
+}
+
+/// Circuit-breaker tuning for host-cache database queries.
+///
+/// On consecutive failures the breaker opens for an exponentially growing
+/// window (`base_backoff` → `max_backoff`), short-circuiting further queries
+/// without hitting the DB. Once `failure_threshold` consecutive failures
+/// accumulate, the scheduler exits with status 1 so the orchestrator restarts
+/// it cleanly rather than letting it limp along.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct DbCircuitBreakerConfig {
+    pub failure_threshold: u32,
+    #[serde(with = "humantime_serde")]
+    pub base_backoff: Duration,
+    #[serde(with = "humantime_serde")]
+    pub max_backoff: Duration,
+}
+
+impl Default for DbCircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            failure_threshold: 10,
+            base_backoff: Duration::from_millis(500),
+            max_backoff: Duration::from_secs(30),
+        }
+    }
 }
 
 impl Default for HostCacheConfig {
@@ -253,6 +282,7 @@ impl Default for HostCacheConfig {
             host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
             update_stat_on_book: false,
             host_reservation_safety_ttl: Duration::from_secs(5 * 60), // 5 minutes
+            db_circuit_breaker: DbCircuitBreakerConfig::default(),
         }
     }
 }
