@@ -13,8 +13,8 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_counter, register_counter_vec, register_histogram, Counter, CounterVec, Encoder,
-    Histogram, TextEncoder,
+    register_counter, register_counter_vec, register_gauge_vec, register_histogram, Counter,
+    CounterVec, Encoder, GaugeVec, Histogram, TextEncoder,
 };
 use std::time::Duration;
 use tracing::{error, info};
@@ -70,6 +70,32 @@ lazy_static! {
         vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
     )
     .expect("Failed to register job_query_duration_seconds histogram");
+
+    // Cluster feed metrics from cluster.rs
+    pub static ref CLUSTER_POLLS_TOTAL: CounterVec = register_counter_vec!(
+        "scheduler_cluster_polls_total",
+        "Total number of times each cluster has been emitted by the priority-queue feed",
+        &["show_id", "facility_id"]
+    )
+    .expect("Failed to register cluster_polls_total counter");
+
+    /// Global counter mirroring the in-memory `CLUSTER_ROUNDS` atomic.
+    /// Equivalent to `sum(scheduler_cluster_polls_total)` but exposed for cheap
+    /// querying / alerting on overall feed throughput.
+    pub static ref CLUSTER_ROUNDS_TOTAL: Counter = register_counter!(
+        "scheduler_cluster_rounds_total",
+        "Total number of cluster pops across all clusters"
+    )
+    .expect("Failed to register cluster_rounds_total counter");
+
+    /// Most-recent job count for each cluster — useful to inspect the productivity
+    /// bias' effect on dispatch ordering.
+    pub static ref CLUSTER_LAST_DISPATCHED_JOBS: GaugeVec = register_gauge_vec!(
+        "scheduler_cluster_last_dispatched_jobs",
+        "Jobs dispatched in the most recent processing cycle for each cluster",
+        &["show_id", "facility_id"]
+    )
+    .expect("Failed to register cluster_last_dispatched_jobs gauge");
 }
 
 /// Handler for the /metrics endpoint
@@ -165,4 +191,28 @@ pub fn observe_time_to_book(duration: Duration) {
 #[inline]
 pub fn observe_job_query_duration(duration: Duration) {
     JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
+}
+
+/// Helper function to increment cluster polls counter.
+///
+/// Bumps both the per-cluster `scheduler_cluster_polls_total` and the global
+/// `scheduler_cluster_rounds_total` so dashboards can use whichever is cheaper.
+#[inline]
+pub fn increment_cluster_polls(show_id: &uuid::Uuid, facility_id: &uuid::Uuid) {
+    CLUSTER_POLLS_TOTAL
+        .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
+        .inc();
+    CLUSTER_ROUNDS_TOTAL.inc();
+}
+
+/// Records the number of jobs dispatched in the most recent cycle for a cluster.
+#[inline]
+pub fn set_cluster_last_dispatched_jobs(
+    show_id: &uuid::Uuid,
+    facility_id: &uuid::Uuid,
+    count: usize,
+) {
+    CLUSTER_LAST_DISPATCHED_JOBS
+        .with_label_values(&[&show_id.to_string(), &facility_id.to_string()])
+        .set(count as f64);
 }
