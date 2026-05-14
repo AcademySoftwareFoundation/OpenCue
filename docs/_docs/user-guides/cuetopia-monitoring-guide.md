@@ -255,7 +255,7 @@ Displays all layers in the selected job with the following columns:
 | **Progress** | Visual progress bar | Percentage complete |
 | **Timeout** | Frame timeout | In HH:MM format |
 | **Timeout LLU** | Last log update timeout | In HH:MM format |
-| **Available** | Timestamp the layer became eligible to run. Defaults to the job's submission time when no dependency was involved. | MM/DD HH:MM |
+| **Available** | Timestamp the layer became eligible to run. Defaults to layer creation time (`ts_wait`) when no dependency transition is involved. | MM/DD HH:MM |
 
 #### Bottom Section: Frame Monitor
 

@@ -1121,9 +1121,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     };
 
     /**
-     * Reads ts_wait from the result set and returns it as epoch seconds. Falls
-     * back to the supplied submission timestamp when ts_wait is NULL (frames
-     * still in DEPEND don't yet have a wait time).
+     * Reads ts_wait from the result set and returns it as epoch seconds. Falls back to the supplied
+     * submission timestamp when ts_wait is NULL (frames still in DEPEND don't yet have a wait
+     * time).
      */
     static int getWaitTime(ResultSet rs, Timestamp submissionFallback) throws SQLException {
         Timestamp tsWait = rs.getTimestamp("ts_wait");
@@ -1201,8 +1201,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
                     .setTimeout(rs.getInt("int_timeout"))
                     .setTimeoutLlu(rs.getInt("int_timeout_llu"))
-                    // layer.ts_wait is NOT NULL by schema (defaults to layer
-                    // creation time), so no submission-time fallback is needed.
+                    // layer.ts_wait is NOT NULL by schema (defaults to layer creation time), so no
+                    // submission-time fallback is needed.
                     .setWaitTime(getWaitTime(rs, null));
 
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
@@ -1364,8 +1364,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             } else {
                 builder.setLluTime(0);
             }
-            // Frames in DEPEND have ts_wait NULL; fall back to the job's
-            // submission time so callers always get a usable value.
+            // Frames in DEPEND have ts_wait NULL; fall back to the job's submission time so callers
+            // always get a usable value.
             builder.setWaitTime(getWaitTime(rs, rs.getTimestamp("job_ts_started")));
 
             builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
