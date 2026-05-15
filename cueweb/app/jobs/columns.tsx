@@ -6,6 +6,7 @@ import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
+import { SubscribeBell } from "@/components/ui/subscribe-bell";
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -127,6 +128,19 @@ export const columns: ColumnDef<Job>[] = [
     enableHiding: false,
   },
   {
+    id: "subscribe",
+    header: () => null,
+    cell: ({ row }) => (
+      <SubscribeBell
+        jobId={(row.original as Job).id}
+        jobName={(row.original as Job).name}
+        jobState={(row.original as Job).state}
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     accessorKey: "name",
     header: ({ column }) => {
       return (
@@ -161,11 +175,11 @@ export const columns: ColumnDef<Job>[] = [
       const stateA = getState(rowA.original as Job);
       const stateB = getState(rowB.original as Job);
       const stateOrder = {
-        "Failing": 0,
-        "Finished": 1,
+        Failing: 0,
+        Finished: 1,
         "In Progress": 2,
-        "Dependency": 3,
-        "Paused": 4,
+        Dependency: 3,
+        Paused: 4,
       };
 
       return (stateOrder[stateA] || 5) - (stateOrder[stateB] || 5);
