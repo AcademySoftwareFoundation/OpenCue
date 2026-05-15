@@ -1099,7 +1099,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setHasComment(rs.getBoolean("b_comment"))
                     .setAutoEat(rs.getBoolean("b_autoeat"))
                     .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
-                    .setAvailableTime(getAvailableTime(rs, rs.getTimestamp("ts_started")))
+                    .setAvailableTime(getAvailableTimeInEpoch(rs, rs.getTimestamp("ts_started")))
                     .setOs(SqlUtil.getString(rs, "str_os"))
                     .setLokiUrl(SqlUtil.getString(rs, "str_loki_url"));
 
@@ -1125,7 +1125,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
      * supplied submission timestamp when ts_available is NULL (frames still in DEPEND don't yet
      * have an available time).
      */
-    static int getAvailableTime(ResultSet rs, Timestamp submissionFallback) throws SQLException {
+    static int getAvailableTimeInEpoch(ResultSet rs, Timestamp submissionFallback)
+            throws SQLException {
         Timestamp tsAvailable = rs.getTimestamp("ts_available");
         if (tsAvailable != null) {
             return (int) (tsAvailable.getTime() / 1000);
@@ -1203,7 +1204,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setTimeoutLlu(rs.getInt("int_timeout_llu"))
                     // layer.ts_available is NOT NULL by schema (defaults to layer creation time), so no
                     // submission-time fallback is needed.
-                    .setAvailableTime(getAvailableTime(rs, null));
+                    .setAvailableTime(getAvailableTimeInEpoch(rs, null));
 
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
@@ -1366,7 +1367,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             }
             // Frames in DEPEND have ts_available NULL; fall back to the job's submission time so callers
             // always get a usable value.
-            builder.setAvailableTime(getAvailableTime(rs, rs.getTimestamp("job_ts_started")));
+            builder.setAvailableTime(getAvailableTimeInEpoch(rs, rs.getTimestamp("job_ts_started")));
 
             builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
             builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
