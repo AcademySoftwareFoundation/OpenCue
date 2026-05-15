@@ -185,8 +185,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
         self.addColumn("Available", 100, id=14,
-                       data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.wait_time),
-                       sort=lambda job: job.data.wait_time,
+                       data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.available_time),
+                       sort=lambda job: job.data.available_time,
                        tip="The time the job became eligible to run - i.e. when it left\n"
                            "a dependency state. Jobs that were never blocked by a dependency\n"
                            "show the job's submission time.")

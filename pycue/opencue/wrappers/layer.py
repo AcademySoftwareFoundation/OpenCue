@@ -631,5 +631,5 @@ class Layer(object):
         :return: layer available time in epoch, or string version of that
                  timestamp if format given"""
         if not format:
-            return self.data.wait_time
-        return time.strftime(format, time.localtime(self.data.wait_time))
+            return self.data.available_time
+        return time.strftime(format, time.localtime(self.data.available_time))

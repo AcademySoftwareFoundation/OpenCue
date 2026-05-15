@@ -105,7 +105,7 @@ Notes:
 | **MaxRss** | Maximum memory used by any frame                                                                                                                                                    | `job_stats.max_rss` | On update |
 | **Age** | Time since job launch (HH:MM format)                                                                                                                                                | Calculated from `start_time` | Real-time |
 | **Launched** | Job launch timestamp                                                                                                                                                                | `job.data.start_time` | Static |
-| **Available** | Timestamp the job became eligible to run (left a dependency state). Equal to the job's submission time when the job was never blocked. | `job.data.wait_time` | On dependency clear |
+| **Available** | Timestamp the job became eligible to run (left a dependency state). Equal to the job's submission time when the job was never blocked. | `job.data.available_time` | On dependency clear |
 | **Finished** | Job completion timestamp                                                                                                                                                            | `job.data.stop_time` | On completion |
 | **User Color** | User-assigned color name (preset or custom RGB format) | `__userColors` dictionary | On color change |
 | **Progress** | Visual progress bar                                                                                                                                                                 | Composite of all frame states | Real-time |
@@ -255,7 +255,7 @@ Displays all layers in the selected job with the following columns:
 | **Progress** | Visual progress bar | Percentage complete |
 | **Timeout** | Frame timeout | In HH:MM format |
 | **Timeout LLU** | Last log update timeout | In HH:MM format |
-| **Available** | Timestamp the layer became eligible to run. Defaults to layer creation time (`ts_wait`) when no dependency transition is involved. | MM/DD HH:MM |
+| **Available** | Timestamp the layer became eligible to run. Defaults to layer creation time (`ts_available`) when no dependency transition is involved. | MM/DD HH:MM |
 
 #### Bottom Section: Frame Monitor
 

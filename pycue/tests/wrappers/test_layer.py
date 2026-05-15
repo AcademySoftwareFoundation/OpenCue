@@ -412,16 +412,16 @@ class LayerTests(unittest.TestCase):
             timeout=mock.ANY)
 
     def testAvailableTimeEpoch(self, getStubMock):
-        waitTime = 1700000000
+        availableTime = 1700000000
         layer = opencue.wrappers.layer.Layer(
-            job_pb2.Layer(name=TEST_LAYER_NAME, wait_time=waitTime))
-        self.assertEqual(layer.availableTime(), waitTime)
+            job_pb2.Layer(name=TEST_LAYER_NAME, available_time=availableTime))
+        self.assertEqual(layer.availableTime(), availableTime)
 
     def testAvailableTimeFormatted(self, getStubMock):
-        waitTime = 1700000000
+        availableTime = 1700000000
         layer = opencue.wrappers.layer.Layer(
-            job_pb2.Layer(name=TEST_LAYER_NAME, wait_time=waitTime))
-        expected = time.strftime("%Y", time.localtime(waitTime))
+            job_pb2.Layer(name=TEST_LAYER_NAME, available_time=availableTime))
+        expected = time.strftime("%Y", time.localtime(availableTime))
         self.assertEqual(layer.availableTime("%Y"), expected)
 
 

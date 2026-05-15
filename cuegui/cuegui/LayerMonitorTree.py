@@ -164,8 +164,8 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda layer: layer.data.timeout_llu,
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
         self.addColumn("Available", 100, id=24,
-                       data=lambda layer: cuegui.Utils.dateToMMDDHHMM(layer.data.wait_time),
-                       sort=lambda layer: layer.data.wait_time,
+                       data=lambda layer: cuegui.Utils.dateToMMDDHHMM(layer.data.available_time),
+                       sort=lambda layer: layer.data.available_time,
                        tip="The time the layer became eligible to run. Layers that were\n"
                            "never blocked by a dependency show the job's submission time.")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)

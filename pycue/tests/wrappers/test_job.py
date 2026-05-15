@@ -493,14 +493,14 @@ class JobTests(unittest.TestCase):
             timeout=mock.ANY)
 
     def testAvailableTimeEpoch(self, getStubMock):
-        waitTime = 1700000000
-        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", wait_time=waitTime))
-        self.assertEqual(job.availableTime(), waitTime)
+        availableTime = 1700000000
+        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", available_time=availableTime))
+        self.assertEqual(job.availableTime(), availableTime)
 
     def testAvailableTimeFormatted(self, getStubMock):
-        waitTime = 1700000000
-        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", wait_time=waitTime))
-        expected = time.strftime("%Y", time.localtime(waitTime))
+        availableTime = 1700000000
+        job = opencue.wrappers.job.Job(job_pb2.Job(name="testJob", available_time=availableTime))
+        expected = time.strftime("%Y", time.localtime(availableTime))
         self.assertEqual(job.availableTime("%Y"), expected)
 
     def testFrameStateTotals(self, getStubMock):
@@ -546,17 +546,17 @@ class NestedJobTests(unittest.TestCase):
         maxCores = 6
         logDir = '/path/to/logs'
         isPaused = False
-        waitTime = 1700000000
+        availableTime = 1700000000
         nestedJob = opencue.wrappers.job.NestedJob(
             job_pb2.NestedJob(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
                               group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                               min_cores=minCores, max_cores=maxCores, log_dir=logDir,
-                              is_paused=isPaused, wait_time=waitTime))
+                              is_paused=isPaused, available_time=availableTime))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
                         group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                         min_cores=minCores, max_cores=maxCores, log_dir=logDir,
-                        is_paused=isPaused, wait_time=waitTime))
+                        is_paused=isPaused, available_time=availableTime))
 
         asJob = nestedJob.asJob()
         attrs = ['id', 'state', 'name', 'shot', 'show', 'user', 'group', 'facility', 'os', 'uid',

@@ -218,8 +218,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The time that the frame finished or died.")
 
         self.addColumn("Available Time", 100, id=19,
-                       data=lambda job, frame: (self.getTimeString(frame.data.wait_time) or ""),
-                       sort=lambda job, frame: frame.data.wait_time,
+                       data=lambda job, frame: (self.getTimeString(frame.data.available_time) or ""),
+                       sort=lambda job, frame: frame.data.available_time,
                        tip="The time the frame became eligible to run - i.e. when it left\n"
                            "DEPEND and entered WAITING. Frames that were never blocked by a\n"
                            "dependency show the job's submission time. Subtract from Start\n"

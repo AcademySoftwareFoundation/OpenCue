@@ -629,8 +629,8 @@ class Job(object):
         :return: job available time in epoch, or string version of that
                  timestamp if format given"""
         if not format:
-            return self.data.wait_time
-        return time.strftime(format, time.localtime(self.data.wait_time))
+            return self.data.available_time
+        return time.strftime(format, time.localtime(self.data.available_time))
 
     def runTime(self):
         """Returns the number of seconds that the job has been (or was) running.
@@ -1141,6 +1141,6 @@ class NestedJob(Job):
             auto_eat=self.data.auto_eat,
             start_time=self.data.start_time,
             stop_time=self.data.stop_time,
-            wait_time=self.data.wait_time,
+            available_time=self.data.available_time,
             job_stats=self.data.stats
         ))

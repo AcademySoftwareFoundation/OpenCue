@@ -328,7 +328,7 @@ class Frame(object):
         :rtype:  int
         :return: frame available time as an epoch
         """
-        return self.data.wait_time
+        return self.data.available_time
 
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
