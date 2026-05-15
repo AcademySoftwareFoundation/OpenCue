@@ -111,14 +111,14 @@ impl RunningFrame {
     }
 
     fn interprete_output_docker(wait_response: ContainerWaitResponse) -> (i32, Option<i32>) {
-        let exit_signal = None;
-        let exit_code = wait_response.status_code as i32;
+        let mut exit_signal = None;
+        let mut exit_code = wait_response.status_code as i32;
 
         // If the cmd wrapper interprets the signal as an output, 128 needs to be subtracted
         // from the code to recover the received signal
         if exit_code > 128 {
-            exit_code = 1;
             exit_signal = Some(exit_code - 128);
+            exit_code = 1;
         }
         (exit_code, exit_signal)
     }

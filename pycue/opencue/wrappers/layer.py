@@ -18,6 +18,7 @@ import enum
 import getpass
 import os
 import platform
+import time
 
 from opencue_proto import job_pb2
 import opencue.api
@@ -607,3 +608,28 @@ class Layer(object):
         :return: the layer's services
         """
         return [opencue.api.getService(service) for service in self.data.services]
+
+    # pylint: disable=redefined-builtin
+    def eligibleTime(self, format=None):
+        """Returns the layer eligible time in the desired format.
+
+        This is the moment the layer became eligible to run. Layers that were
+        never blocked by a dependency report the job's submission time, so the
+        value is always meaningful.
+
+        Examples:
+            None
+            "%m/%d %H:%M"           => 05/14 9:45
+            "%a %b %d %H:%M:%S %Y"  => Thu May 14 9:45:06 2026
+
+        See the format table at:
+        https://docs.python.org/3/library/time.html
+
+        :type  format: str
+        :param format: desired time format
+        :rtype:  int/str
+        :return: layer eligible time in epoch, or string version of that
+                 timestamp if format given"""
+        if not format:
+            return self.data.eligible_time
+        return time.strftime(format, time.localtime(self.data.eligible_time))

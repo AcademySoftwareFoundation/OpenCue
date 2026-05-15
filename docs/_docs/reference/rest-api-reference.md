@@ -265,6 +265,7 @@ POST /job.JobInterface/GetJobs
         "hasComment": false,
         "startTime": 1694000000,
         "stopTime": 0,
+        "eligibleTime": 1694000000,
         "jobStats": {
           "runningFrames": 0,
           "deadFrames": 0,
@@ -330,6 +331,7 @@ POST /job.JobInterface/GetFrames
         "exitStatus": -1,
         "startTime": 0,
         "stopTime": 0,
+        "eligibleTime": 1694000000,
         "maxRss": "0",
         "usedMemory": "0",
         "lastResource": "/0.00/0"
@@ -429,6 +431,7 @@ POST /frame.FrameInterface/GetFrame
     "exitStatus": 0,
     "startTime": 1694000000,
     "stopTime": 1694000300,
+    "eligibleTime": 1693999998,
     "maxRss": "2147483648",
     "usedMemory": "1073741824",
     "totalCoreTime": 300
@@ -2163,6 +2166,7 @@ NIMBY      - Host locked automatically
   "hasComment": "bool",
   "startTime": "int32",
   "stopTime": "int32",
+  "eligibleTime": "int32",
   "jobStats": {
     "runningFrames": "int32",
     "deadFrames": "int32",
@@ -2186,6 +2190,7 @@ NIMBY      - Host locked automatically
   "exitStatus": "int32",
   "startTime": "int32",
   "stopTime": "int32",
+  "eligibleTime": "int32",
   "maxRss": "string",
   "usedMemory": "string",
   "lastResource": "string",
