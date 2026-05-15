@@ -216,4 +216,11 @@ public final class RqdClientGrpc implements RqdClient {
     public void setTestMode(boolean testMode) {
         this.testMode = testMode;
     }
+
+    public void shutdown() {
+        if (channelCache != null) {
+            logger.info("Shutting down RqdClientGrpc channel cache");
+            channelCache.invalidateAll();
+        }
+    }
 }
