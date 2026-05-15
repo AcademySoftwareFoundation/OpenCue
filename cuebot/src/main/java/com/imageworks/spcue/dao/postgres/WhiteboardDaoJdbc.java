@@ -1122,8 +1122,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     /**
      * Reads ts_eligible from the result set and returns it as epoch seconds. Falls back to the
-     * supplied submission timestamp when ts_eligible is NULL (frames still in DEPEND don't yet
-     * have an eligible time).
+     * supplied submission timestamp when ts_eligible is NULL (frames still in DEPEND don't yet have
+     * an eligible time).
      */
     static int getEligibleTimeInEpoch(ResultSet rs, Timestamp submissionFallback)
             throws SQLException {
@@ -1202,8 +1202,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
                     .setTimeout(rs.getInt("int_timeout"))
                     .setTimeoutLlu(rs.getInt("int_timeout_llu"))
-                    // layer.ts_eligible is NOT NULL by schema (defaults to layer creation time), so no
-                    // submission-time fallback is needed.
+                    // layer.ts_eligible is NOT NULL by schema (defaults to layer creation time), so
+                    // no submission-time fallback is needed.
                     .setEligibleTime(getEligibleTimeInEpoch(rs, null));
 
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
@@ -1365,8 +1365,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             } else {
                 builder.setLluTime(0);
             }
-            // Frames in DEPEND have ts_eligible NULL; fall back to the job's submission time so callers
-            // always get a usable value.
+            // Frames in DEPEND have ts_eligible NULL; fall back to the job's submission time so
+            // callers always get a usable value.
             builder.setEligibleTime(getEligibleTimeInEpoch(rs, rs.getTimestamp("job_ts_started")));
 
             builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
