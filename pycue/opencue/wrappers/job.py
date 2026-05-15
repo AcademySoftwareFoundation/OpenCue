@@ -608,8 +608,8 @@ class Job(object):
         return time.strftime(format, time.localtime(self.data.stop_time))
 
     # pylint: disable=redefined-builtin
-    def availableTime(self, format=None):
-        """Returns the job available time in the desired format.
+    def eligibleTime(self, format=None):
+        """Returns the job eligible time in the desired format.
 
         This is the moment the job became eligible to run - i.e. when it left
         a dependency state. Jobs that were never blocked report the job's
@@ -626,11 +626,11 @@ class Job(object):
         :type  format: str
         :param format: desired time format
         :rtype:  int/str
-        :return: job available time in epoch, or string version of that
+        :return: job eligible time in epoch, or string version of that
                  timestamp if format given"""
         if not format:
-            return self.data.available_time
-        return time.strftime(format, time.localtime(self.data.available_time))
+            return self.data.eligible_time
+        return time.strftime(format, time.localtime(self.data.eligible_time))
 
     def runTime(self):
         """Returns the number of seconds that the job has been (or was) running.
@@ -1141,6 +1141,6 @@ class NestedJob(Job):
             auto_eat=self.data.auto_eat,
             start_time=self.data.start_time,
             stop_time=self.data.stop_time,
-            available_time=self.data.available_time,
+            eligible_time=self.data.eligible_time,
             job_stats=self.data.stats
         ))

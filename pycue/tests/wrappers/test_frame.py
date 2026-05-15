@@ -222,18 +222,18 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(runningFrame.runTime(), expected)
 
     def testAvailableTime(self, getStubMock):
-        availableTime = 1700000000
+        eligibleTime = 1700000000
         frame = opencue.wrappers.frame.Frame(
-            job_pb2.Frame(name=TEST_FRAME_NAME, available_time=availableTime))
-        self.assertEqual(frame.availableTime(), availableTime)
+            job_pb2.Frame(name=TEST_FRAME_NAME, eligible_time=eligibleTime))
+        self.assertEqual(frame.eligibleTime(), eligibleTime)
 
     def testWaitForPickupSeconds(self, getStubMock):
-        availableTime = 1700000000
-        startTime = availableTime + 42
+        eligibleTime = 1700000000
+        startTime = eligibleTime + 42
         frame = opencue.wrappers.frame.Frame(
             job_pb2.Frame(
-                name=TEST_FRAME_NAME, available_time=availableTime, start_time=startTime))
-        self.assertEqual(frame.startTime() - frame.availableTime(), 42)
+                name=TEST_FRAME_NAME, eligible_time=eligibleTime, start_time=startTime))
+        self.assertEqual(frame.startTime() - frame.eligibleTime(), 42)
 
     def testSetFrameStateDisplayOverride(self, getStubMock):
         stubMock = mock.Mock()

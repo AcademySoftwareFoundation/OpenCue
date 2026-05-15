@@ -610,8 +610,8 @@ class Layer(object):
         return [opencue.api.getService(service) for service in self.data.services]
 
     # pylint: disable=redefined-builtin
-    def availableTime(self, format=None):
-        """Returns the layer available time in the desired format.
+    def eligibleTime(self, format=None):
+        """Returns the layer eligible time in the desired format.
 
         This is the moment the layer became eligible to run. Layers that were
         never blocked by a dependency report the job's submission time, so the
@@ -628,8 +628,8 @@ class Layer(object):
         :type  format: str
         :param format: desired time format
         :rtype:  int/str
-        :return: layer available time in epoch, or string version of that
+        :return: layer eligible time in epoch, or string version of that
                  timestamp if format given"""
         if not format:
-            return self.data.available_time
-        return time.strftime(format, time.localtime(self.data.available_time))
+            return self.data.eligible_time
+        return time.strftime(format, time.localtime(self.data.eligible_time))
