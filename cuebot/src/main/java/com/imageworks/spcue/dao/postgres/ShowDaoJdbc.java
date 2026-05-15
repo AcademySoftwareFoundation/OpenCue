@@ -207,6 +207,18 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     }
 
     @Override
+    public int countSchedulerManagedShows() {
+        Integer count = getJdbcTemplate().queryForObject(
+                "SELECT COUNT(*) FROM show WHERE b_scheduler_managed = true", Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    @Override
+    public void invalidateSchedulerManagedCache() {
+        schedulerManagedCache.invalidateAll();
+    }
+
+    @Override
     public void updateShowCommentEmail(ShowInterface s, String[] email) {
         getJdbcTemplate().update("UPDATE show SET str_comment_email = ? WHERE pk_show=?",
                 StringUtils.join(email, ","), s.getShowId());

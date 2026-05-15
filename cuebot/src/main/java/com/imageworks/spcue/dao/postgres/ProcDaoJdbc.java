@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
@@ -31,6 +33,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
@@ -41,17 +45,27 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.service.AccountingRedisPublisher;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
+    private static final Logger logger = LogManager.getLogger(ProcDaoJdbc.class);
+
     @Autowired
     private Environment env;
+
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingRedisPublisher accountingRedisPublisher;
 
     private static final String VERIFY_RUNNING_PROC = "SELECT " + "proc.pk_frame " + "FROM "
             + "proc, " + "job " + "WHERE " + "proc.pk_job = job.pk_job " + "AND "
@@ -246,6 +260,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             proc.jobId = rs.getString("pk_job");
             proc.layerId = rs.getString("pk_layer");
             proc.frameId = rs.getString("pk_frame");
+            proc.folderId = rs.getString("pk_folder");
+            proc.deptId = rs.getString("pk_dept");
             proc.hostName = rs.getString("host_name");
             proc.allocationId = rs.getString("pk_alloc");
             proc.facilityId = rs.getString("pk_facility");
@@ -268,9 +284,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     private static final String GET_VIRTUAL_PROC = "SELECT " + "proc.pk_proc," + "proc.pk_host,"
             + "proc.pk_show," + "proc.pk_job," + "proc.pk_layer," + "proc.pk_frame,"
-            + "proc.b_unbooked," + "proc.b_local," + "host.pk_alloc, " + "alloc.pk_facility,"
-            + "proc.int_cores_reserved," + "proc.int_mem_reserved," + "proc.int_mem_max_used,"
-            + "proc.int_mem_used," + "proc.int_gpus_reserved," + "proc.int_gpu_mem_reserved,"
+            + "job.pk_folder," + "job.pk_dept," + "proc.b_unbooked," + "proc.b_local,"
+            + "host.pk_alloc, " + "alloc.pk_facility," + "proc.int_cores_reserved,"
+            + "proc.int_mem_reserved," + "proc.int_mem_max_used," + "proc.int_mem_used,"
+            + "proc.int_gpus_reserved," + "proc.int_gpu_mem_reserved,"
             + "proc.int_gpu_mem_max_used," + "proc.int_gpu_mem_used," + "proc.bytea_children,"
             + "proc.int_virt_max_used," + "proc.int_virt_used," + "host.str_name AS host_name, "
             + "COALESCE(job.str_os, '') AS str_os " + "FROM " + "proc, " + "job, " + "host, "
@@ -289,10 +306,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     }
 
     private static final String GET_VIRTUAL_PROC_LIST = "SELECT " + "proc.*, "
-            + "host.str_name AS host_name, " + "host.pk_alloc, "
-            + "COALESCE(job.str_os, '') AS str_os, " + "alloc.pk_facility " + "FROM " + "proc, "
-            + "frame, " + "host," + "host_stat, " + "alloc, " + "layer," + "job, " + "folder, "
-            + "show " + "WHERE " + "proc.pk_show = show.pk_show " + "AND "
+            + "host.str_name AS host_name, " + "host.pk_alloc, " + "job.pk_folder, "
+            + "job.pk_dept, " + "COALESCE(job.str_os, '') AS str_os, " + "alloc.pk_facility "
+            + "FROM " + "proc, " + "frame, " + "host," + "host_stat, " + "alloc, " + "layer,"
+            + "job, " + "folder, " + "show " + "WHERE " + "proc.pk_show = show.pk_show " + "AND "
             + "proc.pk_host = host.pk_host " + "AND " + "host.pk_alloc = alloc.pk_alloc " + "AND "
             + "host.pk_host = host_stat.pk_host " + "AND " + "proc.pk_job = job.pk_job " + "AND "
             + "proc.pk_layer = layer.pk_layer " + "AND " + "proc.pk_frame = frame.pk_frame "
@@ -401,11 +418,11 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     private static final String ORPHANED_PROC_INTERVAL = "interval '300' second";
     private static final String GET_ORPHANED_PROC_LIST = "SELECT " + "proc.*, "
             + "host.str_name AS host_name, " + "COALESCE(job.str_os, '') AS str_os, "
-            + "host.pk_alloc, " + "alloc.pk_facility " + "FROM " + "proc, " + "host, "
-            + "host_stat," + "alloc, " + "job " + "WHERE " + "proc.pk_host = host.pk_host " + "AND "
-            + "host.pk_host = host_stat.pk_host " + "AND " + "host.pk_alloc = alloc.pk_alloc "
-            + "AND " + "job.pk_job = proc.pk_job " + "AND " + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL;
+            + "host.pk_alloc, " + "job.pk_folder, " + "job.pk_dept, " + "alloc.pk_facility "
+            + "FROM " + "proc, " + "host, " + "host_stat," + "alloc, " + "job " + "WHERE "
+            + "proc.pk_host = host.pk_host " + "AND " + "host.pk_host = host_stat.pk_host " + "AND "
+            + "host.pk_alloc = alloc.pk_alloc " + "AND " + "job.pk_job = proc.pk_job " + "AND "
+            + "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
 
     public List<VirtualProc> findOrphanedVirtualProcs() {
         return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER);
@@ -553,6 +570,17 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
      * Updates proc counts for the host, subscription, layer, job, folder, and proc point when a
      * proc is destroyed.
      *
+     * <p>
+     * For shows flagged {@code b_scheduler_managed=true} (and non-local dispatch), the five PG
+     * accounting tables (subscription / layer_resource / job_resource / folder_resource / point)
+     * are <em>not</em> decremented here — the standalone Rust scheduler owns recompute from
+     * {@code SUM(proc)} on a few minutes cadence. Instead, a Redis delta is published after the
+     * surrounding Postgres transaction commits. The host idle counters always update because
+     * Cuebot's own host-report path consumes them regardless of who owns dispatch.
+     *
+     * <p>
+     * Local dispatches are always Cuebot-managed, regardless of the show flag.
+     *
      * @param proc
      */
     private void procDestroyed(VirtualProc proc) {
@@ -564,43 +592,14 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
                 proc.getHostId());
 
-        if (!proc.isLocalDispatch) {
-            getJdbcTemplate().update(
-                    "UPDATE " + "subscription " + "SET " + "int_cores = int_cores - ?,"
-                            + "int_gpus = int_gpus - ? " + "WHERE " + "pk_show = ? " + "AND "
-                            + "pk_alloc = ?",
-                    proc.coresReserved, proc.gpusReserved, proc.getShowId(),
-                    proc.getAllocationId());
-        }
-
-        getJdbcTemplate().update(
-                "UPDATE " + "layer_resource " + "SET " + "int_cores = int_cores - ?,"
-                        + "int_gpus = int_gpus - ? " + "WHERE " + "pk_layer = ?",
-                proc.coresReserved, proc.gpusReserved, proc.getLayerId());
-
-        if (!proc.isLocalDispatch) {
-
-            getJdbcTemplate().update(
-                    "UPDATE " + "job_resource " + "SET " + "int_cores = int_cores - ?,"
-                            + "int_gpus = int_gpus - ? " + "WHERE " + "pk_job = ?",
-                    proc.coresReserved, proc.gpusReserved, proc.getJobId());
-
-            getJdbcTemplate().update(
-                    "UPDATE " + "folder_resource " + "SET " + "int_cores = int_cores - ?,"
-                            + "int_gpus = int_gpus - ? " + "WHERE " + "pk_folder = "
-                            + "(SELECT pk_folder FROM job WHERE pk_job=?)",
-                    proc.coresReserved, proc.gpusReserved, proc.getJobId());
-
-            getJdbcTemplate().update(
-                    "UPDATE " + "point " + "SET " + "int_cores = int_cores - ?, "
-                            + "int_gpus = int_gpus - ? " + "WHERE " + "pk_dept = "
-                            + "(SELECT pk_dept FROM job WHERE pk_job=?) " + "AND " + "pk_show = "
-                            + "(SELECT pk_show FROM job WHERE pk_job=?) ",
-                    proc.coresReserved, proc.gpusReserved, proc.getJobId(), proc.getJobId());
-        }
-
-        // Local dispatches are completely handled by cuebot (no integration with the scheduler)
         if (proc.isLocalDispatch) {
+            // Local dispatches are completely handled by cuebot (no integration with the
+            // scheduler) — preserved verbatim regardless of show.b_scheduler_managed.
+            getJdbcTemplate().update(
+                    "UPDATE " + "layer_resource " + "SET " + "int_cores = int_cores - ?,"
+                            + "int_gpus = int_gpus - ? " + "WHERE " + "pk_layer = ?",
+                    proc.coresReserved, proc.gpusReserved, proc.getLayerId());
+
             getJdbcTemplate().update(
                     "UPDATE " + "job_resource " + "SET " + "int_local_cores = int_local_cores - ?, "
                             + "int_local_gpus = int_local_gpus - ? " + "WHERE " + "pk_job = ?",
@@ -614,12 +613,90 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                             + "AND " + "pk_host = ? ",
                     proc.coresReserved, proc.memoryReserved, proc.gpusReserved,
                     proc.gpuMemoryReserved, proc.getJobId(), proc.getHostId());
+            return;
+        }
+
+        if (showDao.isSchedulerManaged(proc.getShowId())) {
+            // Skip the five PG accounting tables; the Rust scheduler owns recompute. Publish a
+            // release delta to Redis once the surrounding transaction commits.
+            registerAfterCommitRedisPublish(proc);
+            return;
+        }
+
+        // Cuebot-managed non-local: today's exact behavior.
+        getJdbcTemplate().update("UPDATE " + "subscription " + "SET " + "int_cores = int_cores - ?,"
+                + "int_gpus = int_gpus - ? " + "WHERE " + "pk_show = ? " + "AND " + "pk_alloc = ?",
+                proc.coresReserved, proc.gpusReserved, proc.getShowId(), proc.getAllocationId());
+
+        getJdbcTemplate().update(
+                "UPDATE " + "layer_resource " + "SET " + "int_cores = int_cores - ?,"
+                        + "int_gpus = int_gpus - ? " + "WHERE " + "pk_layer = ?",
+                proc.coresReserved, proc.gpusReserved, proc.getLayerId());
+
+        getJdbcTemplate().update(
+                "UPDATE " + "job_resource " + "SET " + "int_cores = int_cores - ?,"
+                        + "int_gpus = int_gpus - ? " + "WHERE " + "pk_job = ?",
+                proc.coresReserved, proc.gpusReserved, proc.getJobId());
+
+        getJdbcTemplate().update(
+                "UPDATE " + "folder_resource " + "SET " + "int_cores = int_cores - ?,"
+                        + "int_gpus = int_gpus - ? " + "WHERE " + "pk_folder = "
+                        + "(SELECT pk_folder FROM job WHERE pk_job=?)",
+                proc.coresReserved, proc.gpusReserved, proc.getJobId());
+
+        getJdbcTemplate().update(
+                "UPDATE " + "point " + "SET " + "int_cores = int_cores - ?, "
+                        + "int_gpus = int_gpus - ? " + "WHERE " + "pk_dept = "
+                        + "(SELECT pk_dept FROM job WHERE pk_job=?) " + "AND " + "pk_show = "
+                        + "(SELECT pk_show FROM job WHERE pk_job=?) ",
+                proc.coresReserved, proc.gpusReserved, proc.getJobId(), proc.getJobId());
+    }
+
+    /**
+     * Register an afterCommit hook to publish the Redis release delta. The Redis publish must not
+     * run on rollback or it would over-decrement.
+     *
+     * <p>
+     * folderId and deptId are read directly from the {@link VirtualProc} fields hydrated by
+     * {@link #VIRTUAL_PROC_MAPPER}. A defensive fallback populates them from the job table if a
+     * caller built the proc manually instead of going through a SELECT.
+     */
+    private void registerAfterCommitRedisPublish(final VirtualProc proc) {
+        if (proc.folderId == null || proc.deptId == null) {
+            Map<String, Object> jobMeta = getJdbcTemplate().queryForMap(
+                    "SELECT pk_folder, pk_dept FROM job WHERE pk_job=?", proc.getJobId());
+            proc.folderId = (String) jobMeta.get("pk_folder");
+            proc.deptId = (String) jobMeta.get("pk_dept");
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager
+                    .registerSynchronization(new TransactionSynchronizationAdapter() {
+                        @Override
+                        public void afterCommit() {
+                            accountingRedisPublisher.publishRelease(proc);
+                        }
+                    });
+        } else {
+            // procDestroyed is always called from within a transactional service method
+            // (DispatchSupportService is @Transactional). Defensive fallback if that invariant
+            // changes.
+            logger.warn("procDestroyed called outside a transaction; publishing Redis delta "
+                    + "synchronously for proc {}", proc.getProcId());
+            accountingRedisPublisher.publishRelease(proc);
         }
     }
 
     /**
      * Updates proc counts for the host, subscription, layer, job, folder, and proc point when a new
      * proc is created.
+     *
+     * <p>
+     * No scheduler-managed branch here: {@code DispatchQuery} filters {@code
+     * b_scheduler_managed=true} shows out of Cuebot's dispatch path, so this method only runs for
+     * Cuebot-managed shows (and local dispatches, which are always Cuebot-owned). Releases
+     * ({@link #procDestroyed}) still see scheduler-managed shows because Cuebot processes RQD
+     * frame-complete reports regardless of who dispatched.
      *
      * @param proc
      */

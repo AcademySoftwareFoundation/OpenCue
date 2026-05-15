@@ -152,6 +152,21 @@ public interface ShowDao {
     boolean isSchedulerManaged(String showId);
 
     /**
+     * Return the number of shows currently flagged scheduler-managed. Used at boot by the Redis
+     * accounting publisher to emit the deployment-invariant misconfiguration warning.
+     *
+     * @return count of rows with b_scheduler_managed = true
+     */
+    int countSchedulerManagedShows();
+
+    /**
+     * Invalidate the in-process scheduler-managed flag cache. Production code does not need this —
+     * the cache TTL or writer-cache refresh handles staleness. Exposed so transactional tests
+     * (which @Rollback the DB row but leave the Guava cache populated) can reset state in @After.
+     */
+    void invalidateSchedulerManagedCache();
+
+    /**
      * An array of email addresses for which all job comments are echoed to.
      *
      * @param s
