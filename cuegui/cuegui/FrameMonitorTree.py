@@ -217,13 +217,14 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
-        self.addColumn("Available Time", 100, id=19,
+        self.addColumn("Eligible Time", 100, id=19,
                        data=lambda job, frame: (self.getTimeString(frame.data.available_time) or ""),
                        sort=lambda job, frame: frame.data.available_time,
                        tip="The time the frame became eligible to run - i.e. when it left\n"
                            "DEPEND and entered WAITING. Frames that were never blocked by a\n"
                            "dependency show the job's submission time. Subtract from Start\n"
-                           "Time to see how long the frame waited to be picked up.")
+                           "Time to see how long the frame waited to be picked up by a\n"
+                           "render proc. (Exposed via Frame.availableTime() in pycue.)")
 
         self.addColumn("Last Line", 0, id=20,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and

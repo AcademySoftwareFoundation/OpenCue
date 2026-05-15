@@ -184,12 +184,13 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.start_time),
                        sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
-        self.addColumn("Available", 100, id=14,
+        self.addColumn("Eligible", 100, id=14,
                        data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.available_time),
                        sort=lambda job: job.data.available_time,
                        tip="The time the job became eligible to run - i.e. when it left\n"
                            "a dependency state. Jobs that were never blocked by a dependency\n"
-                           "show the job's submission time.")
+                           "show the job's submission time.\n"
+                           "(Exposed via Job.availableTime() in pycue.)")
         self.addColumn("Finished", 100, id=15,
                        data=lambda job: (job.data.stop_time > 0
                                          and cuegui.Utils.dateToMMDDHHMM(job.data.stop_time)
