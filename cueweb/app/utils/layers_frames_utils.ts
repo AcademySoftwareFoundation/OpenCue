@@ -6,6 +6,7 @@ import { handleError } from "@/app/utils/notify_utils";
 // - converting memory amount to a string
 // - converting seconds to hours, minutes, and seconds
 // - converting seconds to hours and minutes
+// - converting seconds to a compact human-readable age
 /*****************************************************************/
 
 // Converts a Unix timestamp to a human-readable date in the format "YYYY-MM-DD HH:MM"
@@ -61,4 +62,22 @@ export const secondsToHHHMM = (sec: number): string => {
   const minutes = Math.floor((sec % 3600) / 60).toString().padStart(2, "0");
 
   return `${hours}:${minutes}`;
+};
+
+// Converts seconds to a compact human-readable age.
+export const secondsToHumanAge = (sec: number): string => {
+  const wholeSeconds = Math.max(0, Math.floor(sec));
+  const days = Math.floor(wholeSeconds / 86400);
+  const hours = Math.floor((wholeSeconds % 86400) / 3600);
+  const minutes = Math.floor((wholeSeconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
 };

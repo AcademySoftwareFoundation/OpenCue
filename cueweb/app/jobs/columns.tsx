@@ -4,7 +4,12 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
+import {
+  convertMemoryToString,
+  convertUnixToHumanReadableDate,
+  secondsToHHHMM,
+  secondsToHumanAge,
+} from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
 
 // This type is used to define the shape of our data.
@@ -97,12 +102,21 @@ export const getRestOfJobName = (jobName: string) => {
 };
 
 export const getJobAge = (job: Job) => {
+  const ageSeconds = getJobAgeSeconds(job);
+  return secondsToHHHMM(ageSeconds);
+};
+
+export const getJobAgeSeconds = (job: Job) => {
   if (job?.stopTime != 0) {
-    return secondsToHHHMM(job.stopTime - job.startTime);
+    return job.stopTime - job.startTime;
   }
   const currentDate = new Date();
   const timestampInSeconds = currentDate.getTime() / 1000;
-  return secondsToHHHMM(timestampInSeconds - job.startTime);
+  return timestampInSeconds - job.startTime;
+};
+
+export const getJobHumanAge = (job: Job) => {
+  return secondsToHumanAge(getJobAgeSeconds(job));
 };
 
 export const columns: ColumnDef<Job>[] = [
@@ -274,6 +288,18 @@ export const columns: ColumnDef<Job>[] = [
       return (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Age
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+  },
+  {
+    id: "human age",
+    accessorFn: (row) => getJobHumanAge(row),
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Human Age
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
