@@ -15,7 +15,6 @@ export function useJobSubscriptions() {
   const [store, setStore] = useState<SubscriptionStore>(getSubscriptions);
 
   useEffect(() => {
-    setStore(getSubscriptions());
     return subscribeToChanges(() => setStore(getSubscriptions()));
   }, []);
 

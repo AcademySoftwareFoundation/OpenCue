@@ -175,11 +175,11 @@ export const columns: ColumnDef<Job>[] = [
       const stateA = getState(rowA.original as Job);
       const stateB = getState(rowB.original as Job);
       const stateOrder = {
-        Failing: 0,
-        Finished: 1,
+        "Failing": 0,
+        "Finished": 1,
         "In Progress": 2,
-        Dependency: 3,
-        Paused: 4,
+        "Dependency": 3,
+        "Paused": 4,
       };
 
       return (stateOrder[stateA] || 5) - (stateOrder[stateB] || 5);

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { JobSubscriptionPoller } from "@/components/ui/job-subscription-poller";
+import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
 
 export const metadata: Metadata = {
   title: "CueWeb",

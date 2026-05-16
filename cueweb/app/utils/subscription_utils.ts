@@ -3,6 +3,7 @@
 // - CRUD on per-job subscriptions stored in browser localStorage
 // - Pure decision logic for picking which entries need notifying now
 // - Thin wrapper around the browser Notification permission API
+// - Cross-component change-event bus so hooks re-read after any mutation
 /********************************************************************/
 
 const STORAGE_KEY = "cueweb:job-subscriptions";
@@ -44,6 +45,7 @@ export function addSubscription(jobId: string, jobName: string): void {
 // Remove a subscription entirely. No-op if the entry does not exist.
 export function removeSubscription(jobId: string): void {
   const store = getSubscriptions();
+  if (!store[jobId]) return;
   delete store[jobId];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   emitChange();
