@@ -62,3 +62,24 @@ export const secondsToHHHMM = (sec: number): string => {
 
   return `${hours}:${minutes}`;
 };
+
+// Converts seconds to a human-readable age string (e.g., "2h 14m" or "3d 4h")
+export const secondsToHumanAge = (sec: number): string => {
+  if (sec < 0) {
+    return "0m";
+  }
+
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
+};

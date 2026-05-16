@@ -119,6 +119,7 @@ const initialColumnVisibility = {
   wait: false,
   eaten: false,
   age: false,
+  humanAge: false,
   maxRss: false,
 }
 
