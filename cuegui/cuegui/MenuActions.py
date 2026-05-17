@@ -25,6 +25,7 @@ from __future__ import print_function
 from builtins import filter
 from builtins import str
 from builtins import object
+import os
 import getpass
 import glob
 import subprocess
@@ -1738,6 +1739,60 @@ class HostActions(AbstractActions):
 
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
+
+    def canTakeOwnership(self, rpcObjects=None):
+        """Returns True when the selected host can be taken over."""
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        return len(hosts) == 1 and hosts[0].data.lock_state == opencue.api.host_pb2.NIMBY_LOCKED
+
+    takeOwnership_info = ["Take Ownership", "Take ownership of a NIMBY-locked host", "configure"]
+
+    def takeOwnership(self, rpcObjects=None):
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        if len(hosts) != 1:
+            return
+
+        host = hosts[0]
+        if host.data.lock_state != opencue.api.host_pb2.NIMBY_LOCKED:
+            return
+
+        default_user = getpass.getuser()
+        title = "Take Ownership"
+        body = "Which username should own %s?" % host.data.name
+        (user_name, choice) = QtWidgets.QInputDialog.getText(
+            self._caller, title, body, QtWidgets.QLineEdit.Normal, default_user)
+        if not choice:
+            return
+
+        user_name = str(user_name).strip()
+        if not user_name:
+            return
+
+        try:
+            owner = opencue.api.getOwner(user_name)
+        except opencue.EntityNotFoundException:
+            try:
+                show_name = os.environ.get("SHOW", "pipe")
+                owner = opencue.api.findShow(show_name).createOwner(user_name)
+            except opencue.exception.CueException as e:
+                cuegui.Utils.showErrorMessageBox(str(e))
+                return
+
+        current_owner = getattr(host.data, "owner", "")
+        if current_owner and current_owner != user_name:
+            if not cuegui.Utils.questionBoxYesNo(
+                    self._caller,
+                    "Confirm",
+                    "Host %s is currently owned by %s. Take ownership?" % (
+                        host.data.name, current_owner)):
+                return
+
+        try:
+            owner.takeOwnership(host.data.name)
+        except opencue.exception.CueException as e:
+            cuegui.Utils.showErrorMessageBox(str(e))
+            return
+        self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
 
