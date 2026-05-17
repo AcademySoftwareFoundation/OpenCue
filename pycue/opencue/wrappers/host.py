@@ -27,6 +27,7 @@ from opencue import util
 from opencue import search
 import opencue.wrappers.comment
 # pylint: disable=cyclic-import
+import opencue.wrappers.deed
 import opencue.wrappers.proc
 import opencue.wrappers.render_partition
 

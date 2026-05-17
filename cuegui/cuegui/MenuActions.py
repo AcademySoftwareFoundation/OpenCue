@@ -1777,6 +1777,9 @@ class HostActions(AbstractActions):
             except opencue.exception.CueException as e:
                 cuegui.Utils.showErrorMessageBox(str(e))
                 return
+        except opencue.exception.CueException as e:
+            cuegui.Utils.showErrorMessageBox(str(e))
+            return
 
         current_owner = ""
         try:
