@@ -18,9 +18,21 @@ export type JobSubscription = {
 
 export type SubscriptionStore = Record<string, JobSubscription>;
 
-// Read all subscriptions from localStorage. Returns {} when the key is missing.
+// Read all subscriptions from localStorage. Returns {} when the stored
+// value is missing, malformed, or not a plain object.
 export function getSubscriptions(): SubscriptionStore {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as SubscriptionStore;
+    }
+    return {};
+  } catch {
+    return {};
+  }
 }
 
 // Look up a single subscription by job UUID. Returns undefined if not subscribed.

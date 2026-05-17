@@ -16,6 +16,33 @@ describe("subscription_utils", () => {
     localStorage.clear();
   });
 
+  describe("getSubscriptions defensive parsing", () => {
+    it("returns {} when storage contains an empty string", () => {
+      localStorage.setItem("cueweb:job-subscriptions", "");
+      expect(getSubscriptions()).toEqual({});
+    });
+
+    it("returns {} when storage contains malformed JSON", () => {
+      localStorage.setItem("cueweb:job-subscriptions", "{bad-json");
+      expect(getSubscriptions()).toEqual({});
+    });
+
+    it("returns {} when storage contains a JSON null", () => {
+      localStorage.setItem("cueweb:job-subscriptions", "null");
+      expect(getSubscriptions()).toEqual({});
+    });
+
+    it("returns {} when storage contains a JSON primitive", () => {
+      localStorage.setItem("cueweb:job-subscriptions", "42");
+      expect(getSubscriptions()).toEqual({});
+    });
+
+    it("returns {} when storage contains a JSON array", () => {
+      localStorage.setItem("cueweb:job-subscriptions", "[1,2,3]");
+      expect(getSubscriptions()).toEqual({});
+    });
+  });
+
   describe("CRUD", () => {
     it("getSubscriptions returns {} when storage is empty", () => {
       expect(getSubscriptions()).toEqual({});
