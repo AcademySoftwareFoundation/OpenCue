@@ -1272,6 +1272,61 @@ class HostActionsTests(unittest.TestCase):
             'Host render-host is currently owned by old-owner. Take ownership?')
         owner.takeOwnership.assert_called_with('render-host')
 
+    @mock.patch('cuegui.Utils.questionBoxYesNo')
+    @mock.patch('opencue.api.findShow')
+    @mock.patch('opencue.api.getOwner', side_effect=opencue.EntityNotFoundException())
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    def test_takeOwnership_missingOwnerCreatesAfterConfirm(
+            self, getTextMock, getOwnerMock, findShowMock, questionBoxMock):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(
+                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+        getTextMock.return_value = ('new-owner', True)
+        deed = mock.MagicMock()
+        current_owner = mock.MagicMock()
+        current_owner.name.return_value = 'old-owner'
+        deed.getOwner.return_value = current_owner
+        host.getDeed = mock.MagicMock(return_value=deed)
+        show = mock.MagicMock()
+        owner = mock.MagicMock()
+        show.createOwner.return_value = owner
+        findShowMock.return_value = show
+
+        def confirm_side_effect(*args, **kwargs):
+            show.createOwner.assert_not_called()
+            return True
+
+        questionBoxMock.side_effect = confirm_side_effect
+
+        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        getOwnerMock.assert_called_with('new-owner')
+        findShowMock.assert_called_once_with('pipe')
+        show.createOwner.assert_called_once_with('new-owner')
+        owner.takeOwnership.assert_called_with('render-host')
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    @mock.patch('opencue.api.getOwner')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    def test_takeOwnership_deedLookupFailureStillPrompts(
+            self, getTextMock, getOwnerMock, questionBoxMock):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(
+                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+        owner = mock.MagicMock()
+        getOwnerMock.return_value = owner
+        getTextMock.return_value = ('new-owner', True)
+        host.getDeed = mock.MagicMock(side_effect=opencue.exception.CueException('boom'))
+
+        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        getOwnerMock.assert_called_with('new-owner')
+        questionBoxMock.assert_called_once_with(
+            self.widgetMock,
+            'Confirm',
+            'Host render-host ownership could not be determined. Take ownership?')
+        owner.takeOwnership.assert_called_with('render-host')
+
     @mock.patch('cuegui.Utils.showErrorMessageBox')
     @mock.patch('opencue.api.getOwner', side_effect=opencue.exception.CueException('boom'))
     @mock.patch('qtpy.QtWidgets.QInputDialog.getText')

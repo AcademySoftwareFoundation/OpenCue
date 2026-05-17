@@ -1768,31 +1768,43 @@ class HostActions(AbstractActions):
         if not user_name:
             return
 
+        owner = None
+        create_owner = False
         try:
             owner = opencue.api.getOwner(user_name)
         except opencue.EntityNotFoundException:
+            create_owner = True
+        except opencue.exception.CueException as e:
+            cuegui.Utils.showErrorMessageBox(str(e))
+            return
+
+        current_owner = None
+        try:
+            current_owner = host.getDeed().getOwner().name()
+        except opencue.exception.CueException as e:
+            logger.exception("Failed to resolve current owner for host %s", host.data.name)
+
+        if current_owner is None:
+            confirm_message = "Host %s ownership could not be determined. Take ownership?" % (
+                host.data.name)
+        elif current_owner != user_name:
+            confirm_message = "Host %s is currently owned by %s. Take ownership?" % (
+                host.data.name, current_owner)
+        else:
+            confirm_message = None
+
+        if confirm_message and not cuegui.Utils.questionBoxYesNo(
+                self._caller,
+                "Confirm",
+                confirm_message):
+            return
+
+        if create_owner:
             try:
                 show_name = os.environ.get("SHOW", "pipe")
                 owner = opencue.api.findShow(show_name).createOwner(user_name)
             except opencue.exception.CueException as e:
                 cuegui.Utils.showErrorMessageBox(str(e))
-                return
-        except opencue.exception.CueException as e:
-            cuegui.Utils.showErrorMessageBox(str(e))
-            return
-
-        current_owner = ""
-        try:
-            current_owner = host.getDeed().getOwner().name()
-        except opencue.exception.CueException:
-            pass
-
-        if current_owner and current_owner != user_name:
-            if not cuegui.Utils.questionBoxYesNo(
-                    self._caller,
-                    "Confirm",
-                    "Host %s is currently owned by %s. Take ownership?" % (
-                        host.data.name, current_owner)):
                 return
 
         try:
