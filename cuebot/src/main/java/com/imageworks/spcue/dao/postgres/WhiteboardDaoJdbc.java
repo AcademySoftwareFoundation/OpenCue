@@ -1367,7 +1367,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             }
             // Frames in DEPEND have ts_eligible NULL; fall back to the job's submission time so
             // callers always get a usable value.
-            builder.setEligibleTime(getEligibleTimeInEpoch(rs, rs.getTimestamp("job_ts_started")));
+            java.sql.Timestamp job_ts_started = rs.getTimestamp("job_ts_started");
+            builder.setEligibleTime(getEligibleTimeInEpoch(rs, job_ts_started));
+            if (job_ts_started != null) {
+                builder.setSubmissionTime((int) (job_ts_started.getTime() / 1000));
+            }
 
             builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
             builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));

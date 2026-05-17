@@ -226,7 +226,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "Time to see how long the frame waited to be picked up by a\n"
                            "render proc.")
 
-        self.addColumn("Last Line", 0, id=20,
+        self.addColumn("Submission Time", 100, id=20,
+                       data=lambda job, frame: (
+                           self.getTimeString(frame.data.submission_time) or ""),
+                       sort=lambda job, frame: frame.data.submission_time,
+                       tip="The time the parent job was submitted. Unlike Start Time\n"
+                           "(when this frame began executing) or Eligible Time (when\n"
+                           "the frame left DEPEND), this is always the job's submission\n"
+                           "timestamp regardless of dependency state.")
+
+        self.addColumn("Last Line", 0, id=21,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),

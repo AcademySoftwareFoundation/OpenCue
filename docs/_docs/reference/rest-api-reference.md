@@ -332,6 +332,7 @@ POST /job.JobInterface/GetFrames
         "startTime": 0,
         "stopTime": 0,
         "eligibleTime": 1694000000,
+        "submissionTime": 1694000000,
         "maxRss": "0",
         "usedMemory": "0",
         "lastResource": "/0.00/0"
@@ -432,6 +433,7 @@ POST /frame.FrameInterface/GetFrame
     "startTime": 1694000000,
     "stopTime": 1694000300,
     "eligibleTime": 1693999998,
+    "submissionTime": 1693999995,
     "maxRss": "2147483648",
     "usedMemory": "1073741824",
     "totalCoreTime": 300
@@ -2191,6 +2193,7 @@ NIMBY      - Host locked automatically
   "startTime": "int32",
   "stopTime": "int32",
   "eligibleTime": "int32",
+  "submissionTime": "int32",
   "maxRss": "string",
   "usedMemory": "string",
   "lastResource": "string",

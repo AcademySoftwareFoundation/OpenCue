@@ -523,6 +523,7 @@ message Frame {
     int64 max_pss = 24;
     int64 used_pss = 25;
     int32 eligible_time = 26;
+    int32 submission_time = 27;
 }
 
 // Object for frame searching

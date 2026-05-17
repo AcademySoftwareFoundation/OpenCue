@@ -330,6 +330,19 @@ class Frame(object):
         """
         return self.data.eligible_time
 
+    def submissionTime(self):
+        """Returns the epoch timestamp of the parent job's submission time.
+
+        A frame's ``startTime()`` reflects when it began executing on a render
+        proc, not when its job was submitted. This accessor exposes the job's
+        submission time directly so callers don't have to fetch the parent job
+        or reason about dependency state to recover it.
+
+        :rtype:  int
+        :return: parent job submission time as an epoch
+        """
+        return self.data.submission_time
+
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
 
