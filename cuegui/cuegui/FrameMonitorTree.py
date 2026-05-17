@@ -55,12 +55,14 @@ logger = cuegui.Logger.getLogger(__file__)
 
 QCOLOR_BLACK = QtGui.QColor(QtCore.Qt.black)
 QCOLOR_GREEN = QtGui.QColor(QtCore.Qt.green)
+# Visual column indices, keyed to the order of addColumn() calls below.
+# Update these whenever a column is inserted/removed/reordered.
 STATUS_COLUMN = 3
-PROC_COLUMN = 5
-CHECKPOINT_COLUMN = 7
-RUNTIME_COLUMN = 9
-MEMORY_COLUMN = 11
-LASTLINE_COLUMN = 16
+PROC_COLUMN = 6
+CHECKPOINT_COLUMN = 8
+RUNTIME_COLUMN = 10
+MEMORY_COLUMN = 12
+LASTLINE_COLUMN = 20
 
 LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
