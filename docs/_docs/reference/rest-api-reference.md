@@ -524,6 +524,8 @@ POST /layer.LayerInterface/GetLayer
     "minimumCores": 1,
     "maximumCores": 4,
     "minimumMemory": 2147483648,
+    "startTime": 1694000010,
+    "stopTime": 0,
     "layerStats": {
       "totalFrames": 25,
       "runningFrames": 0,

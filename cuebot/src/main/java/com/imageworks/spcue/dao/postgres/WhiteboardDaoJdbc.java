@@ -1206,6 +1206,19 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     // no submission-time fallback is needed.
                     .setEligibleTime(getEligibleTimeInEpoch(rs, null));
 
+            // Layer start/stop time: aggregated from the layer's frames by the
+            // layer_ts_started / layer_ts_stopped subqueries in GET_LAYER_WITH_LIMITS.
+            // start_time stays 0 until the first frame begins running; stop_time stays 0
+            // until every frame has stopped (mirroring Job.stopTime() semantics).
+            Timestamp layerTsStarted = rs.getTimestamp("layer_ts_started");
+            if (layerTsStarted != null) {
+                builder.setStartTime((int) (layerTsStarted.getTime() / 1000));
+            }
+            Timestamp layerTsStopped = rs.getTimestamp("layer_ts_stopped");
+            if (layerTsStopped != null) {
+                builder.setStopTime((int) (layerTsStopped.getTime() / 1000));
+            }
+
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                     .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
@@ -2030,7 +2043,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "layer_mem.int_max_pss, "
                 + "layer_resource.int_cores, "
                 + "layer_resource.int_gpus, "
-                + "limit_names.str_limit_names "
+                + "limit_names.str_limit_names, "
+                // Layer activity window: earliest frame start, and latest frame stop only
+                // once every frame has stopped. Mirrors Job semantics where stop_time stays
+                // 0 until the whole object is done.
+                + "(SELECT MIN(ts_started) FROM frame WHERE pk_layer = layer.pk_layer) "
+                    + "AS layer_ts_started, "
+                + "(SELECT CASE WHEN COUNT(*) FILTER (WHERE ts_stopped IS NULL) = 0 "
+                            + "THEN MAX(ts_stopped) END "
+                    + "FROM frame WHERE pk_layer = layer.pk_layer) AS layer_ts_stopped "
             + "FROM "
                 + "layer "
             + "JOIN "
