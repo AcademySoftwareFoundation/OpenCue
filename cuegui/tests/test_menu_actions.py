@@ -1253,11 +1253,15 @@ class HostActionsTests(unittest.TestCase):
     def test_takeOwnership(self, getTextMock, getOwnerMock, questionBoxMock):
         host = opencue.wrappers.host.Host(
             opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED,
-                owner='old-owner'))
+                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
         owner = mock.MagicMock()
         getOwnerMock.return_value = owner
         getTextMock.return_value = ('new-owner', True)
+        deed = mock.MagicMock()
+        current_owner = mock.MagicMock()
+        current_owner.name.return_value = 'old-owner'
+        deed.getOwner.return_value = current_owner
+        host.getDeed = mock.MagicMock(return_value=deed)
 
         self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
 

@@ -1778,7 +1778,12 @@ class HostActions(AbstractActions):
                 cuegui.Utils.showErrorMessageBox(str(e))
                 return
 
-        current_owner = getattr(host.data, "owner", "")
+        current_owner = ""
+        try:
+            current_owner = host.getDeed().getOwner().name()
+        except opencue.exception.CueException:
+            pass
+
         if current_owner and current_owner != user_name:
             if not cuegui.Utils.questionBoxYesNo(
                     self._caller,
