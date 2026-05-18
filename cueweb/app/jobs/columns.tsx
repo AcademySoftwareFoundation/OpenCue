@@ -115,7 +115,7 @@ export const getJobAgeInSeconds = (job: Job): number => {
   return timestampInSeconds - job.startTime;
 };
 
-export const getJobHumanAge = (job: Job) => {
+export const getJobReadableAge = (job: Job) => {
   return secondsToHumanAge(getJobAgeInSeconds(job));
 };
 
@@ -294,12 +294,12 @@ export const columns: ColumnDef<Job>[] = [
     },
   },
   {
-    id: "humanAge",
-    accessorFn: (row) => getJobHumanAge(row),
+    id: "readable age",
+    accessorFn: (row) => getJobReadableAge(row),
     header: ({ column }) => {
       return (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Human Age
+          Readable Age
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
