@@ -1781,7 +1781,7 @@ class HostActions(AbstractActions):
         current_owner = None
         try:
             current_owner = host.getDeed().getOwner().name()
-        except opencue.exception.CueException as e:
+        except opencue.exception.CueException:
             logger.exception("Failed to resolve current owner for host %s", host.data.name)
 
         if current_owner is None:
