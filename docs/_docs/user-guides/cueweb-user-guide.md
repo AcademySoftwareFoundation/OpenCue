@@ -147,6 +147,7 @@ The dashboard consists of:
 | **Wait** | Number of frames waiting to run |
 | **MaxRss** | Maximum resident set size (peak memory usage) |
 | **Age** | Total time since job started (HHH:MM format) |
+| **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
 | **Progress** | Visual progress bar showing completion percentage |
 | **Notify** | Bell button to subscribe to a toast when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
 | **Pop-up** | Button to open job details panel |

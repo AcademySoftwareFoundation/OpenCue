@@ -321,6 +321,8 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "viewProc")
         self.__menuActions.hosts().addAction(menu, "lock")
         self.__menuActions.hosts().addAction(menu, "unlock")
+        self.__menuActions.hosts().addAction(menu, "takeOwnership").setEnabled(
+            self.__menuActions.hosts().canTakeOwnership(self.selectedObjects()))
         self.__menuActions.hosts().addAction(menu, "addTags")
         self.__menuActions.hosts().addAction(menu, "removeTags")
         self.__menuActions.hosts().addAction(menu, "renameTag")
