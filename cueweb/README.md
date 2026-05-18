@@ -295,6 +295,7 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Dark mode:** Toggle between light and dark themes.
 - **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) with context menus.
 - **Auto-reloading:** Real-time updates for tables.
+- **Job-finished notifications:** Per-job bell to subscribe to completion. A background poller fires a toast when a subscribed job reaches `FINISHED`. Subscriptions persist in `localStorage` and stay in sync across browser tabs.
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
 

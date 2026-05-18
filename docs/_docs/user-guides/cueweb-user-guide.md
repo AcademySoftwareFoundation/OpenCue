@@ -148,6 +148,7 @@ The dashboard consists of:
 | **MaxRss** | Maximum resident set size (peak memory usage) |
 | **Age** | Total time since job started (HHH:MM format) |
 | **Progress** | Visual progress bar showing completion percentage |
+| **Notify** | Bell button to subscribe to a toast when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
 | **Pop-up** | Button to open job details panel |
 
 ### Job Status Indicators
@@ -370,6 +371,21 @@ CueWeb provides automatic real-time updates:
 2. **All Tables**: Jobs, layers, and frames tables are auto-reloaded at regular intervals to display the latest data
 3. **Background Updates**: Continue updates when tab is not active
 4. **Performance Optimization**: Loading animations and virtualization optimize performance on slow connections
+
+### Job-finished notifications
+
+Each row in the jobs table has a bell button (the **Notify** column) that lets you subscribe to a toast notification when the job reaches `FINISHED`. The bell has three visual states:
+
+- **Outline bell**: not subscribed &rarr; click to subscribe
+- **Filled bell**: subscribed, waiting for `FINISHED` &rarr; click to cancel
+- **Filled bell + green dot**: notification has fired &rarr; click to clear
+
+Behavior:
+
+- The bell is disabled (faded, with tooltip) on jobs that are already `FINISHED` when first viewed; there is nothing to notify on.
+- Subscribing/unsubscribing is immediate &mdash; no browser permission prompt is shown. Notifications are delivered as in-page toasts via the same channel as other action messages, so they appear only while a CueWeb tab is open.
+- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` a single `Job finished: <jobName>` toast is shown, the bell shows the green dot, and the entry is marked as notified.
+- Subscriptions persist in browser `localStorage` and survive page reloads. Bells stay in sync across browser tabs in the same browser: subscribing in one tab updates the bell in other open tabs, and the toast fires in only one tab even if several are open on the same job.
 
 ---
 

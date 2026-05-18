@@ -126,6 +126,7 @@ cueweb/
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
+- **`JobSubscriptionPoller`**: App-wide provider that polls subscribed jobs every 15s and fires a toast when a job reaches `FINISHED`. Serializes the per-job notify decision across browser tabs via `navigator.locks` to avoid duplicate toasts.
 
 #### UI Components
 
@@ -134,6 +135,7 @@ cueweb/
 - **`Dialog`**: Modal dialog wrapper
 - **`Select`**: Dropdown selection component
 - **`Toast`**: Notification system
+- **`SubscribeBell`**: Per-row bell button in `JobsTable` for the **Notify** column. Reads/writes per-job subscription state via the `useJobSubscriptions` hook (`app/utils/use_job_subscriptions.ts`), backed by `localStorage` through `app/utils/subscription_utils.ts`. Tabs stay in sync through both an in-process change event and the browser `storage` event.
 
 ---
 
