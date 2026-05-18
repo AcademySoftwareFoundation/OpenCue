@@ -1243,9 +1243,12 @@ class HostActionsTests(unittest.TestCase):
             opencue_proto.host_pb2.Host(
                 id='open-id', lock_state=opencue_proto.host_pb2.OPEN))
 
-        self.assertTrue(self.host_actions.canTakeOwnership([opencue.wrappers.layer.Layer, nimby_host]))
+        self.assertTrue(
+            self.host_actions.canTakeOwnership(
+                [opencue.wrappers.layer.Layer, nimby_host]))
         self.assertFalse(
-            self.host_actions.canTakeOwnership([opencue.wrappers.layer.Layer, unlocked_host]))
+            self.host_actions.canTakeOwnership(
+                [opencue.wrappers.layer.Layer, unlocked_host]))
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     @mock.patch('opencue.api.getOwner')
@@ -1253,7 +1256,9 @@ class HostActionsTests(unittest.TestCase):
     def test_takeOwnership(self, getTextMock, getOwnerMock, questionBoxMock):
         host = opencue.wrappers.host.Host(
             opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+                id='arbitrary-id',
+                name='render-host',
+                lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
         owner = mock.MagicMock()
         getOwnerMock.return_value = owner
         getTextMock.return_value = ('new-owner', True)
@@ -1263,7 +1268,8 @@ class HostActionsTests(unittest.TestCase):
         deed.getOwner.return_value = current_owner
         host.getDeed = mock.MagicMock(return_value=deed)
 
-        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+        self.host_actions.takeOwnership(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         getOwnerMock.assert_called_with('new-owner')
         questionBoxMock.assert_called_once_with(
@@ -1274,13 +1280,17 @@ class HostActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo')
     @mock.patch('opencue.api.findShow')
-    @mock.patch('opencue.api.getOwner', side_effect=opencue.EntityNotFoundException())
+    @mock.patch(
+        'opencue.api.getOwner',
+        side_effect=opencue.EntityNotFoundException())
     @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_takeOwnership_missingOwnerCreatesAfterConfirm(
             self, getTextMock, getOwnerMock, findShowMock, questionBoxMock):
         host = opencue.wrappers.host.Host(
             opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+                id='arbitrary-id',
+                name='render-host',
+                lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
         getTextMock.return_value = ('new-owner', True)
         deed = mock.MagicMock()
         current_owner = mock.MagicMock()
@@ -1298,7 +1308,8 @@ class HostActionsTests(unittest.TestCase):
 
         questionBoxMock.side_effect = confirm_side_effect
 
-        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+        self.host_actions.takeOwnership(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         getOwnerMock.assert_called_with('new-owner')
         findShowMock.assert_called_once_with('pipe')
@@ -1312,19 +1323,23 @@ class HostActionsTests(unittest.TestCase):
             self, getTextMock, getOwnerMock, questionBoxMock):
         host = opencue.wrappers.host.Host(
             opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+                id='arbitrary-id',
+                name='render-host',
+                lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
         owner = mock.MagicMock()
         getOwnerMock.return_value = owner
         getTextMock.return_value = ('new-owner', True)
         host.getDeed = mock.MagicMock(side_effect=opencue.exception.CueException('boom'))
 
-        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+        self.host_actions.takeOwnership(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         getOwnerMock.assert_called_with('new-owner')
         questionBoxMock.assert_called_once_with(
             self.widgetMock,
             'Confirm',
-            'Host render-host ownership could not be determined. Take ownership?')
+            'Host render-host ownership could not be determined.'
+            ' Take ownership?')
         owner.takeOwnership.assert_called_with('render-host')
 
     @mock.patch('cuegui.Utils.showErrorMessageBox')
@@ -1333,10 +1348,13 @@ class HostActionsTests(unittest.TestCase):
     def test_takeOwnership_ownerLookupFailure(self, getTextMock, getOwnerMock, showErrorMock):
         host = opencue.wrappers.host.Host(
             opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+                id='arbitrary-id',
+                name='render-host',
+                lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
         getTextMock.return_value = ('new-owner', True)
 
-        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+        self.host_actions.takeOwnership(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         getOwnerMock.assert_called_with('new-owner')
         showErrorMock.assert_called_once_with('boom')
