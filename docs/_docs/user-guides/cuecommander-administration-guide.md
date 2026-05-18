@@ -297,6 +297,7 @@ Enables real-time monitoring and management of render hosts (nodes), including t
    - Lock hosts for maintenance
    - Set thread modes for optimization
    - Reboot or repair problematic hosts
+   - Take Ownership: Reclaim a NIMBY-locked workstation that is currently deeded to another user. Available only when exactly one NIMBY-locked host is selected; prompts for the owning username (defaults to the current user) and shows a confirmation when transferring from another user. Replaces any existing deed atomically.
 
 3. **Process Investigation**:
    - Select host to see running processes

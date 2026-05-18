@@ -11,6 +11,7 @@ import {
   secondsToHumanAge,
 } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
+import { SubscribeBell } from "@/components/ui/subscribe-bell";
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -308,6 +309,19 @@ export const columns: ColumnDef<Job>[] = [
   {
     accessorKey: "progress",
     header: "Progress",
+  },
+  {
+    id: "subscribe",
+    header: () => null,
+    cell: ({ row }) => (
+      <SubscribeBell
+        jobId={(row.original as Job).id}
+        jobName={(row.original as Job).name}
+        jobState={(row.original as Job).state}
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
   },
   {
     id: "pop-up",

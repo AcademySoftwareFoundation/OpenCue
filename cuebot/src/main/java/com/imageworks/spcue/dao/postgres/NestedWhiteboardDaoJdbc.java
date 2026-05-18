@@ -87,6 +87,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 + "job_resource.int_priority, "
                 + "job.ts_started, "
                 + "job.ts_stopped, "
+                + "job.ts_eligible, "
                 + "job.ts_updated, "
                 + "job.b_paused, "
                 + "job.b_autoeat, "
@@ -318,6 +319,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 .setUser(rs.getString("str_user")).setIsPaused(rs.getBoolean("b_paused"))
                 .setHasComment(rs.getBoolean("b_comment")).setAutoEat(rs.getBoolean("b_autoeat"))
                 .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                .setEligibleTime(
+                        WhiteboardDaoJdbc.getEligibleTimeInEpoch(rs, rs.getTimestamp("ts_started")))
                 .setStats(WhiteboardDaoJdbc.mapJobStats(rs));
 
         int uid = rs.getInt("int_uid");
