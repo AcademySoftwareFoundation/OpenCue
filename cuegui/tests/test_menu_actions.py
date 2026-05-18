@@ -1359,6 +1359,43 @@ class HostActionsTests(unittest.TestCase):
         getOwnerMock.assert_called_with('new-owner')
         showErrorMock.assert_called_once_with('boom')
 
+    @mock.patch('cuegui.Utils.questionBoxYesNo')
+    @mock.patch('opencue.api.getOwner')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    def test_takeOwnership_unownedHostSkipsConfirmation(
+            self, getTextMock, getOwnerMock, questionBoxMock):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(
+                id='arbitrary-id',
+                name='render-host',
+                lock_state=opencue_proto.host_pb2.NIMBY_LOCKED))
+        owner = mock.MagicMock()
+        getOwnerMock.return_value = owner
+        getTextMock.return_value = ('new-owner', True)
+        host.getDeed = mock.MagicMock(side_effect=opencue.EntityNotFoundException())
+
+        self.host_actions.takeOwnership(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        getOwnerMock.assert_called_with('new-owner')
+        questionBoxMock.assert_not_called()
+        owner.takeOwnership.assert_called_with('render-host')
+
+    @mock.patch('opencue.wrappers.owner.Owner.takeOwnership')
+    @mock.patch('opencue.api.getOwner')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    def test_takeOwnership_ignored_for_non_nimby(self, getTextMock, getOwnerMock,
+                                                 takeOwnershipMock):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(
+                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.OPEN))
+
+        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        getTextMock.assert_not_called()
+        getOwnerMock.assert_not_called()
+        takeOwnershipMock.assert_not_called()
+
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):
         host = opencue.wrappers.host.Host(
@@ -1441,21 +1478,6 @@ class HostActionsTests(unittest.TestCase):
         self.host_actions.changeAllocation(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         host.setAllocation.assert_called_with(allocs[1])
-
-    @mock.patch('opencue.wrappers.owner.Owner.takeOwnership')
-    @mock.patch('opencue.api.getOwner')
-    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
-    def test_takeOwnership_ignored_for_non_nimby(self, getTextMock, getOwnerMock,
-                                                 takeOwnershipMock):
-        host = opencue.wrappers.host.Host(
-            opencue_proto.host_pb2.Host(
-                id='arbitrary-id', name='render-host', lock_state=opencue_proto.host_pb2.OPEN))
-
-        self.host_actions.takeOwnership(rpcObjects=[opencue.wrappers.layer.Layer, host])
-
-        getTextMock.assert_not_called()
-        getOwnerMock.assert_not_called()
-        takeOwnershipMock.assert_not_called()
 
     def test_setRepair(self):
         activeHost = opencue.wrappers.host.Host(

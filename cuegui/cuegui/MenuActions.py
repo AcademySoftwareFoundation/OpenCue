@@ -1779,12 +1779,17 @@ class HostActions(AbstractActions):
             return
 
         current_owner = None
+        host_has_owner = True
         try:
             current_owner = host.getDeed().getOwner().name()
+        except opencue.EntityNotFoundException:
+            host_has_owner = False
         except opencue.exception.CueException:
             logger.exception("Failed to resolve current owner for host %s", host.data.name)
 
-        if current_owner is None:
+        if not host_has_owner:
+            confirm_message = None
+        elif current_owner is None:
             confirm_message = "Host %s ownership could not be determined. Take ownership?" % (
                 host.data.name)
         elif current_owner != user_name:
