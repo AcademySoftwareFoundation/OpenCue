@@ -108,11 +108,10 @@ export const getJobAge = (job: Job) => {
 
 export const getJobAgeInSeconds = (job: Job): number => {
   if (job?.stopTime != 0) {
-    return job.stopTime - job.startTime;
+    return Math.max(0, Math.floor(job.stopTime - job.startTime));
   }
-  const currentDate = new Date();
-  const timestampInSeconds = currentDate.getTime() / 1000;
-  return timestampInSeconds - job.startTime;
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return Math.max(0, nowInSeconds - Math.floor(job.startTime));
 };
 
 export const getJobReadableAge = (job: Job) => {
