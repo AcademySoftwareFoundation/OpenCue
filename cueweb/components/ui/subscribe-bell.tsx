@@ -1,4 +1,5 @@
 "use client";
+import type { MouseEvent } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
 
@@ -18,7 +19,7 @@ export function SubscribeBell({ jobId, jobName, jobState }: Props) {
 
   const isDisabled = !entry && jobState === "FINISHED";
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // don't trigger the row's click-through to the job detail dialog
     if (entry) {
       unsubscribe(jobId);

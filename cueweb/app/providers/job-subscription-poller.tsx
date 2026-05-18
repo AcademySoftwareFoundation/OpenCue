@@ -12,6 +12,19 @@ import { toastSuccess } from "@/app/utils/notify_utils";
 
 const POLL_INTERVAL_MS = 15000;
 
+// Serialize the notify decision across same-origin tabs via the Web Locks API
+// so only one tab toasts when several poll the same FINISHED job concurrently.
+// Falls back to a direct call when navigator.locks is unavailable.
+async function withJobNotifyLock(jobId: string, fn: () => void): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    await navigator.locks.request(`cueweb:notify-${jobId}`, { mode: "exclusive" }, async () => {
+      fn();
+    });
+    return;
+  }
+  fn();
+}
+
 export function JobSubscriptionPoller() {
   const inFlight = useRef(false);
 
@@ -44,12 +57,14 @@ export function JobSubscriptionPoller() {
         const toNotify = pickEntriesToNotify(getSubscriptions(), fetchedStates);
         for (const entry of toNotify) {
           if (cancelled) break;
-          // Re-read just before firing so a sibling tab that already marked
-          // this entry notified doesn't cause a duplicate toast.
-          const fresh = getSubscription(entry.jobId);
-          if (!fresh || fresh.notifiedAt !== null) continue;
-          toastSuccess(`Job finished: ${entry.jobName}`);
-          markNotified(entry.jobId);
+          // Hold a per-job cross-tab lock around the re-read + toast + mark so
+          // sibling tabs can't both pass the notifiedAt check before either persists.
+          await withJobNotifyLock(entry.jobId, () => {
+            const fresh = getSubscription(entry.jobId);
+            if (!fresh || fresh.notifiedAt !== null) return;
+            toastSuccess(`Job finished: ${entry.jobName}`);
+            markNotified(entry.jobId);
+          });
         }
       } catch (err) {
         console.error("JobSubscriptionPoller: tick failed", err);
