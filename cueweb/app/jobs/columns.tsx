@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
+import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
 import { SubscribeBell } from "@/components/ui/subscribe-bell";
 
@@ -104,6 +104,18 @@ export const getJobAge = (job: Job) => {
   const currentDate = new Date();
   const timestampInSeconds = currentDate.getTime() / 1000;
   return secondsToHHHMM(timestampInSeconds - job.startTime);
+};
+
+export const getJobAgeInSeconds = (job: Job): number => {
+  if (job?.stopTime != 0) {
+    return Math.max(0, Math.floor(job.stopTime - job.startTime));
+  }
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return Math.max(0, nowInSeconds - Math.floor(job.startTime));
+};
+
+export const getJobReadableAge = (job: Job) => {
+  return secondsToHumanAge(getJobAgeInSeconds(job));
 };
 
 export const columns: ColumnDef<Job>[] = [
@@ -278,6 +290,23 @@ export const columns: ColumnDef<Job>[] = [
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
+    },
+  },
+  {
+    id: "readable age",
+    accessorFn: (row) => getJobReadableAge(row),
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Readable Age
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    sortingFn: (rowA, rowB) => {
+      const ageA = getJobAgeInSeconds(rowA.original as Job);
+      const ageB = getJobAgeInSeconds(rowB.original as Job);
+      return ageA - ageB;
     },
   },
   {
