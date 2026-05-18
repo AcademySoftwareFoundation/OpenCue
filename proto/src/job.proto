@@ -522,6 +522,7 @@ message Frame {
     FrameStateDisplayOverride frame_state_display_override = 23;
     int64 max_pss = 24;
     int64 used_pss = 25;
+    int32 eligible_time = 26;
 }
 
 // Object for frame searching
@@ -645,6 +646,7 @@ message Job {
     float min_gpus = 21;
     float max_gpus = 22;
     string loki_url = 23;
+    int32 eligible_time = 24;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
@@ -718,6 +720,7 @@ message Layer {
     float min_gpus = 20;
     float max_gpus = 21;
     string command = 22;
+    int32 eligible_time = 23;
 }
 
 message LayerSeq {
@@ -805,6 +808,7 @@ message NestedJob {
     JobStats stats = 21;
     float min_gpus = 22;
     float max_gpus = 23;
+    int32 eligible_time = 24;
 }
 
 

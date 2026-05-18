@@ -27,6 +27,7 @@ from opencue import util
 from opencue import search
 import opencue.wrappers.comment
 # pylint: disable=cyclic-import
+import opencue.wrappers.deed
 import opencue.wrappers.proc
 import opencue.wrappers.render_partition
 
@@ -116,6 +117,16 @@ class Host(object):
             host=self.data), timeout=Cuebot.Timeout)
         return [opencue.wrappers.render_partition.RenderPartition(p)
             for p in response.render_partitions.render_partitions]
+
+    def getDeed(self):
+        """Returns the deed associated with this host.
+
+        :rtype:  opencue.wrappers.deed.Deed
+        :return: the deed for this host
+        """
+        response = self.stub.GetDeed(host_pb2.HostGetDeedRequest(host=self.data),
+                                     timeout=Cuebot.Timeout)
+        return opencue.wrappers.deed.Deed(response.deed)
 
     def rebootWhenIdle(self):
         """Sets the machine to reboot once idle.

@@ -29,6 +29,11 @@ export async function getPendingJob(body: string): Promise<Job | null> {
     return response;
 }
 
+// Fetch a single job by its UUID. Typed wrapper around getPendingJob for caller ergonomics.
+export async function getJob(jobId: string): Promise<Job | null> {
+    return getPendingJob(JSON.stringify({ id: jobId }));
+}
+
 // Fetch all jobs based on the request body
 export async function getJobs(body: string): Promise<Job[]> {
     const ENDPOINT = "/api/job/getjobs";
