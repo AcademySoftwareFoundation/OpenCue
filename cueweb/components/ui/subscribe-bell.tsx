@@ -1,8 +1,6 @@
 "use client";
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
-import { requestNotificationPermission } from "@/app/utils/subscription_utils";
-import { toastWarning } from "@/app/utils/notify_utils";
 
 interface Props {
   jobId: string;
@@ -11,30 +9,22 @@ interface Props {
 }
 
 // Per-row bell button. Three visual states:
-//   - Outline bell           : not subscribed   → click to subscribe
-//   - Filled bell            : subscribed       → click to cancel
-//   - Filled bell + green dot: notified         → click to clear
+//   - Outline bell           : not subscribed   -> click to subscribe
+//   - Filled bell            : subscribed       -> click to cancel
+//   - Filled bell + green dot: notified         -> click to clear
 export function SubscribeBell({ jobId, jobName, jobState }: Props) {
   const { store, subscribe, unsubscribe } = useJobSubscriptions();
   const entry = store[jobId];
 
   const isDisabled = !entry && jobState === "FINISHED";
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // don't trigger the row's click-through to the job detail dialog
-
     if (entry) {
       unsubscribe(jobId);
-      return;
+    } else {
+      subscribe(jobId, jobName);
     }
-
-    const permission = await requestNotificationPermission();
-    if (permission !== "granted") {
-      toastWarning("Browser notifications denied. Enable in browser settings to subscribe.");
-      return;
-    }
-
-    subscribe(jobId, jobName);
   };
 
   let icon, label;

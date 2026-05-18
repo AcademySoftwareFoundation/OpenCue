@@ -2,7 +2,6 @@
 // Utility functions for managing local job notification subscriptions:
 // - CRUD on per-job subscriptions stored in browser localStorage
 // - Pure decision logic for picking which entries need notifying now
-// - Thin wrapper around the browser Notification permission API
 // - Cross-component change-event bus so hooks re-read after any mutation
 /********************************************************************/
 
@@ -19,8 +18,10 @@ export type JobSubscription = {
 export type SubscriptionStore = Record<string, JobSubscription>;
 
 // Read all subscriptions from localStorage. Returns {} when the stored
-// value is missing, malformed, or not a plain object.
+// value is missing, malformed, or not a plain object, or when called
+// outside the browser (SSR).
 export function getSubscriptions(): SubscriptionStore {
+  if (typeof window === "undefined") return {};
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return {};
 
@@ -74,7 +75,7 @@ export function markNotified(jobId: string): void {
 }
 
 /*
- * Determines which subscribed jobs need a browser notification fired now.
+ * Determines which subscribed jobs need a toast fired now.
  * @param store - Current subscription store snapshot.
  * @param fetchedStates - Map of jobId to current job state (e.g. "FINISHED").
  * @returns Entries that are subscribed, FINISHED, and not yet notified.
@@ -86,15 +87,6 @@ export function pickEntriesToNotify(
   return Object.values(store).filter((entry) => entry.notifiedAt === null && fetchedStates[entry.jobId] === "FINISHED");
 }
 
-// Request browser notification permission. Returns "denied" when the
-// Notification API is unavailable (SSR or unsupported browsers).
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (typeof window === "undefined" || typeof Notification === "undefined") {
-    return "denied";
-  }
-  return Notification.requestPermission();
-}
-
 // Notify all useJobSubscriptions hook instances that the store has changed.
 // Called internally by mutators and by the poller after marking notified.
 function emitChange(): void {
@@ -104,10 +96,18 @@ function emitChange(): void {
 }
 
 // Subscribe to store-change events. Returns an unsubscribe function.
-// Used by the React hook to keep its snapshot in sync with mutations
-// from any source.
+// Listens for in-process mutations (CHANGE_EVENT) and cross-tab mutations
+// (the browser "storage" event, fired in other tabs when localStorage
+// changes), so the hook stays in sync no matter which tab wrote.
 export function subscribeToChanges(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY || e.key === null) listener();
+  };
   window.addEventListener(CHANGE_EVENT, listener);
-  return () => window.removeEventListener(CHANGE_EVENT, listener);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
