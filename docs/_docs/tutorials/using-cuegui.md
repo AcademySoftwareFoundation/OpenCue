@@ -278,6 +278,7 @@ The OS filter initially displays "Not Loaded" and dynamically populates with the
 Right-click host:
 ├── Reboot Host
 ├── Lock/Unlock Host
+├── Take Ownership (NIMBY-locked only)
 ├── Set Host Tags
 └── View Host Details
 ```
