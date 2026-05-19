@@ -65,7 +65,6 @@ Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kil
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-
 14. **Per-job completion notifications:**
    - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired — click to clear).
