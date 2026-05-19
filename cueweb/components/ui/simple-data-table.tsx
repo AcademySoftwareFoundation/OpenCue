@@ -2,6 +2,8 @@
 
 import { Frame } from "@/app/frames/frame-columns";
 import { Layer } from "@/app/layers/layer-columns";
+import { FRAME_STATE_FILTERS, filterFramesByStates, getFrameStateCounts } from "@/app/utils/frame_state_utils";
+import { Button } from "@/components/ui/button";
 import { FrameContextMenu, LayerContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -16,10 +18,13 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
 import { getFrameLogDir } from "../../app/utils/get_utils";
 import { Status } from "./status";
+
+const FRAME_STATE_QUERY_PARAM = "frameStates";
 
 interface SimpleDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -41,6 +46,10 @@ export function SimpleDataTable<TData, TValue>({
   username,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [selectedFrameStates, setSelectedFrameStates] = React.useState<string[]>([]);
   
   // Ref for the table container, required for the context menu
   const tableRef = React.useRef<HTMLDivElement>(null);
@@ -53,8 +62,50 @@ export function SimpleDataTable<TData, TValue>({
     contextMenuTargetAreaRef,
   } = useContextMenu(tableRef);
 
+  React.useEffect(() => {
+    if (!isFramesTable) {
+      return;
+    }
+
+    const selectedStates = Array.from(
+      new Set(
+        (searchParams.get(FRAME_STATE_QUERY_PARAM) || "")
+          .split(",")
+          .map((state) => state.trim().toUpperCase())
+          .filter((state) => FRAME_STATE_FILTERS.includes(state)),
+      ),
+    );
+    setSelectedFrameStates(selectedStates);
+  }, [isFramesTable, searchParams]);
+
+  const frameStateCounts = React.useMemo(() => {
+    return isFramesTable ? getFrameStateCounts(data as Frame[]) : {};
+  }, [data, isFramesTable]);
+
+  const tableData = React.useMemo(() => {
+    return isFramesTable ? (filterFramesByStates(data as Frame[], selectedFrameStates) as TData[]) : data;
+  }, [data, isFramesTable, selectedFrameStates]);
+
+  const updateFrameStateFilters = (state: string) => {
+    const nextSelectedStates = selectedFrameStates.includes(state)
+      ? selectedFrameStates.filter((selectedState) => selectedState !== state)
+      : [...selectedFrameStates, state];
+
+    setSelectedFrameStates(nextSelectedStates);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (nextSelectedStates.length > 0) {
+      nextParams.set(FRAME_STATE_QUERY_PARAM, nextSelectedStates.join(","));
+    } else {
+      nextParams.delete(FRAME_STATE_QUERY_PARAM);
+    }
+
+    const query = nextParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
   const table = useReactTable({
-    data,
+    data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
@@ -63,6 +114,13 @@ export function SimpleDataTable<TData, TValue>({
     state: { sorting },
     autoResetPageIndex: false,
   });
+
+  React.useEffect(() => {
+    if (!isFramesTable) {
+      return;
+    }
+    table.setPageIndex(0);
+  }, [isFramesTable, selectedFrameStates, table]);
 
   const leftAlignedColumns = React.useMemo(() => ["dispatchOrder", "name", "services", "lastResource"], []);
 
@@ -97,6 +155,23 @@ export function SimpleDataTable<TData, TValue>({
 
   return (
     <>
+      {isFramesTable && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {FRAME_STATE_FILTERS.map((state) => {
+            const isSelected = selectedFrameStates.includes(state);
+            return (
+              <Button
+                key={state}
+                size="xs"
+                variant={isSelected ? "default" : "outline"}
+                onClick={() => updateFrameStateFilters(state)}
+              >
+                {state} ({frameStateCounts[state] || 0})
+              </Button>
+            );
+          })}
+        </div>
+      )}
       <div className="rounded-md border" ref={tableRef}>
         <Table className="border">
           <TableHeader>

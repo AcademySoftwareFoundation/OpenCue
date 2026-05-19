@@ -56,6 +56,8 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Pop-up windows showing layers and frames
    - Resource allocation information
    - Job statistics and performance metrics
+   - Stacked job progress bar with hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead)
+   - Frame state filter chips above the frames table (WAITING / RUNNING / SUCCEEDED / DEAD / EATEN / DEPEND) with per-state counts, OR-combined selection, and URL-persisted state
 
 5. **Frame Navigation and Logs Access**
    - Hyperlinked frames leading to dedicated pages
@@ -148,7 +150,7 @@ The dashboard consists of:
 | **MaxRss** | Maximum resident set size (peak memory usage) |
 | **Age** | Total time since job started (HHH:MM format) |
 | **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
-| **Progress** | Visual progress bar showing completion percentage |
+| **Progress** | Stacked progress bar with five colored segments — green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
 | **Pop-up** | Button to open job details panel |
 
 ### Job Status Indicators
@@ -296,6 +298,17 @@ Right-click on jobs to access the context menu with the following actions:
    ![Pop-up showing successful retry layer message](/assets/images/cueweb/figure17-retry-layer-success.png)
 
 ### Frame Operations
+
+#### Frame State Filter Chips
+
+Above the frames table, CueWeb renders one filter chip per supported frame state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — each annotated with the current count of frames in that state.
+
+- **Toggle**: Click a chip to add or remove its state from the filter. Selected chips switch to a solid (filled) style.
+- **OR semantics**: When multiple chips are selected, frames matching **any** of the selected states are shown.
+- **No selection**: When no chip is selected, every frame is displayed.
+- **URL-mirrored**: Selected states are written to the `frameStates` query parameter (e.g., `?frameStates=WAITING,DEAD`), so a filtered view can be bookmarked or shared. Whitespace and duplicates in the URL are tolerated.
+- **Pagination reset**: Toggling a chip resets the table to page 1 so the filtered results are immediately visible. Background data refreshes preserve the current page.
+- **Counts**: Counts shown on each chip always reflect the full unfiltered data set, so you can see how many frames each state has even after applying a filter.
 
 #### Frame Information Columns
 

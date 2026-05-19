@@ -56,6 +56,15 @@ Job actions: Unmonitor, Pause, Retry dead frames, Eat dead frames, Kill.
 11. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
 
+12. **Job progress bar with hover tooltip:**
+   - The Progress column renders a stacked bar with five colored segments (succeeded, running, waiting, depend, dead).
+   - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
+
+13. **Frame state filter chips:**
+   - Above the frames table, a chip is rendered for each supported state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — annotated with the count of frames currently in that state.
+   - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
+   - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
+
 ## CueWeb's user interface
 
 Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figures 1 or 2), users are welcomed by CueWeb's main dashboard, as shown in Figure 3 (light mode) or Figure 4 (dark mode).  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
