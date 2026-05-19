@@ -151,7 +151,7 @@ The main jobs table displays rendering jobs with the following columns:
 | **Shot** | Shot identifier | Yes |
 | **User** | Job owner | Yes |
 | **State** | Current job state | Yes |
-| **Progress** | Frame completion progress | Yes |
+| **Progress** | Stacked frame-state progress bar. Hover shows a tooltip with exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | Yes |
 | **Priority** | Job priority value | Yes |
 | **Pending** | Pending frame count | Yes |
 | **Running** | Running frame count | Yes |
@@ -179,6 +179,19 @@ The main jobs table displays rendering jobs with the following columns:
 | `DEAD` | Red | Frame failed |
 | `EATEN` | Purple | Frame marked as eaten |
 | `DEPEND` | Cyan | Frame waiting on dependency |
+
+### Frame State Filter Chips
+
+Above the frames table, one filter chip is rendered per supported state. Each chip shows the current frame count for that state and toggles the filter on click.
+
+| Behavior | Description |
+|----------|-------------|
+| **States** | `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` |
+| **Combination** | OR semantics — frames matching any selected state are shown |
+| **Empty selection** | All frames are shown when no chip is selected |
+| **URL parameter** | `frameStates` (comma-separated, e.g., `?frameStates=WAITING,DEAD`); whitespace is trimmed and duplicates are removed |
+| **Counts** | Always computed against the unfiltered data set |
+| **Pagination** | The table jumps to page 1 when the selection changes (polling-driven data refreshes do not reset the page) |
 
 ---
 

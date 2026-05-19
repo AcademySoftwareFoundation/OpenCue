@@ -82,6 +82,8 @@ The CueWeb interface consists of:
    - Progress (completion percentage)
    - Start time (newest first)
 
+4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
+
 ### Understanding Job Status
 
 Jobs are color-coded for quick identification:
@@ -182,6 +184,12 @@ Frames are the individual rendering tasks within each layer.
    - Right-click on yellow (running) frames
    - Select "Kill Frame"
    - Use when frames are stuck or consuming too many resources
+
+4. **Filter by Frame State**:
+   - The chips above the frames table — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — show the count for each state and act as toggles.
+   - Click one or more chips to filter; multiple selections are combined with **OR**.
+   - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
+   - Counts on each chip always reflect the full unfiltered data set.
 
 ### Frame Troubleshooting
 

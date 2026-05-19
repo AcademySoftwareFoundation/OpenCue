@@ -177,6 +177,8 @@ The CueWeb interface includes:
 2. **Retry Frames**: Right-click failed frames to retry
 3. **View Logs**: Click on frame numbers to view logs
 4. **Frame States**: Monitor frame progress with color-coded status
+5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
+6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
 
 ### Search Functionality
 
