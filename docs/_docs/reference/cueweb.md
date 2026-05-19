@@ -158,6 +158,18 @@ The main jobs table displays rendering jobs with the following columns:
 | **Dead** | Failed frame count | Yes |
 | **Cores** | Reserved cores | Yes |
 | **Start Time** | Job start timestamp | Yes |
+| **Notify** | Per-row bell button to subscribe to a browser notification when the job reaches `FINISHED`. Three states: outline (not subscribed), filled (subscribed/waiting), filled with green dot (notification fired). Disabled on rows whose job state is already `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+
+### Job-finished notifications
+
+| Behavior | Description |
+|----------|-------------|
+| **Trigger** | Click the bell in the **Notify** column. The first subscribe prompts for browser notification permission; denied permission shows a toast warning and does not create the subscription. |
+| **Polling** | An app-wide `JobSubscriptionPoller` provider polls each subscribed job's state every 15 seconds via the REST gateway. |
+| **Notification** | When a subscribed job's state becomes `FINISHED`, a single Web Notification (`<jobName>` / "Job finished") is fired and the entry is marked notified. |
+| **Persistence** | Subscriptions are stored in `localStorage` under `cueweb:job-subscriptions` and survive page reloads; cleared when the browser site data is cleared. |
+| **Auto-cleanup** | If a subscribed job no longer exists in Cuebot (the lookup returns null), the subscription is removed on the next poll. |
+| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab. |
 
 ### Job States
 

@@ -151,6 +151,7 @@ The dashboard consists of:
 | **Age** | Total time since job started (HHH:MM format) |
 | **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
 | **Progress** | Stacked progress bar with five colored segments — green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
+| **Notify** | Bell button to subscribe to a browser notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
 | **Pop-up** | Button to open job details panel |
 
 ### Job Status Indicators
@@ -384,6 +385,23 @@ CueWeb provides automatic real-time updates:
 2. **All Tables**: Jobs, layers, and frames tables are auto-reloaded at regular intervals to display the latest data
 3. **Background Updates**: Continue updates when tab is not active
 4. **Performance Optimization**: Loading animations and virtualization optimize performance on slow connections
+
+### Job-finished notifications
+
+Each row in the jobs table has a bell button (the **Notify** column) that lets you subscribe to a browser notification when the job reaches `FINISHED`. The bell has three visual states:
+
+- **Outline bell**: not subscribed &rarr; click to subscribe
+- **Filled bell**: subscribed, waiting for `FINISHED` &rarr; click to cancel
+- **Filled bell + green dot**: notification has fired &rarr; click to clear
+
+Behavior:
+
+- The bell is disabled (faded, with tooltip) on jobs that are already `FINISHED` when first viewed; there is nothing to notify on.
+- The first time you subscribe, the browser shows its native permission prompt. If you deny permission, a toast warning is shown and the subscription is not created &mdash; re-enable browser notifications for the CueWeb origin to subscribe later.
+- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` a single browser notification (`<jobName>` / "Job finished") is fired via the Web Notifications API, the bell switches to filled with a green dot, and the entry is marked as notified.
+- Notifications fire only while a CueWeb tab is open in the browser. They are delivered by the operating system, so they appear even when the CueWeb tab is in the background or another window has focus.
+- Subscriptions persist in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
+- If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
 
 ---
 

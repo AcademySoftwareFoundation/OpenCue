@@ -84,6 +84,13 @@ The CueWeb interface consists of:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
+5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to receive a browser notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+   - Outline bell &rarr; not subscribed
+   - Filled bell &rarr; subscribed, waiting
+   - Filled bell with green dot &rarr; notification has fired (click to clear)
+
+   The first subscribe of the session prompts for browser notification permission. Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+
 ### Understanding Job Status
 
 Jobs are color-coded for quick identification:
@@ -288,6 +295,7 @@ Customize the jobs table to show relevant information:
 ### Auto-refresh Settings
 
 * **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables
+* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds and fires a browser notification when the job reaches `FINISHED`. Subscriptions are stored in `localStorage` and survive page reloads.
 
 ### Monitoring Best Practices
 
