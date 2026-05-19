@@ -200,10 +200,10 @@ CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `
 | Aspect | Description |
 |--------|-------------|
 | **Required query params** | `jobId` (job UUID). The page calls `getJob(jobId)` to populate the comment list. |
-| **Optional query params** | `username` — used to determine whether the signed-in viewer is the comment's author. Falls back to `unknown` if absent. |
+| **Viewer identity** | Derived client-side from the authenticated NextAuth session (`/api/auth/session`), never from URL parameters. Used only to drive UI state. |
 | **Comment fields** | `id`, `timestamp` (unix seconds), `user`, `subject`, `message`. Mirrors `comment.Comment` in `proto/src/comment.proto`. |
 | **Markdown** | Messages are rendered with `react-markdown` + `rehype-sanitize` to strip embedded HTML/scripts. |
-| **Edit / delete authorization** | Client-side gate: only enabled when `comment.user === username`. The server-side gateway also enforces ownership. |
+| **Edit / delete authorization** | Server-side ownership enforcement in Cuebot is authoritative. The client adds a convenience gate that enables the editor/delete only when `comment.user === currentUser` (the session-derived identity); the URL is never used as an auth signal. |
 | **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
 | **Indicator icon** | A sticky-note icon is shown beside the job's show-shot-user label in the jobs table when `Job.hasComment` is true. Updated on the regular jobs-table polling cycle. |
 

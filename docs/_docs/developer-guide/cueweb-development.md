@@ -357,9 +357,22 @@ export function deleteCommentMacro(name: string): CommentMacro[];
 
 Comment messages are rendered with [`react-markdown`](https://github.com/remarkjs/react-markdown) and sanitized with [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) — embedded HTML/scripts are stripped before render.
 
+#### Viewer identity and authorization
+
+The Comments page derives the signed-in user from the authenticated NextAuth session by fetching `/api/auth/session` on mount, applying the same `email → name` precedence used in `app/page.tsx`. URL query parameters are **never** used as an authorization signal.
+
+The session-derived `currentUser` only drives client-side UI state:
+
+- `isAuthor = comment.user === currentUser` enables/disables the editor and Delete button.
+- `addJobComment(..., currentUser, ...)` stamps new-comment author from the session, not the URL.
+
+**Authoritative ownership enforcement lives server-side in Cuebot.** The client-side gate is a convenience to avoid a doomed round-trip; Cuebot still rejects unauthorized save/delete attempts.
+
 #### Comment indicator on the jobs table
 
-The Job columns definition (`app/jobs/columns.tsx`) renders a `StickyNote` (lucide-react) icon next to the show-shot-user line when `Job.hasComment` is true. The cell reads `username` from `table.options.meta` so the link to the Comments page is invokable from outside the context-menu flow.
+The Job columns definition (`app/jobs/columns.tsx`) renders a `StickyNote` (lucide-react) icon next to the show-shot-user line when `Job.hasComment` is true. The cell reads `username` from `table.options.meta` and forwards it as a query hint when opening the Comments page; the Comments page does not use it for authorization, but the hint keeps the new tab self-describing.
+
+Both the indicator click and the context-menu "Comments" entry open the page with `window.open(url, "_blank", "noopener,noreferrer")` so the new tab cannot reach back via `window.opener` and the `Referer` header is suppressed.
 
 ### Data Fetching Patterns
 

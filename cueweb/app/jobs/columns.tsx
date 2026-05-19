@@ -126,7 +126,8 @@ function JobCommentIndicator({ job, username }: { job: Job; username?: string })
     e.stopPropagation();
     const params = new URLSearchParams({ jobId: job.id });
     if (username) params.set("username", username);
-    window.open(`/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`, "_blank");
+    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
   return (
     <TooltipProvider delayDuration={200}>

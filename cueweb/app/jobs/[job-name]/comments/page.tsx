@@ -54,11 +54,18 @@ export default function JobCommentsPage() {
   const params = useParams<{ "job-name": string }>();
   const searchParams = useSearchParams();
   const jobId = searchParams.get("jobId") ?? "";
-  const username = searchParams.get("username") ?? UNKNOWN_USER;
 
   const [job, setJob] = React.useState<Job | null>(null);
   const [comments, setComments] = React.useState<JobComment[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // Authoritative identity comes from NextAuth via /api/auth/session, never trust
+  // a username query param for authorization. The URL param is forgeable and was
+  // never a real auth signal; the server-side ownership check in Cuebot is the
+  // source of truth for save/delete authorization, and this state only governs
+  // the client-side UI (enabling/disabling edit + delete).
+  const [currentUser, setCurrentUser] = React.useState<string>(UNKNOWN_USER);
+  const [userLoaded, setUserLoaded] = React.useState(false);
 
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [subject, setSubject] = React.useState("");
@@ -69,11 +76,33 @@ export default function JobCommentsPage() {
   const [macros, setMacros] = React.useState<CommentMacro[]>([]);
   const [macroDialog, setMacroDialog] = React.useState<MacroDialogState>({ mode: "closed" });
 
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (res.ok) {
+          const session = await res.json();
+          if (session?.user?.email) {
+            setCurrentUser(String(session.user.email).split("@")[0]);
+          } else if (session?.user?.name) {
+            setCurrentUser(String(session.user.name));
+          }
+        }
+      } catch {
+        // Leave as UNKNOWN_USER; server-side ownership enforcement in Cuebot is
+        // authoritative. Editing/deleting will be gated to the unauthenticated
+        // identity, which matches how addJobComment also stamps it.
+      } finally {
+        setUserLoaded(true);
+      }
+    })();
+  }, []);
+
   const selected = React.useMemo(
     () => comments.find((c) => c.id === selectedId) ?? null,
     [comments, selectedId]
   );
-  const isAuthor = selected ? selected.user === username : true;
+  const isAuthor = selected ? selected.user === currentUser : true;
   const isNew = selectedId === null;
 
   const fetchAll = React.useCallback(async () => {
@@ -132,7 +161,7 @@ export default function JobCommentsPage() {
     setSubmitting(true);
     try {
       if (isNew) {
-        await addJobComment(job, username, subject.trim(), message);
+        await addJobComment(job, currentUser, subject.trim(), message);
       } else if (selected) {
         await saveJobComment({
           ...selected,
@@ -300,7 +329,7 @@ export default function JobCommentsPage() {
                     setDirty(true);
                   }}
                   placeholder="Subject"
-                  disabled={submitting || (!isNew && !isAuthor)}
+                  disabled={submitting || !userLoaded || (!isNew && !isAuthor)}
                 />
               </div>
               <div>
@@ -316,7 +345,7 @@ export default function JobCommentsPage() {
                   }}
                   placeholder="Write your comment…"
                   rows={6}
-                  disabled={submitting || (!isNew && !isAuthor)}
+                  disabled={submitting || !userLoaded || (!isNew && !isAuthor)}
                   className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm \
                     ring-offset-background placeholder:text-muted-foreground \
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring \
@@ -358,6 +387,7 @@ export default function JobCommentsPage() {
                 onClick={handleSave}
                 disabled={
                   submitting ||
+                  !userLoaded ||
                   !subject.trim() ||
                   (!isNew && !isAuthor) ||
                   (!isNew && !dirty)
@@ -372,7 +402,7 @@ export default function JobCommentsPage() {
               <Button
                 variant="destructive"
                 onClick={handleDelete}
-                disabled={submitting || !selected || !isAuthor}
+                disabled={submitting || !userLoaded || !selected || !isAuthor}
               >
                 Delete
               </Button>

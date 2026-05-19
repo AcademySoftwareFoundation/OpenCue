@@ -91,7 +91,8 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   function handleCommentsGivenRow(row: Row<any>) {
     const job = row.original as Job;
     const params = new URLSearchParams({ jobId: job.id, username });
-    window.open(`/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`, "_blank");
+    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   // If the row is null or the job's state is finished, set active as false

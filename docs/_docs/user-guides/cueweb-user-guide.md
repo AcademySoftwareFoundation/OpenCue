@@ -229,18 +229,18 @@ You can reach a job's Comments page in two ways:
 - **Context menu**: Right-click a job row and choose **Comments**.
 - **Indicator icon**: If a job already has at least one comment, a sticky-note icon appears next to the job name. Click it to open the Comments page.
 
-Both routes open a new browser tab at `/jobs/<job-name>/comments?jobId=<id>&username=<u>`. The `username` query parameter is what governs the read-only/author check, so prefer entering through the context menu or indicator rather than typing the URL by hand.
+Both routes open a new browser tab at `/jobs/<job-name>/comments?jobId=<id>`. The page derives the signed-in viewer from the authenticated NextAuth session (`/api/auth/session`), not from any URL parameter, so the `username` query string is **not** an authorization signal and is safe to ignore if present. Only the session-derived identity is used to decide whether the editor is enabled for the selected comment, and ownership for save/delete is enforced server-side; the client-side UI state simply reflects what the server will allow.
 
 ### Page layout
 
 The page replicates the CueGUI Comments dialog:
 
-| Region | Purpose |
-|--------|---------|
-| **Comment list** | Table of existing comments showing **Subject**, **User**, and **Date**. Click a row to load it into the editor below. |
-| **Preview** | Sanitized markdown preview of the currently selected message. |
-| **Edit Comment** | Subject + Message fields. Editable only when the signed-in user matches the comment's author; otherwise the form is read-only. |
-| **Action bar** | The predefined-comment dropdown on the left, then `New`, `Save changes` / `Save new comment`, and `Delete` buttons on the right. |
+| Region | Purpose                                                                                                                                                                                                                                                    |
+|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Comment list** | Table of existing comments showing **Subject**, **User**, and **Date**. Click a row to load it into the editor below.                                                                                                                                      |
+| **Preview** | Sanitized markdown preview of the currently selected message.                                                                                                                                                                                              |
+| **Edit Comment** | Subject + Message fields. Editable only when the comment's author matches the session-derived signed-in user; otherwise the form is read-only. Server-side ownership enforcement is authoritative, the client UI just mirrors what the server will accept. |
+| **Action bar** | The predefined-comment dropdown on the left, then `New`, `Save changes` / `Save new comment`, and `Delete` buttons on the right.                                                                                                                           |
 
 ### Creating, editing, deleting
 
