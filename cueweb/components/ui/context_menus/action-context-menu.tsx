@@ -18,7 +18,7 @@ import {
 import { Row } from "@tanstack/react-table";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
-import { TbEyeOff, TbPacman, TbPlayerPause, TbReload } from "react-icons/tb";
+import { TbEyeOff, TbMessage, TbPacman, TbPlayerPause, TbReload } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
 
@@ -88,11 +88,18 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     killJobGivenRow(row, username);
   }
 
+  function handleCommentsGivenRow(row: Row<any>) {
+    const job = row.original as Job;
+    const params = new URLSearchParams({ jobId: job.id, username });
+    window.open(`/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`, "_blank");
+  }
+
   // If the row is null or the job's state is finished, set active as false
   const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
 
   const menuItems: MenuItem[] = [
     { label: "Unmonitor", onClick: handleUnmonitorJobGivenRow, isActive: true, component: <TbEyeOff className="mr-1" size={13} color="black" /> },
+    { label: "Comments", onClick: handleCommentsGivenRow, isActive: true, component: <TbMessage className="mr-1" size={14} color="black" /> },
     { label: "Pause", onClick: pauseJobGivenRow, isActive: isActive, component: <TbPlayerPause className="mr-1" size={14} color={isActive ? "blue" : "gray"} /> },
     { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: isActive, component: <TbReload className="mr-1" size={14} color={isActive ? "red" : "gray"} /> },
     { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: isActive, component: <TbPacman className="mr-1" size={14} color={isActive ? "orange" : "gray"} /> },

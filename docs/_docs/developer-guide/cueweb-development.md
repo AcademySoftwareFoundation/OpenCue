@@ -308,6 +308,59 @@ export function createJWTToken(secret: string, userId: string): string {
 }
 ```
 
+### Job Comments
+
+CueWeb implements the CueGUI Comments dialog (`cuegui/cuegui/Comments.py`) via four proxy routes that wrap the underlying gRPC services.
+
+#### Proxy routes
+
+| Browser route | Forwards to | Notes |
+|---------------|-------------|-------|
+| `POST /api/job/getcomments` | `job.JobInterface/GetComments` | Returns the `Comment` array flattened from `data.comments.comments`. |
+| `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` | Body: `{ job: { id, name }, new_comment: { user, subject, message } }`. |
+| `POST /api/comment/action/save` | `comment.CommentInterface/Save` | Body: `{ comment: Comment }`. `comment.id` is required. |
+| `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` | Body: `{ comment: Comment }`. Only `comment.id` is read. |
+
+#### Helpers
+
+Located in `app/utils/` and consumed by the Comments page (`app/jobs/[job-name]/comments/page.tsx`):
+
+```typescript
+// app/utils/get_utils.ts
+export type JobComment = {
+  id: string;
+  timestamp: number;  // unix seconds — mirrors comment.Comment in proto/src/comment.proto
+  user: string;
+  subject: string;
+  message: string;
+};
+export async function getJobComments(job: Job): Promise<JobComment[]>;
+
+// app/utils/action_utils.ts
+export async function addJobComment(job: Job, username: string, subject: string, message: string): Promise<void>;
+export async function saveJobComment(comment: JobComment): Promise<void>;
+export async function deleteJobComment(comment: JobComment): Promise<void>;
+```
+
+#### Predefined comment macros
+
+Macros are stored per-browser in `localStorage` under the `cueweb-comment-macros` key. Loading, upserting (with optional rename), and deleting are exposed by `app/utils/comment_macros.ts`:
+
+```typescript
+export type CommentMacro = { name: string; subject: string; message: string };
+export function loadCommentMacros(): CommentMacro[];
+export function upsertCommentMacro(macro: CommentMacro, replaceName?: string): CommentMacro[];
+export function deleteCommentMacro(name: string): CommentMacro[];
+```
+
+#### Markdown rendering
+
+Comment messages are rendered with [`react-markdown`](https://github.com/remarkjs/react-markdown) and sanitized with [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) — embedded HTML/scripts are stripped before render.
+
+#### Comment indicator on the jobs table
+
+The Job columns definition (`app/jobs/columns.tsx`) renders a `StickyNote` (lucide-react) icon next to the show-shot-user line when `Job.hasComment` is true. The cell reads `username` from `table.options.meta` so the link to the Comments page is invokable from outside the context-menu flow.
+
 ### Data Fetching Patterns
 
 #### Server-Side Rendering (SSR)

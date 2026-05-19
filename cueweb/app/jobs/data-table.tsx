@@ -694,6 +694,10 @@ export function DataTable({ columns, username }: DataTableProps) {
         pageSize: 50,
       },
     },
+
+    meta: {
+      username: state.username,
+    },
   });
 
   const jobTableRef = React.useRef<HTMLDivElement>(null);

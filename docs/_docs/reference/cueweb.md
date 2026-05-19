@@ -193,6 +193,20 @@ Above the frames table, one filter chip is rendered per supported state. Each ch
 | **Counts** | Always computed against the unfiltered data set |
 | **Pagination** | The table jumps to page 1 when the selection changes (polling-driven data refreshes do not reset the page) |
 
+### Job Comments Page
+
+CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `/jobs/<job-name>/comments`.
+
+| Aspect | Description |
+|--------|-------------|
+| **Required query params** | `jobId` (job UUID). The page calls `getJob(jobId)` to populate the comment list. |
+| **Optional query params** | `username` — used to determine whether the signed-in viewer is the comment's author. Falls back to `unknown` if absent. |
+| **Comment fields** | `id`, `timestamp` (unix seconds), `user`, `subject`, `message`. Mirrors `comment.Comment` in `proto/src/comment.proto`. |
+| **Markdown** | Messages are rendered with `react-markdown` + `rehype-sanitize` to strip embedded HTML/scripts. |
+| **Edit / delete authorization** | Client-side gate: only enabled when `comment.user === username`. The server-side gateway also enforces ownership. |
+| **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
+| **Indicator icon** | A sticky-note icon is shown beside the job's show-shot-user label in the jobs table when `Job.hasComment` is true. Updated on the regular jobs-table polling cycle. |
+
 ---
 
 ## Search Functionality
@@ -241,12 +255,13 @@ Prefix with `!` for regex patterns:
 
 | Action | Description |
 |--------|-------------|
+| **Unmonitor** | Remove from monitored jobs |
+| **Comments** | Open the job Comments page in a new tab |
 | **Pause** | Pause job rendering |
 | **Unpause** | Resume paused job |
-| **Kill** | Terminate job |
 | **Eat Dead Frames** | Mark dead frames as eaten |
 | **Retry Dead Frames** | Retry all failed frames |
-| **Unmonitor** | Remove from monitored jobs |
+| **Kill** | Terminate job |
 
 ### Layer Actions
 
@@ -302,11 +317,26 @@ CueWeb communicates with these REST Gateway endpoints:
 | `job.JobInterface/Pause` | Pause job |
 | `job.JobInterface/Resume` | Resume job |
 | `job.JobInterface/Kill` | Kill job |
+| `job.JobInterface/GetComments` | List comments for a job |
+| `job.JobInterface/AddComment` | Add a new comment to a job |
+| `comment.CommentInterface/Save` | Update an existing comment's subject/message |
+| `comment.CommentInterface/Delete` | Delete a comment |
 | `layer.LayerInterface/GetLayer` | Get layer details |
 | `layer.LayerInterface/GetFrames` | Get frames for layer |
 | `frame.FrameInterface/Retry` | Retry frame |
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
+
+### CueWeb Proxy Routes
+
+The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment-related routes:
+
+| Route | Forwards to |
+|-------|-------------|
+| `POST /api/job/getcomments` | `job.JobInterface/GetComments` |
+| `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` |
+| `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
+| `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 
 ---
 
@@ -471,21 +501,30 @@ Check browser developer tools for:
 
 ```
 cueweb/
-├── app/                   # Next.js app directory
-│   ├── api/               # API routes
-│   ├── login/             # Login page
-│   ├── jobs/              # Jobs pages
-│   └── page.tsx           # Main page
-├── components/            # React components
-│   └── ui/                # Shadcn UI components
-├── lib/                   # Utility libraries
-│   ├── auth.ts            # Authentication config
-│   └── api.ts             # API client functions
-├── public/                # Static assets
-├── Dockerfile             # Container configuration
-├── next.config.js         # Next.js configuration
-├── package.json           # Dependencies
-└── tailwind.config.js     # Tailwind CSS config
+├── app/                              # Next.js app directory
+│   ├── api/                          # API proxy routes
+│   │   ├── comment/action/save/      # CommentInterface/Save
+│   │   ├── comment/action/delete/    # CommentInterface/Delete
+│   │   └── job/
+│   │       ├── action/addcomment/    # JobInterface/AddComment
+│   │       └── getcomments/          # JobInterface/GetComments
+│   ├── jobs/                         # Jobs pages
+│   │   └── [job-name]/comments/      # Per-job Comments page
+│   ├── utils/                        # Client helpers
+│   │   ├── action_utils.ts           # add/save/delete comment helpers
+│   │   ├── get_utils.ts              # getJobComments
+│   │   └── comment_macros.ts         # Predefined-macro localStorage CRUD
+│   ├── login/                        # Login page
+│   └── page.tsx                      # Main page
+├── components/                       # React components
+│   └── ui/                           # Shadcn UI components
+├── lib/                              # Utility libraries
+│   └── auth.ts                       # Authentication config
+├── public/                           # Static assets
+├── Dockerfile                        # Container configuration
+├── next.config.js                    # Next.js configuration
+├── package.json                      # Dependencies (incl. react-markdown, rehype-sanitize)
+└── tailwind.config.js                # Tailwind CSS config
 ```
 
 ---
