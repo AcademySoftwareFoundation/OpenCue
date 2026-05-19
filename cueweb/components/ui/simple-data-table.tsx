@@ -67,10 +67,14 @@ export function SimpleDataTable<TData, TValue>({
       return;
     }
 
-    const selectedStates = (searchParams.get(FRAME_STATE_QUERY_PARAM) || "")
-      .split(",")
-      .map((state) => state.toUpperCase())
-      .filter((state) => FRAME_STATE_FILTERS.includes(state));
+    const selectedStates = Array.from(
+      new Set(
+        (searchParams.get(FRAME_STATE_QUERY_PARAM) || "")
+          .split(",")
+          .map((state) => state.trim().toUpperCase())
+          .filter((state) => FRAME_STATE_FILTERS.includes(state)),
+      ),
+    );
     setSelectedFrameStates(selectedStates);
   }, [isFramesTable, searchParams]);
 
@@ -110,6 +114,13 @@ export function SimpleDataTable<TData, TValue>({
     state: { sorting },
     autoResetPageIndex: false,
   });
+
+  React.useEffect(() => {
+    if (!isFramesTable) {
+      return;
+    }
+    table.setPageIndex(0);
+  }, [isFramesTable, selectedFrameStates, table]);
 
   const leftAlignedColumns = React.useMemo(() => ["dispatchOrder", "name", "services", "lastResource"], []);
 
