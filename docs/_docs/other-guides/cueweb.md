@@ -65,6 +65,14 @@ Job actions: Unmonitor, Pause, Retry dead frames, Eat dead frames, Kill.
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
+14. **Per-job completion notifications:**
+   - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
+   - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired — click to clear).
+   - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
+   - The first subscribe of the session triggers the browser's native notification permission prompt; if permission is denied, a toast warning is shown and the subscription is not created.
+   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
+   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
+
 ## CueWeb's user interface
 
 Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figures 1 or 2), users are welcomed by CueWeb's main dashboard, as shown in Figure 3 (light mode) or Figure 4 (dark mode).  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
