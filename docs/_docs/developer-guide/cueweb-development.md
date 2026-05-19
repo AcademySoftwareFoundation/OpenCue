@@ -126,6 +126,7 @@ cueweb/
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
+- **`JobSubscriptionPoller`**: App-wide client provider (mounted in `app/layout.tsx`) that polls subscribed jobs every 15s. When a job reaches `FINISHED` it fires a browser notification via the Web Notifications API and marks the entry as notified. An `inFlight` ref guards against overlapping ticks, and jobs that no longer exist in Cuebot are removed from the store on the next poll.
 
 #### UI Components
 
@@ -134,6 +135,11 @@ cueweb/
 - **`Dialog`**: Modal dialog wrapper
 - **`Select`**: Dropdown selection component
 - **`Toast`**: Notification system
+- **`SubscribeBell`**: Per-row bell button in the `JobsTable` **Notify** column. Reads/writes per-job subscription state via the `useJobSubscriptions` hook (`app/utils/use_job_subscriptions.ts`), backed by `localStorage` through `app/utils/subscription_utils.ts`. Every subscribe attempt calls `requestNotificationPermission()`; the browser only displays its native permission prompt when the current state is `default` (undecided) and resolves silently with the existing decision otherwise. If the resolved permission is not `granted`, the component surfaces a toast warning and skips the subscription. The button is disabled on rows whose `jobState` is already `FINISHED` and the row has no existing subscription.
+
+##### Subscription store
+
+Subscriptions are stored as a `Record<jobId, JobSubscription>` under the `localStorage` key `cueweb:job-subscriptions`. Each entry tracks `jobId`, `jobName`, `subscribedAt`, and `notifiedAt` (null until the poller fires the notification). Mutations dispatch a `cueweb:subscriptions-changed` window event so every `useJobSubscriptions` consumer re-reads from `localStorage` &mdash; this keeps the bell, the poller, and any other consumer in sync within the same tab without prop drilling. The store getter defensively returns `{}` for missing or malformed JSON so a stale or hand-edited entry cannot crash the UI.
 
 ---
 

@@ -65,7 +65,16 @@ Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kil
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-14. **Job comments:**
+
+14. **Per-job completion notifications:**
+   - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
+   - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired — click to clear).
+   - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
+   - The first subscribe of the session triggers the browser's native notification permission prompt; if permission is denied, a toast warning is shown and the subscription is not created.
+   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
+   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
+
+15. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).
