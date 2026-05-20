@@ -27,6 +27,7 @@ If you're new to OpenCue development:
 
 - Read our [Contributing to OpenCue](/docs/developer-guide/contributing/) guide for detailed information on the contribution process
 - Learn about [GitHub Issues](https://github.com/AcademySoftwareFoundation/OpenCue/issues) and pull request workflows
+- Read our [AI policy](/docs/developer-guide/ai-policy)
 - Sign the Contributor License Agreement (CLA)
 - Test your changes in the [sandbox environment](/docs/developer-guide/sandbox-testing/)
 - Update relevant documentation

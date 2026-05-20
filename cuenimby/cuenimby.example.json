@@ -5,6 +5,8 @@
   "poll_interval": 5,
   "show_notifications": true,
   "notification_duration": 5,
+  "cuegui_command": ["cuegui"],
+  "cuegui_label": "Launch CueGUI",
   "scheduler_enabled": true,
   "schedule": {
     "monday": {

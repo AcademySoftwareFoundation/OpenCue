@@ -1,3 +1,19 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import path from "path";
 import { Job } from "../jobs/columns";
 import { Layer } from "../layers/layer-columns";
@@ -7,6 +23,15 @@ import { Frame } from "../frames/frame-columns";
 /********************************************************************/
 // Utility functions for getting objects like jobs, layers, and frames
 /********************************************************************/
+
+// Mirrors the comment.Comment proto message at proto/src/comment.proto.
+export type JobComment = {
+    id: string;
+    timestamp: number;
+    user: string;
+    subject: string;
+    message: string;
+};
 
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
@@ -27,6 +52,11 @@ export async function getPendingJob(body: string): Promise<Job | null> {
     const ENDPOINT = "/api/job/getjob";
     const response = await accessGetApi(ENDPOINT, body);
     return response;
+}
+
+// Fetch a single job by its UUID. Typed wrapper around getPendingJob for caller ergonomics.
+export async function getJob(jobId: string): Promise<Job | null> {
+    return getPendingJob(JSON.stringify({ id: jobId }));
 }
 
 // Fetch all jobs based on the request body
@@ -97,3 +127,11 @@ export async function getJobForLayer(layer: Layer): Promise<Job | null> {
 export const getFrameLogDir = (job: Job, frame: Frame): string => {
     return path.join(job.logDir, `${job.name}.${frame.name}.rqlog`);
 };
+
+// Fetch all comments for a given job
+export async function getJobComments(job: Job): Promise<JobComment[]> {
+    const ENDPOINT = "/api/job/getcomments";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}

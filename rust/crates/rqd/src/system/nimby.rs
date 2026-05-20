@@ -338,4 +338,14 @@ impl Nimby {
         let last_time = UNIX_EPOCH + Duration::from_secs(last_secs);
         last_time.elapsed().unwrap_or(Duration::MAX) < self.idle_threshold
     }
+
+    /// Returns `true` if any user interaction has ever been recorded.
+    ///
+    /// This is useful to distinguish "no activity data yet" (e.g. right after
+    /// startup) from "the user was active and then became idle". Without this
+    /// check, a host that starts NIMBY-locked would immediately auto-unlock
+    /// because [`is_user_active`] returns `false` when no data exists.
+    pub fn has_activity_been_recorded(&self) -> bool {
+        self.last_interaction_epoch_in_secs.load(Ordering::Relaxed) != 0
+    }
 }

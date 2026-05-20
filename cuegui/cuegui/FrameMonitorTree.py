@@ -55,12 +55,14 @@ logger = cuegui.Logger.getLogger(__file__)
 
 QCOLOR_BLACK = QtGui.QColor(QtCore.Qt.black)
 QCOLOR_GREEN = QtGui.QColor(QtCore.Qt.green)
+# Visual column indices, keyed to the order of addColumn() calls below.
+# Update these whenever a column is inserted/removed/reordered.
 STATUS_COLUMN = 3
-PROC_COLUMN = 5
-CHECKPOINT_COLUMN = 7
-RUNTIME_COLUMN = 9
-MEMORY_COLUMN = 11
-LASTLINE_COLUMN = 15
+PROC_COLUMN = 6
+CHECKPOINT_COLUMN = 8
+RUNTIME_COLUMN = 10
+MEMORY_COLUMN = 12
+LASTLINE_COLUMN = 20
 
 LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
@@ -217,7 +219,25 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
-        self.addColumn("Last Line", 0, id=19,
+        self.addColumn("Eligible Time", 100, id=19,
+                       data=lambda job, frame: (self.getTimeString(frame.data.eligible_time) or ""),
+                       sort=lambda job, frame: frame.data.eligible_time,
+                       tip="The time the frame became eligible to run - i.e. when it left\n"
+                           "DEPEND and entered WAITING. Frames that were never blocked by a\n"
+                           "dependency show the job's submission time. Subtract from Start\n"
+                           "Time to see how long the frame waited to be picked up by a\n"
+                           "render proc.")
+
+        self.addColumn("Submission Time", 100, id=20,
+                       data=lambda job, frame: (
+                           self.getTimeString(frame.data.submission_time) or ""),
+                       sort=lambda job, frame: frame.data.submission_time,
+                       tip="The time the parent job was submitted. Unlike Start Time\n"
+                           "(when this frame began executing) or Eligible Time (when\n"
+                           "the frame left DEPEND), this is always the job's submission\n"
+                           "timestamp regardless of dependency state.")
+
+        self.addColumn("Last Line", 0, id=21,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),

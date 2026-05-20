@@ -1,0 +1,47 @@
+#!/bin/bash -f
+#
+# Sandbox wrapper for executing frames in a Docker-based OpenCue environment.
+# This is a simplified version of opencue_wrap_frame that does not require
+# tcsh or studio-specific tools like setshot.
+#
+
+ulimit -c 0
+
+dir=$1
+
+# Reset the value of TMPDIR
+framedir=/mcp/${CUE_JOB}/${CUE_FRAME}
+rm -rf "$framedir"
+mkdir -p "$framedir"
+if [ $? -ne 0 ]; then
+    echo "$0: Could not create $framedir"
+    exit 96
+fi
+export TMPDIR=$framedir
+echo "TMPDIR set to $framedir"
+
+export SHOW=${CUE_SHOW}
+export SHOT=${CUE_SHOT}
+
+# Print out ENV variables.
+env | sort
+
+shift
+if [ -e "$dir" ]; then
+    echo "changing to working directory $dir"
+    cd "$dir"
+fi
+
+echo "About to run $@"
+eval "$@"
+result=$?
+echo "Process completed with exit status: $result"
+
+# Remove the framedir
+rm -rf "$framedir"
+
+if [ "$result" -lt 256 ]; then
+    exit $result
+else
+    exit 1
+fi

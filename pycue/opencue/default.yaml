@@ -21,4 +21,10 @@ cuebot.facility:
         - cuebot1.example.com:8443
         - cuebot2.example.com:8443
         - cuebot3.example.com:8443
+    external:
+        - external.example.com:8443
 
+# An external facility can only have access to its servers.
+# Setting a facility as external will ensure it is the only option available on cuegui and pycue
+cuebot.external_facility:
+ - external

@@ -90,6 +90,11 @@ done based on physical locations to help guide jobs to hosts in that location.
 Both *jobs* and *allocations* belong to a facility. Jobs submitted to a facility
 will only run on allocations within that same facility.
 
+A facility can be marked as *external* via the `cuebot.external_facility`
+configuration setting. When an external facility is active, clients are
+restricted to only that facility's cuebot servers, preventing access to
+other facility endpoints.
+
 ## Frames
 
 An individual command that's contained in a *layer*.
@@ -138,6 +143,16 @@ The Python API library that provides programmatic access to OpenCue
 functionality. Used by client applications and custom scripts to interact with
 Cuebot's gRPC interface. OpenCue client-side Python tools, such as *CueGUI* and
 *CueAdmin*, all use PyCue for communicating with your OpenCue deployment.
+
+## PyCuerun
+
+The command-line tool for launching *PyOutline* scripts to the OpenCue render
+farm. PyCuerun serves a dual role: it submits jobs to *Cuebot* from the user's
+machine, and it executes individual *frames* on render *hosts* when invoked by
+Cuebot at dispatch time. PyCuerun is included in the PyOutline package and
+supports options for pausing, waiting, debugging, inspecting, and overriding
+frame ranges. It also handles legacy argument translation and plugin-based CLI
+extensions.
 
 ## PyOutline
 

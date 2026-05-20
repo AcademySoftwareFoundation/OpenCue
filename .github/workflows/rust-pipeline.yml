@@ -8,10 +8,17 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Incremental compilation hurts CI clean builds (extra disk I/O, larger
+  # target dirs, no benefit since each runner is ephemeral) — turn it off.
+  CARGO_INCREMENTAL: 0
+  # Be more tolerant of registry hiccups on Windows.
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +27,11 @@ jobs:
           sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
           bash ./rust-install.sh -y
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
       - name: Build
         run: |
           cd rust
@@ -31,6 +43,7 @@ jobs:
 
   clippy:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +52,63 @@ jobs:
           sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
           bash ./rust-install.sh -y
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
       - name: Run Clippy
         run: |
           cd rust
           cargo clippy --verbose
+
+  windows-clippy:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install Protobuf
+        run: choco install protoc -y
+      - name: Export PROTOC path
+        run: echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
+      - name: Run Clippy
+        working-directory: rust
+        run: cargo clippy -p rqd
+
+  windows-tests:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Protobuf
+        run: choco install protoc -y
+      - name: Export PROTOC path
+        run: echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
+      # Build tests first so we see compile-vs-run timing separately and the
+      # cache is populated even if a test later fails. `--verbose` is dropped
+      # — log volume noticeably slows Windows runners and the failure output
+      # is enough for triage.
+      - name: Build tests
+        working-directory: rust
+        run: cargo test -p rqd --no-run
+      - name: Run tests
+        working-directory: rust
+        run: cargo test -p rqd

@@ -19,6 +19,7 @@ use crate::{
 use opencue_proto::rqd::{
     rqd_interface_server::RqdInterfaceServer, running_frame_server::RunningFrameServer,
 };
+#[cfg(not(windows))]
 use pnet::ipnetwork::IpNetwork;
 use rqd_servant::{MachineImpl, RqdServant};
 use running_frame_servant::RunningFrameServant;
@@ -35,6 +36,7 @@ pub type Result<T> = core::result::Result<T, tonic::Status>;
 
 /// Determines the IPv4 address to bind to based on the provided interface name.
 #[allow(clippy::result_large_err)]
+#[cfg(not(windows))]
 fn get_ip_for_interface(rqd_interface: Option<String>) -> Result<Ipv4Addr> {
     match rqd_interface {
         None => Ok(Ipv4Addr::new(0, 0, 0, 0)),
@@ -63,6 +65,19 @@ fn get_ip_for_interface(rqd_interface: Option<String>) -> Result<Ipv4Addr> {
                     ))
                 })
         }
+    }
+}
+
+/// Windows does not currently support binding by interface name; bind to 0.0.0.0 or error.
+#[allow(clippy::result_large_err)]
+#[cfg(windows)]
+fn get_ip_for_interface(rqd_interface: Option<String>) -> Result<Ipv4Addr> {
+    match rqd_interface {
+        None => Ok(Ipv4Addr::new(0, 0, 0, 0)),
+        Some(rqd_interface) => Err(tonic::Status::unavailable(format!(
+            "Interface binding by name is not supported on Windows: '{}'",
+            rqd_interface
+        ))),
     }
 }
 
@@ -104,6 +119,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn get_ip_for_interface_non_existent_should_error() {
         // Arrange: A non-existent interface name is provided.
         let interface_name = Some("this-interface-does-not-exist".to_string());
@@ -121,6 +137,25 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn get_ip_for_interface_non_existent_should_error() {
+        // Arrange: A non-existent interface name is provided.
+        let interface_name = Some("this-interface-does-not-exist".to_string());
+
+        // Act: Call the function.
+        let result = get_ip_for_interface(interface_name);
+
+        // Assert: The result should be an "Unavailable" error.
+        assert!(result.is_err());
+        let status = result.err().unwrap();
+        assert_eq!(status.code(), tonic::Code::Unavailable);
+        assert!(status
+            .message()
+            .contains("Interface binding by name is not supported on Windows"));
+    }
+
+    #[test]
+    #[cfg(not(windows))]
     fn get_ip_for_interface_loopback_should_return_localhost_ip() {
         // Arrange: Find the system's loopback interface to make the test environment-agnostic.
         let loopback_interface = pnet::datalink::interfaces()

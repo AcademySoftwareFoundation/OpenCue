@@ -192,9 +192,8 @@ class HostMonitor:
                 if proc.data.name != frame_id:
                     continue
                 try:
-                    frame = proc.getFrame()
-                    job_name = getattr(frame.data, 'job_name', "Unknown")
-                    frame_name = getattr(frame.data, 'name', frame_id)
+                    job_name = proc.data.job_name or "Unknown"
+                    frame_name = proc.data.frame_name or frame_id
 
                     for callback in self._frame_started_callbacks:
                         callback(job_name, frame_name)

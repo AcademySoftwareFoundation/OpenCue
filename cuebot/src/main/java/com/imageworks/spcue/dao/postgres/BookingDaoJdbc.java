@@ -36,11 +36,28 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class BookingDaoJdbc extends JdbcDaoSupport implements BookingDao {
 
-    private static final String INSERT_LOCAL_JOB_ASSIGNMENT = "INSERT INTO " + "host_local " + "("
-            + "pk_host_local," + "pk_job," + "pk_layer," + "pk_frame," + "str_type," + "pk_host,"
-            + "int_mem_max," + "int_mem_idle," + "int_cores_max," + "int_cores_idle,"
-            + "int_gpu_mem_idle," + "int_gpu_mem_max," + "int_gpus_max," + "int_gpus_idle,"
-            + "int_threads " + ") " + "VALUES " + "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_LOCAL_JOB_ASSIGNMENT =
+            "INSERT INTO host_local ("
+                + "pk_host_local,"
+                + "pk_job,"
+                + "pk_layer,"
+                + "pk_frame,"
+                + "str_type,"
+                + "pk_host,"
+                + "int_mem_max,"
+                + "int_mem_idle,"
+                + "int_cores_max,"
+                + "int_cores_idle,"
+                + "int_gpu_mem_idle,"
+                + "int_gpu_mem_max,"
+                + "int_gpus_max,"
+                + "int_gpus_idle,"
+                + "int_threads "
+            + ") "
+            + "VALUES "
+                + "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertLocalHostAssignment(HostInterface h, JobInterface job,
@@ -126,11 +143,27 @@ public class BookingDaoJdbc extends JdbcDaoSupport implements BookingDao {
                 }
             };
 
+    // spotless:off
     private static final String QUERY_FOR_LJA =
-            "SELECT " + "pk_host_local," + "pk_job," + "pk_layer," + "pk_frame," + "pk_host,"
-                    + "int_mem_idle," + "int_mem_max," + "int_cores_idle," + "int_cores_max,"
-                    + "int_gpu_mem_idle," + "int_gpu_mem_max," + "int_gpus_idle," + "int_gpus_max,"
-                    + "int_threads, " + "str_type " + "FROM " + "host_local ";
+            "SELECT "
+                + "pk_host_local,"
+                + "pk_job,"
+                + "pk_layer,"
+                + "pk_frame,"
+                + "pk_host,"
+                + "int_mem_idle,"
+                + "int_mem_max,"
+                + "int_cores_idle,"
+                + "int_cores_max,"
+                + "int_gpu_mem_idle,"
+                + "int_gpu_mem_max,"
+                + "int_gpus_idle,"
+                + "int_gpus_max,"
+                + "int_threads, "
+                + "str_type "
+            + "FROM "
+                + "host_local ";
+    // spotless:on
 
     @Override
     public List<LocalHostAssignment> getLocalJobAssignment(HostInterface host) {
@@ -156,17 +189,35 @@ public class BookingDaoJdbc extends JdbcDaoSupport implements BookingDao {
                 l.getId()) > 0;
     }
 
-    private static final String HAS_LOCAL_JOB = "SELECT " + "COUNT(1) " + "FROM " + "host_local "
-            + "WHERE " + "host_local.pk_host = ? ";
+    // spotless:off
+    private static final String HAS_LOCAL_JOB =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "host_local "
+            + "WHERE "
+                + "host_local.pk_host = ? ";
+    // spotless:on
 
     @Override
     public boolean hasLocalJob(HostInterface host) {
         return getJdbcTemplate().queryForObject(HAS_LOCAL_JOB, Integer.class, host.getHostId()) > 0;
     }
 
-    private static final String HAS_ACTIVE_LOCAL_JOB = "SELECT " + "COUNT(1) " + "FROM "
-            + "host_local, " + "proc " + "WHERE " + "host_local.pk_host = proc.pk_host " + "AND "
-            + "proc.b_local = true " + "AND " + "host_local.pk_host = ? ";
+    // spotless:off
+    private static final String HAS_ACTIVE_LOCAL_JOB =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "host_local, "
+                + "proc "
+            + "WHERE "
+                + "host_local.pk_host = proc.pk_host "
+            + "AND "
+                + "proc.b_local = true "
+            + "AND "
+                + "host_local.pk_host = ? ";
+    // spotless:on
 
     @Override
     public boolean hasActiveLocalJob(HostInterface host) {
@@ -188,36 +239,64 @@ public class BookingDaoJdbc extends JdbcDaoSupport implements BookingDao {
                 gpuUnits, l.getId());
     }
 
-    private static final String UPDATE_MAX_CORES = "UPDATE " + "host_local " + "SET "
-            + "int_cores_idle = int_cores_idle + (? - int_cores_max), " + "int_cores_max = ? "
-            + "WHERE " + "pk_host_local = ? ";
+    // spotless:off
+    private static final String UPDATE_MAX_CORES =
+            "UPDATE "
+                + "host_local "
+            + "SET "
+                + "int_cores_idle = int_cores_idle + (? - int_cores_max), "
+                + "int_cores_max = ? "
+            + "WHERE "
+                + "pk_host_local = ? ";
+    // spotless:on
 
     @Override
     public boolean updateMaxCores(LocalHostAssignment l, int coreUnits) {
         return getJdbcTemplate().update(UPDATE_MAX_CORES, coreUnits, coreUnits, l.getId()) > 0;
     }
 
-    private static final String UPDATE_MAX_GPUS = "UPDATE " + "host_local " + "SET "
-            + "int_gpus_idle = int_gpus_idle + (? - int_gpus_max), " + "int_gpus_max = ? "
-            + "WHERE " + "pk_host_local = ? ";
+    // spotless:off
+    private static final String UPDATE_MAX_GPUS =
+            "UPDATE "
+                + "host_local "
+            + "SET "
+                + "int_gpus_idle = int_gpus_idle + (? - int_gpus_max), "
+                + "int_gpus_max = ? "
+            + "WHERE "
+                + "pk_host_local = ? ";
+    // spotless:on
 
     @Override
     public boolean updateMaxGpus(LocalHostAssignment l, int gpuUnits) {
         return getJdbcTemplate().update(UPDATE_MAX_GPUS, gpuUnits, gpuUnits, l.getId()) > 0;
     }
 
+    // spotless:off
     private static final String UPDATE_MAX_MEMORY =
-            "UPDATE " + "host_local " + "SET " + "int_mem_idle = int_mem_idle + (? - int_mem_max), "
-                    + "int_mem_max = ? " + "WHERE " + "pk_host_local = ? ";
+            "UPDATE "
+                + "host_local "
+            + "SET "
+                + "int_mem_idle = int_mem_idle + (? - int_mem_max), "
+                + "int_mem_max = ? "
+            + "WHERE "
+                + "pk_host_local = ? ";
+    // spotless:on
 
     @Override
     public boolean updateMaxMemory(LocalHostAssignment l, long maxMemory) {
         return getJdbcTemplate().update(UPDATE_MAX_MEMORY, maxMemory, maxMemory, l.getId()) > 0;
     }
 
-    private static final String UPDATE_MAX_GPU_MEMORY = "UPDATE " + "host_local " + "SET "
-            + "int_gpu_mem_idle = int_gpu_mem_idle + (? - int_gpu_mem_max), "
-            + "int_gpu_mem_max = ? " + "WHERE " + "pk_host_local = ? ";
+    // spotless:off
+    private static final String UPDATE_MAX_GPU_MEMORY =
+            "UPDATE "
+                + "host_local "
+            + "SET "
+                + "int_gpu_mem_idle = int_gpu_mem_idle + (? - int_gpu_mem_max), "
+                + "int_gpu_mem_max = ? "
+            + "WHERE "
+                + "pk_host_local = ? ";
+    // spotless:on
 
     @Override
     public boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory) {

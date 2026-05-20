@@ -6,6 +6,7 @@ grpc:
   connection_expires_after: 15m
 machine:
   # nimby_mode: true
+  # nimby_lock_by_default: true
   # nimby_idle_threshold: 60s
   worker_threads: 8
   facility: test

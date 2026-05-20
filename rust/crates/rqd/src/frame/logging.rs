@@ -20,11 +20,12 @@ use std::time::Duration;
 use std::{
     fs::{self, File, Permissions},
     io::Write,
-    os::unix::fs::PermissionsExt,
     path::Path,
     sync::{Arc, Mutex},
     time::SystemTime,
 };
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use tracing::error;
 use ureq::Agent;
 
@@ -109,7 +110,7 @@ impl FrameFileLogger {
     }
 
     #[cfg(target_os = "windows")]
-    fn change_ownership(_path: &String, _uid: u32, _gid: u32) -> Result<()> {
+    fn change_ownership(_path: &Path, _uid: u32, _gid: u32) -> Result<()> {
         Ok(())
     }
 
@@ -173,11 +174,16 @@ impl FrameLokiLogger {
 
     /// Builds the labels for Loki and extracts the Loki URL from the RunFrame.
     fn build_loki_components(run_frame: RunFrame) -> Result<(HashMap<String, String>, String)> {
+        #[cfg(unix)]
+        let host = nix::unistd::gethostname().map_or_else(
+            |_| "hostname-unavailable".to_string(),
+            |h| h.to_string_lossy().into_owned(),
+        );
+        #[cfg(windows)]
+        let host = sysinfo::System::host_name().unwrap_or_else(|| "hostname-unavailable".to_string());
+
         let loki_labels = LokiLabels {
-            host: nix::unistd::gethostname().map_or_else(
-                |_| "hostname-unavailable".to_string(),
-                |h| h.to_string_lossy().into_owned(),
-            ),
+            host,
             job_name: run_frame.job_name,
             frame_name: run_frame.frame_name,
             username: run_frame.user_name,

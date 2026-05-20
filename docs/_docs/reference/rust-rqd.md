@@ -324,7 +324,7 @@ rust/
 ### Core Functionality
 
 - **Full Cuebot compatibility**: Works with existing OpenCue infrastructure
-- **Multi-platform support**: Linux and macOS (Windows in development)
+- **Multi-platform support**: Linux, MacOS and Windows 
 - **Efficient resource monitoring**: Low-overhead CPU, memory, and disk tracking
 - **Process management**: Reliable frame execution and monitoring
 - **Automatic recovery**: Resilient error handling and retry mechanisms
@@ -346,7 +346,6 @@ rust/
 
 While the Rust RQD is production-ready for many use cases, be aware of:
 
-- **Windows support**: Currently in development
 - **Container support**: Experimental feature, not recommended for production
 - **Plugin system**: Python RQD plugins not yet supported
 - **Custom resource handlers**: Limited compared to Python version
@@ -414,7 +413,6 @@ Most Python RQD configurations map directly:
 
 Planned enhancements include:
 
-- Complete Windows support
 - Enhanced GPU resource management
 - Plugin system for custom extensions
 - Improved container orchestration

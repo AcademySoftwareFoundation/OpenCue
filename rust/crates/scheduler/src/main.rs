@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use miette::{miette, Context, IntoDiagnostic};
 use structopt::StructOpt;
+#[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
@@ -26,7 +27,6 @@ use crate::{
     config::CONFIG,
 };
 
-mod allocation;
 mod cluster;
 mod cluster_key;
 mod config;
@@ -36,6 +36,7 @@ mod metrics;
 mod models;
 mod pgpool;
 mod pipeline;
+mod resource_accounting;
 
 // scheduler --facility eat --alloc_tags=show:tag,show:tag,show:tag --manual_tags=tag1,tag2
 #[derive(StructOpt, Debug)]
@@ -238,6 +239,24 @@ impl JobQueueCli {
 }
 
 fn main() -> miette::Result<()> {
+    let _sentry_guard = sentry::init(sentry::ClientOptions {
+        dsn: CONFIG.sentry_dsn.as_deref().and_then(|s| {
+            if s.is_empty() {
+                None
+            } else {
+                match s.parse() {
+                    Ok(dsn) => Some(dsn),
+                    Err(err) => {
+                        eprintln!("Invalid Sentry dsn. Sentry is disabled. {}", err);
+                        None
+                    }
+                }
+            }
+        }),
+        release: sentry::release_name!(),
+        ..Default::default()
+    });
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(CONFIG.queue.worker_threads)
         .enable_all()
@@ -274,6 +293,18 @@ async fn async_main() -> miette::Result<()> {
     };
     let subs = subs.with(file_appender_layer);
 
+    let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
+        // Register sqlx WARN messages as Sentry issues (events) instead of breadcrumbs
+        if (metadata.target().starts_with("sqlx") && *metadata.level() == tracing::Level::WARN)
+            || metadata.level() <= &tracing::Level::ERROR
+        {
+            sentry::integrations::tracing::EventFilter::Event
+        } else {
+            sentry::integrations::tracing::EventFilter::Breadcrumb
+        }
+    });
+    let subs = subs.with(sentry_layer);
+
     tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
 
     // Start Prometheus metrics HTTP server in background
@@ -285,6 +316,8 @@ async fn async_main() -> miette::Result<()> {
     });
 
     // Watch for sigusr1 and sigusr2, when received toggle between info/debug levels
+    // Note: Unix signals (SIGUSR1/SIGUSR2) are not available on Windows
+    #[cfg(unix)]
     tokio::spawn(async move {
         let mut sigusr1 =
             signal(SignalKind::user_defined1()).expect("Failed to register signal listener");

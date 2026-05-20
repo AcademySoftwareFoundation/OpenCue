@@ -36,6 +36,7 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Advanced Search**: Regex-enabled search with dropdown suggestions
 - **Frame Navigation**: Detailed frame inspection with log viewing
 - **Multi-job Operations**: Bulk operations on multiple jobs
+- **Job Comments**: List / add / edit / delete per-job comments (markdown, sanitized) with predefined-comment macros - mirrors CueGUI's Comments dialog
 - **Dark/Light Mode**: Theme switching for user preference
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta)
@@ -185,7 +186,8 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | Interface | Description | Example Endpoints |
 |-----------|-------------|-------------------|
 | **ShowInterface** | Project management | `GetShows`, `FindShow`, `CreateShow` |
-| **JobInterface** | Job lifecycle | `GetJobs`, `Kill`, `Pause`, `Resume` |
+| **JobInterface** | Job lifecycle | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment` |
+| **CommentInterface** | Comment management | `Save`, `Delete` |
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |
 | **GroupInterface** | Resource groups | `GetGroup`, `SetMinCores`, `SetMaxCores` |

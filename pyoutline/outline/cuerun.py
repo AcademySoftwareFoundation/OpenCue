@@ -311,6 +311,9 @@ class CuerunOptionParser(OptionParser):
                            help="Set the base name for the job.")
         grp_job.add_option("--autoeat", action="store_true", dest="autoeat",
                            help="Automatically eat dead frames with no retry.")
+        grp_job.add_option("--priority", action="store", type="int",
+                           dest="priority", default=1,
+                           help="Set the job priority. Default: 1")
 
     def handle_standard_options(self, options, args):
         """

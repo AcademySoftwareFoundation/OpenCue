@@ -47,6 +47,29 @@ logger = cuegui.Logger.getLogger(__file__)
 COMMENT_COLUMN = 1
 
 
+def _tempFreeRatio(host):
+    """Free /mcp as a fraction of total (0.0-1.0). Falls back to free amount
+    when total_mcp is unknown so sorting still produces a sensible order."""
+    total = host.data.total_mcp
+    if not total:
+        return host.data.free_mcp
+    return host.data.free_mcp / float(total)
+
+
+def _formatTempFreeAmount(host):
+    """Cell text for the 'Temp Free' column: free /mcp/ space (e.g. '23.5G')."""
+    return cuegui.Utils.memoryToString(host.data.free_mcp)
+
+
+def _formatTempFreePercent(host):
+    """Cell text for the 'Temp Free %' column: percent of /mcp/ free
+    (e.g. '50%'). Empty when total_mcp is unknown."""
+    total = host.data.total_mcp
+    if not total:
+        return ""
+    return "%d%%" % int(round(100.0 * host.data.free_mcp / total))
+
+
 class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget for displaying a list of hosts."""
 
@@ -79,30 +102,42 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda host: host.data.free_memory,
                        delegate=cuegui.ItemDelegate.HostMemBarDelegate,
                        tip="The amount of used memory (red) vs available phys memory (green)")
-        self.addColumn("GPU Memory", 70, id=6,
+        self.addColumn("GPU Memory", 90, id=6,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu_memory),
                        sort=lambda host: host.data.free_gpu_memory,
                        delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
-        self.addColumn("Total Memory", 60, id=7,
+        self.addColumn("Total Memory", 90, id=7,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
                        sort=lambda host: host.data.total_memory,
                        tip="The total amount of available memory.\n\n"
                            "Takes into consideration free memory and cached memory.")
-        self.addColumn("Idle Memory", 60, id=8,
+        self.addColumn("Idle Memory", 90, id=8,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
                        sort=lambda host: host.data.idle_memory,
                        tip="The amount of unreserved memory.")
-        self.addColumn("Temp available", 70, id=9,
+        self.addColumn("Temp", 70, id=9,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
+                       sort=_tempFreeRatio,
+                       delegate=cuegui.ItemDelegate.HostTempBarDelegate,
+                       tip="The amount of used /mcp/ space (red) vs available (green).")
+        self.addColumn("Temp Free", 90, id=23,
+                       data=_formatTempFreeAmount,
                        sort=lambda host: host.data.free_mcp,
-                       tip="The amount of free space in /mcp/")
+                       tip="Free /mcp/ space. Sorted by absolute\n"
+                           "free amount.")
+        self.addColumn("Temp Free %", 100, id=24,
+                       data=_formatTempFreePercent,
+                       sort=_tempFreeRatio,
+                       tip="Percent of /mcp/ free. Sorted by ratio,\n"
+                           "matching the adjacent 'Temp' bar. Empty when a host\n"
+                           "has not reported a total /mcp/ size.")
         self.addColumn("Cores", 60, id=10,
                        data=lambda host: "%.2f" % host.data.cores,
                        sort=lambda host: host.data.cores,
                        tip="The total number of cores.\n\n"
                            "On a frame it is the number of cores reserved.")
-        self.addColumn("Idle Cores", 60, id=11,
+        self.addColumn("Idle Cores", 70, id=11,
                        data=lambda host: "%.2f" % host.data.idle_cores,
                        sort=lambda host: host.data.idle_cores,
                        tip="The number of cores that are not reserved.")
@@ -111,20 +146,20 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda host: host.data.gpus,
                        tip="The total number of gpus.\n\n"
                            "On a frame it is the number of gpus reserved.")
-        self.addColumn("Idle GPUs", 50, id=13,
+        self.addColumn("Idle GPUs", 70, id=13,
                        data=lambda host: "%d" % host.data.idle_gpus,
                        sort=lambda host: host.data.idle_gpus,
                        tip="The number of gpus that are not reserved.")
-        self.addColumn("GPU Mem", 50, id=14,
+        self.addColumn("GPU Mem", 70, id=14,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.gpu_memory),
                        sort=lambda host: host.data.gpu_memory,
                        tip="The total amount of reservable gpu memory.\n\n"
                            "On a frame it is the amount of gpu memory reserved.")
-        self.addColumn("Gpu Mem Idle", 50, id=15,
+        self.addColumn("GPU Mem Idle", 100, id=15,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.idle_gpu_memory),
                        sort=lambda host: host.data.idle_gpu_memory,
                        tip="The amount of unreserved gpu memory.")
-        self.addColumn("Ping", 50, id=16,
+        self.addColumn("Ping", 90, id=16,
                        data=lambda host: int(time.time() - host.data.ping_time),
                        sort=lambda host: host.data.ping_time,
                        tip="The number of seconds since the cuebot last received\n"
@@ -135,11 +170,11 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
                        sort=lambda host: host.data.boot_time,
                        tip="The time when the host was last booted.")
-        self.addColumn("Hardware", 70, id=18,
+        self.addColumn("Hardware", 80, id=18,
                        data=lambda host: HardwareState.Name(host.data.state),
                        tip="The state of the hardware as Up or Down.\n\n"
                            "On a frame it is the amount of memory used.")
-        self.addColumn("Locked", 90, id=19,
+        self.addColumn("Locked", 110, id=19,
                        data=lambda host: LockState.Name(host.data.lock_state),
                        tip="A host can be:\n"
                            "Locked \t\t It was manually locked to prevent booking\n"
@@ -147,7 +182,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "NimbyLocked \t It is a desktop machine and there is\n"
                            "\t\t someone actively using it or not enough \n"
                            "\t\t resources are available on a desktop.")
-        self.addColumn("ThreadMode", 80, id=20,
+        self.addColumn("ThreadMode", 90, id=20,
                        data=lambda host: ThreadMode.Name(host.data.thread_mode),
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
@@ -286,6 +321,8 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "viewProc")
         self.__menuActions.hosts().addAction(menu, "lock")
         self.__menuActions.hosts().addAction(menu, "unlock")
+        self.__menuActions.hosts().addAction(menu, "takeOwnership").setEnabled(
+            self.__menuActions.hosts().canTakeOwnership(self.selectedObjects()))
         self.__menuActions.hosts().addAction(menu, "addTags")
         self.__menuActions.hosts().addAction(menu, "removeTags")
         self.__menuActions.hosts().addAction(menu, "renameTag")
@@ -375,5 +412,9 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return [self.rpcObject.data.total_gpu_memory -
                     self.rpcObject.data.free_gpu_memory,
                     self.rpcObject.data.total_gpu_memory]
+
+        if role == QtCore.Qt.UserRole + 4:
+            return [self.rpcObject.data.total_mcp - self.rpcObject.data.free_mcp,
+                    self.rpcObject.data.total_mcp]
 
         return cuegui.Constants.QVARIANT_NULL

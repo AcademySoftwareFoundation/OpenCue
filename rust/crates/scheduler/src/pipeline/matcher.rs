@@ -18,10 +18,10 @@ use std::{
     time::Duration,
 };
 
+use opencue_proto::host::ThreadMode;
 use uuid::Uuid;
 
 use crate::{
-    allocation::{allocation_service, AllocationService},
     cluster::Cluster,
     cluster_key::Tag,
     config::CONFIG,
@@ -37,6 +37,7 @@ use crate::{
         },
         layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
     },
+    resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
 use actix::Addr;
 use miette::{Context, Result};
@@ -59,7 +60,7 @@ pub struct MatchingService {
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
-    allocation_service: Arc<AllocationService>,
+    resource_accounting_service: Arc<ResourceAccountingService>,
 }
 
 impl MatchingService {
@@ -85,9 +86,9 @@ impl MatchingService {
         let max_concurrent_transactions = (CONFIG.database.pool_size as usize).saturating_sub(1);
 
         let dispatcher_service = rqd_dispatcher_service().await?;
-        let allocation_service = allocation_service()
+        let resource_accounting_service = resource_accounting_service()
             .await
-            .wrap_err("Failed to initialize AllocationService for MatchingService")?;
+            .wrap_err("Failed to initialize ResourceAccountingService for MatchingService")?;
 
         Ok(MatchingService {
             host_service,
@@ -95,7 +96,7 @@ impl MatchingService {
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
-            allocation_service,
+            resource_accounting_service,
         })
     }
 
@@ -185,6 +186,17 @@ impl MatchingService {
         }
     }
 
+    fn host_matches_layer_os(host: &Host, os: Option<&str>) -> bool {
+        os.is_none() || host.str_os.as_deref() == os
+    }
+
+    /// Mirrors Cuebot's DispatchQuery filter: hosts in ThreadMode::All only accept threadable
+    /// layers. Booking a non-threadable layer on such a host would diverge from Cuebot's behavior
+    /// and starve the layer when ownership of the show moves back to Cuebot.
+    fn host_matches_thread_mode(host: &Host, threadable: bool) -> bool {
+        !(host.thread_mode == ThreadMode::All && !threadable)
+    }
+
     /// Validates whether a host is suitable for a specific layer.
     ///
     /// Subscriptions: Check whether this hosts' subscription can book at least one frame
@@ -202,16 +214,23 @@ impl MatchingService {
         _layer_id: &Uuid,
         show_id: &Uuid,
         cores_requested: CoreSize,
-        allocation_service: &AllocationService,
+        threadable: bool,
+        resource_accounting_service: &ResourceAccountingService,
         os: Option<&str>,
     ) -> bool {
         // Check OS compatibility
-        if host.str_os.as_deref() != os {
+        if !Self::host_matches_layer_os(host, os) {
             return false;
         }
 
-        if let Some(subscription) = allocation_service.get_subscription(&host.alloc_name, show_id) {
-            if !subscription.bookable(&cores_requested) {
+        if !Self::host_matches_thread_mode(host, threadable) {
+            return false;
+        }
+
+        if let Some(subscription) =
+            resource_accounting_service.get_subscription(&host.alloc_name, show_id)
+        {
+            if !subscription.can_book(&cores_requested) {
                 return false;
             }
         } else {
@@ -274,7 +293,8 @@ impl MatchingService {
             let layer_id = layer.id;
             let show_id = layer.show_id;
             let cores_requested = layer.cores_min;
-            let allocation_service = self.allocation_service.clone();
+            let threadable = layer.threadable;
+            let resource_accounting_service = self.resource_accounting_service.clone();
             let os = layer.str_os.clone();
 
             let host_candidate = self
@@ -291,7 +311,8 @@ impl MatchingService {
                             &layer_id,
                             &show_id,
                             cores_requested,
-                            &allocation_service,
+                            threadable,
+                            &resource_accounting_service,
                             os.as_deref(),
                         )
                     },
@@ -498,5 +519,95 @@ impl MatchingService {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bytesize::ByteSize;
+    use opencue_proto::host::ThreadMode;
+    use uuid::Uuid;
+
+    use super::MatchingService;
+    use crate::models::{CoreSize, Host};
+
+    fn host_with_os(str_os: Option<&str>) -> Host {
+        host_with(str_os, ThreadMode::Variable)
+    }
+
+    fn host_with_thread_mode(thread_mode: ThreadMode) -> Host {
+        host_with(Some("Linux"), thread_mode)
+    }
+
+    fn host_with(str_os: Option<&str>, thread_mode: ThreadMode) -> Host {
+        Host::new_for_test(
+            Uuid::new_v4(),
+            "test-host".to_string(),
+            str_os.map(str::to_string),
+            CoreSize::from_multiplied(100),
+            ByteSize::gb(64),
+            CoreSize::from_multiplied(100),
+            ByteSize::gb(64),
+            0,
+            ByteSize::gb(0),
+            thread_mode,
+            CoreSize::from_multiplied(100),
+            Uuid::new_v4(),
+            "test-alloc".to_string(),
+        )
+    }
+
+    #[test]
+    fn host_matches_when_layer_os_is_not_set() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(MatchingService::host_matches_layer_os(&host, None));
+    }
+
+    #[test]
+    fn host_matches_when_layer_os_matches_host_os() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(MatchingService::host_matches_layer_os(&host, Some("Linux")));
+    }
+
+    #[test]
+    fn host_does_not_match_when_layer_os_differs_from_host_os() {
+        let host = host_with_os(Some("Linux"));
+
+        assert!(!MatchingService::host_matches_layer_os(
+            &host,
+            Some("Windows")
+        ));
+    }
+
+    #[test]
+    fn thread_mode_all_rejects_non_threadable_layer() {
+        let host = host_with_thread_mode(ThreadMode::All);
+
+        assert!(!MatchingService::host_matches_thread_mode(&host, false));
+    }
+
+    #[test]
+    fn thread_mode_all_accepts_threadable_layer() {
+        let host = host_with_thread_mode(ThreadMode::All);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+    }
+
+    #[test]
+    fn thread_mode_variable_accepts_any_threadability() {
+        let host = host_with_thread_mode(ThreadMode::Variable);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+        assert!(MatchingService::host_matches_thread_mode(&host, false));
+    }
+
+    #[test]
+    fn thread_mode_auto_accepts_any_threadability() {
+        let host = host_with_thread_mode(ThreadMode::Auto);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+        assert!(MatchingService::host_matches_thread_mode(&host, false));
     }
 }

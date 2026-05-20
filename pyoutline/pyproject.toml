@@ -22,6 +22,9 @@ source = "code"
 path = "../ci/generate_version_number.py"
 default-version = "0.0.0"
 
+[project.scripts]
+pycuerun = "bin.pycuerun_main:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["outline", "wrappers", "bin"]
 

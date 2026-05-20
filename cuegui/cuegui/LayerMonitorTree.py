@@ -163,6 +163,23 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: cuegui.Utils.secondsToHHHMM(layer.data.timeout_llu*60),
                        sort=lambda layer: layer.data.timeout_llu,
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
+        self.addColumn("Eligible", 100, id=24,
+                       data=lambda layer: cuegui.Utils.dateToMMDDHHMM(layer.data.eligible_time),
+                       sort=lambda layer: layer.data.eligible_time,
+                       tip="The time the layer became eligible to run. Layers that were\n"
+                           "never blocked by a dependency show the job's submission time.")
+        self.addColumn("Start Time", 100, id=25,
+                       data=lambda layer: cuegui.Utils.dateToMMDDHHMM(layer.data.start_time),
+                       sort=lambda layer: layer.data.start_time,
+                       tip="The time the first frame of the layer began running.\n"
+                           "Aggregated from the layer's frames; blank until the first\n"
+                           "frame starts.")
+        self.addColumn("Stop Time", 100, id=26,
+                       data=lambda layer: cuegui.Utils.dateToMMDDHHMM(layer.data.stop_time),
+                       sort=lambda layer: layer.data.stop_time,
+                       tip="The time the last frame of the layer finished. Blank while\n"
+                           "any frame is still pending, running, or in DEPEND - mirroring\n"
+                           "the job's Stop Time semantics.")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # pylint: disable=no-member

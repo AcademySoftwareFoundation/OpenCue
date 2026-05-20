@@ -82,6 +82,15 @@ The CueWeb interface consists of:
    - Progress (completion percentage)
    - Start time (newest first)
 
+4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
+
+5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to receive a browser notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+   - Outline bell &rarr; not subscribed
+   - Filled bell &rarr; subscribed, waiting
+   - Filled bell with green dot &rarr; notification has fired (click to clear)
+
+   The first subscribe of the session prompts for browser notification permission. Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+
 ### Understanding Job Status
 
 Jobs are color-coded for quick identification:
@@ -137,7 +146,12 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 2. This opens the job details panel with tabs:
    - **Layers**: Shows render layers and their status
    - **Frames**: Individual frame information
-   - **Comments**: Job notes and updates
+
+3. To view notes attached to a job, open **Comments**:
+   - Right-click the job row and choose **Comments**, or click the sticky-note icon next to the job name if the job already has comments.
+   - The Comments page mirrors the CueGUI Comments dialog: comment list (Subject / User / Date), a markdown-rendered preview, an editor for the selected comment, and `New` / `Save changes` / `Delete` buttons.
+   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros (`localStorage` key `cueweb-comment-macros`).
+   - Only a comment's author may edit or delete it; other users see it read-only.
 
 ### Understanding Layers
 
@@ -182,6 +196,12 @@ Frames are the individual rendering tasks within each layer.
    - Right-click on yellow (running) frames
    - Select "Kill Frame"
    - Use when frames are stuck or consuming too many resources
+
+4. **Filter by Frame State**:
+   - The chips above the frames table — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — show the count for each state and act as toggles.
+   - Click one or more chips to filter; multiple selections are combined with **OR**.
+   - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
+   - Counts on each chip always reflect the full unfiltered data set.
 
 ### Frame Troubleshooting
 
@@ -280,6 +300,7 @@ Customize the jobs table to show relevant information:
 ### Auto-refresh Settings
 
 * **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables
+* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds and fires a browser notification when the job reaches `FINISHED`. Subscriptions are stored in `localStorage` and survive page reloads.
 
 ### Monitoring Best Practices
 

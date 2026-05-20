@@ -119,7 +119,8 @@ def rep(entity):
     """rep(entity)
     Extracts a string representation of a opencue entity"""
     try:
-        return entity.name
+        name = entity.name
+        return name() if callable(name) else name
     # pylint: disable=bare-except
     except:
         return str(entity)
