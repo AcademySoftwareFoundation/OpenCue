@@ -19,8 +19,6 @@
 import type { MouseEvent } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
-import { requestNotificationPermission } from "@/app/utils/subscription_utils";
-import { toastWarning } from "@/app/utils/notify_utils";
 
 interface Props {
   jobId: string;
@@ -42,16 +40,9 @@ export function SubscribeBell({ jobId, jobName, jobState }: Props) {
     e.stopPropagation(); // don't trigger the row's click-through to the job detail dialog
     if (entry) {
       unsubscribe(jobId);
-      return;
+    } else {
+      subscribe(jobId, jobName);
     }
-
-    const permission = await requestNotificationPermission();
-    if (permission !== "granted") {
-      toastWarning("Browser notifications denied. Enable in browser settings to subscribe.");
-      return;
-    }
-
-    subscribe(jobId, jobName);
   };
 
   let icon, label;
