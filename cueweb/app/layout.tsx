@@ -38,11 +38,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AppSessionProvider>
-            <AppHeader />
-            <ReadOnlyBanner />
-            <div className="flex pb-6">
+            {/* The sidebar sits in its own full-height column on the left;
+                the AppHeader, ReadOnlyBanner and main content render in the
+                right column so the header never overlaps the sidebar area. */}
+            <div className="flex min-h-screen">
               <AppSidebar />
-              <main className="min-w-0 flex-1">{children}</main>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <AppHeader />
+                <ReadOnlyBanner />
+                <main className="flex-1 pb-6">{children}</main>
+              </div>
             </div>
             <AttributesPanel />
             <StatusBar />
