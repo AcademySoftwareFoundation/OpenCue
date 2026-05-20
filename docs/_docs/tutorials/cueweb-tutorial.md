@@ -146,7 +146,12 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 2. This opens the job details panel with tabs:
    - **Layers**: Shows render layers and their status
    - **Frames**: Individual frame information
-   - **Comments**: Job notes and updates
+
+3. To view notes attached to a job, open **Comments**:
+   - Right-click the job row and choose **Comments**, or click the sticky-note icon next to the job name if the job already has comments.
+   - The Comments page mirrors the CueGUI Comments dialog: comment list (Subject / User / Date), a markdown-rendered preview, an editor for the selected comment, and `New` / `Save changes` / `Delete` buttons.
+   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros (`localStorage` key `cueweb-comment-macros`).
+   - Only a comment's author may edit or delete it; other users see it read-only.
 
 ### Understanding Layers
 

@@ -171,6 +171,7 @@ The CueWeb interface includes:
 - **Pause/Resume**: Click the pause/play button for individual jobs
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details**: Click on a job name to view detailed information
+- **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon next to a job's name, to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros
 
 ### Frame Operations
 
