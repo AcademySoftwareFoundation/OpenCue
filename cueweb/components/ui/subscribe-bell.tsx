@@ -19,7 +19,7 @@
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
 import { requestNotificationPermission } from "@/app/utils/subscription_utils";
-import { toastWarning } from "@/app/utils/notify_utils";
+import { toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 
 interface Props {
   jobId: string;
@@ -45,13 +45,24 @@ export function SubscribeBell({ jobId, jobName, jobState }: Props) {
       return;
     }
 
-    const permission = await requestNotificationPermission();
-    if (permission !== "granted") {
-      toastWarning("Browser notifications denied. Enable in browser settings to subscribe.");
-      return;
-    }
-
+    // Subscription is a localStorage flag - it's useful on its own (the
+    // bell turns into a notified-state pip when the job finishes, and the
+    // poller fires an in-app toast). So we ALWAYS subscribe; the OS-level
+    // permission is just an optional upgrade for desktop popups.
     subscribe(jobId, jobName);
+
+    const permission = await requestNotificationPermission();
+    if (permission === "granted") {
+      toastSuccess(`Subscribed to "${jobName}" - you'll get a desktop popup when it finishes.`);
+    } else if (permission === "denied") {
+      toastWarning(
+        `Subscribed to "${jobName}" (in-app only). Desktop popups are blocked - enable notifications for this site in your browser settings to also receive system popups.`,
+      );
+    } else {
+      // "default" - user dismissed the prompt without choosing. Still
+      // subscribed; they can retry from browser site settings later.
+      toastSuccess(`Subscribed to "${jobName}" (in-app only).`);
+    }
   };
 
   let icon, label;
