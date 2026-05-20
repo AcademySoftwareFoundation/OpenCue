@@ -32,6 +32,7 @@ import {
   retryLayerFramesGivenRow,
   unmonitorJobGivenRow,
 } from "@/app/utils/action_utils";
+import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { Row } from "@tanstack/react-table";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
@@ -112,16 +113,20 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
+
   // If the row is null or the job's state is finished, set active as false
   const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
+  // Destructive items respect the per-row state AND the global safety flag.
+  const destructiveActive = isActive && !jobInteractionDisabled;
 
   const menuItems: MenuItem[] = [
     { label: "Unmonitor", onClick: handleUnmonitorJobGivenRow, isActive: true, component: <TbEyeOff className="mr-1" size={13} color="black" /> },
     { label: "Comments", onClick: handleCommentsGivenRow, isActive: true, component: <TbMessage className="mr-1" size={14} color="black" /> },
-    { label: "Pause", onClick: pauseJobGivenRow, isActive: isActive, component: <TbPlayerPause className="mr-1" size={14} color={isActive ? "blue" : "gray"} /> },
-    { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: isActive, component: <TbReload className="mr-1" size={14} color={isActive ? "red" : "gray"} /> },
-    { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: isActive, component: <TbPacman className="mr-1" size={14} color={isActive ? "orange" : "gray"} /> },
-    { label: "Kill", onClick: handleKillJobGivenRow, isActive: isActive, component: <MdOutlineCancel className="mr-1" size={14} color={isActive ? "red" : "gray"} /> },
+    { label: "Pause", onClick: pauseJobGivenRow, isActive: destructiveActive, component: <TbPlayerPause className="mr-1" size={14} color={destructiveActive ? "blue" : "gray"} /> },
+    { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbReload className="mr-1" size={14} color={destructiveActive ? "red" : "gray"} /> },
+    { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbPacman className="mr-1" size={14} color={destructiveActive ? "orange" : "gray"} /> },
+    { label: "Kill", onClick: handleKillJobGivenRow, isActive: destructiveActive, component: <MdOutlineCancel className="mr-1" size={14} color={destructiveActive ? "red" : "gray"} /> },
   ];
 
   return (
@@ -147,11 +152,14 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
     killLayerGivenRow(row, username);
   }
 
+  const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
+  const active = !jobInteractionDisabled;
+
   const items: MenuItem[] = [
-    { label: "Kill", onClick: handleKillLayerGivenRow, isActive: true, component: <MdOutlineCancel className="mr-1" size={14} color="red" /> },
-    { label: "Eat", onClick: eatLayerFramesGivenRow, isActive: true, component: <TbPacman className="mr-1" size={14} color="orange" /> },
-    { label: "Retry", onClick: retryLayerFramesGivenRow, isActive: true, component: <TbReload className="mr-1" size={14} color="black" /> },
-    { label: "Retry Dead Frames", onClick: retryLayerDeadFramesGivenRow, isActive: true, component: <TbReload className="mr-1" size={14} color="red" /> },
+    { label: "Kill", onClick: handleKillLayerGivenRow, isActive: active, component: <MdOutlineCancel className="mr-1" size={14} color={active ? "red" : "gray"} /> },
+    { label: "Eat", onClick: eatLayerFramesGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "Retry", onClick: retryLayerFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
+    { label: "Retry Dead Frames", onClick: retryLayerDeadFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "red" : "gray"} /> },
   ];
 
   return (
@@ -177,10 +185,13 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
     killFrameGivenRow(row, username);
   }
 
+  const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
+  const active = !jobInteractionDisabled;
+
   const items: MenuItem[] = [
-    { label: "Retry", onClick: retryFrameGivenRow, isActive: true, component: <TbReload className="mr-1" size={14} color="black" /> },
-    { label: "Eat", onClick: eatFrameGivenRow, isActive: true, component: <TbPacman className="mr-1" size={14} color="orange" /> },
-    { label: "Kill", onClick: handleKillFrameGivenRow, isActive: true, component: <MdOutlineCancel className="mr-1" size={14} color="red" /> },
+    { label: "Retry", onClick: retryFrameGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
+    { label: "Eat", onClick: eatFrameGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "Kill", onClick: handleKillFrameGivenRow, isActive: active, component: <MdOutlineCancel className="mr-1" size={14} color={active ? "red" : "gray"} /> },
   ];
 
   return (

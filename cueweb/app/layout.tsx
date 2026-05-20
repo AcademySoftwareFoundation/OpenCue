@@ -20,6 +20,9 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
 import { AppSessionProvider } from "@/app/providers/session-provider";
 import { AppHeader } from "@/components/ui/app-header";
+import { AppSidebar } from "@/components/ui/app-sidebar";
+import { AttributesPanel } from "@/components/ui/attributes-panel";
+import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
 
 export const metadata: Metadata = {
   title: "CueWeb",
@@ -33,7 +36,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AppSessionProvider>
             <AppHeader />
-            {children}
+            <ReadOnlyBanner />
+            <div className="flex">
+              <AppSidebar />
+              <main className="min-w-0 flex-1">{children}</main>
+            </div>
+            <AttributesPanel />
           </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />

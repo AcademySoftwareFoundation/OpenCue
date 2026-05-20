@@ -20,8 +20,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { ChevronDown, LogOut } from "lucide-react";
+import * as React from "react";
+import { Check, ChevronDown, Layers3, LogOut, Search, X } from "lucide-react";
 
+import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
+import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
+import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
+import {
+  filterMenuCommands,
+  useMenuRegistry,
+} from "@/app/utils/use_menu_registry";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,45 +43,8 @@ import { cn } from "@/lib/utils";
 import opencueLogoBlack from "../../public/opencue-icon-black.png";
 import opencueLogoWhite from "../../public/opencue-icon-white.png";
 
-type NavItem = {
-  label: string;
-  href: string;
-};
-
-type NavMenu = {
-  label: string;
-  items: NavItem[];
-};
-
-/**
- * Nav structure mirrors the CueGUI Views/Plugins menu:
- *   - Cuetopia    → Monitor Jobs
- *   - CueCommander → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect,
- *                    Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions
- *
- * Routes for not-yet-built pages 404 gracefully until those Category D–G tasks land.
- */
-const NAV_MENUS: NavMenu[] = [
-  {
-    label: "Cuetopia",
-    items: [{ label: "Monitor Jobs", href: "/" }],
-  },
-  {
-    label: "CueCommander",
-    items: [
-      { label: "Allocations", href: "/allocations" },
-      { label: "Limits", href: "/limits" },
-      { label: "Monitor Cue", href: "/monitor-cue" },
-      { label: "Monitor Hosts", href: "/hosts" },
-      { label: "Redirect", href: "/redirect" },
-      { label: "Services", href: "/services" },
-      { label: "Shows", href: "/shows" },
-      { label: "Stuck Frame", href: "/stuck-frames" },
-      { label: "Subscription Graphs", href: "/subscription-graphs" },
-      { label: "Subscriptions", href: "/subscriptions" },
-    ],
-  },
-];
+// NAV_MENUS is sourced from `@/app/utils/menus` so the header, sidebar and
+// menu registry share one source of truth.
 
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -132,9 +104,127 @@ function NavMenuButton({
   );
 }
 
+/**
+ * Help dropdown - CueGUI parity (Help menu in `cuegui/cuegui/MainWindow.py`).
+ * The search box at the top searches across **every** menu command in
+ * CueWeb (File, Cuebot Facility, Cuetopia, CueCommander, Other, Help),
+ * mirroring CueGUI's Help-menu search behavior. With an empty query it
+ * shows the three canonical Help items.
+ */
+function HelpDropdownMenu() {
+  const [query, setQuery] = React.useState<string>("");
+  const commands = useMenuRegistry();
+
+  // Empty query -> show only the canonical Help items so the menu still
+  // behaves like a plain "Help" menu when not searching.
+  const helpOnly = React.useMemo(
+    () => commands.filter((c) => c.group === "Help"),
+    [commands],
+  );
+
+  const results = React.useMemo(() => {
+    if (!query.trim()) return helpOnly;
+    return filterMenuCommands(commands, query);
+  }, [commands, helpOnly, query]);
+
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setQuery("");
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+        >
+          Help
+          <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-[60vh] min-w-[22rem] overflow-y-auto p-1"
+      >
+        {/* Search filter. stopPropagation defeats Radix's built-in
+            typeahead so the input captures every keystroke. */}
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-popover px-2 py-1.5">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            placeholder="Search menus"
+            aria-label="Search menus"
+            className="h-7 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="rounded p-0.5 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        {results.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">
+            No matches.
+          </div>
+        ) : (
+          results.map((cmd) => (
+            <DropdownMenuItem
+              key={cmd.id}
+              onSelect={() => cmd.run()}
+              className="cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Layers3
+                  className="h-3.5 w-3.5 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                {/* Show "Group > Label" so the user always knows where the
+                    command lives - except for Help entries, where the
+                    group prefix is redundant in the unfiltered view. */}
+                {!query && cmd.group === "Help" ? (
+                  <span>{cmd.label}</span>
+                ) : (
+                  <span>
+                    <span className="text-muted-foreground">
+                      {cmd.group}
+                      {" > "}
+                    </span>
+                    <span>{cmd.label}</span>
+                  </span>
+                )}
+              </span>
+              {cmd.hint && (
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {cmd.hint}
+                </span>
+              )}
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppHeader() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
+    useDisableJobInteraction();
+  const { facility, facilities, setFacility } = useCuebotFacility();
+  const {
+    isOpen: attributesOpen,
+    toggle: toggleAttributes,
+  } = useAttributesPanel();
 
   if (pathname?.startsWith("/login")) return null;
 
@@ -192,9 +282,115 @@ export function AppHeader() {
           aria-label="Primary"
           className="ml-2 hidden items-center gap-1 md:flex"
         >
+          {/* File menu — CueGUI parity */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  jobInteractionDisabled
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                File
+                <ChevronDown
+                  className="h-3.5 w-3.5 opacity-70"
+                  aria-hidden="true"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[14rem]">
+              <DropdownMenuItem
+                onSelect={() => toggleJobInteraction()}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                  {jobInteractionDisabled && (
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </span>
+                Disable Job Interaction
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Cuebot Facility menu — CueGUI parity */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              >
+                <span>Cuebot Facility</span>
+                <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground">
+                  {facility}
+                </span>
+                <ChevronDown
+                  className="h-3.5 w-3.5 opacity-70"
+                  aria-hidden="true"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[12rem]">
+              {facilities.map((f) => (
+                <DropdownMenuItem
+                  key={f}
+                  onSelect={() => setFacility(f)}
+                  className="cursor-pointer"
+                >
+                  <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                    {f === facility && (
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </span>
+                  {f}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {NAV_MENUS.map((menu) => (
             <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
           ))}
+
+          {/* Other menu — CueGUI parity (Views/Plugins > Other). */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  attributesOpen
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                Other
+                <ChevronDown
+                  className="h-3.5 w-3.5 opacity-70"
+                  aria-hidden="true"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[12rem]">
+              <DropdownMenuItem
+                onSelect={() => toggleAttributes()}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                  {attributesOpen && (
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </span>
+                Attributes
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Help menu — CueGUI parity (Help > Search / User Guide / Suggestion / Bug). */}
+          <HelpDropdownMenu />
         </nav>
 
         {/* Right cluster: theme + user menu */}

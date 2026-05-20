@@ -429,8 +429,7 @@ Layout, left to right:
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
   
-  Routes that have not been implemented yet 404 gracefully (see
-  `CUEWEB_MIGRATION_TASKS.md` Categories D–G for status).
+  Routes that have not been implemented yet 404 gracefully.
 - **Theme toggle**: Switches between light and dark mode (see
   [Theming](#theming) below).
 - **Sign out**: Always rendered. With a session, `signOut()` clears it and

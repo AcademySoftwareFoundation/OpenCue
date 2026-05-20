@@ -32,6 +32,8 @@ import {
   getJobsForUser
 } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
+import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { Button } from "@/components/ui/button";
 import { JobContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
@@ -200,7 +202,10 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-// Reusable Job Action Button component to reduce redundancy
+// Reusable Job Action Button component to reduce redundancy.
+// Every button rendered with JobActionButton is a *destructive* job action
+// (pause / unpause / retry / kill / eat), so it is auto-disabled when the
+// "Disable Job Interaction" safety flag is on.
 const JobActionButton = ({
   icon: Icon,
   label,
@@ -213,20 +218,31 @@ const JobActionButton = ({
   onClick: () => void;
   color: string;
   last?: boolean;
-}) => (
-  last ? (
-    <button className="flex flex-row justify-center items-center" onClick={onClick}>
-      <Icon className="mr-1" size={18} color={color} />
+}) => {
+  const { disabled } = useDisableJobInteraction();
+  const base = "flex flex-row justify-center items-center transition-opacity";
+  const dim = disabled
+    ? "opacity-40 cursor-not-allowed"
+    : "cursor-pointer";
+  const sep = last ? "" : "border-r border-gray-300 pr-2";
+  return (
+    <button
+      type="button"
+      className={`${base} ${dim} ${sep}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
+      title={
+        disabled
+          ? "Disabled — File ▸ Disable Job Interaction is on"
+          : undefined
+      }
+    >
+      <Icon className="mr-1" size={18} color={disabled ? "gray" : color} />
       {label}
     </button>
-  ) : (
-    <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2" onClick={onClick}>
-      <Icon className="mr-1" size={18} color={color} />
-      {label}
-    </button>
-  )
-  
-);
+  );
+};
 
 export function DataTable({ columns, username }: DataTableProps) {
   const { theme, setTheme } = useTheme();
@@ -897,6 +913,15 @@ export function DataTable({ columns, username }: DataTableProps) {
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                   onContextMenu={(e: React.MouseEvent) => contextMenuHandleOpen(e, row)}
+                  onClick={() => {
+                    const job = row.original as Job;
+                    setAttributeSelection({
+                      type: "job",
+                      id: job.id,
+                      name: job.name,
+                      data: job as unknown as Record<string, unknown>,
+                    });
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     // if the column for this cell is the pop-up button column, make it a "sticky" column so that

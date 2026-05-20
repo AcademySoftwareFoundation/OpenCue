@@ -39,7 +39,7 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - Two grouped dropdown menus mirroring the CueGUI **Views/Plugins** menu:
      - **Cuetopia** → Monitor Jobs
      - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions
-     - CueCommander routes that have not been built yet 404 gracefully until the corresponding tasks land (see `CUEWEB_MIGRATION_TASKS.md`).
+     - CueCommander routes that have not been built yet 404 gracefully until the corresponding tasks land.
    - Theme toggle on the right.
    - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
    - When the user is signed in, the right-side cluster also shows the session's name or email next to the Sign out button.
