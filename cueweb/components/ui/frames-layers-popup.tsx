@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { SimpleDataTable } from "./simple-data-table";
 
@@ -145,7 +146,15 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-scroll">
           <DialogHeader>
             <DialogTitle className="truncate">{job.name}</DialogTitle>
-            <DialogDescription>Layers and frames for this job.</DialogDescription>
+            <DialogDescription className="flex flex-wrap items-center gap-2">
+              <span>Layers and frames for this job.</span>
+              <Link
+                href={`/jobs/${encodeURIComponent(job.name)}?jobId=${encodeURIComponent(job.id)}`}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Open full page
+              </Link>
+            </DialogDescription>
           </DialogHeader>
           <SimpleDataTable data={layers} columns={layerColumns} username={username} />
           <SimpleDataTable data={frames} columns={frameColumns} job={job} isFramesTable={true} username={username} />
