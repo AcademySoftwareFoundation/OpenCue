@@ -2053,7 +2053,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "layer_mem.int_max_pss, "
                 + "layer_resource.int_cores, "
                 + "layer_resource.int_gpus, "
-                + "limit_names.str_limit_names "
+                + "limit_names.str_limit_names, "
+                // Layer activity window. Denormalized on layer_stat and maintained by
+                // trigger__update_frame_status_counts on every frame state change, so the
+                // read path is two column reads instead of two correlated aggregates
+                // against frame. The "stay at 0 until the whole layer is done" stop-time
+                // semantic is applied in LAYER_MAPPER using the counter columns below.
+                + "layer_stat.ts_started AS layer_ts_started, "
+                + "layer_stat.ts_stopped AS layer_ts_stopped "
             + "FROM "
                 + "layer "
             + "JOIN "
