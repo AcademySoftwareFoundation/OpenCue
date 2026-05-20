@@ -90,25 +90,33 @@ npm run dev
 ```
 cueweb/
 ├── app/                  # Next.js App Router pages
-│   ├── globals.css       # Global styles
-│   ├── layout.tsx        # Root layout component
-│   ├── page.tsx          # Home page
-│   ├── login/            # Authentication pages
-│   └── api/              # API routes
+│   ├── globals.css       # Global styles and theme CSS variables
+│   ├── layout.tsx        # Root layout — mounts ThemeProvider,
+│   │                     #   AppSessionProvider, AppHeader, and
+│   │                     #   JobSubscriptionPoller around {children}
+│   ├── page.tsx          # Jobs dashboard (Cuetopia → Monitor Jobs)
+│   ├── icon.png          # Favicon (OpenCue logo, theme-agnostic)
+│   ├── login/            # Authentication pages (header is hidden here)
+│   ├── providers/        # Client-side providers
+│   │   ├── session-provider.tsx       # Wraps NextAuth's SessionProvider
+│   │   └── job-subscription-poller.tsx # Polls subscribed jobs
+│   └── api/              # API routes (REST gateway proxy + auth)
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
-│   ├── tables/           # Data table components
-│   ├── dialogs/          # Modal dialogs
-│   └── forms/            # Form components
+│   │   ├── app-header.tsx       # Global persistent header
+│   │   ├── cuewebicon.tsx       # OpenCue icon + "CueWeb" wordmark
+│   │   ├── theme-toggle.tsx     # Light/dark toggle
+│   │   ├── theme-provider.tsx   # next-themes wrapper
+│   │   └── ...                  # button, dialog, dropdown-menu, etc.
+│   └── context_menus/    # Right-click context menus
 ├── lib/                  # Utility libraries
-│   ├── auth.ts           # Authentication configuration
-│   ├── api.ts            # API client functions
-│   ├── utils.ts          # General utilities
-│   └── types.ts          # TypeScript type definitions
+│   ├── auth.ts           # NextAuth configuration (Okta/Google/GitHub/LDAP)
+│   ├── utils.ts          # General utilities (incl. cn())
+│   └── metrics-service.ts # Prometheus metrics
 ├── public/               # Static assets
-│   ├── icons/            # Application icons
-│   └── images/           # Images and graphics
-├── styles/               # Additional stylesheets
+│   ├── opencue-icon-black.png   # Header logo (light mode)
+│   ├── opencue-icon-white.png   # Header logo (dark mode)
+│   └── workers/                 # Web workers
 ├── __tests__/            # Unit and integration tests
 ├── jest.config.js        # Jest testing configuration
 ├── next.config.js        # Next.js configuration
@@ -117,11 +125,25 @@ cueweb/
 └── package.json          # Dependencies and scripts
 ```
 
+The OpenCue brand assets that drive the icon/wordmark live at the repo
+root in `images/` (icon, horizontal, stacked × PNG + SVG × black + white)
+so other OpenCue projects can re-use them. The two PNGs CueWeb actually
+loads at runtime are copies under `cueweb/public/`.
+
 ### Key Components
 
 #### Core Components
 
-- **`JobsTable`**: Main jobs dashboard table
+- **`AppHeader`** (`components/ui/app-header.tsx`): Persistent global header mounted by `app/layout.tsx`. Hidden on `/login*`. Composes:
+  - The OpenCue logo (theme-aware via Tailwind `block dark:hidden` / `hidden dark:block`) + the **CueWeb** wordmark.
+  - Two `DropdownMenu`s built from a `NAV_MENUS` data array mirroring the CueGUI Views/Plugins menu:
+    - **Cuetopia** → Monitor Jobs (`/`).
+    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Active state is computed at the group level (`isMenuActive`); individual items also highlight when their `href` matches.
+  - The existing `ThemeToggle`.
+  - An always-visible **Sign out** button. `handleSignOut` clears two `localStorage` keys (`tableData`, `tableDataUnfiltered`) and calls `signOut({ callbackUrl: "/login" })` regardless of session state. When a session exists the button is preceded by the session's name or email (truncated, hidden on mobile).
+- **`AppSessionProvider`** (`app/providers/session-provider.tsx`): Thin client wrapper around `next-auth/react`'s `SessionProvider` so `useSession()` works inside the header and any other client component.
+- **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
+- **`JobsTable`**: Main jobs dashboard table (no longer renders its own inline header — the global `AppHeader` owns that chrome).
 - **`JobDetails`**: Job detail panel with layers/frames
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering

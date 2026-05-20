@@ -94,6 +94,10 @@ NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
+# Comma-separated list of providers to enable on the /login page.
+# When empty, /login renders only a "CueWeb Home" button. The global
+# header's Sign out button is always rendered regardless of this value;
+# clicking it routes to /login.
 NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
 NEXTAUTH_URL=https://cueweb.company.com
 NEXTAUTH_SECRET=nextauth-production-secret

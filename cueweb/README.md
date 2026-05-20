@@ -1,7 +1,10 @@
 CueWeb System
 ==============
 
-![CueWeb Icon](app/iconlight.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/opencue-icon-white.png">
+  <img alt="OpenCue" src="public/opencue-icon-black.png" height="80">
+</picture> &nbsp;&nbsp;**CueWeb**
 
 # Contents
 
@@ -31,8 +34,18 @@ CueWeb is a web-based application that brings the core functionality of [CueGUI]
 
 CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) in a web-accessible format, enhancing usability while maintaining the familiar interface that users appreciate. This adaptation supports essential operations such as:
 
+- **Global application header (persistent across every route):**
+   - OpenCue logo (theme-aware: `opencue-icon-black.png` in light mode, `opencue-icon-white.png` in dark mode) followed by the **CueWeb** wordmark.
+   - Two grouped dropdown menus mirroring the CueGUI **Views/Plugins** menu:
+     - **Cuetopia** → Monitor Jobs
+     - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions
+     - CueCommander routes that have not been built yet 404 gracefully until the corresponding tasks land (see `CUEWEB_MIGRATION_TASKS.md`).
+   - Theme toggle on the right.
+   - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
+   - When the user is signed in, the right-side cluster also shows the session's name or email next to the Sign out button.
 - **User authentication:**
-   - Secure login capabilities through Okta, Google, and GitHub.
+   - Secure login capabilities through Okta, Google, GitHub, and LDAP (configured via `NEXT_PUBLIC_AUTH_PROVIDER`).
+   - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.
 - **Job management dashboard:**
   - Customizable table views to show or hide specific columns.
   - Filter jobs by state (active, paused, or completed).
@@ -291,7 +304,8 @@ Go back to [Contents](#contents).
 
 The current CueWeb system offers a robust set of features designed to enhance user interaction and productivity:
 
-- **Authentication:** Secure login via Okta, Google, and GitHub.
+- **Persistent global header:** OpenCue logo + **CueWeb** wordmark, grouped **Cuetopia / CueCommander** dropdown navigation matching the CueGUI Views/Plugins menu, theme toggle, and an always-visible Sign out button.
+- **Authentication:** Secure login via Okta, Google, GitHub, and LDAP.
 - **Jobs/layers/frames management:** Customizable tables, state filtering, monitoring, detailed inspections, and log navigation. Includes a hover tooltip on the job progress bar (per-state frame counts and percentages) and frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with URL-persisted selection.
 - **Search:** Advanced search with regex support, dropdown suggestions, and optimized loading.
 - **Dark mode:** Toggle between light and dark themes.

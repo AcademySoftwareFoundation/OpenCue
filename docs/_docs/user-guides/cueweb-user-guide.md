@@ -118,10 +118,20 @@ When you first access CueWeb, you'll see the main dashboard:
 
 ![CueWeb main page (dark mode)](/assets/images/cueweb/figure4-main-dark.png)
 
-- **Jobs Dashboard**: Central paginated table populated with OpenCue jobs
-- **Navigation Menu**: Access to different sections
-- **Theme Toggle**: Switch between light and dark modes
-- **User Menu**: Authentication and settings (if enabled)
+> **Note:** the dashboard screenshots above predate the global application header. Recent builds show that header at the top of every authenticated page — the OpenCue logo + **CueWeb** wordmark on the left, the Cuetopia / CueCommander dropdown navigation, a theme toggle, and a Sign out button on the right.
+
+The screen is composed of:
+
+- **Global header**: Persistent across every authenticated route.
+  - **Logo and wordmark**: OpenCue icon (black in light mode, white in dark mode) followed by **CueWeb**. Clicking the logo returns you to the jobs dashboard (`/`).
+  - **Navigation**: Two grouped dropdowns matching the CueGUI Views/Plugins menu:
+    - **Cuetopia** → Monitor Jobs.
+    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions.
+    
+    Routes that have not been implemented yet 404 gracefully — they are placeholders for upcoming features.
+  - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
+  - **Sign out**: Always visible. When you are signed in, it shows your name or email next to the button and clicking it ends the session and returns you to `/login`. When you are not signed in (or when authentication is disabled in the deployment), clicking it just navigates to `/login` — the `/login` page itself shows the **CueWeb Home** button if no auth provider is configured, or the provider buttons otherwise.
+- **Jobs Dashboard**: Central paginated table populated with OpenCue jobs (below the header).
 
 ---
 

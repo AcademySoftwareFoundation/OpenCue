@@ -59,7 +59,14 @@ You should see the main CueWeb dashboard with the jobs table.
 
 The CueWeb interface consists of:
 
-- **Header**: Navigation, theme toggle, and user menu
+- **Global header (persistent across every authenticated route):**
+  - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, clickable as a link back to the jobs dashboard.
+  - Two grouped dropdown menus mirroring the CueGUI Views/Plugins menu:
+    - **Cuetopia** → Monitor Jobs.
+    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions.
+    
+    Routes that are not yet implemented 404 gracefully.
+  - Theme toggle and an always-visible **Sign out** button on the right. With an active session, Sign out clears it and returns you to `/login`. Without a session (or when auth is disabled), it simply navigates to `/login`.
 - **Filter Bar**: Show selection, status filters, and search
 - **Jobs Table**: Main view of all jobs with sortable columns
 - **Action Buttons**: Job control operations

@@ -25,47 +25,54 @@ This guide provides an introduction to the CueWeb system, the web-based version 
 
 CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs/reference/cuegui-app/) (Cuetopia and Cuecommander) in a web-accessible format, enhancing usability while maintaining the familiar interface that users appreciate. This adaptation supports essential operations such as:
 
-1. **Secure user authentication:**
+1. **Persistent global header (every authenticated route):**
+   - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark.
+   - Two grouped dropdown menus mirroring the CueGUI Views/Plugins menu:
+     - **Cuetopia** → Monitor Jobs.
+     - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Routes not yet implemented 404 gracefully until their migration tasks land.
+   - Theme toggle (light/dark).
+   - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` — the `/login` page itself shows either the **CueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
+2. **Secure user authentication:**
    - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
-2. **Customizable job management dashboard:** 
+3. **Customizable job management dashboard:** 
    - Manage jobs with a customizable table where users can select visible columns and filter jobs based on their state (active, paused, completed).
-3. **Flexible monitoring controls:** 
+4. **Flexible monitoring controls:** 
    - Easily un-monitor jobs across all statuses.
-4. **Detailed job inspection:** 
+5. **Detailed job inspection:** 
    - View job details with pop-up windows showing layers and frames associated with each job.
-5. **Frame navigation and logs access:** 
+6. **Frame navigation and logs access:** 
    - Navigate frames using hyperlinks that lead to dedicated pages for frame data and logs.
-6. **Advanced job search functionality:** 
+7. **Advanced job search functionality:** 
    - Search for jobs by show name with dropdown suggestions for matching entries.
    - Search functionality requires `show-shot-` as the prefix to reduce the number of results returned.
-7. **Dark mode toggle for user preference:** 
+8. **Dark mode toggle for user preference:** 
    - Switch between light and dark modes according to user preference.
-8. **Enhanced search functionality:**
+9. **Enhanced search functionality:**
    - Users can enable regex searches by appending '!' to their queries, with tooltips provided for guidance.
    - Optimized loading times using virtualization and web workers, along with loading animations for a better user experience.
    - Users can add or remove multiple jobs directly from the search results, with existing jobs highlighted in green.
-9. **Enhanced security using Opencue API:**
+10. **Enhanced security using Opencue API:**
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
-10. **CueWeb actions and context menu are available:**
+11. **CueWeb actions and context menu are available:**
 
 Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kill.
    - _Layer actions:_ `Kill`, `Eat`, `Retry`, `Retry dead frames`.
    - _Frame actions:_ `Retry`, `Eat`, `Kill`.
    - Menu items are disabled if the job has finished, and the context menu is always rendered on-screen.
 
-11. **Auto-reloading of tables:**
+12. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
 
-12. **Job progress bar with hover tooltip:**
+13. **Job progress bar with hover tooltip:**
    - The Progress column renders a stacked bar with five colored segments (succeeded, running, waiting, depend, dead).
    - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
 
-13. **Frame state filter chips:**
+14. **Frame state filter chips:**
    - Above the frames table, a chip is rendered for each supported state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — annotated with the count of frames currently in that state.
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-14. **Per-job completion notifications:**
+15. **Per-job completion notifications:**
    - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired — click to clear).
    - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
@@ -73,7 +80,7 @@ Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kil
    - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
    - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
 
-15. **Job comments:**
+16. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).

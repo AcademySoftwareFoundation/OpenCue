@@ -148,11 +148,12 @@ You should see output similar to:
 
 The CueWeb interface includes:
 
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, the **Cuetopia** and **CueCommander** dropdown menus (mirroring the CueGUI Views/Plugins menu) next to it, a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
 - **Jobs Dashboard**: View and manage rendering jobs
 - **Job Search**: Search for specific jobs by name or pattern
 - **Frame Management**: Monitor frame status and logs
 - **Layer Operations**: Manage job layers and dependencies
-- **Dark/Light Mode**: Toggle between themes
+- **Dark/Light Mode**: Toggle between themes via the sun/moon button in the header
 - **Real-time Updates**: Automatic refresh of job status
 - **Job-finished Notifications**: Per-row bell button to subscribe to a browser notification when a job reaches `FINISHED`
 

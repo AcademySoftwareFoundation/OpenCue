@@ -403,6 +403,50 @@ Required volume mounts for log viewing:
 
 ---
 
+## Global Application Header
+
+CueWeb mounts a persistent header at the top of every authenticated route
+via `app/layout.tsx`. The header is implemented in
+`components/ui/app-header.tsx` and is hidden on `/login*` routes only.
+
+Layout, left to right:
+
+- **OpenCue logo + "CueWeb" wordmark**: The logo swaps between
+  `public/opencue-icon-black.png` (light mode) and
+  `public/opencue-icon-white.png` (dark mode). Clicking the logo returns
+  to `/` (Monitor Jobs).
+- **Cuetopia dropdown**:
+  - Monitor Jobs (`/`)
+- **CueCommander dropdown** (mirrors the CueGUI Views/Plugins menu):
+  - Allocations (`/allocations`)
+  - Limits (`/limits`)
+  - Monitor Cue (`/monitor-cue`)
+  - Monitor Hosts (`/hosts`)
+  - Redirect (`/redirect`)
+  - Services (`/services`)
+  - Shows (`/shows`)
+  - Stuck Frame (`/stuck-frames`)
+  - Subscription Graphs (`/subscription-graphs`)
+  - Subscriptions (`/subscriptions`)
+  
+  Routes that have not been implemented yet 404 gracefully (see
+  `CUEWEB_MIGRATION_TASKS.md` Categories D–G for status).
+- **Theme toggle**: Switches between light and dark mode (see
+  [Theming](#theming) below).
+- **Sign out**: Always rendered. With a session, `signOut()` clears it and
+  redirects to `/login`; without a session, the click just navigates to
+  `/login`. When a session is present, the session's name or email is
+  shown to the left of the button (truncated, hidden on mobile).
+
+The `/login` page handles both auth configurations:
+
+- `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) renders only the **CueWeb Home**
+  button — useful for sandbox deployments without authentication.
+- `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap` (or any subset)
+  renders one sign-in button per configured provider.
+
+---
+
 ## Theming
 
 ### Theme Toggle
@@ -412,7 +456,7 @@ CueWeb supports light and dark themes:
 - **Light Mode**: Default theme with light backgrounds
 - **Dark Mode**: Dark theme for reduced eye strain
 
-Toggle via the theme button in the header.
+Toggle via the sun/moon button in the global header.
 
 ### CSS Variables
 

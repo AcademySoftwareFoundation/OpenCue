@@ -31,6 +31,7 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 
 ### Key Features
 
+- **Persistent Global Header**: OpenCue logo + **CueWeb** wordmark, grouped **Cuetopia** and **CueCommander** dropdown navigation (mirroring the CueGUI Views/Plugins menu), theme toggle, and an always-visible Sign out button
 - **Job Management Dashboard**: View, filter, and manage rendering jobs
 - **Real-time Updates**: Automatic refresh of job, layer, and frame status
 - **Advanced Search**: Regex-enabled search with dropdown suggestions
@@ -39,7 +40,7 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Job Comments**: List / add / edit / delete per-job comments (markdown, sanitized) with predefined-comment macros - mirrors CueGUI's Comments dialog
 - **Dark/Light Mode**: Theme switching for user preference
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta)
+- **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta, LDAP)
 
 ### CueWeb vs CueGUI
 
