@@ -35,9 +35,11 @@ import {
 import { Row } from "@tanstack/react-table";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
-import { TbEyeOff, TbMessage, TbPacman, TbPlayerPause, TbReload } from "react-icons/tb";
+import { TbEyeOff, TbMail, TbMessage, TbPacman, TbPlayerPause, TbReload } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "../input";
 
 interface JobContextMenuProps {
   username: string;
@@ -101,6 +103,14 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     );
   }
 
+  const [emailJob, setEmailJob] = React.useState<Job | null>(null);
+
+  function handleEmailArtistGivenRow(row: Row<any> | null) {
+    if (!row) return;
+
+    setEmailJob(row.original);
+  }
+
   function handleKillJobGivenRow(row: Row<any>) {
     killJobGivenRow(row, username);
   }
@@ -118,6 +128,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   const menuItems: MenuItem[] = [
     { label: "Unmonitor", onClick: handleUnmonitorJobGivenRow, isActive: true, component: <TbEyeOff className="mr-1" size={13} color="black" /> },
     { label: "Comments", onClick: handleCommentsGivenRow, isActive: true, component: <TbMessage className="mr-1" size={14} color="black" /> },
+    { label: "Email Artist", onClick: handleEmailArtistGivenRow, isActive: true, component: <TbMail className="mr-1" size={13} color="black" /> },
     { label: "Pause", onClick: pauseJobGivenRow, isActive: isActive, component: <TbPlayerPause className="mr-1" size={14} color={isActive ? "blue" : "gray"} /> },
     { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: isActive, component: <TbReload className="mr-1" size={14} color={isActive ? "red" : "gray"} /> },
     { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: isActive, component: <TbPacman className="mr-1" size={14} color={isActive ? "orange" : "gray"} /> },
@@ -125,13 +136,51 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   ];
 
   return (
-    <BaseContextMenu
-      items={menuItems}
-      contextMenuState={contextMenuState}
-      contextMenuHandleClose={contextMenuHandleClose}
-      contextMenuRef={contextMenuRef}
-      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
-    />
+    <>
+      <BaseContextMenu
+        items={menuItems}
+        contextMenuState={contextMenuState}
+        contextMenuHandleClose={contextMenuHandleClose}
+        contextMenuRef={contextMenuRef}
+        contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+      />
+      <Dialog open={emailJob !== null} onOpenChange={(open) => { if (!open) setEmailJob(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email for {emailJob?.name}</DialogTitle>
+          </DialogHeader>
+          <form>
+            <span>
+            <label>
+              From:
+              <Input name="from" type="email"></Input>
+            </label>
+            </span>
+            <label>
+              To:
+              <Input name="to" type="email"></Input>
+            </label>
+            <label>
+              CC:
+              <Input name="cc" type="email"></Input>
+            </label>
+            <label>
+              BCC:
+              <Input name="bcc" type="email"></Input>
+            </label>
+            <label>
+              Subject:
+              <Input name="subject" type="text"></Input>
+            </label>
+            <label>
+              Message:
+              <Input name="message" type="text"></Input>
+            </label>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+
   );
 };
 
