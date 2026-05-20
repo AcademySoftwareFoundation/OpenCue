@@ -722,6 +722,8 @@ message Layer {
     float max_gpus = 21;
     string command = 22;
     int32 eligible_time = 23;
+    int32 start_time = 24;
+    int32 stop_time = 25;
 }
 
 message LayerSeq {
