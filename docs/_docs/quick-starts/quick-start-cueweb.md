@@ -154,6 +154,7 @@ The CueWeb interface includes:
 - **Layer Operations**: Manage job layers and dependencies
 - **Dark/Light Mode**: Toggle between themes
 - **Real-time Updates**: Automatic refresh of job status
+- **Job-finished Notifications**: Per-row bell button to subscribe to a browser notification when a job reaches `FINISHED`
 
 ---
 
@@ -170,6 +171,7 @@ The CueWeb interface includes:
 - **Pause/Resume**: Click the pause/play button for individual jobs
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details**: Click on a job name to view detailed information
+- **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon next to a job's name, to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros
 
 ### Frame Operations
 
@@ -177,6 +179,9 @@ The CueWeb interface includes:
 2. **Retry Frames**: Right-click failed frames to retry
 3. **View Logs**: Click on frame numbers to view logs
 4. **Frame States**: Monitor frame progress with color-coded status
+5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
+6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
+7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to receive a browser notification when the job reaches `FINISHED`. The first click prompts for browser notification permission and subscriptions persist across page reloads (stored in `localStorage`). A background poller checks each subscribed job every 15 seconds.
 
 ### Search Functionality
 

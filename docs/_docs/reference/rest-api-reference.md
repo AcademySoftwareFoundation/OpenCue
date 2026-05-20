@@ -87,7 +87,8 @@ The REST API provides access to all OpenCue interfaces:
 | Interface | Purpose | Key Endpoints |
 |-----------|---------|---------------|
 | [Show Interface](#show-interface) | Show management | GetShows, FindShow, CreateShow |
-| [Job Interface](#job-interface) | Job operations | GetJobs, FindJob, Kill, Pause, Resume |
+| [Job Interface](#job-interface) | Job operations | GetJobs, FindJob, Kill, Pause, Resume, GetComments, AddComment |
+| [Comment Interface](#comment-interface) | Comment management | Save, Delete |
 | [Frame Interface](#frame-interface) | Frame management | GetFrame, Kill, Retry, Eat |
 | [Layer Interface](#layer-interface) | Layer operations | GetLayer, FindLayer, Kill |
 | [Group Interface](#group-interface) | Host groups | FindGroup, GetGroup, SetMinCores, SetMaxCores |
@@ -394,6 +395,106 @@ POST /job.JobInterface/Kill
 {
   "job": {
     "id": "job-id-123"
+  }
+}
+```
+
+### Get Comments
+
+List comments attached to a job.
+
+```http
+POST /job.JobInterface/GetComments
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "comments": {
+    "comments": [
+      {
+        "id": "comment-id-1",
+        "timestamp": 1715990400,
+        "user": "alice",
+        "subject": "Render note",
+        "message": "Re-rendered after lighting fix"
+      }
+    ]
+  }
+}
+```
+
+### Add Comment
+
+Add a new comment to a job. The server stamps the `id` and `timestamp` fields.
+
+```http
+POST /job.JobInterface/AddComment
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  },
+  "new_comment": {
+    "user": "alice",
+    "subject": "Render note",
+    "message": "Re-rendered after lighting fix"
+  }
+}
+```
+
+---
+
+## Comment Interface
+
+Manage individual comments (currently used for job comments; hosts also support commenting via the same interface).
+
+### Save Comment
+
+Update an existing comment's subject and/or message. The `id` identifies which comment to update.
+
+```http
+POST /comment.CommentInterface/Save
+```
+
+**Request Body:**
+```json
+{
+  "comment": {
+    "id": "comment-id-1",
+    "timestamp": 1715990400,
+    "user": "alice",
+    "subject": "Render note (updated)",
+    "message": "Re-rendered after lighting fix and a tweak to motion blur"
+  }
+}
+```
+
+### Delete Comment
+
+Delete a comment by id.
+
+```http
+POST /comment.CommentInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "comment": {
+    "id": "comment-id-1"
   }
 }
 ```
@@ -2219,6 +2320,26 @@ NIMBY      - Host locked automatically
   "freeGpus": "int32"
 }
 ```
+
+#### Comment Object
+
+Mirrors `comment.Comment` in `proto/src/comment.proto`. Used by `Job.GetComments`, `Job.AddComment`, and the `CommentInterface` (`Save` / `Delete`).
+
+```json
+{
+  "id": "string",
+  "timestamp": "int32",
+  "user": "string",
+  "subject": "string",
+  "message": "string"
+}
+```
+
+Notes:
+
+- `timestamp` is unix epoch seconds.
+- On `AddComment`, the server assigns `id` and `timestamp`; the request body's `new_comment` only needs `user`, `subject`, and `message`.
+- On `Save`, `id` is required to identify the comment; the server overwrites the persisted fields with what's in the request.
 
 ---
 
