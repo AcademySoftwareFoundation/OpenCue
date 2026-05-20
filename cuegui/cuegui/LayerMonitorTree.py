@@ -299,7 +299,6 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.addMenu(depend_menu)
 
         menu.addSeparator()
-        reorder_dispatch_action = self.__menuActions.layers().addAction(menu, "reorder_dispatch")
         if len(__selectedObjects) == 1:
             try:
                 if int(self.app.settings.value("DisableDeeding", 0)) == 0:
