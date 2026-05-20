@@ -20,7 +20,9 @@
 import { getFrame } from "@/app/utils/get_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import Editor, { Monaco } from "@monaco-editor/react";
+import { FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -67,6 +69,12 @@ export default function FramePage() {
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [scrollTrigger, setScrollTrigger] = useState(false);
   const [editorMounted, setEditorMounted] = useState(false);
+  // Status of the log file currently selected in the version dropdown.
+  // `loading` (initial), `ready` (we have lines), `empty` (the log file
+  // exists but is empty), or `missing` (the log file could not be found).
+  const [logStatus, setLogStatus] = useState<
+    "loading" | "ready" | "empty" | "missing"
+  >("loading");
   // To track log line display
   const [logDisplayStart, setLogDisplayStart] = useState(-1);
   const [logDisplayEnd, setLogDisplayEnd] = useState(-1);
@@ -93,15 +101,16 @@ export default function FramePage() {
     try {
       const totalLines = await getLogLineCount();
       if (totalLines == -1) {
-        updateTextInEditor("Could not find log file for the frame.");
+        setLogStatus("missing");
         return;
       }
       if (totalLines === 0) {
-        updateTextInEditor("No log output to display yet.");
+        setLogStatus("empty");
         setNumberOfLinesLoaded(0);
         return;
       }
 
+      setLogStatus("ready");
       setTotalNumLogLines(totalLines);
       let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
       let endline = totalLines;
@@ -274,6 +283,7 @@ export default function FramePage() {
     setCurLogVersion(e.target.value);
     setCurLogPath(path.dirname(logDirPath) + "/" + e.target.value);
     setInitialDataLoaded(false); // Reset data for new log version
+    setLogStatus("loading"); // Re-render the editor on the next fetch
   };
   // Retreives new log versions when the logDirPath changes
   useEffect(() => {
@@ -366,13 +376,34 @@ export default function FramePage() {
           </span>
         </div>
         <div className="mt-1">
-          <Editor
-            theme="my-theme"
-            height="50vh"
-            defaultLanguage="plaintext"
-            defaultValue={defaultMessage.replaceAll("  ", "")}
-            onMount={handleEditorDidMount}
-          />
+          {logStatus === "missing" || logStatus === "empty" ? (
+            <div
+              className="flex items-center justify-center bg-black text-white"
+              style={{ height: "50vh" }}
+            >
+              <EmptyState
+                icon={<FileX className="h-6 w-6" aria-hidden="true" />}
+                title={
+                  logStatus === "missing"
+                    ? "Log file not found"
+                    : "No log output yet"
+                }
+                description={
+                  logStatus === "missing"
+                    ? "Cuebot could not locate the log file for this frame. The frame may not have started yet, or the log has been moved or purged."
+                    : "This frame has no log output yet. Once the frame starts producing lines they will appear here automatically."
+                }
+              />
+            </div>
+          ) : (
+            <Editor
+              theme="my-theme"
+              height="50vh"
+              defaultLanguage="plaintext"
+              defaultValue={defaultMessage.replaceAll("  ", "")}
+              onMount={handleEditorDidMount}
+            />
+          )}
         </div>
       </div>
     </div>

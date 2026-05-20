@@ -35,6 +35,7 @@ import { handleError } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { JobContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import {
@@ -69,7 +70,7 @@ import {
   VisibilityState
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Inbox, SearchX } from "lucide-react";
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { useEffect, useReducer } from "react";
@@ -789,7 +790,14 @@ export function DataTable({ columns, username }: DataTableProps) {
                   !hideSearchDropdown &&
                   searchFinishedRef.current && (
                     <Box style={{ position: "absolute", top: "100%", left: 0, width: "100%", zIndex: 1000 }}>
-                      <Alert severity="info">No results found</Alert>
+                      <div className="rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+                        <EmptyState
+                          icon={<SearchX className="h-6 w-6" aria-hidden="true" />}
+                          title="No matching jobs"
+                          description={`Nothing matches "${state.searchQuery}". Try a different prefix (show-shot-) or use ! to enable regex.`}
+                          className="py-6"
+                        />
+                      </div>
                     </Box>
                   )}
               </>
@@ -952,8 +960,12 @@ export function DataTable({ columns, username }: DataTableProps) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                <TableCell colSpan={columns.length} className="h-32 p-0">
+                  <EmptyState
+                    icon={<Inbox className="h-6 w-6" aria-hidden="true" />}
+                    title="No jobs monitored"
+                    description="Search for a job above and click a result to add it here. Toggle Autoload Mine to also load your jobs automatically."
+                  />
                 </TableCell>
               </TableRow>
             )}

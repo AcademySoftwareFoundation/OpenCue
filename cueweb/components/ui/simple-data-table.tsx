@@ -21,6 +21,7 @@ import { Frame } from "@/app/frames/frame-columns";
 import { Layer } from "@/app/layers/layer-columns";
 import { FRAME_STATE_FILTERS, filterFramesByStates, getFrameStateCounts } from "@/app/utils/frame_state_utils";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FrameContextMenu, LayerContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -34,6 +35,7 @@ import {
   SortingState,
   useReactTable
 } from "@tanstack/react-table";
+import { Layers } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -219,8 +221,24 @@ export function SimpleDataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                <TableCell colSpan={columns.length} className="h-32 p-0">
+                  <EmptyState
+                    icon={<Layers className="h-6 w-6" aria-hidden="true" />}
+                    title={
+                      isFramesTable
+                        ? "Layer has no frames"
+                        : isFramesLogTable
+                          ? "Frame not found"
+                          : "Job has no layers"
+                    }
+                    description={
+                      isFramesTable
+                        ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
+                        : isFramesLogTable
+                          ? "The frame referenced by this URL is no longer available in Cuebot."
+                          : "This job does not contain any layers yet."
+                    }
+                  />
                 </TableCell>
               </TableRow>
             )}
