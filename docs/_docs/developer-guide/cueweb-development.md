@@ -94,7 +94,7 @@ cueweb/
 │   ├── layout.tsx        # Root layout - mounts ThemeProvider,
 │   │                     #   AppSessionProvider, AppHeader,
 │   │                     #   ReadOnlyBanner, AppSidebar,
-│   │                     #   AttributesPanel, and
+│   │                     #   AttributesPanel, StatusBar, and
 │   │                     #   JobSubscriptionPoller around {children}
 │   ├── page.tsx          # Jobs dashboard (Cuetopia → Monitor Jobs)
 │   ├── icon.png          # Favicon (OpenCue logo, theme-agnostic)
@@ -111,12 +111,14 @@ cueweb/
 │   │   ├── use_attribute_selection.ts     # Selected entity for the panel
 │   │   └── use_menu_registry.ts           # Flat command registry for Help search
 │   └── api/              # API routes (REST gateway proxy + auth)
+│       └── health/       # Gateway reachability probe used by StatusBar
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
 │   │   ├── app-header.tsx       # Global persistent header
 │   │   ├── app-sidebar.tsx      # Collapsible left sidebar
 │   │   ├── attributes-panel.tsx # Docked Attributes drawer
 │   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
+│   │   ├── status-bar.tsx       # IDE-style fixed bottom status bar
 │   │   ├── cuewebicon.tsx       # OpenCue icon + "CueWeb" wordmark
 │   │   ├── theme-toggle.tsx     # Light/dark toggle
 │   │   ├── theme-provider.tsx   # next-themes wrapper
@@ -155,6 +157,9 @@ loads at runtime are copies under `cueweb/public/`.
 - **`AppSidebar`** (`components/ui/app-sidebar.tsx`): Persistent collapsible left sidebar mounted by `app/layout.tsx`. Hidden on `/login*` and on viewports smaller than the `md` breakpoint. Same six groups as the header, rendered as Radix `Collapsible` accordions when expanded and as an icon-only rail when collapsed. The group containing the active route auto-expands; overall state is persisted under `cueweb.sidebar.collapsed`, and per-group open/closed state under `cueweb.sidebar.openGroups`.
 - **`AttributesPanel`** (`components/ui/attributes-panel.tsx`): Docked drawer toggled from Other ▸ Attributes. Renders a collapsible key/value tree of the entity in `useAttributeSelection`. Dock position (right / bottom / left / top), open state, and the filter query are all driven by `useAttributesPanel`.
 - **`ReadOnlyBanner`** (`components/ui/read-only-banner.tsx`): Amber strip rendered just under the header when `useDisableJobInteraction().disabled` is true. Includes a *Re-enable* button so users can clear the safety flag without opening the menu.
+- **`StatusBar`** (`components/ui/status-bar.tsx`): IDE-style fixed 24px bar at the bottom of every authenticated route. Polls `/api/health` every 10s, listens to the `cueweb:jobs-refreshed` CustomEvent for "last refresh", and reads `NEXT_PUBLIC_APP_VERSION` for the build version. Turns red when the gateway is unreachable. Hidden on `/login*`.
+  - The companion route `app/api/health/route.ts` is a cheap JWT-signed reachability probe of the REST gateway (POST `show.ShowInterface/GetActiveShows` with a 5s `AbortController` timeout). It returns 200 in both healthy and unhealthy cases so the UI never sees an error response while polling.
+  - The jobs data table dispatches `window.dispatchEvent(new CustomEvent("cueweb:jobs-refreshed", { detail: { at: ISO } }))` after each 5s reload tick; the status bar listens and updates the "last refresh" timer.
 - **`AppSessionProvider`** (`app/providers/session-provider.tsx`): Thin client wrapper around `next-auth/react`'s `SessionProvider` so `useSession()` works inside the header and any other client component.
 - **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
 - **`JobsTable`**: Main jobs dashboard table (no longer renders its own inline header - the global `AppHeader` owns that chrome). Each `TableRow` left-click dispatches `setAttributeSelection(...)` so the Attributes panel updates as the user inspects rows. Destructive toolbar actions (Eat / Retry / Pause / Unpause / Kill) consume `useDisableJobInteraction()` and dim themselves when the safety flag is on.

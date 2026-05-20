@@ -84,6 +84,16 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_URL` | CueWeb public URL | `http://localhost:3000` |
 | `NEXT_JWT_SECRET` | JWT signing secret (must match REST Gateway) | `your-secret-key` |
 
+### Optional Build-Time Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar. Falls back to `cueweb/package.json#version` when unset. CI typically passes the Git SHA via `--build-arg`. | (package.json version) |
+| `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
+| `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
+| `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
+| `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
+
 ### Authentication Variables
 
 | Variable | Description | Example |
@@ -525,6 +535,53 @@ implemented in `components/ui/attributes-panel.tsx`.
   across consumers via `cueweb:attributes-panel-changed`).
 - **Filter input**: narrows the key/value tree live; parent groups stay
   visible whenever any descendant matches.
+
+---
+
+## Status Bar
+
+CueWeb mounts an IDE-style fixed status bar at the bottom of every
+authenticated route. Implemented in `components/ui/status-bar.tsx` and
+hidden on `/login*`. Three metrics, each with a tooltip:
+
+- **Gateway** (left): a colored dot, the literal `Online` / `Offline`,
+  and the last round-trip latency in milliseconds when online.
+  - Polled every 10s by `fetch('/api/health')`. The probe POSTs `{}` to
+    `show.ShowInterface/GetActiveShows` with a 5s `AbortController`
+    timeout and reports `{ gatewayOnline, status, latencyMs, checkedAt,
+    error? }`.
+  - When the gateway is unreachable, the whole bar's surface turns red
+    so the failure is visible at a glance.
+- **Last refresh** (center): live relative timestamp ("just now",
+  "Ns ago", ...). Updated whenever the jobs table fires a
+  `cueweb:jobs-refreshed` CustomEvent (every 5s while the table is
+  mounted). Re-renders once per second so the timestamp stays accurate
+  between events.
+- **Version** (right): `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build
+  time in `next.config.js`:
+  1. If `NEXT_PUBLIC_APP_VERSION` is set, that value wins.
+  2. Otherwise it falls back to the `version` field in
+     `cueweb/package.json`.
+  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so
+    CI can pass a Git SHA or build tag via `--build-arg`.
+
+### `GET /api/health`
+
+Cheap reachability check used by the status bar. Returns a 200 with the
+following body in both the healthy and unhealthy cases (so the UI can
+render the offline state without surfacing a network-tab error):
+
+```json
+{
+  "gatewayOnline": true,
+  "status": 200,
+  "latencyMs": 30,
+  "checkedAt": "2026-05-20T07:58:51.098Z"
+}
+```
+
+When `gatewayOnline` is `false`, the response additionally includes an
+`error` field with a short human-readable hint.
 
 ---
 

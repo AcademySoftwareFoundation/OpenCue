@@ -59,6 +59,12 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - Docked drawer that displays a collapsible key/value tree for the currently-selected entity (click any row in the jobs table to populate it).
    - Position picker in the title bar lets the user dock the panel on the **right**, **bottom**, **left**, or **top** of the viewport. The choice persists under `cueweb.attributes.position`; open/closed state under `cueweb.attributes.open`.
    - Built-in filter input narrows the tree live; parent groups remain visible whenever any descendant matches.
+- **Bottom status bar (IDE-style, persistent across every route):**
+   - 24-pixel-tall bar fixed to the bottom of the viewport with three metrics, each with a tooltip:
+     1. **Gateway**: dot + `Online`/`Offline` + round-trip latency in milliseconds. Polled every 10 seconds via `/api/health` (a JWT-signed reachability probe against `/show.ShowInterface/GetActiveShows` with a 5-second timeout). When the gateway is unreachable, the bar's surface turns red so the failure is visible at a glance.
+     2. **Last refresh**: live relative timestamp ("just now", "12s ago", "3m ago", ...). Updated whenever the jobs table fires a `cueweb:jobs-refreshed` CustomEvent (every 5 seconds while the table is mounted). Re-renders once per second so the relative time stays accurate without waiting for the next event.
+     3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build time - falls back to the `version` field in `package.json` when the env var is unset, and can be overridden in CI by passing `--build-arg NEXT_PUBLIC_APP_VERSION=<sha>` to `docker build`.
+   - Hidden on `/login*`; matches the chrome's translucent surface so it integrates with both light and dark themes.
 - **User authentication:**
    - Secure login capabilities through Okta, Google, GitHub, and LDAP (configured via `NEXT_PUBLIC_AUTH_PROVIDER`).
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.

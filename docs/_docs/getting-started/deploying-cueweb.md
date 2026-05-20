@@ -116,6 +116,12 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
+# Build version shown in the bottom status bar (optional).
+# Falls back to the `version` field in cueweb/package.json when unset.
+# In CI you typically pass the short Git SHA or a release tag via
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
+# NEXT_PUBLIC_APP_VERSION=1.19.1
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret
