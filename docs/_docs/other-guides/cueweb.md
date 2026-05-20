@@ -44,47 +44,51 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Gateway** (left): dot + `Online` / `Offline` + last round-trip latency. Polled every 10s via `/api/health` (JWT-signed reachability probe with a 5s timeout). Whole bar turns red when the gateway is unreachable.
    - **Last refresh** (center): live "Ns ago" timer that updates whenever the jobs table fires a `cueweb:jobs-refreshed` event.
    - **Version** (right): `v<NEXT_PUBLIC_APP_VERSION>` (falls back to `package.json#version` at build time).
-6. **Secure user authentication:**
+6. **Breadcrumb navigation on detail views:**
+   - Above the frame log page and the per-job comments page, a "Home > Jobs > ..." trail lets you click back to the jobs index or any parent in the path.
+   - Long segment labels truncate to `max-w-[40ch]` with the full text recoverable in a tooltip on hover.
+   - Last segment renders as plain text with `aria-current="page"`; non-last segments are `next/link`s.
+7. **Secure user authentication:**
    - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
-7. **Customizable job management dashboard:** 
+8. **Customizable job management dashboard:** 
    - Manage jobs with a customizable table where users can select visible columns and filter jobs based on their state (active, paused, completed).
-8. **Flexible monitoring controls:** 
+9. **Flexible monitoring controls:** 
    - Easily un-monitor jobs across all statuses.
-9. **Detailed job inspection:** 
+10. **Detailed job inspection:** 
    - View job details with pop-up windows showing layers and frames associated with each job.
-10. **Frame navigation and logs access:** 
+11. **Frame navigation and logs access:** 
    - Navigate frames using hyperlinks that lead to dedicated pages for frame data and logs.
-11. **Advanced job search functionality:** 
+12. **Advanced job search functionality:** 
    - Search for jobs by show name with dropdown suggestions for matching entries.
    - Search functionality requires `show-shot-` as the prefix to reduce the number of results returned.
-12. **Dark mode toggle for user preference:** 
+13. **Dark mode toggle for user preference:** 
    - Switch between light and dark modes according to user preference.
-13. **Enhanced search functionality:**
+14. **Enhanced search functionality:**
    - Users can enable regex searches by appending '!' to their queries, with tooltips provided for guidance.
    - Optimized loading times using virtualization and web workers, along with loading animations for a better user experience.
    - Users can add or remove multiple jobs directly from the search results, with existing jobs highlighted in green.
-14. **Enhanced security using Opencue API:**
+15. **Enhanced security using Opencue API:**
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
-15. **CueWeb actions and context menu are available:**
+16. **CueWeb actions and context menu are available:**
 
 Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kill.
    - _Layer actions:_ `Kill`, `Eat`, `Retry`, `Retry dead frames`.
    - _Frame actions:_ `Retry`, `Eat`, `Kill`.
    - Menu items are disabled if the job has finished, and the context menu is always rendered on-screen.
 
-16. **Auto-reloading of tables:**
+17. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
 
-17. **Job progress bar with hover tooltip:**
+18. **Job progress bar with hover tooltip:**
    - The Progress column renders a stacked bar with five colored segments (succeeded, running, waiting, depend, dead).
    - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
 
-18. **Frame state filter chips:**
+19. **Frame state filter chips:**
    - Above the frames table, a chip is rendered for each supported state - `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` - annotated with the count of frames currently in that state.
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-19. **Per-job completion notifications:**
+20. **Per-job completion notifications:**
    - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
    - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
@@ -92,7 +96,7 @@ Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kil
    - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
    - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
 
-20. **Job comments:**
+21. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).

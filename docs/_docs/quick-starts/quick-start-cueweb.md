@@ -160,6 +160,7 @@ The CueWeb interface includes:
 - **Disable Job Interaction**: Read-only safety toggle in File ▸ Disable Job Interaction (header or sidebar). When on, an amber banner appears under the header and destructive actions (Pause / Unpause / Retry / Eat / Kill) — in the toolbar and in the right-click menus — are dim and inert.
 - **Attributes Panel**: Other ▸ Attributes opens a docked drawer with a collapsible key/value tree of the selected entity. Click a row in the jobs table to populate it; pick the dock position (right / bottom / left / top) from the panel's title bar.
 - **Bottom Status Bar**: a fixed 24-pixel bar at the bottom of every page shows REST gateway status (a colored dot + Online/Offline + the last round-trip latency), the time since the jobs table last refreshed, and the CueWeb build version. The whole bar turns red when the gateway is unreachable.
+- **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a small "Home > Jobs > ..." breadcrumb above the content so you can navigate back to the index. Long labels truncate with an ellipsis and the full text appears in a tooltip on hover.
 
 ---
 

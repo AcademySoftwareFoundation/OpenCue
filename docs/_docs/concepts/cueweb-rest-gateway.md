@@ -36,6 +36,7 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Disable Job Interaction**: Global read-only safety toggle (File ▸ Disable Job Interaction) that dims every destructive action and shows an amber banner under the header
 - **Attributes Panel**: Docked drawer (Other ▸ Attributes) with a position picker (right / bottom / left / top), filter input, and a collapsible key/value tree of the selected entity
 - **Bottom Status Bar**: IDE-style 24-pixel fixed bar showing REST gateway reachability (Online / Offline + round-trip latency, polled every 10 seconds via `/api/health`), time since the jobs table last refreshed, and the CueWeb build version (`NEXT_PUBLIC_APP_VERSION`). Turns red when the gateway is unreachable.
+- **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a "Home > Jobs > ..." trail above the content. Long labels truncate with an ellipsis; the full text is recoverable on hover.
 - **Job Management Dashboard**: View, filter, and manage rendering jobs
 - **Real-time Updates**: Automatic refresh of job, layer, and frame status
 - **Advanced Search**: Regex-enabled search with dropdown suggestions

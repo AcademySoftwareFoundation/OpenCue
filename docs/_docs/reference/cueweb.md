@@ -538,6 +538,32 @@ implemented in `components/ui/attributes-panel.tsx`.
 
 ---
 
+## Breadcrumbs
+
+Reusable primitive at `components/ui/breadcrumbs.tsx`, accepting
+`Array<{ label, href?, title? }>`. Renders a Home icon segment (`/`) by
+default, separates segments with `ChevronRight`, and gives the last
+segment `aria-current="page"`. Labels are wrapped in a Radix Tooltip
+with `max-w-[40ch] truncate`, so over-long names collapse with an
+ellipsis and the full text is recoverable on hover.
+
+Currently mounted on every detail view (non-last segments are
+`next/link`s; segments without an `href` render as plain text):
+
+- `/frames/[frame-name]` -> `Home > Jobs > <jobName> > <layerName> > <frameName>`
+  - The job name is parsed from the `frameLogDir` query parameter
+    (RQD logs are named `<jobName>.<frameName>.rqlog`).
+  - The layer name and frame name come from the loaded `Frame` payload,
+    falling back to the route param while the fetch is pending.
+- `/jobs/[job-name]/comments` -> `Home > Jobs > <jobName> > Comments`
+
+Per-job and per-layer detail pages do not exist yet, so those segments
+currently render as plain text; once those routes land they can be
+upgraded to clickable links by setting the `href` field on the
+corresponding `BreadcrumbItem`.
+
+---
+
 ## Status Bar
 
 CueWeb mounts an IDE-style fixed status bar at the bottom of every

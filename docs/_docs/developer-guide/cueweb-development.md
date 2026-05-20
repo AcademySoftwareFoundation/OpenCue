@@ -117,6 +117,7 @@ cueweb/
 │   │   ├── app-header.tsx       # Global persistent header
 │   │   ├── app-sidebar.tsx      # Collapsible left sidebar
 │   │   ├── attributes-panel.tsx # Docked Attributes drawer
+│   │   ├── breadcrumbs.tsx      # Detail-view breadcrumb primitive
 │   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
 │   │   ├── status-bar.tsx       # IDE-style fixed bottom status bar
 │   │   ├── cuewebicon.tsx       # OpenCue icon + "CueWeb" wordmark
@@ -157,6 +158,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`AppSidebar`** (`components/ui/app-sidebar.tsx`): Persistent collapsible left sidebar mounted by `app/layout.tsx`. Hidden on `/login*` and on viewports smaller than the `md` breakpoint. Same six groups as the header, rendered as Radix `Collapsible` accordions when expanded and as an icon-only rail when collapsed. The group containing the active route auto-expands; overall state is persisted under `cueweb.sidebar.collapsed`, and per-group open/closed state under `cueweb.sidebar.openGroups`.
 - **`AttributesPanel`** (`components/ui/attributes-panel.tsx`): Docked drawer toggled from Other ▸ Attributes. Renders a collapsible key/value tree of the entity in `useAttributeSelection`. Dock position (right / bottom / left / top), open state, and the filter query are all driven by `useAttributesPanel`.
 - **`ReadOnlyBanner`** (`components/ui/read-only-banner.tsx`): Amber strip rendered just under the header when `useDisableJobInteraction().disabled` is true. Includes a *Re-enable* button so users can clear the safety flag without opening the menu.
+- **`Breadcrumbs`** (`components/ui/breadcrumbs.tsx`): Reusable `<Breadcrumbs items={...} showHome />` primitive used on detail views. Accepts `Array<{ label, href?, title? }>`; non-last items with an `href` render as `next/link`s, the last item gets `aria-current="page"`, and every label is wrapped in a Radix Tooltip with `max-w-[40ch] truncate` so over-long names collapse with an ellipsis but remain recoverable on hover. Currently consumed by the frame log page (`app/frames/[frame-name]/page.tsx`) and the per-job comments page (`app/jobs/[job-name]/comments/page.tsx`).
 - **`StatusBar`** (`components/ui/status-bar.tsx`): IDE-style fixed 24px bar at the bottom of every authenticated route. Polls `/api/health` every 10s, listens to the `cueweb:jobs-refreshed` CustomEvent for "last refresh", and reads `NEXT_PUBLIC_APP_VERSION` for the build version. Turns red when the gateway is unreachable. Hidden on `/login*`.
   - The companion route `app/api/health/route.ts` is a cheap JWT-signed reachability probe of the REST gateway (POST `show.ShowInterface/GetActiveShows` with a 5s `AbortController` timeout). It returns 200 in both healthy and unhealthy cases so the UI never sees an error response while polling.
   - The jobs data table dispatches `window.dispatchEvent(new CustomEvent("cueweb:jobs-refreshed", { detail: { at: ISO } }))` after each 5s reload tick; the status bar listens and updates the "last refresh" timer.

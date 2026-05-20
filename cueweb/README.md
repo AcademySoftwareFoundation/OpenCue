@@ -59,6 +59,10 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - Docked drawer that displays a collapsible key/value tree for the currently-selected entity (click any row in the jobs table to populate it).
    - Position picker in the title bar lets the user dock the panel on the **right**, **bottom**, **left**, or **top** of the viewport. The choice persists under `cueweb.attributes.position`; open/closed state under `cueweb.attributes.open`.
    - Built-in filter input narrows the tree live; parent groups remain visible whenever any descendant matches.
+- **Breadcrumb navigation on detail views:**
+   - Above every detail page, a small "Home > Jobs > ..." trail shows the context path back to the jobs index. Currently rendered on the frame log page (`Home > Jobs > <jobName> > <layerName> > <frameName>`) and the per-job comments page (`Home > Jobs > <jobName> > Comments`).
+   - Non-last segments are `next/link`s; the last segment is plain text with `aria-current="page"`.
+   - Long segment labels truncate to `max-w-[40ch]` and show the full text in a tooltip on hover, so very long job names like `testing-test_shot-ramon_load_test_job_0001` stay legible without breaking the layout.
 - **Bottom status bar (IDE-style, persistent across every route):**
    - 24-pixel-tall bar fixed to the bottom of the viewport with three metrics, each with a tooltip:
      1. **Gateway**: dot + `Online`/`Offline` + round-trip latency in milliseconds. Polled every 10 seconds via `/api/health` (a JWT-signed reachability probe against `/show.ShowInterface/GetActiveShows` with a 5-second timeout). When the gateway is unreachable, the bar's surface turns red so the failure is visible at a glance.
