@@ -48,13 +48,36 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
 10. **CueWeb actions and context menu are available:**
 
-Job actions: Unmonitor, Pause, Retry dead frames, Eat dead frames, Kill.
+Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kill.
    - _Layer actions:_ `Kill`, `Eat`, `Retry`, `Retry dead frames`.
    - _Frame actions:_ `Retry`, `Eat`, `Kill`.
    - Menu items are disabled if the job has finished, and the context menu is always rendered on-screen.
 
 11. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
+
+12. **Job progress bar with hover tooltip:**
+   - The Progress column renders a stacked bar with five colored segments (succeeded, running, waiting, depend, dead).
+   - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
+
+13. **Frame state filter chips:**
+   - Above the frames table, a chip is rendered for each supported state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — annotated with the count of frames currently in that state.
+   - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
+   - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
+
+14. **Per-job completion notifications:**
+   - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
+   - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired — click to clear).
+   - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
+   - The first subscribe of the session triggers the browser's native notification permission prompt; if permission is denied, a toast warning is shown and the subscription is not created.
+   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
+   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
+
+15. **Job comments:**
+   - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
+   - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
+   - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).
+   - Predefined-comment macros are stored per-browser in `localStorage` (`cueweb-comment-macros`), with the same `> Add / > Edit / > Delete predefined comment` workflow as CueGUI.
 
 ## CueWeb's user interface
 
@@ -129,7 +152,7 @@ Here's what you can expect:
 
 The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type. 
 
-Figure 14 shows the `job` context menu with options to `un-monitor`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 15 shows the successful message after selecting `kill` a job.
+Figure 14 shows the `job` context menu with options to `un-monitor`, `comments`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 15 shows the successful message after selecting `kill` a job.
 
 #### Figure 14: CueWeb with job context menu open
 ![CueWeb with job context menu open](/assets/images/cueweb/figure14-job-context-menu.png)

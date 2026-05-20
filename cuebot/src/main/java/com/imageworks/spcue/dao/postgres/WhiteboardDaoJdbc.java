@@ -1387,6 +1387,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             }
             // Frames in DEPEND have ts_eligible NULL; fall back to the job's submission time so
             // callers always get a usable value.
+            // Note: job.ts_started is a misnomer — it stores the job's submission timestamp,
+            // not the time the job began executing. It is set once when the job is launched
+            // and never updated, which is why it is reused here as the submission time.
             java.sql.Timestamp job_ts_started = rs.getTimestamp("job_ts_started");
             builder.setEligibleTime(getEligibleTimeInEpoch(rs, job_ts_started));
             if (job_ts_started != null) {
@@ -2050,14 +2053,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "layer_mem.int_max_pss, "
                 + "layer_resource.int_cores, "
                 + "layer_resource.int_gpus, "
-                + "limit_names.str_limit_names, "
-                // Layer activity window. Denormalized on layer_stat and maintained by
-                // trigger__update_frame_status_counts on every frame state change, so the
-                // read path is two column reads instead of two correlated aggregates
-                // against frame. The "stay at 0 until the whole layer is done" stop-time
-                // semantic is applied in LAYER_MAPPER using the counter columns below.
-                + "layer_stat.ts_started AS layer_ts_started, "
-                + "layer_stat.ts_stopped AS layer_ts_stopped "
+                + "limit_names.str_limit_names "
             + "FROM "
                 + "layer "
             + "JOIN "

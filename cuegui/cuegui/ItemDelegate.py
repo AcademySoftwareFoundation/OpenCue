@@ -475,25 +475,42 @@ class ItemDelegate(AbstractDelegate):
 class ProgressDelegate(AbstractDelegate):
     """Delegate for displaying layer progress."""
 
+    # Drawn manually rather than via QStyle.CE_ProgressBar: the macOS native
+    # (aqua) style ignores opts.rect inside item-view delegate paints and
+    # renders a thin animated indicator at the row's leftmost cell, painting
+    # a stray blue line over the Name column.
+    __colorBackground = QtGui.QColor(60, 60, 60)
+    __colorChunk = QtGui.QColor(55, 200, 55)
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
             layer = self.parent().itemFromIndex(index).rpcObject
-            opts = QtWidgets.QStyleOptionProgressBar()
-            opts.rect = option.rect
-            opts.minimum = 1
-            opts.maximum = 100
-            opts.textVisible = True
+            progress = max(0, min(100, int(layer.percentCompleted())))
 
-            progress = int(layer.percentCompleted())
-            opts.progress = progress
-            opts.text = "{0:d} %".format(progress)
-            opts.textVisible = True
+            painter.save()
+            try:
+                self._drawBackground(painter, option, index)
 
-            QtWidgets.QApplication.style().drawControl(
-                QtWidgets.QStyle.CE_ProgressBar, opts, painter)
+                rect = option.rect.adjusted(2, 2, -2, -2)
+                painter.fillRect(rect, self.__colorBackground)
+                if progress > 0 and rect.width() > 0:
+                    fillWidth = int(ceil(rect.width() * progress / 100.0))
+                    painter.fillRect(
+                        QtCore.QRect(rect.x(), rect.y(), fillWidth, rect.height()),
+                        self.__colorChunk)
+
+                painter.setPen(QtCore.Qt.black)
+                painter.drawText(option.rect, QtCore.Qt.AlignCenter,
+                                 "{0:d} %".format(progress))
+
+                if option.state & QtWidgets.QStyle.State_Selected:
+                    self._drawSelectionOverlay(painter, option)
+            finally:
+                painter.restore()
+                del painter
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
