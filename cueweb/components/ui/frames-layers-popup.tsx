@@ -22,7 +22,14 @@ import { Job } from "@/app/jobs/columns";
 import { Layer, layerColumns } from "@/app/layers/layer-columns";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
 import * as React from "react";
@@ -121,9 +128,14 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         <ExternalLink />
       </DialogTrigger>
       {isLoading ? (
-        <DialogContent className="flex max-w-[95%] max-h-[95%] flex-col p-6">
-          <DialogTitle>Loading...</DialogTitle>
-          <div className="space-y-4 w-full">
+        <DialogContent className="flex max-w-[95%] max-h-[95%] flex-col">
+          <DialogHeader>
+            <DialogTitle>Loading...</DialogTitle>
+            <DialogDescription>
+              Fetching layers and frames for this job.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="w-full space-y-4">
             {renderSkeleton(5)}
             <div className="h-2"></div>
             {renderSkeleton(10)}
@@ -131,7 +143,10 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         </DialogContent>
       ) : (
         <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-scroll">
-          <DialogTitle>{job.name}</DialogTitle>
+          <DialogHeader>
+            <DialogTitle className="truncate">{job.name}</DialogTitle>
+            <DialogDescription>Layers and frames for this job.</DialogDescription>
+          </DialogHeader>
           <SimpleDataTable data={layers} columns={layerColumns} username={username} />
           <SimpleDataTable data={frames} columns={frameColumns} job={job} isFramesTable={true} username={username} />
         </DialogContent>
