@@ -31,6 +31,7 @@ import {
 } from "@/app/utils/comment_macros";
 import { handleError } from "@/app/utils/notify_utils";
 import { Job } from "@/app/jobs/columns";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -254,6 +255,15 @@ export default function JobCommentsPage() {
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <ToastContainer />
+
+      <Breadcrumbs
+        items={[
+          { label: "Jobs", href: "/" },
+          ...(jobName ? [{ label: jobName }] : []),
+          { label: "Comments" },
+        ]}
+        className="mb-4"
+      />
 
       <h1 className="text-2xl font-semibold mb-1">Comments</h1>
       <p className="text-sm text-muted-foreground mb-4 break-all">{jobName}</p>

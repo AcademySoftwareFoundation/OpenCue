@@ -18,24 +18,39 @@
 
 
 import { getFrame } from "@/app/utils/get_utils";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import Editor, { Monaco } from "@monaco-editor/react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import { editor } from "monaco-editor";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import * as path from "path";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
+
+/**
+ * Best-effort extraction of the job name from a frame's log file path.
+ * RQD writes log files as `<jobName>.<frameName>.rqlog`, so the prefix
+ * up to the first `.` is the job name. Returns an empty string when
+ * the path doesn't follow that convention.
+ */
+function jobNameFromLogPath(logPath: string): string {
+  if (!logPath) return "";
+  const filename = path.basename(logPath);
+  const firstDot = filename.indexOf(".");
+  return firstDot > 0 ? filename.slice(0, firstDot) : "";
+}
 
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;
 
 export default function FramePage() {
   const searchParams = useSearchParams();
+  const routeParams = useParams<{ "frame-name": string }>();
   const [frameObject, setFrame] = React.useState<Frame | null>(null);
   const [totalNumLogLines, setTotalNumLogLines] = useState(-1);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -274,8 +289,30 @@ export default function FramePage() {
     fetchLogVersions();
   }, [logDirPath]);
 
+  const frameNameFromRoute = decodeURIComponent(routeParams?.["frame-name"] ?? "");
+  const derivedJobName = jobNameFromLogPath(logDirPath);
+  const breadcrumbItems = useMemo(() => {
+    const items = [{ label: "Jobs", href: "/" }];
+    if (derivedJobName) {
+      items.push({ label: derivedJobName, href: "" });
+    }
+    if (frameObject?.layerName) {
+      items.push({ label: frameObject.layerName, href: "" });
+    }
+    items.push({
+      label: frameObject?.name || frameNameFromRoute || "Frame",
+      href: "",
+    });
+    // Drop the `href: ""` placeholders so non-clickable segments render
+    // as plain text (only "Jobs" stays a link until the job/layer detail
+    // pages are implemented).
+    return items.map((it) => (it.href === "" ? { label: it.label } : it));
+  }, [derivedJobName, frameObject?.layerName, frameObject?.name, frameNameFromRoute]);
+
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
+      <Breadcrumbs items={breadcrumbItems} className="mb-4" />
+
       {/* Table for frame */}
       {frameObject != null ? (
         <>
