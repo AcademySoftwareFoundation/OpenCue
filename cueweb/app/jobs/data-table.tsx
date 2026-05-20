@@ -427,6 +427,16 @@ export function DataTable({ columns, username }: DataTableProps) {
       interval = setInterval(async () => {
         updateData();
         await addUsersJobs();
+        // Notify the bottom status bar (and any other listener) that a
+        // jobs refresh just completed; the status bar shows "last refresh"
+        // based on this timestamp.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("cueweb:jobs-refreshed", {
+              detail: { at: new Date().toISOString() },
+            }),
+          );
+        }
       }, 5000);
     } catch (error) {
       handleError(error, "Error updating table");

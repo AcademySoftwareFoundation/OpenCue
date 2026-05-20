@@ -23,6 +23,7 @@ import { AppHeader } from "@/components/ui/app-header";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { AttributesPanel } from "@/components/ui/attributes-panel";
 import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
+import { StatusBar } from "@/components/ui/status-bar";
 
 export const metadata: Metadata = {
   title: "CueWeb",
@@ -37,11 +38,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppSessionProvider>
             <AppHeader />
             <ReadOnlyBanner />
-            <div className="flex">
+            <div className="flex pb-6">
               <AppSidebar />
               <main className="min-w-0 flex-1">{children}</main>
             </div>
             <AttributesPanel />
+            <StatusBar />
           </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />

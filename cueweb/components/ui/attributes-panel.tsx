@@ -251,13 +251,13 @@ function positionClasses(position: AttributesPanelPosition): string {
   // the whole viewport.
   switch (position) {
     case "right":
-      return "fixed right-0 top-14 bottom-0 w-80 max-w-[90vw] border-l";
+      return "fixed right-0 top-14 bottom-6 w-80 max-w-[90vw] border-l";
     case "left":
-      return "fixed left-0 top-14 bottom-0 w-80 max-w-[90vw] border-r";
+      return "fixed left-0 top-14 bottom-6 w-80 max-w-[90vw] border-r";
     case "top":
       return "fixed top-14 left-0 right-0 h-72 max-h-[60vh] border-b";
     case "bottom":
-      return "fixed bottom-0 left-0 right-0 h-72 max-h-[60vh] border-t";
+      return "fixed bottom-6 left-0 right-0 h-72 max-h-[60vh] border-t";
   }
 }
 

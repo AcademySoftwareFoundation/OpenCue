@@ -75,5 +75,11 @@ ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=${NEXT_PUBLIC_OPENCUE_ENDPOINT}
 ARG NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github,ldap
 ENV NEXT_PUBLIC_AUTH_PROVIDER=${NEXT_PUBLIC_AUTH_PROVIDER}
 
+# Build version shown in the bottom status bar. Defaults to the
+# package.json version (resolved in next.config.js) when this ARG is not
+# overridden at build time. CI can override with a Git SHA or build tag.
+ARG NEXT_PUBLIC_APP_VERSION=
+ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION}
+
 RUN npm run build
 CMD ["npm", "run", "start"]
