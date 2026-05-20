@@ -43,7 +43,14 @@ export async function POST(request: NextRequest) {
   }
 
   const body = JSON.stringify(jsonBody);
-  const response = await handleRoute(method, endpoint, body, true);
+
+  let response: NextResponse;
+  try {
+    response = await handleRoute(method, endpoint, body, true);
+  } catch (error) {
+    console.error('handleRoute threw for AddComment:', error);
+    return NextResponse.json({ error: 'Upstream request failed' }, { status: 502 });
+  }
 
   let responseData: any;
   try {
