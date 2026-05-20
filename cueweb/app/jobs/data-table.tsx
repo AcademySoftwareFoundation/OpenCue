@@ -50,7 +50,6 @@ import SearchDropdown from "@/components/ui/search-dropdown";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -69,13 +68,11 @@ import {
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
 import { ChevronDown } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { useEffect, useReducer } from "react";
 import { MdOutlineCancel } from "react-icons/md";
 import { TbEyeOff, TbPacman, TbPlayerPause, TbPlayerPlay, TbReload } from "react-icons/tb";
-import CueWebIcon from "../../components/ui/cuewebicon";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { getState, Job } from "./columns";
 import "./index.css";
@@ -728,27 +725,6 @@ export function DataTable({ columns, username }: DataTableProps) {
 
   return (
     <>
-      {/* Cueweb icon, Mode Toggle */}
-      <div className="flex items-center justify-between px-1 py-4">
-        <CueWebIcon />
-        <div className="flex flex-row space-x-2">
-          {
-            username !== UNKNOWN_USER &&
-            <Button
-              onClick={() => {
-                localStorage.removeItem("tableData");
-                localStorage.removeItem("tableDataUnfiltered");
-                // @ts-ignore
-                signOut("okta");
-              }}
-            >
-              Signout ({state.username})
-            </Button>
-          }
-          <ThemeToggle></ThemeToggle>
-        </div>
-      </div>
-
       {/* Searching, Menubar, Autoload toggle, & Dropdown for column visibility*/}
       <div className="flex flex-row w-full items-center justify-between py-4 space-x-3">
         <div id="filtering section" ref={searchDropdownRef} className="relative flex flex-row justify-start space-y-2" style={{ width: "25%" }}>

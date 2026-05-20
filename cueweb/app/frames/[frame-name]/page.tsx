@@ -19,7 +19,6 @@
 
 import { getFrame } from "@/app/utils/get_utils";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import Editor, { Monaco } from "@monaco-editor/react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
@@ -28,7 +27,6 @@ import { editor } from "monaco-editor";
 import { useSearchParams } from "next/navigation";
 import * as path from "path";
 import React, { useEffect, useRef, useState } from "react";
-import CueWebIcon from "../../../components/ui/cuewebicon";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
@@ -278,12 +276,6 @@ export default function FramePage() {
 
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
-      {/* Cueweb icon, Mode Toggle */}
-      <div className="flex items-center justify-between px-1 py-4">
-        <CueWebIcon />
-        <ThemeToggle />
-      </div>
-
       {/* Table for frame */}
       {frameObject != null ? (
         <>

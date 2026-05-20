@@ -18,6 +18,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
+import { AppSessionProvider } from "@/app/providers/session-provider";
+import { AppHeader } from "@/components/ui/app-header";
 
 export const metadata: Metadata = {
   title: "CueWeb",
@@ -29,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+          <AppSessionProvider>
+            <AppHeader />
+            {children}
+          </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />
       </body>

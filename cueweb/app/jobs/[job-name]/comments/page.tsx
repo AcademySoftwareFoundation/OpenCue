@@ -41,8 +41,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import CueWebIcon from "@/components/ui/cuewebicon";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { useParams, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -256,10 +254,6 @@ export default function JobCommentsPage() {
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <ToastContainer />
-      <div className="flex items-center justify-between px-1 py-2">
-        <CueWebIcon height={40} />
-        <ThemeToggle />
-      </div>
 
       <h1 className="text-2xl font-semibold mb-1">Comments</h1>
       <p className="text-sm text-muted-foreground mb-4 break-all">{jobName}</p>
