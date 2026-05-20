@@ -295,6 +295,7 @@ Shows detailed frame information with filtering controls:
 | **Start Time** | Frame start timestamp | MM/DD HH:MM |
 | **Stop Time** | Frame completion timestamp | MM/DD HH:MM |
 | **Eligible Time** | Timestamp the frame became eligible to run (left DEPEND for WAITING). Defaults to the job's submission time when the frame was never blocked. Subtract from Start Time to see the wait-for-pickup duration. | MM/DD HH:MM |
+| **Submission Time** | Timestamp the parent job was submitted. Always reflects job submission, independent of dependency state or whether this frame has begun executing. | MM/DD HH:MM |
 | **Last Line** | Last log line | Truncated to fit |
 
 ### Frame Status Color Coding
