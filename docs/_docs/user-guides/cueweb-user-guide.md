@@ -56,6 +56,8 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Pop-up windows showing layers and frames
    - Resource allocation information
    - Job statistics and performance metrics
+   - Stacked job progress bar with hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead)
+   - Frame state filter chips above the frames table (WAITING / RUNNING / SUCCEEDED / DEAD / EATEN / DEPEND) with per-state counts, OR-combined selection, and URL-persisted state
 
 5. **Frame Navigation and Logs Access**
    - Hyperlinked frames leading to dedicated pages
@@ -69,7 +71,7 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Optimized loading with virtualization and web workers
 
 7. **Context Menu Actions**
-   - **Job actions**: Un-monitor, Pause/Unpause, Retry dead frames, Eat dead frames, Kill
+   - **Job actions**: Un-monitor, Comments, Pause/Unpause, Retry dead frames, Eat dead frames, Kill
    - **Layer actions**: Kill, Eat, Retry, Retry dead frames
    - **Frame actions**: Retry, Eat, Kill
    - Context-aware menu items (disabled for finished jobs)
@@ -77,6 +79,11 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
 8. **Auto-reloading Tables**
    - All tables (jobs, layers, frames) auto-reload at configurable intervals
    - Loading animations for better user experience
+
+9. **Job Comments**
+   - View, add, edit, and delete per-job comments (markdown-supported, sanitized)
+   - Sticky-note indicator on the jobs table for jobs that already have comments
+   - Predefined comment macros stored per browser for repeated text
 
 ---
 
@@ -136,7 +143,7 @@ The dashboard consists of:
 | Column | Description |
 |--------|-------------|
 | **Select** | Checkbox for multi-job selection |
-| **Name** | Job identifier with show-shot-user and job name on separate lines |
+| **Name** | Job identifier with show-shot-user and job name on separate lines. A sticky-note icon appears next to the show-shot-user line when the job has one or more comments — click it to open the Comments page in a new tab. |
 | **State** | Current job state (Failing, Finished, In Progress, Dependency, Paused) |
 | **Done / Total** | Succeeded frames out of total frames (e.g., "150 of 200") |
 | **Started** | Job start timestamp in human-readable format |
@@ -148,8 +155,8 @@ The dashboard consists of:
 | **MaxRss** | Maximum resident set size (peak memory usage) |
 | **Age** | Total time since job started (HHH:MM format) |
 | **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
-| **Progress** | Visual progress bar showing completion percentage |
-| **Notify** | Bell button to subscribe to a toast when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
+| **Progress** | Stacked progress bar with five colored segments — green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
+| **Notify** | Bell button to subscribe to a browser notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
 | **Pop-up** | Button to open job details panel |
 
 ### Job Status Indicators
@@ -198,6 +205,7 @@ Jobs can be added or removed from monitoring:
 Right-click on jobs to access the context menu with the following actions:
 
 - **Unmonitor**: Remove job from monitoring
+- **Comments**: Open the Comments page for the job in a new tab
 - **Pause/Unpause**: Pause or resume job execution
 - **Retry Dead Frames**: Restart only failed frames in the job
 - **Eat Dead Frames**: Mark failed frames as completed (skip)
@@ -208,6 +216,55 @@ Right-click on jobs to access the context menu with the following actions:
    ![CueWeb with job context menu open](/assets/images/cueweb/figure14-job-context-menu.png)
 
    ![Pop-up showing successful kill job message](/assets/images/cueweb/figure15-kill-job-success.png)
+
+---
+
+## Job Comments
+
+CueWeb provides full CRUD for per-job comments, equivalent to the **Comments** dialog in CueGUI (`cuegui/cuegui/Comments.py`).
+
+### Opening the Comments page
+
+You can reach a job's Comments page in two ways:
+
+- **Context menu**: Right-click a job row and choose **Comments**.
+- **Indicator icon**: If a job already has at least one comment, a sticky-note icon appears next to the job name. Click it to open the Comments page.
+
+Both routes open a new browser tab at `/jobs/<job-name>/comments?jobId=<id>`. The page derives the signed-in viewer from the authenticated NextAuth session (`/api/auth/session`), not from any URL parameter, so the `username` query string is **not** an authorization signal and is safe to ignore if present. Only the session-derived identity is used to decide whether the editor is enabled for the selected comment, and ownership for save/delete is enforced server-side; the client-side UI state simply reflects what the server will allow.
+
+### Page layout
+
+The page replicates the CueGUI Comments dialog:
+
+| Region | Purpose                                                                                                                                                                                                                                                    |
+|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Comment list** | Table of existing comments showing **Subject**, **User**, and **Date**. Click a row to load it into the editor below.                                                                                                                                      |
+| **Preview** | Sanitized markdown preview of the currently selected message.                                                                                                                                                                                              |
+| **Edit Comment** | Subject + Message fields. Editable only when the comment's author matches the session-derived signed-in user; otherwise the form is read-only. Server-side ownership enforcement is authoritative, the client UI just mirrors what the server will accept. |
+| **Action bar** | The predefined-comment dropdown on the left, then `New`, `Save changes` / `Save new comment`, and `Delete` buttons on the right.                                                                                                                           |
+
+### Creating, editing, deleting
+
+| Operation | How to perform it |
+|-----------|-------------------|
+| **Add a new comment** | Click **New** (or land on the page with no comment selected), enter a Subject and Message, then click **Save new comment**. The Subject field cannot be empty. |
+| **Edit an existing comment** | Click the comment in the list. The form switches to **Save changes**. Make edits and save. Only the comment's author can edit. |
+| **Delete a comment** | Select a comment and click **Delete**. A confirmation prompt appears. Only the author can delete. |
+
+Comments support markdown in the message body. Content is sanitized with `rehype-sanitize` before rendering, so embedded HTML or scripts are stripped.
+
+### Predefined comment macros
+
+The **Use a predefined comment…** dropdown mirrors CueGUI's macro list and is stored **per browser** in `localStorage` (key `cueweb-comment-macros`). Macros are not shared across users or browsers.
+
+- **Apply a macro**: Pick its name from the dropdown. The Subject and Message are loaded into the form for editing; saving creates a new comment.
+- **Add a macro**: Choose `> Add predefined comment`. A dialog prompts for Name, Subject, and Message. Names must be unique.
+- **Edit a macro**: Choose `> Edit predefined comment`, then enter the macro name when prompted. The Add/Edit dialog opens with the existing values.
+- **Delete a macro**: Choose `> Delete predefined comment`, then enter the macro name. Confirm to remove.
+
+### Comment indicator on the jobs table
+
+When `hasComment` is true on a job, a sticky-note icon is rendered next to the job's show-shot-user label. The indicator is refreshed on the regular jobs-table polling cycle (every 5 seconds by default), so a freshly added comment may take one tick to surface on the table.
 
 ---
 
@@ -298,6 +355,17 @@ Right-click on jobs to access the context menu with the following actions:
 
 ### Frame Operations
 
+#### Frame State Filter Chips
+
+Above the frames table, CueWeb renders one filter chip per supported frame state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — each annotated with the current count of frames in that state.
+
+- **Toggle**: Click a chip to add or remove its state from the filter. Selected chips switch to a solid (filled) style.
+- **OR semantics**: When multiple chips are selected, frames matching **any** of the selected states are shown.
+- **No selection**: When no chip is selected, every frame is displayed.
+- **URL-mirrored**: Selected states are written to the `frameStates` query parameter (e.g., `?frameStates=WAITING,DEAD`), so a filtered view can be bookmarked or shared. Whitespace and duplicates in the URL are tolerated.
+- **Pagination reset**: Toggling a chip resets the table to page 1 so the filtered results are immediately visible. Background data refreshes preserve the current page.
+- **Counts**: Counts shown on each chip always reflect the full unfiltered data set, so you can see how many frames each state has even after applying a filter.
+
 #### Frame Information Columns
 
 | Column | Description |
@@ -375,7 +443,7 @@ CueWeb provides automatic real-time updates:
 
 ### Job-finished notifications
 
-Each row in the jobs table has a bell button (the **Notify** column) that lets you subscribe to a toast notification when the job reaches `FINISHED`. The bell has three visual states:
+Each row in the jobs table has a bell button (the **Notify** column) that lets you subscribe to a browser notification when the job reaches `FINISHED`. The bell has three visual states:
 
 - **Outline bell**: not subscribed &rarr; click to subscribe
 - **Filled bell**: subscribed, waiting for `FINISHED` &rarr; click to cancel
@@ -384,9 +452,11 @@ Each row in the jobs table has a bell button (the **Notify** column) that lets y
 Behavior:
 
 - The bell is disabled (faded, with tooltip) on jobs that are already `FINISHED` when first viewed; there is nothing to notify on.
-- Subscribing/unsubscribing is immediate &mdash; no browser permission prompt is shown. Notifications are delivered as in-page toasts via the same channel as other action messages, so they appear only while a CueWeb tab is open.
-- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` a single `Job finished: <jobName>` toast is shown, the bell shows the green dot, and the entry is marked as notified.
-- Subscriptions persist in browser `localStorage` and survive page reloads. Bells stay in sync across browser tabs in the same browser: subscribing in one tab updates the bell in other open tabs, and the toast fires in only one tab even if several are open on the same job.
+- The first time you subscribe, the browser shows its native permission prompt. If you deny permission, a toast warning is shown and the subscription is not created &mdash; re-enable browser notifications for the CueWeb origin to subscribe later.
+- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` a single browser notification (`<jobName>` / "Job finished") is fired via the Web Notifications API, the bell switches to filled with a green dot, and the entry is marked as notified.
+- Notifications fire only while a CueWeb tab is open in the browser. They are delivered by the operating system, so they appear even when the CueWeb tab is in the background or another window has focus.
+- Subscriptions persist in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
+- If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
 
 ---
 

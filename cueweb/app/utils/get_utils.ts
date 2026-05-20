@@ -8,6 +8,15 @@ import { Frame } from "../frames/frame-columns";
 // Utility functions for getting objects like jobs, layers, and frames
 /********************************************************************/
 
+// Mirrors the comment.Comment proto message at proto/src/comment.proto.
+export type JobComment = {
+    id: string;
+    timestamp: number;
+    user: string;
+    subject: string;
+    message: string;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -102,3 +111,11 @@ export async function getJobForLayer(layer: Layer): Promise<Job | null> {
 export const getFrameLogDir = (job: Job, frame: Frame): string => {
     return path.join(job.logDir, `${job.name}.${frame.name}.rqlog`);
 };
+
+// Fetch all comments for a given job
+export async function getJobComments(job: Job): Promise<JobComment[]> {
+    const ENDPOINT = "/api/job/getcomments";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}

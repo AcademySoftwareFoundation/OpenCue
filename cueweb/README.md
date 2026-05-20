@@ -39,6 +39,8 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
   - Monitor or unmonitor jobs across various statuses.
   - Detailed job inspection via pop-ups displaying associated layers and frames.
   - Frame navigation with hyperlinks to logs and data pages.
+  - Stacked job progress bar with a hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead).
+  - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with per-state counts, OR-combined selection, and selection mirrored to the `frameStates` URL query parameter for bookmarkable/shareable filtered views.
 - **Job search functionality:**
    - Search for jobs using show names followed by a hyphen.
    - Dropdown suggestions for matching jobs based on naming conventions like show1-shot-test_job_123.
@@ -290,7 +292,7 @@ Go back to [Contents](#contents).
 The current CueWeb system offers a robust set of features designed to enhance user interaction and productivity:
 
 - **Authentication:** Secure login via Okta, Google, and GitHub.
-- **Jobs/layers/frames management:** Customizable tables, state filtering, monitoring, detailed inspections, and log navigation.
+- **Jobs/layers/frames management:** Customizable tables, state filtering, monitoring, detailed inspections, and log navigation. Includes a hover tooltip on the job progress bar (per-state frame counts and percentages) and frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with URL-persisted selection.
 - **Search:** Advanced search with regex support, dropdown suggestions, and optimized loading.
 - **Dark mode:** Toggle between light and dark themes.
 - **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) with context menus.

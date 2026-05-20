@@ -126,7 +126,7 @@ cueweb/
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
-- **`JobSubscriptionPoller`**: App-wide provider that polls subscribed jobs every 15s and fires a toast when a job reaches `FINISHED`. Serializes the per-job notify decision across browser tabs via `navigator.locks` to avoid duplicate toasts.
+- **`JobSubscriptionPoller`**: App-wide client provider (mounted in `app/layout.tsx`) that polls subscribed jobs every 15s. When a job reaches `FINISHED` it fires a browser notification via the Web Notifications API and marks the entry as notified. An `inFlight` ref guards against overlapping ticks, and jobs that no longer exist in Cuebot are removed from the store on the next poll.
 
 #### UI Components
 
@@ -135,7 +135,11 @@ cueweb/
 - **`Dialog`**: Modal dialog wrapper
 - **`Select`**: Dropdown selection component
 - **`Toast`**: Notification system
-- **`SubscribeBell`**: Per-row bell button in `JobsTable` for the **Notify** column. Reads/writes per-job subscription state via the `useJobSubscriptions` hook (`app/utils/use_job_subscriptions.ts`), backed by `localStorage` through `app/utils/subscription_utils.ts`. Tabs stay in sync through both an in-process change event and the browser `storage` event.
+- **`SubscribeBell`**: Per-row bell button in the `JobsTable` **Notify** column. Reads/writes per-job subscription state via the `useJobSubscriptions` hook (`app/utils/use_job_subscriptions.ts`), backed by `localStorage` through `app/utils/subscription_utils.ts`. Every subscribe attempt calls `requestNotificationPermission()`; the browser only displays its native permission prompt when the current state is `default` (undecided) and resolves silently with the existing decision otherwise. If the resolved permission is not `granted`, the component surfaces a toast warning and skips the subscription. The button is disabled on rows whose `jobState` is already `FINISHED` and the row has no existing subscription.
+
+##### Subscription store
+
+Subscriptions are stored as a `Record<jobId, JobSubscription>` under the `localStorage` key `cueweb:job-subscriptions`. Each entry tracks `jobId`, `jobName`, `subscribedAt`, and `notifiedAt` (null until the poller fires the notification). Mutations dispatch a `cueweb:subscriptions-changed` window event so every `useJobSubscriptions` consumer re-reads from `localStorage` &mdash; this keeps the bell, the poller, and any other consumer in sync within the same tab without prop drilling. The store getter defensively returns `{}` for missing or malformed JSON so a stale or hand-edited entry cannot crash the UI.
 
 ---
 
@@ -309,6 +313,72 @@ export function createJWTToken(secret: string, userId: string): string {
   return jwt.sign(payload, secret, { algorithm: 'HS256' });
 }
 ```
+
+### Job Comments
+
+CueWeb implements the CueGUI Comments dialog (`cuegui/cuegui/Comments.py`) via four proxy routes that wrap the underlying gRPC services.
+
+#### Proxy routes
+
+| Browser route | Forwards to | Notes |
+|---------------|-------------|-------|
+| `POST /api/job/getcomments` | `job.JobInterface/GetComments` | Returns the `Comment` array flattened from `data.comments.comments`. |
+| `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` | Body: `{ job: { id, name }, new_comment: { user, subject, message } }`. |
+| `POST /api/comment/action/save` | `comment.CommentInterface/Save` | Body: `{ comment: Comment }`. `comment.id` is required. |
+| `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` | Body: `{ comment: Comment }`. Only `comment.id` is read. |
+
+#### Helpers
+
+Located in `app/utils/` and consumed by the Comments page (`app/jobs/[job-name]/comments/page.tsx`):
+
+```typescript
+// app/utils/get_utils.ts
+export type JobComment = {
+  id: string;
+  timestamp: number;  // unix seconds — mirrors comment.Comment in proto/src/comment.proto
+  user: string;
+  subject: string;
+  message: string;
+};
+export async function getJobComments(job: Job): Promise<JobComment[]>;
+
+// app/utils/action_utils.ts
+export async function addJobComment(job: Job, username: string, subject: string, message: string): Promise<void>;
+export async function saveJobComment(comment: JobComment): Promise<void>;
+export async function deleteJobComment(comment: JobComment): Promise<void>;
+```
+
+#### Predefined comment macros
+
+Macros are stored per-browser in `localStorage` under the `cueweb-comment-macros` key. Loading, upserting (with optional rename), and deleting are exposed by `app/utils/comment_macros.ts`:
+
+```typescript
+export type CommentMacro = { name: string; subject: string; message: string };
+export function loadCommentMacros(): CommentMacro[];
+export function upsertCommentMacro(macro: CommentMacro, replaceName?: string): CommentMacro[];
+export function deleteCommentMacro(name: string): CommentMacro[];
+```
+
+#### Markdown rendering
+
+Comment messages are rendered with [`react-markdown`](https://github.com/remarkjs/react-markdown) and sanitized with [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) — embedded HTML/scripts are stripped before render.
+
+#### Viewer identity and authorization
+
+The Comments page derives the signed-in user from the authenticated NextAuth session by fetching `/api/auth/session` on mount, applying the same `email → name` precedence used in `app/page.tsx`. URL query parameters are **never** used as an authorization signal.
+
+The session-derived `currentUser` only drives client-side UI state:
+
+- `isAuthor = comment.user === currentUser` enables/disables the editor and Delete button.
+- `addJobComment(..., currentUser, ...)` stamps new-comment author from the session, not the URL.
+
+**Authoritative ownership enforcement lives server-side in Cuebot.** The client-side gate is a convenience to avoid a doomed round-trip; Cuebot still rejects unauthorized save/delete attempts.
+
+#### Comment indicator on the jobs table
+
+The Job columns definition (`app/jobs/columns.tsx`) renders a `StickyNote` (lucide-react) icon next to the show-shot-user line when `Job.hasComment` is true. The cell reads `username` from `table.options.meta` and forwards it as a query hint when opening the Comments page; the Comments page does not use it for authorization, but the hint keeps the new tab self-describing.
+
+Both the indicator click and the context-menu "Comments" entry open the page with `window.open(url, "_blank", "noopener,noreferrer")` so the new tab cannot reach back via `window.opener` and the `Referer` header is suppressed.
 
 ### Data Fetching Patterns
 

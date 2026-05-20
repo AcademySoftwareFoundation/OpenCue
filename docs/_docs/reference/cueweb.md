@@ -151,13 +151,25 @@ The main jobs table displays rendering jobs with the following columns:
 | **Shot** | Shot identifier | Yes |
 | **User** | Job owner | Yes |
 | **State** | Current job state | Yes |
-| **Progress** | Frame completion progress | Yes |
+| **Progress** | Stacked frame-state progress bar. Hover shows a tooltip with exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | Yes |
 | **Priority** | Job priority value | Yes |
 | **Pending** | Pending frame count | Yes |
 | **Running** | Running frame count | Yes |
 | **Dead** | Failed frame count | Yes |
 | **Cores** | Reserved cores | Yes |
 | **Start Time** | Job start timestamp | Yes |
+| **Notify** | Per-row bell button to subscribe to a browser notification when the job reaches `FINISHED`. Three states: outline (not subscribed), filled (subscribed/waiting), filled with green dot (notification fired). Disabled on rows whose job state is already `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+
+### Job-finished notifications
+
+| Behavior | Description |
+|----------|-------------|
+| **Trigger** | Click the bell in the **Notify** column. The first subscribe prompts for browser notification permission; denied permission shows a toast warning and does not create the subscription. |
+| **Polling** | An app-wide `JobSubscriptionPoller` provider polls each subscribed job's state every 15 seconds via the REST gateway. |
+| **Notification** | When a subscribed job's state becomes `FINISHED`, a single Web Notification (`<jobName>` / "Job finished") is fired and the entry is marked notified. |
+| **Persistence** | Subscriptions are stored in `localStorage` under `cueweb:job-subscriptions` and survive page reloads; cleared when the browser site data is cleared. |
+| **Auto-cleanup** | If a subscribed job no longer exists in Cuebot (the lookup returns null), the subscription is removed on the next poll. |
+| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab. |
 
 ### Job States
 
@@ -179,6 +191,33 @@ The main jobs table displays rendering jobs with the following columns:
 | `DEAD` | Red | Frame failed |
 | `EATEN` | Purple | Frame marked as eaten |
 | `DEPEND` | Cyan | Frame waiting on dependency |
+
+### Frame State Filter Chips
+
+Above the frames table, one filter chip is rendered per supported state. Each chip shows the current frame count for that state and toggles the filter on click.
+
+| Behavior | Description |
+|----------|-------------|
+| **States** | `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` |
+| **Combination** | OR semantics — frames matching any selected state are shown |
+| **Empty selection** | All frames are shown when no chip is selected |
+| **URL parameter** | `frameStates` (comma-separated, e.g., `?frameStates=WAITING,DEAD`); whitespace is trimmed and duplicates are removed |
+| **Counts** | Always computed against the unfiltered data set |
+| **Pagination** | The table jumps to page 1 when the selection changes (polling-driven data refreshes do not reset the page) |
+
+### Job Comments Page
+
+CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `/jobs/<job-name>/comments`.
+
+| Aspect | Description |
+|--------|-------------|
+| **Required query params** | `jobId` (job UUID). The page calls `getJob(jobId)` to populate the comment list. |
+| **Viewer identity** | Derived client-side from the authenticated NextAuth session (`/api/auth/session`), never from URL parameters. Used only to drive UI state. |
+| **Comment fields** | `id`, `timestamp` (unix seconds), `user`, `subject`, `message`. Mirrors `comment.Comment` in `proto/src/comment.proto`. |
+| **Markdown** | Messages are rendered with `react-markdown` + `rehype-sanitize` to strip embedded HTML/scripts. |
+| **Edit / delete authorization** | Server-side ownership enforcement in Cuebot is authoritative. The client adds a convenience gate that enables the editor/delete only when `comment.user === currentUser` (the session-derived identity); the URL is never used as an auth signal. |
+| **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
+| **Indicator icon** | A sticky-note icon is shown beside the job's show-shot-user label in the jobs table when `Job.hasComment` is true. Updated on the regular jobs-table polling cycle. |
 
 ---
 
@@ -228,12 +267,13 @@ Prefix with `!` for regex patterns:
 
 | Action | Description |
 |--------|-------------|
+| **Unmonitor** | Remove from monitored jobs |
+| **Comments** | Open the job Comments page in a new tab |
 | **Pause** | Pause job rendering |
 | **Unpause** | Resume paused job |
-| **Kill** | Terminate job |
 | **Eat Dead Frames** | Mark dead frames as eaten |
 | **Retry Dead Frames** | Retry all failed frames |
-| **Unmonitor** | Remove from monitored jobs |
+| **Kill** | Terminate job |
 
 ### Layer Actions
 
@@ -289,11 +329,26 @@ CueWeb communicates with these REST Gateway endpoints:
 | `job.JobInterface/Pause` | Pause job |
 | `job.JobInterface/Resume` | Resume job |
 | `job.JobInterface/Kill` | Kill job |
+| `job.JobInterface/GetComments` | List comments for a job |
+| `job.JobInterface/AddComment` | Add a new comment to a job |
+| `comment.CommentInterface/Save` | Update an existing comment's subject/message |
+| `comment.CommentInterface/Delete` | Delete a comment |
 | `layer.LayerInterface/GetLayer` | Get layer details |
 | `layer.LayerInterface/GetFrames` | Get frames for layer |
 | `frame.FrameInterface/Retry` | Retry frame |
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
+
+### CueWeb Proxy Routes
+
+The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment-related routes:
+
+| Route | Forwards to |
+|-------|-------------|
+| `POST /api/job/getcomments` | `job.JobInterface/GetComments` |
+| `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` |
+| `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
+| `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 
 ---
 
@@ -458,21 +513,30 @@ Check browser developer tools for:
 
 ```
 cueweb/
-├── app/                   # Next.js app directory
-│   ├── api/               # API routes
-│   ├── login/             # Login page
-│   ├── jobs/              # Jobs pages
-│   └── page.tsx           # Main page
-├── components/            # React components
-│   └── ui/                # Shadcn UI components
-├── lib/                   # Utility libraries
-│   ├── auth.ts            # Authentication config
-│   └── api.ts             # API client functions
-├── public/                # Static assets
-├── Dockerfile             # Container configuration
-├── next.config.js         # Next.js configuration
-├── package.json           # Dependencies
-└── tailwind.config.js     # Tailwind CSS config
+├── app/                              # Next.js app directory
+│   ├── api/                          # API proxy routes
+│   │   ├── comment/action/save/      # CommentInterface/Save
+│   │   ├── comment/action/delete/    # CommentInterface/Delete
+│   │   └── job/
+│   │       ├── action/addcomment/    # JobInterface/AddComment
+│   │       └── getcomments/          # JobInterface/GetComments
+│   ├── jobs/                         # Jobs pages
+│   │   └── [job-name]/comments/      # Per-job Comments page
+│   ├── utils/                        # Client helpers
+│   │   ├── action_utils.ts           # add/save/delete comment helpers
+│   │   ├── get_utils.ts              # getJobComments
+│   │   └── comment_macros.ts         # Predefined-macro localStorage CRUD
+│   ├── login/                        # Login page
+│   └── page.tsx                      # Main page
+├── components/                       # React components
+│   └── ui/                           # Shadcn UI components
+├── lib/                              # Utility libraries
+│   └── auth.ts                       # Authentication config
+├── public/                           # Static assets
+├── Dockerfile                        # Container configuration
+├── next.config.js                    # Next.js configuration
+├── package.json                      # Dependencies (incl. react-markdown, rehype-sanitize)
+└── tailwind.config.js                # Tailwind CSS config
 ```
 
 ---

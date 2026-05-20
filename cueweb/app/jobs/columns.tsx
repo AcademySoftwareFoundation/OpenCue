@@ -2,11 +2,12 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, StickyNote } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
 import { SubscribeBell } from "@/components/ui/subscribe-bell";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -118,6 +119,35 @@ export const getJobReadableAge = (job: Job) => {
   return secondsToHumanAge(getJobAgeInSeconds(job));
 };
 
+// Sticky-note icon shown next to jobs that have one or more comments
+// (mirrors the comment indicator column in cuegui.JobMonitorTree).
+function JobCommentIndicator({ job, username }: { job: Job; username?: string }) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const params = new URLSearchParams({ jobId: job.id });
+    if (username) params.set("username", username);
+    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleClick}
+            aria-label="View comments"
+            className="inline-flex items-center justify-center text-amber-500 hover:text-amber-400"
+          >
+            <StickyNote className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Has comments — click to view</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export const columns: ColumnDef<Job>[] = [
   // accessorKey is the unique id for each column, header is the string that shows as the header in the row
   {
@@ -152,12 +182,19 @@ export const columns: ColumnDef<Job>[] = [
     // A job name has the format `${show-shot-user}_${jobName}_[optional suffix]`
     // The next few lines split up the job name into two lines for easier readability
     // One line for show/show/user and another for the rest of the job name
-    cell: ({ row }) => (
-      <>
-        <div>{getShowShotUser((row.original as Job).name)}</div>
-        <div>{getRestOfJobName((row.original as Job).name)}</div>
-      </>
-    ),
+    cell: ({ row, table }) => {
+      const job = row.original as Job;
+      const username = (table.options.meta as { username?: string } | undefined)?.username;
+      return (
+        <>
+          <div className="flex items-center gap-1">
+            <span>{getShowShotUser(job.name)}</span>
+            {job.hasComment && <JobCommentIndicator job={job} username={username} />}
+          </div>
+          <div>{getRestOfJobName(job.name)}</div>
+        </>
+      );
+    },
   },
   {
     accessorKey: "state",
