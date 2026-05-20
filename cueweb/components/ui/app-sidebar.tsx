@@ -220,8 +220,10 @@ export function AppSidebar() {
       className={cn(
         // Sticky from the top of the viewport so the sidebar owns the full
         // left column (the AppHeader sits to its right, not above it). The
-        // sidebar scrolls independently of the main content area.
-        "sticky top-0 hidden h-screen shrink-0 overflow-y-auto border-r border-border bg-background transition-[width] duration-200 ease-out md:flex md:flex-col",
+        // height stops 1.5rem (24px) above the bottom of the viewport so
+        // the sidebar's "Collapse" toggle is never covered by the fixed
+        // 24px StatusBar at the bottom of the page.
+        "sticky top-0 hidden h-[calc(100vh-1.5rem)] shrink-0 overflow-y-auto border-r border-border bg-background transition-[width] duration-200 ease-out md:flex md:flex-col",
         // Match the AppHeader's dark surface for visual continuity.
         "dark:border-zinc-800 dark:bg-zinc-900",
         collapsed ? "w-16" : "w-60",
