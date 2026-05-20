@@ -148,7 +148,8 @@ You should see output similar to:
 
 The CueWeb interface includes:
 
-- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, the **Cuetopia** and **CueCommander** dropdown menus (mirroring the CueGUI Views/Plugins menu) next to it, a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other**, **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
 - **Jobs Dashboard**: View and manage rendering jobs
 - **Job Search**: Search for specific jobs by name or pattern
 - **Frame Management**: Monitor frame status and logs
@@ -156,6 +157,8 @@ The CueWeb interface includes:
 - **Dark/Light Mode**: Toggle between themes via the sun/moon button in the header
 - **Real-time Updates**: Automatic refresh of job status
 - **Job-finished Notifications**: Per-row bell button to subscribe to a browser notification when a job reaches `FINISHED`
+- **Disable Job Interaction**: Read-only safety toggle in File ▸ Disable Job Interaction (header or sidebar). When on, an amber banner appears under the header and destructive actions (Pause / Unpause / Retry / Eat / Kill) — in the toolbar and in the right-click menus — are dim and inert.
+- **Attributes Panel**: Other ▸ Attributes opens a docked drawer with a collapsible key/value tree of the selected entity. Click a row in the jobs table to populate it; pick the dock position (right / bottom / left / top) from the panel's title bar.
 
 ---
 

@@ -102,6 +102,20 @@ NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
 NEXTAUTH_URL=https://cueweb.company.com
 NEXTAUTH_SECRET=nextauth-production-secret
 
+# Cuebot Facility selector (optional)
+# Comma-separated list of facilities exposed in the header / sidebar
+# "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
+# (The selected value is persisted client-side; per-facility gateway
+# routing is implemented in a separate page-level change.)
+# NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+
+# Help menu URLs (optional)
+# Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
+# internal docs / suggestions / bug trackers at your own systems.
+# NEXT_PUBLIC_DOCS_URL=https://www.opencue.io/docs/
+# NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
+# NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret

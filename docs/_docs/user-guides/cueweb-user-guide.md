@@ -118,19 +118,25 @@ When you first access CueWeb, you'll see the main dashboard:
 
 ![CueWeb main page (dark mode)](/assets/images/cueweb/figure4-main-dark.png)
 
-> **Note:** the dashboard screenshots above predate the global application header. Recent builds show that header at the top of every authenticated page — the OpenCue logo + **CueWeb** wordmark on the left, the Cuetopia / CueCommander dropdown navigation, a theme toggle, and a Sign out button on the right.
-
 The screen is composed of:
 
-- **Global header**: Persistent across every authenticated route.
+- **Global header** (persistent across every authenticated route):
   - **Logo and wordmark**: OpenCue icon (black in light mode, white in dark mode) followed by **CueWeb**. Clicking the logo returns you to the jobs dashboard (`/`).
-  - **Navigation**: Two grouped dropdowns matching the CueGUI Views/Plugins menu:
-    - **Cuetopia** → Monitor Jobs.
-    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions.
-    
-    Routes that have not been implemented yet 404 gracefully — they are placeholders for upcoming features.
+  - **Menus** (mirror the CueGUI menu bar):
+    - **File** -> *Disable Job Interaction* (read-only safety toggle, see below).
+    - **Cuebot Facility** -> switch between `local` · `dev` · `cloud` · `external` (the active facility is shown as a small chip on the menu trigger).
+    - **Cuetopia** -> Monitor Jobs.
+    - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully - they are placeholders for upcoming features.
+    - **Other** -> *Attributes* (toggles the docked Attributes panel, see below).
+    - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, and Report a Bug.
   - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
-  - **Sign out**: Always visible. When you are signed in, it shows your name or email next to the button and clicking it ends the session and returns you to `/login`. When you are not signed in (or when authentication is disabled in the deployment), clicking it just navigates to `/login` — the `/login` page itself shows the **CueWeb Home** button if no auth provider is configured, or the provider buttons otherwise.
+  - **Sign out**: Always visible. When you are signed in, it shows your name or email next to the button and clicking it ends the session and returns you to `/login`. When you are not signed in (or when authentication is disabled in the deployment), clicking it just navigates to `/login` - the `/login` page itself shows the **CueWeb Home** button if no auth provider is configured, or the provider buttons otherwise.
+- **Left sidebar** (persistent across every authenticated route):
+  - Same six groups as the header (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other**, **Help**), organized as accordion sections. The group containing the active route auto-expands; the others remember their open/closed state per browser.
+  - Click the **Collapse** button at the bottom to shrink the sidebar to an icon-only rail (your choice persists across reloads). Hover an icon to see its label.
+  - Hidden on `/login` and on mobile viewports.
+- **Read-only banner** (only when *Disable Job Interaction* is on): an amber strip just under the header explains that destructive actions (Pause / Unpause / Retry Dead Frames / Eat Dead Frames / Kill - both in the jobs toolbar and in the right-click menus on job / layer / frame rows) are temporarily disabled. Click **Re-enable** to clear it.
+- **Attributes panel** (toggled from Other ▸ Attributes): a docked drawer that displays a collapsible key/value tree for the currently-selected entity. Click any row in the jobs table to populate it. The title bar's position picker lets you dock the panel on the **right** (default), **bottom**, **left**, or **top** of the viewport - the choice persists across reloads. A filter input narrows the tree live.
 - **Jobs Dashboard**: Central paginated table populated with OpenCue jobs (below the header).
 
 ---
@@ -153,7 +159,7 @@ The dashboard consists of:
 | Column | Description |
 |--------|-------------|
 | **Select** | Checkbox for multi-job selection |
-| **Name** | Job identifier with show-shot-user and job name on separate lines. A sticky-note icon appears next to the show-shot-user line when the job has one or more comments — click it to open the Comments page in a new tab. |
+| **Name** | Job identifier with show-shot-user and job name on separate lines. A sticky-note icon appears next to the show-shot-user line when the job has one or more comments - click it to open the Comments page in a new tab. |
 | **State** | Current job state (Failing, Finished, In Progress, Dependency, Paused) |
 | **Done / Total** | Succeeded frames out of total frames (e.g., "150 of 200") |
 | **Started** | Job start timestamp in human-readable format |
@@ -165,7 +171,7 @@ The dashboard consists of:
 | **MaxRss** | Maximum resident set size (peak memory usage) |
 | **Age** | Total time since job started (HHH:MM format) |
 | **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
-| **Progress** | Stacked progress bar with five colored segments — green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
+| **Progress** | Stacked progress bar with five colored segments - green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
 | **Notify** | Bell button to subscribe to a browser notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
 | **Pop-up** | Button to open job details panel |
 
@@ -367,7 +373,7 @@ When `hasComment` is true on a job, a sticky-note icon is rendered next to the j
 
 #### Frame State Filter Chips
 
-Above the frames table, CueWeb renders one filter chip per supported frame state — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — each annotated with the current count of frames in that state.
+Above the frames table, CueWeb renders one filter chip per supported frame state - `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` - each annotated with the current count of frames in that state.
 
 - **Toggle**: Click a chip to add or remove its state from the filter. Selected chips switch to a solid (filled) style.
 - **OR semantics**: When multiple chips are selected, frames matching **any** of the selected states are shown.

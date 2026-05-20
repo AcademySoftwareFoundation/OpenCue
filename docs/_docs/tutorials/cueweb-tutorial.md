@@ -61,12 +61,17 @@ The CueWeb interface consists of:
 
 - **Global header (persistent across every authenticated route):**
   - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, clickable as a link back to the jobs dashboard.
-  - Two grouped dropdown menus mirroring the CueGUI Views/Plugins menu:
-    - **Cuetopia** → Monitor Jobs.
-    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions.
-    
-    Routes that are not yet implemented 404 gracefully.
+  - Six dropdown menus mirroring the CueGUI menu bar:
+    - **File** -> Disable Job Interaction (read-only safety toggle).
+    - **Cuebot Facility** -> switch between the options (e.g.: `local` / `dev` / `cloud` / `external`); the active facility is shown as a chip on the trigger.
+    - **Cuetopia** -> Monitor Jobs.
+    - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Routes that are not yet implemented 404 gracefully.
+    - **Other** -> Attributes (toggles the docked Attributes panel).
+    - **Help** -> a search box that finds commands across every menu, plus Online User Guide, Make a Suggestion, and Report a Bug.
   - Theme toggle and an always-visible **Sign out** button on the right. With an active session, Sign out clears it and returns you to `/login`. Without a session (or when auth is disabled), it simply navigates to `/login`.
+- **Left sidebar (persistent, collapsible):** same six groups as the header, organized as accordion sections. The group containing the active route auto-expands; click **Collapse** at the bottom to shrink the sidebar to an icon rail (your choice persists).
+- **Read-only banner:** appears only when *Disable Job Interaction* is on; describes the read-only state and offers a *Re-enable* button. Destructive toolbar buttons and right-click menu items are dim and inert in this state.
+- **Attributes panel:** docked drawer toggled from Other ▸ Attributes. Click a row in the jobs table to populate it; use the title-bar position picker to dock it on the right, bottom, left, or top of the viewport.
 - **Filter Bar**: Show selection, status filters, and search
 - **Jobs Table**: Main view of all jobs with sortable columns
 - **Action Buttons**: Job control operations

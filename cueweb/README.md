@@ -36,13 +36,29 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
 
 - **Global application header (persistent across every route):**
    - OpenCue logo (theme-aware: `opencue-icon-black.png` in light mode, `opencue-icon-white.png` in dark mode) followed by the **CueWeb** wordmark.
-   - Two grouped dropdown menus mirroring the CueGUI **Views/Plugins** menu:
-     - **Cuetopia** → Monitor Jobs
-     - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions
-     - CueCommander routes that have not been built yet 404 gracefully until the corresponding tasks land.
+   - Six dropdown menus that mirror the CueGUI menu bar:
+     - **File** → Disable Job Interaction (read-only safety toggle, see below).
+     - **Cuebot Facility** → `local` · `dev` · `cloud` · `external` (overridable via `NEXT_PUBLIC_CUEBOT_FACILITIES`). The active facility is shown as a small chip on the menu trigger.
+     - **Cuetopia** → Monitor Jobs.
+     - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully until the corresponding pages land.
+     - **Other** → Attributes (toggles the docked Attributes panel, see below).
+     - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity) plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
    - Theme toggle on the right.
    - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
    - When the user is signed in, the right-side cluster also shows the session's name or email next to the Sign out button.
+- **Collapsible left sidebar (persistent across every route):**
+   - Same six groups as the header, organized as accordion sections: **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other**, **Help**.
+   - Each group is independently collapsible; the group containing the active route auto-expands on navigation.
+   - One click on the **Collapse** button at the bottom shrinks the sidebar to an icon-only rail; the choice is persisted in `localStorage` under `cueweb.sidebar.collapsed`, and per-group open/closed state under `cueweb.sidebar.openGroups`.
+   - Hidden on `/login`. Hidden on viewports smaller than the `md` breakpoint.
+- **Disable Job Interaction (read-only safety mode):**
+   - File ▸ Disable Job Interaction (header or sidebar) toggles a single global flag persisted under `localStorage["cueweb.safety.disable-job-interaction"]`.
+   - When on, an amber **Read-only mode** banner is rendered just under the header with a *Re-enable* button, and every destructive action (jobs toolbar Pause / Unpause / Retry Dead Frames / Eat Dead Frames / Kill, plus the same items in the right-click context menus on job / layer / frame rows) is visually disabled and ignores clicks.
+   - Cross-tab sync via the browser `storage` event, so toggling the flag in one tab is reflected in every other tab.
+- **Attributes panel (Other ▸ Attributes):**
+   - Docked drawer that displays a collapsible key/value tree for the currently-selected entity (click any row in the jobs table to populate it).
+   - Position picker in the title bar lets the user dock the panel on the **right**, **bottom**, **left**, or **top** of the viewport. The choice persists under `cueweb.attributes.position`; open/closed state under `cueweb.attributes.open`.
+   - Built-in filter input narrows the tree live; parent groups remain visible whenever any descendant matches.
 - **User authentication:**
    - Secure login capabilities through Okta, Google, GitHub, and LDAP (configured via `NEXT_PUBLIC_AUTH_PROVIDER`).
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.

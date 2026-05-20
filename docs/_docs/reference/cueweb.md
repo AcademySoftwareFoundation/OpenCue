@@ -199,7 +199,7 @@ Above the frames table, one filter chip is rendered per supported state. Each ch
 | Behavior | Description |
 |----------|-------------|
 | **States** | `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` |
-| **Combination** | OR semantics — frames matching any selected state are shown |
+| **Combination** | OR semantics - frames matching any selected state are shown |
 | **Empty selection** | All frames are shown when no chip is selected |
 | **URL parameter** | `frameStates` (comma-separated, e.g., `?frameStates=WAITING,DEAD`); whitespace is trimmed and duplicates are removed |
 | **Counts** | Always computed against the unfiltered data set |
@@ -415,9 +415,16 @@ Layout, left to right:
   `public/opencue-icon-black.png` (light mode) and
   `public/opencue-icon-white.png` (dark mode). Clicking the logo returns
   to `/` (Monitor Jobs).
-- **Cuetopia dropdown**:
+- **File** dropdown:
+  - Disable Job Interaction - read-only safety toggle (see
+    [Disable Job Interaction](#disable-job-interaction-safety-mode)).
+- **Cuebot Facility** dropdown: one item per configured facility (default
+  `local` / `dev` / `cloud` / `external`; overridable via
+  `NEXT_PUBLIC_CUEBOT_FACILITIES`). A small chip on the menu trigger
+  shows the currently-active facility.
+- **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
-- **CueCommander dropdown** (mirrors the CueGUI Views/Plugins menu):
+- **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
   - Allocations (`/allocations`)
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
@@ -428,8 +435,21 @@ Layout, left to right:
   - Stuck Frame (`/stuck-frames`)
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
-  
+
   Routes that have not been implemented yet 404 gracefully.
+- **Other** dropdown:
+  - Attributes - toggles the docked Attributes panel (see
+    [Attributes Panel](#attributes-panel)).
+- **Help** dropdown - CueGUI parity:
+  - A search input at the top that searches across **every** menu command
+    in CueWeb via the `useMenuRegistry` hook
+    (`app/utils/use_menu_registry.ts`). Matches render as `Group > Label`.
+  - Online User Guide - `NEXT_PUBLIC_DOCS_URL`
+    (default `https://www.opencue.io/docs/`).
+  - Make a Suggestion - `NEXT_PUBLIC_SUGGESTIONS_URL`
+    (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md`).
+  - Report a Bug - `NEXT_PUBLIC_BUGS_URL`
+    (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md`).
 - **Theme toggle**: Switches between light and dark mode (see
   [Theming](#theming) below).
 - **Sign out**: Always rendered. With a session, `signOut()` clears it and
@@ -440,9 +460,71 @@ Layout, left to right:
 The `/login` page handles both auth configurations:
 
 - `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) renders only the **CueWeb Home**
-  button — useful for sandbox deployments without authentication.
+  button - useful for sandbox deployments without authentication.
 - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap` (or any subset)
   renders one sign-in button per configured provider.
+
+---
+
+## Left Sidebar
+
+CueWeb also mounts a collapsible sidebar to the left of the content area.
+Implemented in `components/ui/app-sidebar.tsx` and hidden on `/login*` and
+on viewports smaller than the `md` breakpoint.
+
+- Same six groups as the header (**File**, **Cuebot Facility**,
+  **Cuetopia**, **CueCommander**, **Other**, **Help**), organized as
+  accordion sections built on the `Collapsible` primitive.
+- The group containing the currently-active route auto-expands on
+  navigation.
+- A **Collapse** button at the bottom toggles between expanded
+  (`w-60`) and icon-only (`w-16`).
+- Persisted state:
+  - `cueweb.sidebar.collapsed` - overall expanded vs icon-only.
+  - `cueweb.sidebar.openGroups` - per-group open/closed map.
+
+---
+
+## Disable Job Interaction (safety mode)
+
+Header File ▸ Disable Job Interaction (and the sidebar's File group)
+toggle a single global flag persisted under
+`localStorage["cueweb.safety.disable-job-interaction"]`. The
+`useDisableJobInteraction` hook
+(`app/utils/use_disable_job_interaction.ts`) keeps every consumer in sync
+via a `cueweb:disable-job-interaction-changed` CustomEvent (same tab) and
+the browser's `storage` event (cross-tab).
+
+When the flag is on:
+
+- A **`ReadOnlyBanner`** (`components/ui/read-only-banner.tsx`) renders an
+  amber strip just under the header with a *Re-enable* button.
+- The jobs toolbar action buttons (Eat Dead Frames, Retry Dead Frames,
+  Pause, Unpause, Kill) disable themselves visually and ignore clicks.
+  *Unmonitor* is non-destructive and remains active.
+- The right-click context menus on **job**, **layer**, and **frame** rows
+  dim every destructive item (Pause / Retry / Retry Dead Frames / Eat /
+  Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
+  remain active.
+
+---
+
+## Attributes Panel
+
+Other ▸ Attributes (header or sidebar) toggles a docked drawer
+implemented in `components/ui/attributes-panel.tsx`.
+
+- **Selection**: clicking any row in the jobs table fires
+  `setAttributeSelection({...})` from
+  `app/utils/use_attribute_selection.ts`. The panel listens via the
+  `useAttributeSelection` hook and re-renders for the new entity.
+- **Position**: a dock-position picker in the title bar lets users place
+  the panel on the **right** (default), **bottom**, **left**, or **top**
+  of the viewport. Persisted under `cueweb.attributes.position`.
+- **Open state**: persisted under `cueweb.attributes.open` (and synced
+  across consumers via `cueweb:attributes-panel-changed`).
+- **Filter input**: narrows the key/value tree live; parent groups stay
+  visible whenever any descendant matches.
 
 ---
 

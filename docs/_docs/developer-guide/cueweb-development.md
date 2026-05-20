@@ -91,19 +91,32 @@ npm run dev
 cueweb/
 ├── app/                  # Next.js App Router pages
 │   ├── globals.css       # Global styles and theme CSS variables
-│   ├── layout.tsx        # Root layout — mounts ThemeProvider,
-│   │                     #   AppSessionProvider, AppHeader, and
+│   ├── layout.tsx        # Root layout - mounts ThemeProvider,
+│   │                     #   AppSessionProvider, AppHeader,
+│   │                     #   ReadOnlyBanner, AppSidebar,
+│   │                     #   AttributesPanel, and
 │   │                     #   JobSubscriptionPoller around {children}
 │   ├── page.tsx          # Jobs dashboard (Cuetopia → Monitor Jobs)
 │   ├── icon.png          # Favicon (OpenCue logo, theme-agnostic)
-│   ├── login/            # Authentication pages (header is hidden here)
+│   ├── login/            # Authentication pages (chrome is hidden here)
 │   ├── providers/        # Client-side providers
 │   │   ├── session-provider.tsx       # Wraps NextAuth's SessionProvider
 │   │   └── job-subscription-poller.tsx # Polls subscribed jobs
+│   ├── utils/            # Client-side hooks and shared data
+│   │   ├── menus.ts                       # Shared NAV_MENUS (Cuetopia/CueCommander)
+│   │   ├── help_menu.ts                   # Help links + env-var overrides
+│   │   ├── use_disable_job_interaction.ts # Safety flag hook
+│   │   ├── use_cuebot_facility.ts         # Active facility hook
+│   │   ├── use_attributes_panel.ts        # Panel open/closed + dock position
+│   │   ├── use_attribute_selection.ts     # Selected entity for the panel
+│   │   └── use_menu_registry.ts           # Flat command registry for Help search
 │   └── api/              # API routes (REST gateway proxy + auth)
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
 │   │   ├── app-header.tsx       # Global persistent header
+│   │   ├── app-sidebar.tsx      # Collapsible left sidebar
+│   │   ├── attributes-panel.tsx # Docked Attributes drawer
+│   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
 │   │   ├── cuewebicon.tsx       # OpenCue icon + "CueWeb" wordmark
 │   │   ├── theme-toggle.tsx     # Light/dark toggle
 │   │   ├── theme-provider.tsx   # next-themes wrapper
@@ -136,14 +149,15 @@ loads at runtime are copies under `cueweb/public/`.
 
 - **`AppHeader`** (`components/ui/app-header.tsx`): Persistent global header mounted by `app/layout.tsx`. Hidden on `/login*`. Composes:
   - The OpenCue logo (theme-aware via Tailwind `block dark:hidden` / `hidden dark:block`) + the **CueWeb** wordmark.
-  - Two `DropdownMenu`s built from a `NAV_MENUS` data array mirroring the CueGUI Views/Plugins menu:
-    - **Cuetopia** → Monitor Jobs (`/`).
-    - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Active state is computed at the group level (`isMenuActive`); individual items also highlight when their `href` matches.
+  - Six `DropdownMenu`s that mirror the CueGUI menu bar - **File** (Disable Job Interaction), **Cuebot Facility** (one item per facility), **Cuetopia**, **CueCommander** (both built from `NAV_MENUS` imported from `app/utils/menus.ts`), **Other** (Attributes toggle), and a custom **Help** dropdown with a search input that searches the full `useMenuRegistry` list and renders matches as `Group > Label`.
   - The existing `ThemeToggle`.
   - An always-visible **Sign out** button. `handleSignOut` clears two `localStorage` keys (`tableData`, `tableDataUnfiltered`) and calls `signOut({ callbackUrl: "/login" })` regardless of session state. When a session exists the button is preceded by the session's name or email (truncated, hidden on mobile).
+- **`AppSidebar`** (`components/ui/app-sidebar.tsx`): Persistent collapsible left sidebar mounted by `app/layout.tsx`. Hidden on `/login*` and on viewports smaller than the `md` breakpoint. Same six groups as the header, rendered as Radix `Collapsible` accordions when expanded and as an icon-only rail when collapsed. The group containing the active route auto-expands; overall state is persisted under `cueweb.sidebar.collapsed`, and per-group open/closed state under `cueweb.sidebar.openGroups`.
+- **`AttributesPanel`** (`components/ui/attributes-panel.tsx`): Docked drawer toggled from Other ▸ Attributes. Renders a collapsible key/value tree of the entity in `useAttributeSelection`. Dock position (right / bottom / left / top), open state, and the filter query are all driven by `useAttributesPanel`.
+- **`ReadOnlyBanner`** (`components/ui/read-only-banner.tsx`): Amber strip rendered just under the header when `useDisableJobInteraction().disabled` is true. Includes a *Re-enable* button so users can clear the safety flag without opening the menu.
 - **`AppSessionProvider`** (`app/providers/session-provider.tsx`): Thin client wrapper around `next-auth/react`'s `SessionProvider` so `useSession()` works inside the header and any other client component.
 - **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
-- **`JobsTable`**: Main jobs dashboard table (no longer renders its own inline header — the global `AppHeader` owns that chrome).
+- **`JobsTable`**: Main jobs dashboard table (no longer renders its own inline header - the global `AppHeader` owns that chrome). Each `TableRow` left-click dispatches `setAttributeSelection(...)` so the Attributes panel updates as the user inspects rows. Destructive toolbar actions (Eat / Retry / Pause / Unpause / Kill) consume `useDisableJobInteraction()` and dim themselves when the safety flag is on.
 - **`JobDetails`**: Job detail panel with layers/frames
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering
@@ -162,6 +176,44 @@ loads at runtime are copies under `cueweb/public/`.
 ##### Subscription store
 
 Subscriptions are stored as a `Record<jobId, JobSubscription>` under the `localStorage` key `cueweb:job-subscriptions`. Each entry tracks `jobId`, `jobName`, `subscribedAt`, and `notifiedAt` (null until the poller fires the notification). Mutations dispatch a `cueweb:subscriptions-changed` window event so every `useJobSubscriptions` consumer re-reads from `localStorage` &mdash; this keeps the bell, the poller, and any other consumer in sync within the same tab without prop drilling. The store getter defensively returns `{}` for missing or malformed JSON so a stale or hand-edited entry cannot crash the UI.
+
+#### Application state hooks
+
+CueWeb keeps global UI state (which menus you toggled, which facility you
+picked, where you docked the Attributes panel) outside of React Context.
+Each piece of state lives in its own `localStorage` key with a module-level
+helper that broadcasts changes via a `CustomEvent` (same tab) and the
+browser's built-in `storage` event (cross-tab). Every consumer reads via a
+small `use*` hook that subscribes to those events - no prop drilling, no
+provider tree.
+
+- **`useDisableJobInteraction`** (`app/utils/use_disable_job_interaction.ts`)
+  &mdash; `{ disabled, setDisabled, toggle }`.
+  - Key: `cueweb.safety.disable-job-interaction`. Event: `cueweb:disable-job-interaction-changed`.
+  - Drives the read-only banner and every destructive button/menu item.
+- **`useCuebotFacility`** (`app/utils/use_cuebot_facility.ts`)
+  &mdash; `{ facility, facilities, setFacility }`.
+  - Key: `cueweb.facility.selected`. Event: `cueweb:facility-changed`.
+  - Available facilities are read from `NEXT_PUBLIC_CUEBOT_FACILITIES`
+    (comma-separated); defaults to `local,dev,cloud,external`.
+- **`useAttributesPanel`** (`app/utils/use_attributes_panel.ts`)
+  &mdash; `{ isOpen, position, positions, setOpen, toggle, setPosition }`.
+  - Keys: `cueweb.attributes.open` (`bool`) and `cueweb.attributes.position`
+    (`right`|`bottom`|`left`|`top`).
+  - Event: `cueweb:attributes-panel-changed`.
+- **`useAttributeSelection`** (`app/utils/use_attribute_selection.ts`)
+  &mdash; `{ selection, setSelection, clearSelection }`.
+  - Transient (not persisted); the standalone `setAttributeSelection()`
+    helper is callable from any non-hook code (e.g. table row handlers).
+  - Event: `cueweb:attribute-selection-changed`.
+- **`useMenuRegistry`** (`app/utils/use_menu_registry.ts`)
+  &mdash; returns a flat `MenuCommand[]` aggregated from every menu in the
+  app, plus a `filterMenuCommands(commands, query)` helper used by the
+  Help search box.
+
+The header and sidebar share their NAV data via
+`app/utils/menus.ts` (exports `NAV_MENUS`, `NavMenu`, `NavItem`). The Help
+links and their env-var overrides live in `app/utils/help_menu.ts`.
 
 ---
 
@@ -357,7 +409,7 @@ Located in `app/utils/` and consumed by the Comments page (`app/jobs/[job-name]/
 // app/utils/get_utils.ts
 export type JobComment = {
   id: string;
-  timestamp: number;  // unix seconds — mirrors comment.Comment in proto/src/comment.proto
+  timestamp: number;  // unix seconds - mirrors comment.Comment in proto/src/comment.proto
   user: string;
   subject: string;
   message: string;
@@ -383,7 +435,7 @@ export function deleteCommentMacro(name: string): CommentMacro[];
 
 #### Markdown rendering
 
-Comment messages are rendered with [`react-markdown`](https://github.com/remarkjs/react-markdown) and sanitized with [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) — embedded HTML/scripts are stripped before render.
+Comment messages are rendered with [`react-markdown`](https://github.com/remarkjs/react-markdown) and sanitized with [`rehype-sanitize`](https://github.com/rehypejs/rehype-sanitize) - embedded HTML/scripts are stripped before render.
 
 #### Viewer identity and authorization
 

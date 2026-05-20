@@ -31,7 +31,10 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 
 ### Key Features
 
-- **Persistent Global Header**: OpenCue logo + **CueWeb** wordmark, grouped **Cuetopia** and **CueCommander** dropdown navigation (mirroring the CueGUI Views/Plugins menu), theme toggle, and an always-visible Sign out button
+- **Persistent Global Header**: OpenCue logo + **CueWeb** wordmark, plus the full CueGUI menu bar (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other**, **Help** with a search box that finds commands across every menu), a theme toggle, and an always-visible Sign out button
+- **Collapsible Left Sidebar**: Same six groups as the header, organized as accordion sections; persists open/closed state and overall collapsed-vs-expanded width across reloads
+- **Disable Job Interaction**: Global read-only safety toggle (File ▸ Disable Job Interaction) that dims every destructive action and shows an amber banner under the header
+- **Attributes Panel**: Docked drawer (Other ▸ Attributes) with a position picker (right / bottom / left / top), filter input, and a collapsible key/value tree of the selected entity
 - **Job Management Dashboard**: View, filter, and manage rendering jobs
 - **Real-time Updates**: Automatic refresh of job, layer, and frame status
 - **Advanced Search**: Regex-enabled search with dropdown suggestions
