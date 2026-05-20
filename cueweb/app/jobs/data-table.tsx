@@ -401,6 +401,7 @@ export function DataTable({ columns, username }: DataTableProps) {
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
     let worker: Worker | undefined;
+    let refreshHandler: (() => void) | undefined;
     try{
       // Worker to update table data on a separate thread every 5 seconds
       worker = new Worker(new URL('/public/workers/updateJobsTableDataWorker.tsx', import.meta.url));
@@ -437,13 +438,13 @@ export function DataTable({ columns, username }: DataTableProps) {
         }
       };
 
-      // Trigger table updates every 5000ms
-      interval = setInterval(async () => {
+      // Helper used by both the 5s interval and the on-demand `r` shortcut.
+      // Refreshing dispatches the same `cueweb:jobs-refreshed` event the
+      // status bar already listens for, so manual refreshes update the
+      // "Last refresh" timestamp identically to scheduled ones.
+      const refreshOnce = async () => {
         updateData();
         await addUsersJobs();
-        // Notify the bottom status bar (and any other listener) that a
-        // jobs refresh just completed; the status bar shows "last refresh"
-        // based on this timestamp.
         if (typeof window !== "undefined") {
           window.dispatchEvent(
             new CustomEvent("cueweb:jobs-refreshed", {
@@ -451,7 +452,18 @@ export function DataTable({ columns, username }: DataTableProps) {
             }),
           );
         }
-      }, 5000);
+      };
+
+      interval = setInterval(refreshOnce, 5000);
+
+      // Wire the global `r` keyboard shortcut (dispatched by
+      // KeyboardShortcuts) to an immediate refresh of this table.
+      if (typeof window !== "undefined") {
+        refreshHandler = () => {
+          void refreshOnce();
+        };
+        window.addEventListener("cueweb:refresh-now", refreshHandler);
+      }
     } catch (error) {
       handleError(error, "Error updating table");
     }
@@ -459,6 +471,9 @@ export function DataTable({ columns, username }: DataTableProps) {
     return () => {
       // Clean up interval on component unmount
       if (interval) clearInterval(interval);
+      if (refreshHandler && typeof window !== "undefined") {
+        window.removeEventListener("cueweb:refresh-now", refreshHandler);
+      }
       // Terminate the worker when the component unmounts
       worker?.terminate();
     };

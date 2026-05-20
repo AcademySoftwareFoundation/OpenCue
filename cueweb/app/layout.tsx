@@ -22,6 +22,7 @@ import { AppSessionProvider } from "@/app/providers/session-provider";
 import { AppHeader } from "@/components/ui/app-header";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { AttributesPanel } from "@/components/ui/attributes-panel";
+import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
 import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
 import { StatusBar } from "@/components/ui/status-bar";
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <AttributesPanel />
             <StatusBar />
+            <KeyboardShortcuts />
           </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />

@@ -16,8 +16,9 @@
 
 import { styled, TextField, Tooltip, TooltipProps, Typography } from "@mui/material";
 import { useTheme } from "next-themes";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { handleError } from "@/app/utils/notify_utils";
+import { CUEWEB_FOCUS_SEARCH_EVENT } from "@/components/ui/shortcuts-overlay";
 
 interface SearchboxProps {
   searchQuery: string;
@@ -42,6 +43,27 @@ const StyledTooltip = styled(({ className, ...props }: TooltipProps & { classNam
 const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, tooltipTitle, hidden }) => {
   const { theme } = useTheme();
   const [open, setOpen] = useState<boolean>(false);
+  // Used by the global `/` shortcut to focus the search input. We hold a ref
+  // to the underlying <input> so KeyboardShortcuts can fire a CustomEvent
+  // and this component will move focus without prop drilling.
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Listen for the global "focus search" CustomEvent fired when the user
+  // presses `/`. Defined here so the focus call stays scoped to the actual
+  // input element this component owns.
+  useEffect(() => {
+    const handler = () => {
+      inputRef.current?.focus();
+      // Move the caret to the end if there's existing text so the user can
+      // keep typing without their next keystroke selecting+replacing.
+      inputRef.current?.setSelectionRange(
+        inputRef.current.value.length,
+        inputRef.current.value.length,
+      );
+    };
+    window.addEventListener(CUEWEB_FOCUS_SEARCH_EVENT, handler);
+    return () => window.removeEventListener(CUEWEB_FOCUS_SEARCH_EVENT, handler);
+  }, []);
 
   // Handle focus event to close tooltip
   const handleFocus = useCallback(() => {
@@ -91,6 +113,11 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
           placeholder="Search Jobs: add '!' after queries for regex"
           size="small"
           autoComplete="off"
+          inputRef={inputRef}
+          // Stable hook for the global `/` shortcut handler to locate this
+          // input element via document.querySelector if a ref ever fails to
+          // mount (defensive; the inputRef above is the primary path).
+          inputProps={{ "data-cueweb-search-input": "true" }}
           sx={{
             mb: 2,
             width: "100%",

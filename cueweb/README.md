@@ -20,6 +20,7 @@ CueWeb System
       - [Example: Adding Gitlab authentication](#example-adding-gitlab-authentication)
       - [Custom Login Page](#custom-login-page)
 - [Features](#features)
+    - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Below are some screenshots of the interface](#below-are-some-screenshots-of-the-interface)
 - [Troubleshooting](#troubleshooting)
   - [Support resources](#support-resources)
@@ -339,6 +340,23 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Auto-reloading:** Real-time updates for tables.
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
+- **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
+
+Go back to [Contents](#contents).
+
+### Keyboard shortcuts
+
+CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload).
+
+| Key | Action | Where it works |
+|-----|--------|----------------|
+| `?` | Open this keyboard-shortcuts overlay | Anywhere |
+| `Esc` | Close the overlay | Inside the overlay |
+| `/` | Focus the jobs search box | On the jobs page (`/`) |
+| `r` | Refresh the jobs table | On the jobs page (`/`) |
+| `t` | Toggle the light / dark theme | Anywhere |
+
+Cross-component wiring uses `window` `CustomEvent`s (`cueweb:focus-search`, `cueweb:refresh-now`) so any page that wants to participate can subscribe without a prop drill - see the `JobSearchbox` and jobs `data-table` for the existing consumers.
 
 Go back to [Contents](#contents).
 
