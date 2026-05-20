@@ -21,6 +21,7 @@ import { getFrame } from "@/app/utils/get_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import Editor, { Monaco } from "@monaco-editor/react";
 import { FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
@@ -394,6 +395,32 @@ export default function FramePage() {
                     : "This frame has no log output yet. Once the frame starts producing lines they will appear here automatically."
                 }
               />
+            </div>
+          ) : logStatus === "loading" && !initialDataLoaded ? (
+            // Reserve the editor's 50vh footprint and show shimmer
+            // skeleton bars so the panel does not shift when Monaco
+            // mounts and the real log content streams in.
+            <div
+              className="flex flex-col gap-2 bg-black p-6"
+              style={{ height: "50vh" }}
+              aria-busy="true"
+            >
+              <Skeleton className="h-6 w-3/5" />
+              <Skeleton className="h-4 w-2/5" />
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <Skeleton
+                    key={`log-skeleton-${i}`}
+                    className={`h-3 ${
+                      i % 5 === 0
+                        ? "w-3/4"
+                        : i % 3 === 0
+                          ? "w-1/2"
+                          : "w-11/12"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <Editor

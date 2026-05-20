@@ -71,6 +71,7 @@ import {
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
 import { ChevronDown, Inbox, SearchX } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { useEffect, useReducer } from "react";
@@ -251,12 +252,24 @@ export function DataTable({ columns, username }: DataTableProps) {
   // useReducer hook to manage state
   const [state, dispatch] = useReducer(reducer, getInitialState());
 
+  // Skeleton rows are shown only on the very first paint while we wait
+  // for the autoload-mine fetch to complete. If localStorage already has
+  // cached jobs, no skeletons are needed.
+  const [initialLoading, setInitialLoading] = React.useState<boolean>(false);
+
   useEffect(() => {
     dispatch({ type: "RESET_STATE"});
+    const cached = getItemFromLocalStorage("tableData", "[]");
+    if (Array.isArray(cached) && cached.length === 0) {
+      setInitialLoading(true);
+    }
   }, []);
 
   useEffect(() => {
-    addUsersJobs();
+    (async () => {
+      await addUsersJobs();
+      setInitialLoading(false);
+    })();
   },[state.username, state.autoloadMine]);
   
   useEffect(() => {
@@ -954,6 +967,19 @@ export function DataTable({ columns, username }: DataTableProps) {
                       ) : (
                         flexRender(cell.column.columnDef.cell, cell.getContext())
                       )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : initialLoading ? (
+              // Render 10 skeleton rows that mirror the final layout so
+              // the first paint reserves the same vertical space the real
+              // rows will occupy (avoids cumulative layout shift).
+              Array.from({ length: 10 }).map((_, rowIdx) => (
+                <TableRow key={`skeleton-row-${rowIdx}`}>
+                  {table.getAllLeafColumns().filter((c) => c.getIsVisible()).map((col) => (
+                    <TableCell key={`skeleton-cell-${rowIdx}-${col.id}`}>
+                      <Skeleton className="h-4 w-3/4" />
                     </TableCell>
                   ))}
                 </TableRow>

@@ -23,7 +23,7 @@ import { Layer, layerColumns } from "@/app/layers/layer-columns";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import Skeleton from "@mui/material/Skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
 import * as React from "react";
 import { SimpleDataTable } from "./simple-data-table";
@@ -108,13 +108,7 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
 
   const renderSkeleton = (count: number) => {
     return Array.from({ length: count }).map((_, index) => (
-      <Skeleton
-        key={`skeleton-${index}`}
-        variant="rounded"
-        width="100%"
-        height="20px"
-        className="animate-pulse"
-      />
+      <Skeleton key={`skeleton-${index}`} className="h-5 w-full" />
     ));
   };
 
