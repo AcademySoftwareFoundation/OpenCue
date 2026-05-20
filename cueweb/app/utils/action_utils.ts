@@ -207,6 +207,30 @@ export async function unpauseJobs(jobs: Job[]) {
 }
 
 /**************************************/
+// Priority / retries / auto-eat / depends (CueGUI parity)
+/**************************************/
+
+export async function setJobPriority(job: Job, priority: number) {
+  const endpoint = "/api/job/action/setpriority";
+  await performAction(endpoint, [JSON.stringify({ job, val: priority })], `Set priority ${priority} on ${job.name}`);
+}
+
+export async function setJobMaxRetries(job: Job, maxRetries: number) {
+  const endpoint = "/api/job/action/setmaxretries";
+  await performAction(endpoint, [JSON.stringify({ job, max_retries: maxRetries })], `Set max retries ${maxRetries} on ${job.name}`);
+}
+
+export async function setJobAutoEat(job: Job, value: boolean) {
+  const endpoint = "/api/job/action/setautoeat";
+  await performAction(endpoint, [JSON.stringify({ job, value })], `Auto-Eat ${value ? "ON" : "OFF"} on ${job.name}`);
+}
+
+export async function dropJobDepends(job: Job, target: "INTERNAL" | "EXTERNAL") {
+  const endpoint = "/api/job/action/dropdepends";
+  await performAction(endpoint, [JSON.stringify({ job, target })], `Dropped ${target.toLowerCase()} depends on ${job.name}`);
+}
+
+/**************************************/
 /* Table header menu functions        */
 /**************************************/
 
@@ -361,4 +385,81 @@ export function killFrameGivenRow(row: Row<any>, username: string) {
 export function eatFrameGivenRow(row: Row<any>) {
     const frames = [row.original];
     eatFrames(frames);
+}
+
+/**********************************************/
+/* Per-row wrappers for the expanded job menu */
+/**********************************************/
+
+export function unpauseJobGivenRow(row: Row<any>) {
+  unpauseJobs([row.original]);
+}
+
+export function autoEatOnGivenRow(row: Row<any>) {
+  setJobAutoEat(row.original, true);
+}
+
+export function autoEatOffGivenRow(row: Row<any>) {
+  setJobAutoEat(row.original, false);
+}
+
+export function dropExternalDependsGivenRow(row: Row<any>) {
+  dropJobDepends(row.original, "EXTERNAL");
+}
+
+export function dropInternalDependsGivenRow(row: Row<any>) {
+  dropJobDepends(row.original, "INTERNAL");
+}
+
+// Prompt-driven wrappers. CueGUI's MenuActions uses Qt input dialogs; we
+// reuse window.prompt for parity in this round. A native shadcn dialog
+// replacement is a follow-up.
+export function setPriorityGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
+  if (raw === null) return;
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value)) {
+    toastWarning("Priority must be an integer");
+    return;
+  }
+  setJobPriority(job, value);
+}
+
+export function setMaxRetriesGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  const raw = window.prompt(`Set max retries for ${job.name}`, "3");
+  if (raw === null) return;
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value) || value < 0) {
+    toastWarning("Max retries must be a non-negative integer");
+    return;
+  }
+  setJobMaxRetries(job, value);
+}
+
+// Pure-client clipboard helpers; surface a toast on success/failure so the
+// user gets the same feedback as for back-end actions.
+export async function copyJobNameGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  try {
+    await navigator.clipboard.writeText(job.name);
+    toastSuccess(`Copied job name: ${job.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy job name to clipboard");
+  }
+}
+
+export async function copyLogDirGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (!job.logDir) {
+    toastWarning("Job has no logDir set");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(job.logDir);
+    toastSuccess(`Copied log directory: ${job.logDir}`);
+  } catch (err) {
+    handleError(err, "Could not copy log directory to clipboard");
+  }
 }

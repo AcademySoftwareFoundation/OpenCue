@@ -19,6 +19,12 @@
 
 import { Job } from "@/app/jobs/columns";
 import {
+  autoEatOffGivenRow,
+  autoEatOnGivenRow,
+  copyJobNameGivenRow,
+  copyLogDirGivenRow,
+  dropExternalDependsGivenRow,
+  dropInternalDependsGivenRow,
   eatFrameGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
@@ -30,15 +36,40 @@ import {
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
   retryLayerFramesGivenRow,
+  setMaxRetriesGivenRow,
+  setPriorityGivenRow,
   unmonitorJobGivenRow,
+  unpauseJobGivenRow,
 } from "@/app/utils/action_utils";
+import { toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { Row } from "@tanstack/react-table";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
-import { TbEyeOff, TbMessage, TbPacman, TbPlayerPause, TbReload } from "react-icons/tb";
+import {
+  TbCopy,
+  TbDots,
+  TbEyeOff,
+  TbHelp,
+  TbLink,
+  TbMessage,
+  TbPacman,
+  TbPlayerPause,
+  TbPlayerPlay,
+  TbPlugConnectedX,
+  TbReload,
+  TbSettings,
+  TbStar,
+} from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
+
+// Helper for menu items that are not yet wired to a Cuebot backend.
+// Surfaces a toast so users know the gap (and we get a single grep target
+// when implementing them in Round 2).
+const notYetImplemented = (label: string) => () => {
+  toastWarning(`"${label}" is not yet implemented in CueWeb. Use CueGUI for now.`);
+};
 
 interface JobContextMenuProps {
   username: string;
@@ -119,14 +150,51 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
   // Destructive items respect the per-row state AND the global safety flag.
   const destructiveActive = isActive && !jobInteractionDisabled;
+  // Editable items (set priority, set retries, auto-eat, drop depends)
+  // gate on the safety flag too but allow finished jobs to be edited the
+  // way CueGUI does.
+  const editable = !jobInteractionDisabled;
+  const grayIfDisabled = (active: boolean) => (active ? undefined : "gray");
 
+  // CueGUI parity (cuegui.MenuActions.JobActions). Items wired to back-end
+  // calls are first; entries that need their own dialogs/back-end land in
+  // Round 2 and short-circuit through a toast for now so the menu shape
+  // matches CueGUI today.
   const menuItems: MenuItem[] = [
-    { label: "Unmonitor", onClick: handleUnmonitorJobGivenRow, isActive: true, component: <TbEyeOff className="mr-1" size={13} color="black" /> },
-    { label: "Comments", onClick: handleCommentsGivenRow, isActive: true, component: <TbMessage className="mr-1" size={14} color="black" /> },
-    { label: "Pause", onClick: pauseJobGivenRow, isActive: destructiveActive, component: <TbPlayerPause className="mr-1" size={14} color={destructiveActive ? "blue" : "gray"} /> },
-    { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbReload className="mr-1" size={14} color={destructiveActive ? "red" : "gray"} /> },
-    { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbPacman className="mr-1" size={14} color={destructiveActive ? "orange" : "gray"} /> },
-    { label: "Kill", onClick: handleKillJobGivenRow, isActive: destructiveActive, component: <MdOutlineCancel className="mr-1" size={14} color={destructiveActive ? "red" : "gray"} /> },
+    { label: "View Layers / Frames", onClick: notYetImplemented("View Layers / Frames"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Comments", onClick: handleCommentsGivenRow, isActive: true, component: <TbMessage className="mr-1" size={14} /> },
+    { label: "Copy Job Name", onClick: copyJobNameGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
+    { label: "Copy Log Directory", onClick: copyLogDirGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
+
+    { label: "Pause", onClick: pauseJobGivenRow, isActive: destructiveActive, component: <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} /> },
+    { label: "Unpause", onClick: unpauseJobGivenRow, isActive: destructiveActive, component: <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} /> },
+    { label: "Retry Dead Frames", onClick: retryJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbReload className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} /> },
+    { label: "Eat Dead Frames", onClick: eatJobsDeadFramesGivenRow, isActive: destructiveActive, component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} /> },
+    { label: "Kill", onClick: handleKillJobGivenRow, isActive: destructiveActive, component: <MdOutlineCancel className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} /> },
+
+    { label: "Auto-Eat On", onClick: autoEatOnGivenRow, isActive: editable, component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Auto-Eat Off", onClick: autoEatOffGivenRow, isActive: editable, component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+
+    { label: "Set Priority", onClick: setPriorityGivenRow, isActive: editable, component: <TbStar className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Set Max Retries", onClick: setMaxRetriesGivenRow, isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Set Min/Max Cores", onClick: notYetImplemented("Set Min/Max Cores"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Set Min/Max GPUs", onClick: notYetImplemented("Set Min/Max GPUs"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+
+    { label: "Drop External Dependencies", onClick: dropExternalDependsGivenRow, isActive: editable, component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Drop Internal Dependencies", onClick: dropInternalDependsGivenRow, isActive: editable, component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "View Dependencies", onClick: notYetImplemented("View Dependencies"), isActive: true, component: <TbLink className="mr-1" size={14} /> },
+    { label: "Dependency Wizard", onClick: notYetImplemented("Dependency Wizard"), isActive: editable, component: <TbHelp className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+
+    { label: "Send to Group", onClick: notYetImplemented("Send to Group"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Reorder Frames", onClick: notYetImplemented("Reorder Frames"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Stagger Frames", onClick: notYetImplemented("Stagger Frames"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Unbook", onClick: notYetImplemented("Unbook"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+    { label: "Use Local Cores", onClick: notYetImplemented("Use Local Cores"), isActive: editable, component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} /> },
+
+    { label: "Set User Color", onClick: notYetImplemented("Set User Color"), isActive: true, component: <TbStar className="mr-1" size={14} /> },
+    { label: "Clear User Color", onClick: notYetImplemented("Clear User Color"), isActive: true, component: <TbStar className="mr-1" size={14} /> },
+
+    { label: "Unmonitor", onClick: handleUnmonitorJobGivenRow, isActive: true, component: <TbEyeOff className="mr-1" size={14} /> },
   ];
 
   return (

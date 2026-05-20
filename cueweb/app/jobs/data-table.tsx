@@ -28,7 +28,6 @@ import {
 } from "@/app/utils/action_utils";
 import {
   getJobsForRegex,
-  getJobsForShowShot,
   getJobsForUser
 } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
@@ -45,7 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { FramesLayersPopup } from "@/components/ui/frames-layers-popup";
+import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -70,7 +69,7 @@ import {
   VisibilityState
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
-import { ChevronDown, Inbox, SearchX } from "lucide-react";
+import { ChevronDown, Inbox, SearchX, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
 import * as React from "react";
@@ -102,6 +101,8 @@ type Action =
   | { type: "SET_COLUMN_VISIBILITY"; payload: VisibilityState }
   | { type: "SET_ERROR"; payload: string | null } // New action for setting errors
   | { type: "SET_USERNAME"; payload: string }
+  | { type: "SET_LOAD_FINISHED"; payload: boolean }
+  | { type: "SET_GROUP_BY"; payload: State["groupBy"] }
   | { type: "RESET_COLUMN_VISIBILITY" }
   | { type: "RESET_STATE" };
 
@@ -129,6 +130,13 @@ interface State {
   columnVisibility: VisibilityState;
   error: string | null;
   username: string;
+  // CueGUI parity: include finished jobs in autoload-mine + saved-job
+  // refreshes when the user opts in via the "Load Finished" checkbox.
+  loadFinished: boolean;
+  // CueGUI parity: Group By mode for the Monitor Jobs table. Client-side
+  // grouping is wired in a follow-up task; for now the toolbar exposes the
+  // option so the persisted preference is captured.
+  groupBy: "Clear" | "Dependent" | "Show-Shot" | "Show-Shot-Username";
 }
 
 const initialColumnVisibility = {
@@ -158,6 +166,8 @@ function getInitialState(): State {
     columnVisibility: getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
     error: null,
     username: UNKNOWN_USER,
+    loadFinished: getItemFromLocalStorage("loadFinished", "false"),
+    groupBy: getItemFromLocalStorage("groupBy", JSON.stringify("Clear")),
   }
 };
 
@@ -192,6 +202,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, error: action.payload }; // Set the error message
     case "SET_USERNAME":
       return { ...state, username: action.payload };
+    case "SET_LOAD_FINISHED":
+      setItemInLocalStorage("loadFinished", JSON.stringify(action.payload));
+      return { ...state, loadFinished: action.payload };
+    case "SET_GROUP_BY":
+      setItemInLocalStorage("groupBy", JSON.stringify(action.payload));
+      return { ...state, groupBy: action.payload };
     case "RESET_COLUMN_VISIBILITY":
       return {
         ...state,
@@ -204,44 +220,43 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-// Reusable Job Action Button component to reduce redundancy.
-// Every button rendered with JobActionButton is a *destructive* job action
-// (pause / unpause / retry / kill / eat), so it is auto-disabled when the
-// "Disable Job Interaction" safety flag is on.
+// Reusable compact action button used in the Monitor Jobs toolbar.
+// Mirrors the CueGUI Monitor Jobs dock buttons: small icon + short label,
+// auto-disabled when the "Disable Job Interaction" safety flag is on.
 const JobActionButton = ({
   icon: Icon,
   label,
   onClick,
   color,
-  last=false,
+  variant = "default",
 }: {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
-  color: string;
-  last?: boolean;
+  color?: string;
+  variant?: "default" | "destructive";
 }) => {
   const { disabled } = useDisableJobInteraction();
-  const base = "flex flex-row justify-center items-center transition-opacity";
-  const dim = disabled
-    ? "opacity-40 cursor-not-allowed"
-    : "cursor-pointer";
-  const sep = last ? "" : "border-r border-gray-300 pr-2";
+  const tint = disabled
+    ? "text-muted-foreground"
+    : variant === "destructive"
+      ? "text-destructive hover:text-destructive"
+      : "text-foreground/80 hover:text-foreground";
   return (
     <button
       type="button"
-      className={`${base} ${dim} ${sep}`}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       aria-disabled={disabled}
       title={
         disabled
-          ? "Disabled — File ▸ Disable Job Interaction is on"
-          : undefined
+          ? "Disabled - File -> Disable Job Interaction is on"
+          : label
       }
+      className={`inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 ${tint}`}
     >
-      <Icon className="mr-1" size={18} color={disabled ? "gray" : color} />
-      {label}
+      <Icon size={14} color={disabled ? undefined : color} aria-hidden="true" />
+      <span>{label}</span>
     </button>
   );
 };
@@ -251,6 +266,22 @@ export function DataTable({ columns, username }: DataTableProps) {
 
   // useReducer hook to manage state
   const [state, dispatch] = useReducer(reducer, getInitialState());
+
+  // CueGUI parity: clicking a row in the jobs table loads its layers +
+  // frames into the inline detail panels below. Tracks the last-clicked
+  // job by id so renaming or duplicate name matches stay accurate.
+  const [detailJob, setDetailJob] = React.useState<Job | null>(null);
+
+  // Keep the detail panels in sync if the selected job is later removed
+  // from the monitor list (unmonitor finished/all/selected, finished-job
+  // sweeps, etc.).
+  React.useEffect(() => {
+    if (!detailJob) return;
+    const stillPresent = state.tableDataUnfiltered.some(
+      (j: Job) => j.id === detailJob.id,
+    );
+    if (!stillPresent) setDetailJob(null);
+  }, [detailJob, state.tableDataUnfiltered]);
 
   // Skeleton rows are shown only on the very first paint while we wait
   // for the autoload-mine fetch to complete. If localStorage already has
@@ -384,16 +415,15 @@ export function DataTable({ columns, username }: DataTableProps) {
   // Used to track when searching (API and Filtering) is finished
   // Without this, the loading component would render right as '-' was typed
   const searchFinishedRef = React.useRef<boolean>(false);
-  const SEARCH_BY_SHOWSHOT = "search_by_showshot";
   const SEARCH_BY_REGEX = "search_by_regex";
   const TOOLTIP_TITLE = `
-  Add '!' after searches for regular expressions.<br>
+  Search by any substring or regex pattern against the job name.<br>
   Use .* to match any string<br>
   Example searches:<br>
-  &nbsp;&nbsp;&nbsp;&nbsp;sm2.*comp!<br>
-  &nbsp;&nbsp;&nbsp;&nbsp;sm2-(madkisson|chung).*comp!<br>
-  Jobs finished for 3 days will not be shown.<br>
-  Load your jobs with: show-shot-`;
+  &nbsp;&nbsp;&nbsp;&nbsp;testing<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;sm2.*comp<br>
+  &nbsp;&nbsp;&nbsp;&nbsp;sm2-(madkisson|chung).*comp<br>
+  Jobs finished for 3 days will not be shown.`;
   // column IDs of columns that look better when their data is center-aligned, rather than to the left (the default)
   const centeredColumns = ["done / total", "running", "dead", "eaten", "wait", "maxRss"];
   
@@ -494,34 +524,22 @@ export function DataTable({ columns, username }: DataTableProps) {
     dispatch({ type: "SET_ROW_SELECTION", payload: updatedRowSelection });
   }, [state.tableDataUnfiltered]);
 
-  // Uses debouncing and memoization (useCallback) to cache the function and only run after delay of no typing
+  // Uses debouncing and memoization (useCallback) to cache the function and only run after delay of no typing.
+  // Single path now: regex match against job name (CueGUI parity).
   const handleGetJobs = React.useCallback(
     debounce(async (query: string, searchType: string) => {
       try {
-        if (searchType === SEARCH_BY_SHOWSHOT) {
-          dispatch({ type: "SET_API_QUERY", payload: query });
-          setJobSearchLoading(true);
-          const showShot = query.split("-");
-          const newJobs = await getJobsForShowShot(showShot[0], showShot[1]);
-  
-          setJobSearchLoading(false);
-          dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
-          if (newJobs.length === 0) {
-            dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
-          }
-        } else if (searchType === SEARCH_BY_REGEX) {
-          dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
-          setJobSearchLoading(true);
-          const newJobs = await getJobsForRegex(query);
-          setJobSearchLoading(false);
-          dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
-          dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
-          searchFinishedRef.current = true;
-        }
+        if (searchType !== SEARCH_BY_REGEX) return;
+        dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
+        setJobSearchLoading(true);
+        const newJobs = await getJobsForRegex(query);
+        setJobSearchLoading(false);
+        dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
+        dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
+        searchFinishedRef.current = true;
       } catch (error) {
         handleError(error, "Error searching for jobs");
       }
-      
     }, searchDelay),
     [],
   );
@@ -587,26 +605,23 @@ export function DataTable({ columns, username }: DataTableProps) {
     setHideSearchDropdown(true);
 
     const query = e.target.value;
-    dispatch({ type: "SET_SEARCH_QUERY", payload: query});
-    // Regex to match if the query has the format "[at least one character]-[at least one character]-[any or no characters]"
-    const showShot = query.match(/^(.+)-(.+)-.*$/)
+    dispatch({ type: "SET_SEARCH_QUERY", payload: query });
 
-    // Query the API for show name if it inlcudes the correct 'show-shot-' format or for regex if it includes '!' at the end
-    if (query.slice(-1) === "!") {
-      const regexQuery = query.slice(0, -1);
-      handleGetJobs(regexQuery, SEARCH_BY_REGEX);
-      setHideSearchDropdown(false);
-    } else if (showShot && showShot.length >= 3) {
-      const nextShowShot = `${showShot[1]}-${showShot[2]}`
-      if (nextShowShot !== state.apiQuery) {
-        handleGetJobs(nextShowShot, SEARCH_BY_SHOWSHOT);
-      }
-      setHideSearchDropdown(false);
-    } else {
+    // CueGUI parity (cuegui.MonitorJobsPlugin.JobRegexLoadEditBox): any
+    // typed text is treated as a regex pattern against job names. No
+    // mandatory `show-shot-` prefix anymore. The legacy `!` suffix is
+    // accepted but stripped (kept for backward-compatibility with users
+    // who already use it). An empty query clears the dropdown.
+    if (query.trim().length === 0) {
       dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: [] });
       dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
       dispatch({ type: "SET_API_QUERY", payload: "" });
+      return;
     }
+
+    const regexQuery = query.endsWith("!") ? query.slice(0, -1) : query;
+    handleGetJobs(regexQuery, SEARCH_BY_REGEX);
+    setHideSearchDropdown(false);
 
     // Cancel handleGetJobs if the input changes before the timeout completes
     return () => {
@@ -699,7 +714,7 @@ export function DataTable({ columns, username }: DataTableProps) {
   async function addUsersJobs() {
     if (!state.autoloadMine || state.username === UNKNOWN_USER) return;
 
-    const userJobs = await getJobsForUser(state.username);
+    const userJobs = await getJobsForUser(state.username, state.loadFinished);
 
     const jobsToAddUnfiltered = userJobs.filter(userJob => {
       return !state.tableDataUnfiltered.some(existingJob => existingJob.name === userJob.name)
@@ -822,7 +837,7 @@ export function DataTable({ columns, username }: DataTableProps) {
                         <EmptyState
                           icon={<SearchX className="h-6 w-6" aria-hidden="true" />}
                           title="No matching jobs"
-                          description={`Nothing matches "${state.searchQuery}". Try a different prefix (show-shot-) or use ! to enable regex.`}
+                          description={`Nothing matches "${state.searchQuery}". Try a different pattern (e.g. .* to match any substring).`}
                           className="py-6"
                         />
                       </div>
@@ -833,46 +848,36 @@ export function DataTable({ columns, username }: DataTableProps) {
           </Box>
         </div>
 
-        {/* Menu Bar */}
-        <div id="menu bar" className="flex flex-row px-6 py-2 space-x-3 border border-gray-400 justify-center rounded-xl">
-          <div className="flex justify-center items-center border-r border-gray-300 pr-2">
-            <TbEyeOff className="mr-1" size={18} color="gray" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex justify-center items-center">
-                  Unmonitor
-                  <ChevronDown className="opacity-50 ml-1" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>
-                  <Button variant="ghost" onClick={handleUnmonitorAll}>
-                    Unmonitor All
-                  </Button>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Button variant="ghost" onClick={handleUnmonitorSelected}>
-                    Unmonitor Selected
-                  </Button>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Button variant="ghost" onClick={handleUnmonitorFinished}>
-                    Unmonitor Finished
-                  </Button>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Button variant="ghost" onClick={handleUnmonitorPaused}>
-                    Unmonitor Paused
-                  </Button>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        {/* Toolbar - CueGUI Monitor Jobs parity (compact group layout). */}
+        <div
+          id="monitor-jobs-toolbar"
+          role="toolbar"
+          aria-label="Monitor Jobs actions"
+          className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-2"
+        >
+          {/* Unmonitor group */}
+          <div className="flex items-center gap-1">
+            <span className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Unmonitor
+            </span>
+            <JobActionButton icon={TbEyeOff} label="Finished" onClick={handleUnmonitorFinished} />
+            <JobActionButton icon={TbEyeOff} label="All" onClick={handleUnmonitorAll} />
+            <JobActionButton icon={TbEyeOff} label="Selected" onClick={handleUnmonitorSelected} />
           </div>
-          <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => eatJobsDeadFramesFromSelectedRows(table)} color="orange" />
-          <JobActionButton icon={TbReload} label="Retry Dead Frames" onClick={() => retryJobsDeadFramesFromSelectedRows(table)} color="red" />
-          <JobActionButton icon={TbPlayerPause} label="Pause" onClick={() => pauseJobsFromSelectedRows(table)} color="blue" />
-          <JobActionButton icon={TbPlayerPlay} label="Unpause" onClick={() => unpauseJobsFromSelectedRows(table)} color="green" />
-          <JobActionButton icon={MdOutlineCancel} label="Kill" onClick={() => killJobFromSelectedRows(table, state.username)} color="red" last={true} />
+
+          <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+
+          {/* Job actions group */}
+          <div className="flex items-center gap-1">
+            <span className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Job Actions
+            </span>
+            <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => eatJobsDeadFramesFromSelectedRows(table)} color="#f59e0b" />
+            <JobActionButton icon={TbReload} label="Retry Dead Frames" onClick={() => retryJobsDeadFramesFromSelectedRows(table)} color="#3b82f6" />
+            <JobActionButton icon={MdOutlineCancel} label="Kill Jobs" onClick={() => killJobFromSelectedRows(table, state.username)} color="#ef4444" variant="destructive" />
+            <JobActionButton icon={TbPlayerPause} label="Pause Jobs" onClick={() => pauseJobsFromSelectedRows(table)} color="#3b82f6" />
+            <JobActionButton icon={TbPlayerPlay} label="Unpause Jobs" onClick={() => unpauseJobsFromSelectedRows(table)} color="#10b981" />
+          </div>
         </div>
 
         {/* Dropdown Column Visibility */}
@@ -908,8 +913,9 @@ export function DataTable({ columns, username }: DataTableProps) {
         </div>
       </div>
 
-      {/* Filtering for state & the 'Autoload Mine' toggle*/}
-      <div className="flex flex-row space-x-2 m-2 mx-0">
+      {/* State filter, Autoload Mine, Load Finished, Group By
+          (CueGUI Monitor Jobs parity). */}
+      <div className="m-2 mx-0 flex flex-row flex-wrap items-center gap-3">
         <Select defaultValue={state.stateSelectValue} onValueChange={(val: string) => handleStateFiltering(val)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All States" />
@@ -923,14 +929,45 @@ export function DataTable({ columns, username }: DataTableProps) {
             <SelectItem value="Paused">Paused</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex items-center space-x-2" align-items="flex-end">
-          {/* to do later: add functionality for autoloading artist jobs after checking if checked is true */}
+
+        <div className="flex items-center gap-2">
           <Switch
             id="autoload-mine"
             checked={state.autoloadMine}
             onCheckedChange={setAutoloadMine(dispatch, state.autoloadMine)}
           />
-          <Label htmlFor="autoload-mine">Autoload Mine</Label>
+          <Label htmlFor="autoload-mine" className="text-sm">Autoload Mine</Label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch
+            id="load-finished"
+            checked={state.loadFinished}
+            onCheckedChange={(value: boolean) =>
+              dispatch({ type: "SET_LOAD_FINISHED", payload: value })
+            }
+          />
+          <Label htmlFor="load-finished" className="text-sm">Load Finished</Label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label htmlFor="group-by" className="text-sm">Group By</Label>
+          <Select
+            value={state.groupBy}
+            onValueChange={(val: string) =>
+              dispatch({ type: "SET_GROUP_BY", payload: val as State["groupBy"] })
+            }
+          >
+            <SelectTrigger id="group-by" className="w-[200px]">
+              <SelectValue placeholder="Clear" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Clear">Clear</SelectItem>
+              <SelectItem value="Dependent">Dependent</SelectItem>
+              <SelectItem value="Show-Shot">Show-Shot</SelectItem>
+              <SelectItem value="Show-Shot-Username">Show-Shot-Username</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -967,17 +1004,20 @@ export function DataTable({ columns, username }: DataTableProps) {
                       name: job.name,
                       data: job as unknown as Record<string, unknown>,
                     });
+                    // CueGUI parity: clicking a job row loads its layers +
+                    // frames into the inline detail panels below.
+                    setDetailJob(job);
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    // if the column for this cell is the pop-up button column, make it a "sticky" column so that
-                    // it hovers over all other columns when table overflow occurs and the table becomes scrollable
+                    // Layers + Frames now render inline below the jobs
+                    // table (CueGUI parity); the `pop-up` cell is kept as
+                    // a no-op placeholder so existing column definitions
+                    // and saved column-visibility settings stay valid.
                     <TableCell key={cell.id} className={cell.column.id == "pop-up" ? `sticky ${theme}` : ""}>
                       {cell.column.id === "progress" ? (
                         <JobProgressBar job={row.original as Job} />
-                      ) : cell.column.id === "pop-up" ? (
-                        <FramesLayersPopup job={row.original as Job} username={state.username} />
-                      ) : centeredColumns.includes(cell.column.id) ? (
+                      ) : cell.column.id === "pop-up" ? null : centeredColumns.includes(cell.column.id) ? (
                         <div className="text-center">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
                       ) : (
                         flexRender(cell.column.columnDef.cell, cell.getContext())
@@ -1035,6 +1075,11 @@ export function DataTable({ columns, username }: DataTableProps) {
       <div className="space-x-2 py-4">
         <DataTablePagination table={table} pageSizes={[50, 100, 150, 200, 250, 300]} />
       </div>
+
+      {/* Inline Monitor Job Details (CueGUI parity): replaces the legacy
+          per-row popup with stacked Layers + Frames panels for the row
+          the user last clicked above. */}
+      <JobDetailsInline job={detailJob} username={state.username} />
     </>
   );
 }

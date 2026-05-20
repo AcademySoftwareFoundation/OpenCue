@@ -96,9 +96,11 @@ export async function getLayers(body: string): Promise<Layer[]> {
     return response ? response : [];
 }
 
-// Fetch jobs for a specific user, including finished jobs
-export async function getJobsForUser(user: string): Promise<Job[]> {
-    const body = { r: { include_finished: false, users: [`${user}`] } };
+// Fetch jobs for a specific user. include_finished defaults to false to
+// match the CueGUI Monitor Jobs default; pass `true` from callers that
+// surface the "Load Finished" checkbox.
+export async function getJobsForUser(user: string, includeFinished: boolean = false): Promise<Job[]> {
+    const body = { r: { include_finished: includeFinished, users: [`${user}`] } };
     return await getJobs(JSON.stringify(body));
 }
 
