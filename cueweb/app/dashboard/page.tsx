@@ -26,14 +26,10 @@ import { JobsPerShowChart } from "@/components/dashboard/jobs-per-show-chart";
 import { RecentFailuresWidget } from "@/components/dashboard/recent-failures-widget";
 import { ShowsWidget } from "@/components/dashboard/shows-widget";
 import { TopJobsChart } from "@/components/dashboard/top-jobs-chart";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 export default function DashboardPage() {
   return (
     <div className="container mx-auto py-6 max-w-7xl">
-      <ToastContainer />
-
       <Breadcrumbs items={[{ label: "Dashboard" }]} className="mb-4" />
 
       <header className="mb-6">

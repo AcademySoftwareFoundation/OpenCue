@@ -18,6 +18,7 @@
 
 
 import { getFrame } from "@/app/utils/get_utils";
+import { handleError } from "@/app/utils/notify_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -265,7 +266,7 @@ export default function FramePage() {
     let res = await fetch(`/api/getlines?path=${curLogPath}&start=${start}&end=${end}`);
     let json = await res.json();
     if (json.error) {
-      alert("error");
+      handleError(json.error, "Could not load frame log lines");
       return;
     }
     return json.lines;

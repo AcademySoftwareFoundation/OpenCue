@@ -25,6 +25,7 @@ import { AttributesPanel } from "@/components/ui/attributes-panel";
 import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
 import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
 import { StatusBar } from "@/components/ui/status-bar";
+import { ToastHost } from "@/components/ui/toast-host";
 
 export const metadata: Metadata = {
   title: "CueWeb",
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AttributesPanel />
             <StatusBar />
             <KeyboardShortcuts />
+            <ToastHost />
           </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />

@@ -44,8 +44,6 @@ import { FileX, GitFork, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 const TAB_KEYS = ["overview", "layers", "frames", "comments", "dependencies"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -200,8 +198,6 @@ export default function JobDetailPage() {
 
   return (
     <div className="container mx-auto py-6 max-w-7xl">
-      <ToastContainer />
-
       <Breadcrumbs
         items={[{ label: "Jobs", href: "/" }, { label: jobName || "Job" }]}
         className="mb-4"

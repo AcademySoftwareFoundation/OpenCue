@@ -29,7 +29,7 @@ import {
   loadCommentMacros,
   upsertCommentMacro,
 } from "@/app/utils/comment_macros";
-import { handleError } from "@/app/utils/notify_utils";
+import { handleError, toastWarning } from "@/app/utils/notify_utils";
 import { Job } from "@/app/jobs/columns";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -45,8 +45,6 @@ import {
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { useParams, useSearchParams } from "next/navigation";
 import * as React from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import Markdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 
@@ -228,7 +226,7 @@ export default function JobCommentsPage() {
       if (!name) return;
       const found = macros.find((m) => m.name === name);
       if (!found) {
-        window.alert(`No predefined comment named "${name}"`);
+        toastWarning(`No predefined comment named "${name}"`);
         return;
       }
       setMacroDialog({ mode: "edit", original: found });
@@ -238,7 +236,7 @@ export default function JobCommentsPage() {
       const name = window.prompt("Delete which predefined comment? (enter name)");
       if (!name) return;
       if (!macros.some((m) => m.name === name)) {
-        window.alert(`No predefined comment named "${name}"`);
+        toastWarning(`No predefined comment named "${name}"`);
         return;
       }
       if (window.confirm(`Delete predefined comment "${name}"?`)) {
@@ -254,8 +252,6 @@ export default function JobCommentsPage() {
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
-      <ToastContainer />
-
       <Breadcrumbs
         items={[
           { label: "Jobs", href: "/" },
