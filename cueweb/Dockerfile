@@ -25,7 +25,7 @@ COPY next.config.js /opt/cueweb/
 COPY postcss.config.js /opt/cueweb/
 COPY tailwind.config.js /opt/cueweb/
 COPY app/ /opt/cueweb/app/
-COPY components/ui /opt/cueweb/components/ui
+COPY components/ /opt/cueweb/components/
 COPY lib/ /opt/cueweb/lib/
 COPY sentry.client.config.ts /opt/cueweb/sentry.client.config.ts
 COPY sentry.server.config.ts /opt/cueweb/sentry.server.config.ts

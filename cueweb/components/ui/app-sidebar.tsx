@@ -36,6 +36,7 @@ import {
   Gauge,
   HelpCircle,
   Layers3,
+  LayoutDashboard,
   LayoutGrid,
   Lock,
   Monitor,
@@ -229,6 +230,34 @@ export function AppSidebar() {
       )}
     >
       <nav aria-label="Primary navigation" className="flex-1 px-2 py-4">
+        {/* Dashboard - stand-alone top-level link (no CueGUI counterpart). */}
+        <ul
+          className="mb-2 space-y-1 border-b border-border pb-2 dark:border-zinc-800"
+          aria-label="Dashboard"
+        >
+          <li>
+            <Link
+              href="/dashboard"
+              aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
+              title="Dashboard"
+              className={cn(
+                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                collapsed && "justify-center",
+                isActive(pathname, "/dashboard")
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {collapsed ? (
+                <span className="sr-only">Dashboard</span>
+              ) : (
+                <span className="flex-1 truncate text-left">Dashboard</span>
+              )}
+            </Link>
+          </li>
+        </ul>
+
         {/* File group - CueGUI parity (Disable Job Interaction). */}
         {collapsed ? (
           <ul

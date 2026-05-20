@@ -21,7 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, Layers3, LogOut, Search, X } from "lucide-react";
+import { Check, ChevronDown, LayoutDashboard, Layers3, LogOut, Search, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
@@ -282,6 +282,23 @@ export function AppHeader() {
           aria-label="Primary"
           className="ml-2 hidden items-center gap-1 md:flex"
         >
+          {/* Dashboard - landing page with at-a-glance widgets. Top-level link
+              rather than a CueGUI-parity menu entry since CueGUI has no
+              equivalent grouping. */}
+          <Link
+            href="/dashboard"
+            aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              isActive(pathname, "/dashboard")
+                ? "bg-foreground/10 text-foreground"
+                : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+            )}
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
+            Dashboard
+          </Link>
+
           {/* File menu — CueGUI parity */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -422,6 +439,19 @@ export function AppHeader() {
         aria-label="Primary mobile"
         className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 dark:border-zinc-800 md:hidden"
       >
+        <Link
+          href="/dashboard"
+          aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            isActive(pathname, "/dashboard")
+              ? "bg-foreground/10 text-foreground"
+              : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+          )}
+        >
+          <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
+          Dashboard
+        </Link>
         {NAV_MENUS.map((menu) => (
           <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
         ))}
