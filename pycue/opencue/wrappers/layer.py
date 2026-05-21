@@ -633,3 +633,55 @@ class Layer(object):
         if not format:
             return self.data.eligible_time
         return time.strftime(format, time.localtime(self.data.eligible_time))
+
+    # pylint: disable=redefined-builtin
+    def startTime(self, format=None):
+        """Returns the layer start time in the desired format.
+
+        Aggregated from the layer's frames: this is the earliest time any
+        frame in the layer began running. Returns 0 while no frame has
+        started yet.
+
+        Examples:
+            None
+            "%m/%d %H:%M"           => 05/17 12:00
+            "%a %b %d %H:%M:%S %Y"  => Sun May 17 12:00:00 2026
+
+        See the format table at:
+        https://docs.python.org/3/library/time.html
+
+        :type  format: str
+        :param format: desired time format
+        :rtype:  int/str
+        :return: layer start time in epoch, or string version of that
+                 timestamp if format given"""
+        if not format:
+            return self.data.start_time
+        return time.strftime(format, time.localtime(self.data.start_time))
+
+    # pylint: disable=redefined-builtin
+    def stopTime(self, format=None):
+        """Returns the layer stop time in the desired format.
+
+        Aggregated from the layer's frames: this is the latest stop time
+        across all frames, but only once every frame has stopped. Returns
+        0 while any frame is still pending, running, or in DEPEND - mirroring
+        Job.stopTime() semantics where the value stays 0 until the whole
+        object is done.
+
+        Examples:
+            None
+            "%m/%d %H:%M"           => 05/17 12:00
+            "%a %b %d %H:%M:%S %Y"  => Sun May 17 12:00:00 2026
+
+        See the format table at:
+        https://docs.python.org/3/library/time.html
+
+        :type  format: str
+        :param format: desired time format
+        :rtype:  int/str
+        :return: layer stop time in epoch, or string version of that
+                 timestamp if format given"""
+        if not format:
+            return self.data.stop_time
+        return time.strftime(format, time.localtime(self.data.stop_time))

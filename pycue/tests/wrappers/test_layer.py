@@ -424,6 +424,32 @@ class LayerTests(unittest.TestCase):
         expected = time.strftime("%Y", time.localtime(eligibleTime))
         self.assertEqual(layer.eligibleTime("%Y"), expected)
 
+    def testStartTimeEpoch(self, getStubMock):
+        startTime = 1700000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, start_time=startTime))
+        self.assertEqual(layer.startTime(), startTime)
+
+    def testStartTimeFormatted(self, getStubMock):
+        startTime = 1700000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, start_time=startTime))
+        expected = time.strftime("%Y", time.localtime(startTime))
+        self.assertEqual(layer.startTime("%Y"), expected)
+
+    def testStopTimeEpoch(self, getStubMock):
+        stopTime = 1700000300
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, stop_time=stopTime))
+        self.assertEqual(layer.stopTime(), stopTime)
+
+    def testStopTimeFormatted(self, getStubMock):
+        stopTime = 1700000300
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, stop_time=stopTime))
+        expected = time.strftime("%Y", time.localtime(stopTime))
+        self.assertEqual(layer.stopTime("%Y"), expected)
+
 
 class LayerEnumTests(unittest.TestCase):
 
