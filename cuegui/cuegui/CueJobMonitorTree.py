@@ -387,9 +387,19 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self._lastUpdate = time.time()
         self._updateInFlight = True
         if self.app.threadpool is not None:
-            self.app.threadpool.queue(
-                self._getUpdate, self._processUpdateGuarded,
-                "getting data for %s" % self.__class__)
+            # If queue() itself raises (mutex error, teardown-time attribute
+            # access, ...) the callback will never fire, so clear the flag here
+            # to keep the next tick from being permanently blocked.
+            # pylint: disable=broad-except
+            try:
+                self.app.threadpool.queue(
+                    self._getUpdate, self._processUpdateGuarded,
+                    "getting data for %s" % self.__class__)
+            except Exception:
+                self._updateInFlight = False
+                logger.warning(
+                    "Failed to queue update for %s; will retry on next tick",
+                    self.__class__, exc_info=True)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             try:
