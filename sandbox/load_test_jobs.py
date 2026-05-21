@@ -883,18 +883,55 @@ KNOWN_SUBCOMMANDS = (
     "simple", "wide", "deep", "chain", "fan-out", "fan-in", "diamond", "mixed",
 )
 
+# Flags that consume the following argv token as their value. Listed here so
+# _normalize_argv can skip those values when scanning for the subcommand;
+# otherwise `--prefix chain` would treat the value `chain` as the subcommand
+# and silently run the wrong scenario. Keep this in sync with the flags
+# declared in `_build_shared_parser` and the per-subcommand parsers below.
+_VALUE_BEARING_FLAGS = frozenset({
+    # shared
+    "--show", "--shot", "--prefix", "--command", "--sleep-seconds",
+    "--batch-size", "--batch-pause",
+    # simple / wide / deep
+    "-n", "--num-jobs", "--frame-range", "--layers-per-job",
+    "--frames-per-layer",
+    # chain / fan-out / fan-in / mixed
+    "--chain-length", "--dependents", "--blockers", "--total", "--seed",
+})
+
 
 def _normalize_argv(raw: List[str]) -> List[str]:
     """Pull the subcommand (if any) to the front of argv so shared flags work
     whether the user typed them before or after the subcommand name. If no
     subcommand is present, default to 'simple'. Leaves --help / -h alone so
     top-level help still lists all subcommands.
+
+    Only PROMOTES a token to subcommand position when it's a true positional
+    (not a flag, not the value of a value-bearing flag). Without this guard,
+    `--prefix chain` would treat the second token as the subcommand and
+    silently run the wrong scenario. store_true flags (e.g. `--paused`,
+    `--dry-run`) do NOT consume the next token, so `--paused simple` still
+    correctly promotes `simple`.
     """
     if "--help" in raw or "-h" in raw:
         return list(raw)
     cmd: Optional[str] = None
     rest: List[str] = []
+    expecting_value = False
     for token in raw:
+        if expecting_value:
+            # Previous token was a value-bearing flag; this token is its
+            # value, never a subcommand candidate.
+            rest.append(token)
+            expecting_value = False
+            continue
+        if token.startswith("-"):
+            rest.append(token)
+            # `--flag=value` packs the value in the same token; only
+            # bare `--flag` / `-n` forms consume the next argv slot.
+            if "=" not in token and token in _VALUE_BEARING_FLAGS:
+                expecting_value = True
+            continue
         if cmd is None and token in KNOWN_SUBCOMMANDS:
             cmd = token
         else:

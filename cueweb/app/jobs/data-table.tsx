@@ -358,7 +358,12 @@ export function DataTable({ columns, username }: DataTableProps) {
       await addUsersJobs();
       setInitialLoading(false);
     })();
-  },[state.username, state.autoloadMine]);
+    // state.loadFinished is read inside addUsersJobs() (it forwards the
+    // flag to getJobsForUser), so it has to be in the dep array - without
+    // it, toggling Load Finished doesn't re-run this effect and the
+    // Autoload Mine fetch keeps using whatever value loadFinished had on
+    // the previous run.
+  }, [state.username, state.autoloadMine, state.loadFinished]);
   
   useEffect(() => {
     setItemInLocalStorage("autoloadMine", JSON.stringify(state.autoloadMine));
@@ -569,7 +574,10 @@ export function DataTable({ columns, username }: DataTableProps) {
       // Terminate the worker when the component unmounts
       worker?.terminate();
     };
-  }, [state.tableDataUnfiltered, state.tableData, state.autoloadMine]);
+    // state.loadFinished feeds addUsersJobs() inside this effect's polling
+    // tick; without it in the dep array, toggling Load Finished doesn't
+    // rebuild the interval and the 5s refresh keeps the stale value.
+  }, [state.tableDataUnfiltered, state.tableData, state.autoloadMine, state.loadFinished]);
 
   // Automatically remove jobs in selectedRows if they've been removed from the table.
   // Cases where jobs are removed include:

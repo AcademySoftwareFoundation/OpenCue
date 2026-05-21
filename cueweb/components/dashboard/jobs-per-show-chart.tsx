@@ -38,10 +38,17 @@ export function JobsPerShowChart() {
   const [jobs, setJobs] = React.useState<Job[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const colors = useChartColors();
+  // Guards against the setInterval ticking again while a previous fetch
+  // is still pending. Without it a slow Cuebot can stack overlapping
+  // requests every REFRESH_MS, wasting bandwidth and causing
+  // stale-response races (a late tick can overwrite a newer one).
+  const inFlight = React.useRef(false);
 
   React.useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         const body = JSON.stringify({ r: { include_finished: false } });
         const data = await getJobs(body);
@@ -53,6 +60,8 @@ export function JobsPerShowChart() {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
         }
+      } finally {
+        inFlight.current = false;
       }
     };
     load();

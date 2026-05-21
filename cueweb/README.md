@@ -20,7 +20,7 @@ CueWeb System
       - [Example: Adding Gitlab authentication](#example-adding-gitlab-authentication)
       - [Custom Login Page](#custom-login-page)
 - [Features](#features)
-    - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Below are some screenshots of the interface](#below-are-some-screenshots-of-the-interface)
 - [Troubleshooting](#troubleshooting)
   - [Support resources](#support-resources)
@@ -355,7 +355,7 @@ The current CueWeb system offers a robust set of features designed to enhance us
 
 Go back to [Contents](#contents).
 
-### Keyboard shortcuts
+## Keyboard shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload).
 

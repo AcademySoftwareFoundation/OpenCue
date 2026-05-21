@@ -90,10 +90,13 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
 
   const start = Date.now();
   let status = 0;
+  // Hoist the controller + timer above the try/catch so the timer can be
+  // cleared in `finally` on every path (success, fetch error, abort). When
+  // they lived inside `try`, an error before clearTimeout would leak the
+  // pending timeout into the event loop until it fired.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-
     const response = await fetch(`${gateway}/show.ShowInterface/GetActiveShows`, {
       method: "POST",
       headers: {
@@ -104,7 +107,6 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
       cache: "no-store",
       signal: controller.signal,
     });
-    clearTimeout(timer);
     status = response.status;
     // Drain the body so the connection can be reused / closed cleanly.
     await response.text().catch(() => undefined);
@@ -130,5 +132,7 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
       },
       { status: 200 },
     );
+  } finally {
+    clearTimeout(timer);
   }
 }

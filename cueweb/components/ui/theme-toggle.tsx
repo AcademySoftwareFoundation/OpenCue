@@ -39,8 +39,10 @@ export function ThemeToggle() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   if (!mounted) {
+    // disabled + tabIndex={-1} so the hydration placeholder doesn't briefly
+    // act as a focus target / keyboard trap before the real toggle mounts.
     return (
-      <Button variant="outline" size="icon" aria-hidden="true">
+      <Button variant="outline" size="icon" aria-hidden="true" disabled tabIndex={-1}>
         <span className="h-[1.2rem] w-[1.2rem]" />
       </Button>
     );

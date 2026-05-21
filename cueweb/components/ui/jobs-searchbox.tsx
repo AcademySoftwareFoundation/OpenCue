@@ -108,6 +108,11 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
   // live dropdown instead.
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
+      // While the user is composing text with an IME (most CJK input
+      // flows), the Enter key commits the in-progress glyph rather than
+      // signalling "submit". Skipping the handler here avoids firing a
+      // premature search before the user has finished typing.
+      if ((event.nativeEvent as KeyboardEvent).isComposing) return;
       if (event.key !== "Enter") return;
       if (!onSubmit) return;
       event.preventDefault();

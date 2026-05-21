@@ -418,24 +418,28 @@ export function setPriorityGivenRow(row: Row<any>) {
   const job = row.original as Job;
   const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
   if (raw === null) return;
-  const value = Number.parseInt(raw, 10);
-  if (Number.isNaN(value)) {
+  // Strict whole-string match - Number.parseInt would silently accept
+  // "10abc" / "10.5" / " 10 " and quietly truncate, sending a value the
+  // user didn't actually type to Cuebot.
+  const trimmed = raw.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
     toastWarning("Priority must be an integer");
     return;
   }
-  setJobPriority(job, value);
+  setJobPriority(job, Number.parseInt(trimmed, 10));
 }
 
 export function setMaxRetriesGivenRow(row: Row<any>) {
   const job = row.original as Job;
   const raw = window.prompt(`Set max retries for ${job.name}`, "3");
   if (raw === null) return;
-  const value = Number.parseInt(raw, 10);
-  if (Number.isNaN(value) || value < 0) {
+  // Strict non-negative integer match; same parseInt caveats as above.
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
     toastWarning("Max retries must be a non-negative integer");
     return;
   }
-  setJobMaxRetries(job, value);
+  setJobMaxRetries(job, Number.parseInt(trimmed, 10));
 }
 
 // Pure-client clipboard helpers; surface a toast on success/failure so the

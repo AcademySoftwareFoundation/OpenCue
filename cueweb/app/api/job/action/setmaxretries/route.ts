@@ -24,12 +24,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
 
-  const body = JSON.stringify(await request.json());
-  const jsonBody = JSON.parse(body);
+  const jsonBody = await request.json();
   if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.job || typeof jsonBody.max_retries !== 'number') {
     return NextResponse.json({ error: 'Invalid request body (need {job, max_retries:number})' }, { status: 400 });
   }
 
+  const body = JSON.stringify(jsonBody);
   const response = await handleRoute(method, endpoint, body, true);
   const responseData = await response.json();
   if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });

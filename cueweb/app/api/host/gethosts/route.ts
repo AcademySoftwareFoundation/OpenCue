@@ -28,16 +28,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
 
-  const body = JSON.stringify(await request.json());
-  const jsonBody = JSON.parse(body);
-  if (!jsonBody || typeof jsonBody !== 'object') {
+  // Guard against malformed JSON so callers see a 400 instead of the route
+  // throwing and Next.js surfacing a generic 500 - request.json() throws a
+  // SyntaxError on invalid input.
+  let jsonBody: unknown;
+  try {
+    jsonBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  if (!jsonBody || typeof jsonBody !== 'object' || Array.isArray(jsonBody)) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
+  const body = JSON.stringify(jsonBody);
 
   const response = await handleRoute(method, endpoint, body);
   const responseData = await response.json();
 
-  if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });
+  // Preserve the upstream HTTP status. NextResponse.json defaults to 200
+  // when the second argument is omitted, which would otherwise mask
+  // gateway 4xx / 5xx responses behind a 200 envelope.
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: responseData.error, status: response.status },
+      { status: response.status },
+    );
+  }
   const hosts = responseData?.data?.hosts?.hosts ?? [];
-  return NextResponse.json({ data: hosts, status: responseData.status });
+  return NextResponse.json(
+    { data: hosts, status: responseData.status ?? response.status },
+    { status: response.status },
+  );
 }

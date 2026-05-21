@@ -144,14 +144,30 @@ export default function JobDetailPage() {
   // refresh on a 5s interval while it stays the active tab.
   const loadedTabs = React.useRef(new Set<TabKey>());
 
+  // Reset the per-job tab cache + clear the previously fetched arrays
+  // whenever the user navigates to a different job. Otherwise a Next.js
+  // page-instance reuse can leak the prior job's layers / frames /
+  // comments into the new view until the first fetch settles.
+  React.useEffect(() => {
+    loadedTabs.current.clear();
+    setLayers([]);
+    setFrames([]);
+    setComments([]);
+  }, [job?.id]);
+
   React.useEffect(() => {
     if (!job) return;
     if (tab === "overview") return;
 
     let cancelled = false;
-    const firstLoad = !loadedTabs.current.has(tab);
 
     const runFetch = async () => {
+      // Recompute firstLoad every tick instead of capturing it once when
+      // the effect ran - otherwise the 5s setInterval keeps firing the
+      // "first load" branch and flips the loading skeleton on for every
+      // poll. Reading the ref at fire time also picks up the entry that
+      // the previous tick's `finally` just added.
+      const firstLoad = !loadedTabs.current.has(tab);
       try {
         if (tab === "layers") {
           if (firstLoad) setLayersLoading(true);

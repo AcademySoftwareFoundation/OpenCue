@@ -42,7 +42,18 @@ export async function POST(request: NextRequest) {
   const response = await handleRoute(method, endpoint, body);
   const responseData = await response.json();
 
-  if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });
+  // Preserve the upstream HTTP status. NextResponse.json defaults to 200
+  // when the second argument is omitted, which would otherwise mask
+  // gateway 4xx / 5xx responses behind a 200 envelope.
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: responseData?.error ?? "Failed to fetch shows", status: response.status },
+      { status: response.status },
+    );
+  }
   const shows = responseData?.data?.shows?.shows ?? [];
-  return NextResponse.json({ data: shows, status: responseData.status });
+  return NextResponse.json(
+    { data: shows, status: responseData.status ?? response.status },
+    { status: response.status },
+  );
 }

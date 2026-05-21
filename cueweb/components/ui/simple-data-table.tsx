@@ -152,13 +152,19 @@ export function SimpleDataTable<TData, TValue>({
     [columnVisibilityStorageKey],
   );
 
-  // Column order. Persisted alongside visibility under a parallel key (e.g.
-  // "cueweb.layers.columnVisibility" -> "cueweb.layers.columnOrder"). When
-  // the stored value is missing or empty, TanStack falls back to the natural
-  // order defined by the column defs, which is what we want.
-  const columnOrderStorageKey = columnVisibilityStorageKey
-    ? columnVisibilityStorageKey.replace(/columnVisibility$/, "columnOrder")
-    : undefined;
+  // Column order. Persisted alongside visibility under a parallel key. For
+  // the conventional keys (`...columnVisibility` -> `...columnOrder`) we
+  // swap the suffix so existing localStorage entries documented in
+  // cueweb/README.md and docs/reference/cueweb.md stay valid. For any
+  // other key shape we append `.columnOrder` so visibility and order can
+  // never collide on the same storage slot. When the stored value is
+  // missing or empty, TanStack falls back to the natural order defined
+  // by the column defs.
+  const columnOrderStorageKey = !columnVisibilityStorageKey
+    ? undefined
+    : columnVisibilityStorageKey.endsWith("columnVisibility")
+      ? columnVisibilityStorageKey.replace(/columnVisibility$/, "columnOrder")
+      : `${columnVisibilityStorageKey}.columnOrder`;
   const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([]);
   React.useEffect(() => {
     if (!columnOrderStorageKey) return;
