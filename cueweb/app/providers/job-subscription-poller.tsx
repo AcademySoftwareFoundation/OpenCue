@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 import { getJob } from "@/app/utils/get_utils";
 import { toastSuccess } from "@/app/utils/notify_utils";
 import {
+  getSubscription,
   getSubscriptions,
   JobSubscription,
   markNotified,
@@ -47,7 +48,7 @@ function canFireDesktopNotification(): boolean {
 // granted, so the desktop attempt is wrapped in try/catch and never
 // suppresses the in-app toast.
 function fireCompletionNotice(entry: JobSubscription): void {
-  toastSuccess(`Job "${entry.jobName}" finished.`);
+  toastSuccess(`Job finished: ${entry.jobName}`);
   if (canFireDesktopNotification()) {
     try {
       new Notification(entry.jobName, { body: "Job finished" });
@@ -56,6 +57,20 @@ function fireCompletionNotice(entry: JobSubscription): void {
       // fire, browser quota, etc.); the in-app toast already ran.
     }
   }
+}
+
+// Serialize the notify decision across same-origin tabs via the Web Locks
+// API so only one tab fires the toast / desktop popup when several poll the
+// same FINISHED job concurrently. Falls back to a direct call when
+// navigator.locks is unavailable.
+async function withJobNotifyLock(jobId: string, fn: () => void): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    await navigator.locks.request(`cueweb:notify-${jobId}`, { mode: "exclusive" }, async () => {
+      fn();
+    });
+    return;
+  }
+  fn();
 }
 
 export function JobSubscriptionPoller() {
@@ -74,11 +89,15 @@ export function JobSubscriptionPoller() {
         const fetchedStates: Record<string, string> = {};
         await Promise.all(
           unnotified.map(async (entry) => {
-            const job = await getJob(entry.jobId);
-            if (job === null) {
-              removeSubscription(entry.jobId);
-            } else {
-              fetchedStates[entry.jobId] = job.state;
+            try {
+              const job = await getJob(entry.jobId);
+              if (job === null) {
+                removeSubscription(entry.jobId);
+              } else {
+                fetchedStates[entry.jobId] = job.state;
+              }
+            } catch (err) {
+              console.error(`JobSubscriptionPoller: getJob(${entry.jobId}) failed`, err);
             }
           }),
         );
@@ -86,9 +105,19 @@ export function JobSubscriptionPoller() {
         const toNotify = pickEntriesToNotify(getSubscriptions(), fetchedStates);
         for (const entry of toNotify) {
           if (cancelled) break;
-          fireCompletionNotice(entry);
-          markNotified(entry.jobId);
+          // Hold a per-job cross-tab lock around the re-read + fire + mark
+          // so sibling tabs can't both pass the notifiedAt check before
+          // either persists. fireCompletionNotice runs the in-app toast
+          // and (when permission was granted) the desktop popup.
+          await withJobNotifyLock(entry.jobId, () => {
+            const fresh = getSubscription(entry.jobId);
+            if (!fresh || fresh.notifiedAt !== null) return;
+            fireCompletionNotice(fresh);
+            markNotified(entry.jobId);
+          });
         }
+      } catch (err) {
+        console.error("JobSubscriptionPoller: tick failed", err);
       } finally {
         inFlight.current = false;
       }

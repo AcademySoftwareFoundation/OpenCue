@@ -16,10 +16,30 @@
  * limitations under the License.
  */
 
+import type { MouseEvent } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
-import { requestNotificationPermission } from "@/app/utils/subscription_utils";
 import { toastSuccess, toastWarning } from "@/app/utils/notify_utils";
+
+// Request the OS-level Notification permission directly here. The helper
+// that used to live in subscription_utils was removed upstream when the
+// poller switched to in-app toasts; we still want the optional desktop
+// popup upgrade when the user explicitly subscribes, so we prompt inline.
+type NotificationPermissionResult = "granted" | "denied" | "default" | "unsupported";
+
+async function requestNotificationPermission(): Promise<NotificationPermissionResult> {
+  if (typeof window === "undefined" || typeof Notification === "undefined") {
+    return "unsupported";
+  }
+  if (Notification.permission === "granted" || Notification.permission === "denied") {
+    return Notification.permission;
+  }
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return "default";
+  }
+}
 
 interface Props {
   jobId: string;
@@ -28,18 +48,17 @@ interface Props {
 }
 
 // Per-row bell button. Three visual states:
-//   - Outline bell           : not subscribed   → click to subscribe
-//   - Filled bell            : subscribed       → click to cancel
-//   - Filled bell + green dot: notified         → click to clear
+//   - Outline bell           : not subscribed   -> click to subscribe
+//   - Filled bell            : subscribed       -> click to cancel
+//   - Filled bell + green dot: notified         -> click to clear
 export function SubscribeBell({ jobId, jobName, jobState }: Props) {
   const { store, subscribe, unsubscribe } = useJobSubscriptions();
   const entry = store[jobId];
 
   const isDisabled = !entry && jobState === "FINISHED";
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // don't trigger the row's click-through to the job detail dialog
-
     if (entry) {
       unsubscribe(jobId);
       return;

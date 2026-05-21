@@ -272,9 +272,14 @@ public class MaintenanceManagerSupport {
         try {
             int batchSize = env.getProperty("maintenance.stuck_dependency_recovery_batch_size",
                     Integer.class, 1000);
+            // Mirror FrameCompleteHandler's runtime behavior: when this flag is true (default)
+            // EATEN frames must not satisfy dependencies, so they are excluded from the sweep.
+            boolean satisfyOnlyOnFrameSuccess =
+                    env.getProperty("depend.satisfy_only_on_frame_success", Boolean.class, true);
 
             // Phase 1: Satisfy stale active depends through normal code path
-            List<String> staleDependIds = maintenanceDao.findStaleDependIds(batchSize);
+            List<String> staleDependIds =
+                    maintenanceDao.findStaleDependIds(batchSize, !satisfyOnlyOnFrameSuccess);
             int satisfiedCount = 0;
             for (String dependId : staleDependIds) {
                 try {
