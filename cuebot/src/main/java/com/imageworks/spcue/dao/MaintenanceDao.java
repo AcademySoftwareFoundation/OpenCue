@@ -71,9 +71,12 @@ public interface MaintenanceDao {
      * failures.
      *
      * @param limit maximum number of depend IDs to return
+     * @param includeEatenAsComplete when true, EATEN frames count as completion alongside
+     *        SUCCEEDED; when false, only SUCCEEDED frames satisfy dependencies (matches the
+     *        {@code depend.satisfy_only_on_frame_success} runtime behavior)
      * @return list of pk_depend values for stale active depends
      */
-    List<String> findStaleDependIds(int limit);
+    List<String> findStaleDependIds(int limit, boolean includeEatenAsComplete);
 
     /**
      * Fixes frames stuck in DEPEND state by setting int_depend_count to 0 for frames that have no
