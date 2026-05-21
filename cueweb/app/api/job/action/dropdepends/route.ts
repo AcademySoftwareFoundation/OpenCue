@@ -31,10 +31,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
 
-  const jsonBody = await request.json();
+  // Guard against malformed JSON so callers see a 400 instead of the route
+  // throwing and Next.js surfacing a generic 500.
+  let jsonBody: any;
+  try {
+    jsonBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
   if (
     !jsonBody
     || typeof jsonBody !== 'object'
+    || Array.isArray(jsonBody)
     || !jsonBody.job
     || typeof jsonBody.target !== 'string'
     || !VALID_TARGETS.has(jsonBody.target)

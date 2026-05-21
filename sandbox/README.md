@@ -286,7 +286,7 @@ Every subcommand also accepts:
 | `--paused` | Submit non-dependency scenarios paused too. Dependency scenarios always submit paused so the wiring lands before any blocker is dispatched. |
 | `--batch-size N` / `--batch-pause S` | Throttle submissions (default 10 / 1.0s). |
 | `--dry-run` | Print the submission plan without contacting Cuebot. `opencue.api` is not required for `--dry-run`. |
-| `--print-names` | Echo each submitted short name (one per line, prefixed with `+ `) and a final clean list - useful for piping into `xargs cueadmin -kill`. |
+| `--print-names` | Echo each submitted short name (one per line, prefixed with `+`) and a final clean list - useful for piping into `xargs cueadmin -kill`. |
 | `--unique` | Append a Unix-timestamp suffix to every generated short name. Re-runs of the dependency subcommands never collide with still-pending jobs from a previous run. |
 
 Shared flags work on either side of the subcommand name (an argv normalizer pulls the subcommand to the front before argparse runs), so all of these are equivalent:
