@@ -207,6 +207,28 @@ export async function unpauseJobs(jobs: Job[]) {
 }
 
 /**************************************/
+// Reparent Groups and Jobs
+/**************************************/
+
+export async function reparentGroups(newParentId: string, groupIds: string[]) {
+  const endpoint = "/api/group/action/reparentgroups";
+  const body = JSON.stringify({
+    group: { id: newParentId },
+    groups: { groups: groupIds.map(id => ({ id })) },
+  });
+  await performAction(endpoint, [body], `Reparented ${groupIds.length} group(s)`);
+}
+
+export async function reparentJobs(newParentId: string, jobIds: string[]) {
+  const endpoint = "/api/group/action/reparentjobs";
+  const body = JSON.stringify({
+    group: { id: newParentId },
+    jobs: { jobs: jobIds.map(id => ({ id })) },
+  });
+  await performAction(endpoint, [body], `Reparented ${jobIds.length} job(s)`);
+}
+
+/**************************************/
 /* Table header menu functions        */
 /**************************************/
 

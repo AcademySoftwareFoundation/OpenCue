@@ -33,6 +33,40 @@ export type JobComment = {
     message: string;
 };
 
+// Mirrors the job.Group proto message at proto/src/job.proto.
+export type Group = {
+    id: string;
+    name: string;
+    department: string;
+    defaultJobPriority: number;
+    defaultJobMinCores: number;
+    defaultJobMaxCores: number;
+    minCores: number;
+    maxCores: number;
+    level: number;
+    parentId: string;
+    groupStats?: GroupStats;
+};
+
+// Mirrors the job.GroupStats proto message at proto/src/job.proto.
+export type GroupStats = {
+    runningFrames: number;
+    deadFrames: number;
+    dependFrames: number;
+    waitingFrames: number;
+    pendingJobs: number;
+    reservedCores: number;
+    reservedGpus: number;
+};
+
+// Mirrors the show.Show proto message at proto/src/show.proto.
+// Trimmed to the fields cueweb actually reads; extend as needed.
+export type Show = {
+    id: string;
+    name: string;
+    active: boolean;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -132,6 +166,38 @@ export const getFrameLogDir = (job: Job, frame: Frame): string => {
 export async function getJobComments(job: Job): Promise<JobComment[]> {
     const ENDPOINT = "/api/job/getcomments";
     const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Look up a single show by its name. Returns null if no show matches.
+export async function findShowByName(showName: string): Promise<Show | null> {
+    const ENDPOINT = "/api/show/findshow";
+    const body = JSON.stringify({ name: showName });
+    const response = await accessGetApi(ENDPOINT, body);
+    return response;
+}
+
+// Fetch the root group's subgroups for a show
+export async function getShowGroups(showId: string): Promise<Group[]> {
+    const ENDPOINT = "/api/show/getgroups";
+    const body = JSON.stringify({ show: { id: showId } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the direct subgroups of a group
+export async function getSubgroups(groupId: string): Promise<Group[]> {
+    const ENDPOINT = "/api/group/getgroups";
+    const body = JSON.stringify({ group: { id: groupId } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the direct jobs in a group
+export async function getGroupJobs(groupId: string): Promise<Job[]> {
+    const ENDPOINT = "/api/group/getjobs";
+    const body = JSON.stringify({ group: { id: groupId } });
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
 }
