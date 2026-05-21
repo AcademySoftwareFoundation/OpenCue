@@ -1091,7 +1091,7 @@ class LayerActions(AbstractActions):
             for layer in layers:
                 body += '\n%s' % layer.data.name
         else:
-            title = "Reorder layer %s" % layer.data.name
+            title = "Reorder layer %s" % layers[0].data.name
 
         (order, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body, 1, 1, 100000, 1)
         if not choice:
