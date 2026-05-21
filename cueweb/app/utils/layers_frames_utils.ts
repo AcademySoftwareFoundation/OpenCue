@@ -64,9 +64,12 @@ export const convertMemoryToString = (kmem: number, object: string): string => {
 
 // Converts seconds to a string formatted as HH:MM:SS
 export const secondsToHHMMSS = (sec: number): string => {
-  const hours = Math.floor(sec / 3600).toString().padStart(2, "0");
-  const minutes = Math.floor((sec % 3600) / 60).toString().padStart(2, "0");
-  const seconds = (sec % 60).toString().padStart(2, "0");
+  // Floor the input so fractional inputs (e.g. (Date.now()/1000) deltas)
+  // don't bleed micro-seconds into the seconds component.
+  const total = Math.max(0, Math.floor(sec));
+  const hours = Math.floor(total / 3600).toString().padStart(2, "0");
+  const minutes = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
+  const seconds = (total % 60).toString().padStart(2, "0");
 
   return `${hours}:${minutes}:${seconds}`;
 };

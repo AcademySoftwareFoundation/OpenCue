@@ -18,6 +18,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 
@@ -86,8 +87,12 @@ export function WidgetCard({
 
       {footer ? <div className="mt-3 text-xs text-muted-foreground">{footer}</div> : null}
 
-      <div className="mt-auto pt-4 text-xs font-medium text-foreground/80 group-hover:text-foreground">
-        {ctaLabel} -&gt;
+      <div className="mt-auto inline-flex items-center gap-1 pt-4 text-xs font-medium text-foreground/80 group-hover:text-foreground">
+        <span>{ctaLabel}</span>
+        <ArrowRight
+          className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
       </div>
     </Link>
   );
@@ -142,7 +147,10 @@ export function WidgetCardError({
     >
       <span className="text-xs font-semibold uppercase tracking-wide text-destructive">{title}</span>
       <p className="mt-3 text-sm text-destructive">{message}</p>
-      <div className="mt-auto pt-4 text-xs font-medium text-destructive">Open page -&gt;</div>
+      <div className="mt-auto inline-flex items-center gap-1 pt-4 text-xs font-medium text-destructive">
+        <span>Open page</span>
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      </div>
     </Link>
   );
 }

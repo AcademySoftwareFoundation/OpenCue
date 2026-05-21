@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getShortcutNotificationsEnabled } from "@/app/utils/use_shortcut_notifications";
+import { toastSuccess } from "@/app/utils/notify_utils";
 
 /**
  * Event name dispatched on `window` when the user presses `r` to ask for an
@@ -40,6 +42,13 @@ export const CUEWEB_REFRESH_NOW_EVENT = "cueweb:refresh-now";
  * underlying input element.
  */
 export const CUEWEB_FOCUS_SEARCH_EVENT = "cueweb:focus-search";
+
+/**
+ * Event name dispatched on `window` to programmatically open the shortcuts
+ * overlay (e.g. from the "Show Shortcuts" menu item in the Other menu /
+ * sidebar). Allows non-keyboard users to reach the same affordance as `?`.
+ */
+export const CUEWEB_OPEN_SHORTCUTS_EVENT = "cueweb:open-shortcuts";
 
 /** Shape of a single row in the shortcuts cheat-sheet. */
 interface ShortcutEntry {
@@ -116,6 +125,15 @@ export function KeyboardShortcuts() {
     themeRef.current = resolvedTheme;
   }, [resolvedTheme]);
 
+  // Fires a small toast naming the shortcut that was just triggered, but
+  // only when the user hasn't opted out via the Other menu. Reads the pref
+  // imperatively so flipping the toggle takes effect on the very next
+  // keypress without remounting the listener.
+  const notify = React.useCallback((label: string) => {
+    if (!getShortcutNotificationsEnabled()) return;
+    toastSuccess(label);
+  }, []);
+
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       // Never compete with browser / OS shortcuts.
@@ -129,20 +147,24 @@ export function KeyboardShortcuts() {
         case "?":
           event.preventDefault();
           setOpen(true);
+          notify("Shortcut: ? → Show shortcuts");
           break;
         case "/":
           event.preventDefault();
           window.dispatchEvent(new CustomEvent(CUEWEB_FOCUS_SEARCH_EVENT));
+          notify("Shortcut: / → Focus search");
           break;
         case "r":
         case "R":
           event.preventDefault();
           window.dispatchEvent(new CustomEvent(CUEWEB_REFRESH_NOW_EVENT));
+          notify("Shortcut: r → Refresh table");
           break;
         case "t":
         case "T":
           event.preventDefault();
           setTheme(themeRef.current === "dark" ? "light" : "dark");
+          notify("Shortcut: t → Toggle theme");
           break;
         default:
           // No-op for every other key.
@@ -152,7 +174,14 @@ export function KeyboardShortcuts() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setTheme]);
+  }, [setTheme, notify]);
+
+  // Allow non-keyboard callers (menu items) to open the overlay too.
+  React.useEffect(() => {
+    const openHandler = () => setOpen(true);
+    window.addEventListener(CUEWEB_OPEN_SHORTCUTS_EVENT, openHandler);
+    return () => window.removeEventListener(CUEWEB_OPEN_SHORTCUTS_EVENT, openHandler);
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

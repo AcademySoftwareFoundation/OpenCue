@@ -118,10 +118,13 @@ export async function getJobsForShowShot(show: string, shot: string): Promise<Jo
 /*
  * Fetches jobs that match a given regex pattern.
  * @param regex - The regex pattern to search for in job names.
+ * @param includeFinished - When false, omits jobs whose state is FINISHED
+ *   so the "Load Finished" toggle in the Monitor Jobs UI can gate them
+ *   out. Defaults to true for backward compatibility with older callers.
  * @returns A promise that resolves to the list of jobs matching the regex pattern.
  */
-export async function getJobsForRegex(regex: string): Promise<Job[]> {
-    const body = { r: { include_finished: true, regex: [`${regex}`] } };
+export async function getJobsForRegex(regex: string, includeFinished: boolean = true): Promise<Job[]> {
+    const body = { r: { include_finished: includeFinished, regex: [`${regex}`] } };
     return getJobs(JSON.stringify(body));
 }
 

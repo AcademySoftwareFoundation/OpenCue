@@ -22,9 +22,10 @@ import { Job } from "@/app/jobs/columns";
 import { Layer, layerColumns } from "@/app/layers/layer-columns";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Inbox } from "lucide-react";
+import { Inbox, X } from "lucide-react";
 import { SimpleDataTable } from "./simple-data-table";
 
 /**
@@ -50,12 +51,62 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
   const [loadingLayers, setLoadingLayers] = React.useState(false);
   const [loadingFrames, setLoadingFrames] = React.useState(false);
 
+  // Layer-click drives two side-effects:
+  //   1. Filter the Frames table to that layer (frame.layerName == layer.name).
+  //   2. Push the layer payload into the Attributes panel (right dock).
+  // Clicking the same layer again toggles the filter off and reverts the
+  // attributes panel to the parent job (so the panel always reflects the
+  // most-relevant selection).
+  const [selectedLayer, setSelectedLayer] = React.useState<Layer | null>(null);
+
   // Clear stale rows when the parent selects a different job so the
   // previous job's data doesn't briefly flash in the new context.
   React.useEffect(() => {
     setLayers([]);
     setFrames([]);
+    // Reset the layer filter when the parent job changes; the new job's
+    // layer set is unrelated to the previous one.
+    setSelectedLayer(null);
   }, [job?.id]);
+
+  // Layer-click handler: toggle the filter + sync the Attributes panel.
+  const handleLayerClick = React.useCallback(
+    (layer: Layer) => {
+      setSelectedLayer((prev) => {
+        const isToggleOff = prev?.id === layer.id;
+        if (isToggleOff) {
+          // Re-select the parent job in the Attributes panel so the panel
+          // doesn't go blank when the user unfilters.
+          if (job) {
+            setAttributeSelection({
+              type: "job",
+              id: job.id,
+              name: job.name,
+              data: job as unknown as Record<string, unknown>,
+            });
+          }
+          return null;
+        }
+        setAttributeSelection({
+          type: "layer",
+          id: layer.id,
+          name: layer.name,
+          data: layer as unknown as Record<string, unknown>,
+        });
+        return layer;
+      });
+    },
+    [job],
+  );
+
+  // If the selected layer disappears (e.g. job switched, layer removed by
+  // the next poll), clear it so the frames filter doesn't leave the table
+  // empty for a stale reason.
+  React.useEffect(() => {
+    if (!selectedLayer) return;
+    const stillPresent = layers.some((l) => l.id === selectedLayer.id);
+    if (!stillPresent) setSelectedLayer(null);
+  }, [layers, selectedLayer]);
 
   React.useEffect(() => {
     if (!job) return;
@@ -119,14 +170,26 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
           </h2>
           <p className="text-xs text-muted-foreground">
             {layers.length} layer{layers.length === 1 ? "" : "s"} - {frames.length} frame{frames.length === 1 ? "" : "s"}
+            {selectedLayer ? (
+              <span className="ml-2 inline-flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-medium text-foreground">
+                <span>Filtered by layer:</span>
+                <span className="font-mono">{selectedLayer.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleLayerClick(selectedLayer)}
+                  className="ml-0.5 rounded text-muted-foreground hover:text-foreground"
+                  aria-label="Clear layer filter"
+                  title="Clear layer filter"
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </span>
+            ) : null}
           </p>
         </div>
       </header>
 
       <div>
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Layers
-        </h3>
         {loadingLayers && layers.length === 0 ? (
           <TableSkeleton rows={3} />
         ) : layers.length === 0 ? (
@@ -141,34 +204,72 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
             data={layers}
             columns={layerColumns}
             username={username}
-            showPagination={false}
+            columnVisibilityStorageKey="cueweb.layers.columnVisibility"
+            onRowClick={handleLayerClick}
+            selectedRowId={selectedLayer?.id ?? null}
+            toolbarLeft={
+              <span className="text-xs font-medium text-muted-foreground">
+                Layers [Total Count:{" "}
+                <span className="font-semibold text-foreground tabular-nums">
+                  {layers.length}
+                </span>
+                ]
+              </span>
+            }
           />
         )}
       </div>
 
-      <div>
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Frames
-        </h3>
-        {loadingFrames && frames.length === 0 ? (
-          <TableSkeleton rows={6} />
-        ) : frames.length === 0 ? (
-          <EmptyState
-            icon={<Inbox className="h-5 w-5" aria-hidden="true" />}
-            title="No frames"
-            description="This job has not produced any frames yet."
-            className="py-6"
-          />
-        ) : (
-          <SimpleDataTable
-            data={frames}
-            columns={frameColumns}
-            username={username}
-            job={job}
-            isFramesTable
-          />
-        )}
-      </div>
+      {(() => {
+        const visibleFrames = selectedLayer
+          ? frames.filter((f) => f.layerName === selectedLayer.name)
+          : frames;
+        const framesTitle = (
+          <span className="text-xs font-medium text-muted-foreground">
+            Frames [Total Count:{" "}
+            <span className="font-semibold text-foreground tabular-nums">
+              {visibleFrames.length}
+            </span>
+            {selectedLayer && visibleFrames.length !== frames.length ? (
+              <span className="ml-1 text-muted-foreground">of {frames.length}</span>
+            ) : null}
+            ]
+          </span>
+        );
+        return (
+          <div>
+            {loadingFrames && frames.length === 0 ? (
+              <TableSkeleton rows={6} />
+            ) : visibleFrames.length === 0 ? (
+              <EmptyState
+                icon={<Inbox className="h-5 w-5" aria-hidden="true" />}
+                title="No frames"
+                description={
+                  selectedLayer
+                    ? `Layer "${selectedLayer.name}" has not produced any frames yet.`
+                    : "This job has not produced any frames yet."
+                }
+                className="py-6"
+              />
+            ) : (
+              <SimpleDataTable
+                data={visibleFrames}
+                columns={frameColumns}
+                username={username}
+                job={job}
+                isFramesTable
+                columnVisibilityStorageKey="cueweb.frames.columnVisibility"
+                // Hide the Remain column (needs the ETA predictor that's only
+                // in CueGUI). Last Line stays visible for CueGUI parity even
+                // though the log-tail fetch isn't wired in yet -> it renders
+                // an em-dash placeholder.
+                defaultColumnVisibility={{ remain: false }}
+                toolbarLeft={framesTitle}
+              />
+            )}
+          </div>
+        );
+      })()}
     </section>
   );
 }

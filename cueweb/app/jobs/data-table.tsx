@@ -30,7 +30,7 @@ import {
   getJobsForRegex,
   getJobsForUser
 } from "@/app/utils/get_utils";
-import { handleError } from "@/app/utils/notify_utils";
+import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,6 @@ import { JobContextMenu } from "@/components/ui/context_menus/action-context-men
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
@@ -62,6 +61,7 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  ColumnOrderState,
   getPaginationRowModel,
   getSortedRowModel,
   Row,
@@ -69,7 +69,9 @@ import {
   VisibilityState
 } from "@tanstack/react-table";
 import debounce from "lodash/debounce";
-import { ChevronDown, Inbox, SearchX, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Inbox, Search, SearchX, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
 import * as React from "react";
@@ -99,10 +101,12 @@ type Action =
   | { type: "SET_API_QUERY"; payload: string }
   | { type: "SET_ROW_SELECTION"; payload: { [key: string]: boolean } }
   | { type: "SET_COLUMN_VISIBILITY"; payload: VisibilityState }
+  | { type: "SET_COLUMN_ORDER"; payload: ColumnOrderState }
   | { type: "SET_ERROR"; payload: string | null } // New action for setting errors
   | { type: "SET_USERNAME"; payload: string }
   | { type: "SET_LOAD_FINISHED"; payload: boolean }
   | { type: "SET_GROUP_BY"; payload: State["groupBy"] }
+  | { type: "SET_PICK_FROM_LIST"; payload: boolean }
   | { type: "RESET_COLUMN_VISIBILITY" }
   | { type: "RESET_STATE" };
 
@@ -128,26 +132,31 @@ interface State {
   apiQuery: string;
   rowSelection: { [key: string]: boolean };
   columnVisibility: VisibilityState;
+  // Full column order (every column id, in display order). Empty array means
+  // "use the natural order from the column defs" (TanStack convention).
+  columnOrder: ColumnOrderState;
   error: string | null;
   username: string;
   // CueGUI parity: include finished jobs in autoload-mine + saved-job
   // refreshes when the user opts in via the "Load Finished" checkbox.
   loadFinished: boolean;
-  // CueGUI parity: Group By mode for the Monitor Jobs table. Client-side
-  // grouping is wired in a follow-up task; for now the toolbar exposes the
-  // option so the persisted preference is captured.
-  groupBy: "Clear" | "Dependent" | "Show-Shot" | "Show-Shot-Username";
+  // CueGUI parity: Group By mode for the Monitor Jobs table. Rows are
+  // sorted by the computed group key and interleaved with collapsible
+  // header rows in the TableBody. See getJobGroupKey() below.
+  groupBy: "Clear" | "Dependent" | "Show" | "Show-Shot" | "Show-Shot-Username";
+  // Two search modes, persisted across reloads:
+  //   - false (default, CueGUI parity): type + Enter loads every match
+  //     directly into the table.
+  //   - true: each keystroke fires a live regex query; results appear in
+  //     the dropdown and the user clicks individual jobs to add them
+  //     (the original CueWeb behavior).
+  pickFromList: boolean;
 }
 
-const initialColumnVisibility = {
-  running: false,
-  dead: false,
-  wait: false,
-  eaten: false,
-  age: false,
-  "readable age": false,
-  maxRss: false,
-}
+// Default column visibility for the jobs table: everything visible.
+// Users can still hide individual columns via the Columns dropdown, and
+// "Reset to Default" puts them all back.
+const initialColumnVisibility = {}
 
 // The initial state of the data table on remount using local storage to preserve states
 function getInitialState(): State {
@@ -164,10 +173,12 @@ function getInitialState(): State {
     apiQuery: "",
     rowSelection: {},
     columnVisibility: getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
+    columnOrder: getItemFromLocalStorage("columnOrder", "[]"),
     error: null,
     username: UNKNOWN_USER,
     loadFinished: getItemFromLocalStorage("loadFinished", "false"),
     groupBy: getItemFromLocalStorage("groupBy", JSON.stringify("Clear")),
+    pickFromList: getItemFromLocalStorage("pickFromList", "false"),
   }
 };
 
@@ -198,6 +209,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, rowSelection: action.payload };
     case "SET_COLUMN_VISIBILITY":
       return { ...state, columnVisibility: action.payload };
+    case "SET_COLUMN_ORDER":
+      return { ...state, columnOrder: action.payload };
     case "SET_ERROR":
       return { ...state, error: action.payload }; // Set the error message
     case "SET_USERNAME":
@@ -208,6 +221,9 @@ function reducer(state: State, action: Action): State {
     case "SET_GROUP_BY":
       setItemInLocalStorage("groupBy", JSON.stringify(action.payload));
       return { ...state, groupBy: action.payload };
+    case "SET_PICK_FROM_LIST":
+      setItemInLocalStorage("pickFromList", JSON.stringify(action.payload));
+      return { ...state, pickFromList: action.payload };
     case "RESET_COLUMN_VISIBILITY":
       return {
         ...state,
@@ -223,6 +239,31 @@ function reducer(state: State, action: Action): State {
 // Reusable compact action button used in the Monitor Jobs toolbar.
 // Mirrors the CueGUI Monitor Jobs dock buttons: small icon + short label,
 // auto-disabled when the "Disable Job Interaction" safety flag is on.
+// Resolves the group-by key for a single job. The key is also the label
+// rendered on the group-header row in the table body. Matches CueGUI's
+// MonitorJobsPlugin grouping modes; the "Dependent" mode is the
+// approximate (job-local) variant - it splits jobs into "Has pending
+// dependencies" vs "Independent jobs" based on jobStats.dependFrames.
+// Full dependency-graph grouping would require fetching each job's
+// depends from Cuebot and is tracked as a follow-up.
+function getJobGroupKey(job: Job, mode: State["groupBy"]): string {
+  switch (mode) {
+    case "Show":
+      return job.show || "(no show)";
+    case "Show-Shot":
+      return `${job.show || "(no show)"} - ${job.shot || "(no shot)"}`;
+    case "Show-Shot-Username":
+      return `${job.show || "(no show)"} - ${job.shot || "(no shot)"} - ${job.user || "(no user)"}`;
+    case "Dependent":
+      return (job.jobStats?.dependFrames ?? 0) > 0
+        ? "Has pending dependencies"
+        : "Independent jobs";
+    case "Clear":
+    default:
+      return "";
+  }
+}
+
 const JobActionButton = ({
   icon: Icon,
   label,
@@ -253,7 +294,7 @@ const JobActionButton = ({
           ? "Disabled - File -> Disable Job Interaction is on"
           : label
       }
-      className={`inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 ${tint}`}
+      className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-background px-3 text-xs font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 ${tint}`}
     >
       <Icon size={14} color={disabled ? undefined : color} aria-hidden="true" />
       <span>{label}</span>
@@ -282,6 +323,22 @@ export function DataTable({ columns, username }: DataTableProps) {
     );
     if (!stillPresent) setDetailJob(null);
   }, [detailJob, state.tableDataUnfiltered]);
+
+  // Tracks which group headers are currently collapsed (by group key).
+  // Toggled via a click on the header row in the TableBody. Reset when
+  // the user switches grouping mode so stale keys do not linger.
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
+  React.useEffect(() => {
+    setCollapsedGroups(new Set());
+  }, [state.groupBy]);
+  const toggleGroup = React.useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   // Skeleton rows are shown only on the very first paint while we wait
   // for the autoload-mine fetch to complete. If localStorage already has
@@ -326,6 +383,10 @@ export function DataTable({ columns, username }: DataTableProps) {
   useEffect(() => {
     setItemInLocalStorage("columnVisibility", JSON.stringify(state.columnVisibility));
   }, [state.columnVisibility]);
+
+  useEffect(() => {
+    setItemInLocalStorage("columnOrder", JSON.stringify(state.columnOrder));
+  }, [state.columnOrder]);
 
   useEffect(() => {
     setItemInLocalStorage("stateSelectValue", JSON.stringify(state.stateSelectValue));
@@ -425,7 +486,8 @@ export function DataTable({ columns, username }: DataTableProps) {
   &nbsp;&nbsp;&nbsp;&nbsp;sm2-(madkisson|chung).*comp<br>
   Jobs finished for 3 days will not be shown.`;
   // column IDs of columns that look better when their data is center-aligned, rather than to the left (the default)
-  const centeredColumns = ["done / total", "running", "dead", "eaten", "wait", "maxRss"];
+  // Every body cell is centered now via the TableCell className below;
+  // the legacy `centeredColumns` allowlist is no longer needed.
   
   // Regularly update the data-table data to see if jobs have changed attributes
   useEffect(() => {
@@ -526,13 +588,18 @@ export function DataTable({ columns, username }: DataTableProps) {
 
   // Uses debouncing and memoization (useCallback) to cache the function and only run after delay of no typing.
   // Single path now: regex match against job name (CueGUI parity).
+  // `includeFinished` is passed through so the live-search results respect
+  // the "Load Finished" toggle. The debounced function is created once
+  // with an empty deps array, so we pass `includeFinished` as a call-time
+  // arg instead of closing over it (otherwise the stale snapshot would
+  // win after a toggle change).
   const handleGetJobs = React.useCallback(
-    debounce(async (query: string, searchType: string) => {
+    debounce(async (query: string, searchType: string, includeFinished: boolean) => {
       try {
         if (searchType !== SEARCH_BY_REGEX) return;
         dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
         setJobSearchLoading(true);
-        const newJobs = await getJobsForRegex(query);
+        const newJobs = await getJobsForRegex(query, includeFinished);
         setJobSearchLoading(false);
         dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
         dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
@@ -607,11 +674,22 @@ export function DataTable({ columns, username }: DataTableProps) {
     const query = e.target.value;
     dispatch({ type: "SET_SEARCH_QUERY", payload: query });
 
-    // CueGUI parity (cuegui.MonitorJobsPlugin.JobRegexLoadEditBox): any
-    // typed text is treated as a regex pattern against job names. No
-    // mandatory `show-shot-` prefix anymore. The legacy `!` suffix is
-    // accepted but stripped (kept for backward-compatibility with users
-    // who already use it). An empty query clears the dropdown.
+    // Two modes (the user picks one via the "Pick from list" toggle):
+    //   - default / unchecked: CueGUI parity. Typing only updates the
+    //     local search-query state; no API hit. The user presses Enter
+    //     to load every match into the table at once.
+    //   - checked: live dropdown. Each keystroke fires a debounced regex
+    //     query and the dropdown surfaces individual jobs the user can
+    //     click to add. This was the original CueWeb behavior.
+    if (!state.pickFromList) {
+      // Always keep the results panel clean in default mode so it never
+      // pops up between keystrokes; the Enter handler will populate it.
+      dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: [] });
+      dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
+      dispatch({ type: "SET_API_QUERY", payload: "" });
+      return;
+    }
+
     if (query.trim().length === 0) {
       dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: [] });
       dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
@@ -619,14 +697,82 @@ export function DataTable({ columns, username }: DataTableProps) {
       return;
     }
 
+    // CueGUI parity for the regex grammar: `!` suffix accepted but
+    // stripped, otherwise any text is the pattern.
     const regexQuery = query.endsWith("!") ? query.slice(0, -1) : query;
-    handleGetJobs(regexQuery, SEARCH_BY_REGEX);
+    handleGetJobs(regexQuery, SEARCH_BY_REGEX, state.loadFinished);
     setHideSearchDropdown(false);
 
     // Cancel handleGetJobs if the input changes before the timeout completes
     return () => {
       handleGetJobs.cancel();
     };
+  };
+
+  // Clears the search box and any open dropdown / loaded suggestions.
+  // Mirrors the CueGUI "Clr" button next to the Load text input.
+  const handleClearSearch = () => {
+    handleGetJobs.cancel?.();
+    dispatch({ type: "SET_SEARCH_QUERY", payload: "" });
+    dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: [] });
+    dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
+    dispatch({ type: "SET_API_QUERY", payload: "" });
+    setHideSearchDropdown(true);
+    setJobSearchLoading(false);
+    searchFinishedRef.current = false;
+  };
+
+  // Submit handler for the explicit "Load" button next to the search
+  // input (CueGUI's <Load:> button). Also wired to the Enter key in
+  // both modes - so users in Pick-from-list can still bulk-load if
+  // they don't want to click each match individually. Hits the regex
+  // endpoint, de-duplicates against jobs already in the table, then
+  // adds the rest in one batch. Clears the input on success so the
+  // user can immediately type the next query.
+  const handleSearchSubmit = async (rawQuery: string) => {
+    const query = rawQuery.trim();
+    if (query.length === 0) return;
+
+    setHideSearchDropdown(true);
+    setJobSearchLoading(true);
+    try {
+      const regexQuery = query.endsWith("!") ? query.slice(0, -1) : query;
+      const matches = await getJobsForRegex(regexQuery, state.loadFinished);
+
+      if (matches.length === 0) {
+        toastWarning(`No jobs match "${query}"`);
+        return;
+      }
+
+      const existingNames = new Set(
+        state.tableDataUnfiltered.map((j: Job) => j.name),
+      );
+      const fresh = matches.filter((j: Job) => !existingNames.has(j.name));
+
+      if (fresh.length === 0) {
+        toastWarning(
+          `All ${matches.length} match${matches.length === 1 ? "" : "es"} for "${query}" are already loaded.`,
+        );
+        return;
+      }
+
+      dispatch({
+        type: "SET_TABLE_DATA",
+        payload: [...state.tableData, ...fresh],
+      });
+      dispatch({
+        type: "SET_TABLE_DATA_UNFILTERED",
+        payload: [...state.tableDataUnfiltered, ...fresh],
+      });
+      toastSuccess(
+        `Loaded ${fresh.length} job${fresh.length === 1 ? "" : "s"} matching "${query}".`,
+      );
+      dispatch({ type: "SET_SEARCH_QUERY", payload: "" });
+    } catch (err) {
+      handleError(err, "Error loading jobs from search");
+    } finally {
+      setJobSearchLoading(false);
+    }
   };
 
   const handleUnmonitorSelected = () => {
@@ -747,9 +893,25 @@ export function DataTable({ columns, username }: DataTableProps) {
     handleStateFiltering(state.stateSelectValue);
   }, [state.tableDataUnfiltered]);
 
-  const resetColumnVisibilityToDefault = () => {
+  const resetColumnsToDefault = () => {
+    // Reset both visibility AND order so the table fully returns to the
+    // natural defaults defined in columns.tsx.
     dispatch({ type: "SET_COLUMN_VISIBILITY", payload: initialColumnVisibility });
+    dispatch({ type: "SET_COLUMN_ORDER", payload: [] });
   };
+
+  const setColumnOrderDispatch = React.useCallback(
+    (update: React.SetStateAction<ColumnOrderState>) => {
+      const next = typeof update === "function" ? update(state.columnOrder) : update;
+      dispatch({ type: "SET_COLUMN_ORDER", payload: next });
+    },
+    [state.columnOrder],
+  );
+
+  // Client-side substring filter that narrows the rows currently loaded
+  // in the Jobs table (distinct from the server-side "Load" / "Pick from
+  // list" searches at the top of the page).
+  const [jobLocalFilter, setJobLocalFilter] = React.useState<string>("");
 
   const table = useReactTable({
     data: state.tableData,
@@ -761,21 +923,31 @@ export function DataTable({ columns, username }: DataTableProps) {
     onColumnFiltersChange: setColumnFilters(dispatch, state.columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility(dispatch, state.columnVisibility),
+    onColumnOrderChange: setColumnOrderDispatch,
+    onGlobalFilterChange: setJobLocalFilter,
     onRowSelectionChange: setRowSelection(dispatch, state.rowSelection),
     getRowId: (job: Job) => job.id,
     autoResetPageIndex: false,
+
+    // Column resizing: TanStack handles the drag math; we render the
+    // resize handle below in each TableHead and apply the live size as
+    // an inline width style on the header/cell.
+    enableColumnResizing: true,
+    columnResizeMode: "onChange",
 
     state: {
       sorting: state.sorting,
       columnFilters: state.columnFilters,
       columnVisibility: state.columnVisibility,
+      columnOrder: state.columnOrder,
+      globalFilter: jobLocalFilter,
       rowSelection: state.rowSelection,
     },
 
     initialState: {
       pagination: {
         pageIndex: 0,
-        pageSize: 50,
+        pageSize: 10,
       },
     },
 
@@ -783,6 +955,34 @@ export function DataTable({ columns, username }: DataTableProps) {
       username: state.username,
     },
   });
+
+  // Snap back to page 1 whenever the substring filter changes so the user
+  // never lands on an empty page after narrowing the result set.
+  useEffect(() => {
+    table.setPageIndex(0);
+  }, [jobLocalFilter, table]);
+
+  // Move a hideable column one slot left (-1) or right (+1). Non-hideable
+  // columns (e.g. row-select) stay anchored in their original positions; we
+  // only shuffle hideable IDs among themselves.
+  const moveColumn = React.useCallback((columnId: string, direction: -1 | 1) => {
+    const allColumns = table.getAllColumns();
+    const currentOrder = table.getState().columnOrder.length
+      ? [...table.getState().columnOrder]
+      : allColumns.map((c) => c.id);
+    const hideableIds = new Set(
+      allColumns.filter((c) => c.getCanHide()).map((c) => c.id),
+    );
+    const hideable = currentOrder.filter((id) => hideableIds.has(id));
+    const idx = hideable.indexOf(columnId);
+    if (idx < 0) return;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= hideable.length) return;
+    [hideable[idx], hideable[targetIdx]] = [hideable[targetIdx], hideable[idx]];
+    let cursor = 0;
+    const next = currentOrder.map((id) => (hideableIds.has(id) ? hideable[cursor++] : id));
+    dispatch({ type: "SET_COLUMN_ORDER", payload: next });
+  }, [table]);
 
   const jobTableRef = React.useRef<HTMLDivElement>(null);
   const {
@@ -793,11 +993,55 @@ export function DataTable({ columns, username }: DataTableProps) {
     contextMenuTargetAreaRef
   } = useContextMenu(jobTableRef);
 
+  // Compute the list of items to render in the TableBody. In "Clear"
+  // mode this is the raw row list (1:1 with the table's row model). In
+  // every other mode the rows are re-sorted by their group key and a
+  // header item is interleaved before each group. The header row owns
+  // the expand/collapse toggle for that group; row items carry their
+  // group key so the renderer can skip them when the group is collapsed.
+  type DisplayItem =
+    | { kind: "row"; row: Row<Job>; groupKey: string }
+    | { kind: "header"; key: string; count: number };
+  const tableRows = table.getRowModel().rows;
+  const displayItems = React.useMemo<DisplayItem[]>(() => {
+    if (state.groupBy === "Clear") {
+      return tableRows.map((row) => ({ kind: "row" as const, row, groupKey: "" }));
+    }
+
+    // Annotate + stable sort by group key (preserves the table's own
+    // sort within each group via the original index as tiebreaker).
+    const annotated = tableRows.map((row, idx) => ({
+      row,
+      idx,
+      key: getJobGroupKey(row.original as Job, state.groupBy),
+    }));
+    annotated.sort((a, b) => {
+      const k = a.key.localeCompare(b.key);
+      return k !== 0 ? k : a.idx - b.idx;
+    });
+
+    const counts = new Map<string, number>();
+    for (const { key } of annotated) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const out: DisplayItem[] = [];
+    let currentKey: string | null = null;
+    for (const { row, key } of annotated) {
+      if (key !== currentKey) {
+        currentKey = key;
+        out.push({ kind: "header", key, count: counts.get(key) ?? 0 });
+      }
+      out.push({ kind: "row", row, groupKey: key });
+    }
+    return out;
+  }, [tableRows, state.groupBy]);
+
   return (
     <>
       {/* Searching, Menubar, Autoload toggle, & Dropdown for column visibility*/}
       <div className="flex flex-row w-full items-center justify-between py-4 space-x-3">
-        <div id="filtering section" ref={searchDropdownRef} className="relative flex flex-row justify-start space-y-2" style={{ width: "25%" }}>
+        <div id="filtering section" ref={searchDropdownRef} className="relative flex flex-row justify-start space-y-2" style={{ width: "35%", minWidth: 360 }}>
           <Box
             sx={{
               width: "100%",
@@ -806,12 +1050,78 @@ export function DataTable({ columns, username }: DataTableProps) {
               position: "relative",
             }}
           >
-            <JobSearchbox
-              searchQuery={state.searchQuery}
-              handleInputChange={handleInputChange}
-              tooltipTitle={TOOLTIP_TITLE}
-              hidden={!hideSearchDropdown}
-            />
+            {/* Search input + CueGUI-parity "Load" and "Clear" buttons.
+                Enter and the Load button trigger the same bulk-load
+                regardless of mode, so users always have an explicit
+                submit affordance. Clear resets the box and any open
+                dropdown. */}
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <JobSearchbox
+                  searchQuery={state.searchQuery}
+                  handleInputChange={handleInputChange}
+                  tooltipTitle={TOOLTIP_TITLE}
+                  hidden={!hideSearchDropdown}
+                  onSubmit={handleSearchSubmit}
+                  placeholder={
+                    state.pickFromList
+                      ? "Search jobs - live results"
+                      : "Search jobs - Enter to load"
+                  }
+                />
+              </div>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => handleSearchSubmit(state.searchQuery)}
+                disabled={state.searchQuery.trim().length === 0}
+                // Dark-mode contrast: pinned to an explicit light
+                // surface + dark text so the button is clearly readable
+                // against the dark page background. Disabled state
+                // keeps the same surface (opacity:1) and uses the
+                // cursor-not-allowed pointer to convey the inactive
+                // state instead of fading the color into illegibility.
+                className="h-10 disabled:!opacity-100 disabled:cursor-not-allowed dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-400 dark:disabled:text-zinc-800"
+                title="Load every job matching the search pattern (Enter also works)"
+              >
+                Load
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearSearch}
+                disabled={state.searchQuery.length === 0}
+                // The default `border-input` is the same color as
+                // `--background` in dark mode, so an outline button
+                // visually vanishes. Force a brighter zinc border + a
+                // slightly lighter surface so the button reads on top
+                // of the page in both states.
+                className="h-10 disabled:!opacity-100 disabled:cursor-not-allowed dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
+                title="Clear the search box and any open results"
+              >
+                Clear
+              </Button>
+            </div>
+
+            {/* Two search modes (CueGUI parity vs original CueWeb live
+                search). Persisted across reloads via the reducer. */}
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="pick-from-list"
+                checked={state.pickFromList}
+                onCheckedChange={(value: boolean) =>
+                  dispatch({ type: "SET_PICK_FROM_LIST", payload: value })
+                }
+              />
+              <Label htmlFor="pick-from-list" className="text-xs text-muted-foreground">
+                Pick from list
+                <span className="ml-1 text-muted-foreground/70">
+                  ({state.pickFromList ? "live results, click to add" : "press Enter to load every match"})
+                </span>
+              </Label>
+            </div>
             {jobSearchLoading || waitingForFiltering ? (
               <Box style={{ position: "absolute", top: "100%", left: 0, width: "100%", zIndex: 1000 }}>
                 <LinearProgress />
@@ -853,7 +1163,12 @@ export function DataTable({ columns, username }: DataTableProps) {
           id="monitor-jobs-toolbar"
           role="toolbar"
           aria-label="Monitor Jobs actions"
-          className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-2"
+          // Unmonitor + Job Actions groups packed to the left of the
+          // toolbar (Columns dropdown floats on the right via its own
+          // wrapper). gap-x-6 keeps the two groups breathing without
+          // pushing them to the edges; gap-y for narrow viewports
+          // where they wrap onto two rows.
+          className="flex flex-1 flex-wrap items-center justify-start gap-x-6 gap-y-2 px-2"
         >
           {/* Unmonitor group */}
           <div className="flex items-center gap-1">
@@ -880,37 +1195,6 @@ export function DataTable({ columns, username }: DataTableProps) {
           </div>
         </div>
 
-        {/* Dropdown Column Visibility */}
-        <div className="relative flex flex-row justify-end" style={{ width: "25%" }}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto">
-                Columns
-                <ChevronDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <Button className="px-2 py-1.5" variant={"ghost"} onClick={resetColumnVisibilityToDefault}>
-                Reset to Default
-              </Button>
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
       {/* State filter, Autoload Mine, Load Finished, Group By
@@ -964,10 +1248,129 @@ export function DataTable({ columns, username }: DataTableProps) {
             <SelectContent>
               <SelectItem value="Clear">Clear</SelectItem>
               <SelectItem value="Dependent">Dependent</SelectItem>
+              <SelectItem value="Show">Show</SelectItem>
               <SelectItem value="Show-Shot">Show-Shot</SelectItem>
               <SelectItem value="Show-Shot-Username">Show-Shot-Username</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </div>
+
+      {/* Per-table toolbar: CueGUI-parity total-count label on the
+          left, Columns dropdown on the right above the jobs table.
+          The count tracks the unfiltered table data so state-filter
+          changes don't lie about how many jobs are actually loaded.
+          Layers + Frames tables below get their own Columns dropdowns
+          via SimpleDataTable. */}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-xs font-medium text-muted-foreground">
+          Jobs [Total Count:{" "}
+          <span className="font-semibold text-foreground tabular-nums">
+            {state.tableDataUnfiltered.length}
+          </span>
+          ]
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Client-side substring filter that narrows the rows already
+              loaded in the table - separate from the server-side load
+              search at the top of the page. */}
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={jobLocalFilter}
+              onChange={(e) => setJobLocalFilter(e.target.value)}
+              placeholder="Filter jobs..."
+              aria-label="Filter loaded jobs"
+              className="h-8 w-44 pl-7 pr-7 text-xs"
+            />
+            {jobLocalFilter ? (
+              <button
+                type="button"
+                aria-label="Clear filter"
+                title="Clear filter"
+                onClick={() => setJobLocalFilter("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8">
+              Columns
+              <ChevronDown className="ml-1 h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-h-[60vh] w-64 overflow-y-auto">
+            <div className="sticky top-0 z-10 mb-1 border-b border-border bg-popover pb-1">
+              <Button
+                className="w-full justify-start px-2 py-1.5"
+                variant="secondary"
+                size="sm"
+                onClick={resetColumnsToDefault}
+              >
+                Reset to Default
+              </Button>
+            </div>
+            {(() => {
+              const hideable = table.getAllColumns().filter((c) => c.getCanHide());
+              return hideable.map((column, idx) => (
+                <DropdownMenuItem
+                  key={column.id}
+                  // Keep the menu open after every interaction so the user
+                  // can toggle visibility and bump the column around
+                  // without having to reopen the dropdown each time.
+                  onSelect={(e) => e.preventDefault()}
+                  className="flex cursor-default items-center justify-between gap-2 px-2 py-1 capitalize focus:bg-accent/40"
+                >
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                    <Checkbox
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      aria-label={`Toggle ${column.id}`}
+                    />
+                    <span className="truncate">{column.id}</span>
+                  </label>
+                  <span className="inline-flex shrink-0 items-center gap-0.5">
+                    <button
+                      type="button"
+                      aria-label={`Move ${column.id} left`}
+                      title="Move left"
+                      disabled={idx === 0}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveColumn(column.id, -1);
+                      }}
+                      className="rounded p-0.5 text-foreground/70 hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move ${column.id} right`}
+                      title="Move right"
+                      disabled={idx === hideable.length - 1}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveColumn(column.id, 1);
+                      }}
+                      className="rounded p-0.5 text-foreground/70 hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </span>
+                </DropdownMenuItem>
+              ));
+            })()}
+          </DropdownMenuContent>
+        </DropdownMenu>
         </div>
       </div>
 
@@ -979,8 +1382,30 @@ export function DataTable({ columns, username }: DataTableProps) {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    <TableHead
+                      key={header.id}
+                      className="group relative h-8 px-1.5 text-[11px]"
+                      style={{ width: header.getSize() }}
+                    >
+                      {header.isPlaceholder ? null : (
+                        <div className="flex items-center justify-center">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </div>
+                      )}
+                      {header.column.getCanResize() && (
+                        <div
+                          // Resize grip: a 6px-wide drag strip pinned to
+                          // the column's right edge. Invisible until the
+                          // user hovers the header (group-hover) or is
+                          // actively dragging (data-state=resizing).
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          onClick={(e) => e.stopPropagation()}
+                          data-state={header.column.getIsResizing() ? "resizing" : undefined}
+                          className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize touch-none select-none bg-border opacity-0 transition-opacity hover:bg-foreground/40 group-hover:opacity-60 data-[state=resizing]:bg-primary data-[state=resizing]:opacity-100"
+                          aria-hidden="true"
+                        />
+                      )}
                     </TableHead>
                   );
                 })}
@@ -988,44 +1413,79 @@ export function DataTable({ columns, username }: DataTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                // React.Fragment is a way to group elements without introducing an extra container in the DOM.
-                // the shorthand notation for a Fragment is <>
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  onContextMenu={(e: React.MouseEvent) => contextMenuHandleOpen(e, row)}
-                  onClick={() => {
-                    const job = row.original as Job;
-                    setAttributeSelection({
-                      type: "job",
-                      id: job.id,
-                      name: job.name,
-                      data: job as unknown as Record<string, unknown>,
-                    });
-                    // CueGUI parity: clicking a job row loads its layers +
-                    // frames into the inline detail panels below.
-                    setDetailJob(job);
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    // Layers + Frames now render inline below the jobs
-                    // table (CueGUI parity); the `pop-up` cell is kept as
-                    // a no-op placeholder so existing column definitions
-                    // and saved column-visibility settings stay valid.
-                    <TableCell key={cell.id} className={cell.column.id == "pop-up" ? `sticky ${theme}` : ""}>
-                      {cell.column.id === "progress" ? (
-                        <JobProgressBar job={row.original as Job} />
-                      ) : cell.column.id === "pop-up" ? null : centeredColumns.includes(cell.column.id) ? (
-                        <div className="text-center">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
-                      ) : (
-                        flexRender(cell.column.columnDef.cell, cell.getContext())
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+            {tableRows.length ? (
+              displayItems.map((item) => {
+                if (item.kind === "header") {
+                  const collapsed = collapsedGroups.has(item.key);
+                  return (
+                    <TableRow
+                      key={`group-header-${item.key}`}
+                      className="cursor-pointer bg-muted/50 hover:bg-muted"
+                      onClick={() => toggleGroup(item.key)}
+                    >
+                      <TableCell colSpan={columns.length} className="py-1.5">
+                        <div className="flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wide">
+                          {collapsed ? (
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          )}
+                          <span className="truncate">{item.key}</span>
+                          <span className="text-muted-foreground">
+                            ({item.count})
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                // Row item - skip when its group is collapsed.
+                if (item.groupKey && collapsedGroups.has(item.groupKey)) {
+                  return null;
+                }
+                const row = item.row;
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    onContextMenu={(e: React.MouseEvent) => contextMenuHandleOpen(e, row)}
+                    onClick={() => {
+                      const job = row.original as Job;
+                      setAttributeSelection({
+                        type: "job",
+                        id: job.id,
+                        name: job.name,
+                        data: job as unknown as Record<string, unknown>,
+                      });
+                      // CueGUI parity: clicking a job row loads its layers +
+                      // frames into the inline detail panels below.
+                      setDetailJob(job);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="px-1.5 py-1 text-xs"
+                        style={{ width: cell.column.getSize() }}
+                      >
+                        {/* Wrap every cell's content in a centered flex
+                            container so the rendered output (badge,
+                            progress bar, plain text, etc.) sits in the
+                            middle of the cell horizontally regardless of
+                            its own display type. */}
+                        <div className="flex items-center justify-center">
+                          {cell.column.id === "progress" ? (
+                            <JobProgressBar job={row.original as Job} />
+                          ) : (
+                            flexRender(cell.column.columnDef.cell, cell.getContext())
+                          )}
+                        </div>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : initialLoading ? (
               // Render 10 skeleton rows that mirror the final layout so
               // the first paint reserves the same vertical space the real
@@ -1033,7 +1493,10 @@ export function DataTable({ columns, username }: DataTableProps) {
               Array.from({ length: 10 }).map((_, rowIdx) => (
                 <TableRow key={`skeleton-row-${rowIdx}`}>
                   {table.getAllLeafColumns().filter((c) => c.getIsVisible()).map((col) => (
-                    <TableCell key={`skeleton-cell-${rowIdx}-${col.id}`}>
+                    <TableCell
+                      key={`skeleton-cell-${rowIdx}-${col.id}`}
+                      className="px-1.5 py-1"
+                    >
                       <Skeleton className="h-4 w-3/4" />
                     </TableCell>
                   ))}
@@ -1073,7 +1536,10 @@ export function DataTable({ columns, username }: DataTableProps) {
 
       {/* Pagination */}
       <div className="space-x-2 py-4">
-        <DataTablePagination table={table} pageSizes={[50, 100, 150, 200, 250, 300]} />
+        <DataTablePagination
+          table={table}
+          pageSizes={[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100, 150, 200, 250, 300]}
+        />
       </div>
 
       {/* Inline Monitor Job Details (CueGUI parity): replaces the legacy

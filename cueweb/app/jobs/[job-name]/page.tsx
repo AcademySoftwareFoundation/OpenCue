@@ -270,6 +270,7 @@ export default function JobDetailPage() {
                 job={job}
                 isFramesTable={true}
                 username={currentUser}
+                defaultColumnVisibility={{ remain: false }}
               />
             )}
           </TabsContent>

@@ -21,11 +21,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, LayoutDashboard, Layers3, LogOut, Search, X } from "lucide-react";
+import { Check, ChevronDown, Keyboard, LayoutDashboard, Layers3, LogOut, Search, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
 import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
 import {
   filterMenuCommands,
@@ -36,8 +37,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 import opencueLogoBlack from "../../public/opencue-icon-black.png";
@@ -154,7 +157,20 @@ function HelpDropdownMenu() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              // Defeat Radix's built-in typeahead for text-editing keys so
+              // every keystroke reaches this input. Navigation keys
+              // (Esc, arrows, Tab, Enter, Home/End/PageUp/PageDown) are
+              // left to bubble so the dropdown's own keyboard controls
+              // (close, item focus, etc.) keep working.
+              if (
+                e.key.length === 1 ||
+                e.key === "Backspace" ||
+                e.key === "Delete"
+              ) {
+                e.stopPropagation();
+              }
+            }}
             placeholder="Search menus"
             aria-label="Search menus"
             className="h-7 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -225,6 +241,17 @@ export function AppHeader() {
     isOpen: attributesOpen,
     toggle: toggleAttributes,
   } = useAttributesPanel();
+  const {
+    enabled: shortcutNotificationsEnabled,
+    toggle: toggleShortcutNotifications,
+  } = useShortcutNotifications();
+
+  // Trigger the shortcuts overlay programmatically. Used by the
+  // "Show Shortcuts" item below so users who never press `?` can still
+  // surface the cheat sheet.
+  const openShortcutsOverlay = React.useCallback(() => {
+    window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
+  }, []);
 
   if (pathname?.startsWith("/login")) return null;
 
@@ -402,6 +429,33 @@ export function AppHeader() {
                   )}
                 </span>
                 Attributes
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* CueGUI parity: surfaces the same overlay as `?`, for users
+                  who prefer menus to keyboard shortcuts. */}
+              <DropdownMenuItem
+                onSelect={openShortcutsOverlay}
+                className="cursor-pointer"
+              >
+                <Keyboard className="mr-2 h-4 w-4" aria-hidden="true" />
+                Show Shortcuts
+              </DropdownMenuItem>
+
+              {/* Per-user opt-out for the toast that fires after every
+                  triggered shortcut. Default ON so new users discover the
+                  shortcuts; flip OFF once they're internalized. */}
+              <DropdownMenuItem
+                onSelect={() => toggleShortcutNotifications()}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                  {shortcutNotificationsEnabled && (
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </span>
+                Notify on Shortcut
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

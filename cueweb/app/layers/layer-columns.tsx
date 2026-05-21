@@ -20,7 +20,8 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
-import { convertMemoryToString, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
+import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
+import { LayerProgressBar } from "@/components/ui/layer-progress-bar";
 
 export type LayerStats = {
   totalFrames: number;
@@ -72,12 +73,7 @@ export type Layer = {
   timeoutLlu: number;
   minGpus: number;
   maxGpus: number;
-};
-
-const getPercentCompleted = (layer: Layer) => {
-  if (layer.layerStats.totalFrames === 0) return "0%";
-  const completed = (layer.layerStats.succeededFrames / layer.layerStats.totalFrames) * 100.0;
-  return `${completed.toFixed(2)}%`;
+  eligibleTime?: number;
 };
 
 const renderHeader = (title: string, column: any) => (
@@ -177,7 +173,17 @@ export const layerColumns: ColumnDef<Layer>[] = [
   },
   {
     id: "progress",
-    accessorFn: (row) => getPercentCompleted(row),
+    // Keep the numeric percentage as the accessor value so sorting still
+    // works on a real number; the cell renders the animated stacked bar
+    // (same component the Jobs table uses).
+    accessorFn: (row) => {
+      if (row.layerStats.totalFrames === 0) return 0;
+      return (row.layerStats.succeededFrames / row.layerStats.totalFrames) * 100;
+    },
+    sortingFn: (rowA, rowB, columnId) => {
+      return (rowA.getValue(columnId) as number) - (rowB.getValue(columnId) as number);
+    },
+    cell: ({ row }) => <LayerProgressBar layer={row.original} />,
     header: ({ column }) => renderHeader("Progress", column),
   },
   {
@@ -189,5 +195,10 @@ export const layerColumns: ColumnDef<Layer>[] = [
     id: "timeoutLlu",
     accessorFn: (row) => secondsToHHHMM(row.timeoutLlu),
     header: ({ column }) => renderHeader("Timeout LLU", column),
+  },
+  {
+    id: "eligible",
+    accessorFn: (row) => (row.eligibleTime ? convertUnixToHumanReadableDate(row.eligibleTime) : ""),
+    header: ({ column }) => renderHeader("Eligible", column),
   },
 ];

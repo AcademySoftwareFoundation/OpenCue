@@ -110,6 +110,7 @@ function AttributeRow({
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
+          aria-expanded={open}
           style={{ paddingLeft: depth * 12 }}
           className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-wide text-foreground hover:bg-foreground/5"
         >

@@ -25,6 +25,13 @@ interface SearchboxProps {
   handleInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   tooltipTitle: string;
   hidden: boolean;
+  // Fired when the user presses Enter inside the search box. Optional
+  // because callers in "Pick from list" mode don't use a submit action -
+  // they rely on the live-search dropdown driven by handleInputChange.
+  onSubmit?: (query: string) => void;
+  // Override for the default placeholder so the caller can hint at the
+  // current mode (e.g. "press Enter to load" vs "live results").
+  placeholder?: string;
 }
 
 // Styled tooltip component to customize its appearance
@@ -40,7 +47,7 @@ const StyledTooltip = styled(({ className, ...props }: TooltipProps & { classNam
 }));
 
 // Searchbox component with tooltip for job search
-const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, tooltipTitle, hidden }) => {
+const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, tooltipTitle, hidden, onSubmit, placeholder }) => {
   const { theme } = useTheme();
   const [open, setOpen] = useState<boolean>(false);
   // Used by the global `/` shortcut to focus the search input. We hold a ref
@@ -95,6 +102,20 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
     setOpen(false);
   }, []);
 
+  // Enter key triggers the CueGUI-style "load matches into the table"
+  // submit when a handler is wired. Default mode in CueWeb relies on
+  // this; "Pick from list" mode leaves onSubmit undefined and uses the
+  // live dropdown instead.
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Enter") return;
+      if (!onSubmit) return;
+      event.preventDefault();
+      onSubmit(searchQuery);
+    },
+    [onSubmit, searchQuery],
+  );
+
   return (
     <div onMouseOver={handleMouseOver} onMouseLeave={handleMouseLeave}>
       <StyledTooltip
@@ -110,7 +131,8 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
           variant="outlined"
           value={searchQuery}
           onChange={handleChange}
-          placeholder="Search Jobs: add '!' after queries for regex"
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder ?? "Search Jobs: add '!' after queries for regex"}
           size="small"
           autoComplete="off"
           inputRef={inputRef}

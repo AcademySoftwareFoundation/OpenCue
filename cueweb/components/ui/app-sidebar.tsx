@@ -35,6 +35,7 @@ import {
   FolderCog,
   Gauge,
   HelpCircle,
+  Keyboard,
   Layers3,
   LayoutDashboard,
   LayoutGrid,
@@ -66,6 +67,8 @@ import { HELP_ITEMS } from "@/app/utils/help_menu";
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -140,6 +143,13 @@ export function AppSidebar() {
     isOpen: attributesOpen,
     toggle: toggleAttributes,
   } = useAttributesPanel();
+  const {
+    enabled: shortcutNotificationsEnabled,
+    toggle: toggleShortcutNotifications,
+  } = useShortcutNotifications();
+  const openShortcutsOverlay = React.useCallback(() => {
+    window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
+  }, []);
 
   // SSR can't read localStorage, so we start with sensible defaults and
   // reconcile on mount. The initial server-rendered DOM therefore matches
@@ -393,7 +403,6 @@ export function AppSidebar() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <ul
-                role="radiogroup"
                 aria-label="Cuebot Facility"
                 className="ml-2 mt-1 space-y-1 border-l border-border pl-2 dark:border-zinc-800"
               >
@@ -403,8 +412,13 @@ export function AppSidebar() {
                     <li key={f}>
                       <button
                         type="button"
-                        role="radio"
-                        aria-checked={active}
+                        // aria-pressed conveys the single-select state
+                        // without taking on full radio-group semantics
+                        // (which would require arrow-key navigation +
+                        // tabIndex management to do correctly). Drop
+                        // the role="radio"/role="radiogroup" pair to
+                        // match the lighter aria-pressed model.
+                        aria-pressed={active}
                         onClick={() => setFacility(f)}
                         className={cn(
                           "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
@@ -523,7 +537,9 @@ export function AppSidebar() {
               );
             })}
 
-        {/* Other group - CueGUI parity (Views/Plugins > Other > Attributes). */}
+        {/* Other group - CueGUI parity (Views/Plugins > Other). Holds the
+            Attributes panel toggle plus the Shortcuts overlay launcher and
+            the per-shortcut-toast opt-out. */}
         {collapsed ? (
           <ul
             className="mt-2 space-y-1 border-t border-border pt-2 dark:border-zinc-800"
@@ -544,6 +560,34 @@ export function AppSidebar() {
               >
                 <Layers3 className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="sr-only">Attributes</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={openShortcutsOverlay}
+                title="Other - Show Shortcuts (?)"
+                className="flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              >
+                <Keyboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Show Shortcuts</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={toggleShortcutNotifications}
+                aria-pressed={shortcutNotificationsEnabled}
+                title={`Other - Notify on Shortcut${shortcutNotificationsEnabled ? " (on)" : " (off)"}`}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  shortcutNotificationsEnabled
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Notify on Shortcut</span>
               </button>
             </li>
           </ul>
@@ -582,6 +626,39 @@ export function AppSidebar() {
                     <span className="flex-1 truncate text-left">Attributes</span>
                     <span className="ml-2 flex h-4 w-4 items-center justify-center">
                       {attributesOpen && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={openShortcutsOverlay}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                    title="Same as pressing ?"
+                  >
+                    <Keyboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Show Shortcuts</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={toggleShortcutNotifications}
+                    aria-pressed={shortcutNotificationsEnabled}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                      shortcutNotificationsEnabled
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                    )}
+                    title="Show a toast every time a keyboard shortcut fires"
+                  >
+                    <Keyboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Notify on Shortcut</span>
+                    <span className="ml-2 flex h-4 w-4 items-center justify-center">
+                      {shortcutNotificationsEnabled && (
                         <Check className="h-4 w-4" aria-hidden="true" />
                       )}
                     </span>

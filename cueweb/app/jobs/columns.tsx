@@ -17,9 +17,10 @@
  */
 
 
+import * as React from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, MoreHorizontal, StickyNote } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, StickyNote, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
@@ -58,6 +59,7 @@ export type JobStats = {
 
 export type Job = {
   autoEat: boolean;
+  eligibleTime?: number;
   facility: string;
   group: string;
   hasComment: boolean;
@@ -136,6 +138,93 @@ export const getJobReadableAge = (job: Job) => {
   return secondsToHumanAge(getJobAgeInSeconds(job));
 };
 
+// Per-job color swatch backed by localStorage (key: cueweb.userColors,
+// map of jobId -> hex). Matches CueGUI's User Color column: a small
+// clickable square that opens the native color picker; right-click clears.
+// Cross-tab updates ride the standard `storage` event.
+const USER_COLORS_KEY = "cueweb.userColors";
+
+function readUserColors(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(USER_COLORS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeUserColors(map: Record<string, string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(USER_COLORS_KEY, JSON.stringify(map));
+    // Notify same-tab listeners; the browser's `storage` event only fires
+    // on OTHER tabs by default.
+    window.dispatchEvent(new CustomEvent("cueweb:user-colors"));
+  } catch {
+    // Quota / private mode; silently ignore.
+  }
+}
+
+function UserColorSwatch({ jobId }: { jobId: string }) {
+  const [colors, setColors] = React.useState<Record<string, string>>({});
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    setColors(readUserColors());
+    const refresh = () => setColors(readUserColors());
+    window.addEventListener("storage", refresh);
+    window.addEventListener("cueweb:user-colors", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("cueweb:user-colors", refresh);
+    };
+  }, []);
+
+  const current = colors[jobId] || "";
+
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value;
+    const map = { ...readUserColors(), [jobId]: next };
+    writeUserColors(map);
+  };
+
+  const clear = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const map = { ...readUserColors() };
+    delete map[jobId];
+    writeUserColors(map);
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        ref={inputRef}
+        type="color"
+        value={current || "#888888"}
+        onChange={onChange}
+        aria-label="Set user color"
+        title={current ? `User color: ${current} (right-click to clear)` : "Click to set a user color"}
+        onContextMenu={current ? clear : undefined}
+        className={`h-4 w-4 cursor-pointer rounded-sm border border-border bg-transparent p-0 ${current ? "" : "opacity-60"}`}
+        style={current ? { backgroundColor: current } : undefined}
+      />
+      {current ? (
+        <button
+          type="button"
+          onClick={clear}
+          aria-label="Clear user color"
+          title="Clear user color"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 // Sticky-note icon shown next to jobs that have one or more comments
 // (mirrors the comment indicator column in cuegui.JobMonitorTree).
 function JobCommentIndicator({ job, username }: { job: Job; username?: string }) {
@@ -190,9 +279,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorKey: "name",
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -203,13 +292,18 @@ export const columns: ColumnDef<Job>[] = [
       const job = row.original as Job;
       const username = (table.options.meta as { username?: string } | undefined)?.username;
       return (
-        <>
-          <div className="flex items-center gap-1">
-            <span>{getShowShotUser(job.name)}</span>
+        // Cap the Name cell width and truncate the two lines so long job
+        // names don't push every other column off-screen. mx-auto centers
+        // the capped box inside the (already text-center) cell. Inner
+        // flex uses justify-center so the comment-indicator icon also
+        // sits next to centered text instead of left-anchored.
+        <div className="mx-auto max-w-[200px] text-center" title={job.name}>
+          <div className="flex items-center justify-center gap-1 truncate">
+            <span className="truncate">{getShowShotUser(job.name)}</span>
             {job.hasComment && <JobCommentIndicator job={job} username={username} />}
           </div>
-          <div>{getRestOfJobName(job.name)}</div>
-        </>
+          <div className="truncate">{getRestOfJobName(job.name)}</div>
+        </div>
       );
     },
   },
@@ -217,9 +311,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorKey: "state",
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           State
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -243,33 +337,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => `${row.jobStats.succeededFrames} of ${row.jobStats.totalFrames}`,
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Done / Total
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
-    id: "started",
-    accessorFn: (row) => convertUnixToHumanReadableDate(row.startTime),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Started
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
-    id: "finished",
-    accessorFn: (row) => convertUnixToHumanReadableDate(row.stopTime),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Finished
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -279,9 +349,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => row.jobStats.runningFrames,
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Running
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -291,9 +361,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => row.jobStats.deadFrames,
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Dead
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -303,9 +373,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => row.jobStats.eatenFrames,
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Eaten
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -315,9 +385,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => row.jobStats.waitingFrames,
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Wait
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -327,9 +397,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => convertMemoryToString(Number.parseInt(row.jobStats.maxRss), JSON.stringify(row)),
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           MaxRss
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -339,9 +409,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => getJobAge(row),
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Age
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -351,9 +421,9 @@ export const columns: ColumnDef<Job>[] = [
     accessorFn: (row) => getJobReadableAge(row),
     header: ({ column }) => {
       return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
           Readable Age
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
         </Button>
       );
     },
@@ -364,12 +434,73 @@ export const columns: ColumnDef<Job>[] = [
     },
   },
   {
+    // Column id kept as "started" so existing localStorage visibility
+    // entries don't get orphaned by the relabel. Header text matches the
+    // CueGUI "Launched" column.
+    id: "started",
+    accessorFn: (row) => convertUnixToHumanReadableDate(row.startTime),
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Launched
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        </Button>
+      );
+    },
+  },
+  {
+    id: "eligible",
+    accessorFn: (row) => (row.eligibleTime ? convertUnixToHumanReadableDate(row.eligibleTime) : ""),
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Eligible
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        </Button>
+      );
+    },
+  },
+  {
+    id: "finished",
+    accessorFn: (row) => convertUnixToHumanReadableDate(row.stopTime),
+    header: ({ column }) => {
+      return (
+        <Button variant="ghost" size="sm" className="-mx-2 h-7 px-1.5 text-xs font-medium" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Finished
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        </Button>
+      );
+    },
+  },
+  {
+    id: "user color",
+    header: () => (
+      <span title="Per-job color marker (persisted locally)" className="cursor-help">
+        User Color
+      </span>
+    ),
+    cell: ({ row }) => <UserColorSwatch jobId={(row.original as Job).id} />,
+    enableSorting: false,
+  },
+  {
     accessorKey: "progress",
     header: "Progress",
   },
   {
-    id: "subscribe",
-    header: () => null,
+    id: "notify",
+    // Short column label so users know the bell column exists and what
+    // it does. Hover tooltip on the title explains the feature; the bell
+    // button itself carries its own per-row tooltip describing the
+    // current subscription state. Listed in the Columns dropdown so the
+    // user can hide it if they don't use the notification feature.
+    header: () => (
+      <span
+        title="Subscribe to a desktop / in-app notification when this job finishes"
+        className="cursor-help"
+      >
+        Notify
+      </span>
+    ),
     cell: ({ row }) => (
       <SubscribeBell
         jobId={(row.original as Job).id}
@@ -378,11 +509,5 @@ export const columns: ColumnDef<Job>[] = [
       />
     ),
     enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    id: "pop-up",
-    header: "",
-    enableHiding: false,
   },
 ];
