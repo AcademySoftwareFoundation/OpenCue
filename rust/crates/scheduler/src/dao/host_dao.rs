@@ -392,7 +392,7 @@ impl HostDao {
 
     /// Restores host resources after a failed RQD launch.
     ///
-    /// This is the reverse of `update_resources` — it adds back the cores, memory, and GPUs
+    /// This is the reverse of `update_resources` - it adds back the cores, memory, and GPUs
     /// that were reserved during dispatch. Used during compensation when the database was
     /// committed but the RQD launch failed.
     pub async fn restore_resources(

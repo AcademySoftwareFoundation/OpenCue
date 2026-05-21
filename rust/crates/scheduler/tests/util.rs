@@ -100,8 +100,6 @@ pub fn create_test_config() -> Config {
             host_candidate_attempts_per_layer: 5,
             empty_job_cycles_before_quiting: Some(20),
             mem_reserved_min: bytesize::ByteSize::mb(250),
-            subscription_recalculation_interval: Duration::from_secs(3),
-            resource_recalculation_interval: Duration::from_secs(10),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy {
                 core_saturation: true,
@@ -126,6 +124,7 @@ pub fn create_test_config() -> Config {
         },
         host_cache: host_cache_config,
         scheduler: SchedulerConfig::default(),
+        accounting: scheduler::config::AccountingConfig::default(),
         sentry_dsn: None,
     }
 }

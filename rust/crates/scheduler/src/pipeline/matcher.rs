@@ -27,7 +27,7 @@ use crate::{
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
     metrics,
-    models::{CoreSize, DispatchJob, DispatchLayer, Host},
+    models::{DispatchJob, DispatchLayer, Host},
     pipeline::{
         dispatcher::{
             error::DispatchError,
@@ -36,10 +36,9 @@ use crate::{
         },
         layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
     },
-    resource_accounting::{resource_accounting_service, ResourceAccountingService},
 };
 use actix::Addr;
-use miette::{Context, Result};
+use miette::Result;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, trace};
 
@@ -59,7 +58,6 @@ pub struct MatchingService {
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
-    resource_accounting_service: Arc<ResourceAccountingService>,
 }
 
 impl MatchingService {
@@ -85,9 +83,6 @@ impl MatchingService {
         let max_concurrent_transactions = (CONFIG.database.pool_size as usize).saturating_sub(1);
 
         let dispatcher_service = rqd_dispatcher_service().await?;
-        let resource_accounting_service = resource_accounting_service()
-            .await
-            .wrap_err("Failed to initialize ResourceAccountingService for MatchingService")?;
 
         Ok(MatchingService {
             host_service,
@@ -95,7 +90,6 @@ impl MatchingService {
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
-            resource_accounting_service,
         })
     }
 
@@ -189,42 +183,15 @@ impl MatchingService {
         os.is_none() || host.str_os.as_deref() == os
     }
 
-    /// Validates whether a host is suitable for a specific layer.
+    /// Sync per-host validation invoked from the host_cache actor. Currently only checks
+    /// OS compatibility - subscription burst is enforced by the Lua booking call inside
+    /// `dispatch_virtual_proc` (see comment at the call site).
     ///
-    /// Subscriptions: Check whether this hosts' subscription can book at least one frame
-    ///
-    /// # Arguments
-    ///
-    /// * `_host` - The host to validate
-    /// * `_layer_id` - The layer ID to validate against
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - True if the match is valid
-    fn validate_match(
-        host: &Host,
-        _layer_id: &Uuid,
-        show_id: &Uuid,
-        cores_requested: CoreSize,
-        resource_accounting_service: &ResourceAccountingService,
-        os: Option<&str>,
-    ) -> bool {
-        // Check OS compatibility
-        if !Self::host_matches_layer_os(host, os) {
-            return false;
-        }
-
-        if let Some(subscription) =
-            resource_accounting_service.get_subscription(&host.alloc_name, show_id)
-        {
-            if !subscription.can_book(&cores_requested) {
-                return false;
-            }
-        } else {
-            return false;
-        };
-
-        true
+    /// Although only host OS is currently being checked, this function existence is still
+    /// justified for being a placeholder for future validations that might need to happen
+    /// when searching for a compatibly host.
+    fn validate_match(host: &Host, os: Option<&str>) -> bool {
+        Self::host_matches_layer_os(host, os)
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -275,12 +242,15 @@ impl MatchingService {
                 layer.show_id
             );
 
-            // Clone only the minimal data needed for the validation closure
-            // These are needed because the closure must have 'static lifetime for actor messaging
-            let layer_id = layer.id;
-            let show_id = layer.show_id;
+            // Subscription burst pre-check was removed in PR-C: the Lua booking call inside
+            // `dispatch_virtual_proc` is now the authoritative gate. An over-burst (show, alloc)
+            // produces a single wasted dispatch attempt - design accepts that trade-off (see
+            // §2.1 and the PR-C plan; restoring the optimization would require an async
+            // validation hook on the host_cache actor or a per-process subscription mirror).
+            //
+            // TODO: if over-burst attempts become a measurable perf drag, add a precomputed
+            // per-layer Redis snapshot of (show, alloc) → bookable and consult it here.
             let cores_requested = layer.cores_min;
-            let resource_accounting_service = self.resource_accounting_service.clone();
             let os = layer.str_os.clone();
 
             let host_candidate = self
@@ -291,16 +261,7 @@ impl MatchingService {
                     tags,
                     cores: cores_requested,
                     memory: layer.mem_min,
-                    validation: move |host| {
-                        Self::validate_match(
-                            host,
-                            &layer_id,
-                            &show_id,
-                            cores_requested,
-                            &resource_accounting_service,
-                            os.as_deref(),
-                        )
-                    },
+                    validation: move |host| Self::validate_match(host, os.as_deref()),
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");

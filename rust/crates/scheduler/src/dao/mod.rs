@@ -26,7 +26,6 @@ pub use job_dao::JobDao;
 pub use layer_dao::LayerDao;
 pub use proc_dao::{ProcDao, ProcDaoError};
 
-pub use resource_accounting_dao::{AllocationName, ShowId};
 pub use frame_dao::FrameDaoError;
 pub use host_dao::HostDaoError;
 pub use host_dao::UpdatedHostResources;

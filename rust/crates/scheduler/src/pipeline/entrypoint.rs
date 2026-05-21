@@ -18,13 +18,13 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info};
 
+use crate::accounting::{accounting_service, bootstrap, limit_reseed, recompute};
 use crate::cluster::{ClusterFeed, FeedMessage};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
 use crate::metrics;
 use crate::models::DispatchJob;
 use crate::pipeline::MatchingService;
-use crate::resource_accounting::resource_accounting_service;
 
 /// Runs the scheduler feed loop, processing jobs for each cluster.
 ///
@@ -41,8 +41,14 @@ use crate::resource_accounting::resource_accounting_service;
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error occurred during processing
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
-    // Initialize the resource accounting service (starts its periodic recomputation loop).
-    resource_accounting_service().await?;
+    // Initialize the Redis-backed accounting service. Bootstrap reseed (limits + booked
+    // counters) must complete before the scheduler accepts work - see design §4.3.
+    let accounting = accounting_service().await?;
+    bootstrap::run_blocking_reseed(&accounting).await?;
+    // TODO: gate behind leader-election when multi-scheduler lands (design §5).
+    recompute::spawn_loop(accounting.clone());
+    // TODO: gate behind leader-election when multi-scheduler lands (design §5).
+    limit_reseed::spawn_loop(accounting.clone());
 
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);

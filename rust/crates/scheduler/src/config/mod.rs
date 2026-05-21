@@ -43,6 +43,65 @@ pub struct Config {
     pub rqd: RqdConfig,
     pub host_cache: HostCacheConfig,
     pub scheduler: SchedulerConfig,
+    pub accounting: AccountingConfig,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct AccountingConfig {
+    pub redis: RedisConfig,
+    /// Cadence at which booked counters are reseeded from `SUM(proc)` to both
+    /// the PG accounting tables and Redis (under the `acct:seq` CAS guard).
+    #[serde(with = "humantime_serde")]
+    pub recompute_interval: Duration,
+    /// Cadence at which limit fields (subscription burst, folder/job/point caps)
+    /// are reseeded from PG accounting tables to Redis.
+    #[serde(with = "humantime_serde")]
+    pub limit_reseed_interval: Duration,
+    /// TTL of the in-process `b_scheduler_managed=true` show-id cache.
+    #[serde(with = "humantime_serde")]
+    pub managed_shows_ttl: Duration,
+    /// Maximum CAS retries per reseed cycle before giving up and waiting for the
+    /// next cycle (per design §2.4).
+    pub cas_max_retries: u32,
+}
+
+impl Default for AccountingConfig {
+    fn default() -> Self {
+        Self {
+            redis: RedisConfig::default(),
+            recompute_interval: Duration::from_secs(120),
+            limit_reseed_interval: Duration::from_secs(300),
+            managed_shows_ttl: Duration::from_secs(30),
+            cas_max_retries: 3,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct RedisConfig {
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,
+    pub pool_size: u32,
+}
+
+impl Default for RedisConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: "localhost".to_string(),
+            port: 6379,
+            pool_size: 20,
+        }
+    }
+}
+
+impl RedisConfig {
+    pub fn url(&self) -> String {
+        format!("redis://{}:{}/", self.host, self.port)
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -93,10 +152,6 @@ pub struct QueueConfig {
     pub host_candidate_attempts_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
-    #[serde(with = "humantime_serde")]
-    pub subscription_recalculation_interval: Duration,
-    #[serde(with = "humantime_serde")]
-    pub resource_recalculation_interval: Duration,
     pub selfish_services: Vec<String>,
     pub host_booking_strategy: HostBookingStrategy,
     pub frame_memory_soft_limit: f64,
@@ -121,8 +176,6 @@ impl Default for QueueConfig {
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
-            subscription_recalculation_interval: Duration::from_secs(3),
-            resource_recalculation_interval: Duration::from_secs(10),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy::default(),
             frame_memory_soft_limit: 1.6,
