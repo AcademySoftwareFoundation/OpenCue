@@ -87,7 +87,8 @@ The REST API provides access to all OpenCue interfaces:
 | Interface | Purpose | Key Endpoints |
 |-----------|---------|---------------|
 | [Show Interface](#show-interface) | Show management | GetShows, FindShow, CreateShow |
-| [Job Interface](#job-interface) | Job operations | GetJobs, FindJob, Kill, Pause, Resume |
+| [Job Interface](#job-interface) | Job operations | GetJobs, FindJob, Kill, Pause, Resume, GetComments, AddComment |
+| [Comment Interface](#comment-interface) | Comment management | Save, Delete |
 | [Frame Interface](#frame-interface) | Frame management | GetFrame, Kill, Retry, Eat |
 | [Layer Interface](#layer-interface) | Layer operations | GetLayer, FindLayer, Kill |
 | [Group Interface](#group-interface) | Host groups | FindGroup, GetGroup, SetMinCores, SetMaxCores |
@@ -332,6 +333,7 @@ POST /job.JobInterface/GetFrames
         "startTime": 0,
         "stopTime": 0,
         "eligibleTime": 1694000000,
+        "submissionTime": 1694000000,
         "maxRss": "0",
         "usedMemory": "0",
         "lastResource": "/0.00/0"
@@ -397,6 +399,106 @@ POST /job.JobInterface/Kill
 }
 ```
 
+### Get Comments
+
+List comments attached to a job.
+
+```http
+POST /job.JobInterface/GetComments
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "comments": {
+    "comments": [
+      {
+        "id": "comment-id-1",
+        "timestamp": 1715990400,
+        "user": "alice",
+        "subject": "Render note",
+        "message": "Re-rendered after lighting fix"
+      }
+    ]
+  }
+}
+```
+
+### Add Comment
+
+Add a new comment to a job. The server stamps the `id` and `timestamp` fields.
+
+```http
+POST /job.JobInterface/AddComment
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  },
+  "new_comment": {
+    "user": "alice",
+    "subject": "Render note",
+    "message": "Re-rendered after lighting fix"
+  }
+}
+```
+
+---
+
+## Comment Interface
+
+Manage individual comments (currently used for job comments; hosts also support commenting via the same interface).
+
+### Save Comment
+
+Update an existing comment's subject and/or message. The `id` identifies which comment to update.
+
+```http
+POST /comment.CommentInterface/Save
+```
+
+**Request Body:**
+```json
+{
+  "comment": {
+    "id": "comment-id-1",
+    "timestamp": 1715990400,
+    "user": "alice",
+    "subject": "Render note (updated)",
+    "message": "Re-rendered after lighting fix and a tweak to motion blur"
+  }
+}
+```
+
+### Delete Comment
+
+Delete a comment by id.
+
+```http
+POST /comment.CommentInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "comment": {
+    "id": "comment-id-1"
+  }
+}
+```
+
 ---
 
 ## Frame Interface
@@ -432,6 +534,7 @@ POST /frame.FrameInterface/GetFrame
     "startTime": 1694000000,
     "stopTime": 1694000300,
     "eligibleTime": 1693999998,
+    "submissionTime": 1693999995,
     "maxRss": "2147483648",
     "usedMemory": "1073741824",
     "totalCoreTime": 300
@@ -522,6 +625,8 @@ POST /layer.LayerInterface/GetLayer
     "minimumCores": 1,
     "maximumCores": 4,
     "minimumMemory": 2147483648,
+    "startTime": 1694000010,
+    "stopTime": 0,
     "layerStats": {
       "totalFrames": 25,
       "runningFrames": 0,
@@ -2191,6 +2296,7 @@ NIMBY      - Host locked automatically
   "startTime": "int32",
   "stopTime": "int32",
   "eligibleTime": "int32",
+  "submissionTime": "int32",
   "maxRss": "string",
   "usedMemory": "string",
   "lastResource": "string",
@@ -2216,6 +2322,26 @@ NIMBY      - Host locked automatically
   "freeGpus": "int32"
 }
 ```
+
+#### Comment Object
+
+Mirrors `comment.Comment` in `proto/src/comment.proto`. Used by `Job.GetComments`, `Job.AddComment`, and the `CommentInterface` (`Save` / `Delete`).
+
+```json
+{
+  "id": "string",
+  "timestamp": "int32",
+  "user": "string",
+  "subject": "string",
+  "message": "string"
+}
+```
+
+Notes:
+
+- `timestamp` is unix epoch seconds.
+- On `AddComment`, the server assigns `id` and `timestamp`; the request body's `new_comment` only needs `user`, `subject`, and `message`.
+- On `Save`, `id` is required to identify the comment; the server overwrites the persisted fields with what's in the request.
 
 ---
 

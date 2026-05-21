@@ -256,6 +256,8 @@ Displays all layers in the selected job with the following columns:
 | **Timeout** | Frame timeout | In HH:MM format |
 | **Timeout LLU** | Last log update timeout | In HH:MM format |
 | **Eligible** | Timestamp the layer became eligible to run. Defaults to layer creation time (`ts_eligible`) when no dependency transition is involved. | MM/DD HH:MM |
+| **Start Time** | Timestamp the first frame of the layer began running. Aggregated server-side from `MIN(frame.ts_started)`; blank until the first frame starts. | MM/DD HH:MM |
+| **Stop Time** | Timestamp the last frame of the layer finished. Aggregated server-side from `MAX(frame.ts_stopped)` and only populated once every frame has stopped, mirroring `Job.stopTime()` semantics. | MM/DD HH:MM |
 
 #### Bottom Section: Frame Monitor
 
@@ -295,6 +297,7 @@ Shows detailed frame information with filtering controls:
 | **Start Time** | Frame start timestamp | MM/DD HH:MM |
 | **Stop Time** | Frame completion timestamp | MM/DD HH:MM |
 | **Eligible Time** | Timestamp the frame became eligible to run (left DEPEND for WAITING). Defaults to the job's submission time when the frame was never blocked. Subtract from Start Time to see the wait-for-pickup duration. | MM/DD HH:MM |
+| **Submission Time** | Timestamp the parent job was submitted. Always reflects job submission, independent of dependency state or whether this frame has begun executing. | MM/DD HH:MM |
 | **Last Line** | Last log line | Truncated to fit |
 
 ### Frame Status Color Coding
