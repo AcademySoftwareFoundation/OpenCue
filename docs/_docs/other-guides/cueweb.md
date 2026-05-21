@@ -27,7 +27,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 1. **Persistent global header (every authenticated route):**
    - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark.
-   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug). Routes that are not yet implemented 404 gracefully.
+   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug). Routes that are not yet implemented 404 gracefully.
    - Theme toggle (light/dark).
    - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` - the `/login` page itself shows either the **CueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
 2. **Collapsible left sidebar (every authenticated route):**
@@ -50,13 +50,23 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Last segment renders as plain text with `aria-current="page"`; non-last segments are `next/link`s.
 7. **Secure user authentication:**
    - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
-8. **Customizable job management dashboard:** 
-   - Manage jobs with a customizable table where users can select visible columns and filter jobs based on their state (active, paused, completed).
-9. **Flexible monitoring controls:** 
+8. **Customizable job / layer / frame tables (CueGUI parity):**
+   - Each of the three data tables (Jobs, Layers, Frames) has a **Columns** dropdown with three controls per column: a checkbox to hide/show, and **`←` / `→`** arrows to nudge the column left / right within the user-reorderable subset. Non-hideable system columns (the row-select checkbox) stay anchored.
+   - A **Reset to Default** button pinned at the top of the dropdown clears both visibility AND order in one click.
+   - Both states persist per table in `localStorage` (Jobs uses the bare `columnVisibility` / `columnOrder` keys; Layers/Frames use `cueweb.layers.*` and `cueweb.frames.*`).
+   - CueGUI-parity column sets:
+     - **Jobs**: Name, State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync via the standard `storage` event), Progress, Notify.
+     - **Layers**: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, **Progress** (stacked animated bar, same palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
+     - **Frames**: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames - blank for WAITING / DEPEND / SUCCEEDED / DEAD, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
+   - Each table also has a small client-side substring **Filter** input next to its Columns dropdown that narrows the rows already loaded; resets to page 1 on every keystroke and keeps sorting, visibility, reordering and pagination working over the filtered subset.
+9. **Flexible monitoring controls:**
    - Easily un-monitor jobs across all statuses.
-10. **Detailed job inspection:** 
-   - View job details with pop-up windows showing layers and frames associated with each job.
-11. **Frame navigation and logs access:** 
+10. **Detailed job inspection (inline Layers + Frames panel):**
+   - Clicking a row in the jobs table reveals the associated **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
+   - Clicking a layer row narrows the frames panel to that layer and pushes the layer's attributes into the docked Attributes panel; clicking the same layer again clears the filter and re-selects the job in Attributes.
+   - Double-clicking any frame row opens the log viewer for that frame.
+   - Inline panels refresh every 5 seconds with cancellation guards so stale responses can't overwrite a fresh selection.
+11. **Frame navigation and logs access:**
    - Navigate frames using hyperlinks that lead to dedicated pages for frame data and logs.
 12. **Advanced job search functionality:** 
    - Search for jobs by show name with dropdown suggestions for matching entries.
@@ -69,18 +79,18 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Users can add or remove multiple jobs directly from the search results, with existing jobs highlighted in green.
 15. **Enhanced security using Opencue API:**
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
-16. **CueWeb actions and context menu are available:**
-
-Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kill.
-   - _Layer actions:_ `Kill`, `Eat`, `Retry`, `Retry dead frames`.
-   - _Frame actions:_ `Retry`, `Eat`, `Kill`.
-   - Menu items are disabled if the job has finished, and the context menu is always rendered on-screen.
+16. **CueWeb actions and context menu (CueGUI parity):**
+   - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu` in `cueweb/components/ui/context_menus/action-context-menu.tsx`).
+   - **Job actions** include: Unmonitor, View Job, Copy Job Name, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
+   - **Layer actions** include: View Layer, Copy Layer Name, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
+   - **Frame actions** include: Tail / View Log, Copy Log Path / Frame Name, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
+   - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on.
 
 17. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
 
-18. **Job progress bar with hover tooltip:**
-   - The Progress column renders a stacked bar with five colored segments (succeeded, running, waiting, depend, dead).
+18. **Animated progress bar on Jobs AND Layers:**
+   - Both tables render a stacked bar with five colored segments (succeeded, running, waiting, depend, dead) using the shared `<ProgressBar/>` renderer. The Layers table consumes the same palette via `getLayerProgressSegments` in `cueweb/app/utils/layer_progress_utils.ts`.
    - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
 
 19. **Frame state filter chips:**
@@ -92,11 +102,16 @@ Job actions: Unmonitor, Comments, Pause, Retry dead frames, Eat dead frames, Kil
    - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
    - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
-   - The first subscribe of the session triggers the browser's native notification permission prompt; if permission is denied, a toast warning is shown and the subscription is not created.
-   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED`, a single browser notification is fired via the Web Notifications API and the entry is marked as notified.
-   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll.
+   - Subscriptions always succeed; the OS-level notification permission is an optional upgrade for desktop popups. Clicking the bell branches the resulting toast on `granted` / `denied` / `default` so users know whether they got an in-app-only subscription or also a system popup.
+   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` it fires an in-app `toast.success(...)` (always) and a desktop `Notification(...)` popup (when permission was granted at fire-time). The notify decision is serialized cross-tab via the Web Locks API (`navigator.locks.request("cueweb:notify-<jobId>", ...)`) so only one tab toasts when several poll the same job concurrently.
+   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Cross-tab sync uses the browser `storage` event.
 
-21. **Job comments:**
+21. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
+   - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
+   - The same overlay is reachable from **Other ▸ Show Shortcuts** in both the header and the sidebar. Both items dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for.
+   - **Notify on Shortcut** (also under Other; default ON, persisted to `localStorage["cueweb.shortcutNotifications"]`) controls whether a toast naming the action fires every time a shortcut triggers (e.g. `Shortcut: r → Refresh table`). The pref is read imperatively at fire-time, so flipping the toggle takes effect on the very next keypress without a reload.
+
+22. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).

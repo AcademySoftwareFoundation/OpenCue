@@ -66,7 +66,7 @@ The CueWeb interface consists of:
     - **Cuebot Facility** -> switch between the options (e.g.: `local` / `dev` / `cloud` / `external`); the active facility is shown as a chip on the trigger.
     - **Cuetopia** -> Monitor Jobs.
     - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Routes that are not yet implemented 404 gracefully.
-    - **Other** -> Attributes (toggles the docked Attributes panel).
+    - **Other** -> Attributes (toggles the docked Attributes panel), Show Shortcuts (opens the same overlay as `?`), Notify on Shortcut (toggle for the per-shortcut toast).
     - **Help** -> a search box that finds commands across every menu, plus Online User Guide, Make a Suggestion, and Report a Bug.
   - Theme toggle and an always-visible **Sign out** button on the right. With an active session, Sign out clears it and returns you to `/login`. Without a session (or when auth is disabled), it simply navigates to `/login`.
 - **Left sidebar (persistent, collapsible):** same six groups as the header, organized as accordion sections. The group containing the active route auto-expands; click **Collapse** at the bottom to shrink the sidebar to an icon rail (your choice persists).
@@ -98,12 +98,12 @@ The CueWeb interface consists of:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
-5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to receive a browser notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
    - Outline bell &rarr; not subscribed
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
-   The first subscribe of the session prompts for browser notification permission. Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+   The subscription always succeeds; the OS-level notification permission is requested afterwards as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
 
 ### Understanding Job Status
 
@@ -300,21 +300,32 @@ Prefix searches with `!` to enable regex patterns:
 
 ### Column Management
 
-Customize the jobs table to show relevant information:
+Each of the three data tables (Jobs, Layers, Frames) has its own **Columns** dropdown in the per-table toolbar.
 
-1. **Show/Hide Columns**:
-   - Click on the "Columns" dropdown
-   - Toggle checkboxes for desired columns
-   
-2. **Sort and Filter**:
-   - Click headers to sort ascending/descending
+1. **Show / Hide columns**:
+   - Open the **Columns** dropdown.
+   - Toggle the checkbox next to any column to hide / show it.
+
+2. **Reorder columns left / right**:
+   - In the same dropdown, each row has a `←` button (move column one slot left) and a `→` button (move it one slot right). Non-hideable system columns (the row-select checkbox) stay anchored, so swaps never reach across them.
+
+3. **Reset to default**:
+   - The pinned **Reset to Default** button at the top clears both column visibility AND order in one click.
+
+4. **Filter the loaded rows**:
+   - The **Filter ...** input next to the Columns dropdown performs a case-insensitive substring search across every visible column and narrows the rows already loaded. The table snaps back to page 1 on every keystroke; click the `×` button to clear the filter.
+
+5. **Sort**:
+   - Click any sortable column header to toggle ascending / descending.
+
+Both visibility and ordering choices persist per table in `localStorage` and survive reloads, navigations, and Docker rebuilds.
 
 ## Real-time Monitoring
 
 ### Auto-refresh Settings
 
-* **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables
-* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds and fires a browser notification when the job reaches `FINISHED`. Subscriptions are stored in `localStorage` and survive page reloads.
+* **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables.
+* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds. When the job reaches `FINISHED` an in-app toast fires (always), and a desktop popup is layered on top when you have granted the browser's notification permission. Subscriptions are stored in `localStorage` and survive page reloads; when several tabs poll the same job concurrently, only one tab actually fires the toast (cross-tab serialization via the Web Locks API).
 
 ### Monitoring Best Practices
 

@@ -42,7 +42,7 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
      - **Cuebot Facility** → `local` · `dev` · `cloud` · `external` (overridable via `NEXT_PUBLIC_CUEBOT_FACILITIES`). The active facility is shown as a small chip on the menu trigger.
      - **Cuetopia** → Monitor Jobs.
      - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully until the corresponding pages land.
-     - **Other** → Attributes (toggles the docked Attributes panel, see below).
+     - **Other** → **Attributes** (toggles the docked Attributes panel, see below), **Show Shortcuts** (opens the same overlay as pressing `?`), **Notify on Shortcut** (toggles the per-shortcut toast).
      - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity) plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
    - Theme toggle on the right.
    - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
@@ -74,13 +74,18 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - Secure login capabilities through Okta, Google, GitHub, and LDAP (configured via `NEXT_PUBLIC_AUTH_PROVIDER`).
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.
 - **Job management dashboard:**
-  - Customizable table views to show or hide specific columns.
+  - Customizable table views: hide/show columns AND reorder them left/right inside each table's **Columns** dropdown, with a pinned **Reset to Default** button that restores both visibility and order. Both states persist in `localStorage` per table (Jobs: `columnVisibility` / `columnOrder`; Layers: `cueweb.layers.columnVisibility` / `cueweb.layers.columnOrder`; Frames: `cueweb.frames.columnVisibility` / `cueweb.frames.columnOrder`).
+  - CueGUI-parity Jobs columns: Name, State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync), Progress, Notify.
+  - CueGUI-parity Layers columns: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, Progress (stacked animated bar with the same per-state palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
+  - CueGUI-parity Frames columns: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
   - Filter jobs by state (active, paused, or completed).
+  - Per-table client-side substring filter: a small **Filter jobs / layers / frames...** input next to each Columns dropdown narrows the rows already loaded; resets to page 1 on every keystroke and keeps sorting, column visibility, column reordering and pagination working over the filtered subset.
   - Monitor or unmonitor jobs across various statuses.
-  - Detailed job inspection via pop-ups displaying associated layers and frames.
+  - Detailed job inspection inline below the jobs table: clicking a job row reveals the associated **Layers** and **Frames** panels. Clicking a layer row narrows the frames panel to that layer and pushes the layer's attributes into the docked Attributes panel. Double-clicking any frame row opens the log viewer.
   - Frame navigation with hyperlinks to logs and data pages.
-  - Stacked job progress bar with a hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead).
+  - Stacked job progress bar with a hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead). The Layers table reuses the same `<ProgressBar/>` renderer with `getLayerProgressSegments` so per-layer progress matches the per-job style.
   - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with per-state counts, OR-combined selection, and selection mirrored to the `frameStates` URL query parameter for bookmarkable/shareable filtered views.
+  - CueGUI-parity right-click menus on every row: `JobContextMenu`, `LayerContextMenu`, and `FrameContextMenu` (see `cueweb/components/ui/context_menus/action-context-menu.tsx`) follow the CueGUI Monitor Jobs and Monitor Job Details menu structure. Menus scroll instead of overflowing on small viewports; items that depend on future dialogs / backend integrations route through `notYetImplemented(label)` as placeholders.
 - **Job search functionality:**
    - Search for jobs using show names followed by a hyphen.
    - Dropdown suggestions for matching jobs based on naming conventions like show1-shot-test_job_123.
@@ -333,15 +338,20 @@ The current CueWeb system offers a robust set of features designed to enhance us
 
 - **Persistent global header:** OpenCue logo + **CueWeb** wordmark, grouped **Cuetopia / CueCommander** dropdown navigation matching the CueGUI Views/Plugins menu, theme toggle, and an always-visible Sign out button.
 - **Authentication:** Secure login via Okta, Google, GitHub, and LDAP.
-- **Jobs/layers/frames management:** Customizable tables, state filtering, monitoring, detailed inspections, and log navigation. Includes a hover tooltip on the job progress bar (per-state frame counts and percentages) and frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with URL-persisted selection.
+- **Jobs / Layers / Frames tables (CueGUI parity):**
+  - Full CueGUI-parity columns including Launched / Eligible / Finished / User Color (Jobs), Eligible (Layers), and LLU / Memory (RSS) / Memory (PSS) / Remain / Eligible Time / Submission Time / Last Line (Frames).
+  - Show/hide AND reorder columns (`←` / `→` arrows in the **Columns** dropdown) with a one-click **Reset to Default**.
+  - Per-table substring filter input (CueGUI-style narrowing of already-loaded rows).
+  - Animated stacked progress bar on both Jobs and Layers with a hover tooltip showing per-state frame counts and percentages.
+  - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with URL-persisted selection.
 - **Search:** Advanced search with regex support, dropdown suggestions, and optimized loading.
 - **Dark mode:** Toggle between light and dark themes.
-- **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) with context menus.
+- **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) through CueGUI-parity right-click context menus.
 - **Auto-reloading:** Real-time updates for tables.
-- **Job-finished notifications:** Per-job bell to subscribe to completion. A background poller fires a toast when a subscribed job reaches `FINISHED`. Subscriptions persist in `localStorage` and stay in sync across browser tabs.
+- **Job-finished notifications:** Per-job bell to subscribe to completion. A background poller fires a toast (and an optional desktop popup when notification permission is granted) when a subscribed job reaches `FINISHED`. Subscriptions persist in `localStorage`, stay in sync across browser tabs, and the notify decision is serialized cross-tab via the Web Locks API so only one tab toasts when several poll the same job.
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
-- **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
+- **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay; the same overlay is also reachable from **Other ▸ Show Shortcuts** in the header or the sidebar. An optional **Notify on Shortcut** toggle (also under Other) fires a toast naming the shortcut that just triggered. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
 
 Go back to [Contents](#contents).
 
@@ -357,7 +367,16 @@ CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/
 | `r` | Refresh the jobs table | On the jobs page (`/`) |
 | `t` | Toggle the light / dark theme | Anywhere |
 
-Cross-component wiring uses `window` `CustomEvent`s (`cueweb:focus-search`, `cueweb:refresh-now`) so any page that wants to participate can subscribe without a prop drill - see the `JobSearchbox` and jobs `data-table` for the existing consumers.
+The same overlay is also reachable from the menu, for users who prefer mouse navigation:
+
+- **Header ▸ Other ▸ Show Shortcuts**
+- **Sidebar ▸ Other ▸ Show Shortcuts** (both expanded and collapsed sidebar modes)
+
+Both menu items dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for.
+
+**Notify on Shortcut** — when this menu toggle is checked (default ON), every triggered shortcut also fires a small toast naming the action: e.g. pressing `r` toasts `Shortcut: r → Refresh table`. The pref persists under `localStorage["cueweb.shortcutNotifications"]` and is read imperatively at fire-time, so flipping the toggle takes effect on the very next keypress without a reload.
+
+Cross-component wiring uses `window` `CustomEvent`s (`cueweb:focus-search`, `cueweb:refresh-now`, `cueweb:open-shortcuts`) so any page that wants to participate can subscribe without a prop drill - see the `JobSearchbox` and jobs `data-table` for the existing consumers.
 
 Go back to [Contents](#contents).
 

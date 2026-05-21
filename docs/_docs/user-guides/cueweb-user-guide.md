@@ -161,24 +161,49 @@ The dashboard consists of:
 
 ### Job Information Columns
 
+The Jobs table ships every CueGUI-parity column visible by default. You can hide / show any of them or reorder them left/right via the **Columns** dropdown (see [Customizing the column set](#customizing-the-column-set) below).
+
 | Column | Description |
 |--------|-------------|
-| **Select** | Checkbox for multi-job selection |
+| **Select** | Checkbox for multi-job selection. Anchored at the leftmost position - column reorder skips over it. |
 | **Name** | Job identifier with show-shot-user and job name on separate lines. A sticky-note icon appears next to the show-shot-user line when the job has one or more comments - click it to open the Comments page in a new tab. |
-| **State** | Current job state (Failing, Finished, In Progress, Dependency, Paused) |
-| **Done / Total** | Succeeded frames out of total frames (e.g., "150 of 200") |
-| **Started** | Job start timestamp in human-readable format |
-| **Finished** | Job completion timestamp (if finished) |
-| **Running** | Number of currently running frames |
-| **Dead** | Number of failed frames |
-| **Eaten** | Number of frames marked as completed (skipped) |
-| **Wait** | Number of frames waiting to run |
-| **MaxRss** | Maximum resident set size (peak memory usage) |
-| **Age** | Total time since job started (HHH:MM format) |
-| **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h` (hidden by default) |
+| **State** | Current job state (Failing, Finished, In Progress, Dependency, Paused). |
+| **Done / Total** | Succeeded frames out of total frames (e.g., "150 of 200"). |
+| **Running** | Number of currently running frames. |
+| **Dead** | Number of failed frames. |
+| **Eaten** | Number of frames marked as completed (skipped). |
+| **Wait** | Number of frames waiting to run. |
+| **MaxRss** | Maximum resident set size (peak memory usage). |
+| **Age** | Total time since job started (HHH:MM format). |
+| **Readable Age** | Same value as Age, formatted as `2h 14m` or `3d 4h`. |
+| **Launched** | Job start timestamp in human-readable format (`YYYY-MM-DD HH:MM`). Mirrors CueGUI's "Launched" column. |
+| **Eligible** | Timestamp when the job became eligible to dispatch. Blank when the field is zero / unset. |
+| **Finished** | Job completion timestamp. Blank while the job is still running. |
+| **User Color** | Per-job color swatch. Click the swatch to open the native color picker; right-click or click the `×` to clear. Color is yours alone - persisted to `localStorage` and synced across browser tabs. |
 | **Progress** | Stacked progress bar with five colored segments - green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
-| **Notify** | Bell button to subscribe to a browser notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)) |
-| **Pop-up** | Button to open job details panel |
+| **Notify** | Bell button to subscribe to a notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)). |
+
+### Customizing the column set
+
+Each of the three tables (Jobs, Layers, Frames) has its own **Columns** dropdown in the per-table toolbar (just left of the table). The dropdown contains, top to bottom:
+
+- A pinned **Reset to Default** button that clears both column visibility and order, restoring the table to the layout shipped by CueWeb.
+- One row per hideable column with three controls:
+  - A checkbox to hide / show the column.
+  - A `←` button to nudge the column one slot left in the table.
+  - A `→` button to nudge it one slot right.
+
+The dropdown stays open between clicks so you can chain several adjustments without reopening it.
+
+Your visibility and ordering choices persist in browser `localStorage` per table and survive reloads, navigations and Docker rebuilds. If you ever need to start over, click **Reset to Default**.
+
+### Filtering the loaded rows
+
+Each of the three tables (Jobs, Layers, Frames) also has a small **Filter ...** input next to its Columns dropdown. The filter performs a case-insensitive substring match across every visible column and narrows the rows already loaded; sorting, column visibility, column ordering and pagination all keep working over the filtered subset.
+
+The filter snaps you back to page 1 on every keystroke so you never sit on an empty page. A small `×` button appears inside the input once you've typed something - click it to clear the filter in one go.
+
+> **Tip:** The Filter input narrows what's *already loaded* into the table. On the Jobs page, the separate **Search jobs - Enter to load** box at the top of the page is what tells Cuebot to load new jobs.
 
 ### Job Status Indicators
 
@@ -322,17 +347,20 @@ When `hasComment` is true on a job, a sticky-note icon is rendered next to the j
 
 ### Viewing Job Details
 
-1. Use the `Job detail button` to view the job's layers and frames
-
-![Job detail button to open the job layers and frames](/assets/images/cueweb/job-popup-detail-button.png)
-
-2. The job details panel opens with tabs:
-   - **Layers**: Show job layers information (top datatable)
-   - **Frames**: Show frames information (bottom datatable)
+1. **Click a row** in the Jobs table. The inline **Layers** and **Frames** panels appear stacked below the Jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
 
    ![Pop-up window layers and frames (light mode)](/assets/images/cueweb/figure9-popup-light.png)
 
    ![Pop-up window layers and frames (dark mode)](/assets/images/cueweb/figure10-popup-dark.png)
+
+2. **Click a layer** in the Layers panel to:
+   - Narrow the Frames panel to that layer (the Frames title shows `X of Y`).
+   - Push the layer's attributes into the docked Attributes panel.
+   - Clicking the same layer again clears the filter and re-selects the job in Attributes.
+
+3. **Double-click a frame** in the Frames panel to open the log viewer for that frame.
+
+Both inline panels refresh every 5 seconds while a job is selected; switching to a different job clears the panels and reloads.
 
 ### Layer Operations
 
@@ -359,9 +387,10 @@ When `hasComment` is true on a job, a sticky-note icon is rendered next to the j
 | **Dead** | Failed frames |
 | **Avg** | Average frame render time (HH:MM:SS) |
 | **Tags** | Associated tags/labels |
-| **Progress** | Completion percentage |
+| **Progress** | Stacked progress bar with the same five-state palette as the Jobs progress bar (green / yellow / light blue / purple / red), with a hover tooltip showing per-state counts and percentages. |
 | **Timeout** | Frame timeout duration (HHH:MM) |
 | **Timeout LLU** | Timeout for last layer update (HHH:MM) |
+| **Eligible** | Timestamp when the layer became eligible to dispatch. |
 
 #### Layer Actions
 
@@ -401,10 +430,16 @@ Above the frames table, CueWeb renders one filter chip per supported frame state
 | **Retries** | Number of retry attempts for this frame |
 | **CheckP** | Checkpoint count for the frame |
 | **Runtime** | Frame execution time (HH:MM:SS format) |
-| **Memory** | Memory usage (used memory for running, max RSS for completed) |
-| **GPU Memory** | GPU memory usage (used for running, max for completed) |
-| **Start Time** | Frame start timestamp in human-readable format |
-| **Stop Time** | Frame completion timestamp (if finished) |
+| **LLU** | Elapsed time since the frame's log was last updated (HH:MM:SS). Only populated for `RUNNING` frames - blank for everything else, matching CueGUI. |
+| **Memory (RSS)** | Resident-set memory usage (used memory for running, max RSS for completed). |
+| **Memory (PSS)** | Proportional-set-size memory usage (used PSS for running, max PSS for completed). |
+| **GPU Memory** | GPU memory usage (used for running, max for completed). |
+| **Remain** | CueGUI's ETA estimate. Hidden by default; the value is a placeholder (an em-dash) until the underlying predictor is wired into CueWeb. |
+| **Start Time** | Frame start timestamp in human-readable format. |
+| **Stop Time** | Frame completion timestamp (if finished). |
+| **Eligible Time** | Timestamp when the frame became eligible to dispatch. |
+| **Submission Time** | Timestamp when the frame was first submitted. |
+| **Last Line** | Last line of the frame log. Placeholder (an em-dash) until the per-frame log-tail fetch is wired in. |
 
 #### Frame Status Colors
 
@@ -473,11 +508,39 @@ Each row in the jobs table has a bell button (the **Notify** column) that lets y
 Behavior:
 
 - The bell is disabled (faded, with tooltip) on jobs that are already `FINISHED` when first viewed; there is nothing to notify on.
-- The first time you subscribe, the browser shows its native permission prompt. If you deny permission, a toast warning is shown and the subscription is not created &mdash; re-enable browser notifications for the CueWeb origin to subscribe later.
-- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` a single browser notification (`<jobName>` / "Job finished") is fired via the Web Notifications API, the bell switches to filled with a green dot, and the entry is marked as notified.
-- Notifications fire only while a CueWeb tab is open in the browser. They are delivered by the operating system, so they appear even when the CueWeb tab is in the background or another window has focus.
+- The subscription always succeeds. After saving it, the browser's notification permission is requested as an optional upgrade for system-level popups. A toast tells you what you got:
+  - **granted** &mdash; in-app toast plus a desktop popup when the job finishes.
+  - **denied** &mdash; in-app toast only. To also receive desktop popups, enable notifications for the CueWeb origin in your browser site settings.
+  - **default** &mdash; you dismissed the prompt without choosing. In-app toast only, same as `denied`.
+- A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app `toast.success("Job finished: <jobName>")` always fires; a desktop `Notification` popup is layered on top when the permission was granted at fire-time. The bell switches to filled with a green dot, and the entry is marked as notified.
+- When several CueWeb tabs poll the same job concurrently, only one tab actually toasts (cross-tab serialization via the Web Locks API). You see exactly one notification per finished job per browser profile.
 - Subscriptions persist in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
 - If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
+
+---
+
+## Keyboard Shortcuts
+
+CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
+
+| Key | Action | Where it works |
+|-----|--------|----------------|
+| `?` | Open the keyboard-shortcuts overlay | Anywhere |
+| `Esc` | Close the overlay | Inside the overlay |
+| `/` | Focus the jobs search box | On the jobs page |
+| `r` | Refresh the jobs table | On the jobs page |
+| `t` | Toggle the light / dark theme | Anywhere |
+
+### Opening shortcuts from the menu
+
+The same overlay is reachable from the menu if you prefer mouse navigation:
+
+- Header **Other ▸ Show Shortcuts**
+- Sidebar **Other ▸ Show Shortcuts** (in both expanded and collapsed sidebar modes)
+
+### Toast on shortcut
+
+A small toast appears every time you trigger a shortcut so you know it registered (e.g. pressing `r` toasts `Shortcut: r → Refresh table`). The toast can be turned off via **Other ▸ Notify on Shortcut** in the header or sidebar. The preference persists across reloads and across browser tabs.
 
 ---
 

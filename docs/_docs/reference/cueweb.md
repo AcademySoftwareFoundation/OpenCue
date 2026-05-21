@@ -152,34 +152,152 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 ### Jobs Table
 
-The main jobs table displays rendering jobs with the following columns:
+The main jobs table (`cueweb/app/jobs/columns.tsx` + `cueweb/app/jobs/data-table.tsx`) displays rendering jobs with the following columns, in their default order:
 
 | Column | Description | Sortable |
 |--------|-------------|----------|
-| **Name** | Job name (clickable for details) | Yes |
-| **Show** | Parent show name | Yes |
-| **Shot** | Shot identifier | Yes |
-| **User** | Job owner | Yes |
-| **State** | Current job state | Yes |
-| **Progress** | Stacked frame-state progress bar. Hover shows a tooltip with exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | Yes |
-| **Priority** | Job priority value | Yes |
-| **Pending** | Pending frame count | Yes |
-| **Running** | Running frame count | Yes |
-| **Dead** | Failed frame count | Yes |
-| **Cores** | Reserved cores | Yes |
-| **Start Time** | Job start timestamp | Yes |
-| **Notify** | Per-row bell button to subscribe to a browser notification when the job reaches `FINISHED`. Three states: outline (not subscribed), filled (subscribed/waiting), filled with green dot (notification fired). Disabled on rows whose job state is already `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+| **(select)** | Row checkbox. Anchored at the leftmost position - column reorder skips over it. | No |
+| **Name** | Two-line cell: `<show>-<shot>-<user>` on top, rest of the job name underneath. A sticky-note icon appears inline when `Job.hasComment` is `true`. | Yes |
+| **State** | Current job state badge (see [Job States](#job-states)). | Yes |
+| **Done / Total** | `<succeededFrames> of <totalFrames>`. | Yes |
+| **Running** | Running frame count. | Yes |
+| **Dead** | Failed frame count. | Yes |
+| **Eaten** | Eaten frame count. | Yes |
+| **Wait** | Waiting frame count. | Yes |
+| **MaxRss** | Max RSS observed across the job's frames (human-readable, e.g. `512M`). | Yes |
+| **Age** | Wall-clock job age formatted `HHH:MM`. | Yes |
+| **Readable Age** | Same age in human-friendly form (e.g. `2h 14m`). | Yes |
+| **Launched** | `job.startTime` formatted `YYYY-MM-DD HH:MM`. Mirrors CueGUI's "Launched" column. | Yes |
+| **Eligible** | `job.eligibleTime` formatted the same way. Blank when the field is zero / unset. | Yes |
+| **Finished** | `job.stopTime`. Blank while the job is still running. | Yes |
+| **User Color** | Per-job color swatch backed by `localStorage["cueweb.userColors"]` (map of `jobId -> #rrggbb`). Click the swatch to pick a color from the native picker; right-click or click the `×` button to clear. Cross-tab sync via the standard `storage` event plus an internal `cueweb:user-colors` `CustomEvent` for same-tab listeners. | No |
+| **Progress** | Stacked frame-state progress bar with a hover tooltip showing exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | No |
+| **Notify** | Per-row bell button to subscribe to a notification when the job reaches `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+
+### Layers Table
+
+The inline Layers table (`cueweb/app/layers/layer-columns.tsx`, rendered by `SimpleDataTable` inside `JobDetailsInline`) ships these columns in default order:
+
+| Column | Description |
+|--------|-------------|
+| **Dispatch Order** | Per-layer dispatch order assigned by Cuebot. |
+| **Name** | Layer name (clickable to filter the Frames panel and populate the Attributes panel). |
+| **Services** | Render services declared on the layer. |
+| **Limits** | Resource-limit names. |
+| **Range** | Frame range (e.g. `1-100x2`). |
+| **Cores** | Minimum reserved cores. |
+| **Memory** | Minimum reserved memory (human-readable). |
+| **Gpus** | Minimum reserved GPUs. |
+| **Gpu Memory** | Minimum reserved GPU memory. |
+| **MaxRss** | High-water RSS observed on the layer. |
+| **Total** | Total frame count on this layer. |
+| **Done** | Succeeded frames. |
+| **Run** | Running frames. |
+| **Depend** | Frames in DEPEND state. |
+| **Wait** | Waiting frames. |
+| **Eaten** | Eaten frames. |
+| **Dead** | Dead frames. |
+| **Avg** | Average frame seconds, formatted `HH:MM:SS`. |
+| **Tags** | Layer tags. |
+| **Progress** | Same stacked animated bar as the Jobs table, fed by `getLayerProgressSegments` (`cueweb/app/utils/layer_progress_utils.ts`). Hover tooltip shows per-state counts. |
+| **Timeout** | Layer timeout (`HHH:MM`). |
+| **Timeout LLU** | Last-log-update timeout (`HHH:MM`). |
+| **Eligible** | `layer.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+
+### Frames Table
+
+The Frames table (`cueweb/app/frames/frame-columns.tsx`, rendered by `SimpleDataTable`) ships these columns:
+
+| Column | Description |
+|--------|-------------|
+| **Order** | Dispatch order assigned by Cuebot. |
+| **Frame** | Frame number. |
+| **Layer** | Layer name (clickable link into the frame log viewer). |
+| **Status** | Frame state badge (see [Frame States](#frame-states)). |
+| **Cores** | Cores assigned to the running frame (parsed from `lastResource`). |
+| **GPUs** | GPUs assigned. |
+| **Host** | `lastResource` string (`host/cores/gpus`). |
+| **Retries** | Retry count. |
+| **CheckP** | Checkpoint count. |
+| **Runtime** | `(stop - start)` if stopped, else `(now - start)`, formatted `HH:MM:SS`. |
+| **LLU** | Elapsed time since the frame's log was last updated (`now - lluTime`, formatted `HH:MM:SS`). Only populated for `RUNNING` frames; blank for `WAITING` / `DEPEND` / `SUCCEEDED` / `DEAD` to match CueGUI. |
+| **Memory (RSS)** | `used_memory` while RUNNING, `max_rss` after stop. |
+| **Memory (PSS)** | `used_pss` while RUNNING, `max_pss` after stop. |
+| **GPU Memory** | `used_gpu_memory` while RUNNING, `max_gpu_memory` after stop. |
+| **Remain** | Placeholder column for CueGUI's ETA buffer; renders an em-dash until the predictor is wired into CueWeb. Hidden by default in the inline panel. |
+| **Start Time** | `frame.startTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Stop Time** | `frame.stopTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Eligible Time** | `frame.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Submission Time** | `frame.submissionTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Last Line** | Placeholder column for the per-frame log-tail fetch; renders an em-dash until that fetch is wired in. |
+
+### Columns dropdown (visibility + ordering)
+
+Every data table (Jobs, Layers, Frames) renders a **Columns** dropdown in its per-table toolbar.
+
+| Control | Behavior |
+|---------|----------|
+| **Reset to Default** | Pinned at the top of the dropdown as a `secondary` button. Clears both column-visibility and column-order back to whatever the column definitions declare. |
+| **Checkbox** (per row) | Toggle the column's visibility. The menu stays open after every click so the user can chain several toggles without reopening it. |
+| **`←` / `→`** (per row) | Nudge the column one slot left / right within the user-reorderable subset. Non-hideable system columns (the row-select checkbox) stay anchored - swaps never reach across them. Buttons are disabled at the bounds of the reorderable set. |
+
+Persistence keys:
+
+| Table | Visibility key | Order key |
+|-------|---------------|-----------|
+| Jobs | `columnVisibility` | `columnOrder` |
+| Layers | `cueweb.layers.columnVisibility` | `cueweb.layers.columnOrder` |
+| Frames | `cueweb.frames.columnVisibility` | `cueweb.frames.columnOrder` |
+
+Implementation: each table wires TanStack's `state.columnOrder` + `onColumnOrderChange` and reads/writes the matching `localStorage` key. The reorder helper (`moveColumn`) operates on the hideable subset of `columnOrder` so non-hideable columns stay in their original positions.
+
+### Per-table substring filter
+
+Each data table renders a small **Filter jobs / layers / frames...** `<input type="search">` next to its Columns dropdown.
+
+| Aspect | Description |
+|--------|-------------|
+| **Source** | TanStack's built-in `globalFilter` state + `getFilteredRowModel()`. |
+| **Match** | Case-insensitive substring against every visible column's accessor value (status badge text, runtime strings, etc. - everything that lands in the table's flat representation). |
+| **Pagination** | Auto-resets to page 1 on every keystroke so the user never sits on an empty page after narrowing. |
+| **Clear** | An `×` button appears inside the input once it has a value; clears the filter in one click. Pressing `Esc` while focused also clears the native `<input type="search">`. |
+| **Scope** | Client-side only - distinct from the top-of-page "Search jobs - Enter to load" box on the Jobs page which hits Cuebot to load matching jobs. |
+
+### Inline JobDetails (Layers + Frames panel)
+
+Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`), which renders the **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
+
+| Behavior | Description |
+|----------|-------------|
+| **Layers panel** | Lists every layer in the selected job, including the Progress bar and Eligible time. |
+| **Layer-click** | Toggles a frames-table filter to that layer (`frame.layerName === layer.name`) and pushes the layer's attributes into the docked Attributes panel. Clicking the same layer again clears the filter and re-selects the job in Attributes. |
+| **Frames panel** | Lists every frame in the job (or the layer-filtered subset). Total count shows `X of Y` when filtered. |
+| **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
+| **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). |
 
 ### Job-finished notifications
 
 | Behavior | Description |
 |----------|-------------|
-| **Trigger** | Click the bell in the **Notify** column. The first subscribe prompts for browser notification permission; denied permission shows a toast warning and does not create the subscription. |
+| **Trigger** | Click the bell in the **Notify** column. The bell always subscribes immediately; OS notification permission is requested afterwards as an optional upgrade. |
+| **Toast wording** | Branches on the prompt result: `granted` (in-app + desktop popup), `denied` (in-app only, instruction to enable in browser settings), `default` (in-app only, user dismissed the prompt). |
 | **Polling** | An app-wide `JobSubscriptionPoller` provider polls each subscribed job's state every 15 seconds via the REST gateway. |
-| **Notification** | When a subscribed job's state becomes `FINISHED`, a single Web Notification (`<jobName>` / "Job finished") is fired and the entry is marked notified. |
+| **Notification** | When a subscribed job becomes `FINISHED`, `fireCompletionNotice(entry)` fires an in-app `toast.success("Job finished: <jobName>")` (always) and a desktop `new Notification(jobName, { body: "Job finished" })` (when `Notification.permission === "granted"` at fire-time). |
+| **Cross-tab serialization** | The re-read + fire + mark sequence runs inside `navigator.locks.request("cueweb:notify-<jobId>", ...)` so only one tab toasts when several poll the same job concurrently. Falls back to a direct call when `navigator.locks` is unavailable. |
 | **Persistence** | Subscriptions are stored in `localStorage` under `cueweb:job-subscriptions` and survive page reloads; cleared when the browser site data is cleared. |
 | **Auto-cleanup** | If a subscribed job no longer exists in Cuebot (the lookup returns null), the subscription is removed on the next poll. |
-| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab. |
+| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab; the `storage` event syncs across tabs. |
+
+### Keyboard shortcuts overlay (+ menu access)
+
+| Aspect | Description |
+|--------|-------------|
+| **Component** | `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`, mounted once from `cueweb/app/layout.tsx`. |
+| **Keys** | `?` open overlay; `Esc` close overlay; `/` focus jobs search (`cueweb:focus-search`); `r` refresh jobs table (`cueweb:refresh-now`); `t` toggle light/dark theme. |
+| **Suppression** | Single-letter keys are ignored while typing into `<input>`, `<textarea>`, `<select>`, or any `contenteditable` element. Modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser. |
+| **Menu access** | Header **Other ▸ Show Shortcuts** and Sidebar **Other ▸ Show Shortcuts** both dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for. |
+| **Toast on shortcut** | When **Other ▸ Notify on Shortcut** is checked (default ON), every triggered shortcut also fires a small toast naming the action (e.g. `Shortcut: r → Refresh table`). |
+| **Pref storage** | `localStorage["cueweb.shortcutNotifications"]`. Cross-tab sync via the standard `storage` event plus an internal `cueweb:shortcut-notifications-changed` `CustomEvent`. Read imperatively at fire-time so toggling the pref takes effect on the very next keypress. |
 
 ### Job States
 
@@ -273,35 +391,66 @@ Prefix with `!` for regex patterns:
 
 ## Context Menu Actions
 
+All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu`) live in `cueweb/components/ui/context_menus/action-context-menu.tsx` and follow the CueGUI Monitor Jobs / Monitor Job Details structure. Items that depend on dialogs / backend integrations not yet implemented in CueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on. Menus scroll instead of overflowing on small viewports.
+
 ### Job Actions
 
 | Action | Description |
 |--------|-------------|
-| **Unmonitor** | Remove from monitored jobs |
-| **Comments** | Open the job Comments page in a new tab |
-| **Pause** | Pause job rendering |
-| **Unpause** | Resume paused job |
-| **Eat Dead Frames** | Mark dead frames as eaten |
-| **Retry Dead Frames** | Retry all failed frames |
-| **Kill** | Terminate job |
+| **Unmonitor** | Remove the job from the monitored list. |
+| **View Job** | Navigate to the job detail page. |
+| **Copy Job Name** | Copy the full job name to the clipboard. |
+| **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
+| **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
+| **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
+| **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
+| **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
+| **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
+| **Dependency Wizard** | Open the dependency-creation wizard. *(placeholder)* |
+| **Drop External Dependencies** | Drop external job-on-job dependencies. |
+| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
+| **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
+| **Set Max Retries** | Edit the per-frame retry budget. |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
+| **Pause** / **Unpause** | Pause or resume the job. |
+| **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
+| **Retry Dead Frames** | Retry every dead frame. |
+| **Eat Dead Frames** | Mark every dead frame as eaten. |
+| **Unbook** | Unbook running frames. *(placeholder)* |
+| **Kill** | Terminate the job. |
+| **Show Progress Bar** | Surface the stacked progress bar for the job. *(placeholder)* |
 
 ### Layer Actions
 
 | Action | Description |
 |--------|-------------|
-| **Kill** | Kill all frames in layer |
-| **Eat** | Eat all frames in layer |
-| **Retry** | Retry failed frames in layer |
-| **View Frames** | Show frame list for layer |
+| **View Layer** | Navigate to the layer detail page. |
+| **Copy Layer Name** | Copy the full layer name to the clipboard. |
+| **Drop / View / Wizard dependency items** | Manage layer-level dependencies. *(placeholders)* |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
+| **Properties** | Open the layer properties dialog. *(placeholder)* |
+| **Kill** | Kill every frame in the layer. |
+| **Eat** | Eat every frame in the layer. |
+| **Retry** | Retry every frame in the layer. |
+| **Retry Dead Frames** | Retry only the dead frames. |
 
 ### Frame Actions
 
 | Action | Description |
 |--------|-------------|
-| **Retry** | Retry specific frame |
-| **Kill** | Kill running frame |
-| **Eat** | Mark frame as eaten |
-| **View Log** | Open frame log viewer |
+| **Tail Log** / **View Log** | Open the frame log viewer (`/frames/<frameName>?frameId=...`). |
+| **Copy Log Path** | Copy the absolute log path to the clipboard. |
+| **Copy Frame Name** | Copy the full frame name. |
+| **View Host** | Navigate to the host detail page. *(placeholder)* |
+| **Drop / View dependency items** | Manage frame-level dependencies. *(placeholders)* |
+| **Filter Selected Layers** | Narrow the frames table to the frame's layer (same as clicking the layer row). |
+| **Reorder** | Open the reorder dialog. *(placeholder)* |
+| **Preview All** | Sequence-preview integration. *(placeholder)* |
+| **Retry** | Retry the frame. |
+| **Eat** | Mark the frame as eaten. |
+| **Kill** | Kill the running frame. |
+| **Eat and Mark done** | Eat the frame and treat it as succeeded. *(placeholder)* |
+| **View Processes** | Show RQD processes attached to the frame. *(placeholder)* |
 
 ---
 
@@ -448,8 +597,18 @@ Layout, left to right:
 
   Routes that have not been implemented yet 404 gracefully.
 - **Other** dropdown:
-  - Attributes - toggles the docked Attributes panel (see
+  - **Attributes** - toggles the docked Attributes panel (see
     [Attributes Panel](#attributes-panel)).
+  - **Show Shortcuts** - opens the keyboard-shortcuts overlay (same as
+    pressing `?`). Dispatches a `cueweb:open-shortcuts` `CustomEvent`
+    on `window` that the `KeyboardShortcuts` component listens for.
+  - **Notify on Shortcut** - toggle that controls whether every
+    triggered shortcut also fires a small toast naming the action.
+    Default ON. Persisted under
+    `localStorage["cueweb.shortcutNotifications"]` with cross-tab sync
+    via the `storage` event plus a `cueweb:shortcut-notifications-changed`
+    `CustomEvent`. See
+    [Keyboard shortcuts overlay (+ menu access)](#keyboard-shortcuts-overlay--menu-access).
 - **Help** dropdown - CueGUI parity:
   - A search input at the top that searches across **every** menu command
     in CueWeb via the `useMenuRegistry` hook
@@ -489,6 +648,13 @@ on viewports smaller than the `md` breakpoint.
   navigation.
 - A **Collapse** button at the bottom toggles between expanded
   (`w-60`) and icon-only (`w-16`).
+- The **Other** group mirrors the header's Other menu and ships three
+  controls in both expanded and collapsed modes:
+  - **Attributes** (toggle, with check icon when the panel is open).
+  - **Show Shortcuts** (opens the keyboard-shortcuts overlay; same as
+    pressing `?` or the header's Other ▸ Show Shortcuts item).
+  - **Notify on Shortcut** (toggle, with check icon when on; controls
+    the per-shortcut toast).
 - Persisted state:
   - `cueweb.sidebar.collapsed` - overall expanded vs icon-only.
   - `cueweb.sidebar.openGroups` - per-group open/closed map.
