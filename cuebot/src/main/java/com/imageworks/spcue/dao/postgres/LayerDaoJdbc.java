@@ -403,7 +403,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateLayerDispatchOrder(LayerInterface layer, int val) {
-        if (val < 0) {
+        if (val <= 0) {
             throw new IllegalArgumentException("Layer dispatch order must be positive.");
         }
         getJdbcTemplate().update("UPDATE layer SET int_dispatch_order=? WHERE pk_layer=?", val,
