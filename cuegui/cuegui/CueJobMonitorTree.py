@@ -213,6 +213,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                group.data.department or ""))
             self.addColumn("", 0, id=21)
 
+        # Guards against overlapping ticks: at a 5s cadence the previous
+        # _getUpdate may not have finished yet on a cold cache miss; skipping
+        # is preferable to piling up threadpool jobs. Must be set BEFORE
+        # AbstractTreeWidget.__init__ — the base ctor calls updateRequest()
+        # which dispatches into our overridden _update().
+        self._updateInFlight = False
+
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.setAnimated(False)
@@ -233,11 +240,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Skip updates if the user is scrolling
         self._limitUpdatesDuringScrollSetup()
-
-        # Guards against overlapping ticks: at a 5s cadence the previous
-        # _getUpdate may not have finished yet on a cold cache miss; skipping
-        # is preferable to piling up threadpool jobs.
-        self._updateInFlight = False
 
         self.setUpdateInterval(UPDATE_INTERVAL)
 
