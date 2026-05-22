@@ -13,8 +13,8 @@
 //! Redis-backed accounting service for the Rust scheduler.
 //!
 //! Replaces the in-process `ResourceAccountingService` with a shared store that scales
-//! horizontally across N scheduler instances. See `design/SCHED_REDIS_DECISIONS.md` for
-//! architecture; key invariants:
+//! horizontally across N scheduler instances. See the Redis-Backed Accounting Reference
+//! at `docs/_docs/developer-guide/redis-accounting.md` for architecture; key invariants:
 //!
 //! - Both Cuebot (release path, see `LettuceAccountingRedisPublisher`) and the Rust
 //!   scheduler (booking path, here) mutate the same `acct:*` hashes via Lua scripts

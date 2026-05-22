@@ -39,15 +39,16 @@ import com.imageworks.spcue.dao.ShowDao;
  *
  * <p>
  * Atomicity: each release applies five HINCRBY decrements and an INCR on {@code acct:seq} in a
- * single Lua script. The sequence guard is required by the reseed protocol in PR-C (see §2.4 of the
- * design/SCHED_REDIS_DECISIONS.md doc); without it, a reseed running concurrently with a release
- * would silently clobber
- * the decrement.
+ * single Lua script. The sequence guard is required by the reseed protocol (see the "acct:seq
+ * sequence-number guard" section of the Redis-Backed Accounting Reference at
+ * {@code docs/_docs/developer-guide/redis-accounting.md}); without it, a reseed running
+ * concurrently with a release would silently clobber the decrement.
  *
  * <p>
  * Failure mode: a publish failure leaves Redis missing a decrement, which the Rust scheduler's
- * few-minutes recompute heals from {@code SUM(proc)} (§4.3 row 1). We therefore swallow exceptions
- * with a WARN log rather than letting them propagate back into the (already-committed) caller.
+ * few-minutes recompute heals from {@code SUM(proc)} (see "Failure modes and drift bounds" in the
+ * same reference). We therefore swallow exceptions with a WARN log rather than letting them
+ * propagate back into the (already-committed) caller.
  */
 public class LettuceAccountingRedisPublisher implements AccountingRedisPublisher {
 

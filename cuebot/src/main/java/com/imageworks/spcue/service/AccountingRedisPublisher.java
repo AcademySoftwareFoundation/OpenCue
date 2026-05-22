@@ -21,9 +21,10 @@ import com.imageworks.spcue.VirtualProc;
  * Publishes per-release accounting deltas to Redis for scheduler-managed shows. Implementations may
  * be no-op (when {@code accounting.redis.enabled=false}) or Lettuce-backed.
  *
- * See {@code design/SCHED_REDIS_DECISIONS.md} for the protocol. The decrement is applied atomically
- * across {@code acct:sub:*}, {@code acct:folder:*}, {@code acct:job:*}, {@code acct:layer:*},
- * {@code acct:point:*} and bumps {@code acct:seq}.
+ * See the Redis-Backed Accounting Reference at
+ * {@code docs/_docs/developer-guide/redis-accounting.md} for the protocol. The decrement is applied
+ * atomically across {@code acct:sub:*}, {@code acct:folder:*}, {@code acct:job:*},
+ * {@code acct:layer:*}, {@code acct:point:*} and bumps {@code acct:seq}.
  */
 public interface AccountingRedisPublisher {
 

@@ -156,8 +156,9 @@ public class LettuceAccountingRedisPublisherTests {
         assertEquals(1, evalshaCount.get());
         assertEquals(SHA, lastSha.get());
 
-        // Validates the schema laid out in SCHED_REDIS_DECISIONS.md §2.3 and pins the
-        // alloc_id-not-name decision (the subscription key uses the allocation UUID).
+        // Validates the Redis schema documented in the Redis-Backed Accounting Reference
+        // (docs/_docs/developer-guide/redis-accounting.md) and pins the alloc_id-not-name
+        // decision (the subscription key uses the allocation UUID).
         String[] expectedKeys = new String[] {"acct:sub:" + SHOW_ID + ":" + ALLOC_ID,
                 "acct:folder:" + FOLDER_ID, "acct:job:" + JOB_ID, "acct:layer:" + LAYER_ID,
                 "acct:point:" + DEPT_ID + ":" + SHOW_ID, "acct:seq"};
