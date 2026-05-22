@@ -228,11 +228,10 @@ function UserColorSwatch({ jobId }: { jobId: string }) {
 
 // Sticky-note icon shown next to jobs that have one or more comments
 // (mirrors the comment indicator column in cuegui.JobMonitorTree).
-function JobCommentIndicator({ job, username }: { job: Job; username?: string }) {
+function JobCommentIndicator({ job }: { job: Job }) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const params = new URLSearchParams({ jobId: job.id });
-    if (username) params.set("username", username);
     const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -333,11 +332,10 @@ export const columns: ColumnDef<Job>[] = [
         <span className="sr-only">Comments</span>
       </Button>
     ),
-    cell: ({ row, table }) => {
+    cell: ({ row }) => {
       const job = row.original as Job;
       if (!job.hasComment) return null;
-      const username = (table.options.meta as { username?: string } | undefined)?.username;
-      return <JobCommentIndicator job={job} username={username} />;
+      return <JobCommentIndicator job={job} />;
     },
     sortingFn: (rowA, rowB) => {
       const a = (rowA.original as Job).hasComment ? 1 : 0;

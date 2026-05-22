@@ -142,7 +142,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 25. **LAN access (CueWeb usable from phones / tablets):**
    - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
-   - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path, Copy Log Directory) work even when CueWeb is reached over plain HTTP at a LAN IP, where the modern Clipboard API would otherwise be unavailable. Compatibility includes iOS Safari.
+   - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path) work even when CueWeb is reached over plain HTTP at a LAN IP, where the modern Clipboard API would otherwise be unavailable. Compatibility includes iOS Safari.
 
 ## CueWeb's user interface
 

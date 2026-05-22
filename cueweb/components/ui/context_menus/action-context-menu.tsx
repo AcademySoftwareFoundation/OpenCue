@@ -194,7 +194,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
   function handleCommentsGivenRow(row: Row<any>) {
     const job = row.original as Job;
-    const params = new URLSearchParams({ jobId: job.id, username });
+    const params = new URLSearchParams({ jobId: job.id });
     const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }

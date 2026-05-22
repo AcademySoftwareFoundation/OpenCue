@@ -974,7 +974,6 @@ export function DataTable({ columns, username }: DataTableProps) {
     },
 
     meta: {
-      username: state.username,
       // Surface the right-click menu via tap. The Actions column reads
       // this and calls it from a button click; mobile users get the same
       // menu without needing a real contextmenu event.

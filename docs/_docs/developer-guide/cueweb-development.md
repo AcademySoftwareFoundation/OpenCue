@@ -277,7 +277,6 @@ TanStack tables thread shared callbacks to cell renderers via `useReactTable({ m
 
 | Key | Type | Producer | Consumer | Purpose |
 |-----|------|----------|----------|---------|
-| `username` | `string` | Jobs `data-table.tsx` | `app/jobs/columns.tsx` (`comments` column cell) | Used to deep-link the per-job comments page from the sticky-note indicator. |
 | `openContextMenu` | `(event, row) => void` | Jobs `data-table.tsx` and `simple-data-table.tsx` (each forwards its own `contextMenuHandleOpen` from `useContextMenu`) | `RowActionsCell` in the leftmost column of Jobs / Layers / Frames | Lets the per-row `⋮` button surface the same context menu the row-level right-click opens, so touch users can reach every action without a `contextmenu` event. |
 
 `meta.openContextMenu` is the wiring that makes the per-row Actions button (`row-actions-cell.tsx`) interchangeable with right-click: the button looks up the callback from `table.options.meta` and invokes it with the click event + row.  The signature stays identical to `useContextMenu`'s `contextMenuHandleOpen`, so callers just thread the existing handler through.
@@ -519,7 +518,7 @@ The session-derived `currentUser` only drives client-side UI state:
 
 The Job columns definition (`app/jobs/columns.tsx`) declares a dedicated **`comments`** column immediately after `name`. It is rendered as a sortable, icon-only column (lucide-react `StickyNote` + `ArrowUpDown` in the header, with `<span className="sr-only">Comments</span>` for screen readers) so jobs with comments can be pulled to the top in one click - mirroring CueGUI's Monitor Jobs column for comment presence.
 
-The cell reads `username` from `table.options.meta` and forwards it as a query hint when opening the Comments page; the Comments page does not use it for authorization, but the hint keeps the new tab self-describing.
+The cell opens the Comments page with `?jobId=<id>` only - no user identifier is forwarded in the URL. Identity is resolved on the Comments page itself from the authenticated NextAuth session (`/api/auth/session`), and only Cuebot's server-side ownership check authorizes save/delete. Keeping PII out of the query string also avoids leakage into browser history, server logs, and shared links.
 
 Both the indicator click and the context-menu "Comments" entry open the page with `window.open(url, "_blank", "noopener,noreferrer")` so the new tab cannot reach back via `window.opener` and the `Referer` header is suppressed.
 
