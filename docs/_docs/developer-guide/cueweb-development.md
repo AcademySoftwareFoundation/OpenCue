@@ -332,6 +332,118 @@ sequenceDiagram
 
 ---
 
+## RBAC and Admin UI
+
+CueWeb ships a Role-Based Access Control layer that activates whenever `NEXT_PUBLIC_AUTH_PROVIDER` is non-empty. The implementation spans the SQLite policy store, NextAuth callbacks, an instrumentation hook, edge middleware, server-only helpers, and React hooks.
+
+### File layout
+
+```
+cueweb/
+├── instrumentation.ts                # Next.js server-startup hook (edge-safe)
+├── instrumentation.node.ts           # Node-only side: kicks off ensureBootstrapAdmin
+├── middleware.ts                     # Edge gate for /admin/* and /api/admin/*
+├── types/next-auth.d.ts              # Session + JWT type augmentation
+├── lib/auth.ts                       # NextAuth providers + jwt/session callbacks
+├── lib/rbac/
+│   ├── config.ts                     # authEnabled() / hasProvider() helpers
+│   ├── permissions.ts                # PERMISSIONS catalog + hasPermission()
+│   ├── roles.ts                      # BUILTIN_ROLE_SEEDS
+│   ├── seed.ts                       # Re-seeds built-in role permissions on every start
+│   ├── bootstrap.ts                  # ensureBootstrapAdmin + verifyLocalLogin
+│   ├── local_provider.ts             # NextAuth Credentials provider for "local"
+│   ├── identity.ts                   # upsertProviderIdentity for Google/GitHub
+│   ├── rate_limit.ts                 # In-memory sliding-window limiter for /login/local
+│   ├── require_feature.ts            # requireFeature(name) / requireAdmin() route helpers
+│   ├── db/
+│   │   ├── index.ts                  # getDb() factory (better-sqlite3, WAL, FK on)
+│   │   ├── types.ts                  # UserRow / GroupRow / RoleRow / AuditLogRow
+│   │   ├── migrations.ts             # Forward-only migration runner
+│   │   ├── migrations_data.ts        # Migrations inlined as TS constants (so webpack bundles them)
+│   │   ├── migrations/0001_initial.sql # Reference copy of the same SQL
+│   │   └── dal.ts                    # Prepared statements for every table
+│   └── resolvers/
+│       ├── types.ts                  # GroupsResolver + ResolvedIdentity
+│       ├── index.ts                  # activeResolver() + resolveAndPersist()
+│       ├── okta.ts                   # Reads `groups` claim from Okta ID token
+│       ├── ldap.ts                   # Looks up memberOf via ldapjs
+│       └── none.ts                   # Open-source default (no sync)
+├── components/rbac/
+│   ├── index.ts                      # Barrel export
+│   ├── use_roles.ts                  # useRoles / usePermissions / useFeature / useIsAdmin
+│   └── require_feature.tsx           # <RequireFeature> / <RequireAdmin>
+└── app/
+    ├── login/page.tsx                # Provider buttons + local form + theme toggle
+    ├── login/change-password/page.tsx# must_change_password forced rotation page
+    ├── admin/                        # Server-rendered shell + 6 tabs
+    │   ├── layout.tsx                # Tabs + breadcrumbs
+    │   ├── tabs.tsx                  # Tab bar (client)
+    │   ├── page.tsx                  # Overview stats
+    │   ├── users/page.tsx
+    │   ├── groups/page.tsx
+    │   ├── roles/page.tsx
+    │   ├── permissions/page.tsx
+    │   ├── admins/page.tsx
+    │   └── audit/page.tsx
+    └── api/
+        ├── me/password/route.ts      # Self-service password change
+        └── admin/                    # CRUD endpoints; each writes an audit_log row
+            ├── users/{,[id]/{,password,roles}}/route.ts
+            ├── groups/{,[id]/{,roles}}/route.ts
+            ├── roles/{,[id]}/route.ts
+            ├── permissions/route.ts
+            ├── admins/{,[userId]}/route.ts
+            └── audit/route.ts
+```
+
+### Bootstrap admin flow
+
+`ensureBootstrapAdmin()` (in `lib/rbac/bootstrap.ts`) is idempotent: if the `admins` table is empty, it inserts `users("admin", source=local)` with `must_change_password=1`, attaches the `site-admin` role, generates a 24-char `crypto.randomBytes(...)` password, hashes it with `argon2id`, writes the credentials to `/data/.cueweb-bootstrap` (mode `0600`), and prints a one-time banner to stdout. The trigger is `instrumentation.node.ts`, which is loaded by `instrumentation.ts` only when `process.env.NEXT_RUNTIME === "nodejs"` (the edge runtime cannot link to native modules).
+
+`/api/me/password` accepts `{ currentPassword, newPassword }` and rotates the password via `setUserPassword(userId, newHash, mustChangePassword=false)`. The change-password page redirects to `/` on success. The endpoint sits under `/api/me/*`, not `/api/admin/*`, so the admin-only middleware doesn't block normal users from changing their own credentials.
+
+### NextAuth jwt / session callbacks
+
+`callbacks.jwt`:
+
+1. On sign-in (`trigger === "signIn"`):
+   - **Local** provider returns the user row via `local_provider.ts`'s `authorize()`. The jwt callback reads `user.cueweb.{source,externalId,mustChangePassword}` from the returned object.
+   - **Okta** or LDAP (`credentials`) provider triggers `resolveAndPersist(...)`, which calls the active groups resolver (`CUEWEB_GROUPS_RESOLVER`), upserts the user, and syncs `user_groups` for the matching `source`.
+   - **Google** or **GitHub** trigger `upsertProviderIdentity(...)`, which writes the user with `source="imported"`. No groups are synced; admins assign roles in the Users tab.
+2. On every later call, if `cuewebRefreshedAt` is older than 60s, the callback re-reads `listEffectiveRolesForUser`, `listEffectivePermissionsForUser`, `isAdmin`, and `must_change_password` from the DB so changes from the Admin UI propagate without a re-login.
+
+`callbacks.session` mirrors the JWT fields onto `session.user.{groups,roles,permissions,isAdmin,mustChangePassword,source}` so client components can read them via `useSession()`.
+
+### Enforcement layers
+
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| Edge | `middleware.ts` | Coarse gate: redirect to `/login` if unauthenticated on `/admin/*`, return 401 on `/api/admin/*`; require `cuewebIsAdmin` on both paths; short-circuit to `NextResponse.next()` when `NEXT_PUBLIC_AUTH_PROVIDER` is empty. |
+| Route handler | `lib/rbac/require_feature.ts` | `requireFeature(name)` looks up effective permissions for the session and returns a 403 NextResponse if missing. `requireAdmin()` additionally checks `admins`. Both short-circuit to `ok: true, permissions: ["*"]` when auth is disabled. |
+| Client | `components/rbac/{use_roles,require_feature}` | Hooks read from `useSession()` and `<RequireFeature name="...">` renders `null` when the feature isn't held (matches CueGUI's "hide, don't disable" pattern). `useFeature` returns `true` and `useIsAdmin` returns `false` in sandbox mode. |
+
+### Adding a new permission
+
+1. Add the constant to `lib/rbac/permissions.ts` (both the `PERMISSIONS` map and the `PERMISSION_CATALOG` array - the catalog shows up in the Admin UI's Permissions tab).
+2. Add it to the appropriate built-in role in `lib/rbac/roles.ts` if you want it granted out-of-the-box. The next server start re-seeds the role's permissions automatically.
+3. Gate the UI with `<RequireFeature name="your.permission">` or `useFeature("your.permission")`.
+4. Gate the route handler with `requireFeature("your.permission")` at the top of the function.
+
+### Adding a new groups resolver
+
+1. Create `lib/rbac/resolvers/<provider>.ts` implementing `GroupsResolver` with an async `resolve({profile, account, user, token})` that returns a `ResolvedIdentity` or `null`. Filter on `account.provider` to ignore sign-ins from other providers.
+2. Register it in `lib/rbac/resolvers/index.ts`'s `RESOLVERS` map and add the env-var value to the `CUEWEB_GROUPS_RESOLVER` switch.
+3. Update the Reference doc's "RBAC Variables" table.
+
+### SQLite specifics
+
+- `better-sqlite3` is the synchronous SQLite binding; the DAL is a thin layer of prepared statements. Migrations run inside `db.transaction(...)` so partial failures roll back.
+- Native modules are listed in `next.config.js#serverExternalPackages` so webpack doesn't try to bundle them.
+- The Dockerfile installs Python + g++ as a virtual `.build-deps` group during `npm ci` and removes them immediately after, so the runtime image stays slim.
+- The `/data` volume is declared in the Dockerfile and mounted by `docker-compose.yml` as `cueweb-data:/data`.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

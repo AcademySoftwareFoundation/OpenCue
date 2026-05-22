@@ -47,6 +47,10 @@ const nextConfig = {
     }
     return config
   },
+  // better-sqlite3 and argon2 are native node addons; bundling them
+  // through webpack breaks the .node binding lookup. The RBAC layer
+  // only loads them in server components and route handlers.
+  serverExternalPackages: ["better-sqlite3", "argon2"],
   // Whitelist NEXT_PUBLIC_APP_VERSION so it's inlined into the client bundle.
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,

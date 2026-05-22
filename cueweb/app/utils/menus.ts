@@ -29,11 +29,15 @@
 export type NavItem = {
   label: string;
   href: string;
+  /** Optional RBAC feature/permission required to see this item. */
+  requiredFeature?: string;
 };
 
 export type NavMenu = {
   label: string;
   items: NavItem[];
+  /** Optional RBAC feature required to see the whole menu. */
+  requiredFeature?: string;
 };
 
 export const NAV_MENUS: NavMenu[] = [
@@ -43,6 +47,7 @@ export const NAV_MENUS: NavMenu[] = [
   },
   {
     label: "CueCommander",
+    requiredFeature: "cuecommander.open",
     items: [
       { label: "Allocations", href: "/allocations" },
       { label: "Limits", href: "/limits" },

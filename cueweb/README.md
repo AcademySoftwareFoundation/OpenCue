@@ -277,8 +277,8 @@ Go back to [Contents](#contents).
 
 Go back to [Contents](#contents).
 
-## Authentication Setup 
-The CueWeb project utilizes the [NextAuth.js](https://next-auth.js.org/) library for authentication, which includes many popular providers out-of-the-box for additional configuration or for implementing your own email authentication with a custom database. This project already implements Google, Github and Okta authentication and they are enabled if their respective environment variables are provided, otherwise ignored. 
+## Authentication Setup
+The CueWeb project utilizes the [NextAuth.js](https://next-auth.js.org/) library for authentication. Supported providers are **Okta**, **LDAP**, and a built-in **local** username/password provider that ships with CueWeb. Each provider is enabled when its identifier is listed in `NEXT_PUBLIC_AUTH_PROVIDER` (comma-separated). When `NEXT_PUBLIC_AUTH_PROVIDER` is empty, CueWeb runs unauthenticated like before this feature existed.
 
 Authentication providers in [NextAuth.js](https://next-auth.js.org/) are services that can be used to sign in to a user.
 
@@ -294,12 +294,52 @@ Go back to [Contents](#contents).
 
 ### Configuration
 
-To enable Okta, Google, Github or LDAP authentication, simply set the environment variable
-`NEXT_PUBLIC_AUTH_PROVIDER` to either `google`, `okta`, `github`, `ldap` or all of them combined separated by comma
-(e.g. `google,okta,github,ldap`) along with  the OAuth 2.0 secrets listed in `lib/auth.ts`. 
-For example, providing the `GOOGLE_CLIENT_ID`, 
-`GOOGLE_CLIENT_SECRET` Google OAuth 2.0 environment variables and setting `NEXT_PUBLIC_AUTH_PROVIDER=google`
-will automatically enable google authentication. See `.env.example` on a list of environment variables to provide.
+To enable an authentication provider, list it in `NEXT_PUBLIC_AUTH_PROVIDER`. Supported values are `local`, `okta`, and `ldap`, comma-separated (e.g. `NEXT_PUBLIC_AUTH_PROVIDER=local,okta`). The Okta and LDAP providers additionally need the credentials listed in `lib/auth.ts` (`NEXT_AUTH_OKTA_*`, `LDAP_*`). The local provider needs no extra configuration - CueWeb generates a bootstrap `admin` password on first launch (see "RBAC and Admin UI" below). When `NEXT_PUBLIC_AUTH_PROVIDER` is empty CueWeb starts in sandbox mode with no login and no RBAC enforcement, exactly like before this feature existed.
+
+Go back to [Contents](#contents).
+
+### RBAC and Admin UI
+
+When any provider is enabled, CueWeb activates a Role-Based Access Control layer. Permissions live in a SQLite database at `/data/cueweb-rbac.db` (mounted as the `cueweb-data` Docker volume) and are managed from a web Admin UI at `/admin`. The first time CueWeb starts with auth enabled it:
+
+1. Creates a local user `admin` and grants it the built-in `site-admin` role and admin-UI access.
+2. Generates a 24-character random password, prints it once to `stdout` with a banner, and writes it to `/data/.cueweb-bootstrap` with `0600` permissions.
+3. Forces the bootstrap admin to change the password on first sign-in.
+
+Sign in at `/login`, change the password, then use the **Admin** button in the header to open the Admin UI. The UI has tabs for **Users**, **Groups**, **Roles**, **Permissions**, **Admins**, and **Audit log**. Every mutation writes a before/after audit log entry.
+
+**Recovering the bootstrap password.** If `/data/.cueweb-bootstrap` is lost, stop the container, remove the `cueweb-data` volume, and start CueWeb again - the first-launch flow runs again with a fresh password. Existing audit log entries are lost when you reset the volume; export them to CSV first from the Audit log tab if you need to keep them.
+
+#### Groups resolver
+
+CueWeb can sync external group membership on each sign-in via `CUEWEB_GROUPS_RESOLVER`:
+
+| Value | Behavior |
+|-------|----------|
+| `none` (default) | No external sync. Admins assign roles directly in the Users tab. |
+| `okta` | Reads the `groups` claim from the Okta ID token. Requires the Okta app to be configured to include the claim (admin -> Applications -> _your app_ -> Sign On -> OpenID Connect ID Token -> Groups claim type: Filter, matching the groups you want to expose). |
+| `ldap` | After sign-in, binds with the optional service account in `LDAP_SEARCH_USER_DN` / `LDAP_SEARCH_USER_PASSWORD` and reads `memberOf` for the user's DN. Group names are the CNs from the returned DNs. |
+
+Synced groups appear in the **Groups** tab with their `source` badge (`okta` / `ldap`). Externally-sourced groups cannot be deleted from the UI; remove them from the source directory. Direct role assignments on a user (set in the **Users** tab) survive across resolver syncs.
+
+#### Built-in roles
+
+| Role | Description |
+|------|-------------|
+| `site-admin` | Wildcard `*` permission. Cannot be deleted. |
+| `operator` | Day-to-day production operator: view + kill + retry + pause + eat across jobs / layers / frames + hosts lock/unlock + CueCommander menu. |
+| `viewer` | Read-only access to jobs, layers, frames, hosts, and shows. |
+
+You can create custom roles in the **Roles** tab and assemble any subset of permissions from the catalog (`jobs.kill`, `frames.eat`, `cuecommander.open`, etc.). The CueCommander mega-menu in the header is gated on `cuecommander.open`; users without that permission do not see the menu at all.
+
+#### Environment variables added by this feature
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `NEXT_PUBLIC_AUTH_PROVIDER` | empty | Comma-separated subset of `local,okta,ldap`. Empty = sandbox mode. |
+| `CUEWEB_GROUPS_RESOLVER` | `none` | `okta` / `ldap` / `none`. Which resolver runs on sign-in. |
+| `CUEWEB_RBAC_DB` | `/data/cueweb-rbac.db` | SQLite store path. Use `:memory:` in tests. |
+| `LDAP_SEARCH_USER_DN`, `LDAP_SEARCH_USER_PASSWORD` | empty | Optional service-account bind for the LDAP groups resolver. |
 
 Go back to [Contents](#contents).
 

@@ -109,8 +109,16 @@ SENTRY_ENVIRONMENT='development'
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=canbeanything
 
-# Authentication (optional - can be commented out for local development)
-# NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+# Authentication (optional - leave empty for the easiest local-dev path).
+# Set this to enable login + RBAC. Supported values (comma-separated):
+#   local  - built-in username/password (bootstrap admin auto-generated)
+#   okta, google, github, ldap - external providers
+# Example: NEXT_PUBLIC_AUTH_PROVIDER=local
+# NEXT_PUBLIC_AUTH_PROVIDER=
+
+# Optional - groups resolver for okta or ldap. Default 'none' means no
+# group sync; admins assign roles directly in the /admin UI.
+# CUEWEB_GROUPS_RESOLVER=none
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. {path} is substituted with the
@@ -217,6 +225,28 @@ The CueWeb interface includes:
 - **Simple Search**: Type show name followed by hyphen (e.g., "myshow-")
 - **Regex Search**: Prefix with `!` for advanced patterns (e.g., "!.*test.*")
 - **Dropdown Suggestions**: Shows matching jobs as you type
+
+---
+
+## Step 6 (optional): Enable login + RBAC
+
+If you want to try the Admin UI and role-based gating:
+
+1. Set `NEXT_PUBLIC_AUTH_PROVIDER=local` in `.env` (or in `docker-compose.yml` if you deploy via Docker). Restart CueWeb after the change.
+2. The first time CueWeb starts with `local` enabled it prints a banner to the container log with a one-time bootstrap admin password:
+   ```bash
+   docker compose logs cueweb --tail 20
+   ```
+   Look for `CueWeb bootstrap admin created` - copy the password.
+3. Open `/login`, sign in as `admin` with that password. You'll be redirected to **Set a new password** to choose your real one.
+4. After the rotation, an **Admin** button appears in the header. Click it to reach `/admin` and the tabs for **Users**, **Groups**, **Roles**, **Permissions**, **Admins**, and the **Audit log**.
+
+To start over (regenerate a fresh bootstrap password):
+```bash
+docker compose down cueweb
+docker volume rm opencue_cueweb-data
+docker compose up -d cueweb && docker compose logs cueweb --tail 20
+```
 
 ---
 

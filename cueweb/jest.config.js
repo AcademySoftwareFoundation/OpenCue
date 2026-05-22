@@ -23,6 +23,9 @@ module.exports = {
     "^.+.tsx?$": ["ts-jest",{}],
   },
   moduleNameMapper: {
-    '^@/app/(.*)$': '<rootDir>/app/$1',
+    '^@/(.*)$': '<rootDir>/$1',
+    // server-only is a tiny package that throws when imported on the
+    // client. In jest (node env) it is safe to no-op.
+    '^server-only$': '<rootDir>/__tests__/__mocks__/server-only.ts',
   }
 };

@@ -44,6 +44,7 @@ import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { CUEWEB_OPEN_MOBILE_NAV_EVENT } from "@/components/ui/mobile-nav-sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
+import { RequireAdmin, RequireFeature } from "@/components/rbac";
 import opencueLogoBlack from "../../public/opencue-icon-black.png";
 import opencueLogoWhite from "../../public/opencue-icon-white.png";
 
@@ -410,9 +411,17 @@ export function AppHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {NAV_MENUS.map((menu) => (
-            <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
-          ))}
+          {NAV_MENUS.map((menu) => {
+            const button = (
+              <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
+            );
+            if (!menu.requiredFeature) return button;
+            return (
+              <RequireFeature key={menu.label} name={menu.requiredFeature}>
+                {button}
+              </RequireFeature>
+            );
+          })}
 
           {/* Other menu — CueGUI parity (Views/Plugins > Other). */}
           <DropdownMenu>
@@ -479,8 +488,16 @@ export function AppHeader() {
           <HelpDropdownMenu />
         </nav>
 
-        {/* Right cluster: theme + user menu */}
+        {/* Right cluster: admin shortcut + theme + user menu */}
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <RequireAdmin>
+            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <Link href="/admin" aria-label="Open the Admin UI">
+                Admin
+              </Link>
+            </Button>
+          </RequireAdmin>
+
           <ThemeToggle />
 
           {userLabel && (

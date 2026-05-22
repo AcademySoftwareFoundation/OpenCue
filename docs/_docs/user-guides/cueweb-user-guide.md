@@ -97,18 +97,44 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
 
 ### Authentication
 
-CueWeb supports secure authentication through multiple providers:
+CueWeb supports secure authentication through multiple providers, configured by the deployment via the `NEXT_PUBLIC_AUTH_PROVIDER` environment variable:
 
-- **OAuth Providers**: GitHub, Google, Okta, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0
-- **Email Authentication**: Email-based login
-- **Custom Credentials**: Username/password authentication
-- **Other Providers**: Additional providers can be configured using [NextAuth.js](https://next-auth.js.org/)
+- **Local** (`local`): Built-in username/password login backed by CueWeb's own users table. The first time CueWeb starts with `local` enabled it generates a random password for the `admin` user and prints it once to the container log (see "Bootstrap admin" below).
+- **Okta** (`okta`): OIDC sign-in. When the matching groups resolver is enabled the user's Okta groups are synced into CueWeb on every sign-in.
+- **Google** (`google`): Google OAuth sign-in. The user lands in CueWeb's users table and an admin can attach roles from the Admin UI.
+- **GitHub** (`github`): GitHub OAuth sign-in. Same identity-only behavior as Google.
+- **LDAP** (`ldap`): Username/password against an LDAP directory. When the matching groups resolver is enabled the user's `memberOf` groups are synced on each sign-in.
+- **Sandbox mode**: When `NEXT_PUBLIC_AUTH_PROVIDER=` is empty, CueWeb runs unauthenticated and the **CueWeb Home** button takes you straight to the dashboard.
 
 ![CueWeb authentication page (light mode)](/assets/images/cueweb/figure1-auth-light.png)
 
 ![CueWeb authentication page (dark mode)](/assets/images/cueweb/figure2-auth-dark.png)
 
-**Note**: If authentication is disabled for development, you'll see a "CueWeb Home" button to access the interface directly.
+A theme toggle in the top-right corner of the login page (and the change-password page) lets you switch between light and dark modes before signing in.
+
+### Bootstrap admin (first launch with local auth)
+
+When the deployment first starts with `local` in the provider list, CueWeb creates a one-time bootstrap admin so you can reach the Admin UI:
+
+1. A 24-character random password is generated.
+2. The credentials are written to `/data/.cueweb-bootstrap` inside the container and printed once with a banner in the container log:
+   ```
+   ========================================================================
+   CueWeb bootstrap admin created (first-launch flow).
+       username : admin
+       password : <random 24-character string>
+   Credentials were also written to /data/.cueweb-bootstrap (mode 0600). The
+   password will be required to change on first login.
+   ========================================================================
+   ```
+3. Sign in at `/login` with `admin` plus that password. CueWeb redirects you to **Set a new password** before letting you reach the dashboard.
+4. After the rotation, the **Admin** button appears in the top-right corner of the header. Click it to reach the Admin UI at `/admin` and create the rest of your users.
+
+If you lose the bootstrap password, your administrator can re-create it by stopping CueWeb, removing the `cueweb-data` volume, and starting it again - the first-launch flow runs once more and prints a fresh password.
+
+### Set a new password
+
+After bootstrap, and any time an admin resets your password from the Users tab, you are redirected to the **Set a new password** page on next sign-in. Enter your current (temporary) password and a new password of at least 12 characters, twice. You can change theme from the toggle in the top-right while you're there.
 
 ### First Time Setup
 
@@ -553,6 +579,60 @@ The same overlay is reachable from the menu if you prefer mouse navigation:
 ### Toast on shortcut
 
 A small toast appears every time you trigger a shortcut so you know it registered (e.g. pressing `r` toasts `Shortcut: r → Refresh table`). The toast can be turned off via **Other ▸ Notify on Shortcut** in the header or sidebar. The preference persists across reloads and across browser tabs.
+
+---
+
+## Admin UI
+
+When CueWeb is deployed with any auth provider enabled, an **Admin** button appears in the top-right of the header for users who have admin access. Clicking it opens the Admin UI at `/admin`, organized into the following tabs:
+
+### Overview
+
+Stat cards summarizing the policy store: total users, groups, roles, and admins. Use it as a quick health check; specific lookups happen in the dedicated tabs.
+
+### Users
+
+Lists every user CueWeb has seen, with a search box, the source they came from (`local`, `okta`, `google`, `github`, `ldap`, `imported`), and whether they are currently active.
+
+- **Create local user**: opens a small form to create a username + initial password (12+ characters). The user will be forced to change the password on first sign-in.
+- **Deactivate / Activate**: blocks or restores sign-in for that user.
+- **Reset password** (local users only): set a fresh temporary password. The user will be forced to change it again on next sign-in.
+- **Direct roles**: chips show roles attached to the user directly. Use the `+ attach...` dropdown to add another, or the `x` on a chip to remove.
+
+### Groups
+
+Lists every group with its `source` badge.
+
+- **Create local group**: free-form name + description.
+- **Roles**: attach or detach roles per group; group members inherit those roles on next sign-in.
+- Externally sourced groups (`okta`, `ldap`) cannot be deleted from here - remove them from the source directory and they disappear on the next sync.
+
+### Roles
+
+Built-in roles (`site-admin`, `operator`, `viewer`) and any custom roles.
+
+- **Create custom role**: name + optional description. Permissions are toggled per-row in the permission checklist below the role.
+- **Save**: commits the toggled checklist for that role.
+- **Delete**: only available on custom (non-built-in) roles.
+
+### Permissions
+
+A read-only catalog of every permission CueWeb knows about, with a one-line description for each. This is the canonical list the Roles tab toggles against.
+
+### Admins
+
+The whitelist of users that may reach `/admin` and `/api/admin/*`.
+
+- **Add admin**: pick by username, email, or external ID (Okta `sub`, LDAP DN). The user has to exist in the Users tab first - admins cannot be created from thin air.
+- **Remove**: revokes admin access. CueWeb refuses to remove the last admin so the policy store always has a recovery path.
+
+### Audit log
+
+Append-only history of every mutation that went through the Admin UI - account creates, role attaches/detaches, password resets, admin add/removes, and bootstrap events.
+
+- Filter by **action** (e.g. `user.create`) and **actor**.
+- Expand the "before/after" disclosure on a row to see the JSON delta.
+- **Export current view to CSV** exports exactly what's on screen, useful for sharing with compliance.
 
 ---
 

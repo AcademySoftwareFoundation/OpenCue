@@ -132,6 +132,34 @@ sequenceDiagram
 - **CORS Support**: Configurable cross-origin resource sharing
 - **TLS Support**: Optional HTTPS encryption
 
+### Role-Based Access Control (RBAC)
+
+On top of the JWT-based auth between CueWeb and the REST Gateway, CueWeb runs its own **Role-Based Access Control** layer in the UI process. RBAC is **on whenever `NEXT_PUBLIC_AUTH_PROVIDER` is non-empty** and **off (no enforcement) when it's empty**, matching the pre-RBAC behavior for sandbox mode.
+
+The layer has four parts:
+
+1. **Identity providers** (NextAuth). CueWeb supports `local`, `okta`, `google`, `github`, and `ldap`. The set is chosen at deploy time via `NEXT_PUBLIC_AUTH_PROVIDER` (comma-separated subset).
+2. **Groups resolver** (optional). When `CUEWEB_GROUPS_RESOLVER=okta` or `=ldap`, CueWeb syncs the user's external groups on every sign-in. Default `none` means no sync; admins assign roles directly via the Admin UI.
+3. **Policy store**. A SQLite database (`/data/cueweb-rbac.db`, mounted as the `cueweb-data` Docker volume) holds users, groups, roles, role -> permission attachments, group -> role attachments, user -> role direct grants, the admin whitelist, and an append-only audit log of every mutation.
+4. **Enforcement**.
+   - At the **edge**: a Next.js middleware blocks `/admin/*` and `/api/admin/*` for non-admin users.
+   - At the **route handler** (Node runtime): a `requireFeature(name)` / `requireAdmin()` helper returns 401/403 when the session's permissions don't include the requested feature.
+   - At the **client**: hooks short-circuit menu rendering so users don't see actions they can't use (matches CueGUI's "you don't see what you can't use" behavior).
+
+### First-launch bootstrap
+
+If `local` is in the provider list, the very first start with an empty policy store runs a one-time flow that creates an `admin` user with a random password (printed once to the container log and saved to `/data/.cueweb-bootstrap` with `0600` permissions), grants it the `site-admin` role + admin-UI access, and forces a password change on first sign-in. To reset, remove the `cueweb-data` volume and start CueWeb again - a fresh password is generated.
+
+### Built-in roles
+
+| Role | Wildcard | Notes |
+|------|:--------:|-------|
+| `site-admin` | yes | Sole holder of admin-UI access in the seeded state. |
+| `operator` | no | View + mutate jobs / layers / frames / hosts; can open the CueCommander menu. |
+| `viewer` | no | Read-only. |
+
+Custom roles can be added in the Admin UI's **Roles** tab against the same permission catalog (`jobs.kill`, `frames.eat`, `cuecommander.open`, etc.). Permission strings are bare feature names - there is no alias indirection.
+
 ---
 
 ## Deployment Patterns
