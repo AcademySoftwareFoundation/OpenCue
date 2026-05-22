@@ -55,7 +55,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - A **Reset to Default** button pinned at the top of the dropdown clears both visibility AND order in one click.
    - Both states persist per table in `localStorage` (Jobs uses the bare `columnVisibility` / `columnOrder` keys; Layers/Frames use `cueweb.layers.*` and `cueweb.frames.*`).
    - CueGUI-parity column sets:
-     - **Jobs**: Name, State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync via the standard `storage` event), Progress, Notify.
+     - **Jobs**: Name, **Comments** (sortable sticky-note column - pull jobs with comments to the top in one click), State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync via the standard `storage` event), Progress, Notify.
      - **Layers**: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, **Progress** (stacked animated bar, same palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
      - **Frames**: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames - blank for WAITING / DEPEND / SUCCEEDED / DEAD, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
    - Each table also has a small client-side substring **Filter** input next to its Columns dropdown that narrows the rows already loaded; resets to page 1 on every keystroke and keeps sorting, visibility, reordering and pagination working over the filtered subset.
@@ -82,7 +82,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 16. **CueWeb actions and context menu (CueGUI parity):**
    - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
    - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
-   - **Job actions** include: Unmonitor, View Job, **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
+   - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
    - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
    - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
    - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
@@ -115,7 +115,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 22. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
-   - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
+   - Reached from the **Comments** entry in the job context menu, or from a sticky-note icon in the Jobs table's dedicated **Comments** column (sortable, sits right after Name) when the job has at least one comment.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).
    - Predefined-comment macros are stored per-browser in `localStorage` (`cueweb-comment-macros`), with the same `> Add / > Edit / > Delete predefined comment` workflow as CueGUI.
 

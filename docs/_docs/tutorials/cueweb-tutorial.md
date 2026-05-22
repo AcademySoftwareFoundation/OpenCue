@@ -156,13 +156,21 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 
 ### Viewing Job Details
 
-1. Click on any job name in the table
-2. This opens the job details panel with tabs:
-   - **Layers**: Shows render layers and their status
-   - **Frames**: Individual frame information
+CueWeb has two ways to inspect a job:
+
+1. **Inline panel (quick look)**: Click a job row in the Jobs table. The associated Layers and Frames tables appear stacked just below the Jobs grid - the CueGUI Monitor Jobs + Monitor Job Details dock layout.
+
+2. **Tabbed detail page (full inspection)**: Right-click a job and choose **View Job Details** (or tap the row's `⋮` Actions button on a phone). This opens `/jobs/<jobName>` with five tabs:
+   - **Overview**: identity, frame and resource summary.
+   - **Layers**: full Layers table.
+   - **Frames**: full Frames table with the same filter chips and column controls.
+   - **Comments**: preview of the job's comments with a link out to the full Comments editor.
+   - **Dependencies**: placeholder for the dependency graph view.
+   The active tab is stored in the URL as `?tab=<key>`, so the page is bookmarkable and the browser back / forward buttons walk between tabs.
 
 3. To view notes attached to a job, open **Comments**:
-   - Right-click the job row and choose **Comments**, or click the sticky-note icon next to the job name if the job already has comments.
+   - Right-click the job row and choose **Comments**, or click the sticky-note icon in the Jobs table's dedicated **Comments** column (right after Name) when the job already has comments.
+   - The Jobs table's Comments column is sortable - click the column header to pull jobs with comments to the top.
    - The Comments page mirrors the CueGUI Comments dialog: comment list (Subject / User / Date), a markdown-rendered preview, an editor for the selected comment, and `New` / `Save changes` / `Delete` buttons.
    - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros (`localStorage` key `cueweb-comment-macros`).
    - Only a comment's author may edit or delete it; other users see it read-only.

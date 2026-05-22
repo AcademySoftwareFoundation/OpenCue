@@ -159,7 +159,8 @@ The main jobs table (`cueweb/app/jobs/columns.tsx` + `cueweb/app/jobs/data-table
 | Column | Description | Sortable |
 |--------|-------------|----------|
 | **(select)** | Row checkbox. Anchored at the leftmost position - column reorder skips over it. | No |
-| **Name** | Two-line cell: `<show>-<shot>-<user>` on top, rest of the job name underneath. A sticky-note icon appears inline when `Job.hasComment` is `true`. | Yes |
+| **Name** | Two-line cell: `<show>-<shot>-<user>` on top, rest of the job name underneath. | Yes |
+| **Comments** | Sticky-note icon when the job has one or more comments; empty otherwise. Sortable so users can pull jobs-with-comments to the top (CueGUI parity: `JobMonitorTree`'s note-icon column). Clicking the icon opens the per-job Comments page in a new tab. | Yes |
 | **State** | Current job state badge (see [Job States](#job-states)). | Yes |
 | **Done / Total** | `<succeededFrames> of <totalFrames>`. | Yes |
 | **Running** | Running frame count. | Yes |
@@ -347,7 +348,7 @@ CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `
 | **Markdown** | Messages are rendered with `react-markdown` + `rehype-sanitize` to strip embedded HTML/scripts. |
 | **Edit / delete authorization** | Server-side ownership enforcement in Cuebot is authoritative. The client adds a convenience gate that enables the editor/delete only when `comment.user === currentUser` (the session-derived identity); the URL is never used as an auth signal. |
 | **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
-| **Indicator icon** | A sticky-note icon is shown beside the job's show-shot-user label in the jobs table when `Job.hasComment` is true. Updated on the regular jobs-table polling cycle. |
+| **Indicator icon** | The Jobs table has a dedicated **Comments** column (right after Name) showing a sticky-note icon when `Job.hasComment` is true. The column is sortable so users can pull jobs-with-comments to the top. Updated on the regular jobs-table polling cycle. |
 
 ---
 
@@ -400,7 +401,8 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | Action | Description |
 |--------|-------------|
 | **Unmonitor** | Remove the job from the monitored list. |
-| **View Job** | Navigate to the job detail page. |
+| **View Job** | Navigate to the job detail page. *(placeholder)* |
+| **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
 | **Copy Job Name** | Copy the full job name to the clipboard. |
 | **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
 | **Request Cores** | Open the Request Cores dialog. *(placeholder)* |

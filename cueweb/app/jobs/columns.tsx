@@ -300,24 +300,49 @@ export const columns: ColumnDef<Job>[] = [
     },
     // A job name has the format `${show-shot-user}_${jobName}_[optional suffix]`
     // The next few lines split up the job name into two lines for easier readability
-    // One line for show/show/user and another for the rest of the job name
-    cell: ({ row, table }) => {
+    // One line for show/show/user and another for the rest of the job name.
+    // The sticky-note comment indicator used to render inline next to the
+    // first line; it's now a dedicated `comments` column to the right so
+    // the user can sort jobs by "has a comment" the way CueGUI does.
+    cell: ({ row }) => {
       const job = row.original as Job;
-      const username = (table.options.meta as { username?: string } | undefined)?.username;
       return (
-        // Cap the Name cell width and truncate the two lines so long job
-        // names don't push every other column off-screen. mx-auto centers
-        // the capped box inside the (already text-center) cell. Inner
-        // flex uses justify-center so the comment-indicator icon also
-        // sits next to centered text instead of left-anchored.
         <div className="mx-auto max-w-[200px] text-center" title={job.name}>
-          <div className="flex items-center justify-center gap-1 truncate">
-            <span className="truncate">{getShowShotUser(job.name)}</span>
-            {job.hasComment && <JobCommentIndicator job={job} username={username} />}
-          </div>
+          <div className="truncate">{getShowShotUser(job.name)}</div>
           <div className="truncate">{getRestOfJobName(job.name)}</div>
         </div>
       );
+    },
+  },
+  {
+    // Dedicated comments column. Sortable so users can pull jobs with
+    // comments to the top (CueGUI parity: cuegui.JobMonitorTree renders
+    // a tiny note-icon column right next to the job name).
+    id: "comments",
+    accessorFn: (row) => (row.hasComment ? 1 : 0),
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-mx-2 h-7 px-1.5 text-xs font-medium"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        title="Sort by jobs with comments"
+      >
+        <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        <span className="sr-only">Comments</span>
+      </Button>
+    ),
+    cell: ({ row, table }) => {
+      const job = row.original as Job;
+      if (!job.hasComment) return null;
+      const username = (table.options.meta as { username?: string } | undefined)?.username;
+      return <JobCommentIndicator job={job} username={username} />;
+    },
+    sortingFn: (rowA, rowB) => {
+      const a = (rowA.original as Job).hasComment ? 1 : 0;
+      const b = (rowB.original as Job).hasComment ? 1 : 0;
+      return a - b;
     },
   },
   {

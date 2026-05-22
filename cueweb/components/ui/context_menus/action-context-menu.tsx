@@ -56,6 +56,7 @@ import {
   TbExternalLink,
   TbEyeOff,
   TbHelp,
+  TbLayoutDashboard,
   TbLink,
   TbMessage,
   TbPacman,
@@ -162,6 +163,17 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   tableStorageName,
   unfilteredTableStorageName,
 }) => {
+  const router = useRouter();
+
+  // Navigate to the tabbed job detail page at /jobs/<jobName>?tab=overview.
+  // The page (app/jobs/[job-name]/page.tsx) owns the Overview / Layers /
+  // Frames / Comments / Dependencies tabs and keeps the active tab in
+  // sync with the URL, so this entry is a simple deep link.
+  function handleViewJobDetails(row: Row<any>) {
+    const job = row.original as Job;
+    router.push(`/jobs/${encodeURIComponent(job.name)}?tab=overview`);
+  }
+
   function handleUnmonitorJobGivenRow(row: Row<any>) {
     unmonitorJobGivenRow(
       row,
@@ -213,6 +225,16 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       onClick: notYetImplemented("View Job"),
       isActive: true,
       component: <TbDots className="mr-1" size={14} />,
+    },
+    {
+      // Tabbed detail page (Overview / Layers / Frames / Comments /
+      // Dependencies) with URL-synced active-tab state. Lives at
+      // /jobs/<jobName>?tab=<key> so the page is bookmarkable and
+      // back-button-friendly.
+      label: "View Job Details",
+      onClick: handleViewJobDetails,
+      isActive: true,
+      component: <TbLayoutDashboard className="mr-1" size={14} />,
     },
     {
       label: "Copy Job Name",

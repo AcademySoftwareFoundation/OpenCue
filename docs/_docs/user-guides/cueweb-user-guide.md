@@ -166,7 +166,8 @@ The Jobs table ships every CueGUI-parity column visible by default. You can hide
 | Column | Description |
 |--------|-------------|
 | **Select** | Checkbox for multi-job selection. Anchored at the leftmost position - column reorder skips over it. |
-| **Name** | Job identifier with show-shot-user and job name on separate lines. A sticky-note icon appears next to the show-shot-user line when the job has one or more comments - click it to open the Comments page in a new tab. |
+| **Name** | Job identifier with show-shot-user and job name on separate lines. |
+| **Comments** | Sticky-note icon when the job has one or more comments; empty otherwise. The column is **sortable**, so you can pull jobs with comments to the top in one click on the header. Clicking the icon itself opens the per-job Comments page in a new tab. |
 | **State** | Current job state (Failing, Finished, In Progress, Dependency, Paused). |
 | **Done / Total** | Succeeded frames out of total frames (e.g., "150 of 200"). |
 | **Running** | Number of currently running frames. |
@@ -250,7 +251,7 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
 - **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
 - **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 
@@ -285,7 +286,7 @@ CueWeb provides full CRUD for per-job comments, equivalent to the **Comments** d
 You can reach a job's Comments page in two ways:
 
 - **Context menu**: Right-click a job row and choose **Comments**.
-- **Indicator icon**: If a job already has at least one comment, a sticky-note icon appears next to the job name. Click it to open the Comments page.
+- **Indicator icon**: The Jobs table has a dedicated **Comments** column (right after Name). A sticky-note icon appears there when the job has at least one comment; the column is sortable so you can pull jobs with comments to the top. Clicking the icon opens the Comments page in a new tab.
 
 Both routes open a new browser tab at `/jobs/<job-name>/comments?jobId=<id>`. The page derives the signed-in viewer from the authenticated NextAuth session (`/api/auth/session`), not from any URL parameter, so the `username` query string is **not** an authorization signal and is safe to ignore if present. Only the session-derived identity is used to decide whether the editor is enabled for the selected comment, and ownership for save/delete is enforced server-side; the client-side UI state simply reflects what the server will allow.
 
@@ -321,7 +322,7 @@ The **Use a predefined comment…** dropdown mirrors CueGUI's macro list and is 
 
 ### Comment indicator on the jobs table
 
-When `hasComment` is true on a job, a sticky-note icon is rendered next to the job's show-shot-user label. The indicator is refreshed on the regular jobs-table polling cycle (every 5 seconds by default), so a freshly added comment may take one tick to surface on the table.
+When a job has at least one comment, the Jobs table's dedicated **Comments** column (right after Name) shows a sticky-note icon for that row. The indicator is refreshed on the regular jobs-table polling cycle (every 5 seconds by default), so a freshly added comment may take one tick to surface on the table. Click the column header to sort jobs with comments to the top.
 
 ---
 
