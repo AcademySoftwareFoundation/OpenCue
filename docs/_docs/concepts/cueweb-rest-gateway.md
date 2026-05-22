@@ -148,7 +148,7 @@ The layer has four parts:
 
 ### First-launch bootstrap
 
-If `local` is in the provider list, the very first start with an empty policy store runs a one-time flow that creates an `admin` user with a random password (printed once to the container log and saved to `/data/.cueweb-bootstrap` with `0600` permissions), grants it the `site-admin` role + admin-UI access, and forces a password change on first sign-in. To reset, remove the `cueweb-data` volume and start CueWeb again - a fresh password is generated.
+If `local` is in the provider list, the very first start with an empty policy store runs a one-time flow that creates an `admin` user with a random password (printed once to the container log and saved to `/data/.cueweb-bootstrap` with `0600` permissions), grants it the `site-admin` role + admin-UI access, and forces a password change on first sign-in. To reset, remove the `cueweb-data` volume and start CueWeb again - a fresh password is generated. **Removing that volume is destructive and erases every persisted RBAC row (local users, groups, custom roles, group/role attachments, admin whitelist, and the audit log); only run that recipe in sandbox / disposable environments, or after taking a verified backup of `/data`.**
 
 ### Built-in roles
 

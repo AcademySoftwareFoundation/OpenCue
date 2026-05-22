@@ -504,6 +504,8 @@ docker compose up -d cueweb && docker compose logs cueweb --tail 20
 
 This regenerates the whole policy store - **all users, groups, roles, and the audit log are erased**. Export the audit log to CSV from the Admin UI's **Audit log** tab beforehand if you need to keep it.
 
+> **Warning:** `docker volume rm <stack>_cueweb-data` is **destructive and irreversible**. It removes every persisted RBAC row - local users, groups, custom roles, group/role attachments, the admin whitelist, and the entire audit log. Externally sourced identities (Okta / LDAP / Google / GitHub) reappear on the next sign-in but any direct role grants on them are lost, which can lock out admins who relied on direct grants. **Do not run this in production unless you have a tested backup-and-restore plan** - see the "Persistent volumes" section below for a `tar` recipe.
+
 ### Disable Authentication (Development)
 
 For development or internal deployments without authentication:

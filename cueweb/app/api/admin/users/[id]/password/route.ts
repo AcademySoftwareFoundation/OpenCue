@@ -10,6 +10,7 @@ import { requireAdmin } from "@/lib/rbac/require_feature";
 import {
   appendAudit,
   findUserById,
+  runInTransaction,
   setUserPassword,
 } from "@/lib/rbac/db/dal";
 
@@ -55,14 +56,18 @@ export async function POST(
     );
   }
 
+  // Argon2 hashing is async and slow, so it stays outside the
+  // transaction. The cheap DB writes that follow run together so the
+  // password change cannot persist without its audit row.
   const hash = await argon2.hash(password, { type: argon2.argon2id });
-  setUserPassword(userId, hash, true);
-
-  appendAudit({
-    actorId: gate.userId,
-    actorLabel: String(gate.userId),
-    action: "user.password_reset",
-    target: `user:${userId}`,
+  runInTransaction(() => {
+    setUserPassword(userId, hash, true);
+    appendAudit({
+      actorId: gate.userId,
+      actorLabel: String(gate.userId),
+      action: "user.password_reset",
+      target: `user:${userId}`,
+    });
   });
 
   return NextResponse.json({ ok: true });

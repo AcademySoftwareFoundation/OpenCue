@@ -65,17 +65,20 @@ async function lookupMemberOf(userDn: string): Promise<string[]> {
     tlsOptions: tls,
   });
 
-  const bindDn = process.env.LDAP_SEARCH_USER_DN;
-  const bindPwd = process.env.LDAP_SEARCH_USER_PASSWORD;
-  if (bindDn && bindPwd) {
-    await new Promise<void>((resolve, reject) => {
-      client.bind(bindDn, bindPwd, (err) =>
-        err ? reject(err) : resolve(),
-      );
-    });
-  }
-
   try {
+    // bind has to live inside the try block so the finally below
+    // always runs client.unbind() - otherwise a rejected bind exits
+    // the function with the connection still open.
+    const bindDn = process.env.LDAP_SEARCH_USER_DN;
+    const bindPwd = process.env.LDAP_SEARCH_USER_PASSWORD;
+    if (bindDn && bindPwd) {
+      await new Promise<void>((resolve, reject) => {
+        client.bind(bindDn, bindPwd, (err) =>
+          err ? reject(err) : resolve(),
+        );
+      });
+    }
+
     return await new Promise<string[]>((resolve) => {
       const groups: string[] = [];
       client.search(

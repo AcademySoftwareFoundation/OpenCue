@@ -10,6 +10,7 @@ import {
   appendAudit,
   deleteGroup,
   findGroupById,
+  runInTransaction,
 } from "@/lib/rbac/db/dal";
 
 export const runtime = "nodejs";
@@ -39,13 +40,15 @@ export async function DELETE(
       { status: 400 },
     );
   }
-  deleteGroup(groupId);
-  appendAudit({
-    actorId: gate.userId,
-    actorLabel: String(gate.userId),
-    action: "group.delete",
-    target: `group:${groupId}`,
-    before: { name: group.name, source: group.source },
+  runInTransaction(() => {
+    deleteGroup(groupId);
+    appendAudit({
+      actorId: gate.userId,
+      actorLabel: String(gate.userId),
+      action: "group.delete",
+      target: `group:${groupId}`,
+      before: { name: group.name, source: group.source },
+    });
   });
   return NextResponse.json({ ok: true });
 }

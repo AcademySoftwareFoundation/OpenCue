@@ -248,6 +248,8 @@ docker volume rm opencue_cueweb-data
 docker compose up -d cueweb && docker compose logs cueweb --tail 20
 ```
 
+> **Warning:** `docker volume rm opencue_cueweb-data` is **destructive**. It deletes the entire RBAC policy store - every local user, group, custom role, group/role attachment, admin whitelist entry, and the audit log are erased. Externally sourced identities (Okta / LDAP / Google / GitHub) reappear on the next sign-in but any direct role grants on them are lost. Safe in this sandbox/quick-start context; do **not** use the recipe verbatim in production - take a backup of `/data` first.
+
 ---
 
 ## Troubleshooting

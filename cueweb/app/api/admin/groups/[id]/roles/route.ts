@@ -79,6 +79,9 @@ export async function DELETE(
   if (!Number.isFinite(groupId)) {
     return NextResponse.json({ error: "invalid_id" }, { status: 400 });
   }
+  if (!findGroupById(groupId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
   const roleName = req.nextUrl.searchParams.get("roleName") ?? "";
   const role = findRoleByName(roleName);
   if (!role) return NextResponse.json({ error: "role_not_found" }, { status: 404 });

@@ -60,12 +60,13 @@ export default function RolesPage() {
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
       alert(b.error || "Failed.");
+      return;
     }
     setEditing((e) => {
       const { [roleId]: _, ...rest } = e;
       return rest;
     });
-    refresh();
+    await refresh();
   }
 
   async function deleteRole(roleId: number) {

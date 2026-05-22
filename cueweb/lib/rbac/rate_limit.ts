@@ -30,11 +30,24 @@ const MAX_HITS = 5;
 
 const store = new Map<string, Window>();
 
+// Iterate the store and drop any window whose reset time has passed.
+// Without this sweep, a broad username/IP spray would leave one entry
+// per attempted key in memory forever, since entries are normally only
+// touched again when the same IP retries.
+function pruneExpired(now: number): void {
+  // Array.from snapshots the entries so we can safely delete while
+  // iterating, and avoids relying on downlevel iteration of Map.
+  for (const [k, w] of Array.from(store.entries())) {
+    if (w.resetAt <= now) store.delete(k);
+  }
+}
+
 export function recordFailedAttempt(key: string): {
   blocked: boolean;
   retryInMs: number;
 } {
   const now = Date.now();
+  pruneExpired(now);
   const w = store.get(key);
   if (!w || w.resetAt <= now) {
     store.set(key, { hits: 1, resetAt: now + WINDOW_MS });
@@ -53,6 +66,7 @@ export function clearAttempts(key: string): void {
 
 export function isBlocked(key: string): { blocked: boolean; retryInMs: number } {
   const now = Date.now();
+  pruneExpired(now);
   const w = store.get(key);
   if (!w || w.resetAt <= now) return { blocked: false, retryInMs: 0 };
   if (w.hits >= MAX_HITS) return { blocked: true, retryInMs: w.resetAt - now };

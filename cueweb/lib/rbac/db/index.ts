@@ -53,7 +53,10 @@ function ensureParentDir(filePath: string) {
  * the initialization only happens once per process.
  */
 export function getDb(): Database.Database {
-  if (_db) return _db;
+  // Only return a cached handle if it has finished initialization;
+  // otherwise a failure in migrations or seeding on the first call
+  // would leave subsequent callers with a half-built DB.
+  if (_db && _initialized) return _db;
 
   const dbPath = resolveDbPath();
   ensureParentDir(dbPath);
@@ -63,12 +66,20 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
 
-  _db = db;
-
-  if (!_initialized) {
+  try {
     runMigrations(db);
     seedBuiltinRoles(db);
     _initialized = true;
+    _db = db;
+  } catch (err) {
+    try {
+      db.close();
+    } catch {
+      // ignore - the bad handle is being discarded anyway
+    }
+    _db = null;
+    _initialized = false;
+    throw err;
   }
 
   return db;

@@ -132,6 +132,8 @@ When the deployment first starts with `local` in the provider list, CueWeb creat
 
 If you lose the bootstrap password, your administrator can re-create it by stopping CueWeb, removing the `cueweb-data` volume, and starting it again - the first-launch flow runs once more and prints a fresh password.
 
+> **Warning:** Removing the `cueweb-data` volume is **destructive**. It erases every persisted RBAC and authentication row - all local users, groups, custom roles, group / role attachments, admin whitelist entries, and the entire audit log are lost. Externally sourced identities (Okta / LDAP / Google / GitHub) will be re-created on the next sign-in but any direct role grants on them are gone. Only use this recipe in sandbox / disposable environments, or in production with a validated backup of `/data` taken first.
+
 ### Set a new password
 
 After bootstrap, and any time an admin resets your password from the Users tab, you are redirected to the **Set a new password** page on next sign-in. Enter your current (temporary) password and a new password of at least 12 characters, twice. You can change theme from the toggle in the top-right while you're there.

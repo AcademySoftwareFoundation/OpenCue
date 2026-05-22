@@ -235,6 +235,8 @@ docker compose up -d cueweb && docker compose logs cueweb --tail 20
 
 This resets the policy store; the first-launch flow runs again and prints a fresh password. The audit log is reset along with the policy store; if you want to preserve it, export it from the **Audit log** tab first.
 
+> **Warning:** `docker volume rm opencue_cueweb-data` is **destructive**. It deletes every persisted RBAC row - local users, groups, custom roles, group/role attachments, the admin whitelist, and the entire audit log. Externally sourced identities are re-created on the next sign-in but their direct role grants are gone. Use only in sandbox/disposable environments unless you have a validated `/data` backup (see "Persistent volumes" in the deployment guide).
+
 ---
 
 ## User Interface Components

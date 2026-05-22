@@ -32,22 +32,42 @@
  * time, so the client-side checks resolve at module-eval time, not
  * via process.env at request time.
  */
-function rawList(): string[] {
+// Known auth provider identifiers. Filtering against this allowlist
+// means a typo in NEXT_PUBLIC_AUTH_PROVIDER (e.g. `locla`) is dropped
+// rather than silently enabling "auth" with no usable provider.
+const ALLOWED_PROVIDERS = new Set([
+  "local",
+  "okta",
+  "google",
+  "github",
+  "ldap",
+] as const);
+
+export type AuthProvider =
+  | "local"
+  | "okta"
+  | "google"
+  | "github"
+  | "ldap";
+
+function rawList(): AuthProvider[] {
   const raw = process.env.NEXT_PUBLIC_AUTH_PROVIDER || "";
   return raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+    .filter((s): s is AuthProvider =>
+      (ALLOWED_PROVIDERS as Set<string>).has(s),
+    );
 }
 
 export function authEnabled(): boolean {
   return rawList().length > 0;
 }
 
-export function hasProvider(name: "local" | "okta" | "ldap"): boolean {
+export function hasProvider(name: AuthProvider): boolean {
   return rawList().includes(name);
 }
 
-export function authProviderList(): string[] {
+export function authProviderList(): AuthProvider[] {
   return rawList();
 }

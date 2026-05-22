@@ -310,6 +310,8 @@ Sign in at `/login`, change the password, then use the **Admin** button in the h
 
 **Recovering the bootstrap password.** If `/data/.cueweb-bootstrap` is lost, stop the container, remove the `cueweb-data` volume, and start CueWeb again - the first-launch flow runs again with a fresh password. Existing audit log entries are lost when you reset the volume; export them to CSV first from the Audit log tab if you need to keep them.
 
+> **Warning:** Removing the `cueweb-data` volume is **destructive**. It wipes every persisted RBAC row - all local users, groups, custom roles, group/role attachments, admin whitelist, and the entire audit log. Externally sourced identities (Okta / LDAP / Google / GitHub) are re-created on the next sign-in, but any direct role grants on them are gone. Only run this recipe in sandbox / disposable environments, or in production after taking a validated backup of `/data` (see the backup recipe in `docs/_docs/getting-started/deploying-cueweb.md`).
+
 #### Groups resolver
 
 CueWeb can sync external group membership on each sign-in via `CUEWEB_GROUPS_RESOLVER`:

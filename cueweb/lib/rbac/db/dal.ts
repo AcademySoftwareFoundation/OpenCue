@@ -19,6 +19,24 @@ import "server-only";
 import { getDb } from "./index";
 import type { GroupRow, RoleRow, Source, UserRow } from "./types";
 
+// -- Transaction helper -------------------------------------------------
+
+/**
+ * Run a synchronous callback inside a single SQLite transaction. Any
+ * throw inside `fn` rolls every write made in `fn` back. Use this when
+ * a route handler needs to batch a mutation and its audit log row so
+ * the two cannot diverge if the audit insert fails.
+ *
+ * Example:
+ *   runInTransaction(() => {
+ *     deleteGroup(groupId);
+ *     appendAudit({ ... });
+ *   });
+ */
+export function runInTransaction<T>(fn: () => T): T {
+  return getDb().transaction(fn)();
+}
+
 // -- Users --------------------------------------------------------------
 
 export function findUserByExternalId(externalId: string): UserRow | null {
@@ -68,45 +86,40 @@ export type UpsertUserInput = {
  * updates the mutable fields. Returns the row's id either way.
  */
 export function upsertUser(input: UpsertUserInput): number {
+  // Single-statement upsert via SQLite's ON CONFLICT clause. Avoids the
+  // check-then-insert race where two concurrent sign-ins for the same
+  // external_id both miss the existing row and then one of them fails
+  // the UNIQUE constraint on insert. password_hash and
+  // must_change_password are intentionally left untouched on update so
+  // resolver sign-ins for an existing local user (rare, but possible
+  // via the Admin UI) cannot wipe the locally-managed password.
   const db = getDb();
-  const existing = findUserByExternalId(input.externalId);
-  if (existing) {
-    db.prepare(
-      `UPDATE users
-          SET username     = @username,
-              email        = @email,
-              display_name = @displayName,
-              source       = @source,
-              updated_at   = strftime('%s','now')
-        WHERE id = @id`,
-    ).run({
-      id: existing.id,
-      username: input.username,
-      email: input.email ?? null,
-      displayName: input.displayName ?? null,
-      source: input.source,
-    });
-    return existing.id;
-  }
-  const info = db
-    .prepare(
-      `INSERT INTO users
-         (external_id, username, email, display_name, source,
-          password_hash, must_change_password)
-       VALUES
-         (@externalId, @username, @email, @displayName, @source,
-          @passwordHash, @mustChangePassword)`,
-    )
-    .run({
-      externalId: input.externalId,
-      username: input.username,
-      email: input.email ?? null,
-      displayName: input.displayName ?? null,
-      source: input.source,
-      passwordHash: input.passwordHash ?? null,
-      mustChangePassword: input.mustChangePassword ? 1 : 0,
-    });
-  return Number(info.lastInsertRowid);
+  db.prepare(
+    `INSERT INTO users
+       (external_id, username, email, display_name, source,
+        password_hash, must_change_password)
+     VALUES
+       (@externalId, @username, @email, @displayName, @source,
+        @passwordHash, @mustChangePassword)
+     ON CONFLICT(external_id) DO UPDATE SET
+       username     = excluded.username,
+       email        = excluded.email,
+       display_name = excluded.display_name,
+       source       = excluded.source,
+       updated_at   = strftime('%s','now')`,
+  ).run({
+    externalId: input.externalId,
+    username: input.username,
+    email: input.email ?? null,
+    displayName: input.displayName ?? null,
+    source: input.source,
+    passwordHash: input.passwordHash ?? null,
+    mustChangePassword: input.mustChangePassword ? 1 : 0,
+  });
+  const row = db
+    .prepare("SELECT id FROM users WHERE external_id = ?")
+    .get(input.externalId) as { id: number };
+  return row.id;
 }
 
 export function setUserPassword(
@@ -444,6 +457,24 @@ export function adminCount(): number {
 
 // -- Audit log ----------------------------------------------------------
 
+// Defensive JSON serializer for audit payloads. The inputs are `unknown`
+// and may - through caller bugs - contain circular references, BigInts,
+// or other values that crash JSON.stringify. We never want an audit
+// insert to fail the underlying mutation it is recording, so fall back
+// to a sentinel string on serialization errors and let the operator see
+// the bad payload later via the Audit log tab.
+function safeAuditJson(value: unknown): string | null {
+  if (value === undefined) return null;
+  try {
+    return JSON.stringify(value);
+  } catch (err) {
+    return JSON.stringify({
+      error: "unserializable_audit_payload",
+      reason: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export function appendAudit(input: {
   actorId: number | null;
   actorLabel: string;
@@ -464,7 +495,7 @@ export function appendAudit(input: {
       actorLabel: input.actorLabel,
       action: input.action,
       target: input.target ?? null,
-      before: input.before === undefined ? null : JSON.stringify(input.before),
-      after: input.after === undefined ? null : JSON.stringify(input.after),
+      before: safeAuditJson(input.before),
+      after: safeAuditJson(input.after),
     });
 }
