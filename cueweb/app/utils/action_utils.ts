@@ -456,14 +456,22 @@ export function setMaxRetriesGivenRow(row: Row<any>) {
  * browser (e.g.  iOS Safari and Android Chrome).
  */
 async function copyTextToClipboard(text: string): Promise<void> {
-  // Modern path - requires a secure context.
+  // Modern path - requires a secure context. Wrap in try/catch so that
+  // a rejection (revoked permission, transient browser quirk, sandboxed
+  // iframe denying clipboard-write, etc.) doesn't short-circuit the
+  // legacy execCommand fallback below.
   if (
     typeof navigator !== "undefined"
     && navigator.clipboard
     && typeof window !== "undefined"
     && window.isSecureContext
   ) {
-    return navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall through to the legacy textarea + execCommand path.
+    }
   }
   // Legacy fallback for insecure contexts (HTTP LAN IPs, etc.).
   if (typeof document === "undefined") {
