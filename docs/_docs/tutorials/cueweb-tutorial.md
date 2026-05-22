@@ -197,21 +197,34 @@ Frames are the individual rendering tasks within each layer.
 #### Frame Operations
 
 1. **View Frame Logs**:
-   - Click on a frame number
-   - Select log version from dropdown
-   - View error messages or progress
+   - Double-click anywhere on the frame row to open the in-browser Monaco log viewer.
+   - Or right-click → **View Log** / **Tail Log** for the same in-browser viewer.
+   - On touch devices, tap the row's `⋮` Actions button (leftmost cell) → **View Log**.
+   - Select log version from the dropdown inside the viewer.
+   - The viewer shows an empty-state message when the frame hasn't started running yet (no log file on disk).
 
-2. **Retry Failed Frames**:
+2. **Open Logs in an External Editor** *(optional)*:
+   - If the deployment has `NEXT_PUBLIC_LOG_EDITOR_URL` configured, the Frame right-click menu also offers **View Log on \<editor\>** below **View Log**.
+   - The sandbox `docker-compose.yml` ships with `vscode://file{path}` as the default → **View Log on VSCode**. Override the build arg to target Sublime / TextMate / IntelliJ instead (or set it empty to hide the item).
+   - Tapping it launches the rqlog file directly in your desktop editor via the custom URL scheme - the same approach GitHub's "Open in VSCode" button uses. No need to copy the path and paste it into a terminal.
+   - If the editor isn't installed (no app registered for `vscode://`, `subl://`, etc.), CueWeb shows a warning toast after a short timeout pointing you at the alternatives.
+
+3. **Retry Failed Frames**:
    - Right-click on red (failed) frames
    - Select "Retry Frame"
    - Monitor the frame as it re-enters the queue
 
-3. **Kill Running Frames**:
+4. **Kill Running Frames**:
    - Right-click on yellow (running) frames
    - Select "Kill Frame"
    - Use when frames are stuck or consuming too many resources
 
-4. **Filter by Frame State**:
+5. **Copy frame metadata**:
+   - **Copy Frame Name** copies just the frame name (e.g. `0001-test_layer`).
+   - **Copy Log Path** copies the absolute rqlog path so you can paste it into a terminal or another viewer.
+   - Both work on plain-HTTP LAN deployments (e.g. accessing CueWeb on your phone via the Mac's LAN IP), not just `localhost`.
+
+6. **Filter by Frame State**:
    - The chips above the frames table — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — show the count for each state and act as toggles.
    - Click one or more chips to filter; multiple selections are combined with **OR**.
    - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
@@ -345,39 +358,39 @@ Both visibility and ordering choices persist per table in `localStorage` and sur
 
 ## Mobile and Remote Monitoring
 
-### Mobile Interface
+CueWeb is responsive down to phone-sized viewports. Every action available on desktop has a mobile-equivalent path.
 
-CueWeb has basic responsive design for mobile devices:
+### Reaching CueWeb from a phone on the same network
 
-1. **Access on Mobile**:
-   - Open CueWeb URL in mobile browser
-   - Interface automatically adapts to smaller screen
-   - Core functionality available
+1. On the machine running CueWeb, find the LAN IP: `ipconfig getifaddr en0` on macOS, `ip a` on Linux.
+2. On the phone (same Wi-Fi), open `http://<lan-ip>:3000` in your browser (e.g. Safari or Google Chrome).
+3. The same UI loads. The client builds same-origin relative URLs for every API call, so it works correctly from any host (no rebuild needed). This requires `NEXT_PUBLIC_URL=` (empty, the default).
 
-2. **Mobile Best Practices**:
-   - Use simplified column views
-   - Focus on status and progress columns
-   - Note that mobile interface is basic compared to desktop
+### Mobile-specific UI affordances
 
-3. **Mobile Limitations**:
-   - Limited responsive design implementation
-   - Detailed log viewing may be difficult
-   - Complex frame operations better on desktop
-   - Primarily designed for desktop use
+1. **Hamburger nav drawer**:
+   - The desktop sidebar is hidden below the `md` breakpoint (768px).
+   - A hamburger button appears on the LEFT of the global header. Tap it to open a side drawer with every group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help.
+   - The drawer auto-closes when you tap a navigation link.
 
-### Mobile Monitoring
+2. **Per-row Actions menu (replaces right-click)**:
+   - Every Jobs / Layers / Frames row has a small `⋮` button as its leftmost cell.
+   - Tap it to open the same context menu the desktop right-click opens: Copy Job / Layer / Frame Name, View Log, View Log on \<editor\>, Pause / Kill / Eat / Retry, etc.
 
-If you have a mobile device available:
+3. **Horizontally swipeable tables**:
+   - The Jobs / Layers / Frames grids have 15-25 columns each. Phones can't fit all of them.
+   - Swipe left/right inside the table to reach off-screen columns.
+   - Use the **Columns** dropdown to hide columns you don't need on small screens (the choice is remembered for next time).
 
-1. **Access Mobile Interface**:
-   - Open CueWeb on your phone/tablet
-   - Note the responsive layout
-   - Test basic navigation
+4. **Tap-to-trigger keyboard shortcuts**:
+   - Open **Other ▸ Show Shortcuts** from the hamburger drawer.
+   - Every key badge in the overlay is a real button. Tapping `/` focuses the Jobs search box, `r` refreshes the table, `t` toggles theme, `Esc` closes the overlay - no physical keyboard needed.
 
-2. **Monitor Jobs**:
-   - Check job status
-   - View progress indicators
-   - Try pausing/resuming a job
+### Clipboard, notifications, and external editor on LAN HTTP
+
+- **Clipboard works** on plain-HTTP LAN access. The browser's modern clipboard API is restricted to secure contexts (HTTPS / `localhost`), but CueWeb automatically uses a legacy copy path when the modern one isn't available.
+- **Subscribe to Job** still works - the in-app toast always fires. The optional desktop popup is skipped on LAN HTTP because the Web Notifications API also requires a secure context; serve CueWeb over HTTPS (self-signed cert is enough) to enable that path.
+- **View Log on \<editor\>** depends on the user's device having the URL scheme registered. iOS Safari doesn't route arbitrary custom schemes to apps the way macOS does, so the in-browser **View Log** is the reliable path on phones - CueWeb falls back to a warning toast when the scheme isn't handled.
 
 ---
 

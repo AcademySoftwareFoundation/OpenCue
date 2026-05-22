@@ -117,13 +117,16 @@ cueweb/
 │       └── health/       # Gateway reachability probe used by StatusBar
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
-│   │   ├── app-header.tsx       # Global persistent header
-│   │   ├── app-sidebar.tsx      # Collapsible left sidebar
+│   │   ├── app-header.tsx       # Global persistent header (incl. mobile hamburger)
+│   │   ├── app-sidebar.tsx      # Collapsible left sidebar (desktop)
+│   │   ├── mobile-nav-sheet.tsx # Mobile drawer mirroring every sidebar group
+│   │   ├── sheet.tsx            # Side-slide panel primitive (Radix Dialog-based)
+│   │   ├── row-actions-cell.tsx # Per-row "⋮" Actions button (touch equivalent of right-click)
 │   │   ├── attributes-panel.tsx # Docked Attributes drawer
 │   │   ├── breadcrumbs.tsx      # Detail-view breadcrumb primitive
 │   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
 │   │   ├── status-bar.tsx       # IDE-style fixed bottom status bar
-│   │   ├── shortcuts-overlay.tsx # `?` overlay + global key handler + open event
+│   │   ├── shortcuts-overlay.tsx # `?` overlay + global key handler + clickable kbd chips
 │   │   ├── job-progress-bar.tsx # Stacked Jobs progress bar (tooltip + colors)
 │   │   ├── layer-progress-bar.tsx # Stacked Layers progress bar (same renderer)
 │   │   ├── job-details-inline.tsx # Inline Layers + Frames panel under the Jobs grid
@@ -261,10 +264,22 @@ on `window` instead of prop-drilling shared state. Existing events:
 | `cueweb:attributes-panel-changed` | `useAttributesPanel().setOpen / setPosition` | `useAttributesPanel` listeners | Same-tab sync of the panel state |
 | `cueweb:attribute-selection-changed` | `setAttributeSelection()` | `useAttributeSelection` listeners | Same-tab sync of the selected entity |
 | `cueweb:disable-job-interaction-changed` | `useDisableJobInteraction().toggle` | `useDisableJobInteraction` listeners | Same-tab sync of the safety flag |
+| `cueweb:open-mobile-nav` | `AppHeader` hamburger button (`md:hidden`) | `MobileNavSheet` | Open the mobile nav drawer |
 
 The browser's built-in `storage` event handles cross-tab sync for every
 pref that lives in `localStorage`, so the `CustomEvent`s only need to
 cover the same-tab case.
+
+### Table `meta` extensions
+
+TanStack tables thread shared callbacks to cell renderers via `useReactTable({ meta })`. CueWeb attaches the following keys:
+
+| Key | Type | Producer | Consumer | Purpose |
+|-----|------|----------|----------|---------|
+| `username` | `string` | Jobs `data-table.tsx` | `app/jobs/columns.tsx` (Name cell) | Used to deep-link the per-job comments page from the sticky-note indicator. |
+| `openContextMenu` | `(event, row) => void` | Jobs `data-table.tsx` and `simple-data-table.tsx` (each forwards its own `contextMenuHandleOpen` from `useContextMenu`) | `RowActionsCell` in the leftmost column of Jobs / Layers / Frames | Lets the per-row `⋮` button surface the same context menu the row-level right-click opens, so touch users can reach every action without a `contextmenu` event. |
+
+`meta.openContextMenu` is the wiring that makes the per-row Actions button (`row-actions-cell.tsx`) interchangeable with right-click: the button looks up the callback from `table.options.meta` and invokes it with the click event + row.  The signature stays identical to `useContextMenu`'s `contextMenuHandleOpen`, so callers just thread the existing handler through.
 
 ---
 

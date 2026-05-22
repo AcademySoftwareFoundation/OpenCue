@@ -86,7 +86,12 @@ Create a production environment file:
 ```bash
 # .env.production
 NEXT_PUBLIC_OPENCUE_ENDPOINT=https://api.renderfarm.company.com
-NEXT_PUBLIC_URL=https://cueweb.company.com
+# Leave empty if the UI and the API are served from the same origin
+# (the common case): the client will build same-origin relative URLs
+# and CueWeb works correctly when accessed from any host. Only set
+# this to an absolute URL when the API really lives on a different
+# origin than the UI.
+NEXT_PUBLIC_URL=
 NEXT_JWT_SECRET=very-long-secure-jwt-secret-key
 
 # Production settings
@@ -121,6 +126,22 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # In CI you typically pass the short Git SHA or a release tag via
 # `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
 # NEXT_PUBLIC_APP_VERSION=1.19.1
+
+# Optional deep-link template for the Frame context menu's
+# "View Log on <editor>" item. The literal {path} is substituted at
+# click time with the absolute rqlog path. Empty hides the menu item
+# entirely. Browser sandboxing prevents reading $EDITOR / spawning
+# subprocesses, so the custom URL scheme is the web-native equivalent
+# of cuegui.Utils.popupView's editor launcher. Common values:
+#   vscode://file{path}
+#   vscode-insiders://file{path}
+#   subl://open?url=file://{path}
+#   txmt://open?url=file://{path}
+#   idea://open?file={path}
+# This MUST be passed as a Docker build arg (the value is inlined into
+# the client bundle at build time):
+#   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
+# NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id

@@ -248,16 +248,27 @@ Jobs can be added or removed from monitoring:
 
 #### Context Menu Actions
 
-Right-click on jobs to access the context menu with the following actions:
+Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Unmonitor**: Remove job from monitoring
-- **Comments**: Open the Comments page for the job in a new tab
-- **Pause/Unpause**: Pause or resume job execution
-- **Retry Dead Frames**: Restart only failed frames in the job
-- **Eat Dead Frames**: Mark failed frames as completed (skip)
-- **Kill**: Terminate the job
+- **Job menu**: Unmonitor, **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
+- **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 
-**Note**: Menu items are automatically disabled if the job has finished, and the context menu is always rendered on-screen.
+#### Tapping the actions menu on touch devices
+
+On phones / tablets without a `contextmenu` event, every Jobs / Layers / Frames row has a small `⋮` button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens. Use this on iPhone / iPad / Android to reach every action.
+
+#### Opening the log in an external editor
+
+The Frame menu shows an additional **View Log on \<editor\>** item when the deployment has `NEXT_PUBLIC_LOG_EDITOR_URL` configured (the sandbox `docker-compose.yml` defaults it to **VSCode**). Selecting that item launches the rqlog file in your desktop editor via a custom URL scheme - the same approach GitHub's "Open in VSCode" button uses.
+
+Important notes:
+
+- The log file only exists on disk once **RQD has started running the frame**. Right-clicking a WAITING / DEPEND frame produces a warning toast instead of handing a non-existent path to your editor.
+- If the configured editor isn't installed (no app registered for `vscode://`, `subl://`, etc.), CueWeb shows a warning toast after a short timeout pointing you at the alternatives.
+- Double-clicking the row (or choosing **View Log** / **Tail Log**) opens the in-browser Monaco log viewer instead - always available, no editor install required.
+
+**Note**: Destructive items (Pause / Unpause / Retry / Eat / Kill) are automatically disabled when the global **Disable Job Interaction** safety toggle is on, and the context menu always stays on-screen even on small viewports (it scrolls internally if it would overflow).
 
    ![CueWeb with job context menu open](/assets/images/cueweb/figure14-job-context-menu.png)
 
@@ -546,19 +557,39 @@ A small toast appears every time you trigger a shortcut so you know it registere
 
 ## Mobile and Responsive Usage
 
-### Mobile Interface
+CueWeb works on phone-sized viewports, not just desktops.
 
-CueWeb adapts to smaller screens:
+### Hamburger nav drawer
 
-- **Simplified Navigation**: Collapsible menu for mobile
-- **Touch-friendly**: Large buttons and touch targets
-- **Swipe Gestures**: Navigate between sections
-- **Essential Information**: Prioritized data display
+On phones the desktop sidebar is replaced by a **hamburger** button on the LEFT of the global header. Tap it to open a side drawer containing every group: **Dashboard**, **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes / Show Shortcuts / Notify on Shortcut), **Help**. The drawer auto-closes when you tap a navigation link.
 
-### Responsive Features
+### Row actions via a tap
 
-- **Adaptive Layout**: Adjusts to any screen size
-- **Progressive Enhancement**: Core features work on all devices
+Touch devices don't have a right-click. Every Jobs / Layers / Frames row therefore has a small `⋮` Actions button as its leftmost cell. Tapping it opens the same context menu that desktop users get from right-clicking the row - Copy Job / Layer / Frame Name, View Log, Pause / Kill / Eat actions, etc.
+
+### Horizontally swipeable tables
+
+The Jobs / Layers / Frames grids carry 15-25 columns each. Phones can't fit all of those at once, so the tables can be swiped left / right to reach off-screen columns. Use the **Columns** dropdown to hide columns you don't need on small screens (the choice is remembered for next time).
+
+### Clickable shortcuts overlay
+
+The keyboard-shortcuts overlay (**Other ▸ Show Shortcuts** in the hamburger drawer) makes each of its key badges tappable on phones, so you can trigger:
+
+- `/` -> focus the Jobs search box.
+- `r` -> refresh the Jobs table.
+- `t` -> toggle light / dark theme.
+- `Esc` -> close the overlay.
+
+without needing a physical keyboard.
+
+### LAN access
+
+CueWeb works correctly when you load it from a LAN IP (e.g. `http://XXX.XXX.XXX.XXX:3000` from a phone reaching your sandbox) - not just from `localhost`. API requests follow whichever host served the page, so the same image works from any address without rebuilding.
+
+Two caveats on plain-HTTP LAN access:
+
+- **Clipboard**: the modern browser clipboard API is restricted to secure contexts (HTTPS / `localhost`). CueWeb automatically falls back to a legacy copy path outside secure contexts, so **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** still work on LAN HTTP.
+- **Desktop notification popups** (the optional upgrade for **Subscribe to Job**) require a secure context. On LAN HTTP, the subscription itself still works and the **in-app toast** still fires when the job finishes; you just don't get the OS-level notification banner. Serve the app over HTTPS (self-signed cert is enough for LAN testing) to enable that path.
 
 ---
 

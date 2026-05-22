@@ -908,6 +908,20 @@ export function DataTable({ columns, username }: DataTableProps) {
     dispatch({ type: "SET_COLUMN_ORDER", payload: [] });
   };
 
+  // Hoisted above useReactTable so its `meta` block can pass
+  // `contextMenuHandleOpen` to the Actions column cell. The cell forwards
+  // its tap to the same handler the row-level right-click already uses,
+  // so touch users get the same menu without needing a real contextmenu
+  // event.
+  const jobTableRef = React.useRef<HTMLDivElement>(null);
+  const {
+    contextMenuState,
+    contextMenuHandleOpen,
+    contextMenuHandleClose,
+    contextMenuRef,
+    contextMenuTargetAreaRef,
+  } = useContextMenu(jobTableRef);
+
   const setColumnOrderDispatch = React.useCallback(
     (update: React.SetStateAction<ColumnOrderState>) => {
       const next = typeof update === "function" ? update(state.columnOrder) : update;
@@ -961,6 +975,10 @@ export function DataTable({ columns, username }: DataTableProps) {
 
     meta: {
       username: state.username,
+      // Surface the right-click menu via tap. The Actions column reads
+      // this and calls it from a button click; mobile users get the same
+      // menu without needing a real contextmenu event.
+      openContextMenu: contextMenuHandleOpen,
     },
   });
 
@@ -991,15 +1009,6 @@ export function DataTable({ columns, username }: DataTableProps) {
     const next = currentOrder.map((id) => (hideableIds.has(id) ? hideable[cursor++] : id));
     dispatch({ type: "SET_COLUMN_ORDER", payload: next });
   }, [table]);
-
-  const jobTableRef = React.useRef<HTMLDivElement>(null);
-  const {
-    contextMenuState,
-    contextMenuHandleOpen,
-    contextMenuHandleClose,
-    contextMenuRef,
-    contextMenuTargetAreaRef
-  } = useContextMenu(jobTableRef);
 
   // Compute the list of items to render in the TableBody. In "Clear"
   // mode this is the raw row list (1:1 with the table's row model). In
@@ -1048,8 +1057,15 @@ export function DataTable({ columns, username }: DataTableProps) {
   return (
     <>
       {/* Searching, Menubar, Autoload toggle, & Dropdown for column visibility*/}
-      <div className="flex flex-row w-full items-center justify-between py-4 space-x-3">
-        <div id="filtering section" ref={searchDropdownRef} className="relative flex flex-row justify-start space-y-2" style={{ width: "35%", minWidth: 360 }}>
+      {/* On mobile the search column stacks above the action toolbar so the
+          page doesn't force horizontal scroll. On lg+ it sits beside the
+          toolbar as a fixed ~35% column. */}
+      <div className="flex w-full flex-col items-stretch justify-between gap-3 py-4 lg:flex-row lg:items-center lg:gap-0 lg:space-x-3">
+        <div
+          id="filtering section"
+          ref={searchDropdownRef}
+          className="relative flex w-full flex-row justify-start space-y-2 lg:w-[35%] lg:min-w-[360px]"
+        >
           <Box
             sx={{
               width: "100%",
@@ -1166,21 +1182,21 @@ export function DataTable({ columns, username }: DataTableProps) {
           </Box>
         </div>
 
-        {/* Toolbar - CueGUI Monitor Jobs parity (compact group layout). */}
+        {/* Toolbar - CueGUI Monitor Jobs parity (compact group layout).
+            Each group is its OWN flex-wrap container so the label and
+            buttons can wrap together as a unit (instead of the label
+            standing alone on one line while the buttons fall to the next
+            line on narrow viewports). The divider hides on mobile because
+            the two groups are already on separate lines there. */}
         <div
           id="monitor-jobs-toolbar"
           role="toolbar"
           aria-label="Monitor Jobs actions"
-          // Unmonitor + Job Actions groups packed to the left of the
-          // toolbar (Columns dropdown floats on the right via its own
-          // wrapper). gap-x-6 keeps the two groups breathing without
-          // pushing them to the edges; gap-y for narrow viewports
-          // where they wrap onto two rows.
-          className="flex flex-1 flex-wrap items-center justify-start gap-x-6 gap-y-2 px-2"
+          className="flex flex-1 flex-col items-stretch gap-3 px-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2"
         >
           {/* Unmonitor group */}
-          <div className="flex items-center gap-1">
-            <span className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="w-full px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:w-auto">
               Unmonitor
             </span>
             <JobActionButton icon={TbEyeOff} label="Finished" onClick={handleUnmonitorFinished} />
@@ -1188,11 +1204,11 @@ export function DataTable({ columns, username }: DataTableProps) {
             <JobActionButton icon={TbEyeOff} label="Selected" onClick={handleUnmonitorSelected} />
           </div>
 
-          <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+          <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
 
           {/* Job actions group */}
-          <div className="flex items-center gap-1">
-            <span className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="w-full px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:w-auto">
               Job Actions
             </span>
             <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => eatJobsDeadFramesFromSelectedRows(table)} color="#f59e0b" />
@@ -1383,7 +1399,9 @@ export function DataTable({ columns, username }: DataTableProps) {
       </div>
 
       {/* Table */}
-      <div className="rounded-md border" ref={jobTableRef}>
+      {/* overflow-x-auto so the wide Jobs grid is horizontally swipeable on
+          phones without breaking the rest of the layout. */}
+      <div className="overflow-x-auto rounded-md border" ref={jobTableRef}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

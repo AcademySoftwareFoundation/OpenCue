@@ -93,6 +93,8 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
+| `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
+| `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
 
 ### Authentication Variables
 
@@ -438,7 +440,8 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 
 | Action | Description |
 |--------|-------------|
-| **Tail Log** / **View Log** | Open the frame log viewer (`/frames/<frameName>?frameId=...`). |
+| **Tail Log** / **View Log** | Open the in-browser log viewer at `/frames/<frameName>`. Same target as the row's double-click handler. Surfaces a friendly toast when the frame has not been dispatched yet (no log file on disk). |
+| **View Log on \<editor\>** | Launches the log file in a desktop editor. Only rendered when `NEXT_PUBLIC_LOG_EDITOR_URL` is set. The menu label is derived from the configured value (`vscode://...` -> "View Log on VSCode", `subl://...` -> "View Log on Sublime Text", `txmt://...` -> "View Log on TextMate", `idea://...` -> "View Log on IntelliJ", unrecognized -> "View Log in external editor"). See [External editor integration](#external-editor-integration) below. |
 | **Copy Log Path** | Copy the absolute log path to the clipboard. |
 | **Copy Frame Name** | Copy the full frame name. |
 | **View Host** | Navigate to the host detail page. *(placeholder)* |
@@ -451,6 +454,18 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Kill** | Kill the running frame. |
 | **Eat and Mark done** | Eat the frame and treat it as succeeded. *(placeholder)* |
 | **View Processes** | Show RQD processes attached to the frame. *(placeholder)* |
+
+### External editor integration
+
+The Frame context menu's **View Log on \<editor\>** item launches the log file in a desktop editor.
+
+| Aspect | Description |
+|--------|-------------|
+| **Env var** | `NEXT_PUBLIC_LOG_EDITOR_URL` (build-time). Default in the sandbox deployment is `vscode://file{path}`; the Dockerfile-level default is empty (item hidden). |
+| **Template** | The literal `{path}` is replaced with the absolute log path when the item is clicked. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. |
+| **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
+| **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
+| **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
 
 ---
 
@@ -658,6 +673,44 @@ on viewports smaller than the `md` breakpoint.
 - Persisted state:
   - `cueweb.sidebar.collapsed` - overall expanded vs icon-only.
   - `cueweb.sidebar.openGroups` - per-group open/closed map.
+
+---
+
+## Mobile Navigation
+
+On phone-sized viewports the desktop sidebar is hidden entirely. A **hamburger** button appears on the LEFT of the global header instead; tapping it opens a side drawer mirroring every sidebar group.
+
+| Aspect | Description |
+|--------|-------------|
+| **Trigger** | Tap the hamburger button in the global header. |
+| **Groups** | Dashboard, File (Disable Job Interaction), Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help. |
+| **Scrolling** | The drawer itself scrolls when the menu list is taller than the viewport. |
+| **Auto-close** | Tapping any navigation link closes the drawer automatically. |
+| **Hidden on** | `/login*`. |
+
+The drawer toggles share state with the desktop sidebar - flipping **Attributes** or **Disable Job Interaction** in the drawer is reflected in the desktop sidebar when the viewport is widened again.
+
+### Per-row Actions button
+
+To replace right-click on touch devices, every Jobs / Layers / Frames row has a small `⋮` Actions button as its leftmost cell. Tapping it opens the row's full context menu - the same action set you'd get from desktop right-click, including Copy Job / Layer / Frame Name, View Log, View Log on \<editor\>, Pause / Kill / Eat / Retry, etc. The column is always visible (it can't be hidden through the Columns dropdown).
+
+### Responsive Jobs page
+
+| Adaptation | What changes on small screens |
+|------------|------------------------------|
+| Search column + action toolbar | Stack vertically on small viewports instead of sitting side-by-side. |
+| Monitor Jobs toolbar groups | Unmonitor and Job Actions groups stack with each label taking its own line above its buttons. The vertical divider between groups is hidden. |
+| Data table containers | Horizontally swipeable so the wide grids can be navigated without forcing page-level scroll. |
+| Shortcuts overlay | Caps its width and height so the dialog never bleeds past the viewport, and scrolls internally if the contents overflow. |
+
+### LAN access
+
+By default the client builds same-origin relative URLs for every API call, so the same image works whether the browser reaches it at `localhost` on the dev machine or at a LAN IP from a phone on the same network. The build-time `NEXT_PUBLIC_URL` env var defaults to an empty string for this reason.
+
+| Caveat | Workaround |
+|--------|-----------|
+| The modern browser clipboard API is restricted to secure contexts (HTTPS / `localhost`). On plain-HTTP LAN access it's either unavailable or rejected. | CueWeb automatically falls back to a legacy copy path outside secure contexts, including iOS Safari. **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** still work. |
+| Desktop notification popups also require a secure context. **Subscribe to Job** still works on LAN HTTP - the in-app toast always fires - but the optional OS-level notification banner is skipped. | Serve CueWeb over HTTPS (self-signed cert is enough for LAN testing) to enable the desktop popup. |
 
 ---
 

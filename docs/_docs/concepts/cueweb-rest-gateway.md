@@ -39,7 +39,7 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a "Home > Jobs > ..." trail above the content. Long labels truncate with an ellipsis; the full text is recoverable on hover.
 - **Job / Layer / Frame tables (CueGUI parity)**: Full CueGUI column sets (Launched / Eligible / Finished / User Color on Jobs; Eligible on Layers; LLU / Memory (RSS) / Memory (PSS) / Remain / Eligible Time / Submission Time / Last Line on Frames), per-table substring filter, hide / show + `← / →` reorder + **Reset to Default** in each table's Columns dropdown. Both visibility and ordering persist in `localStorage`.
 - **Inline Layers + Frames panel**: Clicking a job row reveals the associated Layers and Frames tables stacked below the Jobs grid; clicking a layer narrows the frames panel to that layer and pushes the layer attributes into the docked Attributes panel; double-clicking a frame opens the log viewer.
-- **CueGUI-parity context menus**: right-clicking any row in the Jobs, Layers, or Frames tables opens a menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
+- **CueGUI-parity context menus**: right-clicking any row in the Jobs, Layers, or Frames tables opens a menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus. Touch devices get the same menu via a `⋮` Actions button as the leftmost cell of each row. Includes **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** / **Copy Log Directory** (works on plain-HTTP LAN deployments too), plus **View Log** / **Tail Log** (in-browser viewer) and an optional **View Log on \<editor\>** that launches the log file directly in a desktop editor (configured at build time via `NEXT_PUBLIC_LOG_EDITOR_URL`, defaults to VSCode in the sandbox).
 - **Animated progress bar (Jobs AND Layers)**: shared stacked-segment renderer with a hover tooltip showing per-state counts and percentages.
 - **Real-time Updates**: Automatic refresh of job, layer, and frame status
 - **Advanced Search**: Regex-enabled search with dropdown suggestions
@@ -49,7 +49,8 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Job-finished Notifications**: Per-job bell that subscribes the browser to an in-app toast (always) and an optional desktop popup (when Notification permission is granted) when the job reaches `FINISHED`. The notify decision is serialized cross-tab via the Web Locks API.
 - **Keyboard shortcuts + menu access**: press `?` (or use Other ▸ Show Shortcuts) for the cheat-sheet overlay. An opt-out toggle (Other ▸ Notify on Shortcut) controls whether a toast names every triggered shortcut.
 - **Dark/Light Mode**: Theme switching for user preference
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
+- **Mobile-friendly UI**: Hamburger-triggered nav drawer on phones, per-row `⋮` Actions button so touch users reach the right-click menu via a tap, swipeable wide data tables, and tappable key badges in the shortcuts overlay so single-letter shortcuts work without a physical keyboard.
+- **LAN access by default**: The same image works whether the browser loads CueWeb from `localhost`, a LAN IP, or a reverse-proxy host. Clipboard actions also work over plain-HTTP LAN access.
 - **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta, LDAP)
 
 ### CueWeb vs CueGUI

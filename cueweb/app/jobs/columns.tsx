@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal, StickyNote, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
+import { RowActionsCell } from "@/components/ui/row-actions-cell";
 import { Status } from "@/components/ui/status";
 import { SubscribeBell } from "@/components/ui/subscribe-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -271,6 +272,18 @@ export const columns: ColumnDef<Job>[] = [
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
       />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    // Mobile-friendly equivalent of right-click. Stays in column 2 so the
+    // button is always one tap away even when the table scrolls
+    // horizontally.
+    id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
+    cell: ({ row, table }) => (
+      <RowActionsCell row={row} table={table} label="Open job actions" />
     ),
     enableSorting: false,
     enableHiding: false,

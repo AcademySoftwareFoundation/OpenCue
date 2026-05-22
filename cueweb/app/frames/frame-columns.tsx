@@ -21,6 +21,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "@/app/utils/layers_frames_utils";
+import { RowActionsCell } from "@/components/ui/row-actions-cell";
 
 export type Frame = {
   id: string;
@@ -113,6 +114,17 @@ const SortingButton = ({ column, label }: { column: any; label: string }) => (
 );
 
 export const frameColumns: ColumnDef<Frame>[] = [
+  {
+    // Mobile-friendly equivalent of right-click. Sits at the leftmost
+    // edge of the row so the trigger is always reachable.
+    id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
+    cell: ({ row, table }) => (
+      <RowActionsCell row={row} table={table} label="Open frame actions" />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "dispatchOrder",
     header: ({ column }) => <SortingButton column={column} label="Order" />,

@@ -50,11 +50,16 @@ export const CUEWEB_FOCUS_SEARCH_EVENT = "cueweb:focus-search";
  */
 export const CUEWEB_OPEN_SHORTCUTS_EVENT = "cueweb:open-shortcuts";
 
+/** Identifies the action a row (and its kbd chip) triggers when clicked.
+ * Each maps to a handler built inside `KeyboardShortcuts` below. */
+type ShortcutAction = "show" | "close" | "focusSearch" | "refresh" | "toggleTheme";
+
 /** Shape of a single row in the shortcuts cheat-sheet. */
 interface ShortcutEntry {
   keys: string[];
   label: string;
   context?: string;
+  action: ShortcutAction;
 }
 
 /**
@@ -62,19 +67,21 @@ interface ShortcutEntry {
  * actual key handler below - and with the table in `cueweb/README.md`.
  */
 const SHORTCUTS: ShortcutEntry[] = [
-  { keys: ["?"], label: "Show this shortcuts overlay" },
-  { keys: ["Esc"], label: "Close this overlay" },
+  { keys: ["?"], label: "Show this shortcuts overlay", action: "show" },
+  { keys: ["Esc"], label: "Close this overlay", action: "close" },
   {
     keys: ["/"],
     label: "Focus the jobs search box",
     context: "On the jobs page",
+    action: "focusSearch",
   },
   {
     keys: ["r"],
     label: "Refresh the jobs table",
     context: "On the jobs page",
+    action: "refresh",
   },
-  { keys: ["t"], label: "Toggle light / dark theme" },
+  { keys: ["t"], label: "Toggle light / dark theme", action: "toggleTheme" },
 ];
 
 /**
@@ -134,6 +141,38 @@ export function KeyboardShortcuts() {
     toastSuccess(label);
   }, []);
 
+  // Single source of truth for what each shortcut actually does, so the
+  // keydown handler and the clickable kbd chips in the dialog (used on
+  // touch devices that can't fire real key events) call the same code.
+  // `closeOverlay` is true when the action's effect makes the overlay
+  // irrelevant - e.g. focusing the search box should also dismiss the
+  // dialog so the user can see / type into the input.
+  const runAction = React.useCallback((action: ShortcutAction) => {
+    switch (action) {
+      case "show":
+        setOpen(true);
+        notify("Shortcut: ? → Show shortcuts");
+        return;
+      case "close":
+        setOpen(false);
+        return;
+      case "focusSearch":
+        setOpen(false);
+        window.dispatchEvent(new CustomEvent(CUEWEB_FOCUS_SEARCH_EVENT));
+        notify("Shortcut: / → Focus search");
+        return;
+      case "refresh":
+        setOpen(false);
+        window.dispatchEvent(new CustomEvent(CUEWEB_REFRESH_NOW_EVENT));
+        notify("Shortcut: r → Refresh table");
+        return;
+      case "toggleTheme":
+        setTheme(themeRef.current === "dark" ? "light" : "dark");
+        notify("Shortcut: t → Toggle theme");
+        return;
+    }
+  }, [setTheme, notify]);
+
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       // Never compete with browser / OS shortcuts.
@@ -143,38 +182,21 @@ export function KeyboardShortcuts() {
       // user can still type these characters into a text field.
       if (isEditableTarget(event.target)) return;
 
+      let action: ShortcutAction | null = null;
       switch (event.key) {
-        case "?":
-          event.preventDefault();
-          setOpen(true);
-          notify("Shortcut: ? → Show shortcuts");
-          break;
-        case "/":
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent(CUEWEB_FOCUS_SEARCH_EVENT));
-          notify("Shortcut: / → Focus search");
-          break;
-        case "r":
-        case "R":
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent(CUEWEB_REFRESH_NOW_EVENT));
-          notify("Shortcut: r → Refresh table");
-          break;
-        case "t":
-        case "T":
-          event.preventDefault();
-          setTheme(themeRef.current === "dark" ? "light" : "dark");
-          notify("Shortcut: t → Toggle theme");
-          break;
-        default:
-          // No-op for every other key.
-          break;
+        case "?": action = "show"; break;
+        case "/": action = "focusSearch"; break;
+        case "r": case "R": action = "refresh"; break;
+        case "t": case "T": action = "toggleTheme"; break;
       }
+      if (!action) return;
+      event.preventDefault();
+      runAction(action);
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setTheme, notify]);
+  }, [runAction]);
 
   // Allow non-keyboard callers (menu items) to open the overlay too.
   React.useEffect(() => {
@@ -185,46 +207,71 @@ export function KeyboardShortcuts() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-lg">
+      {/* Mobile-friendly sizing:
+           - `max-w-[calc(100vw-2rem)]` leaves a 1rem gutter on either
+             side of the viewport so the dialog (and the Radix `X` close
+             button) never bleed past the edge on phones.
+           - `max-h-[calc(100vh-3rem)]` plus `overflow-y-auto` lets the
+             content scroll instead of overflowing on short viewports.
+           - `p-4 sm:p-6` shrinks the padding on small screens so each
+             row's text + kbd chip can fit on one line. */}
+      <DialogContent className="max-h-[calc(100vh-3rem)] w-full max-w-[calc(100vw-2rem)] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>
-            Press <Kbd>?</Kbd> anywhere to open this overlay. Press <Kbd>Esc</Kbd>{" "}
-            to close it.
+            Press <Kbd>?</Kbd> anywhere to open this overlay. Press{" "}
+            <Kbd ariaLabel="Close overlay" onClick={() => runAction("close")}>
+              Esc
+            </Kbd>{" "}
+            to close it. Tap any key below to trigger its action.
           </DialogDescription>
         </DialogHeader>
 
         <ul className="mt-2 divide-y divide-border rounded-md border border-border">
-          {SHORTCUTS.map((entry) => (
-            <li
-              key={`${entry.keys.join("+")}-${entry.label}`}
-              className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-            >
-              <div className="min-w-0">
-                <p className="text-foreground">{entry.label}</p>
-                {entry.context && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {entry.context}
-                  </p>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {entry.keys.map((key, i) => (
-                  <React.Fragment key={key}>
-                    {i > 0 && (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        aria-hidden="true"
-                      >
-                        +
-                      </span>
-                    )}
-                    <Kbd>{key}</Kbd>
-                  </React.Fragment>
-                ))}
-              </div>
-            </li>
-          ))}
+          {SHORTCUTS.map((entry) => {
+            // Each row's chips dispatch the same action the keyboard
+            // shortcut would. Critical on touch devices where the
+            // physical keys aren't reachable, but also a nicer
+            // discoverability path on desktop.
+            const onClick = () => runAction(entry.action);
+            return (
+              <li
+                key={`${entry.keys.join("+")}-${entry.label}`}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
+                <button
+                  type="button"
+                  onClick={onClick}
+                  className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                  aria-label={`${entry.label}${entry.context ? ` (${entry.context})` : ""}`}
+                >
+                  <p className="break-words text-foreground">{entry.label}</p>
+                  {entry.context && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {entry.context}
+                    </p>
+                  )}
+                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  {entry.keys.map((key, i) => (
+                    <React.Fragment key={key}>
+                      {i > 0 && (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          aria-hidden="true"
+                        >
+                          +
+                        </span>
+                      )}
+                      <Kbd ariaLabel={`${entry.label}`} onClick={onClick}>
+                        {key}
+                      </Kbd>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </DialogContent>
     </Dialog>
@@ -232,14 +279,33 @@ export function KeyboardShortcuts() {
 }
 
 /**
- * Visual representation of a keyboard key. Kept inline (not exported) so the
- * styling stays scoped to the overlay - we may want a global `<Kbd>` element
- * later, but this lives here until there's a second consumer.
+ * Visual representation of a keyboard key. When an `onClick` is supplied,
+ * the chip renders as a real button so touch users can fire the action
+ * without a physical keyboard; otherwise it renders as a plain decorative
+ * `<kbd>`.
  */
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md border border-border bg-muted px-1.5 font-mono text-xs font-medium text-foreground shadow-sm">
-      {children}
-    </kbd>
-  );
+function Kbd({
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
+  const baseClass =
+    "inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md border border-border bg-muted px-1.5 font-mono text-xs font-medium text-foreground shadow-sm";
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        className={`${baseClass} cursor-pointer transition-colors hover:bg-foreground/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-foreground/15`}
+      >
+        {children}
+      </button>
+    );
+  }
+  return <kbd className={baseClass}>{children}</kbd>;
 }

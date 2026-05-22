@@ -93,7 +93,15 @@ Create a `.env` file with the following configuration:
 ```bash
 # REST Gateway Configuration
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448
-NEXT_PUBLIC_URL=http://localhost:3000
+
+# Leave empty so the client builds same-origin relative API URLs.
+# That way CueWeb works from any host the browser reached it at:
+# http://localhost:3000 on this machine, or http://<lan-ip>:3000
+# from another device on the same network (useful for testing on a
+# phone). Only set this to an absolute URL if the API is served on
+# a different origin than the UI.
+NEXT_PUBLIC_URL=
+
 NEXT_JWT_SECRET=your-secret-key
 
 # Development Configuration
@@ -103,12 +111,20 @@ NEXTAUTH_SECRET=canbeanything
 
 # Authentication (optional - can be commented out for local development)
 # NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+
+# Optional deep-link template for the Frame context menu's
+# "View Log on <editor>" item. {path} is substituted with the
+# absolute log path at click time. Empty hides the menu item.
+# The OpenCue sandbox docker-compose defaults this to
+# vscode://file{path}.
+# NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 ```
 
 **Important Notes:**
 - The `NEXT_JWT_SECRET` must match the REST Gateway's `JWT_SECRET`
 - Authentication is disabled by default for local development
 - Sentry integration is optional and can be disabled
+- `NEXT_PUBLIC_URL` is empty by default so the same image works from `localhost`, a LAN IP, or any reverse-proxy host without rebuilding. Override it only when the UI and API live on different origins.
 
 ---
 
@@ -186,12 +202,14 @@ The CueWeb interface includes:
 ### Frame Operations
 
 1. Click on a job to view its layers and frames
-2. **Retry Frames**: Right-click failed frames to retry
-3. **View Logs**: Click on frame numbers to view logs
+2. **Retry Frames**: Right-click failed frames to retry (or tap the `⋮` Actions button on the left of the row, on phones)
+3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
 7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions persist across page reloads (stored in `localStorage`) and a background poller checks each subscribed job every 15 seconds. When the same job is polled by several tabs concurrently, only one tab actually fires the toast (cross-tab serialization via the Web Locks API).
+8. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** / **Copy Log Directory** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
+9. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
 
 ### Search Functionality
 

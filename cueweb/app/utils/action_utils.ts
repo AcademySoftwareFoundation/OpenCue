@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi } from "./api_utils";
-import { getJobForLayer, JobComment } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, JobComment } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -444,10 +444,73 @@ export function setMaxRetriesGivenRow(row: Row<any>) {
 
 // Pure-client clipboard helpers; surface a toast on success/failure so the
 // user gets the same feedback as for back-end actions.
+
+/** Copy `text` to the clipboard, falling back to the legacy execCommand
+ * path when the modern Clipboard API is unavailable.
+ *
+ * `navigator.clipboard.writeText()` is only exposed in **secure contexts**
+ * (HTTPS, `http://localhost`, or `file://`). When CueWeb is served from a
+ * LAN IP over plain HTTP - e.g. a Smartphone reaching the Computer/Server at
+ * `http://XXX.XXX.X.XXX:3000` - the API either isn't there or rejects
+ * with a SecurityError. The execCommand fallback still works on Smartphone
+ * browser (e.g.  iOS Safari and Android Chrome).
+ */
+async function copyTextToClipboard(text: string): Promise<void> {
+  // Modern path - requires a secure context.
+  if (
+    typeof navigator !== "undefined"
+    && navigator.clipboard
+    && typeof window !== "undefined"
+    && window.isSecureContext
+  ) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Legacy fallback for insecure contexts (HTTP LAN IPs, etc.).
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard unavailable: no document");
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  // readonly + tiny, transparent overlay keeps Smartphone from popping the soft
+  // keyboard and from visually flashing the textarea during the copy.
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.width = "1px";
+  textarea.style.height = "1px";
+  textarea.style.padding = "0";
+  textarea.style.border = "0";
+  textarea.style.outline = "0";
+  textarea.style.boxShadow = "none";
+  textarea.style.background = "transparent";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  try {
+    // iOS Safari requires an explicit selection range; plain .select()
+    // doesn't actually select on mobile WebKit.
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      const range = document.createRange();
+      range.selectNodeContents(textarea);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      textarea.setSelectionRange(0, text.length);
+    } else {
+      textarea.focus();
+      textarea.select();
+    }
+    const ok = document.execCommand("copy");
+    if (!ok) throw new Error("execCommand('copy') returned false");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 export async function copyJobNameGivenRow(row: Row<any>) {
   const job = row.original as Job;
   try {
-    await navigator.clipboard.writeText(job.name);
+    await copyTextToClipboard(job.name);
     toastSuccess(`Copied job name: ${job.name}`);
   } catch (err) {
     handleError(err, "Could not copy job name to clipboard");
@@ -461,9 +524,50 @@ export async function copyLogDirGivenRow(row: Row<any>) {
     return;
   }
   try {
-    await navigator.clipboard.writeText(job.logDir);
+    await copyTextToClipboard(job.logDir);
     toastSuccess(`Copied log directory: ${job.logDir}`);
   } catch (err) {
     handleError(err, "Could not copy log directory to clipboard");
+  }
+}
+
+export async function copyLayerNameGivenRow(row: Row<any>) {
+  const layer = row.original as Layer;
+  try {
+    await copyTextToClipboard(layer.name);
+    toastSuccess(`Copied layer name: ${layer.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy layer name to clipboard");
+  }
+}
+
+export async function copyFrameNameGivenRow(row: Row<any>) {
+  const frame = row.original as Frame;
+  try {
+    await copyTextToClipboard(frame.name);
+    toastSuccess(`Copied frame name: ${frame.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy frame name to clipboard");
+  }
+}
+
+/** Copy the absolute rqlog path for a frame. Requires the parent job because
+ * the log filename is `<job.name>.<frame.name>.rqlog` inside `job.logDir`. */
+export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
+  if (!job) {
+    toastWarning("Frame log path unavailable (no parent job context)");
+    return;
+  }
+  const frame = row.original as Frame;
+  if (!job.logDir) {
+    toastWarning("Job has no logDir set");
+    return;
+  }
+  const fullPath = getFrameLogDir(job, frame);
+  try {
+    await copyTextToClipboard(fullPath);
+    toastSuccess(`Copied log path: ${fullPath}`);
+  } catch (err) {
+    handleError(err, "Could not copy log path to clipboard");
   }
 }

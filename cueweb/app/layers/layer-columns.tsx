@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
 import { LayerProgressBar } from "@/components/ui/layer-progress-bar";
+import { RowActionsCell } from "@/components/ui/row-actions-cell";
 
 export type LayerStats = {
   totalFrames: number;
@@ -84,6 +85,17 @@ const renderHeader = (title: string, column: any) => (
 );
 
 export const layerColumns: ColumnDef<Layer>[] = [
+  {
+    // Mobile-friendly equivalent of right-click. Sits at the leftmost
+    // edge of the row so the trigger is always reachable.
+    id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
+    cell: ({ row, table }) => (
+      <RowActionsCell row={row} table={table} label="Open layer actions" />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "dispatchOrder",
     header: ({ column }) => renderHeader("Dispatch Order", column),

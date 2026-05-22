@@ -21,7 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, Keyboard, LayoutDashboard, Layers3, LogOut, Search, X } from "lucide-react";
+import { Check, ChevronDown, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
+import { CUEWEB_OPEN_MOBILE_NAV_EVENT } from "@/components/ui/mobile-nav-sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 import opencueLogoBlack from "../../public/opencue-icon-black.png";
@@ -279,6 +280,20 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:border-zinc-800 dark:bg-zinc-900/95 dark:shadow-md dark:shadow-black/30 dark:supports-[backdrop-filter]:bg-zinc-900/80">
       <div className="flex h-14 items-center gap-3 px-4">
+        {/* Hamburger: only on mobile, opens the MobileNavSheet drawer. The
+            desktop sidebar (md+) is always visible to the left of the
+            header, so no trigger is needed at desktop sizes. */}
+        <button
+          type="button"
+          aria-label="Open navigation menu"
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_MOBILE_NAV_EVENT))
+          }
+          className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden"
+        >
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
+
         {/* Logo + product name */}
         <Link
           href="/"
@@ -488,28 +503,8 @@ export function AppHeader() {
         </div>
       </div>
 
-      {/* Mobile nav row */}
-      <nav
-        aria-label="Primary mobile"
-        className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 dark:border-zinc-800 md:hidden"
-      >
-        <Link
-          href="/dashboard"
-          aria-current={isActive(pathname, "/dashboard") ? "page" : undefined}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            isActive(pathname, "/dashboard")
-              ? "bg-foreground/10 text-foreground"
-              : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
-          )}
-        >
-          <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
-          Dashboard
-        </Link>
-        {NAV_MENUS.map((menu) => (
-          <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
-        ))}
-      </nav>
+      {/* Mobile nav lives in the hamburger-triggered MobileNavSheet drawer
+          rendered at the layout root; no in-header mobile row needed. */}
     </header>
   );
 }

@@ -70,6 +70,25 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
      2. **Last refresh**: live relative timestamp ("just now", "12s ago", "3m ago", ...). Updated whenever the jobs table fires a `cueweb:jobs-refreshed` CustomEvent (every 5 seconds while the table is mounted). Re-renders once per second so the relative time stays accurate without waiting for the next event.
      3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build time - falls back to the `version` field in `package.json` when the env var is unset, and can be overridden in CI by passing `--build-arg NEXT_PUBLIC_APP_VERSION=<sha>` to `docker build`.
    - Hidden on `/login*`; matches the chrome's translucent surface so it integrates with both light and dark themes.
+- **Mobile-friendly UI:**
+   - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and each data table can be swiped horizontally to reach off-screen columns.
+   - On phones the desktop sidebar is replaced by a **hamburger** menu in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
+   - Every Jobs / Layers / Frames row has a small `⋮` Actions button as its leftmost cell, so touch users get the full right-click menu via a tap.
+   - The keyboard-shortcuts overlay (Other ▸ Show Shortcuts or `?`) is itself touch-friendly: every key badge in the list is tappable, so users on phones can trigger `/`, `r`, and `t` from inside the dialog instead of needing a physical keyboard.
+- **LAN access (CueWeb usable from phones / tablets):**
+   - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same Wi-Fi - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` defaults to empty so the client targets whichever origin served the page; set it to an absolute URL only when your deployment serves the API on a different origin than the UI.
+   - Copy actions (Copy Job Name / Copy Layer Name / Copy Frame Name / Copy Log Path / Copy Log Directory) work even when CueWeb is loaded over plain HTTP on a LAN IP, where the browser's modern Clipboard API would otherwise be unavailable.
+- **External editor integration:**
+   - Optional **View Log on \<editor\>** item in the Frame right-click menu launches the log file directly in a desktop editor. Configured at build time via `NEXT_PUBLIC_LOG_EDITOR_URL`; `{path}` is substituted with the absolute log path at click time. Common values:
+     - `vscode://file{path}` -> View Log on VSCode (the sandbox default)
+     - `vscode-insiders://file{path}` -> View Log on VSCode Insiders
+     - `subl://open?url=file://{path}` -> View Log on Sublime Text
+     - `txmt://open?url=file://{path}` -> View Log on TextMate
+     - `idea://open?file={path}` -> View Log on IntelliJ
+     - Empty -> menu item hidden entirely
+   - The menu label updates automatically based on the configured value.
+   - If the editor isn't installed on the user's machine, CueWeb shows a warning toast after a short timeout pointing the user at the alternatives.
+   - Web browsers can't read the user's shell `$EDITOR` variable or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses.
 - **User authentication:**
    - Secure login capabilities through Okta, Google, GitHub, and LDAP (configured via `NEXT_PUBLIC_AUTH_PROVIDER`).
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.
@@ -85,7 +104,10 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
   - Frame navigation with hyperlinks to logs and data pages.
   - Stacked job progress bar with a hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead). The Layers table reuses the same `<ProgressBar/>` renderer with `getLayerProgressSegments` so per-layer progress matches the per-job style.
   - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with per-state counts, OR-combined selection, and selection mirrored to the `frameStates` URL query parameter for bookmarkable/shareable filtered views.
-  - CueGUI-parity right-click menus on every row: `JobContextMenu`, `LayerContextMenu`, and `FrameContextMenu` (see `cueweb/components/ui/context_menus/action-context-menu.tsx`) follow the CueGUI Monitor Jobs and Monitor Job Details menu structure. Menus scroll instead of overflowing on small viewports; items that depend on future dialogs / backend integrations route through `notYetImplemented(label)` as placeholders.
+  - CueGUI-parity right-click menus on every row, following the CueGUI Monitor Jobs and Monitor Job Details menu structure. Menus scroll instead of overflowing on small viewports; items not yet implemented surface a friendly placeholder toast.
+  - Mobile-friendly equivalent of right-click: every Jobs / Layers / Frames row has a small `⋮` button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens, so touch users get the full action set without a right-click event.
+  - Wired copy actions: **Copy Job Name** (Job menu); **Copy Layer Name** (Layer menu); **Copy Frame Name** + **Copy Log Path** (Frame menu). Each pushes the value to the clipboard with a confirmation toast. Works whether CueWeb is served from `localhost` or from a LAN IP over plain HTTP.
+  - Wired log actions: double-clicking a frame row, choosing **View Log** / **Tail Log** from the right-click menu, and tapping the row's `⋮` button all navigate to the in-browser log viewer. A new **View Log on \<editor\>** item appears in the Frame menu when `NEXT_PUBLIC_LOG_EDITOR_URL` is set (see [External editor integration](#external-editor-integration) below). When the frame hasn't started running yet (no log file on disk), every log action surfaces a friendly warning toast instead.
 - **Job search functionality:**
    - Search for jobs using show names followed by a hyphen.
    - Dropdown suggestions for matching jobs based on naming conventions like show1-shot-test_job_123.
@@ -346,7 +368,9 @@ The current CueWeb system offers a robust set of features designed to enhance us
   - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with URL-persisted selection.
 - **Search:** Advanced search with regex support, dropdown suggestions, and optimized loading.
 - **Dark mode:** Toggle between light and dark themes.
-- **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) through CueGUI-parity right-click context menus.
+- **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) through CueGUI-parity right-click context menus. Includes Copy Job / Layer / Frame Name, Copy Log Path / Log Directory, View Log + Tail Log, and an optional **View Log on <editor>** item that launches the rqlog in VSCode / Sublime / TextMate / IntelliJ via a custom URL scheme (configured at build time, default is VSCode).
+- **Mobile-friendly UI:** every authenticated route works on phone viewports. Hamburger-triggered nav drawer on phones, per-row `⋮` Actions button so touch users get the right-click menu via a tap, horizontally swipeable wide data tables, and tappable key badges in the shortcuts overlay so `/` / `r` / `t` are reachable without a physical keyboard.
+- **LAN access:** the client builds same-origin relative URLs for every API call by default, so the app loads correctly from any host (`http://<lan-ip>:3000` from a phone, `http://localhost:3000` on the dev Mac). Clipboard has an `execCommand("copy")` fallback for plain-HTTP LAN deployments where the modern Clipboard API is unavailable.
 - **Auto-reloading:** Real-time updates for tables.
 - **Job-finished notifications:** Per-job bell to subscribe to completion. A background poller fires a toast (and an optional desktop popup when notification permission is granted) when a subscribed job reaches `FINISHED`. Subscriptions persist in `localStorage`, stay in sync across browser tabs, and the notify decision is serialized cross-tab via the Web Locks API so only one tab toasts when several poll the same job.
 - **Logs:** View current and previous logs via dropdown.

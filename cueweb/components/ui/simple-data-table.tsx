@@ -47,7 +47,6 @@ import {
   VisibilityState,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronLeft, ChevronRight, Layers, Search, X } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -280,6 +279,12 @@ export function SimpleDataTable<TData, TValue>({
     // the CueGUI Monitor Job Details default and keeps the inline panel
     // compact when a job has lots of layers/frames.
     initialState: { pagination: { pageSize: 10 } },
+    meta: {
+      // Surface the right-click menu via tap. The Actions column reads
+      // this and calls it from a button click; touch users get the same
+      // menu without needing a real contextmenu event.
+      openContextMenu: contextMenuHandleOpen,
+    },
   });
 
   // Move a hideable column one slot left (-1) or right (+1) in the table.
@@ -323,9 +328,10 @@ export function SimpleDataTable<TData, TValue>({
     table.setPageIndex(0);
   }, [globalFilter, table]);
 
-  // Builds the frame-log URL the existing layer-name <Link> uses. Hoisted
-  // so the row-level double-click handler can navigate to the same target
-  // without duplicating the URL shape.
+  // Builds the frame-log URL the row-level double-click handler
+  // navigates to. Kept as a helper so future call sites (a context-menu
+  // "View Log" item, a keyboard handler, etc.) can reuse the same URL
+  // shape without duplicating the query-string layout.
   const buildFrameLogUrl = React.useCallback(
     (frame: Frame): string => {
       const params = new URLSearchParams({
@@ -340,9 +346,11 @@ export function SimpleDataTable<TData, TValue>({
 
   // Double-click anywhere on a frame row opens the log viewer (CueGUI
   // parity). Only wired when this is a frames table AND we know the
-  // parent job (required to compute the log directory). The Layer-name
-  // <Link> cell continues to work on a single click for keyboard / a11y
-  // users; this just adds a faster path for mouse users on any column.
+  // parent job (required to compute the log directory). The Layer cell
+  // used to be a single-click link into the log viewer too; that was
+  // removed because it visually pulled the cell out of the row and
+  // duplicated this handler. Keyboard / a11y users can reach the log
+  // viewer via the row's context menu (Frame ▸ View Log) instead.
   const handleFrameRowDoubleClick = React.useCallback(
     (frame: Frame) => {
       if (!job) return;
@@ -355,26 +363,17 @@ export function SimpleDataTable<TData, TValue>({
   // visual rhythm). The TableCell wrapper sets text-center; individual
   // cell renderers below add nothing extra so the alignment is consistent
   // regardless of column id.
+  //
+  // The Layer cell used to render the layer name as a blue link straight
+  // into the frame log viewer. That was redundant with the row-level
+  // double-click handler (`handleFrameRowDoubleClick`), and the link
+  // styling visually pulled the cell out of the rest of the row, so it
+  // now renders as plain text like every other cell. Double-click the
+  // row (or click the Layer cell to open the log via the row handler)
+  // to reach the log viewer.
   const renderTableCellContent = (cell: any, row: any) => {
     if (cell.column.id === "state") {
       return <Status status={(row.original as Frame).state} />;
-    } else if (isFramesTable && cell.column.id === "layerName") {
-      return (
-        <Link
-          href={{
-            pathname: `frames/${(row.original as Frame).name}`,
-            query: {
-              frameId: (row.original as Frame).id,
-              frameLogDir: getFrameLogDir(job as Job, row.original as Frame),
-              username,
-            },
-          }}
-        >
-          <div className="text-blue-600 dark:text-blue-400 dark:font-bold">
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </div>
-        </Link>
-      );
     }
     return flexRender(cell.column.columnDef.cell, cell.getContext());
   };
@@ -518,7 +517,9 @@ export function SimpleDataTable<TData, TValue>({
           {columnsDropdown}
         </div>
       </div>
-      <div className="rounded-md border" ref={tableRef}>
+      {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
+          on phones instead of forcing the whole page to scroll. */}
+      <div className="overflow-x-auto rounded-md border" ref={tableRef}>
         <Table className="border">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -638,6 +639,7 @@ export function SimpleDataTable<TData, TValue>({
       {(isFramesTable || isFramesLogTable) ? (
         <FrameContextMenu
           username={username}
+          job={job}
           contextMenuState={contextMenuState}
           contextMenuHandleClose={contextMenuHandleClose}
           contextMenuRef={contextMenuRef}

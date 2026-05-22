@@ -80,11 +80,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 15. **Enhanced security using Opencue API:**
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
 16. **CueWeb actions and context menu (CueGUI parity):**
-   - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu` in `cueweb/components/ui/context_menus/action-context-menu.tsx`).
-   - **Job actions** include: Unmonitor, View Job, Copy Job Name, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
-   - **Layer actions** include: View Layer, Copy Layer Name, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
-   - **Frame actions** include: Tail / View Log, Copy Log Path / Frame Name, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
-   - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on.
+   - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
+   - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
+   - **Job actions** include: Unmonitor, View Job, **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
+   - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
+   - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
+   - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
+   - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb surface a friendly placeholder toast. Destructive items are auto-disabled when **Disable Job Interaction** is on.
 
 17. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
@@ -103,8 +105,8 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
    - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
    - Subscriptions always succeed; the OS-level notification permission is an optional upgrade for desktop popups. Clicking the bell branches the resulting toast on `granted` / `denied` / `default` so users know whether they got an in-app-only subscription or also a system popup.
-   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` it fires an in-app `toast.success(...)` (always) and a desktop `Notification(...)` popup (when permission was granted at fire-time). The notify decision is serialized cross-tab via the Web Locks API (`navigator.locks.request("cueweb:notify-<jobId>", ...)`) so only one tab toasts when several poll the same job concurrently.
-   - Subscriptions are persisted in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Cross-tab sync uses the browser `storage` event.
+   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app toast fires (always), and a desktop popup appears too if the OS-level notification permission was granted. When several CueWeb tabs poll the same job concurrently only one tab actually fires the toast, so you see exactly one notification per finished job.
+   - Subscriptions are persisted in the browser and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Mutations are synced across tabs.
 
 21. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
    - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
@@ -116,6 +118,31 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note indicator that appears on the jobs table when `Job.hasComment` is true.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).
    - Predefined-comment macros are stored per-browser in `localStorage` (`cueweb-comment-macros`), with the same `> Add / > Edit / > Delete predefined comment` workflow as CueGUI.
+
+23. **External editor integration (View Log on \<editor\>):**
+   - Optional Frame context-menu item that launches the frame's log file directly in a desktop editor.
+   - Configured at build time via the `NEXT_PUBLIC_LOG_EDITOR_URL` environment variable. The literal `{path}` is replaced with the absolute log path when the menu item is clicked.
+   - The sandbox deployment ships with VSCode as the default (**View Log on VSCode**). Override with another value to target a different editor:
+     - `vscode://file{path}` -> View Log on VSCode
+     - `vscode-insiders://file{path}` -> View Log on VSCode Insiders
+     - `subl://open?url=file://{path}` -> View Log on Sublime Text
+     - `txmt://open?url=file://{path}` -> View Log on TextMate
+     - `idea://open?file={path}` -> View Log on IntelliJ
+     - Empty value -> the menu item is hidden entirely.
+   - The menu label is derived automatically from the URL. Unrecognized schemes fall back to "View Log in external editor".
+   - Web browsers can't read the user's shell `$EDITOR` variable or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses.
+   - If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives.
+   - When the frame hasn't started running yet (WAITING / DEPEND frames have no log file on disk), the menu item shows a friendly warning toast instead of handing a non-existent path to the editor.
+
+24. **Mobile-friendly UI:**
+   - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and the data tables can be swiped horizontally to reach off-screen columns.
+   - On phones the desktop sidebar is replaced by a hamburger button in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
+   - Every Jobs / Layers / Frames row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens (see item 16), so touch users get the full action set without a right-click event.
+   - The keyboard-shortcuts overlay (item 21) is itself touch-friendly: every key badge in the list is tappable, so `/` (focus search), `r` (refresh), and `t` (toggle theme) work on phones without a physical keyboard.
+
+25. **LAN access (CueWeb usable from phones / tablets):**
+   - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
+   - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path, Copy Log Directory) work even when CueWeb is reached over plain HTTP at a LAN IP, where the modern Clipboard API would otherwise be unavailable. Compatibility includes iOS Safari.
 
 ## CueWeb's user interface
 
