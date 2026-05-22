@@ -119,29 +119,17 @@ impl From<HostModel> for Host {
             id: parse_uuid(&val.pk_host),
             name: val.str_name,
             str_os: val.str_os,
-            idle_cores: CoreSize::from_multiplied(
-                val.int_cores_idle
-                    .try_into()
-                    .expect("int_cores_min/multiplier should fit on a i32"),
-            ),
+            idle_cores: CoreSize::from_multiplied(val.int_cores_idle),
             idle_memory: ByteSize::kb(val.int_mem_free as u64),
             idle_gpus: val
                 .int_gpus_idle
                 .try_into()
                 .expect("int_gpus should fit on a i32"),
             idle_gpu_memory: ByteSize::kb(val.int_gpu_mem_free as u64),
-            total_cores: CoreSize::from_multiplied(
-                val.int_cores
-                    .try_into()
-                    .expect("total_cores should fit on a i32"),
-            ),
+            total_cores: CoreSize::from_multiplied(val.int_cores),
             total_memory: ByteSize::kb(val.int_mem_total as u64),
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
-            alloc_available_cores: CoreSize::from_multiplied(
-                val.int_alloc_available_cores
-                    .try_into()
-                    .expect("alloc_available_cores should fit on a i32"),
-            ),
+            alloc_available_cores: CoreSize::from_multiplied(val.int_alloc_available_cores),
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,

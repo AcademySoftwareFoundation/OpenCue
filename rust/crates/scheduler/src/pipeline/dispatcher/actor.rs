@@ -473,7 +473,10 @@ impl RqdDispatcherService {
         allocation_capacity: CoreSize,
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
         trace!("({dispatch_id}) Built virtual proc {}", virtual_proc);
-        let cores_reserved_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
+        // `cores_reserved` is centicores (CoreSizeWithMultiplier); convert to cores for
+        // both the Redis booking delta (Redis = cores, design §0 unit invariant) and the
+        // per-cluster allocation_capacity comparison below (which is already CoreSize).
+        let cores_reserved: CoreSize = virtual_proc.cores_reserved.into();
 
         // Build the booking delta once - used by Redis apply and by any compensation rollback.
         let delta = BookingDelta {
@@ -483,13 +486,13 @@ impl RqdDispatcherService {
             job_id: virtual_proc.job_id,
             layer_id: virtual_proc.layer_id,
             dept_id: virtual_proc.dept_id,
-            core_delta: cores_reserved_without_multiplier.value() as i64,
+            core_delta: i64::from(cores_reserved.value()),
             gpu_delta: virtual_proc.gpus_reserved as i32,
         };
 
         // Per-cluster host accounting check - this dispatcher iteration may have already
         // consumed cores from the allocation above what Redis knows about.
-        if cores_reserved_without_multiplier > allocation_capacity {
+        if cores_reserved > allocation_capacity {
             return Err(DispatchVirtualProcError::AllocationOverBurst(
                 DispatchError::AllocationOverBurst(host.alloc_name.clone()),
             ));
@@ -612,12 +615,7 @@ impl RqdDispatcherService {
         // Update the host struct with the actual database values after the update
         // to ensure cache and database stay in sync
         let mut updated_host = host;
-        updated_host.idle_cores = CoreSize::from_multiplied(
-            updated_resources
-                .cores_idle
-                .try_into()
-                .expect("db_cores_idle should fit in i32"),
-        );
+        updated_host.idle_cores = CoreSize::from_multiplied(updated_resources.cores_idle);
         updated_host.idle_memory = ByteSize::kb(updated_resources.mem_idle as u64);
         updated_host.idle_gpus = updated_resources
             .gpus_idle

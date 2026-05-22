@@ -79,7 +79,10 @@ public class LettuceAccountingRedisPublisherTests {
         proc.allocationId = ALLOC_ID;
         proc.folderId = FOLDER_ID;
         proc.deptId = DEPT_ID;
-        proc.coresReserved = 100;
+        // 400 centicores = 4 cores. Cuebot stores cores × 100; the publisher converts to
+        // cores on the way to Redis per design §0 unit invariant. 4 != 2 (gpusReserved)
+        // keeps the -cores/-gpus argv pair disambiguated in assertions below.
+        proc.coresReserved = 400;
         proc.gpusReserved = 2;
 
         // Mockito's vararg matching is fiddly for evalsha(String, ScriptOutputType, K[], V...).
@@ -160,9 +163,10 @@ public class LettuceAccountingRedisPublisherTests {
                 "acct:point:" + DEPT_ID + ":" + SHOW_ID, "acct:seq"};
         assertArrayEquals(expectedKeys, lastKeys.get());
 
-        // Five pairs of (-cores, -gpus), one per accounting table.
+        // Five pairs of (-cores, -gpus), one per accounting table. Cores are sent in
+        // Redis cores (centicores / 100), so 400 -> "-4". GPUs pass through unconverted.
         String[] expectedArgv =
-                new String[] {"-100", "-2", "-100", "-2", "-100", "-2", "-100", "-2", "-100", "-2"};
+                new String[] {"-4", "-2", "-4", "-2", "-4", "-2", "-4", "-2", "-4", "-2"};
         assertArrayEquals(expectedArgv, lastArgv.get());
     }
 
@@ -196,7 +200,7 @@ public class LettuceAccountingRedisPublisherTests {
         publisher.publishRelease(proc);
         assertEquals(10, lastArgv.get().length);
         // First pair is from acct:sub key — uses -cores then -gpus.
-        assertEquals(Arrays.asList("-100", "-2"),
+        assertEquals(Arrays.asList("-4", "-2"),
                 Arrays.asList(lastArgv.get()[0], lastArgv.get()[1]));
     }
 }

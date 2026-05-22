@@ -132,12 +132,7 @@ impl DispatchLayer {
             job_name: layer.str_job_name,
             layer_name: layer.str_name,
             str_os: layer.str_os,
-            cores_min: CoreSize::from_multiplied(
-                layer
-                    .int_cores_min
-                    .try_into()
-                    .expect("int_cores_min should fit on a i32"),
-            ),
+            cores_min: CoreSize::from_multiplied(layer.int_cores_min),
             mem_min: ByteSize::kb(layer.int_mem_min as u64),
             threadable: layer.b_threadable,
             gpus_min: layer

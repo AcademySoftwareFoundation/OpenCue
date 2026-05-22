@@ -39,6 +39,7 @@ use crate::accounting::redis_client::ReseedOp;
 use crate::accounting::AccountingService;
 use crate::config::CONFIG;
 use crate::dao::ResourceAccountingDao;
+use crate::models::CoreSize;
 
 pub fn spawn_loop(service: Arc<AccountingService>) {
     tokio::spawn(async move {
@@ -180,11 +181,13 @@ fn booked_ops_from_snapshot(rows: &[BookedSnapshotRow]) -> Vec<ReseedOp> {
         + point_totals.len();
     let mut ops = Vec::with_capacity(total_keys * 2);
 
-    fn push_pair(ops: &mut Vec<ReseedOp>, key: String, cores: i64, gpus: i64) {
+    fn push_pair(ops: &mut Vec<ReseedOp>, key: String, cores_centi: i64, gpus: i64) {
+        // PG centicores → Redis cores via the typed conversion. Booked sums are
+        // non-negative, so the non-cap variant is correct here.
         ops.push(ReseedOp {
             key: key.clone(),
             field: "int_cores",
-            value: cores,
+            value: i64::from(CoreSize::from_multiplied(cores_centi).value()),
         });
         ops.push(ReseedOp {
             key,
@@ -227,6 +230,7 @@ mod tests {
     use uuid::Uuid;
 
     fn fixture_row() -> BookedSnapshotRow {
+        // PG-shaped: `cores` is centicores per SUM(proc.int_cores_reserved). 4200 = 42 cores.
         BookedSnapshotRow {
             show_id: Uuid::nil(),
             alloc_id: Uuid::nil(),
@@ -234,7 +238,7 @@ mod tests {
             job_id: Uuid::nil(),
             layer_id: Uuid::nil(),
             dept_id: Uuid::nil(),
-            cores: 42,
+            cores: 4200,
             gpus: 3,
         }
     }
@@ -250,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_single_row_expands_to_ten_ops() {
+    fn snapshot_single_row_expands_to_ten_ops_in_cores() {
         let ops = booked_ops_from_snapshot(&[fixture_row()]);
         // 5 unique keys × 2 fields (int_cores, int_gpus).
         assert_eq!(ops.len(), 10);
@@ -258,7 +262,9 @@ mod tests {
         let gpus_ops: Vec<_> = ops.iter().filter(|o| o.field == "int_gpus").collect();
         assert_eq!(cores_ops.len(), 5);
         assert_eq!(gpus_ops.len(), 5);
+        // PG centicores 4200 -> Redis cores 42.
         assert!(cores_ops.iter().all(|o| o.value == 42));
+        // GPUs pass through unconverted.
         assert!(gpus_ops.iter().all(|o| o.value == 3));
     }
 
@@ -279,6 +285,7 @@ mod tests {
 
     /// Two jobs in the same folder, same sub, same point. The coarse counters must
     /// SUM across the per-job snapshot rows, not pick "last write wins."
+    /// Snapshot `cores` are PG centicores; assertions are in Redis cores.
     #[test]
     fn snapshot_sums_coarse_keys_across_per_job_rows() {
         let show = Uuid::new_v4();
@@ -292,7 +299,7 @@ mod tests {
             job_id: Uuid::new_v4(),
             layer_id: Uuid::new_v4(),
             dept_id: dept,
-            cores: 10,
+            cores: 1000, // 10 cores
             gpus: 1,
         };
         let row_b = BookedSnapshotRow {
@@ -302,12 +309,13 @@ mod tests {
             job_id: Uuid::new_v4(),
             layer_id: Uuid::new_v4(),
             dept_id: dept,
-            cores: 25,
+            cores: 2500, // 25 cores
             gpus: 2,
         };
 
         let ops = booked_ops_from_snapshot(&[row_a, row_b]);
 
+        // Centicores summed (3500), then /100 -> 35 cores.
         let sub_key = format!("acct:sub:{}:{}", show, alloc);
         assert_eq!(find_op(&ops, &sub_key, "int_cores").value, 35);
         assert_eq!(find_op(&ops, &sub_key, "int_gpus").value, 3);
@@ -326,6 +334,7 @@ mod tests {
 
     /// One job whose procs span two allocations. The job and layer counters must sum
     /// across the two snapshot rows, while the two sub counters are independent.
+    /// Snapshot `cores` are PG centicores; assertions are in Redis cores.
     #[test]
     fn snapshot_sums_job_and_layer_across_allocations() {
         let show = Uuid::new_v4();
@@ -343,7 +352,7 @@ mod tests {
                 job_id: job,
                 layer_id: layer,
                 dept_id: dept,
-                cores: 10,
+                cores: 1000, // 10 cores
                 gpus: 0,
             },
             BookedSnapshotRow {
@@ -353,7 +362,7 @@ mod tests {
                 job_id: job,
                 layer_id: layer,
                 dept_id: dept,
-                cores: 7,
+                cores: 700, // 7 cores
                 gpus: 0,
             },
         ];

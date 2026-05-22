@@ -29,6 +29,7 @@ use crate::accounting::dao::{
 use crate::accounting::redis_client::ReseedOp;
 use crate::accounting::AccountingService;
 use crate::config::CONFIG;
+use crate::models::CoreSize;
 
 pub fn spawn_loop(service: Arc<AccountingService>) {
     tokio::spawn(async move {
@@ -112,6 +113,8 @@ pub async fn reseed_once(service: &AccountingService) -> Result<()> {
 }
 
 /// Flatten subscription limit rows into per-field `ReseedOp`s (`size`, `burst`).
+/// PG centicores → Redis cores via `CoreSize::from_multiplied`; the type carries
+/// the unit through the conversion. Subscription caps never use the `-1` sentinel.
 fn subscription_ops(rows: &[SubscriptionLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
     rows.iter().flat_map(|r| {
         let key = format!("acct:sub:{}:{}", r.show_id, r.alloc_id);
@@ -119,18 +122,20 @@ fn subscription_ops(rows: &[SubscriptionLimitsRow]) -> impl Iterator<Item = Rese
             ReseedOp {
                 key: key.clone(),
                 field: "size",
-                value: r.size,
+                value: i64::from(CoreSize::from_multiplied(r.size).value()),
             },
             ReseedOp {
                 key,
                 field: "burst",
-                value: r.burst,
+                value: i64::from(CoreSize::from_multiplied(r.burst).value()),
             },
         ]
     })
 }
 
-/// Flatten folder limit rows into the four cap fields per row.
+/// Flatten folder limit rows into the four cap fields per row. `int_max_cores` uses
+/// `from_multiplied_cap` to preserve the `-1` "unlimited" sentinel; GPU fields
+/// pass through unconverted.
 fn folder_ops(rows: &[FolderLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
     rows.iter().flat_map(|r| {
         let key = format!("acct:folder:{}", r.folder_id);
@@ -138,12 +143,12 @@ fn folder_ops(rows: &[FolderLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
             ReseedOp {
                 key: key.clone(),
                 field: "int_min_cores",
-                value: r.min_cores,
+                value: i64::from(CoreSize::from_multiplied(r.min_cores).value()),
             },
             ReseedOp {
                 key: key.clone(),
                 field: "int_max_cores",
-                value: r.max_cores,
+                value: i64::from(CoreSize::from_multiplied_cap(r.max_cores).value()),
             },
             ReseedOp {
                 key: key.clone(),
@@ -159,7 +164,9 @@ fn folder_ops(rows: &[FolderLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
     })
 }
 
-/// Flatten job limit rows into the three cap fields per row.
+/// Flatten job limit rows into the three cap fields per row. `int_max_cores`
+/// uses `from_multiplied_cap` for the `-1` sentinel; `int_max_gpus` and
+/// `int_priority` pass through unconverted.
 fn job_ops(rows: &[JobLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
     rows.iter().flat_map(|r| {
         let key = format!("acct:job:{}", r.job_id);
@@ -167,7 +174,7 @@ fn job_ops(rows: &[JobLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
             ReseedOp {
                 key: key.clone(),
                 field: "int_max_cores",
-                value: r.max_cores,
+                value: i64::from(CoreSize::from_multiplied_cap(r.max_cores).value()),
             },
             ReseedOp {
                 key: key.clone(),
@@ -184,7 +191,8 @@ fn job_ops(rows: &[JobLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
 }
 
 /// Flatten point limit rows into the two floor fields per row. (Point has no
-/// `int_max_*` columns in the schema; only minimums are surfaced.)
+/// `int_max_*` columns in the schema; only minimums are surfaced.) `int_min_cores`
+/// is a floor, never negative, so `from_multiplied` is sufficient.
 fn point_ops(rows: &[PointLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
     rows.iter().flat_map(|r| {
         let key = format!("acct:point:{}:{}", r.dept_id, r.show_id);
@@ -192,7 +200,7 @@ fn point_ops(rows: &[PointLimitsRow]) -> impl Iterator<Item = ReseedOp> + '_ {
             ReseedOp {
                 key: key.clone(),
                 field: "int_min_cores",
-                value: r.min_cores,
+                value: i64::from(CoreSize::from_multiplied(r.min_cores).value()),
             },
             ReseedOp {
                 key,
@@ -209,21 +217,23 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
-    fn subscription_emits_two_fields_per_row() {
+    fn subscription_emits_two_fields_in_cores() {
+        // PG centicores 900/1000 -> Redis cores 9/10.
         let out: Vec<ReseedOp> = subscription_ops(&[SubscriptionLimitsRow {
             show_id: Uuid::nil(),
             alloc_id: Uuid::nil(),
-            size: 100,
-            burst: 200,
+            size: 900,
+            burst: 1000,
         }])
         .collect();
         assert_eq!(out.len(), 2);
-        assert!(out.iter().any(|o| o.field == "size" && o.value == 100));
-        assert!(out.iter().any(|o| o.field == "burst" && o.value == 200));
+        assert!(out.iter().any(|o| o.field == "size" && o.value == 9));
+        assert!(out.iter().any(|o| o.field == "burst" && o.value == 10));
     }
 
     #[test]
-    fn folder_emits_four_cap_fields_per_row() {
+    fn folder_converts_cores_passes_gpus_and_preserves_unlimited() {
+        // min_cores: 0 -> 0; max_cores: -1 (unlimited sentinel) -> -1; GPUs unchanged.
         let out: Vec<ReseedOp> = folder_ops(&[FolderLimitsRow {
             folder_id: Uuid::nil(),
             min_cores: 0,
@@ -233,10 +243,28 @@ mod tests {
         }])
         .collect();
         assert_eq!(out.len(), 4);
-        let fields: std::collections::HashSet<_> = out.iter().map(|o| o.field).collect();
-        assert!(fields.contains("int_min_cores"));
-        assert!(fields.contains("int_max_cores"));
-        assert!(fields.contains("int_min_gpus"));
-        assert!(fields.contains("int_max_gpus"));
+        let by_field: std::collections::HashMap<_, _> =
+            out.iter().map(|o| (o.field, o.value)).collect();
+        assert_eq!(by_field["int_min_cores"], 0);
+        assert_eq!(by_field["int_max_cores"], -1);
+        assert_eq!(by_field["int_min_gpus"], 0);
+        assert_eq!(by_field["int_max_gpus"], -1);
+    }
+
+    #[test]
+    fn folder_converts_positive_cap_to_cores() {
+        let out: Vec<ReseedOp> = folder_ops(&[FolderLimitsRow {
+            folder_id: Uuid::nil(),
+            min_cores: 500,
+            max_cores: 2000,
+            min_gpus: 0,
+            max_gpus: 4,
+        }])
+        .collect();
+        let by_field: std::collections::HashMap<_, _> =
+            out.iter().map(|o| (o.field, o.value)).collect();
+        assert_eq!(by_field["int_min_cores"], 5);
+        assert_eq!(by_field["int_max_cores"], 20);
+        assert_eq!(by_field["int_max_gpus"], 4); // GPUs unconverted.
     }
 }

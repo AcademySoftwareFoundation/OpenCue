@@ -40,6 +40,12 @@
 ///   uses `-1` (the schema default for `folder_resource.int_max_cores`) as the
 ///   "unlimited" sentinel, and 0 is not a meaningful configured value for these
 ///   caps in practice.
+///
+/// Units: every numeric field this script reads and writes - `int_cores`, `size`,
+/// `burst`, `int_max_cores` - is in **cores** (not centicores). Conversion from PG's
+/// centicore storage happens at the limit-reseed and booked-counter-recompute
+/// boundaries; the Cuebot release publisher and the Rust booking-delta builder
+/// likewise pass cores into this script. See design §0 unit invariant.
 pub const BOOK_OR_FORCE: &str = r#"
 local core_d = tonumber(ARGV[1])
 local gpu_d  = tonumber(ARGV[2])

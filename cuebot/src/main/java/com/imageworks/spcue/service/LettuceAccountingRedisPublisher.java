@@ -155,12 +155,17 @@ public class LettuceAccountingRedisPublisher implements AccountingRedisPublisher
         }
     }
 
+    /** Cuebot stores cores as centicores (cores × 100; see VirtualProc.java:143). Redis
+     *  stores cores (design §0 unit invariant), so we divide on the way out. The divide
+     *  is exact: VirtualProc forces coresReserved to a multiple of 100 at booking time. */
+    static final int CENTICORES_PER_CORE = 100;
+
     private void evalRelease(VirtualProc proc) {
         String[] keys = new String[] {"acct:sub:" + proc.getShowId() + ":" + proc.getAllocationId(),
                 "acct:folder:" + proc.folderId, "acct:job:" + proc.getJobId(),
                 "acct:layer:" + proc.getLayerId(),
                 "acct:point:" + proc.deptId + ":" + proc.getShowId(), "acct:seq"};
-        String negCores = String.valueOf(-proc.coresReserved);
+        String negCores = String.valueOf(-proc.coresReserved / CENTICORES_PER_CORE);
         String negGpus = String.valueOf(-proc.gpusReserved);
         String[] argv = new String[] {negCores, negGpus, negCores, negGpus, negCores, negGpus,
                 negCores, negGpus, negCores, negGpus};
