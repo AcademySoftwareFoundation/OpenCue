@@ -33,6 +33,7 @@ import com.imageworks.spcue.grpc.host.NestedHost;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
 import com.imageworks.spcue.grpc.host.NestedProc;
 import com.imageworks.spcue.grpc.job.GroupStats;
+import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.NestedGroup;
@@ -43,9 +44,16 @@ import com.imageworks.spcue.util.CueUtil;
 
 public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhiteboardDao {
 
+    /**
+     * Cached whiteboard result. Note: each cached NestedGroup tree carries fully hydrated Job
+     * messages via NestedGroup.inline_jobs (populated by NestedJobWhiteboardMapper). Memory cost
+     * per entry scales with the show's pending job count and per-job stat payload — the trade-off
+     * is intentional: it eliminates the per-group getJobs fan-out previously paid by every CueGUI
+     * tick.
+     */
     private class CachedJobWhiteboardMapper {
         public final long time;
-        public NestedJobWhiteboardMapper mapper;
+        public final NestedJobWhiteboardMapper mapper;
 
         public CachedJobWhiteboardMapper(NestedJobWhiteboardMapper result) {
             this.mapper = result;
@@ -53,10 +61,22 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         }
     }
 
-    private static final int CACHE_TIMEOUT = 5000;
+    private static final int CACHE_TIMEOUT_MS = 10000;
     private final ConcurrentHashMap<String, CachedJobWhiteboardMapper> jobCache =
             new ConcurrentHashMap<String, CachedJobWhiteboardMapper>(20);
+    // Per-show refresh lock. Entries are intentionally never evicted: shows are stable
+    // (created/deleted rarely, monitored for long sessions), so the map size is bounded
+    // by the number of distinct shows on the deployment — a handful of dozens of small
+    // Object instances. Adding an eviction hook would couple this DAO to show lifecycle
+    // events for no practical benefit.
+    private final ConcurrentHashMap<String, Object> refreshLocks =
+            new ConcurrentHashMap<String, Object>(20);
 
+    // IMPORTANT: this SELECT must remain a column-superset of WhiteboardDaoJdbc.GET_JOB.
+    // NestedJobWhiteboardMapper feeds each row through WhiteboardDaoJdbc.JOB_MAPPER to
+    // populate NestedGroup.inline_jobs, so any column the JOB_MAPPER reads must appear
+    // here. Dropping a column (or renaming an alias) will surface only at runtime as a
+    // SQLException during a cache refresh.
     // spotless:off
     public static final String GET_NESTED_GROUPS =
             "SELECT "
@@ -83,6 +103,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 + "job.str_user, "
                 + "job.str_state, "
                 + "job.str_log_dir, "
+                + "job.str_loki_url, "
                 + "job.int_uid, "
                 + "job_resource.int_priority, "
                 + "job.ts_started, "
@@ -258,8 +279,9 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores())
                         .setPendingJobs(oldStats.getPendingJobs() + 1).build();
 
+                Job inlineJob = WhiteboardDaoJdbc.JOB_MAPPER.mapRow(rs, rowNum);
                 group = group.toBuilder().setStats(groupStats).addJobs(rs.getString("pk_job"))
-                        .build();
+                        .addInlineJobs(inlineJob).build();
                 groups.put(groupId, group);
             }
             return group;
@@ -286,22 +308,36 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     }
 
     public NestedGroup getJobWhiteboard(ShowInterface show) {
+        String showId = show.getShowId();
 
-        CachedJobWhiteboardMapper cachedMapper = jobCache.get(show.getShowId());
-        if (cachedMapper != null) {
-            if (System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT) {
-                return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
-            }
+        CachedJobWhiteboardMapper cachedMapper = jobCache.get(showId);
+        if (cachedMapper != null
+                && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+            return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
         }
 
-        NestedJobWhiteboardMapper mapper = new NestedJobWhiteboardMapper();
-        getJdbcTemplate().query(
-                GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
-                mapper, show.getShowId());
+        /*
+         * Ensures only 1 thread per show is running the query; other threads for the same show wait
+         * and then return the result of the thread that actually did the work. Different shows do
+         * not contend.
+         */
+        Object lock = refreshLocks.computeIfAbsent(showId, k -> new Object());
+        synchronized (lock) {
+            cachedMapper = jobCache.get(showId);
+            if (cachedMapper != null
+                    && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+                return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
+            }
 
-        mapper = updateConnections(mapper);
-        jobCache.put(show.getShowId(), new CachedJobWhiteboardMapper(mapper));
-        return mapper.groups.get(mapper.rootGroupID);
+            NestedJobWhiteboardMapper mapper = new NestedJobWhiteboardMapper();
+            getJdbcTemplate().query(
+                    GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
+                    mapper, showId);
+
+            mapper = updateConnections(mapper);
+            jobCache.put(showId, new CachedJobWhiteboardMapper(mapper));
+            return mapper.groups.get(mapper.rootGroupID);
+        }
     }
 
     private static final NestedJob mapResultSetToJob(ResultSet rs) throws SQLException {

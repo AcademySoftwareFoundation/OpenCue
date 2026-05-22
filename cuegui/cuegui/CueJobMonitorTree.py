@@ -52,7 +52,7 @@ COLUMN_COMMENT = 1
 COLUMN_EAT = 2
 COLUMN_MAXRSS = 13
 FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
-UPDATE_INTERVAL = 22
+UPDATE_INTERVAL = 5
 
 
 def getEta(stats):
@@ -213,6 +213,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                group.data.department or ""))
             self.addColumn("", 0, id=21)
 
+        # Guards against overlapping ticks: at a 5s cadence the previous
+        # _getUpdate may not have finished yet on a cold cache miss; skipping
+        # is preferable to piling up threadpool jobs. Must be set BEFORE
+        # AbstractTreeWidget.__init__ — the base ctor calls updateRequest()
+        # which dispatches into our overridden _update().
+        self._updateInFlight = False
+
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.setAnimated(False)
@@ -372,6 +379,44 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if itemId in self._items:
                 self._items[itemId].setExpanded(False)
 
+    def _update(self):
+        """Overrides AbstractTreeWidget._update to drop ticks while a previous
+        _getUpdate is still on the threadpool. Necessary at the 5s cadence
+        because a cold-cache server miss can take longer than the tick interval;
+        without this guard the threadpool would pile up overlapping requests."""
+        if self._updateInFlight:
+            return
+        self._lastUpdate = time.time()
+        self._updateInFlight = True
+        if self.app.threadpool is not None:
+            # If queue() itself raises (mutex error, teardown-time attribute
+            # access, ...) the callback will never fire, so clear the flag here
+            # to keep the next tick from being permanently blocked.
+            # pylint: disable=broad-except
+            try:
+                self.app.threadpool.queue(
+                    self._getUpdate, self._processUpdateGuarded,
+                    "getting data for %s" % self.__class__)
+            except Exception:
+                self._updateInFlight = False
+                logger.warning(
+                    "Failed to queue update for %s; will retry on next tick",
+                    self.__class__, exc_info=True)
+        else:
+            logger.warning("threadpool not found, doing work in gui thread")
+            try:
+                self._processUpdate(None, self._getUpdate())
+            finally:
+                self._updateInFlight = False
+
+    def _processUpdateGuarded(self, work, rpcObjects):
+        """Wraps _processUpdate so _updateInFlight is always cleared, even if
+        the GUI-thread update path raises."""
+        try:
+            self._processUpdate(work, rpcObjects)
+        finally:
+            self._updateInFlight = False
+
     def _getUpdate(self):
         """Returns a list of NestedGroup from the cuebot for the monitored shows
         @rtype:  [list<NestedGroup>, set(str)]
@@ -398,7 +443,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return [nestedGroups, allIds]
 
     def _processUpdate(self, work, rpcObjects):
-        """Adds or updates jobs and groups. Removes those that do not get updated
+        """Incrementally reconciles the tree against the latest whiteboard.
+
+        Adds/updates/reparents items via __processUpdateHandleNested (which
+        preserves widget identity, so JobWidgetItem._cache, selection, and
+        scroll all survive). Then detaches items whose IDs are no longer
+        present. Avoiding clear() is what makes the 5s cadence non-disruptive.
+
         @type  work: from threadpool
         @param work: from threadpool
         @type  rpcObjects: [list<NestedGroup>, set(str)]
@@ -409,25 +460,25 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self._itemsLock.lockForWrite()
         # pylint: disable=broad-except
         try:
-            current = set(self._items.keys())
-            if current == set(rpcObjects[1]):
-                # Same items exist - update their data in place
-                collapsed = self.__getCollapsed()
-                self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
-                self.__setCollapsed(collapsed)
-                self.redraw()
-            else:
-                # (Something removed) or (Something added)
-                selected_ids = [item.rpcObject.id() for item in self.selectedItems()]
-                collapsed = self.__getCollapsed()
-                scrolled = self.verticalScrollBar().value()
-                self._items = {}
-                self.clear()
-                self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
-                self.__setCollapsed(collapsed)
-                self.verticalScrollBar().setValue(scrolled)
-                list(map(lambda id_: self._items[id_].setSelected(True),
-                         [id_ for id_ in selected_ids if id_ in self._items]))
+            new_ids = set(rpcObjects[1])
+            old_ids = set(self._items.keys())
+            collapsed = self.__getCollapsed()
+            # Save scroll position around the reconcile: takeChild on a stale item
+            # above the viewport collapses indices and would shift visible content
+            # otherwise.
+            scrolled = self.verticalScrollBar().value()
+            self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
+            for stale_id in old_ids - new_ids:
+                item = self._items.pop(stale_id, None)
+                if item is None:
+                    continue
+                parent = item.parent() or self.invisibleRootItem()
+                idx = parent.indexOfChild(item)
+                if idx >= 0:
+                    parent.takeChild(idx)
+            self.__setCollapsed(collapsed)
+            self.verticalScrollBar().setValue(scrolled)
+            self.redraw()
         except Exception:
             logger.warning("Failed to process update.", exc_info=True)
         finally:
@@ -474,18 +525,25 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 for nestedGroup in group.data.groups.nested_groups]
             self.__processUpdateHandleNested(groupItem, nestedGroups)
 
-            if group.data.jobs:
+            # Prefer inline_jobs (hydrated by Cuebot in the whiteboard response)
+            # to avoid the per-group getJobs fan-out. Fall back to the legacy
+            # path when talking to a Cuebot that does not populate the field.
+            if group.data.inline_jobs:
+                jobsObject = group.inlineJobs()
+            elif group.data.jobs:
                 jobsObject = opencue.api.getJobs(id=list(group.data.jobs))
+            else:
+                jobsObject = []
 
-                for job in jobsObject:
-                    try:
-                        if job.id() in self._items:
-                            self._items[job.id()].update(job, groupItem)
-                        else:
-                            self._items[job.id()] = JobWidgetItem(job, groupItem)
-                    except RuntimeError:
-                        logger.warning(
-                            "Failed to create tree item. RootView might be closed", exc_info=True)
+            for job in jobsObject:
+                try:
+                    if job.id() in self._items:
+                        self._items[job.id()].update(job, groupItem)
+                    else:
+                        self._items[job.id()] = JobWidgetItem(job, groupItem)
+                except RuntimeError:
+                    logger.warning(
+                        "Failed to create tree item. RootView might be closed", exc_info=True)
 
     def mouseDoubleClickEvent(self, event):
         """Event triggered by a mouse click"""

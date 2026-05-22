@@ -206,14 +206,16 @@ class ThreadPool(QtCore.QObject):
                 if not work:
                     continue
 
+                # The callback MUST fire (with None on failure) whenever a
+                # callback was supplied. Some callers rely on the callback to
+                # clear in-flight guards; swallowing the emit on error would
+                # pin those guards forever.
+                result = None
                 try:
                     if work[3]:
                         result = work[0](*work[3])
                     else:
                         result = work[0]()
-                    if work[1]:
-                        self.workComplete.emit(work, result)
-                        del result
                 except grpc.RpcError as e:
                     # Handle gRPC errors gracefully - these are often transient
                     # pylint: disable=no-member
@@ -232,6 +234,9 @@ class ThreadPool(QtCore.QObject):
                     logger.error("RuntimeError in work processing for '%s': %s", work[2], e)
                 except Exception as e:
                     logger.error("Unexpected error processing work for '%s': %s", work[2], e)
+                finally:
+                    if work[1]:
+                        self.workComplete.emit(work, result)
 
                 logger.info("Done:' %s '", work[2])
             logger.debug("Thread Stopping")
