@@ -36,10 +36,14 @@
 ///   check in `SubscriptionDaoJdbc.IS_SHOW_OVER_BURST`. The bootstrap reseed
 ///   populates burst before the scheduler accepts work, so unconfigured
 ///   subscriptions cannot dispatch.
-/// - **Folder / job `int_max_cores`** retain the `> 0` guard. Cuebot's convention
-///   uses `-1` (the schema default for `folder_resource.int_max_cores`) as the
-///   "unlimited" sentinel, and 0 is not a meaningful configured value for these
-///   caps in practice.
+/// - **Folder / job `int_max_cores` / `int_max_gpus`** retain the `> 0` guard.
+///   Cuebot's convention uses `-1` (the schema default for `folder_resource.
+///   int_max_cores` and `int_max_gpus`) as the "unlimited" sentinel, and 0 is
+///   not a meaningful configured value for these caps in practice. Core caps
+///   are checked only when `core_delta > 0`; GPU caps only when `gpu_delta > 0`.
+///   Mirrors `DispatchQuery.FIND_JOBS_BY_SHOW_PRIORITY_MODE`'s
+///   `job_resource.int_gpus + layer.int_gpus_min < job_resource.int_max_gpus`
+///   predicate that lived in PG before accounting moved to Redis.
 ///
 /// Units: every numeric field this script reads and writes - `int_cores`, `size`,
 /// `burst`, `int_max_cores` - is in **cores** (not centicores). Conversion from PG's
@@ -51,23 +55,39 @@ local core_d = tonumber(ARGV[1])
 local gpu_d  = tonumber(ARGV[2])
 local force  = ARGV[3] == "1"
 
-if not force and core_d > 0 then
-  local cur_sub   = tonumber(redis.call('HGET', KEYS[1], 'int_cores') or "0")
-  local sub_burst = tonumber(redis.call('HGET', KEYS[1], 'burst')     or "0")
-  if (cur_sub + core_d) > sub_burst then
-    return {0, "subscription", cur_sub, sub_burst}
+if not force then
+  if core_d > 0 then
+    local cur_sub   = tonumber(redis.call('HGET', KEYS[1], 'int_cores') or "0")
+    local sub_burst = tonumber(redis.call('HGET', KEYS[1], 'burst')     or "0")
+    if (cur_sub + core_d) > sub_burst then
+      return {0, "subscription", cur_sub, sub_burst}
+    end
+
+    local cur_folder = tonumber(redis.call('HGET', KEYS[2], 'int_cores')     or "0")
+    local folder_max = tonumber(redis.call('HGET', KEYS[2], 'int_max_cores') or "0")
+    if folder_max > 0 and (cur_folder + core_d) > folder_max then
+      return {0, "folder", cur_folder, folder_max}
+    end
+
+    local cur_job = tonumber(redis.call('HGET', KEYS[3], 'int_cores')     or "0")
+    local job_max = tonumber(redis.call('HGET', KEYS[3], 'int_max_cores') or "0")
+    if job_max > 0 and (cur_job + core_d) > job_max then
+      return {0, "job", cur_job, job_max}
+    end
   end
 
-  local cur_folder = tonumber(redis.call('HGET', KEYS[2], 'int_cores')     or "0")
-  local folder_max = tonumber(redis.call('HGET', KEYS[2], 'int_max_cores') or "0")
-  if folder_max > 0 and (cur_folder + core_d) > folder_max then
-    return {0, "folder", cur_folder, folder_max}
-  end
+  if gpu_d > 0 then
+    local cur_folder_gpu = tonumber(redis.call('HGET', KEYS[2], 'int_gpus')     or "0")
+    local folder_gpu_max = tonumber(redis.call('HGET', KEYS[2], 'int_max_gpus') or "0")
+    if folder_gpu_max > 0 and (cur_folder_gpu + gpu_d) > folder_gpu_max then
+      return {0, "folder_gpus", cur_folder_gpu, folder_gpu_max}
+    end
 
-  local cur_job = tonumber(redis.call('HGET', KEYS[3], 'int_cores')     or "0")
-  local job_max = tonumber(redis.call('HGET', KEYS[3], 'int_max_cores') or "0")
-  if job_max > 0 and (cur_job + core_d) > job_max then
-    return {0, "job", cur_job, job_max}
+    local cur_job_gpu = tonumber(redis.call('HGET', KEYS[3], 'int_gpus')     or "0")
+    local job_gpu_max = tonumber(redis.call('HGET', KEYS[3], 'int_max_gpus') or "0")
+    if job_gpu_max > 0 and (cur_job_gpu + gpu_d) > job_gpu_max then
+      return {0, "job_gpus", cur_job_gpu, job_gpu_max}
+    end
   end
 end
 

@@ -115,6 +115,11 @@ impl RedisHarness {
         let mut conn = self.conn.clone();
         let _: () = conn.hset(key, "burst", burst).await.expect("HSET burst");
     }
+
+    async fn set_field(&self, key: &str, field: &str, value: i64) {
+        let mut conn = self.conn.clone();
+        let _: () = conn.hset(key, field, value).await.expect("HSET field");
+    }
 }
 
 fn ok_seq(value: &redis::Value) -> Option<i64> {
@@ -351,6 +356,101 @@ async fn cas_guard_prevents_silent_loss_under_concurrent_booking() {
     let applied_retry = h.reseed(seq_before_retry, &ops_retry).await;
     assert_eq!(applied_retry, 1, "retry succeeds with fresh snapshot");
     assert_eq!(h.hget_i64(&key, "int_cores").await, Some(60));
+}
+
+#[tokio::test]
+async fn book_over_job_gpu_max_returns_structured_limit_exceeded() {
+    // Mirrors the Java `DispatchQuery.FIND_JOBS_BY_SHOW_PRIORITY_MODE` predicate
+    // `job_resource.int_gpus + layer.int_gpus_min < job_resource.int_max_gpus`
+    // that lived in PG before accounting moved to Redis.
+    let h = RedisHarness::new().await;
+    let delta = RedisHarness::delta(Uuid::new_v4(), Uuid::new_v4(), 100, 3);
+    h.set_burst(&delta.sub_key(), 10_000).await;
+    h.set_field(&delta.job_key(), "int_max_gpus", 4).await;
+
+    // First booking puts the job at 2 GPUs - under the 4 cap.
+    let first = RedisHarness::delta(delta.show_id, delta.alloc_id, 100, 2);
+    let r1 = h.book(&first, "0").await;
+    assert_eq!(ok_seq(&r1), Some(1));
+
+    // Second booking would push GPUs to 5 - over the 4 cap.
+    let r2 = h.book(&delta, "0").await;
+    let (table, current, limit) =
+        limit_exceeded(&r2).unwrap_or_else(|| panic!("expected limit-exceeded, got {r2:?}"));
+    assert_eq!(table, "job_gpus");
+    assert_eq!(current, 2);
+    assert_eq!(limit, 4);
+
+    // Counters should be unchanged after a rejected booking.
+    assert_eq!(h.hget_i64(&delta.job_key(), "int_gpus").await, Some(2));
+}
+
+#[tokio::test]
+async fn book_over_folder_gpu_max_returns_structured_limit_exceeded() {
+    let h = RedisHarness::new().await;
+    let delta = RedisHarness::delta(Uuid::new_v4(), Uuid::new_v4(), 100, 2);
+    h.set_burst(&delta.sub_key(), 10_000).await;
+    h.set_field(&delta.folder_key(), "int_max_gpus", 3).await;
+
+    // First booking puts the folder at 2 GPUs - under the 3 cap.
+    let first = RedisHarness::delta(delta.show_id, delta.alloc_id, 100, 2);
+    let r1 = h.book(&first, "0").await;
+    assert_eq!(ok_seq(&r1), Some(1));
+
+    // Second booking would push folder GPUs to 4 - over the 3 cap.
+    let r2 = h.book(&delta, "0").await;
+    let (table, current, limit) =
+        limit_exceeded(&r2).unwrap_or_else(|| panic!("expected limit-exceeded, got {r2:?}"));
+    assert_eq!(table, "folder_gpus");
+    assert_eq!(current, 2);
+    assert_eq!(limit, 3);
+}
+
+#[tokio::test]
+async fn gpu_cap_unlimited_when_negative() {
+    // Cuebot's `-1` sentinel = "unlimited" for `int_max_gpus`. The `> 0` guard in
+    // the Lua must let bookings through when the cap is unset or -1.
+    let h = RedisHarness::new().await;
+    let delta = RedisHarness::delta(Uuid::new_v4(), Uuid::new_v4(), 100, 99);
+    h.set_burst(&delta.sub_key(), 10_000).await;
+    h.set_field(&delta.job_key(), "int_max_gpus", -1).await;
+    h.set_field(&delta.folder_key(), "int_max_gpus", -1).await;
+
+    let r = h.book(&delta, "0").await;
+    assert!(
+        ok_seq(&r).is_some(),
+        "expected booking accepted with -1 cap, got {r:?}"
+    );
+    assert_eq!(h.hget_i64(&delta.job_key(), "int_gpus").await, Some(99));
+}
+
+#[tokio::test]
+async fn gpu_cap_not_checked_when_delta_is_zero() {
+    // Cores-only bookings should not be rejected by a tight GPU cap (no GPU
+    // demand means there's nothing to check).
+    let h = RedisHarness::new().await;
+    let delta = RedisHarness::delta(Uuid::new_v4(), Uuid::new_v4(), 100, 0);
+    h.set_burst(&delta.sub_key(), 10_000).await;
+    h.set_field(&delta.job_key(), "int_max_gpus", 1).await;
+    h.set_field(&delta.job_key(), "int_gpus", 1).await; // already at the cap
+
+    let r = h.book(&delta, "0").await;
+    assert!(
+        ok_seq(&r).is_some(),
+        "expected booking accepted with gpu_delta=0, got {r:?}"
+    );
+}
+
+#[tokio::test]
+async fn force_mode_bypasses_gpu_cap() {
+    let h = RedisHarness::new().await;
+    let delta = RedisHarness::delta(Uuid::new_v4(), Uuid::new_v4(), 100, 5);
+    h.set_burst(&delta.sub_key(), 10_000).await;
+    h.set_field(&delta.job_key(), "int_max_gpus", 1).await;
+
+    let result = h.book(&delta, "1").await;
+    assert_eq!(ok_seq(&result), Some(1));
+    assert_eq!(h.hget_i64(&delta.job_key(), "int_gpus").await, Some(5));
 }
 
 #[tokio::test]

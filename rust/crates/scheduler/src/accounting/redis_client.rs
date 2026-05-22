@@ -222,9 +222,10 @@ fn parse_book_outcome(value: redis::Value) -> Result<BookOutcome, AccountingErro
         Ok(BookOutcome::Applied { new_seq })
     } else {
         // LimitExceeded shape: [Int(0), Str(table), Int(current), Int(limit)].
-        // `table` is one of "subscription" / "folder" / "job" — see lua.rs cap
-        // checks. Accept both BulkString (RESP2) and SimpleString (RESP3) since
-        // either is valid for a Lua string literal across redis-rs versions.
+        // `table` is one of "subscription" / "folder" / "job" / "folder_gpus" /
+        // "job_gpus" — see lua.rs cap checks. Accept both BulkString (RESP2) and
+        // SimpleString (RESP3) since either is valid for a Lua string literal
+        // across redis-rs versions.
         let table = match array.get(1) {
             Some(Value::BulkString(s)) => String::from_utf8_lossy(s).into_owned(),
             Some(Value::SimpleString(s)) => s.clone(),
@@ -245,8 +246,9 @@ fn parse_book_outcome(value: redis::Value) -> Result<BookOutcome, AccountingErro
                 )))
             }
         };
-        // `limit` is the cap that was exceeded (subscription burst, folder
-        // int_max_cores, or job int_max_cores). Same source: HGET inside the Lua.
+        // `limit` is the cap that was exceeded (subscription burst, folder/job
+        // int_max_cores, or folder/job int_max_gpus). Same source: HGET inside
+        // the Lua.
         let limit = match array.get(3) {
             Some(Value::Int(n)) => *n,
             other => {

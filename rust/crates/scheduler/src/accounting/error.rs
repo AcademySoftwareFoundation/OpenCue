@@ -15,8 +15,9 @@ use thiserror::Error;
 /// Errors from the Redis-backed accounting service.
 ///
 /// The booking hot path (`apply_booking`) can fail in three meaningful ways:
-/// - `LimitExceeded`: the Lua check rejected the booking because a hard cap (burst,
-///   folder max, job max) would be exceeded. Carries the offending table, the current
+/// - `LimitExceeded`: the Lua check rejected the booking because a hard cap
+///   (subscription burst, folder/job `int_max_cores`, or folder/job
+///   `int_max_gpus`) would be exceeded. Carries the offending table, the current
 ///   counter value, and the limit - used to build user-facing error messages.
 /// - `Unavailable`: Redis is unreachable or in a state where bookings can't safely
 ///   proceed (empty after a restart, before bootstrap reseed has run). The dispatcher
