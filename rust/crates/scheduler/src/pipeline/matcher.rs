@@ -18,6 +18,7 @@ use std::{
     time::Duration,
 };
 
+use opencue_proto::host::ThreadMode;
 use uuid::Uuid;
 
 use crate::{
@@ -478,6 +479,14 @@ mod tests {
     use crate::models::{CoreSize, Host};
 
     fn host_with_os(str_os: Option<&str>) -> Host {
+        host_with(str_os, ThreadMode::Variable)
+    }
+
+    fn host_with_thread_mode(thread_mode: ThreadMode) -> Host {
+        host_with(Some("Linux"), thread_mode)
+    }
+
+    fn host_with(str_os: Option<&str>, thread_mode: ThreadMode) -> Host {
         Host::new_for_test(
             Uuid::new_v4(),
             "test-host".to_string(),
@@ -488,7 +497,7 @@ mod tests {
             ByteSize::gb(64),
             0,
             ByteSize::gb(0),
-            ThreadMode::Variable,
+            thread_mode,
             CoreSize::from_multiplied(100),
             Uuid::new_v4(),
             "test-alloc".to_string(),
@@ -517,5 +526,35 @@ mod tests {
             &host,
             Some("Windows")
         ));
+    }
+
+    #[test]
+    fn thread_mode_all_rejects_non_threadable_layer() {
+        let host = host_with_thread_mode(ThreadMode::All);
+
+        assert!(!MatchingService::host_matches_thread_mode(&host, false));
+    }
+
+    #[test]
+    fn thread_mode_all_accepts_threadable_layer() {
+        let host = host_with_thread_mode(ThreadMode::All);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+    }
+
+    #[test]
+    fn thread_mode_variable_accepts_any_threadability() {
+        let host = host_with_thread_mode(ThreadMode::Variable);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+        assert!(MatchingService::host_matches_thread_mode(&host, false));
+    }
+
+    #[test]
+    fn thread_mode_auto_accepts_any_threadability() {
+        let host = host_with_thread_mode(ThreadMode::Auto);
+
+        assert!(MatchingService::host_matches_thread_mode(&host, true));
+        assert!(MatchingService::host_matches_thread_mode(&host, false));
     }
 }

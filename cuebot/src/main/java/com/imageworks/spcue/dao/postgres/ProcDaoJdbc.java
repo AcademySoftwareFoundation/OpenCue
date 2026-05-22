@@ -67,9 +67,20 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     @Autowired
     private AccountingRedisPublisher accountingRedisPublisher;
 
-    private static final String VERIFY_RUNNING_PROC = "SELECT " + "proc.pk_frame " + "FROM "
-            + "proc, " + "job " + "WHERE " + "proc.pk_job = job.pk_job " + "AND "
-            + "job.str_state = 'PENDING' " + "AND " + "proc.pk_proc= ? ";
+    // spotless:off
+    private static final String VERIFY_RUNNING_PROC =
+            "SELECT "
+                + "proc.pk_frame "
+            + "FROM "
+                + "proc, "
+                + "job "
+            + "WHERE "
+                + "proc.pk_job = job.pk_job "
+                + "AND "
+                + "job.str_state = 'PENDING' "
+                + "AND "
+                + "proc.pk_proc= ? ";
+    // spotless:on
 
     public boolean verifyRunningProc(String procId, String frameId) {
         try {
@@ -86,9 +97,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return false;
     }
 
-    private static final String DELETE_VIRTUAL_PROC = "DELETE FROM " + "proc " + "WHERE "
-            + "pk_proc=? " + "RETURNING int_cores_reserved, int_mem_reserved, "
-            + "int_gpus_reserved, int_gpu_mem_reserved";
+    // spotless:off
+    private static final String DELETE_VIRTUAL_PROC =
+            "DELETE FROM "
+                + "proc "
+            + "WHERE "
+                + "pk_proc=? "
+            + "RETURNING int_cores_reserved, int_mem_reserved, "
+                + "int_gpus_reserved, int_gpu_mem_reserved";
+    // spotless:on
 
     public boolean deleteVirtualProc(VirtualProc proc) {
         try {
@@ -111,12 +128,29 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return true;
     }
 
+    // spotless:off
     private static final String INSERT_VIRTUAL_PROC =
-            "INSERT INTO " + "proc " + "( " + "pk_proc, " + "pk_host, " + "pk_show, " + "pk_layer,"
-                    + "pk_job," + "pk_frame, " + "int_cores_reserved, " + "int_mem_reserved, "
-                    + "int_mem_pre_reserved, " + "int_mem_used, " + "int_gpus_reserved, "
-                    + "int_gpu_mem_reserved, " + "int_gpu_mem_pre_reserved, " + "int_gpu_mem_used, "
-                    + "b_local " + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ";
+            "INSERT INTO "
+                + "proc "
+                + "( "
+                + "pk_proc, "
+                + "pk_host, "
+                + "pk_show, "
+                + "pk_layer,"
+                + "pk_job,"
+                + "pk_frame, "
+                + "int_cores_reserved, "
+                + "int_mem_reserved, "
+                + "int_mem_pre_reserved, "
+                + "int_mem_used, "
+                + "int_gpus_reserved, "
+                + "int_gpu_mem_reserved, "
+                + "int_gpu_mem_pre_reserved, "
+                + "int_gpu_mem_used, "
+                + "b_local "
+                + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ";
+    // spotless:on
 
     public void insertVirtualProc(VirtualProc proc) {
         proc.id = SqlUtil.genKeyRandom();
@@ -154,11 +188,23 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         }
     }
 
+    // spotless:off
     private static final String UPDATE_VIRTUAL_PROC_ASSIGN =
-            "UPDATE " + "proc " + "SET " + "pk_show = ?, " + "pk_job = ?, " + "pk_layer = ?, "
-                    + "pk_frame = ?, " + "int_mem_used = 0, " + "int_mem_max_used = 0, "
-                    + "int_virt_used = 0, " + "int_virt_max_used = 0, "
-                    + "ts_dispatched = current_timestamp " + "WHERE " + "pk_proc = ?";
+            "UPDATE "
+                + "proc "
+            + "SET "
+                + "pk_show = ?, "
+                + "pk_job = ?, "
+                + "pk_layer = ?, "
+                + "pk_frame = ?, "
+                + "int_mem_used = 0, "
+                + "int_mem_max_used = 0, "
+                + "int_virt_used = 0, "
+                + "int_virt_max_used = 0, "
+                + "ts_dispatched = current_timestamp "
+            + "WHERE "
+                + "pk_proc = ?";
+    // spotless:on
 
     public void updateVirtualProcAssignment(VirtualProc proc) {
 
@@ -183,26 +229,54 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         }
     }
 
+    // spotless:off
     private static final String CLEAR_VIRTUAL_PROC_ASSIGN =
-            "UPDATE " + "proc " + "SET " + "pk_frame = NULL " + "WHERE " + "pk_proc = ?";
+            "UPDATE "
+                + "proc "
+            + "SET "
+                + "pk_frame = NULL "
+            + "WHERE "
+                + "pk_proc = ?";
+    // spotless:on
 
     public boolean clearVirtualProcAssignment(ProcInterface proc) {
         return getJdbcTemplate().update(CLEAR_VIRTUAL_PROC_ASSIGN, proc.getId()) == 1;
     }
 
+    // spotless:off
     private static final String CLEAR_VIRTUAL_PROC_ASSIGN_BY_FRAME =
-            "UPDATE " + "proc " + "SET " + "pk_frame = NULL " + "WHERE " + "pk_frame = ?";
+            "UPDATE "
+                + "proc "
+            + "SET "
+                + "pk_frame = NULL "
+            + "WHERE "
+                + "pk_frame = ?";
+    // spotless:on
 
     public boolean clearVirtualProcAssignment(FrameInterface frame) {
         return getJdbcTemplate().update(CLEAR_VIRTUAL_PROC_ASSIGN_BY_FRAME,
                 frame.getFrameId()) == 1;
     }
 
-    private static final String UPDATE_PROC_MEMORY_USAGE = "UPDATE " + "proc " + "SET "
-            + "int_mem_used = ?, " + "int_mem_max_used = ?," + "int_pss_used = ?, "
-            + "int_pss_max_used = ?, " + "int_virt_used = ?, " + "int_virt_max_used = ?, "
-            + "int_gpu_mem_used = ?, " + "int_gpu_mem_max_used = ?, " + "int_swap_used = ?, "
-            + "bytea_children = ?, " + "ts_ping = current_timestamp " + "WHERE " + "pk_frame = ?";
+    // spotless:off
+    private static final String UPDATE_PROC_MEMORY_USAGE =
+            "UPDATE "
+                + "proc "
+            + "SET "
+                + "int_mem_used = ?, "
+                + "int_mem_max_used = ?,"
+                + "int_pss_used = ?, "
+                + "int_pss_max_used = ?, "
+                + "int_virt_used = ?, "
+                + "int_virt_max_used = ?, "
+                + "int_gpu_mem_used = ?, "
+                + "int_gpu_mem_max_used = ?, "
+                + "int_swap_used = ?, "
+                + "bytea_children = ?, "
+                + "ts_ping = current_timestamp "
+            + "WHERE "
+                + "pk_frame = ?";
+    // spotless:on
 
     @Override
     public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long pss,
@@ -282,18 +356,49 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         }
     };
 
-    private static final String GET_VIRTUAL_PROC = "SELECT " + "proc.pk_proc," + "proc.pk_host,"
-            + "proc.pk_show," + "proc.pk_job," + "proc.pk_layer," + "proc.pk_frame,"
-            + "job.pk_folder," + "job.pk_dept," + "proc.b_unbooked," + "proc.b_local,"
-            + "host.pk_alloc, " + "alloc.pk_facility," + "proc.int_cores_reserved,"
-            + "proc.int_mem_reserved," + "proc.int_mem_max_used," + "proc.int_mem_used,"
-            + "proc.int_gpus_reserved," + "proc.int_gpu_mem_reserved,"
-            + "proc.int_gpu_mem_max_used," + "proc.int_gpu_mem_used," + "proc.bytea_children,"
-            + "proc.int_virt_max_used," + "proc.int_virt_used," + "host.str_name AS host_name, "
-            + "COALESCE(job.str_os, '') AS str_os " + "FROM " + "proc, " + "job, " + "host, "
-            + "host_stat, " + "alloc " + "WHERE " + "proc.pk_host = host.pk_host " + "AND "
-            + "host.pk_host = host_stat.pk_host " + "AND " + "host.pk_alloc = alloc.pk_alloc "
-            + "AND " + "job.pk_job = proc.pk_job ";
+    // spotless:off
+    private static final String GET_VIRTUAL_PROC =
+            "SELECT "
+                + "proc.pk_proc,"
+                + "proc.pk_host,"
+                + "proc.pk_show,"
+                + "proc.pk_job,"
+                + "proc.pk_layer,"
+                + "proc.pk_frame,"
+                + "job.pk_folder," 
+                + "job.pk_dept," +
+                + "proc.b_unbooked,"
+                + "proc.b_local,"
+                + "host.pk_alloc, "
+                + "alloc.pk_facility,"
+                + "proc.int_cores_reserved,"
+                + "proc.int_mem_reserved,"
+                + "proc.int_mem_max_used,"
+                + "proc.int_mem_used,"
+                + "proc.int_gpus_reserved,"
+                + "proc.int_gpu_mem_reserved,"
+                + "proc.int_gpu_mem_max_used,"
+                + "proc.int_gpu_mem_used,"
+                + "proc.bytea_children,"
+                + "proc.int_virt_max_used,"
+                + "proc.int_virt_used,"
+                + "host.str_name AS host_name, "
+                + "COALESCE(job.str_os, '') AS str_os "
+            + "FROM "
+                + "proc, "
+                + "job, "
+                + "host, "
+                + "host_stat, "
+                + "alloc "
+            + "WHERE "
+                + "proc.pk_host = host.pk_host "
+                + "AND "
+                + "host.pk_host = host_stat.pk_host "
+                + "AND "
+                + "host.pk_alloc = alloc.pk_alloc "
+                + "AND "
+                + "job.pk_job = proc.pk_job ";
+    // spotless:on
 
     public VirtualProc getVirtualProc(String id) {
         return getJdbcTemplate().queryForObject(GET_VIRTUAL_PROC + " AND proc.pk_proc=? ",
@@ -305,15 +410,43 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 VIRTUAL_PROC_MAPPER, frame.getFrameId());
     }
 
-    private static final String GET_VIRTUAL_PROC_LIST = "SELECT " + "proc.*, "
-            + "host.str_name AS host_name, " + "host.pk_alloc, " + "job.pk_folder, "
-            + "job.pk_dept, " + "COALESCE(job.str_os, '') AS str_os, " + "alloc.pk_facility "
-            + "FROM " + "proc, " + "frame, " + "host," + "host_stat, " + "alloc, " + "layer,"
-            + "job, " + "folder, " + "show " + "WHERE " + "proc.pk_show = show.pk_show " + "AND "
-            + "proc.pk_host = host.pk_host " + "AND " + "host.pk_alloc = alloc.pk_alloc " + "AND "
-            + "host.pk_host = host_stat.pk_host " + "AND " + "proc.pk_job = job.pk_job " + "AND "
-            + "proc.pk_layer = layer.pk_layer " + "AND " + "proc.pk_frame = frame.pk_frame "
-            + "AND " + "job.pk_folder = folder.pk_folder ";
+    // spotless:off
+    private static final String GET_VIRTUAL_PROC_LIST =
+            "SELECT "
+                + "proc.*, "
+                + "host.str_name AS host_name, "
+                + "host.pk_alloc, "
+                + "job.pk_folder, " 
+                + "job.pk_dept, " 
+                + "COALESCE(job.str_os, '') AS str_os, "
+                + "alloc.pk_facility "
+            + "FROM "
+                + "proc, "
+                + "frame, "
+                + "host,"
+                + "host_stat, "
+                + "alloc, "
+                + "layer,"
+                + "job, "
+                + "folder, "
+                + "show "
+            + "WHERE "
+                + "proc.pk_show = show.pk_show "
+                + "AND "
+                + "proc.pk_host = host.pk_host "
+                + "AND "
+                + "host.pk_alloc = alloc.pk_alloc "
+                + "AND "
+                + "host.pk_host = host_stat.pk_host "
+                + "AND "
+                + "proc.pk_job = job.pk_job "
+                + "AND "
+                + "proc.pk_layer = layer.pk_layer "
+                + "AND "
+                + "proc.pk_frame = frame.pk_frame "
+                + "AND "
+                + "job.pk_folder = folder.pk_folder ";
+    // spotless:on
 
     public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
         return getJdbcTemplate().query(r.getFilteredQuery(GET_VIRTUAL_PROC_LIST),
@@ -347,9 +480,14 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 VIRTUAL_PROC_MAPPER, job.getJobId());
     }
 
-    private static final String FIND_VIRTUAL_PROCS_LJA = GET_VIRTUAL_PROC_LIST
-            + "AND proc.pk_job=( " + "SELECT pk_job FROM host_local WHERE pk_host_local = ?) "
-            + "AND proc.pk_host=(" + "SELECT pk_host FROM host_local WHERE pk_host_local = ?) ";
+    // spotless:off
+    private static final String FIND_VIRTUAL_PROCS_LJA =
+            GET_VIRTUAL_PROC_LIST
+            + "AND proc.pk_job=( "
+                + "SELECT pk_job FROM host_local WHERE pk_host_local = ?) "
+            + "AND proc.pk_host=("
+                + "SELECT pk_host FROM host_local WHERE pk_host_local = ?) ";
+    // spotless:on
 
     @Override
     public List<VirtualProc> findVirtualProcs(LocalHostAssignment l) {
@@ -416,13 +554,35 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     }
 
     private static final String ORPHANED_PROC_INTERVAL = "interval '300' second";
-    private static final String GET_ORPHANED_PROC_LIST = "SELECT " + "proc.*, "
-            + "host.str_name AS host_name, " + "COALESCE(job.str_os, '') AS str_os, "
-            + "host.pk_alloc, " + "job.pk_folder, " + "job.pk_dept, " + "alloc.pk_facility "
-            + "FROM " + "proc, " + "host, " + "host_stat," + "alloc, " + "job " + "WHERE "
-            + "proc.pk_host = host.pk_host " + "AND " + "host.pk_host = host_stat.pk_host " + "AND "
-            + "host.pk_alloc = alloc.pk_alloc " + "AND " + "job.pk_job = proc.pk_job " + "AND "
-            + "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
+
+    // spotless:off
+    private static final String GET_ORPHANED_PROC_LIST =
+            "SELECT "
+                + "proc.*, "
+                + "host.str_name AS host_name, "
+                + "COALESCE(job.str_os, '') AS str_os, "
+                + "host.pk_alloc, "
+                + "job.pk_folder, " 
+                + "job.pk_dept, "
+                + "alloc.pk_facility "
+            + "FROM "
+                + "proc, "
+                + "host, "
+                + "host_stat,"
+                + "alloc, "
+                + "job "
+            + "WHERE "
+                + "proc.pk_host = host.pk_host "
+                + "AND "
+                + "host.pk_host = host_stat.pk_host "
+                + "AND "
+                + "host.pk_alloc = alloc.pk_alloc "
+                + "AND "
+                + "job.pk_job = proc.pk_job "
+                + "AND "
+                + "current_timestamp - proc.ts_ping > "
+            + ORPHANED_PROC_INTERVAL;
+    // spotless:on
 
     public List<VirtualProc> findOrphanedVirtualProcs() {
         return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER);
@@ -433,9 +593,18 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 VIRTUAL_PROC_MAPPER);
     }
 
+    // spotless:off
     private static final String IS_ORPHAN =
-            "SELECT " + "COUNT(1) " + "FROM " + "proc " + "WHERE " + "proc.pk_proc = ? " + "AND "
-                    + "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "proc "
+            + "WHERE "
+                + "proc.pk_proc = ? "
+                + "AND "
+                + "current_timestamp - proc.ts_ping > "
+            + ORPHANED_PROC_INTERVAL;
+    // spotless:on
 
     @Override
     public boolean isOrphan(ProcInterface proc) {
@@ -478,12 +647,28 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.getProcId());
     }
 
-    private static final String FIND_UNDERUTILIZED_PROCS = "SELECT " + "proc.pk_proc,"
-            + "proc.int_mem_reserved - layer_mem.int_max_rss AS free_mem " + "FROM " + "proc,"
-            + "host, " + "layer_mem " + "WHERE " + "proc.pk_host = host.pk_host " + "AND "
-            + "proc.pk_layer = layer_mem.pk_layer " + "AND " + "layer_mem.int_max_rss > 0 " + "AND "
-            + "host.pk_host = ? " + "AND " + "proc.pk_proc != ? " + "AND "
-            + "proc.int_mem_reserved - layer_mem.int_max_rss > 0";
+    // spotless:off
+    private static final String FIND_UNDERUTILIZED_PROCS =
+            "SELECT "
+                + "proc.pk_proc,"
+                + "proc.int_mem_reserved - layer_mem.int_max_rss AS free_mem "
+            + "FROM "
+                + "proc,"
+                + "host, "
+                + "layer_mem "
+            + "WHERE "
+                + "proc.pk_host = host.pk_host "
+                + "AND "
+                + "proc.pk_layer = layer_mem.pk_layer "
+                + "AND "
+                + "layer_mem.int_max_rss > 0 "
+                + "AND "
+                + "host.pk_host = ? "
+                + "AND "
+                + "proc.pk_proc != ? "
+                + "AND "
+                + "proc.int_mem_reserved - layer_mem.int_max_rss > 0";
+    // spotless:on
 
     public boolean balanceUnderUtilizedProcs(ProcInterface targetProc, long targetMem) {
 

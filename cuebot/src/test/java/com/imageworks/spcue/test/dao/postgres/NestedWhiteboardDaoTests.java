@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
+import java.io.File;
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -30,7 +31,14 @@ import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.NestedGroup;
+import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
@@ -46,6 +54,9 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
     @Resource
     ShowDao showDao;
 
+    @Resource
+    JobLauncher jobLauncher;
+
     public ShowEntity getShow() {
         return showDao.findShowDetail("pipe");
     }
@@ -59,5 +70,44 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
         nestedWhiteboardDao.getJobWhiteboard(getShow());
         nestedWhiteboardDao.getJobWhiteboard(getShow());
         nestedWhiteboardDao.getJobWhiteboard(getShow());
+    }
+
+    /**
+     * Guards the inline_jobs hydration: the whiteboard mapper must populate NestedGroup.inline_jobs
+     * alongside the existing job-ID list. CueGUI now relies on this to skip the per-group getJobs
+     * fan-out — if a future change drops the addInlineJobs call (or trims a column from
+     * GET_NESTED_GROUPS so JOB_MAPPER fails silently), the client falls back to the slow path with
+     * no visible error.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetNestedJobWhiteboardPopulatesInlineJobs() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+
+        NestedGroup root = nestedWhiteboardDao.getJobWhiteboard(getShow());
+        assertNotNull(root);
+        boolean foundInlineJob = hasInlineJob(root);
+        assertTrue("expected at least one NestedGroup to expose inline_jobs", foundInlineJob);
+    }
+
+    private boolean hasInlineJob(NestedGroup group) {
+        if (!group.getInlineJobsList().isEmpty()) {
+            // Inline jobs must carry the same IDs as the parallel job-ID list — the
+            // client switches branches on inline_jobs and would otherwise display
+            // ghosts.
+            assertFalse("inline_jobs populated but jobs list empty", group.getJobsList().isEmpty());
+            Job inline = group.getInlineJobsList().get(0);
+            assertFalse("inline job missing id", inline.getId().isEmpty());
+            assertFalse("inline job missing name", inline.getName().isEmpty());
+            return true;
+        }
+        for (NestedGroup child : group.getGroups().getNestedGroupsList()) {
+            if (hasInlineJob(child)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

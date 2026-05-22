@@ -945,7 +945,8 @@ impl RqdDispatcherService {
                 }
                 cores
             }
-            (ThreadMode::All, false) => cores_requested,
+            // (ThreadMode::All, false) is rejected upstream in MatchingService::validate_match
+            // to mirror Cuebot's DispatchQuery filter, so it cannot reach this match.
             // Limit Variable booking to at least 2 cores
             (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
@@ -1478,22 +1479,6 @@ mod tests {
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
         assert_eq!(result, CoreSize(1)); // Non-threadable frames are clamped to 1 core
-    }
-
-    #[tokio::test]
-    async fn test_calculate_core_reservation_not_threadable_thread_mode_all() {
-        let mut host = create_test_host();
-        host.thread_mode = ThreadMode::All;
-        host.idle_cores = CoreSize(6);
-
-        let mut frame = create_test_dispatch_frame();
-        frame.threadable = false;
-
-        let memory_threshold = ByteSize::mib(500);
-
-        let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert_eq!(result, CoreSize(1)); // Non-threadable frames are clamped to 1 core even in All mode
     }
 
     #[tokio::test]

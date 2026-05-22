@@ -66,18 +66,38 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         }
     };
 
+    // spotless:off
     private static final String GET_SHOW =
-            "SELECT " + "show.pk_show, " + "show.int_default_max_cores, "
-                    + "show.int_default_min_cores, " + "show.int_default_max_gpus, "
-                    + "show.int_default_min_gpus, " + "show.str_name, " + "show.b_active, "
-                    + "show.b_scheduler_managed, " + "show.str_comment_email " + "FROM " + "show ";
+            "SELECT "
+                + "show.pk_show, "
+                + "show.int_default_max_cores, "
+                + "show.int_default_min_cores, "
+                + "show.int_default_max_gpus, "
+                + "show.int_default_min_gpus, "
+                + "show.str_name, "
+                + "show.b_active, "
+                + "show.b_scheduler_managed, "
+                + "show.str_comment_email "
+            + "FROM "
+                + "show ";
 
     private static final String GET_SHOW_BY_ALIAS =
-            "SELECT " + "show.pk_show, " + "show.int_default_max_cores, "
-                    + "show.int_default_min_cores, " + "show.int_default_max_gpus, "
-                    + "show.int_default_min_gpus, " + "show_alias.str_name, " + "show.b_active, "
-                    + "show.b_scheduler_managed, " + "show.str_comment_email " + "FROM " + "show, "
-                    + "show_alias " + "WHERE " + "show.pk_show = show_alias.pk_show ";
+            "SELECT "
+                + "show.pk_show, "
+                + "show.int_default_max_cores, "
+                + "show.int_default_min_cores, "
+                + "show.int_default_max_gpus, "
+                + "show.int_default_min_gpus, "
+                + "show_alias.str_name, "
+                + "show.b_active, "
+                + "show.b_scheduler_managed, "
+                + "show.str_comment_email "
+            + "FROM "
+                + "show, "
+                + "show_alias "
+            + "WHERE "
+                + "show.pk_show = show_alias.pk_show ";
+    // spotless:on
 
     public ShowEntity findShowDetail(String name) {
         try {
@@ -93,12 +113,29 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         return getJdbcTemplate().queryForObject(GET_SHOW + "WHERE show.pk_show=?", SHOW_MAPPER, id);
     }
 
-    private static final String GET_PREFERRED_SHOW = "SELECT " + "show.pk_show, "
-            + "show.int_default_max_cores, " + "show.int_default_min_cores, "
-            + "show.int_default_max_gpus, " + "show.int_default_min_gpus, " + "show.str_name, "
-            + "show.b_active, " + "show.b_scheduler_managed, " + "show.str_comment_email " + "FROM "
-            + "show, " + "owner," + "deed " + "WHERE " + "show.pk_show = owner.pk_show " + "AND "
-            + "deed.pk_owner = owner.pk_owner " + "AND " + "deed.pk_host = ?";
+    // spotless:off
+    private static final String GET_PREFERRED_SHOW =
+            "SELECT "
+                + "show.pk_show, "
+                + "show.int_default_max_cores, "
+                + "show.int_default_min_cores, "
+                + "show.int_default_max_gpus, "
+                + "show.int_default_min_gpus, "
+                + "show.str_name, "
+                + "show.b_active, "
+                + "show.b_scheduler_managed, "
+                + "show.str_comment_email "
+            + "FROM "
+                + "show, "
+                + "owner,"
+                + "deed "
+            + "WHERE "
+                + "show.pk_show = owner.pk_show "
+            + "AND "
+                + "deed.pk_owner = owner.pk_owner "
+            + "AND "
+                + "deed.pk_host = ?";
+    // spotless:on
 
     public ShowEntity getShowDetail(HostInterface host) {
         return getJdbcTemplate().queryForObject(GET_PREFERRED_SHOW, SHOW_MAPPER, host.getHostId());
@@ -106,9 +143,17 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
 
     private static final String INSERT_SHOW = "INSERT INTO show (pk_show,str_name) VALUES (?,?)";
 
-    private static final String INSERT_SHOW_STATS = "INSERT INTO show_stats "
-            + "(pk_show, int_frame_insert_count, int_job_insert_count, int_frame_success_count, int_frame_fail_count) "
+    // spotless:off
+    private static final String INSERT_SHOW_STATS =
+            "INSERT INTO show_stats ("
+                + "pk_show, "
+                + "int_frame_insert_count, "
+                + "int_job_insert_count, "
+                + "int_frame_success_count, "
+                + "int_frame_fail_count"
+            + ") "
             + "VALUES (?, 0, 0, 0, 0)";
+    // spotless:on
 
     public void insertShow(ShowEntity show) {
         show.id = SqlUtil.genKeyRandom();
@@ -116,9 +161,15 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         getJdbcTemplate().update(INSERT_SHOW_STATS, show.id);
     }
 
-    private static final String SHOW_EXISTS = "SELECT " + "COUNT(show.pk_show) " + "FROM "
-            + "show LEFT JOIN show_alias ON (show.pk_show = show_alias.pk_show) " + "WHERE "
-            + "(show.str_name = ? OR show_alias.str_name = ?) ";
+    // spotless:off
+    private static final String SHOW_EXISTS =
+            "SELECT "
+                + "COUNT(show.pk_show) "
+            + "FROM "
+                + "show LEFT JOIN show_alias ON (show.pk_show = show_alias.pk_show) "
+            + "WHERE "
+                + "(show.str_name = ? OR show_alias.str_name = ?) ";
+    // spotless:on
 
     public boolean showExists(String name) {
         try {

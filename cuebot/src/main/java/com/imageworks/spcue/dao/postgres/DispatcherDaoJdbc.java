@@ -171,10 +171,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     private Set<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
         LinkedHashSet<String> result = new LinkedHashSet<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
-        // shows were sorted. If we want it in random sequence, we need to shuffle it.
+        // Shuffle shows to get them processed randomly
         if (shuffleShows) {
-            if (!shows.isEmpty())
-                shows.remove(0);
             Collections.shuffle(shows);
         }
 

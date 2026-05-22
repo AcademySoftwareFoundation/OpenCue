@@ -87,6 +87,10 @@ public class BookingQueue implements QueueHealthCheck {
         healthyThreadPool.shutdown();
     }
 
+    public void setShutdownDrainMs(long shutdownDrainMs) {
+        healthyThreadPool.setShutdownDrainMs(shutdownDrainMs);
+    }
+
     public int getSize() {
         return healthyThreadPool.getQueue().size();
     }
