@@ -402,6 +402,62 @@ CueWeb is responsive down to phone-sized viewports. Every action available on de
 
 ---
 
+## Submitting a job from CueWeb (CueSubmit tutorial)
+
+This walkthrough mirrors what you would do in the standalone CueSubmit CLI tool, but inside the browser. It assumes the OpenCue sandbox is running on `localhost:3000` and you have the `testing` show registered in cuebot (the default seed data includes it).
+
+### Open CueSubmit
+
+Click **CueSubmit > Submit Job** in the top header. The form opens at `/cuesubmit` with three main sections (Job Info, Layer Info, Submission Details) plus a read-only Final command preview between them.
+
+### Single-layer Shell submission
+
+1. **Job Info**
+   - Job Name: `tutorial_shell`
+   - Show: pick `testing` from the dropdown
+   - Shot: `test_shot`
+   - Facility: leave as `[Default]`
+   - Username: pre-filled when you're signed in. If you want to submit as someone else, tick the **Edit** checkbox next to the field and type their name.
+2. **Layer Info**
+   - Layer Name: `layer1`
+   - Frame Spec: `1-3`
+   - Chunk Size: `1`
+   - Memory: `256m` (the default; works on the sandbox RQD)
+   - Job Type: `Shell`
+3. **Shell options** (the panel below Layer Info)
+   - Command To Run: `echo "frame #IFRAME#" && sleep 2`. Click the `?` next to the field for the cuebot token cheatsheet (`#IFRAME#` is the current frame number).
+4. Watch the **Final command** preview at the bottom of the panel update per-keystroke. This is exactly what cuebot will execute on each frame.
+5. Click **Submit**. CueWeb redirects to the job detail page; the three frames cycle WAITING -> RUNNING -> SUCCEEDED in a few seconds.
+
+### Multi-layer chain with a Layer dependency
+
+Use the multi-layer table at the bottom of the form (the **Submission Details** section) to chain layers.
+
+1. Set up the first layer as above (Layer Name `preview`, Job Type `Shell`, Command `echo preview frame #IFRAME#`).
+2. Click the **+** button under the Submission Details table to add a second layer.
+3. The Layer Info section now edits the new layer. Set Layer Name `final`, Frame Spec `1-3`, Job Type `Shell`, Command `echo final frame #IFRAME#`. In the **Dependency Type** dropdown pick `Layer` so the `final` layer waits for `preview` to fully finish.
+4. The table at the bottom now shows two rows. Click either row to flip the editor between them; use `↑ / ↓` to reorder; use `−` to drop the selected layer.
+5. Submit. The detail page shows both layers; `final` stays in DEPEND state until `preview` completes, then dispatches.
+
+### Maya / Nuke / Blender layers
+
+Flip Job Type to **Maya**, **Nuke**, or **Blender** to swap the per-type options panel:
+
+- **Maya** asks for a Maya File (`.ma` / `.mb`) and an optional Camera. The Final command becomes `Render -r file -s #FRAME_START# -e #FRAME_END# [-cam CAM] <file>`.
+- **Nuke** asks for a Nuke File (`.nk`) and optional comma-separated Write Nodes. The Final command becomes `nuke -F #IFRAME# [-X WriteNodes] -x <file>`.
+- **Blender** asks for a Blender File (`.blend`), an Output Path, and an Output Format. Simple ranges (`1-10`) use `-s/-e/-a`; more complex ranges use the per-frame `-f #IFRAME#` token.
+
+The CueWeb panel always preserves the inputs you typed even when you flip between types, so iterating doesn't lose your scene path or camera.
+
+### Convenience features
+
+- **Autocomplete history**: start typing in Job Name, Shot, or Layer Name to pull values you've used before. The list is kept per-browser, deduped, capped at 25 entries.
+- **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
+- **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
+- **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
+
+---
+
 ## Managing users and roles (Admin UI tutorial)
 
 This walkthrough assumes the deployment was started with `NEXT_PUBLIC_AUTH_PROVIDER=local` (the simplest path - no external IdP needed). If you used Okta, Google, GitHub, or LDAP, the user lifecycle works the same way; you just sign in through that provider's button instead.

@@ -53,7 +53,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - When auth is enabled, CueWeb activates an **RBAC** layer with three built-in roles (`site-admin`, `operator`, `viewer`), a permission catalog covering jobs / layers / frames / hosts / shows / CueCommander, and a web **Admin UI** at `/admin` for runtime CRUD of users, groups, roles, admins, and a paginated audit log. Built-in role assignments are enforced both client-side (menus hide when the user lacks a permission) and server-side (`/api/admin/*` returns 403).
    - First-launch with local auth: a bootstrap `admin` is created with a random password printed to the container log and saved to `/data/.cueweb-bootstrap` (mode `0600`). The user is forced to change the password on first sign-in.
    - Optional groups sync: set `CUEWEB_GROUPS_RESOLVER=okta` or `=ldap` to map external group memberships to CueWeb roles on every sign-in. Google and GitHub users always land in CueWeb's users table without group sync; admins assign their roles directly in the Admin UI.
-8. **Customizable job / layer / frame tables (CueGUI parity):**
+8. **Browser-based job submission (CueSubmit CLI parity):**
+   - A dedicated `/cuesubmit` route reachable from the **CueSubmit** top-level dropdown in the header, the matching **CueSubmit > Submit Job** group in the left sidebar (and the mobile nav drawer) mirrors the standalone CueSubmit CLI tool with Job Info / Layer Info / per-type option panels for Shell / Maya / Nuke / Blender, a live read-only Final command preview, and a multi-layer Submission Details table with `+ / − / ↓ / ↑` controls.
+   - Browser-only improvements over the CLI: per-keystroke command preview, per-field autocomplete history backed by `localStorage` (Job Name / Shot / Layer Name), draft auto-save so an accidental refresh doesn't wipe a multi-layer setup, themed `?` help popovers for frame-spec patterns and cuebot tokens, themed Radix confirmation dialogs (no native `localhost:3000 says` browser pop-ups), and a **Reset** button next to Cancel and Submit.
+   - The Username field auto-populates from the signed-in user when authentication is enabled and stays read-only until an explicit **Edit** override toggle is ticked; sandbox mode (no auth) leaves it always editable.
+   - On successful submit the page redirects to the tabbed `/jobs/<name>` detail view; that view's header now has a **View in Monitor Jobs** deep-link button that opens Cuetopia with the job auto-searched.
+   - Defaults tuned for the OpenCue sandbox so a `sleep 5` test job runs end-to-end out of the box: Memory `256m`, Facility `local`, and a deterministic per-user UID so cuebot never rejects the launch as root.
+9. **Customizable job / layer / frame tables (CueGUI parity):**
    - Each of the three data tables (Jobs, Layers, Frames) has a **Columns** dropdown with three controls per column: a checkbox to hide/show, and **`←` / `→`** arrows to nudge the column left / right within the user-reorderable subset. Non-hideable system columns (the row-select checkbox) stay anchored.
    - A **Reset to Default** button pinned at the top of the dropdown clears both visibility AND order in one click.
    - Both states persist per table in `localStorage` (Jobs uses the bare `columnVisibility` / `columnOrder` keys; Layers/Frames use `cueweb.layers.*` and `cueweb.frames.*`).
@@ -62,27 +68,27 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
      - **Layers**: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, **Progress** (stacked animated bar, same palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
      - **Frames**: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames - blank for WAITING / DEPEND / SUCCEEDED / DEAD, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
    - Each table also has a small client-side substring **Filter** input next to its Columns dropdown that narrows the rows already loaded; resets to page 1 on every keystroke and keeps sorting, visibility, reordering and pagination working over the filtered subset.
-9. **Flexible monitoring controls:**
+10. **Flexible monitoring controls:**
    - Easily un-monitor jobs across all statuses.
-10. **Detailed job inspection (inline Layers + Frames panel):**
+11. **Detailed job inspection (inline Layers + Frames panel):**
    - Clicking a row in the jobs table reveals the associated **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
    - Clicking a layer row narrows the frames panel to that layer and pushes the layer's attributes into the docked Attributes panel; clicking the same layer again clears the filter and re-selects the job in Attributes.
    - Double-clicking any frame row opens the log viewer for that frame.
    - Inline panels refresh every 5 seconds with cancellation guards so stale responses can't overwrite a fresh selection.
-11. **Frame navigation and logs access:**
+12. **Frame navigation and logs access:**
    - Navigate frames using hyperlinks that lead to dedicated pages for frame data and logs.
-12. **Advanced job search functionality:** 
+13. **Advanced job search functionality:** 
    - Search for jobs by show name with dropdown suggestions for matching entries.
    - Search functionality requires `show-shot-` as the prefix to reduce the number of results returned.
-13. **Dark mode toggle for user preference:** 
+14. **Dark mode toggle for user preference:** 
    - Switch between light and dark modes according to user preference.
-14. **Enhanced search functionality:**
+15. **Enhanced search functionality:**
    - Users can enable regex searches by appending '!' to their queries, with tooltips provided for guidance.
    - Optimized loading times using virtualization and web workers, along with loading animations for a better user experience.
    - Users can add or remove multiple jobs directly from the search results, with existing jobs highlighted in green.
-15. **Enhanced security using Opencue API:**
+16. **Enhanced security using Opencue API:**
    - CueWeb uses JWT token generation for enhanced security in authorization headers.
-16. **CueWeb actions and context menu (CueGUI parity):**
+17. **CueWeb actions and context menu (CueGUI parity):**
    - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
    - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
    - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
@@ -91,19 +97,19 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
    - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb surface a friendly placeholder toast. Destructive items are auto-disabled when **Disable Job Interaction** is on.
 
-17. **Auto-reloading of tables:**
+18. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
 
-18. **Animated progress bar on Jobs AND Layers:**
+19. **Animated progress bar on Jobs AND Layers:**
    - Both tables render a stacked bar with five colored segments (succeeded, running, waiting, depend, dead) using the shared `<ProgressBar/>` renderer. The Layers table consumes the same palette via `getLayerProgressSegments` in `cueweb/app/utils/layer_progress_utils.ts`.
    - Hovering the bar opens a tooltip with the exact frame count and percentage for each state.
 
-19. **Frame state filter chips:**
+20. **Frame state filter chips:**
    - Above the frames table, a chip is rendered for each supported state - `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` - annotated with the count of frames currently in that state.
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-20. **Per-job completion notifications:**
+21. **Per-job completion notifications:**
    - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
    - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
    - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
@@ -111,18 +117,18 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app toast fires (always), and a desktop popup appears too if the OS-level notification permission was granted. When several CueWeb tabs poll the same job concurrently only one tab actually fires the toast, so you see exactly one notification per finished job.
    - Subscriptions are persisted in the browser and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Mutations are synced across tabs.
 
-21. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
+22. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
    - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
    - The same overlay is reachable from **Other ▸ Show Shortcuts** in both the header and the sidebar. Both items dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for.
    - **Notify on Shortcut** (also under Other; default ON, persisted to `localStorage["cueweb.shortcutNotifications"]`) controls whether a toast naming the action fires every time a shortcut triggers (e.g. `Shortcut: r → Refresh table`). The pref is read imperatively at fire-time, so flipping the toggle takes effect on the very next keypress without a reload.
 
-22. **Job comments:**
+23. **Job comments:**
    - Per-job CRUD that mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`): list / add / edit / delete.
    - Reached from the **Comments** entry in the job context menu, or from a sticky-note icon in the Jobs table's dedicated **Comments** column (sortable, sits right after Name) when the job has at least one comment.
    - Messages support markdown and are sanitized (`react-markdown` + `rehype-sanitize`).
    - Predefined-comment macros are stored per-browser in `localStorage` (`cueweb-comment-macros`), with the same `> Add / > Edit / > Delete predefined comment` workflow as CueGUI.
 
-23. **External editor integration (View Log on \<editor\>):**
+24. **External editor integration (View Log on \<editor\>):**
    - Optional Frame context-menu item that launches the frame's log file directly in a desktop editor.
    - Configured at build time via the `NEXT_PUBLIC_LOG_EDITOR_URL` environment variable. The literal `{path}` is replaced with the absolute log path when the menu item is clicked.
    - The sandbox deployment ships with VSCode as the default (**View Log on VSCode**). Override with another value to target a different editor:
@@ -137,13 +143,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives.
    - When the frame hasn't started running yet (WAITING / DEPEND frames have no log file on disk), the menu item shows a friendly warning toast instead of handing a non-existent path to the editor.
 
-24. **Mobile-friendly UI:**
+25. **Mobile-friendly UI:**
    - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and the data tables can be swiped horizontally to reach off-screen columns.
    - On phones the desktop sidebar is replaced by a hamburger button in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
    - Every Jobs / Layers / Frames row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens (see item 16), so touch users get the full action set without a right-click event.
    - The keyboard-shortcuts overlay (item 21) is itself touch-friendly: every key badge in the list is tappable, so `/` (focus search), `r` (refresh), and `t` (toggle theme) work on phones without a physical keyboard.
 
-25. **LAN access (CueWeb usable from phones / tablets):**
+26. **LAN access (CueWeb usable from phones / tablets):**
    - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
    - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path) work even when CueWeb is reached over plain HTTP at a LAN IP, where the modern Clipboard API would otherwise be unavailable. Compatibility includes iOS Safari.
 

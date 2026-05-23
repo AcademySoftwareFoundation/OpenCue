@@ -560,6 +560,80 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 
 ---
 
+## CueSubmit (Job Submission UI)
+
+CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at the `/cuesubmit` route, reachable from the **CueSubmit** top-level dropdown in the header (and the matching entry in the sidebar / mobile nav drawer). It mirrors the CueSubmit dialog layout one-for-one with a few quality-of-life improvements made possible by running in the browser.
+
+### Sections
+
+| Section | Fields |
+|---------|--------|
+| **Job Info** | Job Name, Show (dropdown populated from `/api/show/getshows`), Shot, Facility (dropdown from `NEXT_PUBLIC_CUEBOT_FACILITIES`), Username |
+| **Layer Info** | Layer Name, Dependency Type (none / Layer / Frame), Frame Spec, Chunk Size, Memory, Job Type, Services, Limits, Override Cores |
+| **Per-type options** | Shell: Command To Run. Maya: Maya File + Camera. Nuke: Nuke File + Write Nodes. Blender: Blender File + Output Path + Output Format. |
+| **Final command** | Read-only preview that updates per-keystroke. Mirrors the same text cuebot will see. |
+| **Submission Details** | Multi-layer table (Layer Name / Job Type / Frames / Depend Type) with `+ / − / ↓ / ↑` buttons. Clicking a row loads it into the Layer Info editor. |
+| **Action row** | Cancel · Reset · Submit. |
+
+### Validation rules
+
+| Field | Rule |
+|-------|------|
+| Job Name, Layer Name, Shot | Letters, numbers, `.`, `-`, `_` only. No spaces (cuebot uses the name in the log path). |
+| Frame Spec | Must match cuebot frame-spec syntax: `1-10`, `1-100x2`, `1-100y3`, `1-100:2`, comma-separated segments. Reverse ranges (e.g. `10-1`) are rejected. |
+| Memory | Number with optional unit suffix (`256m`, `1g`, `3.2G`). Empty inherits the service's `int_mem_min`. |
+| Chunk Size | Positive integer. |
+| At least one layer | Submit is disabled with a validation error when zero layers are configured. |
+
+### Username and the Edit override
+
+When CueWeb is deployed with `NEXT_PUBLIC_AUTH_PROVIDER` non-empty, the Username field is pre-populated from the signed-in session and rendered read-only. A small **Edit** checkbox to the right of the field toggles it editable. Unticking the box snaps the value back to the signed-in user. In sandbox mode (no auth) the field is always editable and the Edit checkbox is hidden.
+
+### Defaults tuned for the OpenCue sandbox
+
+The form chooses defaults that produce a runnable submission against the seeded sandbox out of the box:
+
+- **Memory**: `256m`. The seeded `default` service has a 3.2 GB minimum, which the sandbox RQD usually can't satisfy. The 256 MB default keeps trivial jobs dispatchable.
+- **Facility**: `local` when the user picks `[Default]`. The seeded sandbox's RQD belongs to the `local.general` allocation; cuebot's internal fallback (`cloud`) does not match.
+- **UID**: derived deterministically from the username (1000-65000). Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so CueWeb never emits zero.
+
+These three defaults match what the standalone CueSubmit CLI tool produces against the same sandbox.
+
+### Autocomplete history
+
+Job Name, Shot, and Layer Name are wired to native `<datalist>` dropdowns populated from `localStorage` (per-field, deduped case-insensitively, capped at 25 entries). The Python CueSubmit CLI keeps an on-disk cache for the same reason - so a user's previous values are one keystroke away. On every successful submit the relevant values are recorded automatically.
+
+### Draft auto-save
+
+The whole form auto-saves to `localStorage` on every change and restores on mount, so an accidental refresh doesn't wipe a multi-layer setup. The draft is cleared on Cancel, on Reset (after the confirm dialog), and on a successful submit.
+
+### Reset
+
+Between Cancel and Submit, a Reset button clears every field and brings the form back to the blank-canvas state. A themed confirmation dialog (Radix-based, light/dark aware) replaces the native browser `confirm()` so the prompt doesn't look like an OS pop-up. Autocomplete history is **not** cleared on Reset.
+
+### Submit flow
+
+| Step | Detail |
+|------|--------|
+| 1. Validate | The form payload is parsed against the zod schema before any network call. Inline error messages render under each field on blur. |
+| 2. Build spec | The server-side route builds the OpenCue cjsl XML spec - direct port of pyoutline's `outline.backend.cue.serialize` (cores / threadable heuristic, depend element shape, service defaulting, XML escaping). |
+| 3. Launch | `POST /api/job/submit` proxies to `job.JobInterface/LaunchSpecAndWait` on the REST gateway, which returns the resolved job(s). |
+| 4. Persist history | Job Name, Shot, and all Layer Names are appended to the autocomplete histories; the draft is cleared. |
+| 5. Redirect | The page navigates to the tabbed `/jobs/<name>` job-detail view so the user can watch the new job's frames go WAITING -> RUNNING -> SUCCEEDED. |
+
+### "View in Monitor Jobs" deep link
+
+The tabbed job-detail page has a **View in Monitor Jobs** button in its header (next to the title). Clicking it navigates to `/?search=<jobname>`. Cuetopia's Jobs table reads the `search` URL param on mount, runs the same search the toolbar input would (regex-escaped so the literal job name matches), and then strips the param so a refresh doesn't re-fire.
+
+### Help popovers
+
+The `?` buttons next to Frame Spec and Command To Run open small themed popovers with:
+
+- **Frame Spec** examples: `1-10`, `1-100x2`, `1-100y2`, `1-100:2`, `1,3,5,7`, `1-50,75-100`.
+- **Command tokens** substituted by cuebot at dispatch: `#IFRAME#`, `#ZFRAME#`, `#FRAME_START#`, `#FRAME_END#`, `#FRAME_CHUNK#`, `#FRAMESPEC#`, `#LAYER#`, `#JOB#`, `#FRAME#`.
+
+---
+
 ## API Integration
 
 ### JWT Token Generation

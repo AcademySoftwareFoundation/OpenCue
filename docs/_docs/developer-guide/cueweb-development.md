@@ -444,6 +444,75 @@ cueweb/
 
 ---
 
+## CueSubmit (browser-based job submission)
+
+CueWeb implements a TypeScript port of the standalone CueSubmit CLI tool under `/cuesubmit`. The form layout mirrors the dialog one-for-one; everything that ran inside `cuesubmit.ui.Submit` now lives in React components, and everything that ran inside `cuesubmit.Submission` + `outline.backend.cue.serialize` now lives in `app/cuesubmit/lib/*.ts`.
+
+### File layout
+
+```
+cueweb/
+├── app/cuesubmit/
+│   ├── page.tsx                          # /cuesubmit route, react-hook-form + zod
+│   ├── lib/
+│   │   ├── constants.ts                  # Job types, services, dependency types, tokens, defaults
+│   │   ├── frame_spec.ts                 # isValidFrameSpec / firstFrame / isSimpleRange
+│   │   ├── schemas.ts                    # zod schemas for job + per-type layer payloads
+│   │   ├── commands.ts                   # Per-type command builders (silent + strict modes)
+│   │   ├── spec_xml.ts                   # CJSL XML serializer (port of pyoutline cue.serialize)
+│   │   ├── getShows.ts                   # Wraps /api/show/getshows for the Show dropdown
+│   │   └── history.ts                    # localStorage per-field autocomplete history
+│   └── components/
+│       ├── section_header.tsx            # "Job Info" / "Layer Info" / ... section labels
+│       ├── field.tsx                     # Shared <label> wrapper with required + invalid states
+│       ├── help_popover.tsx              # ?-icon popovers (Frame Spec / Command tokens)
+│       ├── history_input.tsx             # <input> + <datalist> backed by history.ts
+│       ├── type_options.tsx              # Per-type fields (Shell / Maya / Nuke / Blender)
+│       └── layers_table.tsx              # Submission Details table + +/-/up/down buttons
+├── app/api/job/submit/route.ts           # POST endpoint: zod -> XML -> LaunchSpecAndWait
+├── components/ui/confirm-dialog.tsx      # Themed Radix Dialog used by Reset (reusable)
+└── __tests__/cuesubmit/builders.test.ts  # 23 tests: validator + builders + XML
+```
+
+### Submit pipeline
+
+1. **Form state** lives entirely in a `useForm<Submission>({ resolver: zodResolver(submissionSchema) })` instance. Layers are managed by `useFieldArray` so add / remove / reorder mutate the form in place.
+2. **Live preview** uses `useWatch({ control, name: "layers" })`. The destructured `watch()` is intentionally avoided here because RHF can mutate nested layer values in place, which keeps the outer array reference stable across keystrokes and freezes the Final command box. `useWatch` always returns a fresh snapshot.
+3. **Per-type command builder** (`commands.ts > buildLayerCommand`) is called twice per render with `{ silent: true }` for the live Final command preview, then once at submit time with `{ silent: false }` so the strict path can throw on missing required fields (`Shell command`, `Maya scene file`, etc.).
+4. **XML serializer** (`spec_xml.ts > buildJobSpecXml`) emits the cjsl document with the same shape pyoutline produces. Notable invariants:
+   - `<uid>` is `1000 + (FNV-1a(username) mod 64000)` so cuebot never sees `uid=0` ("Cannot launch jobs as root").
+   - `<facility>` defaults to `local` when the form is `[Default]` - cuebot's internal fallback is `cloud`, which doesn't match the seeded sandbox RQD's `local.general` allocation.
+   - `<memory>` is emitted only when set; the form default of `256m` keeps trivial jobs dispatchable on a sandbox RQD that can't satisfy the `default` service's 3.2 GB `int_mem_min`.
+   - `<cores>` + `<threadable>` are emitted only when `Override Cores` is on; threadable follows the cuesubmit heuristic (`cores >= 2 || cores <= 0`).
+   - `<depend type="...">` (LAYER_ON_LAYER / FRAME_BY_FRAME) is emitted for every layer after the first that has a non-empty `dependencyType`.
+5. **`POST /api/job/submit`** wraps the build + forward to `/job.JobInterface/LaunchSpecAndWait` via the existing `handleRoute` helper, then reshapes the `JobSeq` response into a flat `jobs: Job[]` array.
+
+### Page-level behavior
+
+- **Username field**: pre-filled from `useSession()`. `editUsername` state gates editability; unticking the Edit checkbox snaps the value back to the session username. In sandbox mode (no session) the field is always editable and the checkbox is hidden.
+- **Autocomplete history**: `history.ts` exposes `loadHistory(field)` / `rememberHistory(field, value)` / `rememberSubmission(values)` against three `localStorage` keys (`cueweb.cuesubmit.history.jobName` / `.shot` / `.layerName`). `HistoryInput` is a thin wrapper around `<input>` + `<datalist>` that re-reads on mount and on a `cueweb:cuesubmit-history-changed` window event so any other open tab refreshes immediately after a successful submit.
+- **Draft auto-save**: `form.watch((values) => localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(values)))` fires on every change. On mount the page calls `reset(parsed)` if a draft exists. Cleared on Cancel / Reset / successful submit.
+- **Reset**: opens a controlled `<ConfirmDialog open={resetDialogOpen} variant="destructive">`. On confirm, the draft is wiped from `localStorage` and `reset({...defaults})` is called with the signed-in user / first show / default facility.
+- **Final command field**: bound to `useMemo(() => buildLayerCommand(currentLayer, { silent: true }))` against the watched layers slice. `readOnly={true}` with the muted `bg-foreground/[0.04]` token so it visibly differs from editable inputs.
+
+### `<ConfirmDialog>` primitive
+
+`components/ui/confirm-dialog.tsx` wraps the existing `components/ui/dialog.tsx` Radix primitive with a Cancel / Confirm footer and a `variant: "default" | "destructive"` knob. Designed to be the project's blanket replacement for `window.confirm()` going forward - use it for delete / kill / reset / unmonitor confirms across the app.
+
+### Tests
+
+23 jest tests live in `__tests__/cuesubmit/builders.test.ts`:
+
+- `isValidFrameSpec`: accepts every cuebot-supported form (`1`, `1-10`, `1-10x2`, `1-10y3`, `1-100:2`, comma-joined) and rejects reverse ranges (`10-1`).
+- `isSimpleRange`: only matches `N-M`.
+- Per-type builders: Shell verbatim + trim; Maya / Nuke / Blender include their required tokens (`#FRAME_START#`, `#IFRAME#`, `-r file`, `-noaudio`).
+- `buildLayerCommand` strict vs silent: strict throws on missing fields; silent never throws and returns whatever's filled in so the preview can render.
+- `buildJobSpecXml`: preamble + `<job name=>` element; UID stable per user + non-zero + different per user; facility defaults to `local` when blank, honors explicit non-default; memory emitted only when set; depend block emitted only when `dependencyType` is set; XML special characters escaped in user-supplied strings; service defaulting to `default` when none picked.
+
+The same module is consumed by both the API route and the live preview, so a passing test suite means the bytes cuebot actually sees match what the user is reading in the form.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode
