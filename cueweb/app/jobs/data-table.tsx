@@ -30,6 +30,7 @@ import {
   getJobsForRegex,
   getJobsForUser
 } from "@/app/utils/get_utils";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
@@ -782,6 +783,37 @@ export function DataTable({ columns, username }: DataTableProps) {
       setJobSearchLoading(false);
     }
   };
+
+  // Deep-link: `/?search=<jobname>` from elsewhere in the app
+  // (the job detail page's "View in Monitor Jobs" button) auto-loads
+  // the matching job into the Cuetopia table on mount. Regex special
+  // characters in the URL param are escaped so the value behaves as a
+  // literal substring instead of accidentally matching unrelated jobs.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const autoLoadedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const q = searchParams?.get("search") ?? "";
+    if (!q) return;
+    if (autoLoadedRef.current === q) return; // already handled this query
+    autoLoadedRef.current = q;
+    const escaped = q.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    handleSearchSubmit(escaped).finally(() => {
+      // Drop the param so reloads do not keep re-firing the search.
+      try {
+        const next = new URLSearchParams(searchParams?.toString() ?? "");
+        next.delete("search");
+        const qs = next.toString();
+        router.replace(qs ? `${pathname}?${qs}` : (pathname ?? "/"), {
+          scroll: false,
+        });
+      } catch {
+        /* ignore */
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleUnmonitorSelected = () => {
     const selectedRows = table.getSelectedRowModel().rows;
