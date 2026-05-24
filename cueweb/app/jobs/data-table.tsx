@@ -45,6 +45,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
+import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -791,6 +792,28 @@ export function DataTable({ columns, username }: DataTableProps) {
   // literal substring instead of accidentally matching unrelated jobs.
   const router = useRouter();
   const pathname = usePathname();
+  // Optimistic in-row priority update after a successful SetPriority
+  // call. The SetPriorityDialog dispatches `cueweb:priority-changed`
+  // with { jobId, priority } so we don't have to wait for the next 5s
+  // poll to surface the new value in the Priority column.
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ jobId: string; priority: number }>).detail;
+      if (!detail?.jobId || typeof detail.priority !== "number") return;
+      const bump = (jobs: Job[]) =>
+        jobs.map((j) =>
+          j.id === detail.jobId ? { ...j, priority: detail.priority } : j,
+        );
+      dispatch({ type: "SET_TABLE_DATA", payload: bump(state.tableData) });
+      dispatch({
+        type: "SET_TABLE_DATA_UNFILTERED",
+        payload: bump(state.tableDataUnfiltered),
+      });
+    }
+    window.addEventListener("cueweb:priority-changed", handler);
+    return () => window.removeEventListener("cueweb:priority-changed", handler);
+  }, [state.tableData, state.tableDataUnfiltered]);
+
   const searchParams = useSearchParams();
   const autoLoadedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -1603,6 +1626,11 @@ export function DataTable({ columns, username }: DataTableProps) {
           per-row popup with stacked Layers + Frames panels for the row
           the user last clicked above. */}
       <JobDetailsInline job={detailJob} username={state.username} />
+
+      {/* Set Priority dialog. Mounted once here; opens in response to
+          a `cueweb:open-set-priority` CustomEvent fired from the row
+          context menu's "Set Priority..." entry. */}
+      <SetPriorityDialog />
     </>
   );
 }

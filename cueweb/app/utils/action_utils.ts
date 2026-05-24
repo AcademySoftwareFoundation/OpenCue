@@ -411,22 +411,20 @@ export function dropInternalDependsGivenRow(row: Row<any>) {
   dropJobDepends(row.original, "INTERNAL");
 }
 
-// Prompt-driven wrappers. CueGUI's MenuActions uses Qt input dialogs; we
-// reuse window.prompt for parity in this round. A native shadcn dialog
-// replacement is a follow-up.
+// Right-click "Set Priority..." handler. Dispatches a CustomEvent
+// that the SetPriorityDialog (mounted at the page level) listens for;
+// the dialog opens with a slider + number input pre-filled with the
+// row's current priority and calls setJobPriority on Apply. Decoupled
+// this way so the free-function context-menu handlers don't need to
+// reach into the table's component state.
 export function setPriorityGivenRow(row: Row<any>) {
   const job = row.original as Job;
-  const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
-  if (raw === null) return;
-  // Strict whole-string match - Number.parseInt would silently accept
-  // "10abc" / "10.5" / " 10 " and quietly truncate, sending a value the
-  // user didn't actually type to Cuebot.
-  const trimmed = raw.trim();
-  if (!/^-?\d+$/.test(trimmed)) {
-    toastWarning("Priority must be an integer");
-    return;
-  }
-  setJobPriority(job, Number.parseInt(trimmed, 10));
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-priority", {
+      detail: { job },
+    }),
+  );
 }
 
 export function setMaxRetriesGivenRow(row: Row<any>) {

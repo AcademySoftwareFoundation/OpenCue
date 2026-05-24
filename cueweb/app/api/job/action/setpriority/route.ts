@@ -15,6 +15,7 @@
  */
 
 import { handleRoute } from '@/app/utils/api_utils';
+import { requireFeature } from '@/lib/rbac/require_feature';
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
+
+  // RBAC gate: only roles holding `jobs.set_priority` (site-admin and
+  // operator out of the box) may adjust job priority. requireFeature
+  // short-circuits to "allow" in sandbox mode (NEXT_PUBLIC_AUTH_PROVIDER
+  // empty), matching the rest of the action-route conventions.
+  const gate = await requireFeature("jobs.set_priority");
+  if (!gate.ok) return gate.response;
 
   // Guard against malformed JSON so callers see a 400 instead of the route
   // throwing and Next.js surfacing a generic 500 - request.json() throws a
@@ -41,6 +49,16 @@ export async function POST(request: NextRequest) {
     || typeof (jsonBody as { val?: unknown }).val !== 'number'
   ) {
     return NextResponse.json({ error: 'Invalid request body (need {job, val:number})' }, { status: 400 });
+  }
+  const val = (jsonBody as { val: number }).val;
+  // CueGUI's Set Priority dialog and the Jobs table both treat priority
+  // as an integer in 1..100. Reject out-of-range values here so a buggy
+  // client can't silently push 99999 into Cuebot.
+  if (!Number.isInteger(val) || val < 1 || val > 100) {
+    return NextResponse.json(
+      { error: 'val must be an integer between 1 and 100' },
+      { status: 400 },
+    );
   }
   const body = JSON.stringify(jsonBody);
 

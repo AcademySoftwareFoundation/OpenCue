@@ -150,6 +150,15 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 4. Resume the job
 5. Observe how the job returns to the queue
 
+### Adjusting Priority
+
+1. Right-click any job row and pick **Set Priority...**.
+2. A themed dialog opens with a 1-100 slider and a matching number input. Either control drives the value; both stay in sync. The current priority is pre-filled (cuebot's default is 100). Higher numbers dispatch first.
+3. Drag the slider to 50 (or type a value) and click **Apply**.
+4. A toast confirms the change. The Priority column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+If CueWeb is deployed with authentication enabled, only roles holding the `jobs.set_priority` permission see this menu entry. The built-in `site-admin` and `operator` roles have it; `viewer` does not. Sign in as a viewer-only user to confirm the entry is hidden (and the underlying API returns 403 to a direct request).
+
 ---
 
 ## Job Details and Frame Management

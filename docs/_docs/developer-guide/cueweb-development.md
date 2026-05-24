@@ -513,6 +513,52 @@ The same module is consumed by both the API route and the live preview, so a pas
 
 ---
 
+## Set Priority dialog (CueGUI parity)
+
+The Jobs table's right-click **Set Priority...** entry opens a themed dialog with a 1-100 slider + matching number input. Files involved:
+
+```
+cueweb/
+├── app/api/job/action/setpriority/route.ts   # Proxy to JobInterface/SetPriority + RBAC gate
+├── app/utils/action_utils.ts                 # setJobPriority(job, val) + setPriorityGivenRow event dispatcher
+├── components/ui/set-priority-dialog.tsx     # The dialog component (slider + number input)
+├── components/ui/context_menus/action-context-menu.tsx  # "Set Priority..." menu entry, gated on canSetPriority
+├── app/jobs/data-table.tsx                   # Mounts <SetPriorityDialog/> + listens for cueweb:priority-changed
+├── lib/rbac/permissions.ts                   # New JOBS_SET_PRIORITY: "jobs.set_priority"
+└── lib/rbac/roles.ts                         # operator role now includes JOBS_SET_PRIORITY
+```
+
+### CustomEvent dance
+
+The dialog is mounted once at the bottom of `DataTable` (not inside the context menu) so the menu's free-function handlers don't need to reach into component state. Two events glue the pieces together:
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-set-priority` | `setPriorityGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `SetPriorityDialog` | `{ job: Job }` |
+| `cueweb:priority-changed` | `SetPriorityDialog` after a successful `setJobPriority(job, val)` | `DataTable` (a `useEffect`) | `{ jobId: string; priority: number }` |
+
+The second event drives the optimistic in-row update: `DataTable` patches `tableData[].priority` for the matching id so the Priority column updates immediately instead of waiting for the next 5-second poll tick. The regular poll then reconciles in case cuebot rejected silently for some unforeseen reason.
+
+### API route
+
+`POST /api/job/action/setpriority` validates `{ job, val: number }`, checks `Number.isInteger(val) && 1 <= val <= 100`, and forwards to `/job.JobInterface/SetPriority`. The route is wrapped in `requireFeature("jobs.set_priority")` so out-of-band requests from a non-permitted user return 403 even if the user manages to construct one. The gate short-circuits to "allow" in sandbox mode (no auth provider), matching the rest of the action-route conventions.
+
+### Menu gating
+
+`JobContextMenu` calls `useFeature("jobs.set_priority")` once at render and uses the returned boolean to conditionally spread the **Set Priority...** entry into the menu items list. Hide-don't-disable, matching the pattern used by the CueCommander menu and the Admin link. `useFeature` returns `true` in sandbox mode so the entry stays visible there.
+
+### Permission catalog
+
+```ts
+// lib/rbac/permissions.ts
+JOBS_SET_PRIORITY: "jobs.set_priority",
+// + entry in PERMISSION_CATALOG so it shows up in the Admin UI's Permissions tab
+```
+
+`lib/rbac/roles.ts` adds the permission to the seeded `operator` role; `site-admin` already covers it via the `*` wildcard.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

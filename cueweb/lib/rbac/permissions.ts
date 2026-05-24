@@ -28,6 +28,7 @@ export const PERMISSIONS = {
   JOBS_EAT: "jobs.eat",
   JOBS_SET_MAX_RETRIES: "jobs.set_max_retries",
   JOBS_SET_AUTO_EAT: "jobs.set_auto_eat",
+  JOBS_SET_PRIORITY: "jobs.set_priority",
 
   // Layers
   LAYERS_VIEW: "layers.view",
@@ -71,6 +72,7 @@ export const PERMISSION_CATALOG: ReadonlyArray<{
   { key: PERMISSIONS.JOBS_EAT, description: "Eat dead frames on jobs" },
   { key: PERMISSIONS.JOBS_SET_MAX_RETRIES, description: "Set per-job max retries" },
   { key: PERMISSIONS.JOBS_SET_AUTO_EAT, description: "Toggle per-job auto-eat" },
+  { key: PERMISSIONS.JOBS_SET_PRIORITY, description: "Adjust per-job dispatch priority (1-100)" },
 
   { key: PERMISSIONS.LAYERS_VIEW, description: "View layers" },
   { key: PERMISSIONS.LAYERS_KILL, description: "Kill layers" },

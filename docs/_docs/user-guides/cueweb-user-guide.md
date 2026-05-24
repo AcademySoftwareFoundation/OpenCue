@@ -279,7 +279,18 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+
+### Adjusting job priority (Set Priority)
+
+Right-click a job row and pick **Set Priority...** to open a themed dialog. The dialog has a 1-100 range slider and a matching number input - either control drives the value; both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; the cuebot default is 100.
+
+After Apply:
+
+- A success toast confirms the new value.
+- The job's Priority column in the Jobs table updates immediately (no need to wait for the regular 5-second refresh tick).
+
+**RBAC**: when authentication is enabled, this action is restricted to roles that hold the `jobs.set_priority` permission. The built-in `site-admin` and `operator` roles have it; the built-in `viewer` role does not. Users without the permission don't see **Set Priority...** in the menu at all, and a direct request to the underlying API also returns a 403. In sandbox mode (no auth provider configured) every signed-in user sees the entry.
 - **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
 - **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 

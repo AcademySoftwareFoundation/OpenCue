@@ -189,7 +189,7 @@ When `local` is listed in `NEXT_PUBLIC_AUTH_PROVIDER` and the policy store has n
 | Role | Permissions | Notes |
 |------|-------------|-------|
 | `site-admin` | `*` (wildcard) | Cannot be deleted. Holds admin-UI access. |
-| `operator` | `jobs.view`, `jobs.kill`, `jobs.retry`, `jobs.pause`, `jobs.eat`, `jobs.set_max_retries`, `jobs.set_auto_eat`, `layers.view`, `layers.kill`, `layers.retry`, `frames.view`, `frames.eat`, `frames.retry`, `frames.kill`, `hosts.view`, `hosts.lock`, `hosts.unlock`, `shows.view`, `cuecommander.open` | Day-to-day production operator. |
+| `operator` | `jobs.view`, `jobs.kill`, `jobs.retry`, `jobs.pause`, `jobs.eat`, `jobs.set_max_retries`, `jobs.set_auto_eat`, `jobs.set_priority`, `layers.view`, `layers.kill`, `layers.retry`, `frames.view`, `frames.eat`, `frames.retry`, `frames.kill`, `hosts.view`, `hosts.lock`, `hosts.unlock`, `shows.view`, `cuecommander.open` | Day-to-day production operator. |
 | `viewer` | `jobs.view`, `layers.view`, `frames.view`, `hosts.view`, `shows.view` | Read-only. |
 
 Custom roles can be added in the **Roles** tab; built-in rows are protected from deletion.
@@ -201,6 +201,7 @@ Custom roles can be added in the **Roles** tab; built-in rows are protected from
 | `*` | Wildcard. Held only by `site-admin`. |
 | `jobs.view` / `jobs.kill` / `jobs.retry` / `jobs.pause` / `jobs.eat` | Per-action job verbs. |
 | `jobs.set_max_retries` / `jobs.set_auto_eat` | Job-level configuration. |
+| `jobs.set_priority` | Adjust per-job dispatch priority (1-100). Held by `site-admin` and `operator` out of the box. |
 | `layers.view` / `layers.kill` / `layers.retry` | Per-action layer verbs. |
 | `frames.view` / `frames.eat` / `frames.retry` / `frames.kill` | Per-action frame verbs. |
 | `hosts.view` / `hosts.lock` / `hosts.unlock` / `hosts.reboot` | Per-action host verbs. |
@@ -503,6 +504,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Drop External Dependencies** | Drop external job-on-job dependencies. |
 | **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
+| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). RBAC: only visible to roles holding `jobs.set_priority` (`site-admin` + `operator` out of the box). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
 | **Pause** / **Unpause** | Pause or resume the job. |
