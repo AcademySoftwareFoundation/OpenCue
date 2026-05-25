@@ -184,15 +184,18 @@ impl MatchingService {
         os.is_none() || host.str_os.as_deref() == os
     }
 
-    /// Sync per-host validation invoked from the host_cache actor. Currently only checks
-    /// OS compatibility - subscription burst is enforced by the Lua booking call inside
+    /// Mirrors Cuebot's DispatchQuery filter: hosts in ThreadMode::All only accept threadable
+    /// layers. Booking a non-threadable layer on such a host would diverge from Cuebot's behavior
+    /// and starve the layer when ownership of the show moves back to Cuebot.
+    fn host_matches_thread_mode(host: &Host, threadable: bool) -> bool {
+        !(host.thread_mode == ThreadMode::All && !threadable)
+    }
+
+    /// Sync per-host validation invoked from the host_cache actor. Checks OS and thread-mode
+    /// compatibility - subscription burst is enforced by the Lua booking call inside
     /// `dispatch_virtual_proc` (see comment at the call site).
-    ///
-    /// Although only host OS is currently being checked, this function existence is still
-    /// justified for being a placeholder for future validations that might need to happen
-    /// when searching for a compatibly host.
-    fn validate_match(host: &Host, os: Option<&str>) -> bool {
-        Self::host_matches_layer_os(host, os)
+    fn validate_match(host: &Host, os: Option<&str>, threadable: bool) -> bool {
+        Self::host_matches_layer_os(host, os) && Self::host_matches_thread_mode(host, threadable)
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -253,6 +256,7 @@ impl MatchingService {
             // per-layer Redis snapshot of (show, alloc) → bookable and consult it here.
             let cores_requested = layer.cores_min;
             let os = layer.str_os.clone();
+            let threadable = layer.threadable;
 
             let host_candidate = self
                 .host_service
@@ -262,7 +266,9 @@ impl MatchingService {
                     tags,
                     cores: cores_requested,
                     memory: layer.mem_min,
-                    validation: move |host| Self::validate_match(host, os.as_deref()),
+                    validation: move |host| {
+                        Self::validate_match(host, os.as_deref(), threadable)
+                    },
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");

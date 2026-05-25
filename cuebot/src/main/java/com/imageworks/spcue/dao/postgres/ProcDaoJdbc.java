@@ -365,8 +365,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "proc.pk_job,"
                 + "proc.pk_layer,"
                 + "proc.pk_frame,"
-                + "job.pk_folder," 
-                + "job.pk_dept," +
+                + "job.pk_folder,"
+                + "job.pk_dept,"
                 + "proc.b_unbooked,"
                 + "proc.b_local,"
                 + "host.pk_alloc, "
