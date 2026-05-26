@@ -1,0 +1,55 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { accessGetApi } from "./api_utils";
+
+// Mirrors the Show proto message at proto/src/show.proto.
+export type Show = {
+  id: string;
+  name: string;
+  active: boolean;
+  bookingEnabled: boolean;
+  dispatchEnabled: boolean;
+};
+
+// Show names must be alphanumeric only (no spaces, dashes, or punctuation).
+export function isValidShowName(name: string): boolean {
+  return /^[a-zA-Z0-9]+$/.test(name);
+}
+
+// Returns the show with the given name, or null if not found.
+export async function findShow(name: string): Promise<Show | null> {
+  const body = JSON.stringify({ name });
+  const response = await accessGetApi("/api/show/findshow", body);
+  if (!response || response.notFound) return null;
+  return response.show ?? null;
+}
+
+// Returns all shows.
+export async function getShows(): Promise<Show[]> {
+  const response = await accessGetApi("/api/show/getshows", JSON.stringify({}));
+  return response ?? [];
+}
+
+// Creates a new show with the given name and returns it.
+export async function createShow(name: string): Promise<Show> {
+  const body = JSON.stringify({ name });
+  const response = await accessGetApi("/api/show/createshow", body);
+  if (!response || !response.show) {
+    throw new Error("Failed to create show");
+  }
+  return response.show;
+}
