@@ -21,6 +21,17 @@ pub enum TagType {
     Hardware,
 }
 
+impl TagType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TagType::Alloc => "alloc",
+            TagType::HostName => "hostname",
+            TagType::Manual => "manual",
+            TagType::Hardware => "hardware",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tag {
     pub name: String,

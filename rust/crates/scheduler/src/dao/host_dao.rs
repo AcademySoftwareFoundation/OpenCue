@@ -247,6 +247,12 @@ impl HostDao {
         })
     }
 
+    pub fn with_pool(pool: Arc<Pool<Postgres>>) -> Self {
+        HostDao {
+            connection_pool: pool,
+        }
+    }
+
     /// Fetches hosts matching a specific show, facility, and tag.
     ///
     /// Finds all open hosts that belong to allocations subscribed to the given show
