@@ -33,6 +33,20 @@ export type JobComment = {
     message: string;
 };
 
+export type Depend = {
+    id: string;
+    type: string | number;
+    target: string | number;
+    anyFrame: boolean;
+    active: boolean;
+    dependErJob: string;
+    dependErLayer: string;
+    dependErFrame: string;
+    dependOnJob: string;
+    dependOnLayer: string;
+    dependOnFrame: string;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -113,6 +127,14 @@ export async function getFramesForJob(job: Job): Promise<Frame[]> {
         req: { include_finished: true, page: 1, limit: 500 },
     };
     return getFrames(JSON.stringify(body));
+}
+
+// Fetch all dependencies for a given job
+export async function getDependsForJob(jobId: string): Promise<Depend[]> {
+    const ENDPOINT = "/api/job/getdepends";
+    const body = { job: { id: jobId } };
+    const response = await accessGetApi(ENDPOINT, JSON.stringify(body));
+    return response ? response : [];
 }
 
 // Get the job that a layer belongs to using the layer's parentId

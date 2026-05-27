@@ -27,6 +27,7 @@ import Skeleton from "@mui/material/Skeleton";
 import { ExternalLink } from "lucide-react";
 import * as React from "react";
 import { SimpleDataTable } from "./simple-data-table";
+import { JobDependencyGraph } from "./job-dependency-graph";
 
 type FramesLayersPopupProps = {
   job: Job;
@@ -40,6 +41,7 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
   const [frames, setFrames] = React.useState<Frame[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<"tables" | "graph">("tables");
   const isAvailable = React.useRef(false);
 
   const handleDialogPopup = async (job: Job) => {
@@ -137,9 +139,31 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         </DialogContent>
       ) : (
         <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-scroll">
-          <DialogTitle>{job.name}</DialogTitle>
-          <SimpleDataTable data={layers} columns={layerColumns} username={username} />
-          <SimpleDataTable data={frames} columns={frameColumns} job={job} isFramesTable={true} username={username} />
+          <div className="flex items-center justify-between">
+            <DialogTitle>{job.name}</DialogTitle>
+            <div className="flex space-x-2 mr-8">
+              <button
+                className={`px-3 py-1 rounded text-sm ${activeTab === "tables" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                onClick={() => setActiveTab("tables")}
+              >
+                Layers & Frames
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-sm ${activeTab === "graph" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                onClick={() => setActiveTab("graph")}
+              >
+                Dependency Graph
+              </button>
+            </div>
+          </div>
+          {activeTab === "tables" ? (
+            <>
+              <SimpleDataTable data={layers} columns={layerColumns} username={username} />
+              <SimpleDataTable data={frames} columns={frameColumns} job={job} isFramesTable={true} username={username} />
+            </>
+          ) : (
+            <JobDependencyGraph job={job} onNavigate={() => setActiveTab("tables")} />
+          )}
         </DialogContent>
       )}
     </Dialog>
