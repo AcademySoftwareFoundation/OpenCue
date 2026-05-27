@@ -47,7 +47,6 @@ import { Frame } from "@/app/frames/frame-columns";
 import { getFrameLogDir } from "@/app/utils/get_utils";
 import { toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
-import { useFeature } from "@/components/rbac";
 import { Row } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -202,11 +201,6 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   }
 
   const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
-  // RBAC: only roles holding `jobs.set_priority` (site-admin + operator
-  // by default) get the "Set Priority..." menu entry. In sandbox mode
-  // (no auth provider configured) useFeature returns true for everyone,
-  // so the entry stays visible like every other CueGUI-parity action.
-  const canSetPriority = useFeature("jobs.set_priority");
 
   // If the row is null or the job's state is finished, set active as false
   const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
@@ -326,15 +320,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     sep("group-frame-controls"),
 
     // -- Frame-level controls (CueGUI parity).
-    // RBAC-gated: only admin + operator see Set Priority.
-    ...(canSetPriority
-      ? ([{
-          label: "Set Priority...",
-          onClick: setPriorityGivenRow,
-          isActive: editable,
-          component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-        }] as MenuItem[])
-      : []),
+    {
+      label: "Set Priority...",
+      onClick: setPriorityGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
     {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,

@@ -157,8 +157,6 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 3. Drag the slider to 50 (or type a value) and click **Apply**.
 4. A toast confirms the change. The Priority column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
 
-If CueWeb is deployed with authentication enabled, only roles holding the `jobs.set_priority` permission see this menu entry. The built-in `site-admin` and `operator` roles have it; `viewer` does not. Sign in as a viewer-only user to confirm the entry is hidden (and the underlying API returns 403 to a direct request).
-
 ---
 
 ## Job Details and Frame Management
@@ -464,74 +462,6 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 - **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
 - **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
 - **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
-
----
-
-## Managing users and roles (Admin UI tutorial)
-
-This walkthrough assumes the deployment was started with `NEXT_PUBLIC_AUTH_PROVIDER=local` (the simplest path - no external IdP needed). If you used Okta, Google, GitHub, or LDAP, the user lifecycle works the same way; you just sign in through that provider's button instead.
-
-### Find the bootstrap password
-
-The first time CueWeb runs with `local` enabled it prints a one-time bootstrap admin password to the container log. Find it with:
-
-```bash
-docker compose logs cueweb --tail 20
-```
-
-Look for a banner that reads `CueWeb bootstrap admin created`. The password is also saved to `/data/.cueweb-bootstrap` inside the container (mode `0600`).
-
-### Sign in and rotate the password
-
-1. Open `/login`. The form shows **Username** + **Password** fields.
-2. Sign in as `admin` with the bootstrap password. CueWeb redirects to **Set a new password**.
-3. Enter the bootstrap password as **Current password**, then a new password (12+ characters) twice. Click **Update password**.
-
-You land on the Jobs dashboard. An **Admin** button now appears in the top-right of the header.
-
-### Create your first user
-
-1. Click **Admin** -> **Users** tab.
-2. Click **Create local user**, fill in the form (username + display name + email + temporary 12+ character password), and submit.
-3. The new user appears in the table with a `must change pw` chip - they'll be forced to rotate the password on first sign-in, just like the bootstrap admin.
-
-### Assign a role
-
-By default a brand-new local user has no roles, so they cannot do anything beyond sign in.
-
-1. In the same **Users** tab, find the new user's row.
-2. In the **Direct roles** column, pick `operator` (or `viewer`) from the `+ attach...` dropdown.
-3. The role appears as a chip next to their name; CueWeb refreshes effective permissions on the user's next API call.
-
-### Use groups to scale assignments
-
-Use **Groups** when you need to manage many users at once - for example, all operators in a show.
-
-1. Open the **Groups** tab and click **Create local group**, e.g. `gr-render-operators`.
-2. In the new group's **Roles** column, attach `operator`.
-3. (Future improvement: a "Users in this group" tab. For now, group membership is best driven from Okta or LDAP via the groups resolver - any user in the matching directory group gets `operator` automatically on next sign-in.)
-
-### Add a second admin
-
-1. Open the **Admins** tab.
-2. Pick **Username** (or **Email** / **External ID**) and type the username of an existing user from the Users tab.
-3. Click **Add admin**. They can now reach `/admin` themselves.
-
-CueWeb refuses to remove the **last** admin row so the policy store always has a recovery path.
-
-### Reset a forgotten password (local users)
-
-If a local user loses their password, an admin can reset it:
-
-1. Open **Users**, find the row.
-2. Click **Reset password**, supply a fresh temporary password (12+ characters).
-3. The user's next sign-in lands on **Set a new password** automatically.
-
-### Look at the audit log
-
-1. Open the **Audit log** tab.
-2. Filter by **action** (e.g. `user.create`) or **actor** (e.g. `admin`).
-3. Expand a row's "before/after" to see the JSON change. Click **Export current view to CSV** to share with security or compliance.
 
 ---
 

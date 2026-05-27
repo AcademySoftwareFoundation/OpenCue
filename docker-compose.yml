@@ -278,9 +278,9 @@ services:
         - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
         - NEXTAUTH_URL=http://localhost:3000
         - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
-        # Authentication providers (comma-separated subset of local,okta,
-        # google,github,ldap). Empty = sandbox mode, no login, RBAC
-        # enforcement short-circuits to "allow".
+        # Authentication disabled by default for sandbox/development
+        # To enable authentication, uncomment and set providers:
+        # - NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap
         - NEXT_PUBLIC_AUTH_PROVIDER=
         # Disable Sentry for sandbox
         - SENTRY_ENVIRONMENT=development
@@ -290,11 +290,6 @@ services:
     volumes:
       # Mount RQD logs directory so CueWeb can display frame logs
       - /tmp/rqd/logs:/tmp/rqd/logs:ro
-      # Persist the RBAC SQLite store (users / groups / roles / audit log)
-      # across container restarts. Delete this volume to reset CueWeb to
-      # the first-launch state, which will print a fresh bootstrap admin
-      # password to the cueweb container logs.
-      - cueweb-data:/data
     environment:
       # Runtime environment variables
       - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
@@ -308,17 +303,8 @@ services:
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
       - SENTRY_ENVIRONMENT=development
-      # Authentication providers (comma-separated subset of local,okta,
-      # google,github,ldap). Must match the build arg above. Empty =
-      # sandbox mode.
+      # Authentication disabled - empty value skips auth providers
       - NEXT_PUBLIC_AUTH_PROVIDER=
-      # RBAC groups resolver. One of okta|ldap|none. Default is none;
-      # set to okta when Okta is configured with a groups claim, or
-      # ldap when LDAP_URI is reachable and memberOf is available.
-      - CUEWEB_GROUPS_RESOLVER=none
-      # Override only if you need the RBAC SQLite file at a different
-      # path than the default /data/cueweb-rbac.db (e.g. :memory: in CI).
-      # - CUEWEB_RBAC_DB=/data/cueweb-rbac.db
     depends_on:
       rest-gateway:
         condition: service_healthy
@@ -562,4 +548,3 @@ volumes:
   grafana-data:
   elasticsearch-data:
   db-data:
-  cueweb-data:

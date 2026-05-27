@@ -15,7 +15,6 @@
  */
 
 import { handleRoute } from '@/app/utils/api_utils';
-import { requireFeature } from '@/lib/rbac/require_feature';
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -24,13 +23,6 @@ export async function POST(request: NextRequest) {
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
-
-  // RBAC gate: only roles holding `jobs.set_priority` (site-admin and
-  // operator out of the box) may adjust job priority. requireFeature
-  // short-circuits to "allow" in sandbox mode (NEXT_PUBLIC_AUTH_PROVIDER
-  // empty), matching the rest of the action-route conventions.
-  const gate = await requireFeature("jobs.set_priority");
-  if (!gate.ok) return gate.response;
 
   // Guard against malformed JSON so callers see a 400 instead of the route
   // throwing and Next.js surfacing a generic 500 - request.json() throws a

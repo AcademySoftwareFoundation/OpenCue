@@ -100,31 +100,12 @@ NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
 # Comma-separated list of providers to enable on the /login page.
-# Supported values: local, okta, google, github, ldap.
-# When empty, CueWeb runs unauthenticated (sandbox mode) and the
-# RBAC enforcement layer short-circuits to "allow", matching the
-# pre-RBAC behavior.
-# IMPORTANT: NEXT_PUBLIC_* vars must match between build-arg and runtime.
-NEXT_PUBLIC_AUTH_PROVIDER=local,okta,google,github,ldap
+# When empty, /login renders only a "CueWeb Home" button. The global
+# header's Sign out button is always rendered regardless of this value;
+# clicking it routes to /login.
+NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
 NEXTAUTH_URL=https://cueweb.company.com
 NEXTAUTH_SECRET=nextauth-production-secret
-
-# RBAC (optional, only relevant when auth is enabled)
-# Active groups resolver. One of: okta | ldap | none.
-# - okta: read the `groups` claim from the Okta ID token (requires the
-#         Okta app to be configured to include the claim)
-# - ldap: query memberOf on the user's DN via ldapjs after sign-in
-# - none: no external sync; admins assign roles directly in /admin
-CUEWEB_GROUPS_RESOLVER=okta
-
-# Override the SQLite policy-store path (default: /data/cueweb-rbac.db).
-# CUEWEB_RBAC_DB=/data/cueweb-rbac.db
-
-# Optional LDAP service account for the memberOf lookup. If unset,
-# the resolver tries an anonymous bind and silently skips the lookup
-# if anonymous search is disallowed.
-# LDAP_SEARCH_USER_DN=cn=cueweb-svc,ou=Services,dc=example,dc=com
-# LDAP_SEARCH_USER_PASSWORD=...
 
 # Cuebot Facility selector (optional)
 # Comma-separated list of facilities exposed in the header / sidebar
@@ -193,10 +174,6 @@ services:
       - "3000:3000"
     env_file:
       - .env.production
-    volumes:
-      # Persist the RBAC SQLite store across container restarts so the
-      # bootstrap admin and all later user/group/role rows survive.
-      - cueweb-data:/data
     restart: unless-stopped
     depends_on:
       - rest-gateway
@@ -221,9 +198,6 @@ services:
 networks:
   opencue:
     external: true
-
-volumes:
-  cueweb-data:
 ```
 
 ### Building from Source
@@ -328,33 +302,13 @@ spec:
           mountPath: /tmp
         - name: nextjs-cache
           mountPath: /.next
-        # RBAC SQLite store. Use a PersistentVolumeClaim so the policy
-        # store survives pod restarts and rescheduling.
-        - name: cueweb-data
-          mountPath: /data
       volumes:
       - name: tmp
         emptyDir: {}
       - name: nextjs-cache
         emptyDir: {}
-      - name: cueweb-data
-        persistentVolumeClaim:
-          claimName: cueweb-data
       securityContext:
         fsGroup: 1001
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: cueweb-data
-  namespace: opencue
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
 
 ---
 apiVersion: v1
@@ -485,51 +439,18 @@ LDAP authentication allows users to authenticate using their company directory c
 - Provide a CA certificate for proper TLS verification
 - The `{login}` placeholder in `LDAP_LOGIN_DN` is replaced with the username at authentication time
 
-### Local credentials provider (built-in)
-
-The `local` provider is built into CueWeb - no external IdP needed. Useful for air-gapped or single-operator deployments.
-
-1. Set `NEXT_PUBLIC_AUTH_PROVIDER=local` (or combine with `okta` / `google` / `github` / `ldap`).
-2. Mount a persistent volume at `/data` (e.g. `cueweb-data:/data` in `docker-compose.yml`). The SQLite policy store lives there.
-3. Start CueWeb. On first launch with `local` in the provider list, the container log prints a one-time bootstrap admin banner. Capture it with `docker compose logs cueweb --tail 20`.
-4. Sign in at `/login` as `admin` with that password. CueWeb forces a password change before the dashboard.
-
-To reset the bootstrap password (e.g. lost the original):
-
-```bash
-docker compose down cueweb
-docker volume rm <stack>_cueweb-data
-docker compose up -d cueweb && docker compose logs cueweb --tail 20
-```
-
-This regenerates the whole policy store - **all users, groups, roles, and the audit log are erased**. Export the audit log to CSV from the Admin UI's **Audit log** tab beforehand if you need to keep it.
-
-> **Warning:** `docker volume rm <stack>_cueweb-data` is **destructive and irreversible**. It removes every persisted RBAC row - local users, groups, custom roles, group/role attachments, the admin whitelist, and the entire audit log. Externally sourced identities (Okta / LDAP / Google / GitHub) reappear on the next sign-in but any direct role grants on them are lost, which can lock out admins who relied on direct grants. **Do not run this in production unless you have a tested backup-and-restore plan** - see the "Persistent volumes" section below for a `tar` recipe.
-
 ### Disable Authentication (Development)
 
 For development or internal deployments without authentication:
 
 ```bash
-# In .env file, set the var to an empty string:
-NEXT_PUBLIC_AUTH_PROVIDER=
+# In .env file, comment out or remove:
+# NEXT_PUBLIC_AUTH_PROVIDER=okta,google
+
+# CueWeb will run without authentication requirements
 ```
 
-CueWeb runs unauthenticated and the RBAC enforcement short-circuits to "allow" so the new code paths don't add anything visible. The `/admin` link in the header is hidden in this mode.
-
----
-
-## RBAC and Admin UI
-
-When any provider is enabled, CueWeb activates a Role-Based Access Control layer. Highlights for operators:
-
-- **Storage**: SQLite at `/data/cueweb-rbac.db` (override with `CUEWEB_RBAC_DB`). Mount a persistent volume to survive restarts.
-- **First-launch flow**: with `local` enabled, CueWeb auto-creates an `admin` user, generates a 24-char random password, prints it once to the container log, and writes it to `/data/.cueweb-bootstrap` (mode `0600`).
-- **Admin UI**: reachable at `/admin` to anyone in the `admins` whitelist. Tabs cover Users, Groups, Roles, Permissions, Admins, and an Audit log (with CSV export).
-- **Groups resolver**: optional - set `CUEWEB_GROUPS_RESOLVER=okta` or `=ldap` to sync external group membership into CueWeb on every sign-in. Default `none`.
-- **Built-in roles**: `site-admin` (wildcard, undeletable), `operator` (day-to-day verbs + CueCommander), `viewer` (read-only). Add custom roles in the Admin UI.
-
-See the [CueWeb reference doc](/docs/reference/cueweb/#rbac-and-admin-ui) for the full permission catalog and the [user guide](/docs/user-guides/cueweb-user-guide/#admin-ui) for the per-tab tour.
+CueWeb runs unauthenticated in this mode.
 
 ---
 
@@ -551,23 +472,6 @@ The `/cuesubmit` route is a TypeScript port of the standalone CueSubmit CLI tool
 **Production deployments**: change Memory to whatever the real services expect, override Facility from the dropdown if your deployment has more than one, and confirm `NEXT_PUBLIC_CUEBOT_FACILITIES` enumerates every facility the user should be able to pick.
 
 The form auto-saves a draft to `localStorage` on every keystroke and keeps per-field autocomplete history (Job Name / Shot / Layer Name) - these are browser-local and don't require any server-side persistence.
-
-### Persistent volumes
-
-The Docker image declares `/data` as a volume; pair it with a named volume so the policy store survives container restarts and `docker compose down`:
-
-```yaml
-# docker-compose.yml (excerpt)
-services:
-  cueweb:
-    # ...
-    volumes:
-      - cueweb-data:/data
-volumes:
-  cueweb-data:
-```
-
-Backups: `docker run --rm -v <stack>_cueweb-data:/data -v $(pwd):/backup alpine tar czf /backup/cueweb-data-$(date +%F).tgz -C /data .` copies the SQLite store and the bootstrap credentials file to a tarball. Restore with the inverse.
 
 ---
 

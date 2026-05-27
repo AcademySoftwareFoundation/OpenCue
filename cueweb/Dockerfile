@@ -2,20 +2,6 @@ FROM node:21-alpine
 
 WORKDIR /opt/cueweb
 
-# Native build deps for the RBAC store:
-#   - better-sqlite3 needs python3 + make + g++ to compile node-gyp bindings
-#   - argon2 likewise needs a toolchain
-# These are install-time only; the published image still runs on
-# node:21-alpine without runtime build tools.
-RUN apk add --no-cache --virtual .build-deps python3 make g++
-
-# Runtime data directory for the RBAC SQLite store. Mount a volume here
-# in production (e.g. `cueweb-data:/data` in docker-compose) so the DB
-# survives container restarts.
-RUN mkdir -p /data && chmod 700 /data
-VOLUME /data
-ENV CUEWEB_RBAC_DB=/data/cueweb-rbac.db
-
 # If needed, you can change the registry where packages are fetched from
 # RUN npm config set registry <your artifactory url>
 
@@ -34,9 +20,6 @@ ENV SENTRYCLI_SKIP_DOWNLOAD=1
 # RUN npm install
 RUN npm ci
 
-# Drop the install-time toolchain now that native modules are compiled.
-RUN apk del .build-deps
-
 COPY *.json /opt/cueweb/
 COPY next.config.js /opt/cueweb/
 COPY postcss.config.js /opt/cueweb/
@@ -44,10 +27,6 @@ COPY tailwind.config.js /opt/cueweb/
 COPY app/ /opt/cueweb/app/
 COPY components/ /opt/cueweb/components/
 COPY lib/ /opt/cueweb/lib/
-COPY middleware.ts /opt/cueweb/middleware.ts
-COPY instrumentation.ts /opt/cueweb/instrumentation.ts
-COPY instrumentation.node.ts /opt/cueweb/instrumentation.node.ts
-COPY types/ /opt/cueweb/types/
 COPY sentry.client.config.ts /opt/cueweb/sentry.client.config.ts
 COPY sentry.server.config.ts /opt/cueweb/sentry.server.config.ts
 COPY sentry.edge.config.ts /opt/cueweb/sentry.edge.config.ts
@@ -81,27 +60,6 @@ ENV SENTRY_DSN=tobeoverriden
 ENV LDAP_LOGIN_DN=tobeoverriden
 ENV LDAP_CERTIFICATE=tobeoverriden
 ENV LDAP_URI=tobeoverriden
-
-# Optional - only consumed by NextAuth when their provider keys are
-# listed in NEXT_PUBLIC_AUTH_PROVIDER. Leave unset to skip.
-ENV GOOGLE_CLIENT_ID=
-ENV GOOGLE_CLIENT_SECRET=
-ENV GITHUB_ID=
-ENV GITHUB_SECRET=
-
-# Optional LDAP service account used by the RBAC LDAP groups resolver
-# to look up memberOf. If unset, the resolver tries an anonymous bind
-# and silently skips the lookup if anonymous search is disallowed.
-ENV LDAP_SEARCH_USER_DN=
-ENV LDAP_SEARCH_USER_PASSWORD=
-
-# Active RBAC groups resolver. One of: okta | ldap | none.
-# - okta: read `groups` claim from the Okta ID token (requires Okta
-#         app to be configured to include the claim)
-# - ldap: query `memberOf` on the user's DN after sign-in
-# - none: open-source default; no external group source, all access
-#         is via direct user_roles assignments in the Admin UI
-ENV CUEWEB_GROUPS_RESOLVER=none
 
 # The following environment variables need to be accurately defined during production or dev builds as their
 # values cannot be changed after build time. Use ARG to allow override at build time.

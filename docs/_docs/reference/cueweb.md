@@ -100,24 +100,13 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_AUTH_PROVIDER` | Comma-separated auth providers. Supported values: `local`, `okta`, `google`, `github`, `ldap`. Empty = sandbox mode (no login). | `local,okta,google,github,ldap` |
+| `NEXT_PUBLIC_AUTH_PROVIDER` | Comma-separated auth providers | `google,okta,github,ldap` |
 | `NEXTAUTH_URL` | NextAuth callback URL | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | NextAuth session secret | `random-secret` |
 
-**Note:** Set `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) for no authentication. With an empty value CueWeb runs unauthenticated and the RBAC enforcement layer short-circuits to "allow", which matches the pre-RBAC behavior. The value must match between build time (`--build-arg`) and runtime (`environment:`) - the build-arg value is what the client bundle sees.
+**Note:** Set `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) for no authentication.
 
-### RBAC Variables
-
-These take effect when `NEXT_PUBLIC_AUTH_PROVIDER` is non-empty.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CUEWEB_GROUPS_RESOLVER` | Active groups resolver. One of `okta`, `ldap`, or `none`. Selects how CueWeb maps an external identity to a list of groups on each sign-in. Google and GitHub sign-ins always land in the users table but do not sync groups; admins assign roles directly. | `none` |
-| `CUEWEB_RBAC_DB` | Path to the SQLite policy store. Use `:memory:` in CI / tests. | `/data/cueweb-rbac.db` |
-| `LDAP_SEARCH_USER_DN` | Optional service-account DN used by the LDAP groups resolver for the `memberOf` lookup. Falls back to anonymous bind if unset. | (empty) |
-| `LDAP_SEARCH_USER_PASSWORD` | Companion to `LDAP_SEARCH_USER_DN`. | (empty) |
-
-### Identity Provider Variables
+### OAuth Provider Variables
 
 #### Okta
 
@@ -127,16 +116,12 @@ These take effect when `NEXT_PUBLIC_AUTH_PROVIDER` is non-empty.
 | `NEXT_AUTH_OKTA_CLIENT_SECRET` | Okta application client secret |
 | `NEXT_AUTH_OKTA_ISSUER` | Okta issuer URL (e.g., `https://company.okta.com`) |
 
-When `CUEWEB_GROUPS_RESOLVER=okta`, the Okta application must be configured to include a `groups` claim in the ID token (Okta admin -> Applications -> _your app_ -> Sign On -> OpenID Connect ID Token -> Groups claim type: Filter, matching the group names you want to expose).
-
 #### Google
 
 | Variable | Description |
 |----------|-------------|
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-
-Google sign-ins are written into the RBAC store as `source=imported` so admins can attach roles directly. Group sync is not available.
 
 #### GitHub
 
@@ -145,8 +130,6 @@ Google sign-ins are written into the RBAC store as `source=imported` so admins c
 | `GITHUB_ID` | GitHub OAuth application ID |
 | `GITHUB_SECRET` | GitHub OAuth application secret |
 
-GitHub sign-ins are written into the RBAC store as `source=imported` so admins can attach roles directly. Group / team sync is not available.
-
 #### LDAP
 
 | Variable | Description |
@@ -154,10 +137,6 @@ GitHub sign-ins are written into the RBAC store as `source=imported` so admins c
 | `LDAP_URI` | LDAP server URI (e.g., `ldaps://ldap.company.com:636`) |
 | `LDAP_LOGIN_DN` | Login DN template with `{login}` placeholder |
 | `LDAP_CERTIFICATE` | Path to CA certificate for TLS verification |
-
-#### Local
-
-The built-in local Credentials provider needs no additional environment variables. On first launch CueWeb generates a random password for the bootstrap `admin` user, prints it once to the container log, and writes it to `/data/.cueweb-bootstrap` (mode 0600).
 
 ### Monitoring Variables
 
@@ -168,75 +147,6 @@ The built-in local Credentials provider needs no additional environment variable
 | `SENTRY_URL` | Sentry server URL |
 | `SENTRY_ORG` | Sentry organization |
 | `SENTRY_PROJECT` | Sentry project name |
-
----
-
-## RBAC and Admin UI
-
-CueWeb ships a Role-Based Access Control layer that activates whenever `NEXT_PUBLIC_AUTH_PROVIDER` is non-empty. The policy lives in a SQLite database (`/data/cueweb-rbac.db` by default) and is managed end-to-end from a web Admin UI at `/admin`.
-
-### Bootstrap admin (first launch with `local` enabled)
-
-When `local` is listed in `NEXT_PUBLIC_AUTH_PROVIDER` and the policy store has no admins yet, CueWeb runs a one-time bootstrap flow at server startup:
-
-1. Generates a 24-character cryptographically random password.
-2. Inserts a local user `admin` (source = local) and gives it the `site-admin` role plus admin-UI access.
-3. Writes the credentials to `/data/.cueweb-bootstrap` with mode `0600` and prints them once in a banner to the container log.
-4. Marks the user as `must_change_password=1` so the first sign-in lands on `/login/change-password` and forces a rotation before reaching the dashboard.
-
-### Built-in roles
-
-| Role | Permissions | Notes |
-|------|-------------|-------|
-| `site-admin` | `*` (wildcard) | Cannot be deleted. Holds admin-UI access. |
-| `operator` | `jobs.view`, `jobs.kill`, `jobs.retry`, `jobs.pause`, `jobs.eat`, `jobs.set_max_retries`, `jobs.set_auto_eat`, `jobs.set_priority`, `layers.view`, `layers.kill`, `layers.retry`, `frames.view`, `frames.eat`, `frames.retry`, `frames.kill`, `hosts.view`, `hosts.lock`, `hosts.unlock`, `shows.view`, `cuecommander.open` | Day-to-day production operator. |
-| `viewer` | `jobs.view`, `layers.view`, `frames.view`, `hosts.view`, `shows.view` | Read-only. |
-
-Custom roles can be added in the **Roles** tab; built-in rows are protected from deletion.
-
-### Permission catalog
-
-| Permission | Description |
-|-------------|-------------|
-| `*` | Wildcard. Held only by `site-admin`. |
-| `jobs.view` / `jobs.kill` / `jobs.retry` / `jobs.pause` / `jobs.eat` | Per-action job verbs. |
-| `jobs.set_max_retries` / `jobs.set_auto_eat` | Job-level configuration. |
-| `jobs.set_priority` | Adjust per-job dispatch priority (1-100). Held by `site-admin` and `operator` out of the box. |
-| `layers.view` / `layers.kill` / `layers.retry` | Per-action layer verbs. |
-| `frames.view` / `frames.eat` / `frames.retry` / `frames.kill` | Per-action frame verbs. |
-| `hosts.view` / `hosts.lock` / `hosts.unlock` / `hosts.reboot` | Per-action host verbs. |
-| `shows.view` / `shows.edit` | Show inspection / configuration. |
-| `cuecommander.open` | Gates the CueCommander mega-menu and pages. |
-
-### Admin UI tabs
-
-| Tab | URL | Purpose |
-|-----|-----|---------|
-| Overview | `/admin` | Stat cards: total users, groups, roles, admins. |
-| Users | `/admin/users` | List + search users, create local users, deactivate, reset password, attach/detach direct roles. |
-| Groups | `/admin/groups` | List groups with their source badge (`local` / `okta` / `ldap` / `imported`), create local groups, attach/detach roles. Externally sourced groups cannot be deleted from the UI. |
-| Roles | `/admin/roles` | Built-in + custom roles, edit permission sets, create / rename / delete custom roles. Built-ins are protected. |
-| Permissions | `/admin/permissions` | Read-only catalog rendered from the same source the role editor reads. |
-| Admins | `/admin/admins` | Users with admin-UI access. Add by username, email, or external ID (Okta `sub`, LDAP DN, etc.). Last admin cannot be removed. |
-| Audit log | `/admin/audit` | Filterable, paginated history of every mutation, with before/after JSON. CSV export. |
-
-### Audit log entries
-
-Every mutation through `/api/admin/*` writes one row with these columns: `id`, `ts`, `actor_id`, `actor_label`, `action`, `target`, `before_json`, `after_json`. Action strings are namespaced (`user.create`, `user.role_attach`, `group.delete`, `role.update`, `admin.add`, `admin.remove`, `bootstrap.admin_created`, `user.self_password_change`, etc.).
-
-### Bootstrap password recovery
-
-If you lose `/data/.cueweb-bootstrap` and the password is not in the container log retention window:
-
-```bash
-docker compose down cueweb
-docker volume rm opencue_cueweb-data
-docker compose up -d cueweb && docker compose logs cueweb --tail 20
-```
-
-This resets the policy store; the first-launch flow runs again and prints a fresh password. The audit log is reset along with the policy store; if you want to preserve it, export it from the **Audit log** tab first.
-
-> **Warning:** `docker volume rm opencue_cueweb-data` is **destructive**. It deletes every persisted RBAC row - local users, groups, custom roles, group/role attachments, the admin whitelist, and the entire audit log. Externally sourced identities are re-created on the next sign-in but their direct role grants are gone. Use only in sandbox/disposable environments unless you have a validated `/data` backup (see "Persistent volumes" in the deployment guide).
 
 ---
 
@@ -504,7 +414,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Drop External Dependencies** | Drop external job-on-job dependencies. |
 | **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
-| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). RBAC: only visible to roles holding `jobs.set_priority` (`site-admin` + `operator` out of the box). |
+| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
 | **Pause** / **Unpause** | Pause or resume the job. |
