@@ -25,6 +25,8 @@ from builtins import map
 from collections import namedtuple
 import time
 
+import grpc
+
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
@@ -424,6 +426,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated item ideas"""
         self.currtime = time.time()
         allIds = []
+        # Return a non-None result on any failure so the success-path emit in
+        # ThreadPool still fires and _processUpdateGuarded clears
+        # _updateInFlight. Letting an exception escape would leave the guard
+        # pinned and block all future refresh ticks.
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
@@ -438,6 +444,21 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 # pylint: enable=no-value-for-parameter
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
+            return None
+        except grpc.RpcError as e:
+            # pylint: disable=no-member
+            if hasattr(e, 'code') and e.code() in (grpc.StatusCode.CANCELLED,
+                                                   grpc.StatusCode.UNAVAILABLE):
+                logger.warning("gRPC connection issue fetching job whiteboard: %s - "
+                               "UI will retry on next update", e.details())
+            else:
+                logger.error("gRPC error fetching job whiteboard: %s", e)
+            # pylint: enable=no-member
+            return None
+        # pylint: disable=broad-except
+        except Exception:
+            logger.warning("Unexpected error fetching job whiteboard; "
+                           "UI will retry on next update", exc_info=True)
             return None
 
         return [nestedGroups, allIds]
