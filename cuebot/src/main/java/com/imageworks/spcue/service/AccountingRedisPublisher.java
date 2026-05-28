@@ -33,8 +33,8 @@ public interface AccountingRedisPublisher {
      * committed (typically from {@code TransactionSynchronization.afterCommit}).
      *
      * @param proc the released VirtualProc; provides showId, jobId, layerId, allocationId,
-     *        folderId, deptId, coresReserved, gpusReserved. Callers must ensure folderId and
-     *        deptId are populated (production hydration paths do this via {@code
+     *        folderId, deptId, coresReserved, gpusReserved. Callers must ensure folderId and deptId
+     *        are populated (production hydration paths do this via {@code
      *        ProcDaoJdbc.VIRTUAL_PROC_MAPPER}).
      */
     void publishRelease(VirtualProc proc);

@@ -145,8 +145,10 @@ public class LettuceAccountingRedisPublisher implements AccountingRedisPublisher
                 scriptSha = commands.scriptLoad(RELEASE_LUA);
                 evalRelease(proc);
             } catch (Exception retry) {
-                logger.warn("Redis publish retry failed for proc {} (show {}): {}; recompute "
-                        + "will heal", proc.getProcId(), proc.getShowId(), retry.getMessage());
+                logger.warn(
+                        "Redis publish retry failed for proc {} (show {}): {}; recompute "
+                                + "will heal",
+                        proc.getProcId(), proc.getShowId(), retry.getMessage());
             }
         } catch (Exception e) {
             // §4.3 row 1: publish failure -> Redis missing a decrement -> next recompute
@@ -156,9 +158,11 @@ public class LettuceAccountingRedisPublisher implements AccountingRedisPublisher
         }
     }
 
-    /** Cuebot stores cores as centicores (cores × 100; see VirtualProc.java:143). Redis
-     *  stores cores (design §0 unit invariant), so we divide on the way out. The divide
-     *  is exact: VirtualProc forces coresReserved to a multiple of 100 at booking time. */
+    /**
+     * Cuebot stores cores as centicores (cores × 100; see VirtualProc.java:143). Redis stores cores
+     * (design §0 unit invariant), so we divide on the way out. The divide is exact: VirtualProc
+     * forces coresReserved to a multiple of 100 at booking time.
+     */
     static final int CENTICORES_PER_CORE = 100;
 
     private void evalRelease(VirtualProc proc) {
