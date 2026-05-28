@@ -426,10 +426,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated item ideas"""
         self.currtime = time.time()
         allIds = []
-        # Return a result (even if None) rather than letting exceptions escape, so the 
-        # success-path emit in ThreadPool still fires and _processUpdateGuarded clears 
-        # _updateInFlight. Letting an exception escape would leave the guard pinned and 
-        # block all future refresh ticks.
+        # Return a non-None result on any failure so the success-path emit in
+        # ThreadPool still fires and _processUpdateGuarded clears
+        # _updateInFlight. Letting an exception escape would leave the guard
+        # pinned and block all future refresh ticks.
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
