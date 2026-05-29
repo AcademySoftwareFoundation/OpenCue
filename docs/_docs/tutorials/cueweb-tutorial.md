@@ -59,10 +59,42 @@ You should see the main CueWeb dashboard with the jobs table.
 
 The CueWeb interface consists of:
 
-- **Header**: Navigation, theme toggle, and user menu
+- **Global header (persistent across every authenticated route):**
+  - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, clickable as a link back to the jobs dashboard.
+  - Six dropdown menus mirroring the CueGUI menu bar:
+    - **File** -> Disable Job Interaction (read-only safety toggle).
+    - **Cuebot Facility** -> switch between the options (e.g.: `local` / `dev` / `cloud` / `external`); the active facility is shown as a chip on the trigger.
+    - **Cuetopia** -> Monitor Jobs.
+    - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Routes that are not yet implemented 404 gracefully.
+    - **Other** -> Attributes (toggles the docked Attributes panel), Show Shortcuts (opens the same overlay as `?`), Notify on Shortcut (toggle for the per-shortcut toast).
+    - **Help** -> a search box that finds commands across every menu, plus Online User Guide, Make a Suggestion, and Report a Bug.
+  - Theme toggle and an always-visible **Sign out** button on the right. With an active session, Sign out clears it and returns you to `/login`. Without a session (or when auth is disabled), it simply navigates to `/login`.
+- **Left sidebar (persistent, collapsible):** same six groups as the header, organized as accordion sections. The group containing the active route auto-expands; click **Collapse** at the bottom to shrink the sidebar to an icon rail (your choice persists).
+- **Read-only banner:** appears only when *Disable Job Interaction* is on; describes the read-only state and offers a *Re-enable* button. Destructive toolbar buttons and right-click menu items are dim and inert in this state.
+- **Attributes panel:** docked drawer toggled from Other ▸ Attributes. Click a row in the jobs table to populate it; use the title-bar position picker to dock it on the right, bottom, left, or top of the viewport.
+- **Breadcrumb (detail pages only):** above the frame log and the per-job comments page, a small "Home > Jobs > ..." trail lets you click back to the jobs index or to any parent in the path. Long labels truncate with an ellipsis; hover any segment to see the full text.
+- **Bottom status bar:** fixed 24-pixel bar at the bottom of every page. Shows REST gateway status (a dot + Online/Offline + round-trip latency), the time since the jobs table last refreshed, and the CueWeb build version. The whole bar turns red when the gateway is unreachable.
 - **Filter Bar**: Show selection, status filters, and search
 - **Jobs Table**: Main view of all jobs with sortable columns
 - **Action Buttons**: Job control operations
+
+The login page:
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+The Dashboard:
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
+The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
+
+![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+
+
+![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+
 
 ---
 
@@ -84,12 +116,12 @@ The CueWeb interface consists of:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
-5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to receive a browser notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
    - Outline bell &rarr; not subscribed
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
-   The first subscribe of the session prompts for browser notification permission. Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+   The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
 
 ### Understanding Job Status
 
@@ -142,16 +174,38 @@ Sometimes you need to pause jobs to free up resources or fix issues.
 
 ### Viewing Job Details
 
-1. Click on any job name in the table
-2. This opens the job details panel with tabs:
-   - **Layers**: Shows render layers and their status
-   - **Frames**: Individual frame information
+CueWeb has two ways to inspect a job:
+
+1. **Inline panel (quick look)**: Click a job row in the Jobs table. The associated Layers and Frames tables appear stacked just below the Jobs grid - the CueGUI Monitor Jobs + Monitor Job Details dock layout.
+
+2. **Tabbed detail page (full inspection)**: Right-click a job and choose **View Job Details** (or tap the row's `⋮` Actions button on a phone). This opens `/jobs/<jobName>` with five tabs:
+   - **Overview**: identity, frame and resource summary.
+   - **Layers**: full Layers table.
+   - **Frames**: full Frames table with the same filter chips and column controls.
+   - **Comments**: preview of the job's comments with a link out to the full Comments editor.
+   - **Dependencies**: placeholder for the dependency graph view.
+   The active tab is stored in the URL as `?tab=<key>`, so the page is bookmarkable and the browser back / forward buttons walk between tabs.
 
 3. To view notes attached to a job, open **Comments**:
-   - Right-click the job row and choose **Comments**, or click the sticky-note icon next to the job name if the job already has comments.
+   - Right-click the job row and choose **Comments**, or click the sticky-note icon in the Jobs table's dedicated **Comments** column (right after Name) when the job already has comments.
+   - The Jobs table's Comments column is sortable - click the column header to pull jobs with comments to the top.
    - The Comments page mirrors the CueGUI Comments dialog: comment list (Subject / User / Date), a markdown-rendered preview, an editor for the selected comment, and `New` / `Save changes` / `Delete` buttons.
-   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros (`localStorage` key `cueweb-comment-macros`).
+   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros.
    - Only a comment's author may edit or delete it; other users see it read-only.
+
+The **View Job Details** menu item and the tabbed detail page (Overview / Layers / Frames):
+
+![CueWeb View Job Details menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_menu.png)
+
+
+![CueWeb Job Details overview tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+
+
+![CueWeb Job Details layers tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_layers.png)
+
+
+![CueWeb Job Details frames tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_frames.png)
+
 
 ### Understanding Layers
 
@@ -183,25 +237,45 @@ Frames are the individual rendering tasks within each layer.
 #### Frame Operations
 
 1. **View Frame Logs**:
-   - Click on a frame number
-   - Select log version from dropdown
-   - View error messages or progress
+   - Double-click anywhere on the frame row to open the in-browser Monaco log viewer.
+   - Or right-click → **View Log** / **Tail Log** for the same in-browser viewer.
+   - On touch devices, tap the row's `⋮` Actions button (leftmost cell) → **View Log**.
+   - Select log version from the dropdown inside the viewer.
+   - The viewer shows an empty-state message when the frame hasn't started running yet (no log file on disk).
 
-2. **Retry Failed Frames**:
+2. **Open Logs in an External Editor** *(optional)*:
+   - If the deployment has `NEXT_PUBLIC_LOG_EDITOR_URL` configured, the Frame right-click menu also offers **View Log on \<editor\>** below **View Log**.
+   - The sandbox `docker-compose.yml` ships with `vscode://file{path}` as the default → **View Log on VSCode**. Override the build arg to target Sublime / TextMate / IntelliJ instead (or set it empty to hide the item).
+   - Tapping it launches the rqlog file directly in your desktop editor via the custom URL scheme - the same approach GitHub's "Open in VSCode" button uses. No need to copy the path and paste it into a terminal.
+   - If the editor isn't installed (no app registered for `vscode://`, `subl://`, etc.), CueWeb shows a warning toast after a short timeout pointing you at the alternatives.
+
+3. **Retry Failed Frames**:
    - Right-click on red (failed) frames
    - Select "Retry Frame"
    - Monitor the frame as it re-enters the queue
 
-3. **Kill Running Frames**:
+4. **Kill Running Frames**:
    - Right-click on yellow (running) frames
    - Select "Kill Frame"
    - Use when frames are stuck or consuming too many resources
 
-4. **Filter by Frame State**:
+5. **Copy frame metadata**:
+   - **Copy Frame Name** copies just the frame name (e.g. `0001-test_layer`).
+   - **Copy Log Path** copies the absolute rqlog path so you can paste it into a terminal or another viewer.
+   - Both work on plain-HTTP LAN deployments (e.g. accessing CueWeb on your phone via the Mac's LAN IP), not just `localhost`.
+
+6. **Filter by Frame State**:
    - The chips above the frames table — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — show the count for each state and act as toggles.
    - Click one or more chips to filter; multiple selections are combined with **OR**.
    - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
    - Counts on each chip always reflect the full unfiltered data set.
+
+The frame right-click menu, and the confirmation toast shown after an action:
+
+![CueWeb frame context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
+
+
+![CueWeb frame action success notification](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
 
 ### Frame Troubleshooting
 
@@ -219,7 +293,13 @@ Frames are the individual rendering tasks within each layer.
 
 ### Basic Search
 
-The search bar supports multiple search patterns:
+The search bar supports multiple search patterns. As you type, a dropdown suggests matching jobs you can pick from:
+
+![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
+
+![CueWeb job search pick from list](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs_pick_from_list.png)
+
 
 #### Simple Text Search
 ```
@@ -286,21 +366,35 @@ Prefix searches with `!` to enable regex patterns:
 
 ### Column Management
 
-Customize the jobs table to show relevant information:
+Each of the three data tables (Jobs, Layers, Frames) has its own **Columns** dropdown in the per-table toolbar.
 
-1. **Show/Hide Columns**:
-   - Click on the "Columns" dropdown
-   - Toggle checkboxes for desired columns
-   
-2. **Sort and Filter**:
-   - Click headers to sort ascending/descending
+![CueWeb column visibility dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_column%20_visibility_dropdown.png)
+
+
+1. **Show / Hide columns**:
+   - Open the **Columns** dropdown.
+   - Toggle the checkbox next to any column to hide / show it.
+
+2. **Reorder columns left / right**:
+   - In the same dropdown, each row has a `←` button (move column one slot left) and a `→` button (move it one slot right). Non-hideable system columns (the row-select checkbox) stay anchored, so swaps never reach across them.
+
+3. **Reset to default**:
+   - The pinned **Reset to Default** button at the top clears both column visibility AND order in one click.
+
+4. **Filter the loaded rows**:
+   - The **Filter ...** input next to the Columns dropdown performs a case-insensitive substring search across every visible column and narrows the rows already loaded. The table snaps back to page 1 on every keystroke; click the `×` button to clear the filter.
+
+5. **Sort**:
+   - Click any sortable column header to toggle ascending / descending.
+
+Both visibility and ordering choices are saved per table in your browser and survive reloads, navigations, and redeployments.
 
 ## Real-time Monitoring
 
 ### Auto-refresh Settings
 
-* **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables
-* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds and fires a browser notification when the job reaches `FINISHED`. Subscriptions are stored in `localStorage` and survive page reloads.
+* **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables.
+* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds. When the job reaches `FINISHED` an in-app toast fires (always), and a desktop popup is layered on top when you have granted the browser's notification permission. Subscriptions are saved in your browser and survive page reloads; when several tabs are open for the same job, only one tab shows the notification.
 
 ### Monitoring Best Practices
 
@@ -320,39 +414,39 @@ Customize the jobs table to show relevant information:
 
 ## Mobile and Remote Monitoring
 
-### Mobile Interface
+CueWeb is responsive down to phone-sized viewports. Every action available on desktop has a mobile-equivalent path.
 
-CueWeb has basic responsive design for mobile devices:
+### Reaching CueWeb from a phone on the same network
 
-1. **Access on Mobile**:
-   - Open CueWeb URL in mobile browser
-   - Interface automatically adapts to smaller screen
-   - Core functionality available
+1. On the machine running CueWeb, find the LAN IP: `ipconfig getifaddr en0` on macOS, `ip a` on Linux.
+2. On the phone (same Wi-Fi), open `http://<lan-ip>:3000` in your browser (e.g. Safari or Google Chrome).
+3. The same UI loads. The client builds same-origin relative URLs for every API call, so it works correctly from any host (no rebuild needed). This requires `NEXT_PUBLIC_URL=` (empty, the default).
 
-2. **Mobile Best Practices**:
-   - Use simplified column views
-   - Focus on status and progress columns
-   - Note that mobile interface is basic compared to desktop
+### Mobile-specific UI affordances
 
-3. **Mobile Limitations**:
-   - Limited responsive design implementation
-   - Detailed log viewing may be difficult
-   - Complex frame operations better on desktop
-   - Primarily designed for desktop use
+1. **Hamburger nav drawer**:
+   - The desktop sidebar is hidden below the `md` breakpoint (768px).
+   - A hamburger button appears on the LEFT of the global header. Tap it to open a side drawer with every group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help.
+   - The drawer auto-closes when you tap a navigation link.
 
-### Mobile Monitoring
+2. **Per-row Actions menu (replaces right-click)**:
+   - Every Jobs / Layers / Frames row has a small `⋮` button as its leftmost cell.
+   - Tap it to open the same context menu the desktop right-click opens: Copy Job / Layer / Frame Name, View Log, View Log on \<editor\>, Pause / Kill / Eat / Retry, etc.
 
-If you have a mobile device available:
+3. **Horizontally swipeable tables**:
+   - The Jobs / Layers / Frames grids have 15-25 columns each. Phones can't fit all of them.
+   - Swipe left/right inside the table to reach off-screen columns.
+   - Use the **Columns** dropdown to hide columns you don't need on small screens (the choice is remembered for next time).
 
-1. **Access Mobile Interface**:
-   - Open CueWeb on your phone/tablet
-   - Note the responsive layout
-   - Test basic navigation
+4. **Tap-to-trigger keyboard shortcuts**:
+   - Open **Other ▸ Show Shortcuts** from the hamburger drawer.
+   - Every key badge in the overlay is a real button. Tapping `/` focuses the Jobs search box, `r` refreshes the table, `t` toggles theme, `Esc` closes the overlay - no physical keyboard needed.
 
-2. **Monitor Jobs**:
-   - Check job status
-   - View progress indicators
-   - Try pausing/resuming a job
+### Clipboard, notifications, and external editor on LAN HTTP
+
+- **Clipboard works** on plain-HTTP LAN access. The browser's modern clipboard API is restricted to secure contexts (HTTPS / `localhost`), but CueWeb automatically uses a legacy copy path when the modern one isn't available.
+- **Subscribe to Job** still works - the in-app toast always fires. The optional desktop popup is skipped on LAN HTTP because the Web Notifications API also requires a secure context; serve CueWeb over HTTPS (self-signed cert is enough) to enable that path.
+- **View Log on \<editor\>** depends on the user's device having the URL scheme registered. iOS Safari doesn't route arbitrary custom schemes to apps the way macOS does, so the in-browser **View Log** is the reliable path on phones - CueWeb falls back to a warning toast when the scheme isn't handled.
 
 ---
 

@@ -262,7 +262,20 @@ services:
       args:
         # Build-time environment variables for Next.js
         - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-        - NEXT_PUBLIC_URL=http://localhost:3000
+        # Empty = client builds same-origin relative URLs, so the app
+        # works from any host the user reaches it on (localhost on the
+        # dev environment, the LAN IP from another device, etc.). Set to an
+        # absolute URL only if the API is on a different origin than the UI.
+        - NEXT_PUBLIC_URL=
+        # Deep-link template for the Frame context menu's
+        # "View Log on <editor>" item. `{path}` is substituted with the
+        # absolute log path at click time. Default targets VSCode since
+        # the sandbox is dev-focused; override at build time for other
+        # editors, e.g.
+        #   docker compose build cueweb \
+        #     --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='subl://open?url=file://{path}'
+        # Set to an empty string to hide the menu item entirely.
+        - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
         - NEXTAUTH_URL=http://localhost:3000
         - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
         # Authentication disabled by default for sandbox/development
@@ -280,7 +293,12 @@ services:
     environment:
       # Runtime environment variables
       - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-      - NEXT_PUBLIC_URL=http://localhost:3000
+      # See the build args block above - empty means same-origin relative.
+      - NEXT_PUBLIC_URL=
+      # See the build args block above. Runtime value is only useful if
+      # something reads process.env at request time; for the client
+      # bundle the build arg is what matters.
+      - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
       - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production

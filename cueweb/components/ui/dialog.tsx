@@ -23,6 +23,48 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Modal dialog primitive (Radix-backed). All CueWeb popups should use
+ * this primitive directly so they share padding, animation, focus trap,
+ * and ESC-to-close behavior. The recommended layout uses three slots:
+ *
+ * ```tsx
+ * <Dialog open={open} onOpenChange={setOpen}>
+ *   <DialogTrigger asChild>
+ *     <Button>Open</Button>
+ *   </DialogTrigger>
+ *   <DialogContent>
+ *     <DialogHeader>
+ *       <DialogTitle>Confirm action</DialogTitle>
+ *       <DialogDescription>
+ *         This explanation is wired to aria-describedby automatically.
+ *       </DialogDescription>
+ *     </DialogHeader>
+ *
+ *     <div className="space-y-3 py-2">
+ *       {/* body content (`p-6` already comes from DialogContent) }
+ *     </div>
+ *
+ *     <DialogFooter>
+ *       <Button variant="outline" onClick={() => setOpen(false)}>
+ *         Cancel
+ *       </Button>
+ *       <Button onClick={onConfirm}>Confirm</Button>
+ *     </DialogFooter>
+ *   </DialogContent>
+ * </Dialog>
+ * ```
+ *
+ * Behavior baked in by Radix: ESC closes the dialog, the close button in
+ * the top-right always works, focus is trapped while open and restored
+ * to the trigger on close, the overlay dims the rest of the page.
+ *
+ * Padding contract:
+ * - `DialogContent` provides p-6 around the whole dialog body.
+ * - `DialogFooter` adds `pt-4` so action buttons sit clearly below the
+ *   body without callers having to add their own spacing.
+ */
+
 const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -86,7 +128,18 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div
+    className={cn(
+      // pt-4 ensures consistent spacing from the body slot above.
+      // Mobile stacks bottom-to-top (column-reverse) so the primary
+      // action is closest to the thumb; desktop right-aligns and gaps
+      // buttons with gap-2 (the older sm:space-x-2 only worked when
+      // siblings were direct DOM neighbors).
+      "flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end",
+      className,
+    )}
+    {...props}
+  />
 );
 DialogFooter.displayName = "DialogFooter";
 

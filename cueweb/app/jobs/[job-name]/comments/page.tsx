@@ -29,8 +29,9 @@ import {
   loadCommentMacros,
   upsertCommentMacro,
 } from "@/app/utils/comment_macros";
-import { handleError } from "@/app/utils/notify_utils";
+import { handleError, toastWarning } from "@/app/utils/notify_utils";
 import { Job } from "@/app/jobs/columns";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,13 +42,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import CueWebIcon from "@/components/ui/cuewebicon";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { useParams, useSearchParams } from "next/navigation";
 import * as React from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import Markdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 
@@ -229,7 +226,7 @@ export default function JobCommentsPage() {
       if (!name) return;
       const found = macros.find((m) => m.name === name);
       if (!found) {
-        window.alert(`No predefined comment named "${name}"`);
+        toastWarning(`No predefined comment named "${name}"`);
         return;
       }
       setMacroDialog({ mode: "edit", original: found });
@@ -239,7 +236,7 @@ export default function JobCommentsPage() {
       const name = window.prompt("Delete which predefined comment? (enter name)");
       if (!name) return;
       if (!macros.some((m) => m.name === name)) {
-        window.alert(`No predefined comment named "${name}"`);
+        toastWarning(`No predefined comment named "${name}"`);
         return;
       }
       if (window.confirm(`Delete predefined comment "${name}"?`)) {
@@ -255,11 +252,14 @@ export default function JobCommentsPage() {
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
-      <ToastContainer />
-      <div className="flex items-center justify-between px-1 py-2">
-        <CueWebIcon height={40} />
-        <ThemeToggle />
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Jobs", href: "/" },
+          ...(jobName ? [{ label: jobName }] : []),
+          { label: "Comments" },
+        ]}
+        className="mb-4"
+      />
 
       <h1 className="text-2xl font-semibold mb-1">Comments</h1>
       <p className="text-sm text-muted-foreground mb-4 break-all">{jobName}</p>

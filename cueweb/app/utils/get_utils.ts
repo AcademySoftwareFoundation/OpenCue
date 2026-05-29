@@ -33,6 +33,29 @@ export type JobComment = {
     message: string;
 };
 
+// Minimal Host shape - matches the host.Host proto fields the dashboard cares about.
+export type Host = {
+    id: string;
+    name: string;
+    state: string;
+    lockState: string;
+    bootTime: number;
+    pingTime: number;
+};
+
+// Minimal Show shape - matches the show.Show proto fields the dashboard cares about.
+export type Show = {
+    id: string;
+    name: string;
+    active: boolean;
+    showStats?: {
+        runningFrames: number;
+        pendingFrames: number;
+        deadFrames: number;
+        pendingJobs: number;
+    };
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -73,9 +96,11 @@ export async function getLayers(body: string): Promise<Layer[]> {
     return response ? response : [];
 }
 
-// Fetch jobs for a specific user, including finished jobs
-export async function getJobsForUser(user: string): Promise<Job[]> {
-    const body = { r: { include_finished: false, users: [`${user}`] } };
+// Fetch jobs for a specific user. include_finished defaults to false to
+// match the CueGUI Monitor Jobs default; pass `true` from callers that
+// surface the "Load Finished" checkbox.
+export async function getJobsForUser(user: string, includeFinished: boolean = false): Promise<Job[]> {
+    const body = { r: { include_finished: includeFinished, users: [`${user}`] } };
     return await getJobs(JSON.stringify(body));
 }
 
@@ -93,10 +118,13 @@ export async function getJobsForShowShot(show: string, shot: string): Promise<Jo
 /*
  * Fetches jobs that match a given regex pattern.
  * @param regex - The regex pattern to search for in job names.
+ * @param includeFinished - When false, omits jobs whose state is FINISHED
+ *   so the "Load Finished" toggle in the Monitor Jobs UI can gate them
+ *   out. Defaults to true for backward compatibility with older callers.
  * @returns A promise that resolves to the list of jobs matching the regex pattern.
  */
-export async function getJobsForRegex(regex: string): Promise<Job[]> {
-    const body = { r: { include_finished: true, regex: [`${regex}`] } };
+export async function getJobsForRegex(regex: string, includeFinished: boolean = true): Promise<Job[]> {
+    const body = { r: { include_finished: includeFinished, regex: [`${regex}`] } };
     return getJobs(JSON.stringify(body));
 }
 
@@ -127,6 +155,20 @@ export async function getJobForLayer(layer: Layer): Promise<Job | null> {
 export const getFrameLogDir = (job: Job, frame: Frame): string => {
     return path.join(job.logDir, `${job.name}.${frame.name}.rqlog`);
 };
+
+// Fetch every host known to Cuebot. Optionally accepts a host-search filter (HostSearchCriteria).
+export async function getHosts(body: string = JSON.stringify({ r: {} })): Promise<Host[]> {
+    const ENDPOINT = "/api/host/gethosts";
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every show known to Cuebot.
+export async function getShows(): Promise<Show[]> {
+    const ENDPOINT = "/api/show/getshows";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
 
 // Fetch all comments for a given job
 export async function getJobComments(job: Job): Promise<JobComment[]> {

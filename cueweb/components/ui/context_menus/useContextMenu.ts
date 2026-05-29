@@ -28,13 +28,18 @@ export interface ContextMenuState {
 
 export interface MenuItem {
   // Label of the menu item
-  label: string; 
+  label: string;
   // Function that will execute after clicking on the menu item
   onClick(row: Row<any> | null): any;
   // Boolean that states whether the menu item should be active (clickable) or inactive
   isActive: boolean;
   // Component that contains a unique component/image for the menu item
   component?: React.ReactNode;
+  // When true, this entry renders as a horizontal divider between
+  // logical groups (matches the CueGUI MonitorJobs context menu
+  // grouping). `label`, `onClick` and `isActive` are still required
+  // for type compatibility but are ignored when separator is true.
+  separator?: boolean;
 }
 
 // Manages the context menu state, positioning, and visibility
