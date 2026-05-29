@@ -93,7 +93,15 @@ Create a `.env` file with the following configuration:
 ```bash
 # REST Gateway Configuration
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448
-NEXT_PUBLIC_URL=http://localhost:3000
+
+# Leave empty so the client builds same-origin relative API URLs.
+# That way CueWeb works from any host the browser reached it at:
+# http://localhost:3000 on this machine, or http://<lan-ip>:3000
+# from another device on the same network (useful for testing on a
+# phone). Only set this to an absolute URL if the API is served on
+# a different origin than the UI.
+NEXT_PUBLIC_URL=
+
 NEXT_JWT_SECRET=your-secret-key
 
 # Development Configuration
@@ -103,12 +111,20 @@ NEXTAUTH_SECRET=canbeanything
 
 # Authentication (optional - can be commented out for local development)
 # NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+
+# Optional deep-link template for the Frame context menu's
+# "View Log on <editor>" item. {path} is substituted with the
+# absolute log path at click time. Empty hides the menu item.
+# The OpenCue sandbox docker-compose defaults this to
+# vscode://file{path}.
+# NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 ```
 
 **Important Notes:**
 - The `NEXT_JWT_SECRET` must match the REST Gateway's `JWT_SECRET`
 - Authentication is disabled by default for local development
 - Sentry integration is optional and can be disabled
+- `NEXT_PUBLIC_URL` is empty by default so the same image works from `localhost`, a LAN IP, or any reverse-proxy host without rebuilding. Override it only when the UI and API live on different origins.
 
 ---
 
@@ -148,13 +164,38 @@ You should see output similar to:
 
 The CueWeb interface includes:
 
-- **Jobs Dashboard**: View and manage rendering jobs
-- **Job Search**: Search for specific jobs by name or pattern
-- **Frame Management**: Monitor frame status and logs
-- **Layer Operations**: Manage job layers and dependencies
-- **Dark/Light Mode**: Toggle between themes
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
+- **Jobs Dashboard**: View and manage rendering jobs, with CueGUI-parity columns (Launched, Eligible, Finished, User Color, ...).
+- **Layers / Frames panels**: Inline below the jobs table. Click a job row to reveal them; click a layer to filter the frames panel; double-click a frame row to open the log viewer.
+- **Job Search**: Search for specific jobs by name or pattern.
+- **Per-table Filter**: Small substring filter input on each table (Jobs, Layers, Frames) that narrows the rows already loaded.
+- **Customizable + reorderable columns**: Every table has a **Columns** dropdown where each column has a visibility checkbox plus `←` / `→` reorder buttons, and a pinned **Reset to Default** button.
+- **Frame Management**: Monitor frame status and logs (CueGUI-parity columns include LLU, Memory (RSS), Memory (PSS), Eligible Time, Submission Time, Last Line).
+- **Layer Operations**: Manage job layers and dependencies (CueGUI-parity columns include Eligible and a stacked Progress bar).
+- **Dark/Light Mode**: Toggle between themes via the sun/moon button in the header
 - **Real-time Updates**: Automatic refresh of job status
 - **Job-finished Notifications**: Per-row bell button to subscribe to a browser notification when a job reaches `FINISHED`
+- **Disable Job Interaction**: Read-only safety toggle in File ▸ Disable Job Interaction (header or sidebar). When on, an amber banner appears under the header and destructive actions (Pause / Unpause / Retry / Eat / Kill) — in the toolbar and in the right-click menus — are dim and inert.
+- **Attributes Panel**: Other ▸ Attributes opens a docked drawer with a collapsible key/value tree of the selected entity. Click a row in the jobs table to populate it; pick the dock position (right / bottom / left / top) from the panel's title bar.
+- **Bottom Status Bar**: a fixed 24-pixel bar at the bottom of every page shows REST gateway status (a colored dot + Online/Offline + the last round-trip latency), the time since the jobs table last refreshed, and the CueWeb build version. The whole bar turns red when the gateway is unreachable.
+- **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a small "Home > Jobs > ..." breadcrumb above the content so you can navigate back to the index. Long labels truncate with an ellipsis and the full text appears in a tooltip on hover.
+- **Keyboard shortcuts**: Press `?` anywhere (or use **Other ▸ Show Shortcuts**) to open the cheat-sheet. A small toast appears on every triggered shortcut so you know it registered; turn it off via **Other ▸ Notify on Shortcut** if you prefer silence.
+
+The login page (or the **CueWeb Home** button when authentication is disabled):
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+The Dashboard you land on after signing in:
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
+The Cuetopia Monitor Jobs view with the jobs table:
+
+![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+
 
 ---
 
@@ -166,28 +207,47 @@ The CueWeb interface includes:
 2. Use the **Show** dropdown to filter jobs by show
 3. Apply status filters (Active, Paused, Completed)
 
+Click a job row to reveal the inline Layers and Frames panels below the jobs table:
+
+![CueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
+
+
 ### Job Management
 
 - **Pause/Resume**: Click the pause/play button for individual jobs
 - **Kill Jobs**: Use the stop button to terminate jobs
-- **Job Details**: Click on a job name to view detailed information
-- **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon next to a job's name, to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros
+- **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
+- **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.
+- **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon in the Jobs table's **Comments** column (sortable, sits right after Name), to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros.
+
+The job right-click menu, and the tabbed Job Details page it can open:
+
+![CueWeb job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
+
+
+![CueWeb Job Details overview](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+
 
 ### Frame Operations
 
 1. Click on a job to view its layers and frames
-2. **Retry Frames**: Right-click failed frames to retry
-3. **View Logs**: Click on frame numbers to view logs
+2. **Retry Frames**: Right-click failed frames to retry (or tap the `⋮` Actions button on the left of the row, on phones)
+3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
-7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to receive a browser notification when the job reaches `FINISHED`. The first click prompts for browser notification permission and subscriptions persist across page reloads (stored in `localStorage`). A background poller checks each subscribed job every 15 seconds.
+7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. When the same job is open in several tabs, only one tab shows the notification.
+8. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
+9. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
 
 ### Search Functionality
 
 - **Simple Search**: Type show name followed by hyphen (e.g., "myshow-")
 - **Regex Search**: Prefix with `!` for advanced patterns (e.g., "!.*test.*")
 - **Dropdown Suggestions**: Shows matching jobs as you type
+
+![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
 
 ---
 

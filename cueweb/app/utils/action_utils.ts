@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi } from "./api_utils";
-import { getJobForLayer, JobComment } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, JobComment } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -229,6 +229,30 @@ export async function reparentJobs(newParentId: string, jobIds: string[]) {
 }
 
 /**************************************/
+// Priority / retries / auto-eat / depends (CueGUI parity)
+/**************************************/
+
+export async function setJobPriority(job: Job, priority: number) {
+  const endpoint = "/api/job/action/setpriority";
+  await performAction(endpoint, [JSON.stringify({ job, val: priority })], `Set priority ${priority} on ${job.name}`);
+}
+
+export async function setJobMaxRetries(job: Job, maxRetries: number) {
+  const endpoint = "/api/job/action/setmaxretries";
+  await performAction(endpoint, [JSON.stringify({ job, max_retries: maxRetries })], `Set max retries ${maxRetries} on ${job.name}`);
+}
+
+export async function setJobAutoEat(job: Job, value: boolean) {
+  const endpoint = "/api/job/action/setautoeat";
+  await performAction(endpoint, [JSON.stringify({ job, value })], `Auto-Eat ${value ? "ON" : "OFF"} on ${job.name}`);
+}
+
+export async function dropJobDepends(job: Job, target: "INTERNAL" | "EXTERNAL") {
+  const endpoint = "/api/job/action/dropdepends";
+  await performAction(endpoint, [JSON.stringify({ job, target })], `Dropped ${target.toLowerCase()} depends on ${job.name}`);
+}
+
+/**************************************/
 /* Table header menu functions        */
 /**************************************/
 
@@ -383,4 +407,197 @@ export function killFrameGivenRow(row: Row<any>, username: string) {
 export function eatFrameGivenRow(row: Row<any>) {
     const frames = [row.original];
     eatFrames(frames);
+}
+
+/**********************************************/
+/* Per-row wrappers for the expanded job menu */
+/**********************************************/
+
+export function unpauseJobGivenRow(row: Row<any>) {
+  unpauseJobs([row.original]);
+}
+
+export function autoEatOnGivenRow(row: Row<any>) {
+  setJobAutoEat(row.original, true);
+}
+
+export function autoEatOffGivenRow(row: Row<any>) {
+  setJobAutoEat(row.original, false);
+}
+
+export function dropExternalDependsGivenRow(row: Row<any>) {
+  dropJobDepends(row.original, "EXTERNAL");
+}
+
+export function dropInternalDependsGivenRow(row: Row<any>) {
+  dropJobDepends(row.original, "INTERNAL");
+}
+
+// Prompt-driven wrappers. CueGUI's MenuActions uses Qt input dialogs; we
+// reuse window.prompt for parity in this round. A native shadcn dialog
+// replacement is a follow-up.
+export function setPriorityGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
+  if (raw === null) return;
+  // Strict whole-string match - Number.parseInt would silently accept
+  // "10abc" / "10.5" / " 10 " and quietly truncate, sending a value the
+  // user didn't actually type to Cuebot.
+  const trimmed = raw.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
+    toastWarning("Priority must be an integer");
+    return;
+  }
+  setJobPriority(job, Number.parseInt(trimmed, 10));
+}
+
+export function setMaxRetriesGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  const raw = window.prompt(`Set max retries for ${job.name}`, "3");
+  if (raw === null) return;
+  // Strict non-negative integer match; same parseInt caveats as above.
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    toastWarning("Max retries must be a non-negative integer");
+    return;
+  }
+  setJobMaxRetries(job, Number.parseInt(trimmed, 10));
+}
+
+// Pure-client clipboard helpers; surface a toast on success/failure so the
+// user gets the same feedback as for back-end actions.
+
+/** Copy `text` to the clipboard, falling back to the legacy execCommand
+ * path when the modern Clipboard API is unavailable.
+ *
+ * `navigator.clipboard.writeText()` is only exposed in **secure contexts**
+ * (HTTPS, `http://localhost`, or `file://`). When CueWeb is served from a
+ * LAN IP over plain HTTP - e.g. a Smartphone reaching the Computer/Server at
+ * `http://XXX.XXX.X.XXX:3000` - the API either isn't there or rejects
+ * with a SecurityError. The execCommand fallback still works on Smartphone
+ * browser (e.g.  iOS Safari and Android Chrome).
+ */
+async function copyTextToClipboard(text: string): Promise<void> {
+  // Modern path - requires a secure context. Wrap in try/catch so that
+  // a rejection (revoked permission, transient browser quirk, sandboxed
+  // iframe denying clipboard-write, etc.) doesn't short-circuit the
+  // legacy execCommand fallback below.
+  if (
+    typeof navigator !== "undefined"
+    && navigator.clipboard
+    && typeof window !== "undefined"
+    && window.isSecureContext
+  ) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall through to the legacy textarea + execCommand path.
+    }
+  }
+  // Legacy fallback for insecure contexts (HTTP LAN IPs, etc.).
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard unavailable: no document");
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  // readonly + tiny, transparent overlay keeps Smartphone from popping the soft
+  // keyboard and from visually flashing the textarea during the copy.
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.width = "1px";
+  textarea.style.height = "1px";
+  textarea.style.padding = "0";
+  textarea.style.border = "0";
+  textarea.style.outline = "0";
+  textarea.style.boxShadow = "none";
+  textarea.style.background = "transparent";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  try {
+    // iOS Safari requires an explicit selection range; plain .select()
+    // doesn't actually select on mobile WebKit.
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      const range = document.createRange();
+      range.selectNodeContents(textarea);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      textarea.setSelectionRange(0, text.length);
+    } else {
+      textarea.focus();
+      textarea.select();
+    }
+    const ok = document.execCommand("copy");
+    if (!ok) throw new Error("execCommand('copy') returned false");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+export async function copyJobNameGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  try {
+    await copyTextToClipboard(job.name);
+    toastSuccess(`Copied job name: ${job.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy job name to clipboard");
+  }
+}
+
+export async function copyLogDirGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (!job.logDir) {
+    toastWarning("Job has no logDir set");
+    return;
+  }
+  try {
+    await copyTextToClipboard(job.logDir);
+    toastSuccess(`Copied log directory: ${job.logDir}`);
+  } catch (err) {
+    handleError(err, "Could not copy log directory to clipboard");
+  }
+}
+
+export async function copyLayerNameGivenRow(row: Row<any>) {
+  const layer = row.original as Layer;
+  try {
+    await copyTextToClipboard(layer.name);
+    toastSuccess(`Copied layer name: ${layer.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy layer name to clipboard");
+  }
+}
+
+export async function copyFrameNameGivenRow(row: Row<any>) {
+  const frame = row.original as Frame;
+  try {
+    await copyTextToClipboard(frame.name);
+    toastSuccess(`Copied frame name: ${frame.name}`);
+  } catch (err) {
+    handleError(err, "Could not copy frame name to clipboard");
+  }
+}
+
+/** Copy the absolute rqlog path for a frame. Requires the parent job because
+ * the log filename is `<job.name>.<frame.name>.rqlog` inside `job.logDir`. */
+export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
+  if (!job) {
+    toastWarning("Frame log path unavailable (no parent job context)");
+    return;
+  }
+  const frame = row.original as Frame;
+  if (!job.logDir) {
+    toastWarning("Job has no logDir set");
+    return;
+  }
+  const fullPath = getFrameLogDir(job, frame);
+  try {
+    await copyTextToClipboard(fullPath);
+    toastSuccess(`Copied log path: ${fullPath}`);
+  } catch (err) {
+    handleError(err, "Could not copy log path to clipboard");
+  }
 }

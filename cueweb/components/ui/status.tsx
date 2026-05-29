@@ -36,7 +36,7 @@ export function Status({ status }: StatusProps) {
   const colors = STATUS_COLORS[status.toUpperCase() as keyof typeof STATUS_COLORS] || STATUS_COLORS.DEFAULT;
 
   return (
-    <span className={`flex flex-row justify-center text-xs mr-2 px-1.5 py-0.5 rounded hover:cursor-pointer ${colors}`}>
+    <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded hover:cursor-pointer ${colors}`}>
       {status}
     </span>
   );

@@ -15,18 +15,41 @@
  */
 
 import Image from "next/image";
-import iconlight from "../../app/iconlight.png";
-import icondark from "../../app/icondark.png";
+import opencueIconBlack from "../../public/opencue-icon-black.png";
+import opencueIconWhite from "../../public/opencue-icon-white.png";
 
 interface CueWebIconProps {
   height?: number;
 }
 
 const CueWebIcon = ({ height = 70 }: CueWebIconProps) => {
+  // Scale the text alongside the icon so callers control the overall size
+  // via the single `height` prop.
+  const labelStyle = { fontSize: `${Math.round(height * 0.5)}px` };
+  const gapStyle = { gap: `${Math.round(height * 0.18)}px` };
+
   return (
-    <div>
-      <Image className="hidden dark:block" src={icondark} alt="dark-mode-image" height={height} />
-      <Image className="mb-4 block dark:hidden" src={iconlight} alt="light-mode-image" height={height} />
+    <div
+      className="flex items-center text-foreground"
+      style={gapStyle}
+    >
+      <Image
+        className="block dark:hidden"
+        src={opencueIconBlack}
+        alt="OpenCue logo"
+        height={height}
+        width={height}
+      />
+      <Image
+        className="hidden dark:block"
+        src={opencueIconWhite}
+        alt="OpenCue logo"
+        height={height}
+        width={height}
+      />
+      <span className="font-bold leading-none" style={labelStyle}>
+        CueWeb
+      </span>
     </div>
   );
 };

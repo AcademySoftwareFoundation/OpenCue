@@ -84,6 +84,18 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_URL` | CueWeb public URL | `http://localhost:3000` |
 | `NEXT_JWT_SECRET` | JWT signing secret (must match REST Gateway) | `your-secret-key` |
 
+### Optional Build-Time Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar. Falls back to `cueweb/package.json#version` when unset. CI typically passes the Git SHA via `--build-arg`. | (package.json version) |
+| `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
+| `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
+| `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
+| `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
+| `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
+| `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
+
 ### Authentication Variables
 
 | Variable | Description | Example |
@@ -142,34 +154,153 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 ### Jobs Table
 
-The main jobs table displays rendering jobs with the following columns:
+The main jobs table (`cueweb/app/jobs/columns.tsx` + `cueweb/app/jobs/data-table.tsx`) displays rendering jobs with the following columns, in their default order:
 
 | Column | Description | Sortable |
 |--------|-------------|----------|
-| **Name** | Job name (clickable for details) | Yes |
-| **Show** | Parent show name | Yes |
-| **Shot** | Shot identifier | Yes |
-| **User** | Job owner | Yes |
-| **State** | Current job state | Yes |
-| **Progress** | Stacked frame-state progress bar. Hover shows a tooltip with exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | Yes |
-| **Priority** | Job priority value | Yes |
-| **Pending** | Pending frame count | Yes |
-| **Running** | Running frame count | Yes |
-| **Dead** | Failed frame count | Yes |
-| **Cores** | Reserved cores | Yes |
-| **Start Time** | Job start timestamp | Yes |
-| **Notify** | Per-row bell button to subscribe to a browser notification when the job reaches `FINISHED`. Three states: outline (not subscribed), filled (subscribed/waiting), filled with green dot (notification fired). Disabled on rows whose job state is already `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+| **(select)** | Row checkbox. Anchored at the leftmost position - column reorder skips over it. | No |
+| **Name** | Two-line cell: `<show>-<shot>-<user>` on top, rest of the job name underneath. | Yes |
+| **Comments** | Sticky-note icon when the job has one or more comments; empty otherwise. Sortable so users can pull jobs-with-comments to the top (CueGUI parity: `JobMonitorTree`'s note-icon column). Clicking the icon opens the per-job Comments page in a new tab. | Yes |
+| **State** | Current job state badge (see [Job States](#job-states)). | Yes |
+| **Done / Total** | `<succeededFrames> of <totalFrames>`. | Yes |
+| **Running** | Running frame count. | Yes |
+| **Dead** | Failed frame count. | Yes |
+| **Eaten** | Eaten frame count. | Yes |
+| **Wait** | Waiting frame count. | Yes |
+| **MaxRss** | Max RSS observed across the job's frames (human-readable, e.g. `512M`). | Yes |
+| **Age** | Wall-clock job age formatted `HHH:MM`. | Yes |
+| **Readable Age** | Same age in human-friendly form (e.g. `2h 14m`). | Yes |
+| **Launched** | `job.startTime` formatted `YYYY-MM-DD HH:MM`. Mirrors CueGUI's "Launched" column. | Yes |
+| **Eligible** | `job.eligibleTime` formatted the same way. Blank when the field is zero / unset. | Yes |
+| **Finished** | `job.stopTime`. Blank while the job is still running. | Yes |
+| **User Color** | Per-job color swatch backed by `localStorage["cueweb.userColors"]` (map of `jobId -> #rrggbb`). Click the swatch to pick a color from the native picker; right-click or click the `×` button to clear. Cross-tab sync via the standard `storage` event plus an internal `cueweb:user-colors` `CustomEvent` for same-tab listeners. | No |
+| **Progress** | Stacked frame-state progress bar with a hover tooltip showing exact frame counts and percentages for `SUCCEEDED`, `RUNNING`, `WAITING`, `DEPEND`, and `DEAD` states. | No |
+| **Notify** | Per-row bell button to subscribe to a notification when the job reaches `FINISHED`. See [Job-finished notifications](#job-finished-notifications). | No |
+
+### Layers Table
+
+The inline Layers table (`cueweb/app/layers/layer-columns.tsx`, rendered by `SimpleDataTable` inside `JobDetailsInline`) ships these columns in default order:
+
+| Column | Description |
+|--------|-------------|
+| **Dispatch Order** | Per-layer dispatch order assigned by Cuebot. |
+| **Name** | Layer name (clickable to filter the Frames panel and populate the Attributes panel). |
+| **Services** | Render services declared on the layer. |
+| **Limits** | Resource-limit names. |
+| **Range** | Frame range (e.g. `1-100x2`). |
+| **Cores** | Minimum reserved cores. |
+| **Memory** | Minimum reserved memory (human-readable). |
+| **Gpus** | Minimum reserved GPUs. |
+| **Gpu Memory** | Minimum reserved GPU memory. |
+| **MaxRss** | High-water RSS observed on the layer. |
+| **Total** | Total frame count on this layer. |
+| **Done** | Succeeded frames. |
+| **Run** | Running frames. |
+| **Depend** | Frames in DEPEND state. |
+| **Wait** | Waiting frames. |
+| **Eaten** | Eaten frames. |
+| **Dead** | Dead frames. |
+| **Avg** | Average frame seconds, formatted `HH:MM:SS`. |
+| **Tags** | Layer tags. |
+| **Progress** | Same stacked animated bar as the Jobs table, fed by `getLayerProgressSegments` (`cueweb/app/utils/layer_progress_utils.ts`). Hover tooltip shows per-state counts. |
+| **Timeout** | Layer timeout (`HHH:MM`). |
+| **Timeout LLU** | Last-log-update timeout (`HHH:MM`). |
+| **Eligible** | `layer.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+
+### Frames Table
+
+The Frames table (`cueweb/app/frames/frame-columns.tsx`, rendered by `SimpleDataTable`) ships these columns:
+
+| Column | Description |
+|--------|-------------|
+| **Order** | Dispatch order assigned by Cuebot. |
+| **Frame** | Frame number. |
+| **Layer** | Layer name (clickable link into the frame log viewer). |
+| **Status** | Frame state badge (see [Frame States](#frame-states)). |
+| **Cores** | Cores assigned to the running frame (parsed from `lastResource`). |
+| **GPUs** | GPUs assigned. |
+| **Host** | `lastResource` string (`host/cores/gpus`). |
+| **Retries** | Retry count. |
+| **CheckP** | Checkpoint count. |
+| **Runtime** | `(stop - start)` if stopped, else `(now - start)`, formatted `HH:MM:SS`. |
+| **LLU** | Elapsed time since the frame's log was last updated (`now - lluTime`, formatted `HH:MM:SS`). Only populated for `RUNNING` frames; blank for `WAITING` / `DEPEND` / `SUCCEEDED` / `DEAD` to match CueGUI. |
+| **Memory (RSS)** | `used_memory` while RUNNING, `max_rss` after stop. |
+| **Memory (PSS)** | `used_pss` while RUNNING, `max_pss` after stop. |
+| **GPU Memory** | `used_gpu_memory` while RUNNING, `max_gpu_memory` after stop. |
+| **Remain** | Placeholder column for CueGUI's ETA buffer; renders an em-dash until the predictor is wired into CueWeb. Hidden by default in the inline panel. |
+| **Start Time** | `frame.startTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Stop Time** | `frame.stopTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Eligible Time** | `frame.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Submission Time** | `frame.submissionTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Last Line** | Placeholder column for the per-frame log-tail fetch; renders an em-dash until that fetch is wired in. |
+
+### Columns dropdown (visibility + ordering)
+
+Every data table (Jobs, Layers, Frames) renders a **Columns** dropdown in its per-table toolbar.
+
+| Control | Behavior |
+|---------|----------|
+| **Reset to Default** | Pinned at the top of the dropdown as a `secondary` button. Clears both column-visibility and column-order back to whatever the column definitions declare. |
+| **Checkbox** (per row) | Toggle the column's visibility. The menu stays open after every click so the user can chain several toggles without reopening it. |
+| **`←` / `→`** (per row) | Nudge the column one slot left / right within the user-reorderable subset. Non-hideable system columns (the row-select checkbox) stay anchored - swaps never reach across them. Buttons are disabled at the bounds of the reorderable set. |
+
+Persistence keys:
+
+| Table | Visibility key | Order key |
+|-------|---------------|-----------|
+| Jobs | `columnVisibility` | `columnOrder` |
+| Layers | `cueweb.layers.columnVisibility` | `cueweb.layers.columnOrder` |
+| Frames | `cueweb.frames.columnVisibility` | `cueweb.frames.columnOrder` |
+
+Implementation: each table wires TanStack's `state.columnOrder` + `onColumnOrderChange` and reads/writes the matching `localStorage` key. The reorder helper (`moveColumn`) operates on the hideable subset of `columnOrder` so non-hideable columns stay in their original positions.
+
+### Per-table substring filter
+
+Each data table renders a small **Filter jobs / layers / frames...** `<input type="search">` next to its Columns dropdown.
+
+| Aspect | Description |
+|--------|-------------|
+| **Source** | TanStack's built-in `globalFilter` state + `getFilteredRowModel()`. |
+| **Match** | Case-insensitive substring against every visible column's accessor value (status badge text, runtime strings, etc. - everything that lands in the table's flat representation). |
+| **Pagination** | Auto-resets to page 1 on every keystroke so the user never sits on an empty page after narrowing. |
+| **Clear** | An `×` button appears inside the input once it has a value; clears the filter in one click. Pressing `Esc` while focused also clears the native `<input type="search">`. |
+| **Scope** | Client-side only - distinct from the top-of-page "Search jobs - Enter to load" box on the Jobs page which hits Cuebot to load matching jobs. |
+
+### Inline JobDetails (Layers + Frames panel)
+
+Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`), which renders the **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
+
+| Behavior | Description |
+|----------|-------------|
+| **Layers panel** | Lists every layer in the selected job, including the Progress bar and Eligible time. |
+| **Layer-click** | Toggles a frames-table filter to that layer (`frame.layerName === layer.name`) and pushes the layer's attributes into the docked Attributes panel. Clicking the same layer again clears the filter and re-selects the job in Attributes. |
+| **Frames panel** | Lists every frame in the job (or the layer-filtered subset). Total count shows `X of Y` when filtered. |
+| **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
+| **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). |
 
 ### Job-finished notifications
 
 | Behavior | Description |
 |----------|-------------|
-| **Trigger** | Click the bell in the **Notify** column. The first subscribe prompts for browser notification permission; denied permission shows a toast warning and does not create the subscription. |
+| **Trigger** | Click the bell in the **Notify** column. The bell always subscribes immediately; OS notification permission is requested afterwards as an optional upgrade. |
+| **Toast wording** | Branches on the prompt result: `granted` (in-app + desktop popup), `denied` (in-app only, instruction to enable in browser settings), `default` (in-app only, user dismissed the prompt). |
 | **Polling** | An app-wide `JobSubscriptionPoller` provider polls each subscribed job's state every 15 seconds via the REST gateway. |
-| **Notification** | When a subscribed job's state becomes `FINISHED`, a single Web Notification (`<jobName>` / "Job finished") is fired and the entry is marked notified. |
+| **Notification** | When a subscribed job becomes `FINISHED`, `fireCompletionNotice(entry)` fires an in-app `toast.success("Job finished: <jobName>")` (always) and a desktop `new Notification(jobName, { body: "Job finished" })` (when `Notification.permission === "granted"` at fire-time). |
+| **Cross-tab serialization** | The re-read + fire + mark sequence runs inside `navigator.locks.request("cueweb:notify-<jobId>", ...)` so only one tab toasts when several poll the same job concurrently. Falls back to a direct call when `navigator.locks` is unavailable. |
 | **Persistence** | Subscriptions are stored in `localStorage` under `cueweb:job-subscriptions` and survive page reloads; cleared when the browser site data is cleared. |
 | **Auto-cleanup** | If a subscribed job no longer exists in Cuebot (the lookup returns null), the subscription is removed on the next poll. |
-| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab. |
+| **Cross-component sync** | Mutations dispatch a `cueweb:subscriptions-changed` window event so the bell and poller stay in sync within the tab; the `storage` event syncs across tabs. |
+
+### Keyboard shortcuts overlay (+ menu access)
+
+| Aspect | Description |
+|--------|-------------|
+| **Component** | `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`, mounted once from `cueweb/app/layout.tsx`. |
+| **Keys** | `?` open overlay; `Esc` close overlay; `/` focus jobs search (`cueweb:focus-search`); `r` refresh jobs table (`cueweb:refresh-now`); `t` toggle light/dark theme. |
+| **Suppression** | Single-letter keys are ignored while typing into `<input>`, `<textarea>`, `<select>`, or any `contenteditable` element. Modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser. |
+| **Menu access** | Header **Other ▸ Show Shortcuts** and Sidebar **Other ▸ Show Shortcuts** both dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for. |
+| **Toast on shortcut** | When **Other ▸ Notify on Shortcut** is checked (default ON), every triggered shortcut also fires a small toast naming the action (e.g. `Shortcut: r → Refresh table`). |
+| **Pref storage** | `localStorage["cueweb.shortcutNotifications"]`. Cross-tab sync via the standard `storage` event plus an internal `cueweb:shortcut-notifications-changed` `CustomEvent`. Read imperatively at fire-time so toggling the pref takes effect on the very next keypress. |
 
 ### Job States
 
@@ -199,7 +330,7 @@ Above the frames table, one filter chip is rendered per supported state. Each ch
 | Behavior | Description |
 |----------|-------------|
 | **States** | `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` |
-| **Combination** | OR semantics — frames matching any selected state are shown |
+| **Combination** | OR semantics - frames matching any selected state are shown |
 | **Empty selection** | All frames are shown when no chip is selected |
 | **URL parameter** | `frameStates` (comma-separated, e.g., `?frameStates=WAITING,DEAD`); whitespace is trimmed and duplicates are removed |
 | **Counts** | Always computed against the unfiltered data set |
@@ -217,7 +348,7 @@ CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `
 | **Markdown** | Messages are rendered with `react-markdown` + `rehype-sanitize` to strip embedded HTML/scripts. |
 | **Edit / delete authorization** | Server-side ownership enforcement in Cuebot is authoritative. The client adds a convenience gate that enables the editor/delete only when `comment.user === currentUser` (the session-derived identity); the URL is never used as an auth signal. |
 | **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
-| **Indicator icon** | A sticky-note icon is shown beside the job's show-shot-user label in the jobs table when `Job.hasComment` is true. Updated on the regular jobs-table polling cycle. |
+| **Indicator icon** | The Jobs table has a dedicated **Comments** column (right after Name) showing a sticky-note icon when `Job.hasComment` is true. The column is sortable so users can pull jobs-with-comments to the top. Updated on the regular jobs-table polling cycle. |
 
 ---
 
@@ -263,35 +394,80 @@ Prefix with `!` for regex patterns:
 
 ## Context Menu Actions
 
+All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu`) live in `cueweb/components/ui/context_menus/action-context-menu.tsx` and follow the CueGUI Monitor Jobs / Monitor Job Details structure. Items that depend on dialogs / backend integrations not yet implemented in CueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on. Menus scroll instead of overflowing on small viewports.
+
 ### Job Actions
 
 | Action | Description |
 |--------|-------------|
-| **Unmonitor** | Remove from monitored jobs |
-| **Comments** | Open the job Comments page in a new tab |
-| **Pause** | Pause job rendering |
-| **Unpause** | Resume paused job |
-| **Eat Dead Frames** | Mark dead frames as eaten |
-| **Retry Dead Frames** | Retry all failed frames |
-| **Kill** | Terminate job |
+| **Unmonitor** | Remove the job from the monitored list. |
+| **View Job** | Navigate to the job detail page. *(placeholder)* |
+| **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
+| **Copy Job Name** | Copy the full job name to the clipboard. |
+| **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
+| **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
+| **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
+| **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
+| **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
+| **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
+| **Dependency Wizard** | Open the dependency-creation wizard. *(placeholder)* |
+| **Drop External Dependencies** | Drop external job-on-job dependencies. |
+| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
+| **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
+| **Set Max Retries** | Edit the per-frame retry budget. |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
+| **Pause** / **Unpause** | Pause or resume the job. |
+| **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
+| **Retry Dead Frames** | Retry every dead frame. |
+| **Eat Dead Frames** | Mark every dead frame as eaten. |
+| **Unbook** | Unbook running frames. *(placeholder)* |
+| **Kill** | Terminate the job. |
+| **Show Progress Bar** | Surface the stacked progress bar for the job. *(placeholder)* |
 
 ### Layer Actions
 
 | Action | Description |
 |--------|-------------|
-| **Kill** | Kill all frames in layer |
-| **Eat** | Eat all frames in layer |
-| **Retry** | Retry failed frames in layer |
-| **View Frames** | Show frame list for layer |
+| **View Layer** | Navigate to the layer detail page. |
+| **Copy Layer Name** | Copy the full layer name to the clipboard. |
+| **Drop / View / Wizard dependency items** | Manage layer-level dependencies. *(placeholders)* |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
+| **Properties** | Open the layer properties dialog. *(placeholder)* |
+| **Kill** | Kill every frame in the layer. |
+| **Eat** | Eat every frame in the layer. |
+| **Retry** | Retry every frame in the layer. |
+| **Retry Dead Frames** | Retry only the dead frames. |
 
 ### Frame Actions
 
 | Action | Description |
 |--------|-------------|
-| **Retry** | Retry specific frame |
-| **Kill** | Kill running frame |
-| **Eat** | Mark frame as eaten |
-| **View Log** | Open frame log viewer |
+| **Tail Log** / **View Log** | Open the in-browser log viewer at `/frames/<frameName>`. Same target as the row's double-click handler. Surfaces a friendly toast when the frame has not been dispatched yet (no log file on disk). |
+| **View Log on \<editor\>** | Launches the log file in a desktop editor. Only rendered when `NEXT_PUBLIC_LOG_EDITOR_URL` is set. The menu label is derived from the configured value (`vscode://...` -> "View Log on VSCode", `subl://...` -> "View Log on Sublime Text", `txmt://...` -> "View Log on TextMate", `idea://...` -> "View Log on IntelliJ", unrecognized -> "View Log in external editor"). See [External editor integration](#external-editor-integration) below. |
+| **Copy Log Path** | Copy the absolute log path to the clipboard. |
+| **Copy Frame Name** | Copy the full frame name. |
+| **View Host** | Navigate to the host detail page. *(placeholder)* |
+| **Drop / View dependency items** | Manage frame-level dependencies. *(placeholders)* |
+| **Filter Selected Layers** | Narrow the frames table to the frame's layer (same as clicking the layer row). |
+| **Reorder** | Open the reorder dialog. *(placeholder)* |
+| **Preview All** | Sequence-preview integration. *(placeholder)* |
+| **Retry** | Retry the frame. |
+| **Eat** | Mark the frame as eaten. |
+| **Kill** | Kill the running frame. |
+| **Eat and Mark done** | Eat the frame and treat it as succeeded. *(placeholder)* |
+| **View Processes** | Show RQD processes attached to the frame. *(placeholder)* |
+
+### External editor integration
+
+The Frame context menu's **View Log on \<editor\>** item launches the log file in a desktop editor.
+
+| Aspect | Description |
+|--------|-------------|
+| **Env var** | `NEXT_PUBLIC_LOG_EDITOR_URL` (build-time). Default in the sandbox deployment is `vscode://file{path}`; the Dockerfile-level default is empty (item hidden). |
+| **Template** | The literal `{path}` is replaced with the absolute log path when the item is clicked. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. |
+| **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
+| **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
+| **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
 
 ---
 
@@ -403,6 +579,312 @@ Required volume mounts for log viewing:
 
 ---
 
+## Global Application Header
+
+CueWeb mounts a persistent header at the top of every authenticated route
+via `app/layout.tsx`. The header is implemented in
+`components/ui/app-header.tsx` and is hidden on `/login*` routes only.
+
+Layout, left to right:
+
+- **OpenCue logo + "CueWeb" wordmark**: The logo swaps between
+  `public/opencue-icon-black.png` and
+  `public/opencue-icon-white.png` (dark mode). Clicking the logo returns
+  to `/` (Monitor Jobs).
+- **File** dropdown:
+  - Disable Job Interaction - read-only safety toggle (see
+    [Disable Job Interaction](#disable-job-interaction-safety-mode)).
+- **Cuebot Facility** dropdown: one item per configured facility (default
+  `local` / `dev` / `cloud` / `external`; overridable via
+  `NEXT_PUBLIC_CUEBOT_FACILITIES`). A small chip on the menu trigger
+  shows the currently-active facility.
+- **Cuetopia** dropdown:
+  - Monitor Jobs (`/`)
+- **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
+  - Allocations (`/allocations`)
+  - Limits (`/limits`)
+  - Monitor Cue (`/monitor-cue`)
+  - Monitor Hosts (`/hosts`)
+  - Redirect (`/redirect`)
+  - Services (`/services`)
+  - Shows (`/shows`)
+  - Stuck Frame (`/stuck-frames`)
+  - Subscription Graphs (`/subscription-graphs`)
+  - Subscriptions (`/subscriptions`)
+
+  Routes that have not been implemented yet 404 gracefully.
+- **Other** dropdown:
+  - **Attributes** - toggles the docked Attributes panel (see
+    [Attributes Panel](#attributes-panel)).
+  - **Show Shortcuts** - opens the keyboard-shortcuts overlay (same as
+    pressing `?`). Dispatches a `cueweb:open-shortcuts` `CustomEvent`
+    on `window` that the `KeyboardShortcuts` component listens for.
+  - **Notify on Shortcut** - toggle that controls whether every
+    triggered shortcut also fires a small toast naming the action.
+    Default ON. Persisted under
+    `localStorage["cueweb.shortcutNotifications"]` with cross-tab sync
+    via the `storage` event plus a `cueweb:shortcut-notifications-changed`
+    `CustomEvent`. See
+    [Keyboard shortcuts overlay (+ menu access)](#keyboard-shortcuts-overlay--menu-access).
+- **Help** dropdown - CueGUI parity:
+  - A search input at the top that searches across **every** menu command
+    in CueWeb via the `useMenuRegistry` hook
+    (`app/utils/use_menu_registry.ts`). Matches render as `Group > Label`.
+  - Online User Guide - `NEXT_PUBLIC_DOCS_URL`
+    (default `https://www.opencue.io/docs/`).
+  - Make a Suggestion - `NEXT_PUBLIC_SUGGESTIONS_URL`
+    (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md`).
+  - Report a Bug - `NEXT_PUBLIC_BUGS_URL`
+    (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md`).
+- **Theme toggle**: Switches between light and dark mode (see
+  [Theming](#theming) below).
+- **Sign out**: Always rendered. With a session, `signOut()` clears it and
+  redirects to `/login`; without a session, the click just navigates to
+  `/login`. When a session is present, the session's name or email is
+  shown to the left of the button (truncated, hidden on mobile).
+
+The `/login` page handles both auth configurations:
+
+- `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) renders only the **CueWeb Home**
+  button - useful for sandbox deployments without authentication.
+- `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap` (or any subset)
+  renders one sign-in button per configured provider.
+
+The header dropdown menus:
+
+![CueWeb File menu](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
+
+
+![CueWeb Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+
+![CueWeb Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+
+
+![CueWeb CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
+
+
+![CueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
+
+
+![CueWeb Help menu](/assets/images/cueweb/cueweb_help_menu.png)
+
+
+The bottom status bar:
+
+![CueWeb status bar](/assets/images/cueweb/cueweb_status_indicators.png)
+
+
+---
+
+## Left Sidebar
+
+CueWeb also mounts a collapsible sidebar to the left of the content area.
+Implemented in `components/ui/app-sidebar.tsx` and hidden on `/login*` and
+on viewports smaller than the `md` breakpoint.
+
+![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+
+
+- Same six groups as the header (**File**, **Cuebot Facility**,
+  **Cuetopia**, **CueCommander**, **Other**, **Help**), organized as
+  accordion sections built on the `Collapsible` primitive.
+- The group containing the currently-active route auto-expands on
+  navigation.
+- A **Collapse** button at the bottom toggles between expanded
+  (`w-60`) and icon-only (`w-16`).
+- The **Other** group mirrors the header's Other menu and ships three
+  controls in both expanded and collapsed modes:
+  - **Attributes** (toggle, with check icon when the panel is open).
+  - **Show Shortcuts** (opens the keyboard-shortcuts overlay; same as
+    pressing `?` or the header's Other ▸ Show Shortcuts item).
+  - **Notify on Shortcut** (toggle, with check icon when on; controls
+    the per-shortcut toast).
+- Persisted state:
+  - `cueweb.sidebar.collapsed` - overall expanded vs icon-only.
+  - `cueweb.sidebar.openGroups` - per-group open/closed map.
+
+---
+
+## Mobile Navigation
+
+On phone-sized viewports the desktop sidebar is hidden entirely. A **hamburger** button appears on the LEFT of the global header instead; tapping it opens a side drawer mirroring every sidebar group.
+
+| Aspect | Description |
+|--------|-------------|
+| **Trigger** | Tap the hamburger button in the global header. |
+| **Groups** | Dashboard, File (Disable Job Interaction), Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help. |
+| **Scrolling** | The drawer itself scrolls when the menu list is taller than the viewport. |
+| **Auto-close** | Tapping any navigation link closes the drawer automatically. |
+| **Hidden on** | `/login*`. |
+
+The drawer toggles share state with the desktop sidebar - flipping **Attributes** or **Disable Job Interaction** in the drawer is reflected in the desktop sidebar when the viewport is widened again.
+
+### Per-row Actions button
+
+To replace right-click on touch devices, every Jobs / Layers / Frames row has a small `⋮` Actions button as its leftmost cell. Tapping it opens the row's full context menu - the same action set you'd get from desktop right-click, including Copy Job / Layer / Frame Name, View Log, View Log on \<editor\>, Pause / Kill / Eat / Retry, etc. The column is always visible (it can't be hidden through the Columns dropdown).
+
+### Responsive Jobs page
+
+| Adaptation | What changes on small screens |
+|------------|------------------------------|
+| Search column + action toolbar | Stack vertically on small viewports instead of sitting side-by-side. |
+| Monitor Jobs toolbar groups | Unmonitor and Job Actions groups stack with each label taking its own line above its buttons. The vertical divider between groups is hidden. |
+| Data table containers | Horizontally swipeable so the wide grids can be navigated without forcing page-level scroll. |
+| Shortcuts overlay | Caps its width and height so the dialog never bleeds past the viewport, and scrolls internally if the contents overflow. |
+
+### LAN access
+
+By default the client builds same-origin relative URLs for every API call, so the same image works whether the browser reaches it at `localhost` on the dev machine or at a LAN IP from a phone on the same network. The build-time `NEXT_PUBLIC_URL` env var defaults to an empty string for this reason.
+
+| Caveat | Workaround |
+|--------|-----------|
+| The modern browser clipboard API is restricted to secure contexts (HTTPS / `localhost`). On plain-HTTP LAN access it's either unavailable or rejected. | CueWeb automatically falls back to a legacy copy path outside secure contexts, including iOS Safari. **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** still work. |
+| Desktop notification popups also require a secure context. **Subscribe to Job** still works on LAN HTTP - the in-app toast always fires - but the optional OS-level notification banner is skipped. | Serve CueWeb over HTTPS (self-signed cert is enough for LAN testing) to enable the desktop popup. |
+
+---
+
+## Disable Job Interaction (safety mode)
+
+Header File ▸ Disable Job Interaction (and the sidebar's File group)
+toggle a single global flag persisted under
+`localStorage["cueweb.safety.disable-job-interaction"]`. The
+`useDisableJobInteraction` hook
+(`app/utils/use_disable_job_interaction.ts`) keeps every consumer in sync
+via a `cueweb:disable-job-interaction-changed` CustomEvent (same tab) and
+the browser's `storage` event (cross-tab).
+
+When the flag is on:
+
+- A **`ReadOnlyBanner`** (`components/ui/read-only-banner.tsx`) renders an
+  amber strip just under the header with a *Re-enable* button.
+- The jobs toolbar action buttons (Eat Dead Frames, Retry Dead Frames,
+  Pause, Unpause, Kill) disable themselves visually and ignore clicks.
+  *Unmonitor* is non-destructive and remains active.
+- The right-click context menus on **job**, **layer**, and **frame** rows
+  dim every destructive item (Pause / Retry / Retry Dead Frames / Eat /
+  Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
+  remain active.
+
+![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
+
+
+---
+
+## Attributes Panel
+
+Other ▸ Attributes (header or sidebar) toggles a docked drawer
+implemented in `components/ui/attributes-panel.tsx`.
+
+- **Selection**: clicking any row in the jobs table fires
+  `setAttributeSelection({...})` from
+  `app/utils/use_attribute_selection.ts`. The panel listens via the
+  `useAttributeSelection` hook and re-renders for the new entity.
+- **Position**: a dock-position picker in the title bar lets users place
+  the panel on the **right** (default), **bottom**, **left**, or **top**
+  of the viewport. Persisted under `cueweb.attributes.position`.
+- **Open state**: persisted under `cueweb.attributes.open` (and synced
+  across consumers via `cueweb:attributes-panel-changed`).
+- **Filter input**: narrows the key/value tree live; parent groups stay
+  visible whenever any descendant matches.
+
+The Attributes panel for a selected job and for a selected layer:
+
+![CueWeb attributes panel for a job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
+
+
+![CueWeb attributes panel for a layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
+
+
+The panel docked on each edge of the viewport - right, bottom, left, and top:
+
+![CueWeb attributes panel docked right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
+
+
+![CueWeb attributes panel docked bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
+
+
+![CueWeb attributes panel docked left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
+
+
+![CueWeb attributes panel docked top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
+
+
+---
+
+## Breadcrumbs
+
+Reusable primitive at `components/ui/breadcrumbs.tsx`, accepting
+`Array<{ label, href?, title? }>`. Renders a Home icon segment (`/`) by
+default, separates segments with `ChevronRight`, and gives the last
+segment `aria-current="page"`. Labels are wrapped in a Radix Tooltip
+with `max-w-[40ch] truncate`, so over-long names collapse with an
+ellipsis and the full text is recoverable on hover.
+
+Currently mounted on every detail view (non-last segments are
+`next/link`s; segments without an `href` render as plain text):
+
+- `/frames/[frame-name]` -> `Home > Jobs > <jobName> > <layerName> > <frameName>`
+  - The job name is parsed from the `frameLogDir` query parameter
+    (RQD logs are named `<jobName>.<frameName>.rqlog`).
+  - The layer name and frame name come from the loaded `Frame` payload,
+    falling back to the route param while the fetch is pending.
+- `/jobs/[job-name]/comments` -> `Home > Jobs > <jobName> > Comments`
+
+Per-job and per-layer detail pages do not exist yet, so those segments
+currently render as plain text; once those routes land they can be
+upgraded to clickable links by setting the `href` field on the
+corresponding `BreadcrumbItem`.
+
+---
+
+## Status Bar
+
+CueWeb mounts an IDE-style fixed status bar at the bottom of every
+authenticated route. Implemented in `components/ui/status-bar.tsx` and
+hidden on `/login*`. Three metrics, each with a tooltip:
+
+- **Gateway** (left): a colored dot, the literal `Online` / `Offline`,
+  and the last round-trip latency in milliseconds when online.
+  - Polled every 10s by `fetch('/api/health')`. The probe POSTs `{}` to
+    `show.ShowInterface/GetActiveShows` with a 5s `AbortController`
+    timeout and reports `{ gatewayOnline, status, latencyMs, checkedAt,
+    error? }`.
+  - When the gateway is unreachable, the whole bar's surface turns red
+    so the failure is visible at a glance.
+- **Last refresh** (center): live relative timestamp ("just now",
+  "Ns ago", ...). Updated whenever the jobs table fires a
+  `cueweb:jobs-refreshed` CustomEvent (every 5s while the table is
+  mounted). Re-renders once per second so the timestamp stays accurate
+  between events.
+- **Version** (right): `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build
+  time in `next.config.js`:
+  1. If `NEXT_PUBLIC_APP_VERSION` is set, that value wins.
+  2. Otherwise it falls back to the `version` field in
+     `cueweb/package.json`.
+  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so
+    CI can pass a Git SHA or build tag via `--build-arg`.
+
+### `GET /api/health`
+
+Cheap reachability check used by the status bar. Returns a 200 with the
+following body in both the healthy and unhealthy cases (so the UI can
+render the offline state without surfacing a network-tab error):
+
+```json
+{
+  "gatewayOnline": true,
+  "status": 200,
+  "latencyMs": 30,
+  "checkedAt": "2026-05-20T07:58:51.098Z"
+}
+```
+
+When `gatewayOnline` is `false`, the response additionally includes an
+`error` field with a short human-readable hint.
+
+---
+
 ## Theming
 
 ### Theme Toggle
@@ -412,7 +894,9 @@ CueWeb supports light and dark themes:
 - **Light Mode**: Default theme with light backgrounds
 - **Dark Mode**: Dark theme for reduced eye strain
 
-Toggle via the theme button in the header.
+Toggle via the sun/moon button in the global header (or press `t`). The choice persists across sessions. Every view has a dark equivalent; for example, the Monitor Jobs page in dark mode:
+
+![CueWeb Monitor Jobs in dark mode](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png)
 
 ### CSS Variables
 

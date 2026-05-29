@@ -73,6 +73,12 @@ def _formatTempFreePercent(host):
 class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget for displaying a list of hosts."""
 
+    # Emitted from _getUpdate on the worker thread with the set of OS values
+    # observed in the latest fetch. The parent HostMonitor connects this to
+    # updateOSFilterList; AutoConnection routes the slot back onto the GUI
+    # thread (the receiver's thread) so the menu mutation stays safe.
+    osValuesUpdated = QtCore.Signal(object)
+
     def __init__(self, parent):
 
         self.startColumnsForType(cuegui.Constants.TYPE_HOST)
@@ -283,12 +289,13 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             hosts = opencue.api.getHosts(**self.hostSearch.options)
 
-            # Extract OS values and update the filter list in parent
+            # _getUpdate runs on a ThreadPool worker thread. Hand the OS values
+            # off via a Qt signal instead of mutating the parent's QMenu here —
+            # constructing QActions with a GUI-thread QMenu as parent from the
+            # worker triggers Qt's thread-affinity warning and is unsafe.
             if hosts:
                 os_values = set(host.data.os for host in hosts if host.data.os)
-                parent = self.parent()
-                if hasattr(parent, 'updateOSFilterList'):
-                    parent.updateOSFilterList(os_values)
+                self.osValuesUpdated.emit(os_values)
 
             # Apply client-side OS filtering
             os_filters = self.hostSearch.options.get('os_filter', [])

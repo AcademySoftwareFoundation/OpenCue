@@ -345,6 +345,17 @@ class NestedGroup(Group):
             self.__children_init = True
         return self.__children
 
+    def inlineJobs(self):
+        """Returns Job wrappers hydrated from inline_jobs on the whiteboard response.
+
+        Empty list when talking to an older Cuebot that does not populate this
+        field — callers should fall back to ``opencue.api.getJobs(id=list(data.jobs))``.
+
+        :rtype: list<opencue.wrappers.job.Job>
+        :return: list of hydrated Jobs for this group
+        """
+        return [opencue.wrappers.job.Job(j) for j in self.data.inline_jobs]
+
     def asGroup(self):
         """Returns a Group object from this NestedGroup.
 

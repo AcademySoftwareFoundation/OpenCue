@@ -778,6 +778,7 @@ message NestedGroup {
     float default_job_max_gpus = 15;
     float min_gpus = 16;
     float max_gpus = 17;
+    repeated Job inline_jobs = 18;
 }
 
 message NestedGroupSeq {
