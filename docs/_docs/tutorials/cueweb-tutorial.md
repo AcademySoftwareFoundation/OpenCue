@@ -121,7 +121,7 @@ The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
-   The subscription always succeeds; the OS-level notification permission is requested afterwards as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+   The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
 
 ### Understanding Job Status
 

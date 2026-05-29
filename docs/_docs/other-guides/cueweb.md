@@ -148,21 +148,21 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figure 1), users are welcomed by CueWeb's main dashboard, as shown in Figure 2.  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
 
-#### Figure 1: CueWeb authentication page
+**Figure 1: CueWeb authentication page**
 ![CueWeb authentication page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
 
-#### Figure 1a: CueWeb LDAP authentication button
+**Figure 1a: CueWeb LDAP authentication button**
 ![CueWeb LDAP authentication button](/assets/images/cueweb/cueweb-ldap-button.png)
 
-#### Figure 1b: CueWeb LDAP login page
+**Figure 1b: CueWeb LDAP login page**
 ![CueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
 
 **Note:** If the CueWeb login is disabled, the image below displays the initial CueWeb page. This page includes a button labelled "CueWeb Home", which opens the main CueWeb interface. For instructions on how to disable the CueWeb login, refer to the [cueweb/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/README.md) file.
 
 ![CueWeb home button page](/assets/images/cueweb/cueweb-home-button.png)
 
-#### Figure 2: CueWeb main page
+**Figure 2: CueWeb main page**
 ![CueWeb main page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
 
 
@@ -170,51 +170,51 @@ Upon logging in through Okta/Google/GitHub/LDAP or another authentication method
 
 Every authenticated page shares a global header and a collapsible left sidebar. The sidebar groups the same menus found in the header, with the group for the current page expanded by default (Figure 3).
 
-#### Figure 3: CueWeb collapsible left sidebar menu
+**Figure 3: CueWeb collapsible left sidebar menu**
 ![CueWeb collapsible left sidebar menu](/assets/images/cueweb/cueweb_left_side_menu.png)
 
 
 The **Cuetopia** menu opens the Monitor Jobs view (Figure 4).
 
-#### Figure 4: Cuetopia (Monitor Jobs) menu
+**Figure 4: Cuetopia (Monitor Jobs) menu**
 ![Cuetopia (Monitor Jobs) menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
 
 
 The **Cuebot Facility** menu lets you choose which facility to connect to (Figure 5).
 
-#### Figure 5: Cuebot Facility menu
+**Figure 5: Cuebot Facility menu**
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
 
 The **CueCommander** menu lists the administration views such as Allocations, Limits, Monitor Cue, Monitor Hosts, Services, Shows, and Subscriptions (Figure 6).
 
-#### Figure 6: CueCommander menu options
+**Figure 6: CueCommander menu options**
 ![CueCommander menu options](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
 
 
 The **File** menu includes **Disable Job Interaction**, a read-only safety mode (Figure 7). When it is enabled, a banner appears under the header and every destructive action is turned off (Figure 8).
 
-#### Figure 7: File menu with Disable Job Interaction
+**Figure 7: File menu with Disable Job Interaction**
 ![File menu with Disable Job Interaction](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
 
 
-#### Figure 8: Read-only mode banner when Disable Job Interaction is enabled
+**Figure 8: Read-only mode banner when Disable Job Interaction is enabled**
 ![Read-only mode banner](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
 
 
 The **Other** menu provides Attributes, Show Shortcuts, and Notify on Shortcut (Figure 9), while the **Help** menu offers a searchable list of menu commands and links to the user guide (Figure 10).
 
-#### Figure 9: Other menu options
+**Figure 9: Other menu options**
 ![Other menu options](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-#### Figure 10: Help menu
+**Figure 10: Help menu**
 ![Help menu](/assets/images/cueweb/cueweb_help_menu.png)
 
 
 A fixed status bar at the bottom of every page shows the gateway connection state, the time since the last refresh, and the application version (Figure 11).
 
-#### Figure 11: Bottom status bar indicators
+**Figure 11: Bottom status bar indicators**
 ![Bottom status bar indicators](/assets/images/cueweb/cueweb_status_indicators.png)
 
 
@@ -222,11 +222,11 @@ A fixed status bar at the bottom of every page shows the gateway connection stat
 
 The Dashboard page provides an at-a-glance overview, reachable from its own entry in the navigation (Figures 12 and 13).
 
-#### Figure 12: CueWeb Dashboard page
+**Figure 12: CueWeb Dashboard page**
 ![CueWeb Dashboard page](/assets/images/cueweb/cueweb_dashboard.png)
 
 
-#### Figure 13: CueWeb Dashboard menu
+**Figure 13: CueWeb Dashboard menu**
 ![CueWeb Dashboard menu](/assets/images/cueweb/cueweb_dashboard_menu.png)
 
 
@@ -238,44 +238,44 @@ Here's what you can expect:
 
 - **Customizable jobs tables:** Tailor your dashboard by selecting which columns to display, enhancing readability and focus on critical jobs metrics (see Figure 14)
 
-#### Figure 14: Column visibility dropdown to choose display data table columns
+**Figure 14: Column visibility dropdown to choose display data table columns**
 ![Column visibility dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_column%20_visibility_dropdown.png)
 
 - **Efficient job filtering:** Filter jobs by state - `Finished`, `Failing`, `Dependency`, `In Progress`, `Paused` - to streamline management tasks  (see Figure 15).
 
-#### Figure 15: Data table filtering based on job state
+**Figure 15: Data table filtering based on job state**
 ![Data table filtering based on job state](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_data_table_filtering.png)
 
 * **Advanced monitoring options:** Un-monitor jobs selectively or in bulk, providing flexibility in data visualization (see Figures 16 and 17).
 
-#### Figure 16: Un-monitoring selected jobs (data table before un-monitor selection)
+**Figure 16: Un-monitoring selected jobs (data table before un-monitor selection)**
 ![Un-monitoring selected jobs (before)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-before.png)
 
-#### Figure 17:  Un-monitoring selected jobs (data table after un-monitor selection)
+**Figure 17:  Un-monitoring selected jobs (data table after un-monitor selection)**
 ![Un-monitoring selected jobs (after)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-after.png)
 
 * **Detailed inspections:** A pop-up detail view for layers and frames associated with a selected job (see Figure 18), offering deep dives into specific frame logs as shown in Figure 19.
 
-#### Figure 18: Pop-up window to view layers and frames information 
+**Figure 18: Pop-up window to view layers and frames information **
 ![Pop-up window layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
 
 
-#### Figure 19: Frame information and logs visualization 
+**Figure 19: Frame information and logs visualization **
 ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
 
 
 - **Job searching:** Search for a job by typing in a show name followed by a hyphen and then the shot followed by a hyphen (ex: "show-shot-") or by typing in a regex query followed by a "!" (ex: ".*character-name*!"). This will trigger a dropdown populated with jobs for that query (see Figure 20). Clicking jobs in this dropdown will add them to the jobs table. Jobs in the jobs table will be highlighted `green` in the dropdown.
 
-#### Figure 20: Job search functionality 
+**Figure 20: Job search functionality **
 ![Job search functionality](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_search_functionality.png)
 
 The search box returns matching jobs in a dropdown, and you can pick one or more entries from the list to add them to the table (Figures 21 and 22).
 
-#### Figure 21: Searching for jobs
+**Figure 21: Searching for jobs**
 ![Searching for jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
 
 
-#### Figure 22: Picking jobs from the search results list
+**Figure 22: Picking jobs from the search results list**
 ![Picking jobs from the search results list](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs_pick_from_list.png)
 
 
@@ -283,37 +283,37 @@ The search box returns matching jobs in a dropdown, and you can pick one or more
 
 Selecting **View Job Details** from a job's context menu (Figure 23) opens a dedicated page with tabs for Overview, Layers, Frames, Comments, and Dependencies.
 
-#### Figure 23: View Job Details menu entry
+**Figure 23: View Job Details menu entry**
 ![View Job Details menu entry](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_menu.png)
 
 
 The **Overview** tab summarizes the job (Figure 24).
 
-#### Figure 24: Job details - Overview tab
+**Figure 24: Job details - Overview tab**
 ![Job details Overview tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
 
 
 The **Layers** tab lists the job's layers (Figure 25).
 
-#### Figure 25: Job details - Layers tab
+**Figure 25: Job details - Layers tab**
 ![Job details Layers tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_layers.png)
 
 
 The **Frames** tab lists the job's frames (Figure 26).
 
-#### Figure 26: Job details - Frames tab
+**Figure 26: Job details - Frames tab**
 ![Job details Frames tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_frames.png)
 
 
 The **Comments** tab shows the comments attached to the job (Figure 27).
 
-#### Figure 27: Job details - Comments tab
+**Figure 27: Job details - Comments tab**
 ![Job details Comments tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_comments.png)
 
 
 The **Dependencies** tab lists the job's dependencies (Figure 28).
 
-#### Figure 28: Job details - Dependencies tab
+**Figure 28: Job details - Dependencies tab**
 ![Job details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
 
 
@@ -321,92 +321,92 @@ The **Dependencies** tab lists the job's dependencies (Figure 28).
 
 You can open the comments for a job from the **Comments** entry in the job context menu (Figure 29). When a job already has at least one comment, a sticky-note icon appears in the Comments column of the Jobs table (Figure 30).
 
-#### Figure 29: Comments menu entry
+**Figure 29: Comments menu entry**
 ![Comments menu entry](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_menu.png)
 
 
-#### Figure 30: Comments column icon for jobs that have comments
+**Figure 30: Comments column icon for jobs that have comments**
 ![Comments column icon](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_has_comments_icon.png)
 
 
 The comments page lets you list, add, edit, and delete comments for the selected job (Figure 31).
 
-#### Figure 31: Job comments page
+**Figure 31: Job comments page**
 ![Job comments page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page.png)
 
 
 You can view an existing comment, then add a new comment by typing the message and saving it (Figures 32 to 34).
 
-#### Figure 32: Viewing a comment
+**Figure 32: Viewing a comment**
 ![Viewing a comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_view_comment.png)
 
-#### Figure 33: Adding a comment
+**Figure 33: Adding a comment**
 ![Adding a comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_adding_comment.png)
 
-#### Figure 34: Comment added
+**Figure 34: Comment added**
 ![Comment added](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_added_comment.png)
 
 To remove a comment, select it and confirm the deletion; a notification confirms the comment was removed (Figures 35 and 36).
 
-#### Figure 35: Confirming deletion of a selected comment
+**Figure 35: Confirming deletion of a selected comment**
 ![Confirming deletion of a selected comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_delete_selected_comment_confirmation.png)
 
-#### Figure 36: Notification confirming the comment was deleted
+**Figure 36: Notification confirming the comment was deleted**
 ![Notification confirming the comment was deleted](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_deleted_selected_comment_notification.png)
 
 CueWeb also supports predefined comments (saved macros) that you can reuse, add, edit, and delete (Figures 37 to 44).
 
-#### Figure 37: Using a predefined comment
+**Figure 37: Using a predefined comment**
 ![Using a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment.png)
 
-#### Figure 38: Adding a predefined comment macro
+**Figure 38: Adding a predefined comment macro**
 ![Adding a predefined comment macro](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_add_predefined_comment.png)
 
-#### Figure 39: Entering the predefined comment details
+**Figure 39: Entering the predefined comment details**
 ![Entering the predefined comment details](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_adding_predefined_comment.png)
 
-#### Figure 40: Predefined comment added
+**Figure 40: Predefined comment added**
 ![Predefined comment added](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_added_predefined_comment.png)
 
-#### Figure 41: Editing a predefined comment
+**Figure 41: Editing a predefined comment**
 ![Editing a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_editing_predefined_comment.png)
 
-#### Figure 42: Predefined comment edited
+**Figure 42: Predefined comment edited**
 ![Predefined comment edited](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_edited_predefined_comment.png)
 
-#### Figure 43: Deleting a predefined comment
+**Figure 43: Deleting a predefined comment**
 ![Deleting a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_deleting_predefined_comment.png)
 
-#### Figure 44: Confirming deletion of a predefined comment
+**Figure 44: Confirming deletion of a predefined comment**
 ![Confirming deletion of a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_delete_predefined_comment_confirmation.png)
 
 ### Attributes panel
 
 The **Other -> Attributes** panel shows a key/value tree for the currently selected entity. Selecting a job populates it with the job's attributes (Figure 45), and selecting a layer shows that layer's attributes (Figure 46).
 
-#### Figure 45: Attributes panel for a selected job
+**Figure 45: Attributes panel for a selected job**
 ![Attributes panel for a selected job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
 
 
-#### Figure 46: Attributes panel for a selected layer
+**Figure 46: Attributes panel for a selected layer**
 ![Attributes panel for a selected layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
 
 
 The Attributes panel can be docked on the right, bottom, left, or top of the page (Figures 47 to 50).
 
-#### Figure 47: Attributes panel docked right
+**Figure 47: Attributes panel docked right**
 ![Attributes panel docked right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
 
 
-#### Figure 48: Attributes panel docked bottom
+**Figure 48: Attributes panel docked bottom**
 ![Attributes panel docked bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
 
 
-#### Figure 49: Attributes panel docked left
+**Figure 49: Attributes panel docked left**
 ![Attributes panel docked left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
 
 
-#### Figure 50: Attributes panel docked top
+**Figure 50: Attributes panel docked top**
 ![Attributes panel docked top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
 
 
@@ -414,7 +414,7 @@ The Attributes panel can be docked on the right, bottom, left, or top of the pag
 
 Selecting **Other -> Show Shortcuts** opens an overlay listing the available keyboard shortcuts (Figure 51).
 
-#### Figure 51: Keyboard shortcuts overlay
+**Figure 51: Keyboard shortcuts overlay**
 ![Keyboard shortcuts overlay](/assets/images/cueweb/cueweb_other_menu_show_shortcuts.png)
 
 
@@ -424,26 +424,26 @@ The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, 
 
 Figure 52 shows the `job` context menu with options to `un-monitor`, `comments`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 53 shows the successful message after selecting `kill` a job.
 
-#### Figure 52: CueWeb with job context menu open
+**Figure 52: CueWeb with job context menu open**
 ![CueWeb with job context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
 
-#### Figure 53: Pop-up showing a successful message after selecting `kill` a job
+**Figure 53: Pop-up showing a successful message after selecting `kill` a job**
 ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
 
 Figure 54 shows the `layer` context menu with options to `kill`, `eat`, `retry`, and `retry dead frames` and Figure 55 shows the successful message after selecting `retry` a layer.
 
-#### Figure 54: CueWeb with layer context menu open
+**Figure 54: CueWeb with layer context menu open**
 ![CueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
 
-#### Figure 55: Pop-up showing a successful message after selecting `retry` a layer
+**Figure 55: Pop-up showing a successful message after selecting `retry` a layer**
 ![Pop-up showing successful retry layer message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open_and_success_notification.png)
 
 Finally, Figure 56 shows the `frame` context menu with options to `kill`, `eat`, and `retry` and Figure 57 shows the successful message after selecting `eat` a frame.
 
-#### Figure 56: CueWeb with frame context menu open
+**Figure 56: CueWeb with frame context menu open**
 ![CueWeb with frame context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
 
-#### Figure 57: Pop-up showing a successful message after selecting `eat` a frame
+**Figure 57: Pop-up showing a successful message after selecting `eat` a frame**
 ![Pop-up showing successful eat frame message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
 
 
