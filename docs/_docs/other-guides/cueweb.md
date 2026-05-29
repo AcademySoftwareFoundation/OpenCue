@@ -251,22 +251,22 @@ Here's what you can expect:
 **Figure 16: Un-monitoring selected jobs (data table before un-monitor selection)**
 ![Un-monitoring selected jobs (before)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-before.png)
 
-**Figure 17:  Un-monitoring selected jobs (data table after un-monitor selection)**
+**Figure 17: Un-monitoring selected jobs (data table after un-monitor selection)**
 ![Un-monitoring selected jobs (after)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-after.png)
 
-* **Detailed inspections:** A pop-up detail view for layers and frames associated with a selected job (see Figure 18), offering deep dives into specific frame logs as shown in Figure 19.
+* **Detailed inspections:** An inline details panel for layers and frames associated with a selected job (see Figure 18), offering deep dives into specific frame logs as shown in Figure 19.
 
-**Figure 18: Pop-up window to view layers and frames information **
-![Pop-up window layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
+**Figure 18: Inline panel to view layers and frames information**
+![Inline layers and frames panels](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
 
 
-**Figure 19: Frame information and logs visualization **
+**Figure 19: Frame information and logs visualization**
 ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
 
 
 - **Job searching:** Search for a job by typing in a show name followed by a hyphen and then the shot followed by a hyphen (ex: "show-shot-") or by typing in a regex query followed by a "!" (ex: ".*character-name*!"). This will trigger a dropdown populated with jobs for that query (see Figure 20). Clicking jobs in this dropdown will add them to the jobs table. Jobs in the jobs table will be highlighted `green` in the dropdown.
 
-**Figure 20: Job search functionality **
+**Figure 20: Job search functionality**
 ![Job search functionality](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_search_functionality.png)
 
 The search box returns matching jobs in a dropdown, and you can pick one or more entries from the list to add them to the table (Figures 21 and 22).
