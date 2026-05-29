@@ -406,11 +406,11 @@ Go back to [Contents](#contents).
 
 ### Below are some screenshots of the interface
 
-<img src="interface_screenshots/login.png" width="800"/>
-<img src="interface_screenshots/mainpage.png" width="800"/>
-<img src="interface_screenshots/mainpage_dark.png" width="800"/>
-<img src="interface_screenshots/layersframes.png" width="800"/>
-<img src="interface_screenshots/frame.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png" width="800"/>
 
 Go back to [Contents](#contents).
 

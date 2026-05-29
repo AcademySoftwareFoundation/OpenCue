@@ -104,9 +104,8 @@ CueWeb supports secure authentication through multiple providers:
 - **Custom Credentials**: Username/password authentication
 - **Other Providers**: Additional providers can be configured using [NextAuth.js](https://next-auth.js.org/)
 
-![CueWeb authentication page (light mode)](/assets/images/cueweb/figure1-auth-light.png)
+![CueWeb authentication page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
-![CueWeb authentication page (dark mode)](/assets/images/cueweb/figure2-auth-dark.png)
 
 **Note**: If authentication is disabled for development, you'll see a "CueWeb Home" button to access the interface directly.
 
@@ -114,9 +113,11 @@ CueWeb supports secure authentication through multiple providers:
 
 When you first access CueWeb, you'll see the main dashboard:
 
-![CueWeb main page (light mode)](/assets/images/cueweb/figure3-main-light.png)
+![CueWeb main page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
 
-![CueWeb main page (dark mode)](/assets/images/cueweb/figure4-main-dark.png)
+CueWeb ships light and dark themes; use the sun/moon toggle in the header to switch (your choice persists across sessions). The rest of this guide uses light-mode screenshots, but every view has a dark equivalent - here is the same Monitor Jobs view in dark mode:
+
+![CueWeb main page in dark mode](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png)
 
 The screen is composed of:
 
@@ -143,6 +144,67 @@ The screen is composed of:
   - **Last refresh**: a live "just now" / "Ns ago" timer that updates every time the jobs table re-fetches.
   - **Version**: the CueWeb build version (`v<x.y.z>`) baked in at build time.
 - **Jobs Dashboard**: Central paginated table populated with OpenCue jobs (below the header).
+
+### Navigation menus
+
+The left sidebar and the header menus give you the same set of groups. Use the sidebar's accordion sections to jump between pages, and collapse it to an icon-only rail when you want more room for the tables.
+
+![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+
+
+The **Cuetopia** menu opens Monitor Jobs.
+
+![Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+
+
+The **Cuebot Facility** menu lets you switch the active facility.
+
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+
+The **CueCommander** menu lists the farm-administration pages.
+
+![CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
+
+
+The **File** menu holds the *Disable Job Interaction* safety toggle.
+
+![File menu with Disable Job Interaction](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
+
+
+When the toggle is on, a read-only banner appears under the header and destructive actions are disabled until you click **Re-enable**.
+
+![Read-only banner shown when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
+
+
+The **Other** menu collects the Attributes panel toggle, the shortcuts overlay, and the shortcut-toast preference.
+
+![Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
+
+
+The **Help** menu provides a search box that finds commands across every menu, plus links to the online guide and feedback forms.
+
+![Help menu with search](/assets/images/cueweb/cueweb_help_menu.png)
+
+
+The bottom status bar shows the gateway connection, the last refresh time, and the build version.
+
+![Bottom status bar indicators](/assets/images/cueweb/cueweb_status_indicators.png)
+
+
+---
+
+## Dashboard
+
+The **Dashboard** is a dedicated statistics page, separate from the Jobs table below. It summarizes farm activity at a glance.
+
+![CueWeb Dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
+Open it from the **Dashboard** entry in the navigation.
+
+![Dashboard menu entry](/assets/images/cueweb/cueweb_dashboard_menu.png)
+
 
 ---
 
@@ -180,7 +242,7 @@ The Jobs table ships every CueGUI-parity column visible by default. You can hide
 | **Launched** | Job start timestamp in human-readable format (`YYYY-MM-DD HH:MM`). Mirrors CueGUI's "Launched" column. |
 | **Eligible** | Timestamp when the job became eligible to dispatch. Blank when the field is zero / unset. |
 | **Finished** | Job completion timestamp. Blank while the job is still running. |
-| **User Color** | Per-job color swatch. Click the swatch to open the native color picker; right-click or click the `×` to clear. Color is yours alone - persisted to `localStorage` and synced across browser tabs. |
+| **User Color** | Per-job color swatch. Click the swatch to open the native color picker; right-click or click the `×` to clear. Color is yours alone - saved in your browser and synced across your open tabs. |
 | **Progress** | Stacked progress bar with five colored segments - green (succeeded), yellow (running), light blue (waiting), purple (depend), and red (dead). Hover the bar to display a tooltip with the exact frame count and percentage for each state. |
 | **Notify** | Bell button to subscribe to a notification when the job reaches `FINISHED` (see [Job-finished notifications](#job-finished-notifications)). |
 
@@ -196,7 +258,7 @@ Each of the three tables (Jobs, Layers, Frames) has its own **Columns** dropdown
 
 The dropdown stays open between clicks so you can chain several adjustments without reopening it.
 
-Your visibility and ordering choices persist in browser `localStorage` per table and survive reloads, navigations and Docker rebuilds. If you ever need to start over, click **Reset to Default**.
+Your visibility and ordering choices are saved in your browser per table and survive reloads, navigations, and redeployments. If you ever need to start over, click **Reset to Default**.
 
 ### Filtering the loaded rows
 
@@ -205,6 +267,9 @@ Each of the three tables (Jobs, Layers, Frames) also has a small **Filter ...** 
 The filter snaps you back to page 1 on every keystroke so you never sit on an empty page. A small `×` button appears inside the input once you've typed something - click it to clear the filter in one go.
 
 > **Tip:** The Filter input narrows what's *already loaded* into the table. On the Jobs page, the separate **Search jobs - Enter to load** box at the top of the page is what tells Cuebot to load new jobs.
+
+![Filtering the rows loaded into the jobs table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_data_table_filtering.png)
+
 
 ### Job Status Indicators
 
@@ -241,9 +306,9 @@ Jobs can be added or removed from monitoring:
 2. **Remove from Monitor**: Select the job and use the "Unmonitor" option
 3. **Bulk Operations**: Select multiple jobs using checkboxes for batch operations
 
-   ![Un-monitoring selected jobs (before)](/assets/images/cueweb/figure7-unmonitor-before.png)
+   ![Un-monitoring selected jobs (before)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-before.png)
 
-   ![Un-monitoring selected jobs (after)](/assets/images/cueweb/figure8-unmonitor-after.png)
+   ![Un-monitoring selected jobs (after)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_un-monitoring_selected_jobs-after.png)
 
 ### Advanced Job Operations
 
@@ -271,9 +336,9 @@ Important notes:
 
 **Note**: Destructive items (Pause / Unpause / Retry / Eat / Kill) are automatically disabled when the global **Disable Job Interaction** safety toggle is on, and the context menu always stays on-screen even on small viewports (it scrolls internally if it would overflow).
 
-   ![CueWeb with job context menu open](/assets/images/cueweb/figure14-job-context-menu.png)
+   ![CueWeb with job context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
 
-   ![Pop-up showing successful kill job message](/assets/images/cueweb/figure15-kill-job-success.png)
+   ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
 
 ---
 
@@ -288,7 +353,15 @@ You can reach a job's Comments page in two ways:
 - **Context menu**: Right-click a job row and choose **Comments**.
 - **Indicator icon**: The Jobs table has a dedicated **Comments** column (right after Name). A sticky-note icon appears there when the job has at least one comment; the column is sortable so you can pull jobs with comments to the top. Clicking the icon opens the Comments page in a new tab.
 
-Both routes open a new browser tab at `/jobs/<job-name>/comments?jobId=<id>`. The page derives the signed-in viewer from the authenticated NextAuth session (`/api/auth/session`), not from any URL parameter, so the `username` query string is **not** an authorization signal and is safe to ignore if present. Only the session-derived identity is used to decide whether the editor is enabled for the selected comment, and ownership for save/delete is enforced server-side; the client-side UI state simply reflects what the server will allow.
+![Comments item in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_menu.png)
+
+
+The Comments page opens in a new tab.
+
+![Job Comments page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page.png)
+
+
+Both open the job's Comments page in a new browser tab. CueWeb identifies you from your signed-in session; only the author of a comment can edit or delete it, and everyone else sees it read-only.
 
 ### Page layout
 
@@ -309,20 +382,75 @@ The page replicates the CueGUI Comments dialog:
 | **Edit an existing comment** | Click the comment in the list. The form switches to **Save changes**. Make edits and save. Only the comment's author can edit. |
 | **Delete a comment** | Select a comment and click **Delete**. A confirmation prompt appears. Only the author can delete. |
 
-Comments support markdown in the message body. Content is sanitized with `rehype-sanitize` before rendering, so embedded HTML or scripts are stripped.
+Comments support markdown in the message body. Content is sanitized before rendering, so embedded HTML or scripts are stripped.
+
+Selecting a comment in the list loads it into the editor and shows its preview.
+
+![Viewing a selected comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_view_comment.png)
+
+To create a comment, fill in the Subject and Message fields.
+
+![Adding a new comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_adding_comment.png)
+
+After saving, the new comment appears in the list.
+
+![Newly added comment in the list](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_added_comment.png)
+
+Deleting a comment prompts for confirmation first.
+
+![Delete comment confirmation prompt](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_delete_selected_comment_confirmation.png)
+
+A notification confirms the comment was deleted.
+
+![Comment deleted notification](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_deleted_selected_comment_notification.png)
 
 ### Predefined comment macros
 
-The **Use a predefined comment…** dropdown mirrors CueGUI's macro list and is stored **per browser** in `localStorage` (key `cueweb-comment-macros`). Macros are not shared across users or browsers.
+The **Use a predefined comment…** dropdown mirrors CueGUI's macro list and is stored **per browser**. Macros are not shared across users or browsers.
 
 - **Apply a macro**: Pick its name from the dropdown. The Subject and Message are loaded into the form for editing; saving creates a new comment.
 - **Add a macro**: Choose `> Add predefined comment`. A dialog prompts for Name, Subject, and Message. Names must be unique.
 - **Edit a macro**: Choose `> Edit predefined comment`, then enter the macro name when prompted. The Add/Edit dialog opens with the existing values.
 - **Delete a macro**: Choose `> Delete predefined comment`, then enter the macro name. Confirm to remove.
 
+Open the **Use a predefined comment...** dropdown to apply or manage macros.
+
+![Use a predefined comment dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment.png)
+
+Choose to add a new predefined comment.
+
+![Add predefined comment option](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_add_predefined_comment.png)
+
+Fill in the macro's name, subject, and message.
+
+![Adding a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_adding_predefined_comment.png)
+
+The new macro is saved to the dropdown.
+
+![Added predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_added_predefined_comment.png)
+
+To change a macro, edit its values.
+
+![Editing a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_editing_predefined_comment.png)
+
+The edited macro is updated in the dropdown.
+
+![Edited predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_edited_predefined_comment.png)
+
+To remove a macro, choose to delete it.
+
+![Deleting a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_deleting_predefined_comment.png)
+
+Confirm the deletion to remove the macro.
+
+![Delete predefined comment confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment_delete_predefined_comment_confirmation.png)
+
 ### Comment indicator on the jobs table
 
 When a job has at least one comment, the Jobs table's dedicated **Comments** column (right after Name) shows a sticky-note icon for that row. The indicator is refreshed on the regular jobs-table polling cycle (every 5 seconds by default), so a freshly added comment may take one tick to surface on the table. Click the column header to sort jobs with comments to the top.
+
+![Sticky-note comment indicator in the jobs table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_has_comments_icon.png)
+
 
 ---
 
@@ -351,7 +479,17 @@ When a job has at least one comment, the Jobs table's dedicated **Comments** col
 - **Green Indicators**: Jobs already in your monitor list are highlighted in green
 - **Multiple Job Selection**: Add or remove multiple jobs directly from search results
 
-   ![Job search functionality](/assets/images/cueweb/figure13-job-search.png)
+   ![Job search functionality](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_search_functionality.png)
+
+Type into the **Search jobs** box to find jobs to load.
+
+![Searching for jobs to load](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
+
+Pick matching jobs from the dropdown suggestions to add them to your monitor list.
+
+![Picking jobs from the search dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs_pick_from_list.png)
+
 
 ---
 
@@ -361,9 +499,8 @@ When a job has at least one comment, the Jobs table's dedicated **Comments** col
 
 1. **Click a row** in the Jobs table. The inline **Layers** and **Frames** panels appear stacked below the Jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
 
-   ![Pop-up window layers and frames (light mode)](/assets/images/cueweb/figure9-popup-light.png)
+   ![Pop-up window layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
 
-   ![Pop-up window layers and frames (dark mode)](/assets/images/cueweb/figure10-popup-dark.png)
 
 2. **Click a layer** in the Layers panel to:
    - Narrow the Frames panel to that layer (the Frames title shows `X of Y`).
@@ -373,6 +510,38 @@ When a job has at least one comment, the Jobs table's dedicated **Comments** col
 3. **Double-click a frame** in the Frames panel to open the log viewer for that frame.
 
 Both inline panels refresh every 5 seconds while a job is selected; switching to a different job clears the panels and reloads.
+
+#### Job Details page
+
+For a fuller view, right-click a job row and choose **View Job Details** to open a tabbed detail page.
+
+![View Job Details menu item](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_menu.png)
+
+
+The **Overview** tab summarizes the job's status and statistics.
+
+![Job Details Overview tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+
+
+The **Layers** tab lists every layer in the job.
+
+![Job Details Layers tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_layers.png)
+
+
+The **Frames** tab lists the job's frames.
+
+![Job Details Frames tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_frames.png)
+
+
+The **Comments** tab shows the job's comments.
+
+![Job Details Comments tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_comments.png)
+
+
+The **Dependencies** tab shows the job's dependency relationships.
+
+![Job Details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
+
 
 ### Layer Operations
 
@@ -411,9 +580,9 @@ Both inline panels refresh every 5 seconds while a job is selected; switching to
 - **Retry**: Restart all frames in the layer
 - **Retry Dead Frames**: Restart only failed frames
 
-   ![CueWeb with layer context menu open](/assets/images/cueweb/figure16-layer-context-menu.png)
+   ![CueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
 
-   ![Pop-up showing successful retry layer message](/assets/images/cueweb/figure17-retry-layer-success.png)
+   ![Pop-up showing successful retry layer message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open_and_success_notification.png)
 
 ### Frame Operations
 
@@ -469,9 +638,9 @@ Frames are color-coded by status:
    - **Eat**: Mark frame as completed (skip)
    - **Kill**: Stop running frame
 
-   ![CueWeb with frame context menu open](/assets/images/cueweb/figure18-frame-context-menu.png)
+   ![CueWeb with frame context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
 
-   ![Pop-up showing successful eat frame message](/assets/images/cueweb/figure19-eat-frame-success.png)
+   ![Pop-up showing successful eat frame message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
 
 #### Frame Log Viewer
 
@@ -479,9 +648,46 @@ Frames are color-coded by status:
 2. **Log Selection**: Choose from available log versions
 3. **Auto-refresh**: Automatically update running frame logs
 
-   ![Frame information and logs visualization (light mode)](/assets/images/cueweb/figure11-frame-logs-light.png)
+   ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
 
-   ![Frame information and logs visualization (dark mode)](/assets/images/cueweb/figure12-frame-logs-dark.png)
+
+---
+
+## Attributes panel
+
+The Attributes panel is a docked drawer that shows a collapsible key/value tree for the currently-selected entity. Toggle it from the **Other** menu, then click a row in the jobs table to populate it.
+
+Selecting a job shows that job's attributes.
+
+![Attributes panel for a selected job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
+
+
+Selecting a layer shows that layer's attributes.
+
+![Attributes panel for a selected layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
+
+
+The title bar's position picker lets you dock the panel on any edge of the viewport, and your choice persists across reloads.
+
+Docked on the right (the default).
+
+![Attributes panel docked on the right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
+
+
+Docked on the bottom.
+
+![Attributes panel docked on the bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
+
+
+Docked on the left.
+
+![Attributes panel docked on the left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
+
+
+Docked on the top.
+
+![Attributes panel docked on the top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
+
 
 ---
 
@@ -491,7 +697,7 @@ Frames are color-coded by status:
 
 1. **Show/Hide Columns**: Click the columns button to toggle visibility
 
-   ![Column visibility dropdown](/assets/images/cueweb/figure5-column-visibility.png)
+   ![Column visibility dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_column%20_visibility_dropdown.png)
 
 2. **Sort Data**: Click column headers to sort (ascending/descending)
 3. **Resize Columns**: Drag column borders to adjust width
@@ -525,8 +731,8 @@ Behavior:
   - **denied** &mdash; in-app toast only. To also receive desktop popups, enable notifications for the CueWeb origin in your browser site settings.
   - **default** &mdash; you dismissed the prompt without choosing. In-app toast only, same as `denied`.
 - A background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app `toast.success("Job finished: <jobName>")` always fires; a desktop `Notification` popup is layered on top when the permission was granted at fire-time. The bell switches to filled with a green dot, and the entry is marked as notified.
-- When several CueWeb tabs poll the same job concurrently, only one tab actually toasts (cross-tab serialization via the Web Locks API). You see exactly one notification per finished job per browser profile.
-- Subscriptions persist in browser `localStorage` (key `cueweb:job-subscriptions`) and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
+- When several CueWeb tabs are open for the same job, only one of them shows the notification, so you see exactly one notification per finished job per browser profile.
+- Subscriptions are saved in your browser and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
 - If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
 
 ---
@@ -549,6 +755,9 @@ The same overlay is reachable from the menu if you prefer mouse navigation:
 
 - Header **Other ▸ Show Shortcuts**
 - Sidebar **Other ▸ Show Shortcuts** (in both expanded and collapsed sidebar modes)
+
+![Keyboard shortcuts overlay](/assets/images/cueweb/cueweb_other_menu_show_shortcuts.png)
+
 
 ### Toast on shortcut
 
