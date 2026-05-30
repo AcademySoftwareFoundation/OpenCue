@@ -139,7 +139,12 @@ export function EmailArtistDialog() {
     if (bcc.trim()) params.set("bcc", bcc.trim());
     if (subject) params.set("subject", subject);
     if (body) params.set("body", body);
-    const qs = params.toString();
+    // URLSearchParams encodes spaces as "+", but per RFC 6068 mailto: URIs
+    // do NOT decode "+" as space - only "%20" is treated that way - so
+    // every space in the subject and body would arrive as a literal "+"
+    // in the user's mail client. Normalize before handing the URL to
+    // the browser.
+    const qs = params.toString().replace(/\+/g, "%20");
     const url = qs
       ? `mailto:${encodeURIComponent(to.trim())}?${qs}`
       : `mailto:${encodeURIComponent(to.trim())}`;
