@@ -453,6 +453,16 @@ Finally, Figure 56 shows the `frame` context menu with options to `kill`, `eat`,
 **Figure 57: Pop-up showing a successful message after selecting `eat` a frame**
 ![Pop-up showing successful eat frame message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
 
+### Browser-based job submission (CueSubmit)
+
+The **CueSubmit** top-level menu (header / sidebar / mobile drawer) opens the browser-based job submission form at `/cuesubmit`, a one-for-one equivalent of the standalone CueSubmit CLI tool (Figures 58 and 59).
+
+**Figure 58: CueSubmit menu options**
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+**Figure 59: CueSubmit Submit Job page**
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
 
 ## Conclusion
 

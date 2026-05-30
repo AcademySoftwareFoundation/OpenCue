@@ -458,6 +458,10 @@ This walkthrough mirrors what you would do in the standalone CueSubmit CLI tool,
 
 Click **CueSubmit > Submit Job** in the top header. The form opens at `/cuesubmit` with three main sections (Job Info, Layer Info, Submission Details) plus a read-only Final command preview between them.
 
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
 ### Single-layer Shell submission
 
 1. **Job Info**

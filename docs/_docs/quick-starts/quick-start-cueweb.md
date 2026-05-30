@@ -255,6 +255,10 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so you don't need a separate desktop install just to launch a test job:
 
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
 1. Click **CueSubmit > Submit Job** in the top header (or the matching entry in the sidebar / mobile drawer).
 2. In **Job Info** fill in a Job Name (e.g. `quickstart_test`), pick `testing` for Show, type a Shot like `test_shot`, leave Facility as `[Default]`, and confirm Username.
 3. In **Layer Info** fill in a Layer Name (e.g. `layer1`), set Frame Spec to `1-3`, leave Chunk Size at `1` and Memory at the `256m` default, and keep Job Type set to **Shell**.

@@ -412,6 +412,8 @@ Go back to [Contents](#contents).
 <img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png" alt="CueWeb Monitor Jobs main page in dark mode" width="800"/>
 <img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png" alt="CueWeb inline layers and frames panels" width="800"/>
 <img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png" alt="CueWeb frame log view" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuesubmit_menu_options.png" alt="CueSubmit menu options" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuesubmit_submit_job.png" alt="CueSubmit Submit Job page" width="800"/>
 
 Go back to [Contents](#contents).
 
