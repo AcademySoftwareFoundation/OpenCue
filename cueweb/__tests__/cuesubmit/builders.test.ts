@@ -337,8 +337,10 @@ describe("buildJobSpecXml", () => {
     ]);
     expect(xml).toContain("<depend ");
     expect(xml).toContain('type="LAYER_ON_LAYER"');
-    expect(xml).toContain("<deplayer>preview</deplayer>");
-    expect(xml).toContain("<onlayer>final</onlayer>");
+    // "final" is the layer with dependencyType set, so it's the dependent
+    // (deplayer) waiting on "preview" (onlayer) to finish.
+    expect(xml).toContain("<deplayer>final</deplayer>");
+    expect(xml).toContain("<onlayer>preview</onlayer>");
   });
 
   test("omits <depends> body when no layer has dependencyType set", () => {

@@ -43,6 +43,13 @@ export function isValidFrameSpec(value: string): boolean {
       const start = Number(rangeMatch[1]);
       const end = Number(rangeMatch[2]);
       if (start > end) return false;
+      // Reject zero step values (e.g. "1-10x0" / "1-10:0"). Cuebot
+      // would otherwise be asked to divide by zero when expanding the
+      // range; the form should fail validation up front.
+      if (rangeMatch[3]) {
+        const step = Number(rangeMatch[3].slice(1));
+        if (step === 0) return false;
+      }
     }
   }
   return true;

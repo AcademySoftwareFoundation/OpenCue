@@ -124,10 +124,12 @@ function dependsToXml(layers: ReadonlyArray<LayerInput>): string[] {
     lines.push(
       `<depend type="${type}" anyframe="False">`,
     );
+    // deplayer = the dependent (current layer, which has to wait)
+    // onlayer  = the layer being waited on (the previous one)
     lines.push(`  ${el("depjob", "")}`);
-    lines.push(`  ${el("deplayer", prev.name)}`);
+    lines.push(`  ${el("deplayer", layer.name)}`);
     lines.push(`  ${el("onjob", "")}`);
-    lines.push(`  ${el("onlayer", layer.name)}`);
+    lines.push(`  ${el("onlayer", prev.name)}`);
     lines.push(`</depend>`);
   }
   return lines;

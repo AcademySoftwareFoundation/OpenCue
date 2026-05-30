@@ -43,7 +43,19 @@ export async function POST(request: NextRequest) {
   const body = JSON.stringify(jsonBody);
 
   const response = await handleRoute(method, endpoint, body);
-  const responseData = await response.json();
+  // The REST gateway is supposed to return JSON, but a misconfigured or down
+  // gateway / proxy can answer with empty bodies / HTML / plain text. Read
+  // the raw text and parse defensively so a non-JSON upstream surfaces as a
+  // proper upstream error instead of crashing the route with a 500.
+  const raw = await response.text();
+  let responseData: any = {};
+  if (raw) {
+    try {
+      responseData = JSON.parse(raw);
+    } catch {
+      responseData = { error: raw };
+    }
+  }
 
   // Preserve the upstream HTTP status. NextResponse.json defaults to 200
   // when the second argument is omitted, which would otherwise mask
