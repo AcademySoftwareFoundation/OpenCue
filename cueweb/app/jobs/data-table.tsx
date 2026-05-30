@@ -44,6 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
@@ -1634,6 +1635,13 @@ export function DataTable({ columns, username }: DataTableProps) {
           a `cueweb:open-set-priority` CustomEvent fired from the row
           context menu's "Set Priority..." entry. */}
       <SetPriorityDialog />
+
+      {/* Email Artist dialog. Mounted once here; opens in response to
+          a `cueweb:open-email-artist` CustomEvent fired from the row
+          context menu's "Email Artist..." entry. Pre-fills From/To/CC/
+          Subject/Body from the job and hands the result to the user's
+          default mail client via a mailto: URL on Send. */}
+      <EmailArtistDialog />
     </>
   );
 }

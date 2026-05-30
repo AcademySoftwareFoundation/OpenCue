@@ -463,6 +463,16 @@ The **CueSubmit** top-level menu (header / sidebar / mobile drawer) opens the br
 **Figure 59: CueSubmit Submit Job page**
 ![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
 
+### Email the artist about a job
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog (Figures 60 and 61). It opens a themed dialog pre-filled with From, To (the job's owner), CC, Subject (`cuemail: please check <jobName>`), and a Body that greets the artist by name. Every field is editable. **Send** hands the result to your default mail client via a `mailto:` URL.
+
+**Figure 60: Email Artist entry in the job context menu**
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+**Figure 61: Email Artist dialog pre-filled from the selected job**
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
 
 ## Conclusion
 

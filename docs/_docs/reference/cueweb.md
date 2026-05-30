@@ -95,6 +95,8 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
 | `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
+| `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
+| `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 
 ### Authentication Variables
 
@@ -404,7 +406,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Job** | Navigate to the job detail page. *(placeholder)* |
 | **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
 | **Copy Job Name** | Copy the full job name to the clipboard. |
-| **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
+| **Email Artist...** | Open a themed dialog mirroring CueGUI's Email dialog. Fields (From, To, CC, BCC, Subject, Body) are pre-filled from the job and editable; see [Email Artist dialog](#email-artist-dialog). |
 | **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
 | **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
@@ -469,6 +471,36 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 | **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
 | **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
 | **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
+
+---
+
+### Email Artist dialog
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's `EmailDialog`. Mounted once via `<EmailArtistDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-email-artist` CustomEvent that `emailArtistGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/email-artist-dialog.tsx`.
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | `<show>-<NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (informational - see below) |
+| **To** | `<user>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (the job's owner) |
+| **CC** | same as From |
+| **BCC** | empty |
+| **Subject** | `cuemail: please check <jobName>` |
+| **Body** | `Your Support Team requests that you check <jobName>` followed by `Hi <user>,` |
+
+Send mechanism: the **Send** button builds a `mailto:` URL with the dialog's `to`, `cc`, `bcc`, `subject`, and `body` and assigns it to `window.location.href`. The OS hands the URL to the user's default mail client (Mail.app, Outlook, Thunderbird, etc.).
+
+Browsers don't let `mailto:` override the user's account's `From:` header, so the **From** field in the dialog is informational only - it surfaces the support alias the team typically uses. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with.
+
+Configurable at build time via two env vars (see [Environment Variables](#environment-variables)):
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`).
+- `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` (default `pst`, matching CueGUI's "production support team" alias convention).
 
 ---
 

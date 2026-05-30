@@ -153,6 +153,16 @@ NEXTAUTH_SECRET=nextauth-production-secret
 #   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 
+# Email Artist dialog defaults. The job context menu's
+# "Email Artist..." entry pre-fills From, To, CC, Subject and Body
+# from the selected job; these two values drive the address format
+# (<user>@<domain> for To; <show>-<suffix>@<domain> for From / CC).
+# Both default to a placeholder for the sandbox; set them to real
+# values so production emails resolve to your real addresses instead
+# of "your.domain.com".
+# NEXT_PUBLIC_EMAIL_DOMAIN=studio.example.com
+# NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX=pst
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret

@@ -427,6 +427,22 @@ export function setPriorityGivenRow(row: Row<any>) {
   );
 }
 
+// Right-click "Email Artist..." handler. Dispatches a CustomEvent that
+// the EmailArtistDialog (mounted at the page level) listens for; the
+// dialog opens pre-filled with From/To/CC/Subject/Body derived from the
+// job and the deployment's email domain. Decoupled this way so the
+// free-function context-menu handlers don't need to reach into the
+// table's component state.
+export function emailArtistGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-email-artist", {
+      detail: { job },
+    }),
+  );
+}
+
 export function setMaxRetriesGivenRow(row: Row<any>) {
   const job = row.original as Job;
   const raw = window.prompt(`Set max retries for ${job.name}`, "3");

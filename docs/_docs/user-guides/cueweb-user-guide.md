@@ -349,6 +349,20 @@ Important notes:
 
    ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
 
+#### Emailing the artist
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog. Right-click a job and pick the entry from the menu:
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+A themed dialog opens pre-filled from the job - From, To (the job's owner), CC, Subject (`cuemail: please check <jobName>`), and a Body that greets the artist by name. Every field is editable.
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Clicking **Send** hands the filled-in fields to your default mail client (Mail.app on macOS, Outlook on Windows, your configured `mailto:` handler on Linux). Because the browser uses a `mailto:` URL, the **From** header on the email you actually send is decided by your mail client - the From field in the dialog is informational and shows the support alias the team typically uses.
+
+The email domain and the per-show support alias suffix are configured at deployment time, so production emails resolve to your real addresses rather than the `your.domain.com` placeholder shown in the sandbox.
+
 ---
 
 ## Job Comments

@@ -431,6 +431,49 @@ The second event drives the optimistic in-row update: `DataTable` patches `table
 
 ---
 
+## Email Artist dialog (CueGUI parity)
+
+The Jobs table's right-click **Email Artist...** entry opens a themed dialog mirroring CueGUI's `EmailDialog`. Same CustomEvent pattern as Set Priority - the dialog is mounted once at the bottom of `DataTable` and the free-function context-menu handler dispatches an event with the row's job. Files involved:
+
+```
+cueweb/
+├── app/utils/action_utils.ts                 # emailArtistGivenRow(row) event dispatcher
+├── components/ui/email-artist-dialog.tsx     # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx  # "Email Artist..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <EmailArtistDialog />
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-email-artist` | `emailArtistGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `EmailArtistDialog` | `{ job: Job }` |
+
+There is no corresponding "sent" event - the browser hands the composed mail off to the OS via a `mailto:` URL, so there's nothing for the table to optimistically update.
+
+### Pre-filled defaults
+
+On `cueweb:open-email-artist`, the dialog derives:
+
+- `From = <show>-${NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX}@${NEXT_PUBLIC_EMAIL_DOMAIN}` (informational - see below).
+- `To = <user>@${NEXT_PUBLIC_EMAIL_DOMAIN}` (the job's owner).
+- `CC = From`.
+- `BCC = ""`.
+- `Subject = "cuemail: please check <jobName>"`.
+- `Body = "Your Support Team requests that you check <jobName>\n\nHi <user>,\n"`.
+
+Both env vars are read at module scope: `NEXT_PUBLIC_EMAIL_DOMAIN` defaults to `"your.domain.com"` and `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` defaults to `"pst"`, matching CueGUI's `<show>-pst@<domain>` placeholders.
+
+### Send mechanism
+
+`handleSend` builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body` via `URLSearchParams` (and `encodeURIComponent` on the `to` part) and assigns it to `window.location.href`. The OS hands the URL off to the user's default mail client.
+
+Browsers don't let `mailto:` override the user's mail account's `From:` header, so the dialog's **From** field is informational only. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with. The dialog's `DialogDescription` calls this out so the user isn't surprised.
+
+The **Send** button is disabled when `to.trim()` is empty.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

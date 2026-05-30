@@ -30,6 +30,7 @@ import {
   eatFrameGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
+  emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
   killLayerGivenRow,
@@ -266,7 +267,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Email Artist...",
-      onClick: notYetImplemented("Email Artist"),
+      onClick: emailArtistGivenRow,
       isActive: true,
       component: <TbMessage className="mr-1" size={14} />,
     },
