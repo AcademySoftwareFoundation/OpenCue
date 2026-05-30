@@ -78,6 +78,24 @@ The CueWeb interface consists of:
 - **Jobs Table**: Main view of all jobs with sortable columns
 - **Action Buttons**: Job control operations
 
+The login page:
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+The Dashboard:
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
+The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
+
+![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+
+
+![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+
+
 ---
 
 ## Monitoring Jobs
@@ -103,7 +121,7 @@ The CueWeb interface consists of:
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
-   The subscription always succeeds; the OS-level notification permission is requested afterwards as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions persist across page reloads via `localStorage` and a background poller checks each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+   The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
 
 ### Understanding Job Status
 
@@ -172,8 +190,22 @@ CueWeb has two ways to inspect a job:
    - Right-click the job row and choose **Comments**, or click the sticky-note icon in the Jobs table's dedicated **Comments** column (right after Name) when the job already has comments.
    - The Jobs table's Comments column is sortable - click the column header to pull jobs with comments to the top.
    - The Comments page mirrors the CueGUI Comments dialog: comment list (Subject / User / Date), a markdown-rendered preview, an editor for the selected comment, and `New` / `Save changes` / `Delete` buttons.
-   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros (`localStorage` key `cueweb-comment-macros`).
+   - A **Use a predefined comment…** dropdown applies, adds, edits, or deletes per-browser comment macros.
    - Only a comment's author may edit or delete it; other users see it read-only.
+
+The **View Job Details** menu item and the tabbed detail page (Overview / Layers / Frames):
+
+![CueWeb View Job Details menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_menu.png)
+
+
+![CueWeb Job Details overview tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+
+
+![CueWeb Job Details layers tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_layers.png)
+
+
+![CueWeb Job Details frames tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_frames.png)
+
 
 ### Understanding Layers
 
@@ -238,6 +270,13 @@ Frames are the individual rendering tasks within each layer.
    - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
    - Counts on each chip always reflect the full unfiltered data set.
 
+The frame right-click menu, and the confirmation toast shown after an action:
+
+![CueWeb frame context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
+
+
+![CueWeb frame action success notification](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
+
 ### Frame Troubleshooting
 
 1. Open job details for a job with failed frames
@@ -254,7 +293,13 @@ Frames are the individual rendering tasks within each layer.
 
 ### Basic Search
 
-The search bar supports multiple search patterns:
+The search bar supports multiple search patterns. As you type, a dropdown suggests matching jobs you can pick from:
+
+![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
+
+![CueWeb job search pick from list](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs_pick_from_list.png)
+
 
 #### Simple Text Search
 ```
@@ -323,6 +368,9 @@ Prefix searches with `!` to enable regex patterns:
 
 Each of the three data tables (Jobs, Layers, Frames) has its own **Columns** dropdown in the per-table toolbar.
 
+![CueWeb column visibility dropdown](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_column%20_visibility_dropdown.png)
+
+
 1. **Show / Hide columns**:
    - Open the **Columns** dropdown.
    - Toggle the checkbox next to any column to hide / show it.
@@ -339,14 +387,14 @@ Each of the three data tables (Jobs, Layers, Frames) has its own **Columns** dro
 5. **Sort**:
    - Click any sortable column header to toggle ascending / descending.
 
-Both visibility and ordering choices persist per table in `localStorage` and survive reloads, navigations, and Docker rebuilds.
+Both visibility and ordering choices are saved per table in your browser and survive reloads, navigations, and redeployments.
 
 ## Real-time Monitoring
 
 ### Auto-refresh Settings
 
 * **Refresh Interval**: CueWeb uses a fixed 5-second update interval for all tables.
-* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds. When the job reaches `FINISHED` an in-app toast fires (always), and a desktop popup is layered on top when you have granted the browser's notification permission. Subscriptions are stored in `localStorage` and survive page reloads; when several tabs poll the same job concurrently, only one tab actually fires the toast (cross-tab serialization via the Web Locks API).
+* **Job-finished Notifications**: Subscribe to specific jobs via the bell in the **Notify** column. A background poller checks each subscribed job every 15 seconds. When the job reaches `FINISHED` an in-app toast fires (always), and a desktop popup is layered on top when you have granted the browser's notification permission. Subscriptions are saved in your browser and survive page reloads; when several tabs are open for the same job, only one tab shows the notification.
 
 ### Monitoring Best Practices
 

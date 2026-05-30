@@ -75,6 +75,16 @@ docker logs cueweb
 curl http://localhost:3000
 ```
 
+Open `http://localhost:3000` in a browser. With no authentication provider configured the login page shows a single **CueWeb Home** button; with providers enabled it shows the matching sign-in buttons.
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+After signing in (or clicking **CueWeb Home**), you land on the Dashboard, confirming the deployment is healthy.
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
 ---
 
 ## Production Deployment

@@ -662,7 +662,7 @@ via `app/layout.tsx`. The header is implemented in
 Layout, left to right:
 
 - **OpenCue logo + "CueWeb" wordmark**: The logo swaps between
-  `public/opencue-icon-black.png` (light mode) and
+  `public/opencue-icon-black.png` and
   `public/opencue-icon-white.png` (dark mode). Clicking the logo returns
   to `/` (Monitor Jobs).
 - **File** dropdown:
@@ -724,6 +724,31 @@ The `/login` page handles both auth configurations:
 - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap` (or any subset)
   renders one sign-in button per configured provider.
 
+The header dropdown menus:
+
+![CueWeb File menu](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
+
+
+![CueWeb Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+
+![CueWeb Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+
+
+![CueWeb CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
+
+
+![CueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
+
+
+![CueWeb Help menu](/assets/images/cueweb/cueweb_help_menu.png)
+
+
+The bottom status bar:
+
+![CueWeb status bar](/assets/images/cueweb/cueweb_status_indicators.png)
+
+
 ---
 
 ## Left Sidebar
@@ -731,6 +756,9 @@ The `/login` page handles both auth configurations:
 CueWeb also mounts a collapsible sidebar to the left of the content area.
 Implemented in `components/ui/app-sidebar.tsx` and hidden on `/login*` and
 on viewports smaller than the `md` breakpoint.
+
+![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+
 
 - Same six groups as the header (**File**, **Cuebot Facility**,
   **Cuetopia**, **CueCommander**, **Other**, **Help**), organized as
@@ -812,6 +840,9 @@ When the flag is on:
   Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
   remain active.
 
+![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
+
+
 ---
 
 ## Attributes Panel
@@ -830,6 +861,28 @@ implemented in `components/ui/attributes-panel.tsx`.
   across consumers via `cueweb:attributes-panel-changed`).
 - **Filter input**: narrows the key/value tree live; parent groups stay
   visible whenever any descendant matches.
+
+The Attributes panel for a selected job and for a selected layer:
+
+![CueWeb attributes panel for a job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
+
+
+![CueWeb attributes panel for a layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
+
+
+The panel docked on each edge of the viewport - right, bottom, left, and top:
+
+![CueWeb attributes panel docked right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
+
+
+![CueWeb attributes panel docked bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
+
+
+![CueWeb attributes panel docked left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
+
+
+![CueWeb attributes panel docked top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
+
 
 ---
 
@@ -915,7 +968,9 @@ CueWeb supports light and dark themes:
 - **Light Mode**: Default theme with light backgrounds
 - **Dark Mode**: Dark theme for reduced eye strain
 
-Toggle via the sun/moon button in the global header.
+Toggle via the sun/moon button in the global header (or press `t`). The choice persists across sessions. Every view has a dark equivalent; for example, the Monitor Jobs page in dark mode:
+
+![CueWeb Monitor Jobs in dark mode](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png)
 
 ### CSS Variables
 

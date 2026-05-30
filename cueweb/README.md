@@ -407,11 +407,11 @@ Go back to [Contents](#contents).
 
 ### Below are some screenshots of the interface
 
-<img src="interface_screenshots/login.png" width="800"/>
-<img src="interface_screenshots/mainpage.png" width="800"/>
-<img src="interface_screenshots/mainpage_dark.png" width="800"/>
-<img src="interface_screenshots/layersframes.png" width="800"/>
-<img src="interface_screenshots/frame.png" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png" alt="CueWeb login page" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png" alt="CueWeb Monitor Jobs main page" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png" alt="CueWeb Monitor Jobs main page in dark mode" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png" alt="CueWeb inline layers and frames panels" width="800"/>
+<img src="../docs/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png" alt="CueWeb frame log view" width="800"/>
 
 Go back to [Contents](#contents).
 

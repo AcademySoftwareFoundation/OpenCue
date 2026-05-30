@@ -182,6 +182,21 @@ The CueWeb interface includes:
 - **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a small "Home > Jobs > ..." breadcrumb above the content so you can navigate back to the index. Long labels truncate with an ellipsis and the full text appears in a tooltip on hover.
 - **Keyboard shortcuts**: Press `?` anywhere (or use **Other ▸ Show Shortcuts**) to open the cheat-sheet. A small toast appears on every triggered shortcut so you know it registered; turn it off via **Other ▸ Notify on Shortcut** if you prefer silence.
 
+The login page (or the **CueWeb Home** button when authentication is disabled):
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+The Dashboard you land on after signing in:
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
+The Cuetopia Monitor Jobs view with the jobs table:
+
+![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+
+
 ---
 
 ## Step 5: Basic Operations
@@ -192,6 +207,11 @@ The CueWeb interface includes:
 2. Use the **Show** dropdown to filter jobs by show
 3. Apply status filters (Active, Paused, Completed)
 
+Click a job row to reveal the inline Layers and Frames panels below the jobs table:
+
+![CueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
+
+
 ### Job Management
 
 - **Pause/Resume**: Click the pause/play button for individual jobs
@@ -199,6 +219,14 @@ The CueWeb interface includes:
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.
 - **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon in the Jobs table's **Comments** column (sortable, sits right after Name), to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros.
+
+The job right-click menu, and the tabbed Job Details page it can open:
+
+![CueWeb job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
+
+
+![CueWeb Job Details overview](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+
 
 ### Frame Operations
 
@@ -208,7 +236,7 @@ The CueWeb interface includes:
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
-7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions persist across page reloads (stored in `localStorage`) and a background poller checks each subscribed job every 15 seconds. When the same job is polled by several tabs concurrently, only one tab actually fires the toast (cross-tab serialization via the Web Locks API).
+7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. When the same job is open in several tabs, only one tab shows the notification.
 8. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
 9. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
 
@@ -217,6 +245,9 @@ The CueWeb interface includes:
 - **Simple Search**: Type show name followed by hyphen (e.g., "myshow-")
 - **Regex Search**: Prefix with `!` for advanced patterns (e.g., "!.*test.*")
 - **Dropdown Suggestions**: Shows matching jobs as you type
+
+![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
 
 ---
 
