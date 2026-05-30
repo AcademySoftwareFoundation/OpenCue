@@ -462,6 +462,30 @@ export function requestCoresGivenRow(row: Row<any>) {
   );
 }
 
+// Right-click "Subscribe to Job" handler. Dispatches a CustomEvent that
+// the SubscribeToJobDialog listens for. The dialog mirrors CueGUI's
+// SubscribeToJobDialog: a small form with the job name, a (read-only)
+// From address and an editable To address. Save calls
+// addJobSubscriber() which forwards to the AddSubscriber RPC on Cuebot;
+// when the job finishes Cuebot sends an email to the subscriber.
+export function subscribeToJobGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Calls the Cuebot AddSubscriber RPC to register an email subscriber for
+// the job. Cuebot sends notification email to subscriber on job completion.
+export async function addJobSubscriber(job: Job, subscriber: string) {
+  const endpoint = "/api/job/action/addsubscriber";
+  const body = JSON.stringify({ job, subscriber });
+  await performAction(endpoint, [body], `Subscribed ${subscriber} to ${job.name}`);
+}
+
 export function setMaxRetriesGivenRow(row: Row<any>) {
   const job = row.original as Job;
   const raw = window.prompt(`Set max retries for ${job.name}`, "3");

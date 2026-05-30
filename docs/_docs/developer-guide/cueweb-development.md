@@ -527,6 +527,81 @@ If the fetch rejects, `layers` is set to `[]` and the prelude reads `(no layers 
 
 ---
 
+## Subscribe to Job (Email subscription via Cuebot)
+
+The Jobs table's right-click **Subscribe to Job** entry opens a themed
+dialog mirroring CueGUI's `SubscribeToJobDialog`. Unlike the **Notify
+bell** in the Jobs table (a *browser-side* subscription that fires an
+in-app toast + optional desktop popup), this dialog registers a
+*server-side, email* subscriber on Cuebot. When the job reaches
+`FINISHED`, Cuebot sends an email to the saved address.
+
+Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                              # subscribeToJobGivenRow / addJobSubscriber
+├── components/ui/subscribe-to-job-dialog.tsx              # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx    # "Subscribe to Job" menu entry
+├── app/jobs/data-table.tsx                                # Mounts <SubscribeToJobDialog />
+└── app/api/job/action/addsubscriber/route.ts              # Proxy to /job.JobInterface/AddSubscriber
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-subscribe-to-job` | `subscribeToJobGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `SubscribeToJobDialog` | `{ job: Job }` |
+
+### Pre-filled defaults
+
+On `cueweb:open-subscribe-to-job`, the dialog derives:
+
+- `Job name` (read-only): from `detail.job.name`.
+- `From` (read-only label): `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` if set, otherwise `opencue-noreply@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+- `To` (editable): `session.user.email` if available; fallback to `<sessionName-or-jobUser>@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+
+### Save mechanism
+
+`handleSave` validates `to.trim()` against a permissive
+`^\S+@\S+\.\S+$` regex (Cuebot does its own validation server-side),
+then calls:
+
+```ts
+await addJobSubscriber(job, to.trim());
+```
+
+which posts `{ job, subscriber }` to `/api/job/action/addsubscriber`.
+The proxy route forwards to `/job.JobInterface/AddSubscriber` on the
+REST gateway via `handleRoute`. A `busy` flag disables both buttons
+while the request is in flight and prevents `onOpenChange` from closing
+the dialog mid-save.
+
+### Why this is separate from the Notify bell
+
+Two completely different lifecycles:
+
+| Aspect | **Subscribe to Job** (this entry) | **Notify bell** (`subscribe-bell.tsx`) |
+|--------|------------------------------------|---------------------------------------|
+| State lives on | Cuebot (persisted across browsers / users / machines) | The browser (`localStorage`) |
+| Notification channel | Email sent by Cuebot | In-app toast + optional desktop popup |
+| Trigger | `AddSubscriber` RPC | Polling loop in `JobSubscriptionPoller` |
+| Cancel | Outside CueWeb (whatever Cuebot supports) | Click the bell again |
+| Survives reinstall | Yes | No (per-browser store) |
+
+They can be used together: a user can both click the bell to get a
+browser popup and Save the dialog to also receive an email. The two
+codepaths never touch each other.
+
+### Configurable env vars
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `NEXT_PUBLIC_EMAIL_DOMAIN` | `your.domain.com` | Shared with Email Artist + Request Cores. Drives the default `To` address. |
+| `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | `opencue-noreply@<EMAIL_DOMAIN>` | The informational `From` label shown in the dialog. The actual sender is whatever Cuebot is configured with. |
+
+---
+
 ## Pause / Unpause Toggle (Job Context Menu)
 
 The job context menu's **Pause / Unpause** entry is a single toggle: the

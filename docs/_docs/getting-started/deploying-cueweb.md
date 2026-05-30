@@ -171,6 +171,14 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Request-Cores team alias for production.
 # NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX=support
 
+# Subscribe to Job dialog default. The job context menu's
+# "Subscribe to Job" entry shows an informational From label that
+# defaults to opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>. Set this
+# to your deployment's real no-reply alias if you want the dialog
+# to show a more accurate sender. The actual email sender is whatever
+# Cuebot is configured with; this label is informational only.
+# NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL=opencue-noreply@studio.example.com
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret

@@ -98,6 +98,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 | `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
+| `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | Informational **From** label shown by the **Subscribe to Job** dialog. The actual email sender is whatever Cuebot is configured with - this is purely a UI hint. See [Subscribe to Job dialog](#subscribe-to-job-dialog). | `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>` |
 
 ### Authentication Variables
 
@@ -409,7 +410,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Copy Job Name** | Copy the full job name to the clipboard. |
 | **Email Artist...** | Open a themed dialog mirroring CueGUI's Email dialog. Fields (From, To, CC, BCC, Subject, Body) are pre-filled from the job and editable; see [Email Artist dialog](#email-artist-dialog). |
 | **Request Cores...** | Open a themed dialog mirroring CueGUI's `RequestCoresDialog`. From / To / CC / BCC / Subject inputs are pre-filled; the body is auto-populated with the job's still-active layers (Layer Name / Minimum Memory / Min Cores) and two editable Date/Time + Notes sections. **Send** hands the result to the user's default mail client via a `mailto:` URL. See [Request Cores dialog](#request-cores-dialog). |
-| **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
+| **Subscribe to Job** | Open a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered with Cuebot via the `AddSubscriber` RPC, so Cuebot emails the subscriber when the job finishes. This is the *server-side, email* subscription - different from the [Notify bell](#job-finished-notifications) (browser-side, in-app + optional desktop popup). See [Subscribe to Job dialog](#subscribe-to-job-dialog). |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
 | **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
 | **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
@@ -534,6 +535,35 @@ Configurable at build time:
 
 - `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with Email Artist).
 - `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` (default `support`, matching CueGUI's `<show>-support@<domain>` convention - distinct from Email Artist's `pst`).
+
+### Subscribe to Job dialog
+
+The job context menu's **Subscribe to Job** entry mirrors CueGUI's `SubscribeToJobDialog`. Unlike the [Notify bell](#job-finished-notifications) - which is a *browser-side* subscription that fires an in-app toast (and optional desktop popup) - this entry registers a *server-side, email* subscriber on Cuebot. When the job reaches `FINISHED`, Cuebot sends an email to the saved address.
+
+Mounted once via `<SubscribeToJobDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-subscribe-to-job` CustomEvent that `subscribeToJobGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/subscribe-to-job-dialog.tsx`.
+
+![Subscribe to Job entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+![Subscribe to Job dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **Job name** | Read-only, taken from the row. |
+| **From** | Read-only label - `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` if set, otherwise `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>`. Informational only - the actual sender is whatever Cuebot is configured with. |
+| **To** | Editable; the signed-in user's `session.user.email`, falling back to `<sessionName-or-jobUser>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+
+Save mechanism: the **Save** button trims and validates the **To** address with a permissive `^\S+@\S+\.\S+$` check (Cuebot does its own validation server-side), then calls `addJobSubscriber(job, subscriber)` from `action_utils.ts`. That posts `{ job, subscriber }` to `/api/job/action/addsubscriber`, which forwards to `/job.JobInterface/AddSubscriber` via the REST gateway. A success toast confirms the subscription:
+
+![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+The **Save** button is disabled while the **To** field is empty or while a save is in flight. **Cancel** closes the dialog without contacting Cuebot.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with the other email dialogs).
+- `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` (default `opencue-noreply@<EMAIL_DOMAIN>`). Use this to surface a deployment-specific informational From label without touching the code.
 
 ---
 
@@ -667,6 +697,7 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 |-------|-------------|
 | `POST /api/job/getcomments` | `job.JobInterface/GetComments` |
 | `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` |
+| `POST /api/job/action/addsubscriber` | `job.JobInterface/AddSubscriber` |
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 

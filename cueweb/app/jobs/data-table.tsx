@@ -48,6 +48,7 @@ import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
+import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -1651,6 +1652,13 @@ export function DataTable({ columns, username }: DataTableProps) {
           active layers; user fills Date/Time + notes; Send hands the
           result to the user's default mail client via a mailto: URL. */}
       <RequestCoresDialog />
+
+      {/* Subscribe to Job dialog. Mounted once here; opens in response
+          to a `cueweb:open-subscribe-to-job` CustomEvent fired from the
+          row context menu's "Subscribe to Job" entry. On Save it calls
+          the Cuebot AddSubscriber RPC so Cuebot emails the subscriber
+          when the job finishes. */}
+      <SubscribeToJobDialog />
     </>
   );
 }

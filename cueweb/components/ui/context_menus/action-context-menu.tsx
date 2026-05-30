@@ -42,6 +42,7 @@ import {
   retryLayerFramesGivenRow,
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
+  subscribeToJobGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
 } from "@/app/utils/action_utils";
@@ -285,8 +286,11 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
+      // Opens a small dialog mirroring CueGUI's SubscribeToJobDialog. On
+      // Save the address is registered with Cuebot via the AddSubscriber
+      // RPC; Cuebot emails the subscriber when the job finishes.
       label: "Subscribe to Job",
-      onClick: notYetImplemented("Subscribe to Job"),
+      onClick: subscribeToJobGivenRow,
       isActive: true,
       component: <TbStar className="mr-1" size={14} />,
     },

@@ -116,12 +116,24 @@ The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
-5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+5. **Subscribe to Job Completion - in-browser**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
    - Outline bell &rarr; not subscribed
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
    The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+
+6. **Subscribe to Job Completion - by email**: For notifications that survive closing the browser or that should go to a team alias, right-click the job row and pick **Subscribe to Job**. A small dialog opens with the job name, an informational **From** address, and an editable **To** address (pre-filled with your account email).
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+   Adjust **To** if you want notifications sent somewhere else and click **Save**. A toast confirms the address has been registered with Cuebot; the email arrives from Cuebot when the job finishes.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+   The Notify bell and **Subscribe to Job** are independent - the bell lives in your browser, the email subscription lives on Cuebot. You can use either or both at the same time.
 
 ### Understanding Job Status
 

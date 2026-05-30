@@ -106,13 +106,9 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-21. **Per-job completion notifications:**
-   - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
-   - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
-   - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
-   - Subscriptions always succeed; the OS-level notification permission is an optional upgrade for desktop popups. Clicking the bell branches the resulting toast on `granted` / `denied` / `default` so users know whether they got an in-app-only subscription or also a system popup.
-   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app toast fires (always), and a desktop popup appears too if the OS-level notification permission was granted. When several CueWeb tabs poll the same job concurrently only one tab actually fires the toast, so you see exactly one notification per finished job.
-   - Subscriptions are persisted in the browser and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Mutations are synced across tabs.
+21. **Per-job completion notifications (two channels):**
+   - **Notify bell** (Jobs table **Notify** column): clicking the bell subscribes the *browser* to an in-app toast (and an optional desktop popup) when the job reaches `FINISHED`. Three visual states - outline (not subscribed), filled (subscribed/waiting), filled with a green dot (notification fired). The bell is disabled on rows whose job state is already `FINISHED` when first viewed. Subscriptions always succeed; the OS-level notification permission is an optional upgrade. An app-wide background poller checks each subscribed job every 15 seconds; when several tabs poll the same job concurrently only one actually fires the toast. Subscriptions are persisted in the browser, survive page reloads, sync across tabs, and self-prune when the job is deleted from Cuebot.
+   - **Subscribe to Job** (right-click menu on a job row): opens a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered on Cuebot via the `AddSubscriber` RPC, so Cuebot **emails** the subscriber when the job finishes. Use this when you want notifications to survive closing the browser, going to a different machine, or to alert a team alias instead of yourself. Independent of the Notify bell; you can use one, the other, or both.
 
 22. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
    - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
@@ -484,6 +480,24 @@ The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCores
 
 **Figure 63: Request Cores dialog pre-filled from the selected job**
 ![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+
+### Subscribe to a job by email
+
+The job context menu's **Subscribe to Job** entry mirrors CueGUI's `SubscribeToJobDialog` (Figures 64 to 66). Unlike the **Notify bell** in the Jobs table - which is a *browser-side* subscription that fires an in-app toast (and optional desktop popup) - this entry registers a *server-side, email* subscriber on Cuebot. When the job reaches `FINISHED`, Cuebot sends an email to the saved address.
+
+The dialog shows the job name, an informational **From** address (deployment default), and an editable **To** address pre-filled with your account email (or `<user>@<domain>` if your session doesn't expose one). Edit the **To** field if you want notifications sent somewhere else - a team alias, a personal address, etc. - and click **Save**. A toast confirms the subscription is registered.
+
+The two subscription mechanisms are independent; you can use one, the other, or both.
+
+**Figure 64: Subscribe to Job entry in the job context menu**
+![Subscribe to Job entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+**Figure 65: Subscribe to Job dialog pre-filled from the selected job**
+![Subscribe to Job dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+**Figure 66: Toast confirming the subscription is registered**
+![Toast confirming the subscription is registered](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
 
 
 ## Conclusion

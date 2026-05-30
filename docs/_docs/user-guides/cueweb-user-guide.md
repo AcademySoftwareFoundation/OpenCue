@@ -791,6 +791,37 @@ Behavior:
 - Subscriptions are saved in your browser and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
 - If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
 
+### Subscribe to Job (email subscription)
+
+The **Notify bell** above is a *browser-side* subscription: it stays in your browser and fires a popup in your CueWeb tab. If you want Cuebot to send you an **email** when the job finishes - for example, so you get notified after closing the browser, or so a team alias is informed - use the **Subscribe to Job** entry in the job's right-click menu instead.
+
+The two are independent. You can use either, or both at the same time. Their differences in plain terms:
+
+| | **Notify bell** (Notify column) | **Subscribe to Job** (right-click menu) |
+|--|---------------------------------|------------------------------------------|
+| Where the subscription lives | Your browser | Cuebot |
+| Notification channel | In-app toast (always) + desktop popup (when permission granted) | Email sent by Cuebot |
+| Survives a browser reset or new device | No | Yes |
+| Cancel | Click the bell again | Outside CueWeb (whatever Cuebot supports) |
+
+**To subscribe by email:**
+
+1. Right-click the job row in the Jobs table and pick **Subscribe to Job**.
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+2. A small dialog opens with the job name, an informational **From** address (your administrator sets the default), and an editable **To** address pre-filled with your account email.
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+3. Edit the **To** field if you want notifications sent somewhere else (a team alias, a personal address, etc.) and click **Save**.
+
+4. A toast confirms the subscription is registered with Cuebot.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+When the job reaches `FINISHED`, Cuebot sends the configured notification email to the saved address. The address you see in the **From** field is informational only - the real sender is whatever your Cuebot deployment is configured with.
+
 ---
 
 ## Keyboard Shortcuts
