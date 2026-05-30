@@ -604,17 +604,20 @@ export function DataTable({ columns, username }: DataTableProps) {
   // win after a toggle change).
   const handleGetJobs = React.useCallback(
     debounce(async (query: string, searchType: string, includeFinished: boolean) => {
+      if (searchType !== SEARCH_BY_REGEX) return;
+      dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
+      setJobSearchLoading(true);
       try {
-        if (searchType !== SEARCH_BY_REGEX) return;
-        dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
-        setJobSearchLoading(true);
         const newJobs = await getJobsForRegex(query, includeFinished);
-        setJobSearchLoading(false);
         dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
         dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
         searchFinishedRef.current = true;
       } catch (error) {
         handleError(error, "Error searching for jobs");
+      } finally {
+        // Always clear the spinner, even when getJobsForRegex throws -
+        // otherwise the search input stays stuck in the loading state.
+        setJobSearchLoading(false);
       }
     }, searchDelay),
     [],

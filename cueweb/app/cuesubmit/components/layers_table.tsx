@@ -76,12 +76,21 @@ export function LayersTable({
               <tr
                 key={i}
                 className={cn(
-                  "border-t cursor-pointer",
+                  "border-t cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   i === selectedIndex
                     ? "bg-blue-500/15 text-foreground"
                     : "hover:bg-foreground/5",
                 )}
+                role="button"
+                tabIndex={0}
+                aria-pressed={i === selectedIndex}
                 onClick={() => onSelect(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(i);
+                  }
+                }}
               >
                 <td className="px-3 py-2 align-top font-medium">
                   {layer.name || <span className="text-foreground/40">(unnamed)</span>}
@@ -103,6 +112,7 @@ export function LayersTable({
           onClick={onAdd}
           disabled={disabled}
           title="Add a new layer"
+          aria-label="Add a new layer"
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -113,6 +123,7 @@ export function LayersTable({
           onClick={onRemove}
           disabled={disabled || !canRemove}
           title="Remove the selected layer"
+          aria-label="Remove the selected layer"
         >
           <Minus className="h-4 w-4" />
         </Button>
@@ -123,6 +134,7 @@ export function LayersTable({
           onClick={onMoveDown}
           disabled={disabled || !canMoveDown}
           title="Move selected layer down"
+          aria-label="Move selected layer down"
         >
           <ArrowDown className="h-4 w-4" />
         </Button>
@@ -133,6 +145,7 @@ export function LayersTable({
           onClick={onMoveUp}
           disabled={disabled || !canMoveUp}
           title="Move selected layer up"
+          aria-label="Move selected layer up"
         >
           <ArrowUp className="h-4 w-4" />
         </Button>

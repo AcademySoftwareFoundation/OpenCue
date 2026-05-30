@@ -73,7 +73,10 @@ export async function POST(request: NextRequest) {
     "/job.JobInterface/LaunchSpecAndWait",
     JSON.stringify({ spec }),
   );
-  const data = await response.json();
+  // The REST gateway is supposed to return JSON, but a misconfigured or down
+  // gateway can answer with empty bodies / HTML / plain text - guard the
+  // parse so the handler doesn't crash with an unhandled SyntaxError.
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     return NextResponse.json(
       {

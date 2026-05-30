@@ -112,8 +112,13 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
     if (!job) return;
 
     let cancelled = false;
+    // Serialize polls: a slow request must not be overtaken by a newer one
+    // and stomp on fresher layer/frame state when it finally resolves.
+    let inFlight = false;
 
     const load = async (initial: boolean) => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         if (initial) {
           setLoadingLayers(true);
@@ -129,6 +134,7 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
       } catch (err) {
         if (!cancelled) handleError(err, "Error refreshing job details");
       } finally {
+        inFlight = false;
         if (!cancelled) {
           setLoadingLayers(false);
           setLoadingFrames(false);
