@@ -48,7 +48,7 @@ import { getFrameLogDir } from "@/app/utils/get_utils";
 import { toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { Row } from "@tanstack/react-table";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
 import {
@@ -165,6 +165,10 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   unfilteredTableStorageName,
 }) => {
   const router = useRouter();
+  // "View Job" loads the selected row into the Monitor Jobs (Cuetopia) table.
+  // It is meaningless on Cuetopia itself, so we only expose it on Monitor Cue.
+  const pathname = usePathname();
+  const isOnMonitorCue = pathname === "/monitor-cue";
 
   // Navigate to the tabbed job detail page at /jobs/<jobName>?tab=overview.
   // The page (app/jobs/[job-name]/page.tsx) owns the Overview / Layers /
@@ -173,6 +177,16 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   function handleViewJobDetails(row: Row<any>) {
     const job = row.original as Job;
     router.push(`/jobs/${encodeURIComponent(job.name)}?tab=overview`);
+  }
+
+  // "View Job" deep-links to the Cuetopia Monitor Jobs page (/) with the
+  // selected job's name in the search query. The jobs table reads `search`
+  // on mount, auto-loads the matching job into the monitored set, then
+  // strips the param so a refresh doesn't re-fire. Same mechanism as the
+  // "View in Monitor Jobs" button on the tabbed job detail page.
+  function handleViewJob(row: Row<any>) {
+    const job = row.original as Job;
+    router.push(`/?search=${encodeURIComponent(job.name)}`);
   }
 
   function handleUnmonitorJobGivenRow(row: Row<any>) {
@@ -221,12 +235,19 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: true,
       component: <TbEyeOff className="mr-1" size={14} />,
     },
-    {
-      label: "View Job",
-      onClick: notYetImplemented("View Job"),
-      isActive: true,
-      component: <TbDots className="mr-1" size={14} />,
-    },
+    // "View Job" loads the row into Cuetopia's Monitor Jobs table; on
+    // Cuetopia itself the user is already viewing it, so the entry is
+    // only included when the menu opens on the Monitor Cue page.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "View Job",
+            onClick: handleViewJob,
+            isActive: true,
+            component: <TbDots className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       // Tabbed detail page (Overview / Layers / Frames / Comments /
       // Dependencies) with URL-synced active-tab state. Lives at
