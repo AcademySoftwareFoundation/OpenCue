@@ -290,8 +290,20 @@ Jobs are color-coded by status:
 
 #### Pause/Resume Jobs
 
-1. **Single Job**: Click the `Pause`/`Unpause` button in the Actions menu
-2. **Multiple Jobs**: Select jobs using checkboxes, then use the `Pause`/`Unpause` button
+The right-click menu shows a single entry that reflects the job's current
+state:
+
+- The entry reads **Pause** when the job is running (In Progress, Failing,
+  or Dependency) - clicking it pauses the job.
+- The entry reads **Unpause** when the job is already paused - clicking
+  it resumes the job.
+- The entry is shown disabled (grayed) when the job is Finished, since a
+  completed job cannot be paused.
+
+1. **Single Job**: Right-click the row and pick **Pause** / **Unpause**, or
+   click the toolbar button in the Actions menu.
+2. **Multiple Jobs**: Select jobs using checkboxes, then use the
+   **Pause Jobs** / **Unpause Jobs** toolbar buttons.
 
 #### Kill Jobs
 
@@ -316,7 +328,7 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, **Pause / Unpause** (single toggle - the label flips with the job's paused state and is grayed out for Finished jobs), Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
 
 ### Adjusting job priority (Set Priority)
 

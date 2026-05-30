@@ -420,7 +420,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
-| **Pause** / **Unpause** | Pause or resume the job. |
+| **Pause** / **Unpause** | Single toggle entry: shows **Pause** when the job is running and **Unpause** when the job is already paused. The label, icon (`TbPlayerPause` / `TbPlayerPlay`) and dispatched action all flip on the row's `isPaused` flag. The entry is shown disabled (grayed) when the job's `state === "FINISHED"` (a terminal state can't be paused), and when the global *Disable Job Interaction* safety flag is on. Active in all other states (In Progress, Failing, Dependency). |
 | **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
 | **Retry Dead Frames** | Retry every dead frame. |
 | **Eat Dead Frames** | Mark every dead frame as eaten. |
@@ -906,9 +906,10 @@ When the flag is on:
   Pause, Unpause, Kill) disable themselves visually and ignore clicks.
   *Unmonitor* is non-destructive and remains active.
 - The right-click context menus on **job**, **layer**, and **frame** rows
-  dim every destructive item (Pause / Retry / Retry Dead Frames / Eat /
-  Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
-  remain active.
+  dim every destructive item (Pause / Unpause / Retry / Retry Dead Frames
+  / Eat / Eat Dead Frames / Kill). The Pause/Unpause entry is a single
+  toggle whose label flips on `isPaused` - both flavors are dimmed the
+  same way. *Unmonitor* and *Comments* on the job menu remain active.
 
 ![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
 

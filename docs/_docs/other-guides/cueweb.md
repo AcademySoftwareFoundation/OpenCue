@@ -88,7 +88,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 17. **CueWeb actions and context menu (CueGUI parity):**
    - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
    - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
-   - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, **Set Priority...** (themed 1-100 slider + number input), Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
+   - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, **Set Priority...** (themed 1-100 slider + number input), Set Max Retries, Reorder / Stagger Frames, **Pause / Unpause** (single toggle - the label and icon flip with the job's paused state, and the entry is grayed out for Finished jobs), Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
    - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
    - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
    - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
@@ -427,7 +427,9 @@ Selecting **Other -> Show Shortcuts** opens an overlay listing the available key
 
 ### CueWeb Actions for Jobs / Layers / Frames
 
-The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type. 
+The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type.
+
+The Pause / Unpause entry in the job context menu is a single toggle: it reads **Pause** when the job is running (In Progress, Failing, Dependency), **Unpause** when the job is already paused, and is shown disabled (grayed) when the job is Finished.
 
 Figure 52 shows the `job` context menu with options to `un-monitor`, `comments`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 53 shows the successful message after selecting `kill` a job.
 

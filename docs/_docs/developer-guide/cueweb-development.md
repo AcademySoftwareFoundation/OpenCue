@@ -527,6 +527,81 @@ If the fetch rejects, `layers` is set to `[]` and the prelude reads `(no layers 
 
 ---
 
+## Pause / Unpause Toggle (Job Context Menu)
+
+The job context menu's **Pause / Unpause** entry is a single toggle: the
+label, icon, and click handler all flip based on the row's `isPaused`
+flag. CueGUI's `MonitorJobs` widget does the same thing, so this is a
+parity item.
+
+Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                              # pauseJobGivenRow / unpauseJobGivenRow
+└── components/ui/context_menus/action-context-menu.tsx    # The toggle entry
+```
+
+### State derivation
+
+Inside `JobContextMenu` (`components/ui/context_menus/action-context-menu.tsx`):
+
+```tsx
+const isJobPaused = !!contextMenuState.row?.original.isPaused;
+```
+
+### The toggle entry
+
+The menuItems array contains a single Pause/Unpause entry instead of two
+static ones:
+
+```tsx
+{
+  label: isJobPaused ? "Unpause" : "Pause",
+  onClick: isJobPaused ? unpauseJobGivenRow : pauseJobGivenRow,
+  isActive: destructiveActive,
+  component: isJobPaused ? (
+    <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+  ) : (
+    <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+  ),
+},
+```
+
+### Disabled-state matrix
+
+`destructiveActive` is already defined as:
+
+```tsx
+const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
+const destructiveActive = isActive && !jobInteractionDisabled;
+```
+
+So the toggle resolves like this:
+
+| Job state | `isPaused` | Label shown | Active? |
+|-----------|------------|-------------|---------|
+| In Progress | `false` | **Pause** | yes |
+| Failing | `false` | **Pause** | yes |
+| Dependency | `false` | **Pause** | yes |
+| Paused | `true` | **Unpause** | yes |
+| Finished | `false` | **Pause** | no (state-gated) |
+| Any state + global safety flag on | - | shown label | no (flag-gated) |
+
+No additional code is needed to handle Finished or the global safety flag
+- both fall out of the existing `destructiveActive` boolean.
+
+### Toolbar buttons
+
+The Jobs toolbar still surfaces separate **Pause Jobs** / **Unpause Jobs**
+buttons (`pauseJobsFromSelectedRows` / `unpauseJobsFromSelectedRows` in
+`action_utils.ts`) because the toolbar acts on the multi-row checkbox
+selection - those rows can have mixed `isPaused` states, so a single
+toggle would be ambiguous. Only the single-row right-click menu collapses
+to one entry.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

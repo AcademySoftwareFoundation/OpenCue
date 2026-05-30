@@ -214,7 +214,7 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
 ### Job Management
 
-- **Pause/Resume**: Click the pause/play button for individual jobs
+- **Pause/Resume**: Right-click a job and pick **Pause** (or **Unpause** if the job is already paused). The same entry toggles between the two labels based on the job's current state, and is grayed out for Finished jobs.
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.

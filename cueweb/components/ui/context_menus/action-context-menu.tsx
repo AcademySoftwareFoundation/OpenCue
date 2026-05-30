@@ -228,6 +228,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   const editable = !jobInteractionDisabled;
   const grayIfDisabled = (active: boolean) => (active ? undefined : "gray");
 
+  // Pause/Unpause is a single toggle (CueGUI parity): show "Unpause" when
+  // the job is paused, "Pause" otherwise. destructiveActive already
+  // disables the entry on FINISHED jobs and when the global safety flag
+  // is set, so In Progress / Failing / Dependency all behave correctly.
+  const isJobPaused = !!contextMenuState.row?.original.isPaused;
+
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.JobActions
   const menuItems: MenuItem[] = [
     // -- Top group: identity + lookup actions ----------------------
@@ -376,18 +382,16 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
     sep("group-pause"),
 
-    // -- Pause / Unpause ------------------------------------------
+    // -- Pause / Unpause (single toggle) --------------------------
     {
-      label: "Pause",
-      onClick: pauseJobGivenRow,
+      label: isJobPaused ? "Unpause" : "Pause",
+      onClick: isJobPaused ? unpauseJobGivenRow : pauseJobGivenRow,
       isActive: destructiveActive,
-      component: <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
-    },
-    {
-      label: "Unpause",
-      onClick: unpauseJobGivenRow,
-      isActive: destructiveActive,
-      component: <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
+      component: isJobPaused ? (
+        <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+      ) : (
+        <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+      ),
     },
 
     sep("group-eat-kill"),

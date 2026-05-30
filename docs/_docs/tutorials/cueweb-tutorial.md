@@ -146,27 +146,42 @@ Jobs are color-coded for quick identification:
 
 ### Pausing and Resuming Jobs
 
-Sometimes you need to pause jobs to free up resources or fix issues.
+Sometimes you need to pause jobs to free up resources or fix issues. The
+context menu shows a single Pause/Unpause entry whose label reflects the
+job's current state - **Pause** when the job is running, **Unpause** when
+the job is already paused, and grayed out when the job is Finished.
 
 #### Pause a Job
 
-1. Find the job you want to pause
-2. Click the **Pause** button in the Actions menu
-3. The job status should change to "PAUSED" with a blue indicator
+1. Find the job you want to pause (anything that is not already Finished
+   or Paused).
+2. Right-click the row - the entry will read **Pause**.
+3. Click **Pause**.
+4. The job status changes to "Paused" with a blue indicator, and the next
+   time you right-click the row the same entry will read **Unpause**.
 
 #### Resume a Job
 
-1. Find a paused job (blue indicator)
-2. Click the **Unpause** button in the Actions menu
-3. The job should return to "PENDING" or "RUNNING"
+1. Find a paused job (blue indicator).
+2. Right-click the row - the entry will read **Unpause**.
+3. Click **Unpause**.
+4. The job returns to In Progress (or Failing / Dependency if it has dead
+   frames or unmet dependencies).
+
+#### What you'll see in other states
+
+- **In Progress, Failing, Dependency**: entry reads **Pause** and is active.
+- **Paused**: entry reads **Unpause** and is active.
+- **Finished**: entry reads **Pause** but is grayed out - a completed job
+  cannot be paused.
 
 ### Pause and Resume Practice
 
-1. Find an active job with running frames
-2. Pause the job and watch the status change
-3. Wait 30 seconds for the interface to refresh
-4. Resume the job
-5. Observe how the job returns to the queue
+1. Find an active job with running frames.
+2. Right-click and choose **Pause** - watch the status change to Paused.
+3. Wait 30 seconds for the interface to refresh.
+4. Right-click again - the entry now reads **Unpause**.
+5. Choose **Unpause** and observe how the job returns to the queue.
 
 ### Adjusting Priority
 
