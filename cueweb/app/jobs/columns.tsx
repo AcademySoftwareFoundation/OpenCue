@@ -24,6 +24,7 @@ import { ArrowUpDown, MoreHorizontal, StickyNote, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { RowActionsCell } from "@/components/ui/row-actions-cell";
+import { FramesLayersPopup } from "@/components/ui/frames-layers-popup";
 import { Status } from "@/components/ui/status";
 import { SubscribeBell } from "@/components/ui/subscribe-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

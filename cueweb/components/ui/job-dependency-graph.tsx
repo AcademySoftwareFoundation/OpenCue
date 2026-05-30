@@ -18,7 +18,7 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const nodeWidth = 200;
-const nodeHeight = 50;
+const nodeHeight = 80;
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
   dagreGraph.setGraph({ rankdir: direction });
@@ -80,7 +80,10 @@ export function JobDependencyGraph({ job, onNavigate }: JobDependencyGraphProps)
                 border: isDark ? '1px solid #475569' : '1px solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '10px',
-                fontSize: '12px'
+                fontSize: '12px',
+                width: nodeWidth,
+                wordBreak: 'break-all',
+                textAlign: 'center'
               }
             });
           }

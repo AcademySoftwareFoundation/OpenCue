@@ -26,6 +26,7 @@ import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Inbox, X } from "lucide-react";
+import { FramesLayersPopup } from "./frames-layers-popup";
 import { SimpleDataTable } from "./simple-data-table";
 
 /**
@@ -186,6 +187,9 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
               </span>
             ) : null}
           </p>
+        </div>
+        <div>
+          <FramesLayersPopup job={job} username={username} />
         </div>
       </header>
 
