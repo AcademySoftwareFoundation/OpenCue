@@ -163,6 +163,14 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_EMAIL_DOMAIN=studio.example.com
 # NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX=pst
 
+# Request Cores dialog default. The job context menu's
+# "Request Cores..." entry pre-fills CC with
+# <show>-<suffix>@<NEXT_PUBLIC_EMAIL_DOMAIN>. CueGUI traditionally
+# targets a different team queue than Email Artist (which uses "pst"),
+# so this is broken out as its own env var. Set it to your real
+# Request-Cores team alias for production.
+# NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX=support
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret

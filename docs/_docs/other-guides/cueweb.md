@@ -473,6 +473,16 @@ The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog (
 **Figure 61: Email Artist dialog pre-filled from the selected job**
 ![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
 
+### Request cores from the support team
+
+The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCoresDialog` (Figures 62 and 63). It opens an email composer pre-filled with **From** (your signed-in session), **CC** (`<show>-support@<domain>`), **Subject** (`Requesting Cores for <jobName>`), and an auto-populated body listing the job's still-active layers (Layer Name / Minimum Memory / Min Cores). Two extra fields let you add the **Date/Time by which completion is needed** and any **additional notes**. **Send** hands the result to your default mail client via a `mailto:` URL.
+
+**Figure 62: Request Cores entry in the job context menu**
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+**Figure 63: Request Cores dialog pre-filled from the selected job**
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
 
 ## Conclusion
 

@@ -474,6 +474,59 @@ The **Send** button is disabled when `to.trim()` is empty.
 
 ---
 
+## Request Cores dialog (CueGUI parity)
+
+The Jobs table's right-click **Request Cores...** entry opens a themed email composer mirroring CueGUI's `RequestCoresDialog`. Same CustomEvent pattern as Email Artist - the dialog is mounted once at the bottom of `DataTable` and the free-function context-menu handler dispatches an event with the row's job. Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                 # requestCoresGivenRow(row) event dispatcher
+├── components/ui/request-cores-dialog.tsx    # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx  # "Request Cores..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <RequestCoresDialog />
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-request-cores` | `requestCoresGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `RequestCoresDialog` | `{ job: Job }` |
+
+### Pre-filled defaults
+
+On `cueweb:open-request-cores`, the dialog derives:
+
+- `From = session.user.email` (fallback to `<sessionName>@${NEXT_PUBLIC_EMAIL_DOMAIN}`, then empty).
+- `To = ""` (user fills in).
+- `CC = <show>-${NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX}@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+- `BCC = ""`.
+- `Subject = "Requesting Cores for <jobName>"`.
+
+The body is auto-populated with `buildPrelude(job, layers)`:
+
+```text
+Requesting more cores for:
+Job Name:       <jobName>
+Group (Folder): <group or show fallback>
+
+Layers that have frames remaining (waiting and running):
+
+Layer Name                          Minimum Memory    Min Cores
+<remaining layers>
+```
+
+### Async layer fetch
+
+Layer data isn't on the row, so the dialog kicks off `getLayersForJob(job)` in the same effect that handles the open event. Until the response lands, `layers` is `null` and the prelude renders `Loading layers...`; once it resolves the dialog re-renders with a filtered list (`waitingFrames + runningFrames > 0`) so only layers that could actually use the extra cores show up.
+
+If the fetch rejects, `layers` is set to `[]` and the prelude reads `(no layers currently have waiting or running frames)`.
+
+### Send mechanism
+
+`handleSend` stitches the auto-populated prelude with two editable sections - **Date/Time by which completion is needed** and **Additional notes (flag priority frames etc.)** - and builds a `mailto:` URL the same way Email Artist does. Same `From:`-is-informational caveat. The **Send** button is disabled when `to.trim()` is empty.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

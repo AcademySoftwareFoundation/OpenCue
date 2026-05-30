@@ -97,6 +97,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
+| `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
 
 ### Authentication Variables
 
@@ -407,7 +408,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
 | **Copy Job Name** | Copy the full job name to the clipboard. |
 | **Email Artist...** | Open a themed dialog mirroring CueGUI's Email dialog. Fields (From, To, CC, BCC, Subject, Body) are pre-filled from the job and editable; see [Email Artist dialog](#email-artist-dialog). |
-| **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
+| **Request Cores...** | Open a themed dialog mirroring CueGUI's `RequestCoresDialog`. From / To / CC / BCC / Subject inputs are pre-filled; the body is auto-populated with the job's still-active layers (Layer Name / Minimum Memory / Min Cores) and two editable Date/Time + Notes sections. **Send** hands the result to the user's default mail client via a `mailto:` URL. See [Request Cores dialog](#request-cores-dialog). |
 | **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
 | **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
@@ -501,6 +502,38 @@ Configurable at build time via two env vars (see [Environment Variables](#enviro
 
 - `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`).
 - `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` (default `pst`, matching CueGUI's "production support team" alias convention).
+
+---
+
+### Request Cores dialog
+
+The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCoresDialog`. Mounted once via `<RequestCoresDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-request-cores` CustomEvent that `requestCoresGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/request-cores-dialog.tsx`.
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | The signed-in user's email (`session.user.email`, falling back to `<sessionName>@<NEXT_PUBLIC_EMAIL_DOMAIN>` and then to empty). |
+| **To** | Empty - the user fills in the recipient (team lead, support queue, etc.). |
+| **CC** | `<show>-<NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+| **BCC** | Empty. |
+| **Subject** | `Requesting Cores for <jobName>`. |
+| **Body (auto-populated)** | `Requesting more cores for:` header, `Job Name:` + `Group (Folder):`, then a fixed-width table of layers with `waitingFrames + runningFrames > 0` (`Layer Name / Minimum Memory / Min Cores`). |
+| **Date/Time by which completion is needed** | Editable textarea, appended to the body on Send. |
+| **Additional notes (flag priority frames etc.)** | Editable textarea, appended to the body on Send. |
+
+Layer breakdown is fetched asynchronously on dialog open via `getLayersForJob(job)`; the body shows `Loading layers...` until the response lands, then re-renders with the filtered table.
+
+Send mechanism: the **Send** button stitches the auto-populated prelude together with the Date/Time and Notes sections, builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body`, and assigns it to `window.location.href`. Same `From:`-is-informational caveat as the [Email Artist dialog](#email-artist-dialog). The button is disabled while **To** is empty.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with Email Artist).
+- `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` (default `support`, matching CueGUI's `<show>-support@<domain>` convention - distinct from Email Artist's `pst`).
 
 ---
 

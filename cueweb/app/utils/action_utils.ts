@@ -443,6 +443,25 @@ export function emailArtistGivenRow(row: Row<any>) {
   );
 }
 
+// Right-click "Request Cores..." handler. Dispatches a CustomEvent
+// that the RequestCoresDialog (mounted at the page level) listens for;
+// the dialog opens with an email composer pre-filled with To/CC/Subject
+// and an auto-populated body listing the layers with frames remaining
+// (waiting + running). User adds the wanted completion date and any
+// notes, hits Send, and the OS hands the mail off to their default
+// client via a mailto: URL. Decoupled this way so the free-function
+// context-menu handlers don't need to reach into the table's component
+// state.
+export function requestCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-request-cores", {
+      detail: { job },
+    }),
+  );
+}
+
 export function setMaxRetriesGivenRow(row: Row<any>) {
   const job = row.original as Job;
   const raw = window.prompt(`Set max retries for ${job.name}`, "3");

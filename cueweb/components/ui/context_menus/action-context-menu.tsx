@@ -35,6 +35,7 @@ import {
   killJobGivenRow,
   killLayerGivenRow,
   pauseJobGivenRow,
+  requestCoresGivenRow,
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
@@ -273,7 +274,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Request Cores...",
-      onClick: notYetImplemented("Request Cores"),
+      onClick: requestCoresGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },

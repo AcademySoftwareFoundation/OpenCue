@@ -363,6 +363,18 @@ Clicking **Send** hands the filled-in fields to your default mail client (Mail.a
 
 The email domain and the per-show support alias suffix are configured at deployment time, so production emails resolve to your real addresses rather than the `your.domain.com` placeholder shown in the sandbox.
 
+#### Requesting cores from the support team
+
+When a job is starved for cores, the **Request Cores...** entry on the job context menu opens an email composer addressed to the show's support team (mirroring CueGUI's `RequestCoresDialog`). Right-click a job and pick the entry:
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+The dialog opens pre-filled: **From** comes from your signed-in session, **CC** is the per-show support alias (`<show>-support@<domain>`), **Subject** is `Requesting Cores for <jobName>`, and the body is auto-populated with a table of the job's still-active layers (Layer Name / Minimum Memory / Min Cores) so the support team can see at a glance which layers need more capacity. Two extra fields below the table let you add the **Date/Time by which completion is needed** and any **additional notes** (priority frames, willingness to raise the memory floor, etc.).
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Clicking **Send** stitches the auto-populated body together with your Date/Time and Notes and hands the result to your default mail client. As with **Email Artist...**, the **From** header on the email you actually send is decided by your mail client, not by the dialog.
+
 ---
 
 ## Job Comments

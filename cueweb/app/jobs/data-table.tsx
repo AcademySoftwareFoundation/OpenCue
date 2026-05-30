@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
+import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
@@ -1642,6 +1643,14 @@ export function DataTable({ columns, username }: DataTableProps) {
           Subject/Body from the job and hands the result to the user's
           default mail client via a mailto: URL on Send. */}
       <EmailArtistDialog />
+
+      {/* Request Cores dialog. Mounted once here; opens in response to
+          a `cueweb:open-request-cores` CustomEvent fired from the row
+          context menu's "Request Cores..." entry. Pre-fills From/CC/
+          Subject and auto-populates the body with the job's still-
+          active layers; user fills Date/Time + notes; Send hands the
+          result to the user's default mail client via a mailto: URL. */}
+      <RequestCoresDialog />
     </>
   );
 }
