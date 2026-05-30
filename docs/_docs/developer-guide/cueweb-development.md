@@ -403,7 +403,7 @@ The same module is consumed by both the API route and the live preview, so a pas
 
 ## Set Priority dialog (CueGUI parity)
 
-The Jobs table's right-click **Set Priority...** entry opens a themed dialog with a 1-100 slider + matching number input. Files involved:
+The Jobs table's right-click **Set Priority...** entry opens a themed dialog with a 1-100 slider + matching number input. The menu entry is **not** gated by `usePathname()` - it appears on every page that mounts `JobContextMenu`, so the action is available on both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). (The neighboring **View Job** entry, by contrast, *is* path-gated to `/monitor-cue` only - see [`action-context-menu.tsx`](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/components/ui/context_menus/action-context-menu.tsx) for the conditional spread.) Files involved:
 
 ```
 cueweb/

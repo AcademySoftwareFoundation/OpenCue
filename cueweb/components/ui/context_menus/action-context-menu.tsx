@@ -353,18 +353,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     sep("group-frame-controls"),
 
     // -- Frame-level controls (CueGUI parity).
-    // "Set Priority..." mirrors CueGUI's Monitor Cue option and is hidden
-    // on Cuetopia (/) - same gating pattern as "View Job" above.
-    ...(isOnMonitorCue
-      ? ([
-          {
-            label: "Set Priority...",
-            onClick: setPriorityGivenRow,
-            isActive: editable,
-            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-          },
-        ] as MenuItem[])
-      : []),
+    {
+      label: "Set Priority...",
+      onClick: setPriorityGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
     {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,

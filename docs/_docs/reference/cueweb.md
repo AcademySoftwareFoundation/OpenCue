@@ -418,7 +418,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Drop External Dependencies** | Drop external job-on-job dependencies. |
 | **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
-| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). |
+| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`); the entry is *not* gated by `usePathname()`. See [Set Priority dialog](#set-priority-dialog). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
 | **Pause** / **Unpause** | Single toggle entry: shows **Pause** when the job is running and **Unpause** when the job is already paused. The label, icon (`TbPlayerPause` / `TbPlayerPlay`) and dispatched action all flip on the row's `isPaused` flag. The entry is shown disabled (grayed) when the job's `state === "FINISHED"` (a terminal state can't be paused), and when the global *Disable Job Interaction* safety flag is on. Active in all other states (In Progress, Failing, Dependency). |
@@ -473,6 +473,26 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 | **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
 | **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
 | **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
+
+---
+
+### Set Priority dialog
+
+The job context menu's **Set Priority...** entry opens a themed dialog with a 1-100 range slider and a matching number input - either control drives the value, and both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; cuebot's default is 100. Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and the dispatched action are identical on either page; only the **View Job** entry above it remains gated to `/monitor-cue`.
+
+Mounted once via `<SetPriorityDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-set-priority` CustomEvent that `setPriorityGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/set-priority-dialog.tsx`.
+
+![Set Priority entry in the job context menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with 1-100 slider + matching number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+After **Apply**:
+
+- `setJobPriority(job, value)` from `action_utils.ts` posts `{ job, val }` to `/api/job/action/setpriority`, which forwards to `/job.JobInterface/SetPriority` on the REST gateway.
+- A success toast confirms the new value.
+- The dialog dispatches a `cueweb:priority-changed` CustomEvent that the Jobs table consumes to update the row's **Priority** column optimistically, so the change is visible without waiting for the regular 5-second poll.
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
 ---
 

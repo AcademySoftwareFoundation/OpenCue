@@ -332,12 +332,20 @@ Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. 
 
 ### Adjusting job priority (Set Priority)
 
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (the `/` page you land on by default) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and behavior are identical on either page.
+
 Right-click a job row and pick **Set Priority...** to open a themed dialog. The dialog has a 1-100 range slider and a matching number input - either control drives the value; both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; the cuebot default is 100.
+
+![Set Priority entry in the right-click menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
 
 After Apply:
 
 - A success toast confirms the new value.
 - The job's Priority column in the Jobs table updates immediately (no need to wait for the regular 5-second refresh tick).
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 - **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
 - **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 

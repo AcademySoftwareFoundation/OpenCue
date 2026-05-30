@@ -197,10 +197,20 @@ the job is already paused, and grayed out when the job is Finished.
 
 ### Adjusting Priority
 
-1. Right-click any job row and pick **Set Priority...**.
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** and **CueCommander &rarr; Monitor Cue**. The walk-through below uses Cuetopia.
+
+1. Right-click any job row in Monitor Jobs and pick **Set Priority...**.
+
+   ![Set Priority entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
 2. A themed dialog opens with a 1-100 slider and a matching number input. Either control drives the value; both stay in sync. The current priority is pre-filled (cuebot's default is 100). Higher numbers dispatch first.
+
+   ![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
 3. Drag the slider to 50 (or type a value) and click **Apply**.
 4. A toast confirms the change. The Priority column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+   ![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
 ---
 

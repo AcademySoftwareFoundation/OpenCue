@@ -500,6 +500,22 @@ The two subscription mechanisms are independent; you can use one, the other, or 
 ![Toast confirming the subscription is registered](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
 
 
+### Adjust a job's dispatch priority
+
+The job context menu's **Set Priority...** entry opens a themed dialog with a 1-100 range slider and a matching number input - either control drives the value, and both stay in sync. The current priority is pre-filled (cuebot's default is 100); higher numbers dispatch first. **Set Priority...** is available everywhere the job context menu appears: both **Cuetopia &rarr; Monitor Jobs** (the default landing page) and **CueCommander &rarr; Monitor Cue**. The dialog and behavior are identical on either page (Figures 67 to 69).
+
+After **Apply**, a toast confirms the new value and the **Priority** column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+**Figure 67: Set Priority entry in the job context menu (Cuetopia Monitor Jobs)**
+![Set Priority entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+**Figure 68: Set Priority dialog with slider and number input**
+![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+**Figure 69: Toast confirming the priority change and immediate column update**
+![Toast confirming the priority change](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
+
+
 ## Conclusion
 
 In conclusion, the CueWeb system marks a significant advancement in rendering job management by providing a powerful, web-based interface that simplifies and enhances user interaction with the OpenCue system. With features like customizable job tables, efficient job filtering, and detailed inspections, along with the ability to view comprehensive logs and switch visual modes, CueWeb ensures that managing rendering jobs is more accessible and adaptable to a variety of user needs.
