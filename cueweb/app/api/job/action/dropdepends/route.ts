@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     );
   }
   return NextResponse.json(
-    { data: responseData.data, status: responseData.status ?? response.status },
+    { data: responseData.data, status: response.status },
     { status: response.status },
   );
 }
