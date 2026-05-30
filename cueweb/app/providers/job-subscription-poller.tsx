@@ -18,20 +18,51 @@
 
 import { useEffect, useRef } from "react";
 import { getJob } from "@/app/utils/get_utils";
+import { toastSuccess } from "@/app/utils/notify_utils";
 import {
   getSubscription,
   getSubscriptions,
+  JobSubscription,
   markNotified,
   pickEntriesToNotify,
   removeSubscription,
 } from "@/app/utils/subscription_utils";
-import { toastSuccess } from "@/app/utils/notify_utils";
 
 const POLL_INTERVAL_MS = 15000;
 
-// Serialize the notify decision across same-origin tabs via the Web Locks API
-// so only one tab toasts when several poll the same FINISHED job concurrently.
-// Falls back to a direct call when navigator.locks is unavailable.
+// True when the page can fire a desktop / OS-level notification right
+// now. Checked at fire-time (not module load) so users who flip the
+// site permission in browser settings start receiving system popups on
+// the next poll without a reload.
+function canFireDesktopNotification(): boolean {
+  return (
+    typeof window !== "undefined"
+    && typeof Notification !== "undefined"
+    && Notification.permission === "granted"
+  );
+}
+
+// Single fire path so the in-app toast always runs, with the desktop
+// popup layered on top when the user has granted permission. `new
+// Notification(...)` can throw in some browsers when permission is not
+// granted, so the desktop attempt is wrapped in try/catch and never
+// suppresses the in-app toast.
+function fireCompletionNotice(entry: JobSubscription): void {
+  toastSuccess(`Job finished: ${entry.jobName}`);
+  if (canFireDesktopNotification()) {
+    try {
+      new Notification(entry.jobName, { body: "Job finished" });
+    } catch {
+      // Desktop popup failed (permission revoked between check and
+      // fire, browser quota, etc.); the in-app toast already ran.
+    }
+  }
+}
+
+// Serialize the notify decision across same-origin tabs via the Web Locks
+// API so only one tab fires the toast / desktop popup when several poll the
+// same FINISHED job concurrently. Falls back to a direct call when
+// navigator.locks is unavailable.
 async function withJobNotifyLock(jobId: string, fn: () => void): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.locks) {
     await navigator.locks.request(`cueweb:notify-${jobId}`, { mode: "exclusive" }, async () => {
@@ -74,12 +105,14 @@ export function JobSubscriptionPoller() {
         const toNotify = pickEntriesToNotify(getSubscriptions(), fetchedStates);
         for (const entry of toNotify) {
           if (cancelled) break;
-          // Hold a per-job cross-tab lock around the re-read + toast + mark so
-          // sibling tabs can't both pass the notifiedAt check before either persists.
+          // Hold a per-job cross-tab lock around the re-read + fire + mark
+          // so sibling tabs can't both pass the notifiedAt check before
+          // either persists. fireCompletionNotice runs the in-app toast
+          // and (when permission was granted) the desktop popup.
           await withJobNotifyLock(entry.jobId, () => {
             const fresh = getSubscription(entry.jobId);
             if (!fresh || fresh.notifiedAt !== null) return;
-            toastSuccess(`Job finished: ${entry.jobName}`);
+            fireCompletionNotice(fresh);
             markNotified(entry.jobId);
           });
         }

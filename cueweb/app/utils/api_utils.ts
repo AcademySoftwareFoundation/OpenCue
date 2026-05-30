@@ -84,14 +84,20 @@ export function createJwtToken({ sub, role, iat, exp }: JwtParams): string {
 // Helper function to access a post API with a success or failure returned and handle any errors.
 // Actions follow this format: post to the API and see if the action was successful
 export async function accessActionApi(endpoint: string, body: string | string[]): Promise<{ success?: boolean; error?: string }> {
-    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL;
+    // Default to a same-origin relative URL when NEXT_PUBLIC_URL is empty
+    // or unset. The API routes are mounted by this same Next.js app, so
+    // the browser can reach them at whatever origin the page loaded from
+    // (e.g. http://localhost:3000 on the dev environment, http://<lan-ip>:3000
+    // from another device on the same network). Hardcoding the host in the
+    // client bundle would break every non-localhost client.
+    const base = process.env.NEXT_PUBLIC_URL ?? "";
     const bodyAr = Array.isArray(body) ? body : [body];
-  
+
     try {
       // Run all API requests in parallel for better performance
       await Promise.all(
         bodyAr.map(async (curBody) => {
-          const response = await fetch(`${NEXT_PUBLIC_URL}${endpoint}`, {
+          const response = await fetch(`${base}${endpoint}`, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: curBody,
@@ -113,10 +119,11 @@ export async function accessActionApi(endpoint: string, body: string | string[])
 
 // Helper function to access object retrieval APIs that return arrays of objects (jobs, layers, or frames).
 export async function accessGetApi(endpoint: string, body: string): Promise<any> {
-    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL;
-  
+    // Same-origin relative URL by default (see accessActionApi above).
+    const base = process.env.NEXT_PUBLIC_URL ?? "";
+
     try {
-      const response = await fetch(`${NEXT_PUBLIC_URL}${endpoint}`, {
+      const response = await fetch(`${base}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: body,

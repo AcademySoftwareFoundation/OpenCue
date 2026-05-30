@@ -38,6 +38,25 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
 }) => {
   if (!contextMenuState.isVisible || !contextMenuState.position) return null;
 
+  // Cap the menu's height so it never extends past the viewport. The cap
+  // is the smaller of "remaining space from click point to bottom of
+  // viewport" minus a small margin, and 80vh as an upper bound. When the
+  // content exceeds the cap, the menu scrolls internally via the
+  // overflowY:'auto' rule below. This avoids the user having to zoom
+  // out the browser to reach items that fell off screen on jobs with
+  // the full ~25-item menu.
+  //
+  // No 240px floor: when the click lands near the bottom of the
+  // viewport, the floor would let the menu spill below the fold. The
+  // internal scroll handles a short cap fine. Clamped at 0 so a click
+  // past the bottom margin doesn't emit a negative CSS value.
+  const VIEWPORT_MARGIN_PX = 16;
+  const remainingBelow =
+    typeof window !== "undefined"
+      ? window.innerHeight - contextMenuState.position.y - VIEWPORT_MARGIN_PX
+      : 480;
+  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, 0)}px)`;
+
   // Event handlers for better performance and readability
   const handleItemClick = (item: MenuItem) => {
     item.onClick(contextMenuState.row);
@@ -66,12 +85,23 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
         border: '1px solid #e2e8f0',
         padding: '4px',
         whiteSpace: 'nowrap',
+        maxHeight: menuMaxHeight,
+        overflowY: 'auto',
       }}
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {items.map((item, index) => (
           <li key={index}>
-            {item.isActive ? (
+            {item.separator ? (
+              // Horizontal divider between logical groups (CueGUI parity).
+              <hr
+                style={{
+                  margin: '4px 6px',
+                  border: 0,
+                  borderTop: '1px solid #e2e8f0',
+                }}
+              />
+            ) : item.isActive ? (
               <div
                 onClick={() => handleItemClick(item)}
                 onMouseEnter={handleMouseEnter}

@@ -22,9 +22,17 @@ import { Job } from "@/app/jobs/columns";
 import { Layer, layerColumns } from "@/app/layers/layer-columns";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import Skeleton from "@mui/material/Skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { SimpleDataTable } from "./simple-data-table";
 import { JobDependencyGraph } from "./job-dependency-graph";
@@ -110,13 +118,7 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
 
   const renderSkeleton = (count: number) => {
     return Array.from({ length: count }).map((_, index) => (
-      <Skeleton
-        key={`skeleton-${index}`}
-        variant="rounded"
-        width="100%"
-        height="20px"
-        className="animate-pulse"
-      />
+      <Skeleton key={`skeleton-${index}`} className="h-5 w-full" />
     ));
   };
 
@@ -129,9 +131,14 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         <ExternalLink />
       </DialogTrigger>
       {isLoading ? (
-        <DialogContent className="flex max-w-[95%] max-h-[95%] flex-col p-6">
-          <DialogTitle>Loading...</DialogTitle>
-          <div className="space-y-4 w-full">
+        <DialogContent className="flex max-w-[95%] max-h-[95%] flex-col">
+          <DialogHeader>
+            <DialogTitle>Loading...</DialogTitle>
+            <DialogDescription>
+              Fetching layers and frames for this job.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="w-full space-y-4">
             {renderSkeleton(5)}
             <div className="h-2"></div>
             {renderSkeleton(10)}
@@ -139,28 +146,40 @@ export function FramesLayersPopup({ job, username }: FramesLayersPopupProps) {
         </DialogContent>
       ) : (
         <DialogContent className="max-h-[95%] max-w-[95%] overflow-y-scroll">
-          <div className="flex items-center justify-between">
-            <DialogTitle>{job.name}</DialogTitle>
-            <div className="flex space-x-2 mr-8">
-              <button
-                className={`px-3 py-1 rounded text-sm ${activeTab === "tables" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
-                onClick={() => setActiveTab("tables")}
+          <DialogHeader>
+            <DialogTitle className="truncate">{job.name}</DialogTitle>
+            <DialogDescription className="flex flex-wrap items-center gap-2">
+              <span>Layers and frames for this job.</span>
+              <Link
+                href={`/jobs/${encodeURIComponent(job.name)}?jobId=${encodeURIComponent(job.id)}`}
+                className="underline underline-offset-2 hover:text-foreground"
               >
-                Layers & Frames
-              </button>
-              <button
-                className={`px-3 py-1 rounded text-sm ${activeTab === "graph" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
-                onClick={() => setActiveTab("graph")}
-              >
-                Dependency Graph
-              </button>
-            </div>
+                Open full page
+              </Link>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex space-x-2 my-4">
+            <button
+              className={`px-3 py-1 rounded text-sm ${activeTab === "tables" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+              onClick={() => setActiveTab("tables")}
+            >
+              Layers & Frames
+            </button>
+            <button
+              className={`px-3 py-1 rounded text-sm ${activeTab === "graph" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+              onClick={() => setActiveTab("graph")}
+            >
+              Dependency Graph
+            </button>
           </div>
+
+         
           {activeTab === "tables" ? (
-            <>
+            <div className="flex flex-col gap-4">
               <SimpleDataTable data={layers} columns={layerColumns} username={username} />
               <SimpleDataTable data={frames} columns={frameColumns} job={job} isFramesTable={true} username={username} />
-            </>
+            </div>
           ) : (
             <JobDependencyGraph job={job} onNavigate={() => setActiveTab("tables")} />
           )}

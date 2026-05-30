@@ -75,6 +75,16 @@ docker logs cueweb
 curl http://localhost:3000
 ```
 
+Open `http://localhost:3000` in a browser. With no authentication provider configured the login page shows a single **CueWeb Home** button; with providers enabled it shows the matching sign-in buttons.
+
+![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+
+
+After signing in (or clicking **CueWeb Home**), you land on the Dashboard, confirming the deployment is healthy.
+
+![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+
+
 ---
 
 ## Production Deployment
@@ -86,7 +96,12 @@ Create a production environment file:
 ```bash
 # .env.production
 NEXT_PUBLIC_OPENCUE_ENDPOINT=https://api.renderfarm.company.com
-NEXT_PUBLIC_URL=https://cueweb.company.com
+# Leave empty if the UI and the API are served from the same origin
+# (the common case): the client will build same-origin relative URLs
+# and CueWeb works correctly when accessed from any host. Only set
+# this to an absolute URL when the API really lives on a different
+# origin than the UI.
+NEXT_PUBLIC_URL=
 NEXT_JWT_SECRET=very-long-secure-jwt-secret-key
 
 # Production settings
@@ -94,9 +109,49 @@ NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
+# Comma-separated list of providers to enable on the /login page.
+# When empty, /login renders only a "CueWeb Home" button. The global
+# header's Sign out button is always rendered regardless of this value;
+# clicking it routes to /login.
 NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
 NEXTAUTH_URL=https://cueweb.company.com
 NEXTAUTH_SECRET=nextauth-production-secret
+
+# Cuebot Facility selector (optional)
+# Comma-separated list of facilities exposed in the header / sidebar
+# "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
+# (The selected value is persisted client-side; per-facility gateway
+# routing is implemented in a separate page-level change.)
+# NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+
+# Help menu URLs (optional)
+# Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
+# internal docs / suggestions / bug trackers at your own systems.
+# NEXT_PUBLIC_DOCS_URL=https://www.opencue.io/docs/
+# NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
+# NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
+
+# Build version shown in the bottom status bar (optional).
+# Falls back to the `version` field in cueweb/package.json when unset.
+# In CI you typically pass the short Git SHA or a release tag via
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
+# NEXT_PUBLIC_APP_VERSION=1.19.1
+
+# Optional deep-link template for the Frame context menu's
+# "View Log on <editor>" item. The literal {path} is substituted at
+# click time with the absolute rqlog path. Empty hides the menu item
+# entirely. Browser sandboxing prevents reading $EDITOR / spawning
+# subprocesses, so the custom URL scheme is the web-native equivalent
+# of cuegui.Utils.popupView's editor launcher. Common values:
+#   vscode://file{path}
+#   vscode-insiders://file{path}
+#   subl://open?url=file://{path}
+#   txmt://open?url=file://{path}
+#   idea://open?file={path}
+# This MUST be passed as a Docker build arg (the value is inlined into
+# the client bundle at build time):
+#   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
+# NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id

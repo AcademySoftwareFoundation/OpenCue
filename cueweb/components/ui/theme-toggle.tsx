@@ -22,29 +22,48 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
+// One-click theme toggle. The button shows the icon for the theme the
+// user would switch TO, so a sun means "click to go light" (currently
+// dark) and a moon means "click to go dark" (currently light).
+//
+// We read `resolvedTheme` so the toggle behaves correctly even when the
+// user is on the "system" preference - it flips to the opposite of
+// whatever is actually rendering, not the literal "system" string.
 export function ThemeToggle() {
-  const { setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+
+  // SSR + first client render: `resolvedTheme` is undefined until the
+  // next-themes ThemeProvider hydrates. We render an empty-but-sized
+  // placeholder so the layout doesn't jump on hydration.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted) {
+    // disabled + tabIndex={-1} so the hydration placeholder doesn't briefly
+    // act as a focus target / keyboard trap before the real toggle mounts.
+    return (
+      <Button variant="outline" size="icon" aria-hidden="true" disabled tabIndex={-1}>
+        <span className="h-[1.2rem] w-[1.2rem]" />
+      </Button>
+    );
+  }
+
+  const isDark = resolvedTheme === "dark";
+  const label = isDark ? "Switch to light theme" : "Switch to dark theme";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 dark:scale-0" />
-          <Moon color="white" className="absolute h-[1.2rem] w-[1.2rem] scale-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      title={label}
+      aria-label={label}
+    >
+      {isDark ? (
+        <Sun className="h-[1.2rem] w-[1.2rem]" />
+      ) : (
+        <Moon className="h-[1.2rem] w-[1.2rem]" />
+      )}
+    </Button>
   );
 }
