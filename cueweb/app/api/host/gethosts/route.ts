@@ -49,12 +49,24 @@ export async function POST(request: NextRequest) {
   // proper upstream error instead of crashing the route with a 500.
   const raw = await response.text();
   let responseData: any = {};
+  let parseFailed = false;
   if (raw) {
     try {
       responseData = JSON.parse(raw);
     } catch {
+      parseFailed = true;
       responseData = { error: raw };
     }
+  }
+  // A non-JSON body on an otherwise-OK upstream response is itself an
+  // upstream outage (HTML error page, plain-text proxy notice, ...) -
+  // surface it as a 502 instead of silently returning an empty host
+  // list and hiding the failure as "no hosts".
+  if (response.ok && parseFailed) {
+    return NextResponse.json(
+      { error: responseData.error ?? 'Upstream returned a non-JSON response', status: 502 },
+      { status: 502 },
+    );
   }
 
   // Preserve the upstream HTTP status. NextResponse.json defaults to 200
