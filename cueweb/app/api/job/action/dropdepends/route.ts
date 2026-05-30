@@ -53,6 +53,16 @@ export async function POST(request: NextRequest) {
   const body = JSON.stringify(jsonBody);
   const response = await handleRoute(method, endpoint, body, true);
   const responseData = await response.json();
-  if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });
-  return NextResponse.json({ data: responseData.data, status: responseData.status });
+  // Preserve the upstream HTTP status so non-2xx upstream errors don't get
+  // masked as 200 by NextResponse.json's default status.
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: responseData.error, status: response.status },
+      { status: response.status },
+    );
+  }
+  return NextResponse.json(
+    { data: responseData.data, status: response.status },
+    { status: response.status },
+  );
 }

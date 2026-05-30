@@ -63,12 +63,17 @@ export function ConfirmDialog({
   const [busy, setBusy] = React.useState(false);
 
   async function handleConfirm() {
+    setBusy(true);
     try {
-      setBusy(true);
       await onConfirm();
+      // Only dismiss the dialog when the confirmed action actually
+      // succeeded. If onConfirm throws, keep the dialog open so the
+      // caller can surface an error toast next to the still-visible
+      // confirm UI and the user can retry without having to re-trigger
+      // whatever opened the dialog.
+      onOpenChange(false);
     } finally {
       setBusy(false);
-      onOpenChange(false);
     }
   }
 

@@ -179,13 +179,30 @@ export default function CueSubmitPage() {
       const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        reset(parsed);
+      // Validate the parsed draft against the live submission schema before
+      // pushing it back into the form. A stale or hand-edited draft that no
+      // longer matches the schema (fields renamed, types changed, etc.)
+      // would otherwise put the form into a broken state on mount.
+      const result = submissionSchema.safeParse(parsed);
+      if (!result.success) return;
+
+      const restored = result.data;
+      // Normalize authoritative fields so the restored draft can't drift
+      // from server-derived state.
+      if (username && !editUsername) {
+        restored.job.user = username;
       }
+      if (facility && !restored.job.facility) {
+        restored.job.facility = facility;
+      }
+      if (!restored.layers.length) {
+        restored.layers = [makeBlankLayer(0)];
+      }
+      reset(restored);
     } catch {
       // ignore corrupt draft
     }
-  }, [reset]);
+  }, [reset, username, editUsername, facility]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;

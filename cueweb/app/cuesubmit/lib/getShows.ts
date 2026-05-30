@@ -22,14 +22,21 @@ export type ShowOption = { id: string; name: string };
 
 export async function fetchShows(): Promise<ShowOption[]> {
   const base = process.env.NEXT_PUBLIC_URL ?? "";
-  const res = await fetch(`${base}/api/show/getshows`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-    cache: "no-store",
-  });
-  if (!res.ok) return [];
-  const body = await res.json().catch(() => ({}));
+
+  let body: { data?: unknown } = {};
+  try {
+    const res = await fetch(`${base}/api/show/getshows`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    body = await res.json().catch(() => ({}));
+  } catch (err) {
+    console.error("fetchShows: network error", err);
+    return [];
+  }
   const shows = (body?.data ?? []) as Array<{
     id?: string;
     name?: string;
