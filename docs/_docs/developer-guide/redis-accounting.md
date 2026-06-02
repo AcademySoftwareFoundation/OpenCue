@@ -11,7 +11,7 @@ description: >
 
 # Redis-Backed Accounting Reference
 
-### How Cuebot and the Rust scheduler coordinate per-show resource accounting through Redis
+## How Cuebot and the Rust scheduler coordinate per-show resource accounting through Redis
 
 ---
 
@@ -244,7 +244,7 @@ processes. Once N>1 schedulers run, this property generalises directly.
 The scheduler's per-frame booking is a single Lua script that runs against
 Redis, executing five updates atomically:
 
-```
+```text
 1. Read current state of acct:sub / acct:folder / acct:job / acct:layer / acct:point
 2. Check booking would not exceed any limit (size, burst, max_cores, etc.)
 3. If OK: 5 × HINCRBY (int_cores, int_gpus) + INCR acct:seq, return {1}
@@ -395,7 +395,7 @@ gRPC traffic. The signal is loud enough to catch in deploy validation.
 
 Transitioning a show between modes is a single CLI operation:
 
-```
+```bash
 cueadmin -show <name> -setSchedulerManaged true    # move to scheduler
 cueadmin -show <name> -setSchedulerManaged false   # move back to Cuebot
 ```

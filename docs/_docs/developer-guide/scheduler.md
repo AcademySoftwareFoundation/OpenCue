@@ -645,7 +645,7 @@ cueadmin -show <name> -setSchedulerManaged false
 A single Lua script runs the per-frame booking against Redis, executing five updates
 atomically:
 
-```
+```text
 1. Read current state of acct:sub / acct:folder / acct:job / acct:layer / acct:point
 2. Check booking would not exceed any limit (size, burst, max_cores, etc.)
 3. If OK: 5 × HINCRBY (int_cores, int_gpus) + INCR acct:seq, return {1}

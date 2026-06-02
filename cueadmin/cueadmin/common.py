@@ -1268,7 +1268,11 @@ def handleArgs(args):
 
     elif args.scheduler_managed:
         show_name, value = args.scheduler_managed
-        enabled = Convert.stringToBoolean(value)
+        if value.lower() not in ("on", "off"):
+            raise ValueError(
+                "Invalid value for -scheduler-managed: %r (expected ON or OFF)" % value
+            )
+        enabled = value.lower() == "on"
         show = opencue.api.findShow(show_name)
         verb = "Enable" if enabled else "Disable"
         confirm(

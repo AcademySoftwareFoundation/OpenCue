@@ -260,8 +260,8 @@ Cuebot supports two exclusion mechanisms:
    Mark a show as managed by the standalone scheduler. Cuebot then skips that show in
    dispatch and the standalone scheduler dispatches its frames. Toggle with `cueadmin`:
    ```bash
-   cueadmin -scheduler-managed myshow on
-   cueadmin -scheduler-managed myshow off
+   cueadmin -show myshow -setSchedulerManaged true
+   cueadmin -show myshow -setSchedulerManaged false
    ```
 
    Granularity is **per show**, not per show:allocation. If you need to scope dispatch
@@ -281,7 +281,7 @@ We recommend a **gradual migration** approach:
 
 2. **Hand the show to the scheduler**:
    ```bash
-   cueadmin -scheduler-managed testshow on
+   cueadmin -show testshow -setSchedulerManaged true
    ```
 
 3. **Monitor both systems**:
@@ -305,7 +305,7 @@ We recommend a **gradual migration** approach:
 
 2. **Mark each additional show as scheduler-managed**:
    ```bash
-   cueadmin -scheduler-managed mainshow on
+   cueadmin -show mainshow -setSchedulerManaged true
    ```
 
 #### Phase 3: Full Migration (Optional)
@@ -323,7 +323,7 @@ At this point, all dispatching is handled by the scheduler.
 - Marking a show as scheduler-managed applies to the whole show across all allocations.
 - Manual tags and hostname tags are configured on the scheduler side (`manual_tags`);
   they are not show-scoped.
-- To return a show to Cuebot dispatch, run `cueadmin -scheduler-managed myshow off`.
+- To return a show to Cuebot dispatch, run `cueadmin -show myshow -setSchedulerManaged false`.
 
 ## Configuration Reference
 

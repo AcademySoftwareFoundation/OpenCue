@@ -842,9 +842,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
      * run on rollback or it would over-decrement.
      *
      * <p>
-     * folderId and deptId are read directly from the {@link VirtualProc} fields hydrated by
-     * {@link #VIRTUAL_PROC_MAPPER}. A defensive fallback populates them from the job table if a
-     * caller built the proc manually instead of going through a SELECT.
+     * folderId, deptId, and allocationId are read directly from the {@link VirtualProc} fields
+     * hydrated by {@link #VIRTUAL_PROC_MAPPER}. A defensive fallback populates folderId/deptId from
+     * the job table and allocationId from the host table if a caller built the proc manually
+     * instead of going through a SELECT.
      */
     private void registerAfterCommitRedisPublish(final VirtualProc proc) {
         if (proc.folderId == null || proc.deptId == null) {
@@ -852,6 +853,13 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     "SELECT pk_folder, pk_dept FROM job WHERE pk_job=?", proc.getJobId());
             proc.folderId = (String) jobMeta.get("pk_folder");
             proc.deptId = (String) jobMeta.get("pk_dept");
+        }
+
+        // allocationId is sourced from host.pk_alloc (see VIRTUAL_PROC_MAPPER), not the job row, so
+        // backfill it separately to avoid publishing to acct:sub:<show>:null.
+        if (proc.getAllocationId() == null) {
+            proc.allocationId = getJdbcTemplate().queryForObject(
+                    "SELECT pk_alloc FROM host WHERE pk_host=?", String.class, proc.getHostId());
         }
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
