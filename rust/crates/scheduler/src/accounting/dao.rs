@@ -41,6 +41,22 @@ pub struct BookedSnapshotRow {
     pub gpus: i64,
 }
 
+/// The full universe of enumerable accounting keys for scheduler-managed shows,
+/// used by the booked-counter recompute to seed zero baselines. A key present here
+/// but absent from the `SUM(proc)` snapshot has no procs, so its booked counter must
+/// be reset to 0 - otherwise a counter that drifted stale-high and then drained to
+/// zero procs would never converge (the snapshot only returns keys that still have
+/// procs). Layer keys are intentionally absent: layers have no limit table to
+/// enumerate from, and the booking Lua never reads the layer counter (it is
+/// `HINCRBY`-only), so residual layer drift is cosmetic. See `recompute.rs`.
+#[derive(Debug, Clone, Default)]
+pub struct BaselineKeys {
+    pub subs: Vec<(Uuid, Uuid)>,
+    pub folders: Vec<Uuid>,
+    pub jobs: Vec<Uuid>,
+    pub points: Vec<(Uuid, Uuid)>,
+}
+
 #[derive(Debug, Clone)]
 pub struct SubscriptionLimitsRow {
     pub show_id: Uuid,
@@ -187,6 +203,27 @@ impl AccountingDao {
                 gpus: r.gpus,
             })
             .collect())
+    }
+
+    /// Enumerate the full set of sub/folder/job/point keys for scheduler-managed
+    /// shows, by projecting the key tuples out of the four limit queries. Reusing the
+    /// limit queries (rather than dedicated key-only SELECTs) guarantees this key
+    /// universe is grain-consistent with both the limit reseed and the booked snapshot
+    /// (same `b_scheduler_managed` / `str_state <> 'FINISHED'` filters). Layer keys are
+    /// not enumerable from a limit table, so they are absent here by design.
+    pub async fn query_booked_baseline_keys(&self) -> Result<BaselineKeys> {
+        let (subs, folders, jobs, points) = tokio::try_join!(
+            self.query_subscription_limits(),
+            self.query_folder_limits(),
+            self.query_job_limits(),
+            self.query_point_limits(),
+        )?;
+        Ok(BaselineKeys {
+            subs: subs.iter().map(|r| (r.show_id, r.alloc_id)).collect(),
+            folders: folders.iter().map(|r| r.folder_id).collect(),
+            jobs: jobs.iter().map(|r| r.job_id).collect(),
+            points: points.iter().map(|r| (r.dept_id, r.show_id)).collect(),
+        })
     }
 
     pub async fn query_subscription_limits(&self) -> Result<Vec<SubscriptionLimitsRow>> {

@@ -310,6 +310,31 @@ The result is dual-written to:
 The dual write happens under the same SUM query for consistency: both PG and
 Redis end up showing the same snapshot.
 
+#### Zero-convergence for drained keys
+
+`SUM(proc)` only returns keys that **still have procs**. A key whose booked
+counter drifted stale-high (e.g. a lost decrement) and whose procs then drained
+to zero would vanish from the snapshot entirely - so a snapshot-only reseed
+could never reset it, and the stale value would wedge the key forever (for a
+subscription/folder/job this means falsely failing the burst/cap check in the
+booking Lua with no path to recovery).
+
+To close this, the Redis reseed overlays the snapshot on a **zero-baseline** of
+every enumerable key. Before folding in the proc sums, it seeds `int_cores=0`/
+`int_gpus=0` for every `acct:sub`/`acct:folder`/`acct:job`/`acct:point` key that
+exists for a scheduler-managed show - enumerated by reusing the same limit-table
+queries the limit reseed runs (`subscription`, `folder_resource`,
+`job_resource` non-`FINISHED`, `point`). A key present in the baseline but
+absent from the snapshot has no procs, so it emits a resetting `0`; a key with
+procs emits its true sum. This is the same key universe, and same order of
+magnitude of ops, the limit reseed already writes each cycle.
+
+`acct:layer` is intentionally **not** zero-baselined: layers have no limit table
+to enumerate from, and the booking Lua never reads the layer counter (it is
+`HINCRBY`-only), so residual layer drift is cosmetic. Orphaned `acct:job`/
+`acct:layer` keys for `FINISHED` jobs are likewise left in place (never read
+again); reclaiming that memory is tracked as future work.
+
 ### Limit reseed (every 5 min)
 
 For every scheduler-managed show, the scheduler reads limit fields (`size`,

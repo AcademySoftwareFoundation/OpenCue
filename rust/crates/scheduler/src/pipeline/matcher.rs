@@ -266,9 +266,7 @@ impl MatchingService {
                     tags,
                     cores: cores_requested,
                     memory: layer.mem_min,
-                    validation: move |host| {
-                        Self::validate_match(host, os.as_deref(), threadable)
-                    },
+                    validation: move |host| Self::validate_match(host, os.as_deref(), threadable),
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");
