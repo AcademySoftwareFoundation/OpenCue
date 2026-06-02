@@ -493,6 +493,9 @@ impl ClusterFeed {
                     Ok(ControlFlow::Continue(())) => {}
                     Err(e) => {
                         error!("Cluster feed producer iteration panicked: {:?}", e);
+                        // Back off before retrying to avoid a tight spin loop on
+                        // deterministic panics.
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
             }
@@ -545,6 +548,9 @@ impl ClusterFeed {
                     Ok(ControlFlow::Continue(())) => {}
                     Err(e) => {
                         error!("Cluster feed receiver iteration panicked: {:?}", e);
+                        // Back off before retrying to avoid a tight spin loop on
+                        // deterministic panics.
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
             }
