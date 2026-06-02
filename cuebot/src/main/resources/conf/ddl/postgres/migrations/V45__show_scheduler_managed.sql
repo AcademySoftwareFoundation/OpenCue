@@ -10,8 +10,9 @@
 -- practice, so behavior is unchanged.
 --
 -- recalculate_subs() is rewritten here (CREATE OR REPLACE) so that the
--- 2-hour maintenance task skips scheduler-managed shows, per
--- design/SCHED_REDIS_DECISIONS.md Q9a. The body is otherwise identical to
+-- 2-hour maintenance task skips scheduler-managed shows, per the
+-- "recalculate_subs() show-awareness" section of
+-- docs/_docs/developer-guide/redis-accounting.md. The body is otherwise identical to
 -- V20__recalculate_subs_gpu.sql with two narrow changes:
 --   1) the initial UPDATE-to-zero of subscription is restricted to shows
 --      with b_scheduler_managed = false, so Rust-owned rows are never

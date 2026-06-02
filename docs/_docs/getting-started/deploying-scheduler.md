@@ -274,12 +274,19 @@ We recommend a **gradual migration** approach:
 
 #### Phase 1: Test with One Cluster
 
-1. **Deploy scheduler** for a single, low-priority allocation:
+1. **Deploy scheduler** covering **every** allocation of the pilot show. Because
+   `show.b_scheduler_managed` is a whole-show toggle (`cueadmin -setSchedulerManaged`,
+   see [Per-show Scheduler Ownership](#understanding-exclusion-configuration)), the
+   scheduler's `alloc_tags` must list all of `testshow`'s allocations before you flip
+   it — otherwise Cuebot stops dispatching the show while the scheduler ignores any
+   allocation it isn't configured for. If `testshow` only uses the `test` allocation:
    ```bash
    cue-scheduler --facility spi --alloc_tags=testshow:test
    ```
+   If it spans more, list them all (for example `--alloc_tags=testshow:test,testshow:general`).
 
-2. **Hand the show to the scheduler**:
+2. **Hand the show to the scheduler** (only after the scheduler covers the show's full
+   allocation set):
    ```bash
    cueadmin -show testshow -setSchedulerManaged true
    ```
