@@ -523,7 +523,7 @@ impl RqdDispatcherService {
                 DispatchVirtualProcError::AccountingUnavailable(msg)
             }
             AccountingError::Unexpected(msg) => DispatchVirtualProcError::AccountingUnexpected(msg),
-            AccountingError::CasContentionExceeded => {
+            AccountingError::CasContentionExceeded { .. } => {
                 DispatchVirtualProcError::AccountingUnexpected(
                     "CAS contention exceeded".to_string(),
                 )

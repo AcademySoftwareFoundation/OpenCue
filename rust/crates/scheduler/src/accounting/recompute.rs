@@ -35,6 +35,7 @@ use tokio::time;
 use tracing::{debug, error, info, warn};
 
 use crate::accounting::dao::{BaselineKeys, BookedSnapshotRow};
+use crate::accounting::error::AccountingError;
 use crate::accounting::redis_client::ReseedOp;
 use crate::accounting::AccountingService;
 use crate::config::CONFIG;
@@ -95,7 +96,9 @@ async fn run_once(service: &AccountingService, pg_dao: &Arc<ResourceAccountingDa
 
 /// CAS-guarded reseed of the booked-counter fields (`int_cores`/`int_gpus`) on the
 /// five `acct:*` hashes from a fresh `SUM(proc)` snapshot. Used by both the recompute
-/// loop and the bootstrap. On CAS-budget exhaustion: warn and return Ok (per §2.4).
+/// loop and the bootstrap. On CAS-budget exhaustion this returns
+/// `AccountingError::CasContentionExceeded`: the bootstrap caller treats it as a fatal
+/// startup gate, while the periodic loop downgrades it to a warn-log (per §2.4).
 ///
 /// The snapshot is overlaid on a zero-baseline of every enumerable sub/folder/job/point
 /// key (see `query_booked_baseline_keys`), so a key whose counter drifted stale-high and
@@ -139,12 +142,14 @@ pub async fn reseed_redis_once(service: &AccountingService) -> Result<()> {
             max_retries + 1
         );
     }
-    warn!(
-        "Recompute reseed exhausted {} CAS retries; cycle skipped (hot-path writes are \
-         keeping Redis fresh, per design §2.4)",
-        max_retries + 1
-    );
-    Ok(())
+    // CAS budget exhausted. Return an error so the bootstrap caller (which uses `?` as a
+    // startup gate) refuses to begin booking against an unseeded Redis. The periodic
+    // recompute loop catches this and downgrades it to a warn-log instead - there,
+    // hot-path writes are keeping Redis fresh per design §2.4, so a skipped cycle is fine.
+    Err(AccountingError::CasContentionExceeded {
+        attempts: max_retries + 1,
+    })
+    .into_diagnostic()
 }
 
 /// Aggregate one `SUM(proc)` snapshot into HSET ops, one set of ops per unique key.

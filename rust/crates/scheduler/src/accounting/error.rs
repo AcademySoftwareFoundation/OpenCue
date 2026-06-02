@@ -36,13 +36,13 @@ pub enum AccountingError {
     #[error("redis unavailable: {0}")]
     Unavailable(String),
 
-    /// Surfaced via `DispatchVirtualProcError::AccountingUnexpected` when a hot-path
-    /// booking ever needs to be CAS-guarded. Currently only the reseed loops use CAS
-    /// (and they swallow contention with a warn-log per design §2.4), so this is
-    /// reachable code for future expansion rather than the live path today.
-    #[allow(dead_code)]
-    #[error("CAS contention exceeded retry budget; reseed cycle skipped")]
-    CasContentionExceeded,
+    /// Raised when a CAS-guarded reseed exhausts its retry budget. The periodic
+    /// reseed loops downgrade this to a warn-log (hot-path writes keep Redis fresh,
+    /// per design §2.4), but the bootstrap reseed surfaces it as a startup gate so a
+    /// scheduler never begins booking against an unseeded Redis. Carries the number of
+    /// attempts made (`cas_max_retries + 1`) for diagnostics.
+    #[error("CAS contention exceeded retry budget after {attempts} attempts; reseed cycle skipped")]
+    CasContentionExceeded { attempts: u32 },
 
     #[error("accounting redis error: {0}")]
     Unexpected(String),
