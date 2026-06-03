@@ -87,7 +87,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
         url = "http://%s:%d%s" % (http_host, http_port, aovs)
         with urllib.request.urlopen(url) as response:
-            playlist = response.read()
+            playlist = response.read().decode('utf-8')
 
         for element in Et.fromstring(playlist).findall("page/edit/element"):
             items.append(str(element.text))
