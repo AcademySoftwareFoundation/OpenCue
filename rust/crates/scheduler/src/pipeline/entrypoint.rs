@@ -12,7 +12,6 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::{stream, StreamExt};
 use tokio::sync::mpsc;
@@ -69,9 +68,8 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                     )
                     .await;
 
-                match jobs {
+                let (processed_count, should_stop) = match jobs {
                     Ok(jobs) => {
-                        // Track number of jobs queried
                         metrics::increment_jobs_queried(jobs.len());
 
                         let processed_jobs = AtomicUsize::new(0);
@@ -87,33 +85,60 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                 },
                             )
                             .await;
-                        // If no jobs got processed, sleep to prevent hammering the database with
-                        // queries with no outcome
-                        if processed_jobs.load(Ordering::Relaxed) == 0 {
-                            let _ = feed_sender
-                                .send(FeedMessage::Sleep(cluster, Duration::from_secs(3)))
-                                .await;
-                        }
 
-                        // If empty_jobs_cycles_before_quiting is set, quit if nothing got processed
-                        if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
-                            // Count cycles that couldn't find any job
-                            if processed_jobs.load(Ordering::Relaxed) == 0 {
-                                cycles_without_jobs.fetch_add(1, Ordering::Relaxed);
-                            } else {
-                                cycles_without_jobs.store(0, Ordering::Relaxed);
-                            }
+                        let processed = processed_jobs.load(Ordering::Relaxed);
 
-                            // Cancel stream processing after empty cycles
-                            if cycles_without_jobs.load(Ordering::Relaxed) >= limit {
-                                let _ = feed_sender.send(FeedMessage::Stop()).await;
+                        let stop = match CONFIG.queue.empty_job_cycles_before_quiting {
+                            Some(limit) => {
+                                // Combine the update and read into a single atomic
+                                // operation so concurrent clusters can't race between
+                                // a fetch_add/store and a separate load. SeqCst gives
+                                // us a strict total order across all clusters.
+                                let new_count = if processed == 0 {
+                                    cycles_without_jobs.fetch_add(1, Ordering::SeqCst) + 1
+                                } else {
+                                    cycles_without_jobs.swap(0, Ordering::SeqCst);
+                                    0
+                                };
+                                new_count >= limit
                             }
-                        }
+                            None => false,
+                        };
+
+                        (processed, stop)
                     }
                     Err(err) => {
-                        let _ = feed_sender.send(FeedMessage::Stop()).await;
-                        error!("Failed to fetch job: {}", err);
+                        // Don't halt the entire scheduler for a single cluster's
+                        // fetch error (network blip, transient DB load). Treat
+                        // the cluster as empty for this cycle so it gets the
+                        // configured back-off and other clusters keep running.
+                        // The `empty_job_cycles_before_quiting` safety net still
+                        // applies if the error persists across all clusters.
+                        error!(
+                            "Failed to fetch jobs for cluster {}: {}",
+                            cluster, err
+                        );
+                        (0, false)
                     }
+                };
+
+                // Re-insert the cluster into the priority queue. An empty cycle gets a
+                // back-off so neighbors aren't starved while this cluster waits for work.
+                let sleep = if processed_count == 0 {
+                    Some(CONFIG.queue.cluster_empty_back_off)
+                } else {
+                    None
+                };
+                let _ = feed_sender
+                    .send(FeedMessage::Done {
+                        cluster,
+                        processed_jobs: processed_count,
+                        sleep,
+                    })
+                    .await;
+
+                if should_stop {
+                    let _ = feed_sender.send(FeedMessage::Stop).await;
                 }
             }
         })

@@ -97,6 +97,8 @@ pub fn create_test_config() -> Config {
             hostname_tags_chunk_size: 20,
             host_candidate_attempts_per_layer: 5,
             empty_job_cycles_before_quiting: Some(20),
+            cluster_empty_back_off: Duration::from_secs(3),
+            cluster_productivity_bias: true,
             mem_reserved_min: bytesize::ByteSize::mb(250),
             subscription_recalculation_interval: Duration::from_secs(3),
             resource_recalculation_interval: Duration::from_secs(10),

@@ -82,6 +82,14 @@ pub struct QueueConfig {
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attempts_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
+    /// Delay before an empty cluster (no eligible jobs) becomes eligible for dispatch again.
+    /// Used by the priority-queue cluster feed to back off without blocking neighbors.
+    #[serde(with = "humantime_serde")]
+    pub cluster_empty_back_off: Duration,
+    /// When `true`, the cluster priority queue biases toward clusters that produced more
+    /// jobs in the most recent dispatch (productivity bias). When `false`, all clusters
+    /// compete strictly on `next_eligible_at` with a stable tiebreaker.
+    pub cluster_productivity_bias: bool,
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
     pub subscription_recalculation_interval: Duration,
@@ -108,6 +116,8 @@ impl Default for QueueConfig {
             hostname_tags_chunk_size: 300,
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
+            cluster_empty_back_off: Duration::from_secs(3),
+            cluster_productivity_bias: true,
             mem_reserved_min: ByteSize::mib(250),
             subscription_recalculation_interval: Duration::from_secs(3),
             resource_recalculation_interval: Duration::from_secs(10),
