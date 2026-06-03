@@ -251,6 +251,25 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 ---
 
+## Step 6 (optional): Submit a job from the browser (CueSubmit)
+
+CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so you don't need a separate desktop install just to launch a test job:
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+1. Click **CueSubmit > Submit Job** in the top header (or the matching entry in the sidebar / mobile drawer).
+2. In **Job Info** fill in a Job Name (e.g. `quickstart_test`), pick `testing` for Show, type a Shot like `test_shot`, leave Facility as `[Default]`, and confirm Username.
+3. In **Layer Info** fill in a Layer Name (e.g. `layer1`), set Frame Spec to `1-3`, leave Chunk Size at `1` and Memory at the `256m` default, and keep Job Type set to **Shell**.
+4. In **Shell options** type `sleep 5` for Command To Run. Watch the **Final command** field at the bottom update per-keystroke.
+5. Click **Submit**. CueWeb redirects you to the job's detail page where the three frames will go WAITING -> RUNNING -> SUCCEEDED in a few seconds.
+6. Click **View in Monitor Jobs** in the detail-page header to open Cuetopia with the new job already loaded.
+
+The form keeps an autocomplete history (per browser) for Job Name, Shot, and Layer Name across submissions, and auto-saves a draft on every keystroke so an accidental refresh never wipes a multi-layer setup. Click **Reset** to clear the form back to a blank canvas.
+
+---
+
 ## Troubleshooting
 
 ### CueWeb won't start

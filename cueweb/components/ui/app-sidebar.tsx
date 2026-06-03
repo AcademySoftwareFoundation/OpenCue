@@ -43,7 +43,9 @@ import {
   Monitor,
   PieChart,
   Receipt,
+  Send,
   Server,
+  Upload,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -89,6 +91,8 @@ type NavGroup = {
  *   - CueCommander -> Allocations, Limits, Monitor Cue, Monitor Hosts,
  *                    Redirect, Services, Shows, Stuck Frame,
  *                    Subscription Graphs, Subscriptions
+ *   - CueSubmit   -> Submit Job (browser equivalent of the cuesubmit
+ *                    CLI tool; lives at /cuesubmit)
  */
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -112,6 +116,13 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Stuck Frame", href: "/stuck-frames", icon: AlertTriangle },
       { label: "Subscription Graphs", href: "/subscription-graphs", icon: BarChart3 },
       { label: "Subscriptions", href: "/subscriptions", icon: Receipt },
+    ],
+  },
+  {
+    label: "CueSubmit",
+    icon: Upload,
+    items: [
+      { label: "Submit Job", href: "/cuesubmit", icon: Send },
     ],
   },
 ];

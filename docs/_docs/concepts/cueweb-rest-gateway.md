@@ -198,7 +198,7 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | Interface | Description | Example Endpoints |
 |-----------|-------------|-------------------|
 | **ShowInterface** | Project management | `GetShows`, `FindShow`, `CreateShow` |
-| **JobInterface** | Job lifecycle | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment` |
+| **JobInterface** | Job lifecycle + launch | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment`, `LaunchSpecAndWait` |
 | **CommentInterface** | Comment management | `Save`, `Delete` |
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |
@@ -223,6 +223,18 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | **ServiceInterface** | Service definitions | `GetService`, `CreateService`, `Update` |
 | **ServiceOverrideInterface** | Service overrides | `Update`, `Delete` |
 | **TaskInterface** | Task management | `Delete`, `SetMinCores` |
+
+### Job Submission (CueSubmit)
+
+CueWeb's `/cuesubmit` route is a browser-based equivalent of the standalone CueSubmit CLI tool. The data path is:
+
+1. The form serializes a typed payload (job info, layers, per-type options) to JSON.
+2. The Next.js route `POST /api/job/submit` parses + validates the payload with zod.
+3. The same route assembles an OpenCue job-spec XML document (the CJSL format that the standalone pyoutline tool also emits) and forwards it to `job.JobInterface/LaunchSpecAndWait` on the REST Gateway.
+4. The gateway calls the same gRPC RPC against cuebot. Cuebot creates the job, dispatches frames as RQDs become available, and returns the resolved `JobSeq` to the gateway.
+5. CueWeb redirects the browser to the tabbed `/jobs/<name>` detail view; the user can immediately watch their frames go WAITING -> RUNNING -> SUCCEEDED.
+
+The browser never needs `outline` / `pyoutline` / `pycuerun` runtime - the XML the CLI tool builds locally is built server-side inside CueWeb's Node process and posted straight to the gateway. This keeps the deploy footprint small and ensures that submissions from the browser are indistinguishable from CueGUI / CueSubmit-CLI submissions on cuebot's side.
 
 ### Real-time Updates
 

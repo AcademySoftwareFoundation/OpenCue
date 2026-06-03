@@ -344,7 +344,7 @@ Important notes:
 
 ## Job Comments
 
-CueWeb provides full CRUD for per-job comments, equivalent to the **Comments** dialog in CueGUI (`cuegui/cuegui/Comments.py`).
+CueWeb provides full per-job comments, equivalent to the **Comments** dialog in CueGUI.
 
 ### Opening the Comments page
 
@@ -542,6 +542,15 @@ The **Dependencies** tab shows the job's dependency relationships.
 
 ![Job Details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
 
+
+2. **Click a layer** in the Layers panel to:
+   - Narrow the Frames panel to that layer (the Frames title shows `X of Y`).
+   - Push the layer's attributes into the docked Attributes panel.
+   - Clicking the same layer again clears the filter and re-selects the job in Attributes.
+
+3. **Double-click a frame** in the Frames panel to open the log viewer for that frame.
+
+Both inline panels refresh every 5 seconds while a job is selected; switching to a different job clears the panels and reloads.
 
 ### Layer Operations
 
@@ -762,6 +771,57 @@ The same overlay is reachable from the menu if you prefer mouse navigation:
 ### Toast on shortcut
 
 A small toast appears every time you trigger a shortcut so you know it registered (e.g. pressing `r` toasts `Shortcut: r → Refresh table`). The toast can be turned off via **Other ▸ Notify on Shortcut** in the header or sidebar. The preference persists across reloads and across browser tabs.
+
+---
+
+## Submitting Jobs (CueSubmit)
+
+CueWeb has a browser-based equivalent of the standalone CueSubmit CLI tool. Open it from the **CueSubmit > Submit Job** menu in the header (or from the matching entry in the sidebar / mobile drawer) to reach the `/cuesubmit` form.
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+### Filling in a job
+
+1. **Job Info** at the top of the page:
+   - **Job Name** - free text. The actual cuebot job name will be `<show>-<shot>-<user>_<jobname>`.
+   - **Show** - pick one from the dropdown (populated from the shows registered in cuebot).
+   - **Shot** - free text. Letters, numbers, `.`, `-`, `_`.
+   - **Facility** - leave as `[Default]` to use the sandbox's local facility, or pick another if your deployment runs multiple.
+   - **Username** - pre-filled with your signed-in identity when CueWeb is deployed with authentication. Tick the **Edit** checkbox next to the field to submit as someone else; unticking snaps it back to you.
+
+2. **Layer Info** describes the first (and possibly only) layer:
+   - **Layer Name** - free text.
+   - **Frame Spec** - the frames to render. `1-10` means frames 1 through 10. `1-100x2` means every other frame. Click the **?** badge next to the field for more examples.
+   - **Chunk Size** - how many frames cuebot bundles into one dispatched frame.
+   - **Memory** - per-frame request, e.g. `256m`, `1g`. Leave empty to inherit the service default.
+   - **Job Type** - Shell, Maya, Nuke, or Blender. The panel below changes to ask for the inputs that type needs (Shell asks for a command, Maya asks for a scene file + camera, etc.).
+   - **Services** - pick the cuebot service that should run this layer.
+   - **Limits** - optional cuebot limits to apply.
+   - **Override Cores** - tick to pin the per-frame core count (otherwise the service default is used).
+   - **Dependency Type** - for second-and-later layers only: `Layer` means the whole previous layer must finish first; `Frame` means just the matching frame number.
+
+3. **Per-type options panel** is the white box below Layer Info:
+   - **Shell** asks for the command to run. Use `#IFRAME#` for the current frame number and other cuebot tokens (click the **?** for the cheatsheet).
+   - **Maya / Nuke / Blender** ask for a scene file path plus the type-specific inputs (Maya camera, Nuke write nodes, Blender output path / format).
+
+4. **Final command** is a read-only preview of exactly what cuebot will execute. It updates per-keystroke as you fill the form.
+
+5. **Submission Details** is the layers table at the bottom. Use the `+` button to add a second layer (or third, etc.); use `−` to remove the selected layer; the `↑ / ↓` buttons reorder. Clicking a row loads it back into the Layer Info section above for editing.
+
+6. Click **Submit**. CueWeb sends the job to cuebot and redirects you to its detail page so you can watch the frames cycle through WAITING -> RUNNING -> SUCCEEDED.
+
+### Convenience features
+
+- **Autocomplete history**: Job Name, Shot, and Layer Name remember everything you've submitted (per browser). Start typing to see previous values. Mirrors the on-disk cache the standalone CueSubmit keeps.
+- **Auto-saved draft**: the form saves to your browser on every change and restores on next page load, so an accidental refresh never wipes a 10-layer setup. Submitting or Resetting clears the draft.
+- **Reset button**: between Cancel and Submit. Opens a themed confirmation dialog before clearing every field; autocomplete history is kept.
+- **View in Monitor Jobs**: after the page redirects to the new job's detail view, the **View in Monitor Jobs** button in its header opens Cuetopia with the job auto-searched, so you can act on it alongside the rest of your monitored set.
+
+### Sandbox defaults
+
+The form ships with defaults tuned for the OpenCue sandbox so a fresh `sleep 5` test job runs end-to-end without further setup: Memory `256m` (the seeded default service requires 3.2 GB which the sandbox RQD usually can't satisfy), Facility `local` (matches the sandbox RQD's allocation), and a per-user UID that cuebot will accept. Adjust Memory and Facility for production deployments.
 
 ---
 

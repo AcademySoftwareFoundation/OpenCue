@@ -47,15 +47,19 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
   // the full ~25-item menu.
   //
   // No 240px floor: when the click lands near the bottom of the
-  // viewport, the floor would let the menu spill below the fold. The
-  // internal scroll handles a short cap fine. Clamped at 0 so a click
-  // past the bottom margin doesn't emit a negative CSS value.
+  // When the click lands near the bottom of the viewport, the remaining
+  // space below the cursor can be only a few pixels (or even negative),
+  // which would make `min(80vh, 0px)` collapse the menu to zero height
+  // and hide it entirely. Floor the value to MIN_MENU_HEIGHT_PX so the
+  // internal scroll always has at least a few items visible - the
+  // position-flip logic above already keeps the menu inside the viewport.
   const VIEWPORT_MARGIN_PX = 16;
+  const MIN_MENU_HEIGHT_PX = 160;
   const remainingBelow =
     typeof window !== "undefined"
       ? window.innerHeight - contextMenuState.position.y - VIEWPORT_MARGIN_PX
       : 480;
-  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, 0)}px)`;
+  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, MIN_MENU_HEIGHT_PX)}px)`;
 
   // Event handlers for better performance and readability
   const handleItemClick = (item: MenuItem) => {
