@@ -46,10 +46,28 @@ export default function HostsPage() {
   }, []);
 
   React.useEffect(() => {
-    load();
-    const interval = setInterval(load, REFRESH_MS);
-    return () => clearInterval(interval);
-  }, [load]);
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const data = await getHosts();
+        if (!cancelled) {
+          setHosts(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setHosts((prev) => prev ?? []);
+        }
+      }
+    };
+    poll();
+    const interval = setInterval(poll, REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="p-4">
