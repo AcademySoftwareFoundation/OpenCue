@@ -12,7 +12,6 @@
 
 mod dispatcher;
 pub mod entrypoint;
-mod layer_permit;
 mod matcher;
 
 pub use entrypoint::run;

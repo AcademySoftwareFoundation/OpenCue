@@ -35,7 +35,7 @@
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashSet},
-    sync::RwLock,
+    sync::{Arc, Mutex, RwLock},
     time::{Duration, SystemTime},
 };
 
@@ -55,9 +55,19 @@ type MemoryKey = u64;
 /// A B-Tree of Hosts ordered by memory
 pub type MemoryBTree = BTreeMap<MemoryKey, HashSet<HostId>>;
 
+/// Per-CoreKey bucket. Wrapped in an `Arc<Mutex>` so concurrent check-outs and
+/// check-ins on disjoint core sizes don't contend with each other — the outer
+/// `RwLock` only protects the (rarely changing) bucket directory.
+type MemoryBucket = Arc<Mutex<MemoryBTree>>;
+
 pub struct HostCache {
-    /// B-Tree of host groups ordered by their number of available cores
-    hosts_index: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
+    /// Bucket directory keyed by available cores. The outer `RwLock` is read
+    /// on every check-out / check-in to look up a bucket and almost never
+    /// upgraded to write (only when a brand-new `CoreKey` shows up). Once a
+    /// bucket Arc is obtained, the outer lock is released; the bucket's own
+    /// `Mutex` guards the inner `MemoryBTree`, so different buckets are fully
+    /// independent.
+    hosts_index: RwLock<BTreeMap<CoreKey, MemoryBucket>>,
     /// If a cache stops being queried for a certain amount of time, stop keeping it up to date
     last_queried: RwLock<SystemTime>,
     /// Marks if the data on this cache have expired
@@ -206,74 +216,83 @@ impl HostCache {
 
         let mut attempts = 5;
         loop {
-            // Step 1: Find a candidate host in the index
-            let candidate_info = {
-                let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
-                let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
-                    if !self.strategy.core_saturation {
-                        // Reverse order to find hosts with max amount of cores available
-                        Box::new(host_index_lock.range(core_key..).rev())
-                    } else {
-                        Box::new(host_index_lock.range(core_key..))
-                    };
-
-                iter.find_map(|(by_core_key, hosts_by_memory)| {
-                    let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
-                        hosts.iter().find_map(|host_id| {
-                            HOST_STORE.get(host_id).and_then(|host| {
-                                // Check validation and memory capacity
-                                if host_validation(&host) {
-                                    Some((
-                                        *by_core_key,
-                                        *by_memory_key,
-                                        *host_id,
-                                        host.last_updated,
-                                    ))
-                                } else {
-                                    None
-                                }
-                            })
-                        })
-                    };
-
-                    if self.strategy.memory_saturation {
-                        // Search for hosts with at least the same amount of memory requested
-                        hosts_by_memory.range(memory_key..).find_map(find_fn)
-                    } else {
-                        // Search for hosts with the most amount of memory available
-                        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
-                    }
-                })
+            // Step 1: Snapshot the candidate bucket list under the outer read
+            // lock — this clones a handful of Arc<Mutex<_>> handles and drops
+            // the outer lock immediately, so check-ins on other buckets are
+            // not blocked while we scan.
+            let bucket_arcs: Vec<(CoreKey, MemoryBucket)> = {
+                let outer = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
+                if !self.strategy.core_saturation {
+                    // Reverse order: prefer hosts with the most cores
+                    outer
+                        .range(core_key..)
+                        .rev()
+                        .map(|(&k, v)| (k, v.clone()))
+                        .collect()
+                } else {
+                    outer
+                        .range(core_key..)
+                        .map(|(&k, v)| (k, v.clone()))
+                        .collect()
+                }
             };
 
-            // Step 2: Attempt atomic removal if we found a candidate
-            if let Some((by_core_key, by_memory_key, host_id, expected_last_updated)) =
+            // Step 2: Scan each bucket independently. Holding only one bucket
+            // mutex at a time keeps disjoint core groups concurrent.
+            let candidate_info =
+                bucket_arcs
+                    .into_iter()
+                    .find_map(|(by_core_key, bucket)| {
+                        let bucket_lock = bucket.lock().unwrap_or_else(|p| p.into_inner());
+                        let find_fn =
+                            |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
+                                hosts.iter().find_map(|host_id| {
+                                    HOST_STORE.get(host_id).and_then(|host| {
+                                        if host_validation(&host) {
+                                            Some((
+                                                *by_memory_key,
+                                                *host_id,
+                                                host.last_updated,
+                                            ))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                })
+                            };
+                        let inner = if self.strategy.memory_saturation {
+                            bucket_lock.range(memory_key..).find_map(find_fn)
+                        } else {
+                            bucket_lock.range(memory_key..).rev().find_map(find_fn)
+                        };
+                        drop(bucket_lock);
+                        inner.map(|(mk, hid, ts)| {
+                            (by_core_key, mk, hid, ts, bucket.clone())
+                        })
+                    });
+
+            // Step 3: Attempt atomic removal if we found a candidate
+            if let Some((_by_core_key, by_memory_key, host_id, expected_last_updated, bucket)) =
                 candidate_info
             {
-                // Atomic check-and-remove from HOST_STORE
-                // Ensure host is still valid when it's time to remove it
                 match HOST_STORE.atomic_remove_if_valid(
                     &host_id,
                     expected_last_updated,
                     host_validation,
                 ) {
                     Ok(Some(removed_host)) => {
-                        // Successfully removed from store, now remove from index
-                        let mut host_index_lock =
-                            self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
-
-                        // Remove from hosts_by_core_and_memory index
-                        host_index_lock
-                            .get_mut(&by_core_key)
-                            .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
-                            .map(|hosts| hosts.remove(&host_id));
-
+                        // Remove from this single bucket's index. Other buckets
+                        // are untouched.
+                        let mut bucket_lock =
+                            bucket.lock().unwrap_or_else(|p| p.into_inner());
+                        if let Some(hosts) = bucket_lock.get_mut(&by_memory_key) {
+                            hosts.remove(&host_id);
+                        }
                         return Some(removed_host);
                     }
                     Ok(None) | Err(()) => {
                         // Host was removed by another thread. Try another candidate
                         attempts -= 1;
-                        // Mark the failed candidate to avoid retrying it again.
                         failed_candidates.borrow_mut().push(host_id);
                         if attempts <= 0 {
                             break;
@@ -309,18 +328,30 @@ impl HostCache {
         let core_key = last_host_version.idle_cores.value() as CoreKey;
         let memory_key = Self::gen_memory_key(last_host_version.idle_memory);
 
-        let mut host_index = self
-            .hosts_index
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // Double-checked locking: fast path takes only the outer read lock
+        // and grabs an existing bucket Arc. Slow path (rare) upgrades to the
+        // outer write lock only when a brand-new CoreKey appears.
+        let bucket: MemoryBucket = {
+            let outer = self
+                .hosts_index
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            outer.get(&core_key).cloned()
+        }
+        .unwrap_or_else(|| {
+            let mut outer = self
+                .hosts_index
+                .write()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            outer
+                .entry(core_key)
+                .or_insert_with(|| Arc::new(Mutex::new(BTreeMap::new())))
+                .clone()
+        });
 
-        // Insert at the new location
-        host_index
-            .entry(core_key)
-            .or_default()
-            .entry(memory_key)
-            .or_default()
-            .insert(host_id);
+        // Per-bucket mutex insert. Disjoint core sizes proceed in parallel.
+        let mut bucket_lock = bucket.lock().unwrap_or_else(|p| p.into_inner());
+        bucket_lock.entry(memory_key).or_default().insert(host_id);
     }
 
     /// Generates a memory key for cache indexing by bucketing memory values.
@@ -474,10 +505,13 @@ mod tests {
         assert!(HOST_STORE.get(&host_id).is_none());
 
         let hosts_index = cache.hosts_index.read().unwrap();
-        let left_over_host = hosts_index
-            .get(&core_key)
-            .and_then(|hosts_by_memory| hosts_by_memory.get(&memory_key))
-            .and_then(|hosts| hosts.get(&checked_out_host.id));
+        let left_over_host = hosts_index.get(&core_key).and_then(|bucket| {
+            let bucket_lock = bucket.lock().unwrap();
+            bucket_lock
+                .get(&memory_key)
+                .and_then(|hosts| hosts.get(&checked_out_host.id))
+                .copied()
+        });
         assert!(left_over_host.is_none())
     }
 
@@ -652,5 +686,48 @@ mod tests {
 
         // The hosts should be different
         assert_ne!(result1.unwrap().id, result2.unwrap().id);
+    }
+
+    /// Concurrent check-ins on disjoint core buckets must not interfere — this
+    /// is the whole point of the sharded design. All N inserts complete and
+    /// land in distinct buckets.
+    #[test]
+    fn concurrent_check_ins_on_disjoint_buckets() {
+        use std::sync::Arc as StdArc;
+
+        let cache = StdArc::new(HostCache::default());
+        let mut handles = Vec::new();
+        // Each thread checks in a host with a unique core count → distinct
+        // bucket → no per-bucket contention.
+        for cores in 1i32..=8 {
+            let cache = cache.clone();
+            handles.push(thread::spawn(move || {
+                let host_id = Uuid::new_v4();
+                let host = create_test_host(host_id, cores, ByteSize::gb(8));
+                cache.check_in(host, false);
+                host_id
+            }));
+        }
+
+        let host_ids: Vec<Uuid> = handles
+            .into_iter()
+            .map(|h| h.join().expect("worker panicked"))
+            .collect();
+
+        // Every bucket should be populated.
+        let outer = cache.hosts_index.read().unwrap();
+        assert_eq!(outer.len(), 8, "one bucket per core size");
+        for (core_key, bucket) in outer.iter() {
+            let bucket_lock = bucket.lock().unwrap();
+            let total_hosts: usize = bucket_lock.values().map(|set| set.len()).sum();
+            assert_eq!(
+                total_hosts, 1,
+                "bucket at core_key={core_key} should contain exactly one host"
+            );
+        }
+        // And every checked-in host id is reachable.
+        for id in host_ids {
+            assert!(HOST_STORE.get(&id).is_some(), "host {id} present in store");
+        }
     }
 }

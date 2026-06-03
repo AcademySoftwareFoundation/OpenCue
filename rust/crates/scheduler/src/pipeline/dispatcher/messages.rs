@@ -10,13 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use actix::{Message, MessageResponse};
-use miette::Result;
-
-use crate::{
-    models::{DispatchLayer, Host},
-    pipeline::dispatcher::error::DispatchError,
-};
+use crate::models::{DispatchLayer, Host};
 
 /// Actor message to dispatch a layer's frames to a specific host.
 ///
@@ -37,8 +31,6 @@ use crate::{
 ///
 /// * `Ok(DispatchResult)` - Successfully dispatched frames with updated state
 /// * `Err(DispatchError)` - Dispatch failed due to various errors
-#[derive(Message)]
-#[rtype(result = "Result<DispatchResult, DispatchError>")]
 pub struct DispatchLayerMessage {
     pub layer: DispatchLayer,
     pub host: Host,
@@ -55,7 +47,7 @@ pub struct DispatchLayerMessage {
 /// * `updated_host` - Host with updated idle resource counts after dispatch
 /// * `updated_layer` - Layer with dispatched frames removed from the frames list
 /// * `dispatched_frames` - List of frame names that were successfully dispatched
-#[derive(MessageResponse, Debug)]
+#[derive(Debug)]
 pub struct DispatchResult {
     pub updated_host: Host,
     pub updated_layer: DispatchLayer,

@@ -82,6 +82,14 @@ pub struct QueueConfig {
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attempts_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
+    /// Delay before an empty cluster (no eligible jobs) becomes eligible for dispatch again.
+    /// Used by the priority-queue cluster feed to back off without blocking neighbors.
+    #[serde(with = "humantime_serde")]
+    pub cluster_empty_back_off: Duration,
+    /// When `true`, the cluster priority queue biases toward clusters that produced more
+    /// jobs in the most recent dispatch (productivity bias). When `false`, all clusters
+    /// compete strictly on `next_eligible_at` with a stable tiebreaker.
+    pub cluster_productivity_bias: bool,
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
     pub subscription_recalculation_interval: Duration,
@@ -108,6 +116,8 @@ impl Default for QueueConfig {
             hostname_tags_chunk_size: 300,
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
+            cluster_empty_back_off: Duration::from_secs(3),
+            cluster_productivity_bias: true,
             mem_reserved_min: ByteSize::mib(250),
             subscription_recalculation_interval: Duration::from_secs(3),
             resource_recalculation_interval: Duration::from_secs(10),
@@ -222,6 +232,41 @@ pub struct HostCacheConfig {
     #[serde(with = "humantime_serde")]
     pub host_staleness_threshold: Duration,
     pub update_stat_on_book: bool,
+    /// Safety net for leaked host reservations. The reservation system relies
+    /// on explicit `check_in` / `Invalidate` calls; this TTL only fires when a
+    /// task crashes or otherwise drops a checked-out host without releasing it.
+    /// Should be larger than the longest plausible dispatch (slow RQD, retries).
+    #[serde(with = "humantime_serde")]
+    pub host_reservation_safety_ttl: Duration,
+    /// Circuit-breaker configuration for host-cache DB queries.
+    pub db_circuit_breaker: DbCircuitBreakerConfig,
+}
+
+/// Circuit-breaker tuning for host-cache database queries.
+///
+/// On consecutive failures the breaker opens for an exponentially growing
+/// window (`base_backoff` → `max_backoff`), short-circuiting further queries
+/// without hitting the DB. Once `failure_threshold` consecutive failures
+/// accumulate, the scheduler exits with status 1 so the orchestrator restarts
+/// it cleanly rather than letting it limp along.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct DbCircuitBreakerConfig {
+    pub failure_threshold: u32,
+    #[serde(with = "humantime_serde")]
+    pub base_backoff: Duration,
+    #[serde(with = "humantime_serde")]
+    pub max_backoff: Duration,
+}
+
+impl Default for DbCircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            failure_threshold: 10,
+            base_backoff: Duration::from_millis(500),
+            max_backoff: Duration::from_secs(30),
+        }
+    }
 }
 
 impl Default for HostCacheConfig {
@@ -236,6 +281,8 @@ impl Default for HostCacheConfig {
             concurrent_fetch_permit: 4,
             host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
             update_stat_on_book: false,
+            host_reservation_safety_ttl: Duration::from_secs(5 * 60), // 5 minutes
+            db_circuit_breaker: DbCircuitBreakerConfig::default(),
         }
     }
 }

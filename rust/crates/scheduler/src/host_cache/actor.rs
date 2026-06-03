@@ -10,8 +10,6 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use actix::{Actor, ActorFutureExt, AsyncContext, Handler, ResponseActFuture, WrapFuture};
-
 use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
@@ -19,16 +17,16 @@ use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
 use std::{
     cmp::Ordering,
     sync::{
-        atomic::{self, AtomicU64},
-        Arc,
+        atomic::{self, AtomicU32, AtomicU64},
+        Arc, Mutex,
     },
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use futures::{stream, StreamExt};
 use miette::Result;
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -46,10 +44,90 @@ pub struct HostCacheService {
     cache_hit: Arc<AtomicU64>,
     cache_miss: Arc<AtomicU64>,
     concurrency_semaphore: Arc<Semaphore>,
+    db_circuit: Arc<DbCircuitBreaker>,
 }
 
-/// Use a reservation system to prevent race conditions when trying to book a host
-/// that belongs to multiple groups.
+/// Circuit breaker around host-cache DB queries.
+///
+/// A transient query failure (network blip, statement timeout) trips the
+/// breaker for an exponentially growing window so concurrent callers fail
+/// fast instead of all hitting the DB. On success the breaker resets.
+/// After `failure_threshold` consecutive failures the scheduler exits with
+/// status 1 — the orchestration layer (k8s, systemd) handles the restart.
+pub(super) struct DbCircuitBreaker {
+    consecutive_failures: AtomicU32,
+    open_until: Mutex<Option<Instant>>,
+}
+
+impl DbCircuitBreaker {
+    fn new() -> Self {
+        Self {
+            consecutive_failures: AtomicU32::new(0),
+            open_until: Mutex::new(None),
+        }
+    }
+
+    /// Returns `Some(remaining)` if the breaker is currently open; the caller
+    /// should short-circuit. Returns `None` if it's safe to proceed.
+    fn check_open(&self) -> Option<Duration> {
+        let guard = self.open_until.lock().unwrap_or_else(|p| p.into_inner());
+        match *guard {
+            Some(until) => {
+                let now = Instant::now();
+                if until > now {
+                    Some(until - now)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    fn record_success(&self) {
+        self.consecutive_failures
+            .store(0, atomic::Ordering::Relaxed);
+        *self
+            .open_until
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+    }
+
+    /// Records a failure and opens the breaker for an exponential backoff.
+    /// Returns `true` when the consecutive-failure threshold has been reached
+    /// and the caller should escalate to a clean process exit.
+    fn record_failure(&self) -> bool {
+        let cfg = &CONFIG.host_cache.db_circuit_breaker;
+        let count = self
+            .consecutive_failures
+            .fetch_add(1, atomic::Ordering::Relaxed)
+            + 1;
+        if count >= cfg.failure_threshold {
+            return true;
+        }
+        // Exponential backoff (capped). Clamp the shift so the multiplier
+        // can't overflow u64 even on huge failure counts.
+        let shift = count.min(20).saturating_sub(1);
+        let multiplier = 1u64.checked_shl(shift).unwrap_or(u64::MAX);
+        let base_ms = cfg.base_backoff.as_millis() as u64;
+        let backoff_ms = base_ms.saturating_mul(multiplier);
+        let backoff = Duration::from_millis(backoff_ms).min(cfg.max_backoff);
+        *self
+            .open_until
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = Some(Instant::now() + backoff);
+        false
+    }
+}
+
+/// Reservation guard preventing a host from being booked twice while it's
+/// checked out. The primary lifecycle is explicit: `check_out` reserves and
+/// `check_in` / `Invalidate` releases. [`expired`](Self::expired) is only a
+/// safety net for leaked reservations (e.g. a task panics between check-out
+/// and check-in). The TTL is configurable via
+/// [`HostCacheConfig::host_reservation_safety_ttl`] and should be larger than
+/// the longest plausible dispatch so a slow RQD call cannot accidentally
+/// release the reservation mid-flight.
 struct HostReservation {
     reserved_time: SystemTime,
 }
@@ -62,97 +140,61 @@ impl HostReservation {
     }
 
     pub fn expired(&self) -> bool {
-        self.reserved_time.elapsed().unwrap_or_default() > Duration::from_secs(10)
+        self.reserved_time.elapsed().unwrap_or_default()
+            > CONFIG.host_cache.host_reservation_safety_ttl
     }
 }
 
-impl Actor for HostCacheService {
-    type Context = actix::Context<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        let service_for_monitor = self.clone();
-        let service_for_clean_up = self.clone();
-
-        ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
-            let service = service_for_monitor.clone();
-            let actor_clone = service.clone();
-            ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
-        });
-
-        ctx.run_interval(CONFIG.host_cache.clean_up_interval, move |_act, _ctx| {
-            let service = service_for_clean_up.clone();
-
-            // Clean up stale hosts from the host store
-            service.cleanup_stale_hosts();
-        });
-
-        info!("HostCacheService actor started");
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!("HostCacheService actor stopped");
-    }
-}
-
-impl<F> Handler<CheckOut<F>> for HostCacheService
-where
-    F: Fn(&Host) -> bool + 'static,
-{
-    type Result = ResponseActFuture<Self, Result<CheckedOutHost, HostCacheError>>;
-
-    fn handle(&mut self, msg: CheckOut<F>, _ctx: &mut Self::Context) -> Self::Result {
-        let CheckOut {
-            facility_id,
-            show_id,
-            tags,
-            cores,
-            memory,
-            validation,
-        } = msg;
-
-        let service = self.clone();
-
-        Box::pin(
-            async move {
-                let out = service
-                    .check_out(facility_id, show_id, tags, cores, memory, validation)
-                    .await;
-                if let Ok(host) = &out {
-                    debug!("Checked out {}", host.1);
-                }
-                out
+impl HostCacheService {
+    /// Spawns the background tasks that periodically refresh and prune the
+    /// cache. Returns immediately; the spawned tasks live for the lifetime
+    /// of the process.
+    pub fn spawn_background_tasks(&self) {
+        let monitor = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.host_cache.monitoring_interval);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            // First tick fires immediately; skip it to mirror Actix
+            // `run_interval` semantics which fire after the first interval.
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                monitor.refresh_cache().await;
             }
-            .into_actor(self)
-            .map(|result, _, _| result),
-        )
+        });
+
+        let cleaner = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.host_cache.clean_up_interval);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                cleaner.cleanup_stale_hosts();
+            }
+        });
+
+        info!("HostCacheService background tasks spawned");
     }
-}
 
-impl Handler<CheckIn> for HostCacheService {
-    type Result = ();
-
-    fn handle(&mut self, msg: CheckIn, _ctx: &mut Self::Context) -> Self::Result {
-        let CheckIn(cluster_key, payload) = msg;
+    /// Public wrapper around the internal `check_in` that adds debug logging
+    /// and handles the Invalidate path uniformly.
+    pub fn check_in_payload(&self, cluster_key: ClusterKey, payload: CheckInPayload) {
         match payload {
             CheckInPayload::Host(host) => {
                 let host_str = format!("{}", host);
                 self.check_in(cluster_key, host);
-
                 debug!("Checked in {}", &host_str);
             }
             CheckInPayload::Invalidate(host_id) => {
                 let _ = self.reserved_hosts.remove_sync(&host_id);
-
                 debug!("Checked in {} (invalid)", &host_id);
             }
         }
     }
-}
 
-impl Handler<CacheRatio> for HostCacheService {
-    type Result = CacheRatioResponse;
-
-    fn handle(&mut self, _msg: CacheRatio, _ctx: &mut Self::Context) -> Self::Result {
+    /// Returns the current cache hit/miss snapshot.
+    pub fn cache_ratio(&self) -> CacheRatioResponse {
         CacheRatioResponse {
             hit: self.cache_hit.load(atomic::Ordering::Relaxed),
             miss: self.cache_miss.load(atomic::Ordering::Relaxed),
@@ -181,6 +223,7 @@ impl HostCacheService {
                 CONFIG.host_cache.concurrent_fetch_permit,
             )),
             reserved_hosts: Arc::new(HashMap::new()),
+            db_circuit: Arc::new(DbCircuitBreaker::new()),
         })
     }
 
@@ -203,7 +246,7 @@ impl HostCacheService {
     ///
     /// * `Ok(CheckedOutHost)` - Host with cluster key
     /// * `Err(HostCacheError)` - No suitable host found or database error
-    async fn check_out<F>(
+    pub async fn check_out<F>(
         &self,
         facility_id: Uuid,
         show_id: Uuid,
@@ -463,6 +506,20 @@ impl HostCacheService {
         &self,
         key: &ClusterKey,
     ) -> Result<OccupiedEntry<'_, ClusterKey, HostCache>> {
+        // If a recent failure tripped the breaker, fail fast without hitting
+        // the DB. Callers (matcher) treat this as "no candidates available"
+        // and skip the current layer cleanly.
+        if let Some(remaining) = self.db_circuit.check_open() {
+            debug!(
+                "Host cache circuit open for {:?} more — short-circuiting fetch",
+                remaining
+            );
+            return Err(miette::miette!(
+                "host cache DB circuit open (retry in {:?})",
+                remaining
+            ));
+        }
+
         let _permit = self
             .concurrency_semaphore
             .acquire()
@@ -470,11 +527,34 @@ impl HostCacheService {
             .into_diagnostic()?;
 
         let tag = key.tag.to_string();
-        let hosts = self
+        let hosts = match self
             .host_dao
             .fetch_hosts_by_show_facility_tag(key.show_id, key.facility_id, &tag)
             .await
-            .into_diagnostic()?;
+        {
+            Ok(hosts) => {
+                self.db_circuit.record_success();
+                hosts
+            }
+            Err(err) => {
+                let escalate = self.db_circuit.record_failure();
+                if escalate {
+                    error!(
+                        "Host cache DB query failed past circuit-breaker threshold. \
+                         Exiting so the orchestrator can restart the scheduler. Last error: {}",
+                        err
+                    );
+                    // Clean exit (no panic backtrace). The orchestration layer
+                    // (k8s, systemd, etc.) handles the restart.
+                    std::process::exit(1);
+                }
+                warn!(
+                    "Host cache DB query failed (transient, circuit will back off): {}",
+                    err
+                );
+                return Err(err).into_diagnostic();
+            }
+        };
 
         let cache = self.cluster_index.entry_sync(key.clone()).or_default();
 
@@ -491,5 +571,45 @@ impl HostCacheService {
         }
         cache.ping_fetch();
         Ok(cache)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn breaker_closed_by_default() {
+        let cb = DbCircuitBreaker::new();
+        assert!(cb.check_open().is_none());
+    }
+
+    #[test]
+    fn breaker_opens_after_failure_and_closes_after_success() {
+        let cb = DbCircuitBreaker::new();
+
+        let escalate = cb.record_failure();
+        assert!(!escalate, "single failure shouldn't escalate");
+        assert!(
+            cb.check_open().is_some(),
+            "breaker should open after a failure"
+        );
+
+        cb.record_success();
+        assert!(cb.check_open().is_none(), "success should reset breaker");
+    }
+
+    #[test]
+    fn breaker_escalates_after_threshold() {
+        let cb = DbCircuitBreaker::new();
+        let threshold = CONFIG.host_cache.db_circuit_breaker.failure_threshold;
+        // Trip up to (threshold - 1) without escalating, then the next call escalates.
+        for _ in 0..threshold - 1 {
+            assert!(!cb.record_failure());
+        }
+        assert!(
+            cb.record_failure(),
+            "Nth consecutive failure should signal escalation"
+        );
     }
 }

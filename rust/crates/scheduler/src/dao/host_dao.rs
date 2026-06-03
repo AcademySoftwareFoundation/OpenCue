@@ -295,44 +295,30 @@ impl HostDao {
     /// * `Ok(true)` - Lock successfully acquired
     /// * `Ok(false)` - Lock already held by another process
     /// * `Err(miette::Error)` - Database operation failed
-    pub async fn lock(
-        &self,
-        transaction: &mut Transaction<'_, Postgres>,
-        host_id: &Uuid,
-    ) -> Result<bool> {
-        trace!("Locking {}", host_id);
-        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
-            .bind(host_id.to_string())
-            .fetch_one(&mut **transaction)
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to acquire advisory lock")
-    }
-
-    /// Releases an advisory lock on a host after dispatch completion.
+    /// Acquires a transaction-scoped advisory lock on a host.
     ///
-    /// Releases the PostgreSQL advisory lock that was acquired during
-    /// the dispatch process, allowing other dispatchers to access the host.
-    ///
-    /// # Arguments
-    /// * `host_id` - The UUID of the host to unlock
+    /// Uses `pg_try_advisory_xact_lock`, which auto-releases on COMMIT or
+    /// ROLLBACK. This is the preferred lock variant for short critical
+    /// sections inside the per-proc transaction — callers don't need to issue
+    /// an explicit unlock and the lock cannot leak if the connection is
+    /// returned to the pool while still session-locked.
     ///
     /// # Returns
-    /// * `Ok(true)` - Lock successfully released
-    /// * `Ok(false)` - Lock was not held by this process
-    /// * `Err(miette::Error)` - Database operation failed
-    pub async fn unlock(
+    /// * `Ok(true)` — lock acquired (and will release at tx end)
+    /// * `Ok(false)` — another transaction holds the lock; caller should skip
+    /// * `Err(_)` — database error
+    pub async fn try_xact_lock(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         host_id: &Uuid,
     ) -> Result<bool> {
-        trace!("Unlocking {}", host_id);
-        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
+        trace!("Acquiring xact advisory lock for {}", host_id);
+        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_xact_lock(hashtext($1))")
             .bind(host_id.to_string())
             .fetch_one(&mut **transaction)
             .await
             .into_diagnostic()
-            .wrap_err("Failed to release advisory lock")
+            .wrap_err("Failed to acquire transaction-scoped advisory lock")
     }
 
     /// Updates a host's available resource counts after frame dispatch.
