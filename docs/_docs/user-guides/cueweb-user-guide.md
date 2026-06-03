@@ -271,6 +271,16 @@ The filter snaps you back to page 1 on every keystroke so you never sit on an em
 ![Filtering the rows loaded into the jobs table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_data_table_filtering.png)
 
 
+### Group By (Jobs table)
+
+The Jobs toolbar has a **Group By** dropdown that lets you reshape the table the same way CueGUI does:
+
+- **Clear** keeps the flat list.
+- **Dependent** renders the jobs as a parent / child **tree**. A job that other monitored jobs depend on becomes a parent with a chevron in front of its name; the dependents nest under it at increasing depth. Click the chevron to collapse or expand a subtree. CueWeb fetches the dependency graph from Cuebot in the background, so the tree fills in within a second or two of switching modes.
+- **Show**, **Show-Shot**, and **Show-Shot-Username** group the rows under collapsible headers (with a count on each header). Useful for sorting jobs by who owns them.
+
+The default is **Clear**. Switching modes preserves your filters, column visibility, and substring search.
+
 ### Job Status Indicators
 
 Jobs are color-coded by status:
@@ -328,7 +338,44 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, **Pause / Unpause** (single toggle - the label flips with the job's paused state and is grayed out for Finished jobs), Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, **Pause / Unpause** (single toggle - the label flips with the job's paused state and is grayed out for Finished jobs), Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, **View Dependencies...**, **Dependency Wizard...**, Drop External / Internal Dependencies.
+
+#### Managing job dependencies
+
+The job context menu groups four dependency actions together so you can audit, create, or remove depends without leaving Monitor Jobs:
+
+- **View Dependencies...** opens a read-only dialog listing every depend on the job (Type, Target, Active, OnJob, OnLayer, OnFrame). Use **Refresh** to re-poll after creating or dropping depends elsewhere.
+- **Dependency Wizard...** opens a multi-step dialog that creates a new depend on the job. The CueWeb wizard supports every CueGUI `depend.DependType`: Job On Job / Layer / Frame, Frame By Frame for all layers (Hard Depend), Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, and Layer on Simulation Frame. Every picker (source layers, source frames, target jobs, target layers, target frames) is multi-select; **Done** fires the full source x target cross-product in one batch.
+- **Drop External Dependencies** removes every external (cross-job) depend on the selected job in one click. The Jobs table re-polls immediately after success.
+- **Drop Internal Dependencies** removes every internal (within-job) depend in one click. Same auto-refresh.
+
+**View Dependencies**
+
+![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+**Dependency Wizard** (the menu entry plus the Job On Job flow as the simplest example):
+
+![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+![Dependency Wizard step 1 - Job On Job selected](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+
+![Dependency Wizard step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+
+![Dependency Wizard step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+The full per-type screenshot set lives in the [Dependency Wizard dialog reference](../reference/cueweb.md#dependency-wizard-dialog).
+
+**Drop External / Internal**
+
+![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
 
 ### Adjusting job priority (Set Priority)
 

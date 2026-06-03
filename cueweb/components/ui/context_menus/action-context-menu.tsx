@@ -25,6 +25,7 @@ import {
   copyFrameNameGivenRow,
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
+  dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
   eatFrameGivenRow,
@@ -45,6 +46,7 @@ import {
   subscribeToJobGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
+  viewDependenciesGivenRow,
 } from "@/app/utils/action_utils";
 import { Frame } from "@/app/frames/frame-columns";
 import { getFrameLogDir } from "@/app/utils/get_utils";
@@ -312,13 +314,13 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     // contiguous group with the rest of the top section).
     {
       label: "View Dependencies...",
-      onClick: notYetImplemented("View Dependencies"),
+      onClick: viewDependenciesGivenRow,
       isActive: true,
       component: <TbLink className="mr-1" size={14} />,
     },
     {
       label: "Dependency Wizard...",
-      onClick: notYetImplemented("Dependency Wizard"),
+      onClick: dependencyWizardGivenRow,
       isActive: editable,
       component: <TbHelp className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
