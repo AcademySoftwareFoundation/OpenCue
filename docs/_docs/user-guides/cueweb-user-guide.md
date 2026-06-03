@@ -85,6 +85,11 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Sticky-note indicator on the jobs table for jobs that already have comments
    - Predefined comment macros stored per browser for repeated text
 
+10. **Monitor Hosts**
+   - Read-only host registry table (CueCommander &rarr; Monitor Hosts) with sortable columns
+   - Columns: Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp
+   - Substring filter and auto-refresh every 30 seconds
+
 ---
 
 ## Getting Started
@@ -866,6 +871,32 @@ The two are independent. You can use either, or both at the same time. Their dif
    ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
 
 When the job reaches `FINISHED`, Cuebot sends the configured notification email to the saved address. The address you see in the **From** field is informational only - the real sender is whatever your Cuebot deployment is configured with.
+
+---
+
+## Monitor Hosts
+
+The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar, or the **View hosts** link on the dashboard hosts widget) lists the render hosts registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin, and mirrors the jobs table interactions (sortable columns, substring filter, column show/hide, pagination).
+
+### Host columns
+
+| Column | Description |
+|--------|-------------|
+| Name | Host name as reported to Cuebot |
+| State | Hardware state (`UP`, `DOWN`, `REPAIR`, ...) shown as a status badge |
+| Locked | Lock state (`OPEN`, `LOCKED`, `NIMBY_LOCKED`) shown as a status badge |
+| NIMBY | Whether NIMBY is enabled on the host (`Yes` / `No`) |
+| Cores (Idle/Total) | Idle vs total cores. Sorts by the idle ratio |
+| Memory (Idle/Total) | Idle vs total memory, human-readable. Sorts by idle bytes |
+| Free /mcp | Free temporary (`/mcp`) space, human-readable |
+
+Numeric columns sort by their underlying value rather than the formatted text, so memory and core counts sort numerically.
+
+### Refresh
+
+The host list auto-refreshes every 30 seconds. A failed refresh keeps the previously loaded rows in place; if the first load fails with no data, an inline error with a **Retry** button is shown.
+
+This page is read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) are tracked separately and are not part of this page yet.
 
 ---
 
