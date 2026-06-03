@@ -37,8 +37,15 @@ export type JobComment = {
 export type Host = {
     id: string;
     name: string;
-    state: string;
-    lockState: string;
+    state: string;        // UP / DOWN / REPAIR ...
+    lockState: string;    // OPEN / LOCKED / NIMBY_LOCKED
+    nimbyEnabled: boolean;
+    cores: number;
+    idleCores: number;
+    memory: string;       // KB, as string from the gateway
+    idleMemory: string;   // KB, as string
+    totalMemory: string;  // KB, as string
+    freeMcp: string;      // KB, as string
     bootTime: number;
     pingTime: number;
 };
