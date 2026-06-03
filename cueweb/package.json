@@ -62,7 +62,9 @@
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "worker-loader": "^3.0.8",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@xyflow/react": "^12.0.0",
+    "dagre": "^0.8.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -70,6 +72,7 @@
     "@babel/preset-typescript": "^7.24.7",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
+    "@types/dagre": "^0.7.52",
     "@types/jest": "^29.5.13",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/ldapjs": "^3.0.6",

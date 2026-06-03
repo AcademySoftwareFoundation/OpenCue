@@ -45,6 +45,7 @@ import {
   Receipt,
   Send,
   Server,
+  Share2,
   Upload,
   Wrench,
   type LucideIcon,
@@ -69,6 +70,7 @@ import { HELP_ITEMS } from "@/app/utils/help_menu";
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { cn } from "@/lib/utils";
@@ -149,6 +151,10 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
+  // Cuetopia > View Job Graph toggle (CueGUI parity). Persisted via the
+  // shared hook so the dropdown's checked state and the inline panel
+  // stay in sync without prop drilling.
+  const { show: showGraph, toggle: toggleGraph } = useShowDependencyGraph();
   const { facility, facilities, setFacility } = useCuebotFacility();
   const {
     isOpen: attributesOpen,
@@ -488,6 +494,27 @@ export function AppSidebar() {
                     </li>
                   );
                 })}
+                {group.label === "Cuetopia" ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={toggleGraph}
+                      aria-pressed={showGraph}
+                      role="switch"
+                      aria-checked={showGraph}
+                      title={`Cuetopia - View Job Graph${showGraph ? " (on)" : ""}`}
+                      className={cn(
+                        "flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        showGraph
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                      )}
+                    >
+                      <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span className="sr-only">View Job Graph</span>
+                    </button>
+                  </li>
+                ) : null}
               </ul>
             ))
           : // Expanded view: render each group as a Radix Collapsible
@@ -542,6 +569,28 @@ export function AppSidebar() {
                           </li>
                         );
                       })}
+                      {group.label === "Cuetopia" ? (
+                        <li>
+                          <button
+                            type="button"
+                            onClick={toggleGraph}
+                            role="switch"
+                            aria-checked={showGraph}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                              showGraph
+                                ? "bg-foreground/10 text-foreground"
+                                : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                            )}
+                          >
+                            <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            <span className="flex-1 truncate text-left">View Job Graph</span>
+                            <span className="flex h-4 w-4 items-center justify-center">
+                              {showGraph && <Check className="h-4 w-4" aria-hidden="true" />}
+                            </span>
+                          </button>
+                        </li>
+                      ) : null}
                     </ul>
                   </CollapsibleContent>
                 </Collapsible>
