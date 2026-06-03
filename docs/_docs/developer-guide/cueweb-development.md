@@ -256,7 +256,8 @@ on `window` instead of prop-drilling shared state. Existing events:
 | Event | Dispatched by | Listened to by | Purpose |
 |-------|---------------|----------------|---------|
 | `cueweb:focus-search` | `KeyboardShortcuts` (`/` keypress) | `JobsSearchbox` | Focus the jobs search input |
-| `cueweb:refresh-now` | `KeyboardShortcuts` (`r` keypress) | Jobs `data-table` | Trigger an immediate refresh tick |
+| `cueweb:refresh-now` | `KeyboardShortcuts` (`r` keypress), `dropJobDepends` on success | Jobs `data-table` | Trigger an immediate refresh tick |
+| `cueweb:depends-changed` | `dropJobDepends` on success | Jobs `data-table` | Clears the Group-By Dependent graph cache and bumps `treeFetchToken` so chevrons re-resolve |
 | `cueweb:open-shortcuts` | Header / Sidebar **Other ▸ Show Shortcuts** | `KeyboardShortcuts` | Open the cheat-sheet overlay |
 | `cueweb:jobs-refreshed` | Jobs `data-table` (every 5s + on manual refresh) | `StatusBar` | Update the "Last refresh" relative timer |
 | `cueweb:subscriptions-changed` | `subscription_utils.ts` mutations | `useJobSubscriptions`, `JobSubscriptionPoller` | Same-tab sync of the subscription store |
@@ -599,6 +600,218 @@ codepaths never touch each other.
 |-----|---------|---------|
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | `your.domain.com` | Shared with Email Artist + Request Cores. Drives the default `To` address. |
 | `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | `opencue-noreply@<EMAIL_DOMAIN>` | The informational `From` label shown in the dialog. The actual sender is whatever Cuebot is configured with. |
+
+---
+
+## Job Dependencies (CueGUI parity)
+
+The job context menu groups four dependency entries together. Each is a
+one-for-one mirror of the corresponding `cuegui.MenuActions.JobActions`
+handler:
+
+| Entry | CueGUI handler | Cuebot RPC |
+|-------|----------------|------------|
+| **View Dependencies...** | `viewDepends` &rarr; `DependDialog` | `/job.JobInterface/GetDepends` |
+| **Dependency Wizard...** | `dependWizard` &rarr; `DependWizard` | `/job.JobInterface/CreateDependencyOnJob`, `CreateDependencyOnLayer`, `CreateDependencyOnFrame` |
+| **Drop External Dependencies** | `dropExternalDependencies` | `/job.JobInterface/DropDepends` with `target = EXTERNAL` |
+| **Drop Internal Dependencies** | `dropInternalDependencies` | `/job.JobInterface/DropDepends` with `target = INTERNAL` |
+
+### File layout
+
+```
+cueweb/
+├── app/api/job/action/getdepends/route.ts                  # Proxy to JobInterface/GetDepends
+├── app/api/job/action/createdependonjob/route.ts           # Proxy to JobInterface/CreateDependencyOnJob
+├── app/api/job/action/createdependonlayer/route.ts         # Proxy to JobInterface/CreateDependencyOnLayer
+├── app/api/job/action/createdependonframe/route.ts         # Proxy to JobInterface/CreateDependencyOnFrame
+├── app/api/job/action/dropdepends/route.ts                 # Proxy to JobInterface/DropDepends
+├── app/api/job/action/getwhatdependsonthis/route.ts        # Proxy to JobInterface/GetWhatDependsOnThis (Group-By "Dependent" tree builder)
+├── app/api/layer/action/createdependonjob/route.ts         # Proxy to LayerInterface/CreateDependencyOnJob
+├── app/api/layer/action/createdependonlayer/route.ts       # Proxy to LayerInterface/CreateDependencyOnLayer
+├── app/api/layer/action/createdependonframe/route.ts       # Proxy to LayerInterface/CreateDependencyOnFrame
+├── app/api/layer/action/createframebyframedepend/route.ts  # Proxy to LayerInterface/CreateFrameByFrameDependency (used by FBF and JFBF/Hard Depend)
+├── app/api/frame/action/createdependonjob/route.ts         # Proxy to FrameInterface/CreateDependencyOnJob
+├── app/api/frame/action/createdependonlayer/route.ts       # Proxy to FrameInterface/CreateDependencyOnLayer
+├── app/api/frame/action/createdependonframe/route.ts       # Proxy to FrameInterface/CreateDependencyOnFrame (used by FOF and LOS)
+├── app/utils/action_utils.ts                               # 12 wrappers + viewDependencies/wizardGivenRow + fetchJobDepends + drop helpers
+├── components/ui/view-dependencies-dialog.tsx              # Dialog for View Dependencies
+├── components/ui/dependency-wizard-dialog.tsx              # State machine dialog covering all 12 CueGUI depend types
+└── components/ui/context_menus/action-context-menu.tsx     # Wires the four entries
+```
+
+### CustomEvent dance
+
+The free-function context menu handlers can't reach into React component
+state, so the dialogs listen for CustomEvents at the window level:
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-view-dependencies` | `viewDependenciesGivenRow(row)` from the `View Dependencies...` menu entry | `ViewDependenciesDialog` mounted in `data-table.tsx` | `{ job: Job }` |
+| `cueweb:open-dependency-wizard` | `dependencyWizardGivenRow(row)` from the `Dependency Wizard...` menu entry | `DependencyWizardDialog` mounted in `data-table.tsx` | `{ job: Job }` |
+
+The drop entries don't need a dialog - they call the proxy route directly
+via `dropJobDepends(job, target)`.
+
+### View Dependencies dialog
+
+`ViewDependenciesDialog` calls `fetchJobDepends(job)` on open and on
+**Refresh**. That helper posts `{ job }` to `/api/job/action/getdepends`,
+which forwards to `/job.JobInterface/GetDepends`. The dialog renders the
+returned `depend.DependSeq` as a table with columns Type / Target /
+Active / OnJob / OnLayer / OnFrame, matching CueGUI's `DependDialog`
+table layout.
+
+### Dependency Wizard
+
+`DependencyWizardDialog` is a state machine driven by a per-type
+`TYPE_CONFIG` table that enumerates every CueGUI `depend.DependType`
+plus the UI-only `JFBF` ("Frame By Frame for all layers - Hard Depend")
+variant. Every picker is multi-select (matching CueGUI's
+`QListWidget(ExtendedSelection)` behavior), so the config only carries:
+
+- `steps[]` - the ordered list of pickers to walk for that type (some
+  combination of `type`, `sourceLayer`, `sourceFrame`, `targetJob`,
+  `targetLayer`, `targetFrame`, `confirm`).
+- `filterTargetLayer` (optional) - client-side predicate used by
+  `LAYER_ON_SIM_FRAME` to restrict the target layer picker to layers
+  whose `services` array matches `/sim/i`.
+
+#### Step-by-step flow
+
+The wizard renders the picker matching `steps[stepIdx]`. Each picker
+shares a generic `renderPicker` helper plus a shared `pickerClick`
+handler (Click toggles; Shift-click range; Cmd/Ctrl-click toggles
+explicitly). Since every picker is multi-select, downstream fetchers
+**aggregate from all upstream selections**:
+
+- Source layers come from `getLayersForJob(thisJob)`.
+- Source frames come from one `getFramesForJob(thisJob)` filtered to
+  every selected source-layer name via a `Set<string>` lookup, so the
+  user can multi-pick layers and still pick frames spanning them.
+- Target jobs come from `getJobsForRegex(query, true)`.
+- Target layers come from a parallel `Promise.all(selectedTargetJobs.map(getLayersForJob))`
+  whose results are flat-concatenated and tagged with `parentJobName` so
+  the picker can disambiguate same-name layers across multiple parents.
+- Target frames are the same shape: parallel fetch from each unique
+  parent job, flatten, filter to the selected target-layer names.
+
+Each fetcher runs inside a `useEffect` keyed on `(open, step, upstream
+selections)` with a cancellation flag, so a Go-Back / re-pick never
+leaks stale results.
+
+#### Done dispatch
+
+`handleDone` switches on `dependType` and calls the matching wrapper
+in `action_utils.ts`. Every wrapper takes a *cross-product* of source
+and target arrays and expands them into one `performAction` batch:
+
+| Type | Wrapper signature |
+|------|-------------------|
+| `JOB_ON_JOB` | `createDependOnJob(thisJob, onJobs[])` |
+| `JOB_ON_LAYER` | `createDependOnLayer(thisJob, onLayers[])` |
+| `JOB_ON_FRAME` | `createDependOnFrame(thisJob, onFrames[])` |
+| `JFBF` | `createHardDepend(thisJob, thisJobLayers, perTargetJobLayers[])` |
+| `LAYER_ON_JOB` | `createLayerOnJob(thisJob, sourceLayers[], onJobs[])` |
+| `LAYER_ON_LAYER` | `createLayerOnLayer(thisJob, sourceLayers[], onLayers[])` |
+| `LAYER_ON_FRAME` | `createLayerOnFrame(thisJob, sourceLayers[], onFrames[])` |
+| `FRAME_BY_FRAME` | `createFrameByFrameDepend(thisJob, sourceLayers[], dependLayers[])` |
+| `FRAME_ON_JOB` | `createFrameOnJob(thisJob, sourceFrames[], onJobs[])` |
+| `FRAME_ON_LAYER` | `createFrameOnLayer(thisJob, sourceFrames[], onLayers[])` |
+| `FRAME_ON_FRAME` | `createFrameOnFrame(thisJob, sourceFrames[], onFrames[])` |
+| `LAYER_ON_SIM_FRAME` | `createLayerOnSimFrame(thisJob, sourceLayerNames[], sourceFrames[], onFrames[])` |
+
+A shared `crossBodies(sources, targets, makeBody)` helper builds the
+N*M request body array; `performAction` fires the RPCs in parallel and
+surfaces one summary toast (`Added <Type> depend: <thisJob> (<N>
+pair(s))`). Empty source or target lists short-circuit the call so a
+mis-picked confirm step is a no-op rather than a hang.
+
+#### Hard Depend special case
+
+`JFBF` doesn't map to a single RPC. CueGUI's `Cuedepend.createHardDepend`
+iterates source/target layer pairs that share a layer type and fires
+`LayerInterface.CreateFrameByFrameDependency` once per pair. The
+CueWeb wrapper does the same and now scales to multi-picked target
+jobs: on **Done** the wizard runs one `getLayersForJob` for this job
+plus one per picked target job in parallel, then `createHardDepend`
+walks each target job's layer list, pairs them with this job's layers
+by `layer.type`, and concatenates every matched pair into one
+`performAction` batch. The success toast names the count of target
+jobs matched and total layer pairs. If no types match across any
+target job it surfaces a warning toast instead of issuing empty calls.
+
+#### `LAYER_ON_SIM_FRAME` special case
+
+CueGUI implements this by looping `FrameInterface.CreateDependencyOnFrame`
+once for every frame in every picked source layer x every picked sim
+frame. The wizard doesn't render a source-frame picker for this type;
+instead `handleDone` runs one `getFramesForJob(thisJob)`, filters to
+the set of picked source-layer names, and cross-products with the
+picked target sim frames before bulk-firing the F-on-F RPC.
+
+#### Multi-select semantics
+
+Each picker stores its selection as a `Set<string>` of ids plus an
+`anchorId` for shift-click range support. A shared `pickerClick` helper
+folds the three click modes into one place:
+
+| Modifier | Behavior |
+|----------|----------|
+| Click | Toggle the row in / out of the selection (more discoverable on touch than the desktop convention of "replace"). Also updates the anchor. |
+| Shift-click | Replace the selection with every row between the anchor and the clicked row, inclusive. |
+| Cmd / Ctrl-click | Toggle, same as plain click, but also explicit so power users with the desktop muscle memory aren't surprised. |
+
+Multi-select is only enabled for the target type that fans out at
+**Done**: `JOB_ON_JOB` &rarr; jobs; `JOB_ON_LAYER` &rarr; layers; `JOB_ON_FRAME` &rarr;
+frames. The pickers for source steps (e.g. the Job picker under
+`JOB_ON_LAYER`) narrow to one row so the next step's fetch has a
+deterministic parent. The continue-handlers trim the selection to the
+first picked row in that case and surface a toast explaining why.
+
+### Drop External / Internal
+
+`dropExternalDependsGivenRow` and `dropInternalDependsGivenRow` both
+call `dropJobDepends(job, target)` which posts `{ job, target }` to
+`/api/job/action/dropdepends`. That route validates `target` against
+`{ INTERNAL, EXTERNAL, ANY_TARGET }` server-side so an unknown value
+returns a 400 instead of a Cuebot stack trace, then forwards to
+`/job.JobInterface/DropDepends`.
+
+### Group-By "Dependent" tree
+
+The Jobs table's Group-By dropdown (`data-table.tsx`) has a **Dependent**
+mode that mirrors CueGUI's `MonitorJobsPlugin` tree view: a job that
+other monitored jobs depend on becomes a parent and the dependents
+nest under it.
+
+Data flow:
+
+1. `getWhatDependsOnThisJobNames(job)` in `app/utils/get_utils.ts`
+   posts `{ job }` to `/api/job/action/getwhatdependsonthis`
+   (mirroring `JobInterface.GetWhatDependsOnThis`) and returns the
+   list of `depend_er_job` names from every *active* depend in the
+   returned `depend.DependSeq`.
+2. A `useEffect` in `data-table.tsx` keyed on
+   `(state.groupBy === "Dependent", state.tableDataUnfiltered)` fires
+   the helper in parallel for every monitored job not already in
+   the `dependencyChildren: Record<jobId, string[]>` cache. New jobs
+   added to the table cost one extra RPC; unmonitoring drops the
+   cached entry. The cache resets only on full page reload.
+3. `treeInfoById = useMemo(...)` walks the cache and produces a
+   `Map<jobId, { depth, hasChildren }>`. The DFS picks roots
+   (monitored jobs whose name doesn't appear as a child anywhere)
+   and assigns depths via recursive visit; cycle-safe via a
+   `visited` set; orphaned children (parent filtered out) fall back
+   to depth 0 so the row never disappears.
+4. `displayItems` has a dedicated branch for `state.groupBy ===
+   "Dependent"` that emits rows in DFS order from the cached graph,
+   skipping descendants of any collapsed parent (tracked in
+   `collapsedTreeNodes: Set<string>`).
+5. The Name column reads `table.options.meta.dependencyTree` (a
+   `{ info, collapsed, toggle }` triple). When `info.get(jobId)`
+   returns a TreeInfo it renders a chevron + `padding-left = depth *
+   14px`; otherwise it falls back to the default centered layout, so
+   the column stays decoupled from the grouping mode.
 
 ---
 

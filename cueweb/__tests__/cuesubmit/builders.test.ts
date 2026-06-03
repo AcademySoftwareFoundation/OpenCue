@@ -341,6 +341,11 @@ describe("buildJobSpecXml", () => {
     // (deplayer) waiting on "preview" (onlayer) to finish.
     expect(xml).toContain("<deplayer>final</deplayer>");
     expect(xml).toContain("<onlayer>preview</onlayer>");
+    // depjob / onjob must carry the job name - cuebot's JobSpec runs both
+    // through conformJobName, which throws on empty strings. See
+    // pyoutline/outline/backend/cue.py:478-487 for the reference shape.
+    expect(xml).toContain("<depjob>test_job</depjob>");
+    expect(xml).toContain("<onjob>test_job</onjob>");
   });
 
   test("omits <depends> body when no layer has dependencyType set", () => {

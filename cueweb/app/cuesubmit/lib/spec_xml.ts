@@ -111,7 +111,7 @@ function layerToXml(layer: LayerInput, index: number, prevLayer: LayerInput | nu
   return lines.join("\n");
 }
 
-function dependsToXml(layers: ReadonlyArray<LayerInput>): string[] {
+function dependsToXml(jobName: string, layers: ReadonlyArray<LayerInput>): string[] {
   const lines: string[] = [];
   for (let i = 1; i < layers.length; i++) {
     const layer = layers[i];
@@ -124,11 +124,16 @@ function dependsToXml(layers: ReadonlyArray<LayerInput>): string[] {
     lines.push(
       `<depend type="${type}" anyframe="False">`,
     );
+    // depjob / onjob are mandatory and must resolve to a real job: cuebot
+    // pipes both through JobSpec.conformJobName, which throws on anything
+    // shorter than 3 chars (empty included). For an intra-spec depend
+    // they're always *this* job - pyoutline emits `ol.get_name()` for
+    // both in outline/backend/cue.py:478-487 and we mirror that here.
     // deplayer = the dependent (current layer, which has to wait)
     // onlayer  = the layer being waited on (the previous one)
-    lines.push(`  ${el("depjob", "")}`);
+    lines.push(`  ${el("depjob", jobName)}`);
     lines.push(`  ${el("deplayer", layer.name)}`);
-    lines.push(`  ${el("onjob", "")}`);
+    lines.push(`  ${el("onjob", jobName)}`);
     lines.push(`  ${el("onlayer", prev.name)}`);
     lines.push(`</depend>`);
   }
@@ -175,7 +180,7 @@ export function buildJobSpecXml(job: JobInfo, layers: ReadonlyArray<LayerInput>)
   out.push(`    </layers>`);
   out.push(`  </job>`);
 
-  const dependLines = dependsToXml(layers);
+  const dependLines = dependsToXml(job.name, layers);
   if (dependLines.length > 0) {
     out.push(`  <depends>`);
     for (const line of dependLines) {

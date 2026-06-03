@@ -20,7 +20,7 @@
 import * as React from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, MoreHorizontal, StickyNote, X } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronRight, MoreHorizontal, StickyNote, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { RowActionsCell } from "@/components/ui/row-actions-cell";
@@ -83,6 +83,18 @@ export type Job = {
   uid: number;
   user: string;
 };
+
+// Surface of the Group-By "Dependent" tree info that the Name column
+// reads out of `table.options.meta`. data-table.tsx owns the underlying
+// state (Map / Set) and exposes the three accessors below so the column
+// stays decoupled from the grouping mode.
+export interface TableMetaWithTree {
+  dependencyTree?: {
+    getInfo: (jobId: string) => { depth: number; hasChildren: boolean } | undefined;
+    isCollapsed: (jobId: string) => boolean;
+    toggle: (jobId: string) => void;
+  };
+}
 
 export const getState = (job: Job) => {
   // a job's state is either Paused, Failing, Finished, Dependency, or In Progress
@@ -303,12 +315,61 @@ export const columns: ColumnDef<Job>[] = [
     // The sticky-note comment indicator used to render inline next to the
     // first line; it's now a dedicated `comments` column to the right so
     // the user can sort jobs by "has a comment" the way CueGUI does.
-    cell: ({ row }) => {
+    //
+    // CueGUI parity: in Group-By "Dependent" mode, the cell renders an
+    // indentation + chevron in front of the name so the dependency tree
+    // is visible at a glance. The per-row depth / hasChildren info is
+    // surfaced from data-table.tsx via `table.options.meta.dependencyTree`
+    // so the column definition stays decoupled from the grouping mode.
+    cell: ({ row, table }) => {
       const job = row.original as Job;
+      const meta = table.options.meta as TableMetaWithTree | undefined;
+      const tree = meta?.dependencyTree;
+      const treeInfo = tree?.getInfo(job.id);
+
+      if (!tree || !treeInfo) {
+        return (
+          <div className="mx-auto max-w-[200px] text-center" title={job.name}>
+            <div className="truncate">{getShowShotUser(job.name)}</div>
+            <div className="truncate">{getRestOfJobName(job.name)}</div>
+          </div>
+        );
+      }
+
+      const isCollapsed = tree.isCollapsed(job.id);
       return (
-        <div className="mx-auto max-w-[200px] text-center" title={job.name}>
-          <div className="truncate">{getShowShotUser(job.name)}</div>
-          <div className="truncate">{getRestOfJobName(job.name)}</div>
+        <div
+          className="flex max-w-[260px] items-start gap-1 text-left"
+          // Each depth level shifts the name two char widths to the right;
+          // tweak via the inline style rather than dynamic class names so
+          // arbitrary depths don't blow up the Tailwind build.
+          style={{ paddingLeft: `${treeInfo.depth * 14}px` }}
+          title={job.name}
+        >
+          {treeInfo.hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                tree.toggle(job.id);
+              }}
+              className="mt-0.5 inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-foreground/70 hover:text-foreground"
+              aria-label={isCollapsed ? "Expand dependents" : "Collapse dependents"}
+              aria-expanded={!isCollapsed}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </button>
+          ) : (
+            <span className="inline-block h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          )}
+          <div className="min-w-0">
+            <div className="truncate">{getShowShotUser(job.name)}</div>
+            <div className="truncate">{getRestOfJobName(job.name)}</div>
+          </div>
         </div>
       );
     },

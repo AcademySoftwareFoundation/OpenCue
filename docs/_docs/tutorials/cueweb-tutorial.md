@@ -212,6 +212,49 @@ the job is already paused, and grayed out when the job is Finished.
 
    ![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
+### Managing Job Dependencies
+
+The job context menu groups four dependency actions so you can audit, create, or remove depends on a job without leaving Monitor Jobs.
+
+1. Right-click any job row in Monitor Jobs.
+
+2. **Review what's blocking the job.** Pick **View Dependencies...** to open a read-only dialog listing every depend on the job. Columns mirror CueGUI's `DependDialog`: Type (e.g. `JOB_ON_JOB`), Target (`INTERNAL` or `EXTERNAL`), Active (boolean), and the OnJob / OnLayer / OnFrame identifiers. Click **Refresh** to re-poll the list, or **Close** to dismiss.
+
+   ![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+   ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+3. **Add a new depend.** Pick **Dependency Wizard...** to open the wizard.
+
+   ![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+   The wizard implements every CueGUI `depend.DependType` (Job On Job, Job On Layer, Job On Frame, Frame By Frame for all layers / Hard Depend, Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, and Layer on Simulation Frame). Step count scales with the chosen type - the simplest (Job On Job) is three steps, the longest (Frame On Frame) is seven. Every picker is multi-select; **Done** fires the full source x target cross-product in one batch.
+
+   The simplest path - **Job On Job** - has three steps:
+   - Step 1: pick the dependency type.
+
+     ![Job On Job step 1](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+
+   - Step 2: pick the target job(s) the current job should depend on.
+
+     ![Job On Job step 2](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+
+   - Step 3: confirm the summary and click **Done**. A success toast confirms the depend was created.
+
+     ![Job On Job step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+   Per-type walk-throughs for every other depend type (with screenshots of every step) live in the [Dependency Wizard dialog reference](../reference/cueweb.md#dependency-wizard-dialog).
+
+4. **Remove depends in one click.** Pick **Drop External Dependencies** to remove every cross-job depend, or **Drop Internal Dependencies** to remove every within-job depend. Both surface a success toast and trigger an immediate re-poll of the Jobs table plus a refresh of the Group-By Dependent tree, so the chevrons and DEPENDENCY-state rows update without waiting for the autoload tick.
+
+   ![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+   ![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+   ![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+   ![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
+
 ---
 
 ## Job Details and Frame Management
