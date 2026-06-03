@@ -157,12 +157,17 @@ export async function getFramesForJob(job: Job): Promise<Frame[]> {
     return getFrames(JSON.stringify(body));
 }
 
-// Fetch all dependencies for a given job
-export async function getDependsForJob(jobId: string): Promise<Depend[]> {
-    const ENDPOINT = "/api/job/getdepends";
-    const body = { job: { id: jobId } };
-    const response = await accessGetApi(ENDPOINT, JSON.stringify(body));
-    return response ? response : [];
+// Fetch all dependencies for a given job. Routes through the validated
+// proxy at /api/job/action/getdepends (camelCase fields, double-
+// nested response). Tolerates both nested and flat shapes so a gateway
+// marshaller change can't silently break the consumer.
+export async function getDependsForJob(job: Job): Promise<Depend[]> {
+    const ENDPOINT = "/api/job/action/getdepends";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const data = await accessGetApi(ENDPOINT, body);
+    if (!data) return [];
+    const seq: any = data?.depends?.depends ?? data?.depends ?? data;
+    return Array.isArray(seq) ? (seq as Depend[]) : [];
 }
 
 // Get the job that a layer belongs to using the layer's parentId
