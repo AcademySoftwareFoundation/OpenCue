@@ -644,16 +644,6 @@ The **Dependencies** tab shows the job's dependency relationships.
 
 ![Job Details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
 
-
-2. **Click a layer** in the Layers panel to:
-   - Narrow the Frames panel to that layer (the Frames title shows `X of Y`).
-   - Push the layer's attributes into the docked Attributes panel.
-   - Clicking the same layer again clears the filter and re-selects the job in Attributes.
-
-3. **Double-click a frame** in the Frames panel to open the log viewer for that frame.
-
-Both inline panels refresh every 5 seconds while a job is selected; switching to a different job clears the panels and reloads.
-
 ### Layer Operations
 
 #### Layer Information Columns

@@ -294,14 +294,16 @@ export default function CueSubmitPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // handleError only fires a toast when an explicit message is
-        // passed - so surface the cuebot error inline here instead of
-        // burying it in a server-side log nobody will see.
+        // Surface the cuebot error inline with an 8s autoClose so the
+        // user has time to read multi-line stack traces. handleError is
+        // called *without* a toastMessage so it still logs via Sentry /
+        // console without double-toasting (it would otherwise fire its
+        // own toast.error when a message is supplied).
         const message = body?.error
           ? `Job submission failed: ${body.error}`
           : "Job submission failed.";
         toast.error(message, { autoClose: 8000 });
-        handleError(new Error(message), message);
+        handleError(new Error(message));
         return;
       }
       toastSuccess(
@@ -326,7 +328,10 @@ export default function CueSubmitPage() {
       const message =
         err instanceof Error ? err.message : "Job submission failed.";
       toast.error(message, { autoClose: 8000 });
-      handleError(err, message);
+      // No toastMessage to handleError - the inline toast.error above
+      // already shows the message; passing it again would fire a
+      // duplicate via notify_utils.ts:50.
+      handleError(err);
     } finally {
       setSubmitting(false);
     }
