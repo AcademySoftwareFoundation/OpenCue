@@ -216,6 +216,11 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
 - **Pause/Resume**: Right-click a job and pick **Pause** (or **Unpause** if the job is already paused). The same entry toggles between the two labels based on the job's current state, and is grayed out for Finished jobs.
 - **Set Priority**: Right-click a job and pick **Set Priority...** to open a 1-100 slider + number input. Either control drives the value; both stay in sync. The Priority column updates immediately on Apply. Available on both Cuetopia Monitor Jobs and CueCommander Monitor Cue.
+- **Manage Dependencies**: Right-click a job to access four dependency entries. **View Dependencies...** opens a read-only dialog listing every depend on the job (Type / Target / Active / OnJob / OnLayer / OnFrame). **Dependency Wizard...** walks you through creating a new depend across every CueGUI `depend.DependType` (Job On Job, Job On Layer / Frame, Hard Depend, Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, Layer on Simulation Frame); every picker is multi-select and Done fires the full source x target cross-product. **Drop External Dependencies** and **Drop Internal Dependencies** clear those depend categories in one click; the Jobs table auto-refreshes after success.
+
+  ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+  ![Dependency Wizard type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.

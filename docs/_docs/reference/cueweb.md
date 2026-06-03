@@ -270,6 +270,25 @@ Each data table renders a small **Filter jobs / layers / frames...** `<input typ
 | **Clear** | An `×` button appears inside the input once it has a value; clears the filter in one click. Pressing `Esc` while focused also clears the native `<input type="search">`. |
 | **Scope** | Client-side only - distinct from the top-of-page "Search jobs - Enter to load" box on the Jobs page which hits Cuebot to load matching jobs. |
 
+### Group By (Jobs table)
+
+The Jobs table toolbar has a **Group By** dropdown that mirrors CueGUI's `MonitorJobsPlugin` grouping modes:
+
+| Mode | Layout | Notes |
+|------|--------|-------|
+| **Clear** | Flat list (default). | No grouping. |
+| **Dependent** | Parent / child dependency **tree**. | The Name column renders a chevron + depth-based indent in front of each row. A job that other monitored jobs depend on becomes a parent; the dependents nest under it. Click the chevron to collapse / expand a subtree. |
+| **Show** | One collapsible header per show. | Header text is the show name (`(no show)` when missing); count in parentheses. |
+| **Show-Shot** | `<show> - <shot>` headers. | Same collapse behavior. |
+| **Show-Shot-Username** | `<show> - <shot> - <user>` headers. | Same. |
+
+**Dependent tree details:**
+
+- On entry, the dialog fires `/job.JobInterface/GetWhatDependsOnThis` for every monitored job in parallel and caches the result in component state, keyed by `jobId`. Adding a new monitored job fires one extra RPC; unmonitoring a job drops the cache entry. The cache is cleared when the page reloads.
+- The tree builder walks the cached graph: a job's children are the *monitored* jobs whose `depend_er_job` field appears in the parent's depend list (active depends only, matching CueGUI). Jobs that appear as a child of any other monitored job are pulled under that parent; everyone else is a root.
+- The Name column reads `table.options.meta.dependencyTree` (a `Map<jobId, { depth, hasChildren }>` plus a `toggle(jobId)` callback) and renders the chevron + indent. Empty `dependencyTree` falls back to the default centered layout.
+- Filtering, sorting, and pagination all still apply on top of the tree: an orphaned child (parent filtered out) is re-rooted at depth 0 so the row never disappears silently.
+
 ### Inline JobDetails (Layers + Frames panel)
 
 Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`), which renders the **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
@@ -413,10 +432,10 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Subscribe to Job** | Open a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered with Cuebot via the `AddSubscriber` RPC, so Cuebot emails the subscriber when the job finishes. This is the *server-side, email* subscription - different from the [Notify bell](#job-finished-notifications) (browser-side, in-app + optional desktop popup). See [Subscribe to Job dialog](#subscribe-to-job-dialog). |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
 | **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
-| **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
-| **Dependency Wizard** | Open the dependency-creation wizard. *(placeholder)* |
-| **Drop External Dependencies** | Drop external job-on-job dependencies. |
-| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
+| **View Dependencies...** | Open a themed dialog mirroring CueGUI's `DependDialog`. On open, the dialog calls the `GetDepends` RPC via `/api/job/action/getdepends` and renders the job's `depend.DependSeq` as a table with columns Type / Target / Active / OnJob / OnLayer / OnFrame. **Refresh** re-fetches the list. See [View Dependencies dialog](#view-dependencies-dialog). |
+| **Dependency Wizard...** | Open a themed three-step dialog mirroring CueGUI's `DependWizard`. Step 1 picks the dependency type (the three Job-On-X types are supported; the other CueGUI types are listed as `CueGUI only` to set expectations). Step 2 prompts for the target object's identifiers (job name, plus layer / frame names as needed). Step 3 confirms and dispatches to `CreateDependencyOnJob` / `CreateDependencyOnLayer` / `CreateDependencyOnFrame` via the matching `/api/job/action/createdependon*` proxy route. See [Dependency Wizard dialog](#dependency-wizard-dialog). |
+| **Drop External Dependencies** | Drop external job-on-job dependencies via the `DropDepends` RPC with `target = EXTERNAL`. |
+| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies via the `DropDepends` RPC with `target = INTERNAL`. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
 | **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`); the entry is *not* gated by `usePathname()`. See [Set Priority dialog](#set-priority-dialog). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
@@ -584,6 +603,189 @@ Configurable at build time:
 
 - `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with the other email dialogs).
 - `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` (default `opencue-noreply@<EMAIL_DOMAIN>`). Use this to surface a deployment-specific informational From label without touching the code.
+
+---
+
+### Drop External / Internal Dependencies
+
+Two one-click context-menu entries clear the matching depend bucket without opening a dialog. The action posts `{ job, target }` to `/api/job/action/dropdepends`, which validates `target` against `{ INTERNAL, EXTERNAL, ANY_TARGET }` server-side and forwards to `/job.JobInterface/DropDepends`. On success the helper dispatches `cueweb:refresh-now` (an immediate poll of the Jobs table) and `cueweb:depends-changed` (clears the Group-By Dependent tree cache and bumps its fetch token), so the Jobs row state, the chevrons in the dependency tree, and any open View Dependencies dialog all reconverge without waiting for the 5s autoload tick.
+
+| Entry | Action |
+|-------|--------|
+| **Drop External Dependencies** | `DropDepends` with `target = EXTERNAL` - removes every cross-job depend. |
+| **Drop Internal Dependencies** | `DropDepends` with `target = INTERNAL` - removes every within-job (layer-on-layer / frame-on-X) depend. |
+
+![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
+
+---
+
+### View Dependencies dialog
+
+The job context menu's **View Dependencies...** entry mirrors CueGUI's `DependDialog`: a read-only table of the job's `depend.DependSeq` so the user can audit which depends are still blocking the job.
+
+![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+Mounted once via `<ViewDependenciesDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-view-dependencies` CustomEvent that `viewDependenciesGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/view-dependencies-dialog.tsx`.
+
+On open, the dialog calls `fetchJobDepends(job)` from `action_utils.ts`, which posts `{ job }` to `/api/job/action/getdepends`. The proxy route forwards to `/job.JobInterface/GetDepends` via the REST gateway, and the dialog renders the returned `DependSeq` as a table.
+
+![View Dependencies dialog showing the depend.DependSeq table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+Columns mirror CueGUI's `DependDialog` table:
+
+| Column | Source field |
+|--------|--------------|
+| **Type** | `depend.type` (e.g. `JOB_ON_JOB`, `LAYER_ON_FRAME`). |
+| **Target** | `depend.target` (`INTERNAL` or `EXTERNAL`). |
+| **Active** | `depend.active` boolean - `true` while the depend still blocks the dependent. |
+| **OnJob** | `depend.depend_on_job` - the job this depend waits on. |
+| **OnLayer** | `depend.depend_on_layer` - the layer (empty for job-level depends). |
+| **OnFrame** | `depend.depend_on_frame` - the frame (empty for job / layer-level depends). |
+
+The **Refresh** button re-issues the `GetDepends` RPC so the user can verify that a freshly created depend appears in the table without re-opening the dialog. **Close** dismisses the dialog.
+
+---
+
+### Dependency Wizard dialog
+
+The job context menu's **Dependency Wizard...** entry mirrors CueGUI's `DependWizard`: a multi-step dialog that walks the user through creating a new depend on the current job.
+
+![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+Mounted once via `<DependencyWizardDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-dependency-wizard` CustomEvent that `dependencyWizardGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/dependency-wizard-dialog.tsx`.
+
+The wizard implements every CueGUI `depend.DependType`, including the UI-only Hard Depend variant. Every picker is multi-select (matching CueGUI's `QListWidget(ExtendedSelection)` behavior) and **Done** fires the full cross-product of source x target picks. The table below summarizes the step list and underlying RPC per type:
+
+| Type | Steps | Underlying RPC(s) |
+|------|-------|-------------------|
+| `JOB_ON_JOB` | Type &rarr; Job &rarr; Confirm | `/job.JobInterface/CreateDependencyOnJob` |
+| `JOB_ON_LAYER` | Type &rarr; Job &rarr; Layer &rarr; Confirm | `/job.JobInterface/CreateDependencyOnLayer` |
+| `JOB_ON_FRAME` | Type &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/job.JobInterface/CreateDependencyOnFrame` |
+| `JFBF` (Hard Depend - "Frame By Frame for all layers") | Type &rarr; Job &rarr; Confirm | `/layer.LayerInterface/CreateFrameByFrameDependency` per matched-type layer pair, across every picked target job |
+| `LAYER_ON_JOB` | Type &rarr; Source Layer &rarr; Job &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnJob` |
+| `LAYER_ON_LAYER` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnLayer` |
+| `LAYER_ON_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnFrame` |
+| `FRAME_BY_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Confirm | `/layer.LayerInterface/CreateFrameByFrameDependency` |
+| `FRAME_ON_JOB` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnJob` |
+| `FRAME_ON_LAYER` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Layer &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnLayer` |
+| `FRAME_ON_FRAME` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnFrame` |
+| `LAYER_ON_SIM_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Sim Layer &rarr; Frame &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnFrame` per source frame x picked sim frame |
+
+Fan-out semantics: **Done** issues `len(sources) * len(targets)` parallel RPCs through one `performAction` call so the user gets a single summary toast. Picking M source layers and N target layers under `LAYER_ON_LAYER`, for example, fires M*N `CreateDependencyOnLayer` RPCs.
+
+1. **Select Dependency Type.** A radio-group lists every `depend.DependType` CueGUI offers, including the UI-only Hard Depend variant. All twelve are now wired.
+2. **Source pickers (Layer / Frame in THIS job).** Layer-On-X, Frame-By-Frame, Frame-On-X, and Layer-On-Sim-Frame all need source object(s) in this job before targeting another job. The wizard fetches `getLayersForJob(thisJob)` to populate the source-layer picker; the source-frame picker then fetches `getFramesForJob(thisJob)` once and filters client-side to *every* picked source layer (so the user can multi-select layers and still pick frames across them).
+3. **Target Job picker.** A regex search box drives a scrollable list of matching jobs (debounced 250ms, capped at 200 rows). The query is forwarded to `getJobsForRegex(regex, include_finished=true)`, which posts to `/api/job/getjobs`. An empty query falls back to `.*`. Multi-select - pick as many target jobs as you want.
+4. **Target Layer picker.** Layers are fetched in parallel from every picked target job via `getLayersForJob` and concatenated. Each row carries its `parentJobName`; when multiple target jobs are picked the parent is rendered as a `[parentJob]` annotation so duplicates can be told apart. For `LAYER_ON_SIM_FRAME` the list is filtered client-side to layers whose `services` array contains a token matching `/sim/i`.
+5. **Target Frame picker.** Frames are fetched in parallel from every parent job of the picked target layers, then filtered to the picked layer names. Each row shows `(state) [layerName] <parentJobName>` annotations where useful for disambiguation.
+6. **Confirmation.** A read-only summary of the dependency type, this job, picked source object(s), and picked target object(s). **Done** dispatches to the matching wrapper in `action_utils.ts`, which expands the full source x target cross-product into one `performAction` call (parallel RPCs, single summary toast).
+
+The Hard Depend (`JFBF`) case is handled client-side: on **Done** the wizard fetches the layer list for this job and for every picked target job in parallel, pairs each target job's layers with this job's layers by `layer.type`, and bulk-fires `/layer.LayerInterface/CreateFrameByFrameDependency` for every matched pair across every target job. The success toast notes how many target jobs and layer pairs were created (`<this-job> -> <N> jobs (<M> layer pairs)`). If no types match, the wizard surfaces a warning toast instead of opening empty RPCs against Cuebot.
+
+Each step has **Go Back** / **Continue** (or **Done**) buttons; **Cancel** on step 1 dismisses the wizard. The dialog is locked while a Done request is in flight, and **Go Back** rewinds one step at a time so a wrong choice can be corrected without restarting the wizard.
+
+#### Wizard walk-throughs
+
+The screenshots below show the screen flow for each dependency type. Every picker is multi-select; **Done** fires the full source x target cross-product (see the table above for which RPC each type calls).
+
+**Job On Job (3 steps)** - the shortest path. Pick the target job(s) the current job should wait on.
+
+![Job On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+![Job On Job step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+![Job On Job step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+**Job On Layer (4 steps)** - one extra target-layer picker.
+
+![Job On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step1_select_type.png)
+![Job On Layer step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step2_select_jobs_to_depend_on.png)
+![Job On Layer step 3 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step3_select_target_layers_to_depend_on.png)
+![Job On Layer step 4 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step4_confirmation.png)
+
+**Job On Frame (5 steps)** - drill all the way down to specific target frames.
+
+![Job On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step1_select_type.png)
+![Job On Frame step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step2_select_jobs_to_depend_on.png)
+![Job On Frame step 3 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step3_select_target_layers_to_depend_on.png)
+![Job On Frame step 4 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step4_select_target_frames_to_depend_on.png)
+![Job On Frame step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step5_confirmation.png)
+
+**Frame By Frame for all layers (Hard Depend, 3 steps)** - the wizard pairs source/target layers by `layer.type` and bulk-fires one Frame-By-Frame depend per matched pair on Done.
+
+![Hard Depend step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step1_select_type.png)
+![Hard Depend step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step2_select_jobs_to_depend_on.png)
+![Hard Depend step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step3_confirmation.png)
+
+**Layer On Job (4 steps)** - first source-side type. Pick layer(s) in THIS job, then the target job(s).
+
+![Layer On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step1_select_job.png)
+![Layer On Job step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step2_select_source_layers_in_this_job.png)
+![Layer On Job step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step3_select_jobs_to_depend_on.png)
+![Layer On Job step 4 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step4_confirmation.png)
+
+**Layer On Layer (5 steps).**
+
+![Layer On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step1_select_type.png)
+![Layer On Layer step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step2_select_source_layers_in_this_job.png)
+![Layer On Layer step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step3_select_jobs_to_depend_on.png)
+![Layer On Layer step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step4_select_target_layers_to_depend_on.png)
+![Layer On Layer step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step5_confirmation.png)
+
+**Layer On Frame (6 steps).**
+
+![Layer On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step1_select_type.png)
+![Layer On Frame step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step2_select_source_layers_in_this_job.png)
+![Layer On Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step3_select_jobs_to_depend_on.png)
+![Layer On Frame step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step4_select_target_layers_to_depend_on.png)
+![Layer On Frame step 5 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step5_select_target_frames_to_depend_on.png)
+![Layer On Frame step 6 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step6_confirmation.png)
+
+**Frame By Frame (5 steps).** Single source layer x single target layer, frame-by-frame.
+
+![Frame By Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step1_select_type.png)
+![Frame By Frame step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step2_select_source_layers_in_this_job.png)
+![Frame By Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step3_select_jobs_to_depend_on.png)
+![Frame By Frame step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step4_select_target_layers_to_depend_on.png)
+![Frame By Frame step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step5_confirmation.png)
+
+**Frame On Job (5 steps).** Drill into source frames, then pick target job(s).
+
+![Frame On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step1_select_type.png)
+![Frame On Job step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step2_select_source_layers_in_this_job.png)
+![Frame On Job step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step3_select_source_frames_in_this_job.png)
+![Frame On Job step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step4_select_jobs_to_depend_on.png)
+![Frame On Job step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step5_confirmation.png)
+
+**Frame On Layer (6 steps).**
+
+![Frame On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step1_select_type.png)
+![Frame On Layer step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step2_select_source_layers_in_this_job.png)
+![Frame On Layer step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step3_select_source_frames_in_this_job.png)
+![Frame On Layer step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step4_select_jobs_to_depend_on.png)
+![Frame On Layer step 5 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step5_select_target_layers_to_depend_on.png)
+![Frame On Layer step 6 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step6_confirmation.png)
+
+**Frame On Frame (7 steps)** - the longest path. Drill into a source frame and a target frame.
+
+![Frame On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step1_select_type.png)
+![Frame On Frame step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step2_select_source_layers_in_this_job.png)
+![Frame On Frame step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step3_select_source_frames_in_this_job.png)
+![Frame On Frame step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step4_select_jobs_to_depend_on.png)
+![Frame On Frame step 5 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step5_select_target_layers_to_depend_on.png)
+![Frame On Frame step 6 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step6_select_target_frames_to_depend_on.png)
+![Frame On Frame step 7 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step7_confirmation.png)
+
+**Layer On Simulation Frame.** Similar to Layer On Frame, but the target layer picker is filtered to layers whose `services` array matches `/sim/i`.
+
+![Layer On Simulation Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step1_select_type.png)
+![Layer On Simulation Frame step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step2_select_source_layers_in_this_job.png)
+![Layer On Simulation Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step3_select_jobs_to_depend_on.png)
+![Layer On Simulation Frame step 4 - pick the target sim layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step4_select_target_layers_to_depend_on.png)
 
 ---
 
