@@ -27,7 +27,9 @@ export function kbStringToNumber(kb: string): number {
 // Returns "-" for values that aren't a parseable positive number.
 export function kbStringToHuman(kb: string): string {
   const n = Number(kb);
-  if (!Number.isFinite(n) || kb === "" || kb === undefined || kb === null) {
+  // Number("") === 0 (finite), so guard the empty string explicitly to show
+  // "-" (no data) rather than "0K".
+  if (kb === "" || !Number.isFinite(n)) {
     return "-";
   }
   return convertMemoryToString(n, "host");
