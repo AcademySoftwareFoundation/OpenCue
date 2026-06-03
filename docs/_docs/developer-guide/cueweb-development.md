@@ -401,6 +401,282 @@ The same module is consumed by both the API route and the live preview, so a pas
 
 ---
 
+## Set Priority dialog (CueGUI parity)
+
+The Jobs table's right-click **Set Priority...** entry opens a themed dialog with a 1-100 slider + matching number input. The menu entry is **not** gated by `usePathname()` - it appears on every page that mounts `JobContextMenu`, so the action is available on both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). (The neighboring **View Job** entry, by contrast, *is* path-gated to `/monitor-cue` only - see [`action-context-menu.tsx`](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/components/ui/context_menus/action-context-menu.tsx) for the conditional spread.) Files involved:
+
+```
+cueweb/
+├── app/api/job/action/setpriority/route.ts   # Proxy to JobInterface/SetPriority
+├── app/utils/action_utils.ts                 # setJobPriority(job, val) + setPriorityGivenRow event dispatcher
+├── components/ui/set-priority-dialog.tsx     # The dialog component (slider + number input)
+├── components/ui/context_menus/action-context-menu.tsx  # "Set Priority..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <SetPriorityDialog/> + listens for cueweb:priority-changed
+```
+
+### CustomEvent dance
+
+The dialog is mounted once at the bottom of `DataTable` (not inside the context menu) so the menu's free-function handlers don't need to reach into component state. Two events glue the pieces together:
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-set-priority` | `setPriorityGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `SetPriorityDialog` | `{ job: Job }` |
+| `cueweb:priority-changed` | `SetPriorityDialog` after a successful `setJobPriority(job, val)` | `DataTable` (a `useEffect`) | `{ jobId: string; priority: number }` |
+
+The second event drives the optimistic in-row update: `DataTable` patches `tableData[].priority` for the matching id so the Priority column updates immediately instead of waiting for the next 5-second poll tick. The regular poll then reconciles in case cuebot rejected silently for some unforeseen reason.
+
+### API route
+
+`POST /api/job/action/setpriority` validates `{ job, val: number }`, checks `Number.isInteger(val) && 1 <= val <= 100`, and forwards to `/job.JobInterface/SetPriority`.
+
+---
+
+## Email Artist dialog (CueGUI parity)
+
+The Jobs table's right-click **Email Artist...** entry opens a themed dialog mirroring CueGUI's `EmailDialog`. Same CustomEvent pattern as Set Priority - the dialog is mounted once at the bottom of `DataTable` and the free-function context-menu handler dispatches an event with the row's job. Files involved:
+
+```
+cueweb/
+├── app/utils/action_utils.ts                 # emailArtistGivenRow(row) event dispatcher
+├── components/ui/email-artist-dialog.tsx     # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx  # "Email Artist..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <EmailArtistDialog />
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-email-artist` | `emailArtistGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `EmailArtistDialog` | `{ job: Job }` |
+
+There is no corresponding "sent" event - the browser hands the composed mail off to the OS via a `mailto:` URL, so there's nothing for the table to optimistically update.
+
+### Pre-filled defaults
+
+On `cueweb:open-email-artist`, the dialog derives:
+
+- `From = <show>-${NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX}@${NEXT_PUBLIC_EMAIL_DOMAIN}` (informational - see below).
+- `To = <user>@${NEXT_PUBLIC_EMAIL_DOMAIN}` (the job's owner).
+- `CC = From`.
+- `BCC = ""`.
+- `Subject = "cuemail: please check <jobName>"`.
+- `Body = "Your Support Team requests that you check <jobName>\n\nHi <user>,\n"`.
+
+Both env vars are read at module scope: `NEXT_PUBLIC_EMAIL_DOMAIN` defaults to `"your.domain.com"` and `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` defaults to `"pst"`, matching CueGUI's `<show>-pst@<domain>` placeholders.
+
+### Send mechanism
+
+`handleSend` builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body` via `URLSearchParams` (and `encodeURIComponent` on the `to` part) and assigns it to `window.location.href`. The OS hands the URL off to the user's default mail client.
+
+Browsers don't let `mailto:` override the user's mail account's `From:` header, so the dialog's **From** field is informational only. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with. The dialog's `DialogDescription` calls this out so the user isn't surprised.
+
+The **Send** button is disabled when `to.trim()` is empty.
+
+---
+
+## Request Cores dialog (CueGUI parity)
+
+The Jobs table's right-click **Request Cores...** entry opens a themed email composer mirroring CueGUI's `RequestCoresDialog`. Same CustomEvent pattern as Email Artist - the dialog is mounted once at the bottom of `DataTable` and the free-function context-menu handler dispatches an event with the row's job. Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                 # requestCoresGivenRow(row) event dispatcher
+├── components/ui/request-cores-dialog.tsx    # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx  # "Request Cores..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <RequestCoresDialog />
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-request-cores` | `requestCoresGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `RequestCoresDialog` | `{ job: Job }` |
+
+### Pre-filled defaults
+
+On `cueweb:open-request-cores`, the dialog derives:
+
+- `From = session.user.email` (fallback to `<sessionName>@${NEXT_PUBLIC_EMAIL_DOMAIN}`, then empty).
+- `To = ""` (user fills in).
+- `CC = <show>-${NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX}@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+- `BCC = ""`.
+- `Subject = "Requesting Cores for <jobName>"`.
+
+The body is auto-populated with `buildPrelude(job, layers)`:
+
+```text
+Requesting more cores for:
+Job Name:       <jobName>
+Group (Folder): <group or show fallback>
+
+Layers that have frames remaining (waiting and running):
+
+Layer Name                          Minimum Memory    Min Cores
+<remaining layers>
+```
+
+### Async layer fetch
+
+Layer data isn't on the row, so the dialog kicks off `getLayersForJob(job)` in the same effect that handles the open event. Until the response lands, `layers` is `null` and the prelude renders `Loading layers...`; once it resolves the dialog re-renders with a filtered list (`waitingFrames + runningFrames > 0`) so only layers that could actually use the extra cores show up.
+
+If the fetch rejects, `layers` is set to `[]` and the prelude reads `(no layers currently have waiting or running frames)`.
+
+### Send mechanism
+
+`handleSend` stitches the auto-populated prelude with two editable sections - **Date/Time by which completion is needed** and **Additional notes (flag priority frames etc.)** - and builds a `mailto:` URL the same way Email Artist does. Same `From:`-is-informational caveat. The **Send** button is disabled when `to.trim()` is empty.
+
+---
+
+## Subscribe to Job (Email subscription via Cuebot)
+
+The Jobs table's right-click **Subscribe to Job** entry opens a themed
+dialog mirroring CueGUI's `SubscribeToJobDialog`. Unlike the **Notify
+bell** in the Jobs table (a *browser-side* subscription that fires an
+in-app toast + optional desktop popup), this dialog registers a
+*server-side, email* subscriber on Cuebot. When the job reaches
+`FINISHED`, Cuebot sends an email to the saved address.
+
+Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                              # subscribeToJobGivenRow / addJobSubscriber
+├── components/ui/subscribe-to-job-dialog.tsx              # The dialog component
+├── components/ui/context_menus/action-context-menu.tsx    # "Subscribe to Job" menu entry
+├── app/jobs/data-table.tsx                                # Mounts <SubscribeToJobDialog />
+└── app/api/job/action/addsubscriber/route.ts              # Proxy to /job.JobInterface/AddSubscriber
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-subscribe-to-job` | `subscribeToJobGivenRow(row)` in `action_utils.ts` (called when the menu item is clicked) | `SubscribeToJobDialog` | `{ job: Job }` |
+
+### Pre-filled defaults
+
+On `cueweb:open-subscribe-to-job`, the dialog derives:
+
+- `Job name` (read-only): from `detail.job.name`.
+- `From` (read-only label): `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` if set, otherwise `opencue-noreply@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+- `To` (editable): `session.user.email` if available; fallback to `<sessionName-or-jobUser>@${NEXT_PUBLIC_EMAIL_DOMAIN}`.
+
+### Save mechanism
+
+`handleSave` validates `to.trim()` against a permissive
+`^\S+@\S+\.\S+$` regex (Cuebot does its own validation server-side),
+then calls:
+
+```ts
+await addJobSubscriber(job, to.trim());
+```
+
+which posts `{ job, subscriber }` to `/api/job/action/addsubscriber`.
+The proxy route forwards to `/job.JobInterface/AddSubscriber` on the
+REST gateway via `handleRoute`. A `busy` flag disables both buttons
+while the request is in flight and prevents `onOpenChange` from closing
+the dialog mid-save.
+
+### Why this is separate from the Notify bell
+
+Two completely different lifecycles:
+
+| Aspect | **Subscribe to Job** (this entry) | **Notify bell** (`subscribe-bell.tsx`) |
+|--------|------------------------------------|---------------------------------------|
+| State lives on | Cuebot (persisted across browsers / users / machines) | The browser (`localStorage`) |
+| Notification channel | Email sent by Cuebot | In-app toast + optional desktop popup |
+| Trigger | `AddSubscriber` RPC | Polling loop in `JobSubscriptionPoller` |
+| Cancel | Outside CueWeb (whatever Cuebot supports) | Click the bell again |
+| Survives reinstall | Yes | No (per-browser store) |
+
+They can be used together: a user can both click the bell to get a
+browser popup and Save the dialog to also receive an email. The two
+codepaths never touch each other.
+
+### Configurable env vars
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `NEXT_PUBLIC_EMAIL_DOMAIN` | `your.domain.com` | Shared with Email Artist + Request Cores. Drives the default `To` address. |
+| `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | `opencue-noreply@<EMAIL_DOMAIN>` | The informational `From` label shown in the dialog. The actual sender is whatever Cuebot is configured with. |
+
+---
+
+## Pause / Unpause Toggle (Job Context Menu)
+
+The job context menu's **Pause / Unpause** entry is a single toggle: the
+label, icon, and click handler all flip based on the row's `isPaused`
+flag. CueGUI's `MonitorJobs` widget does the same thing, so this is a
+parity item.
+
+Files involved:
+
+```bash
+cueweb/
+├── app/utils/action_utils.ts                              # pauseJobGivenRow / unpauseJobGivenRow
+└── components/ui/context_menus/action-context-menu.tsx    # The toggle entry
+```
+
+### State derivation
+
+Inside `JobContextMenu` (`components/ui/context_menus/action-context-menu.tsx`):
+
+```tsx
+const isJobPaused = !!contextMenuState.row?.original.isPaused;
+```
+
+### The toggle entry
+
+The menuItems array contains a single Pause/Unpause entry instead of two
+static ones:
+
+```tsx
+{
+  label: isJobPaused ? "Unpause" : "Pause",
+  onClick: isJobPaused ? unpauseJobGivenRow : pauseJobGivenRow,
+  isActive: destructiveActive,
+  component: isJobPaused ? (
+    <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+  ) : (
+    <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+  ),
+},
+```
+
+### Disabled-state matrix
+
+`destructiveActive` is already defined as:
+
+```tsx
+const isActive = contextMenuState.row ? contextMenuState.row.original.state !== "FINISHED" : false;
+const destructiveActive = isActive && !jobInteractionDisabled;
+```
+
+So the toggle resolves like this:
+
+| Job state | `isPaused` | Label shown | Active? |
+|-----------|------------|-------------|---------|
+| In Progress | `false` | **Pause** | yes |
+| Failing | `false` | **Pause** | yes |
+| Dependency | `false` | **Pause** | yes |
+| Paused | `true` | **Unpause** | yes |
+| Finished | `false` | **Pause** | no (state-gated) |
+| Any state + global safety flag on | - | shown label | no (flag-gated) |
+
+No additional code is needed to handle Finished or the global safety flag
+- both fall out of the existing `destructiveActive` boolean.
+
+### Toolbar buttons
+
+The Jobs toolbar still surfaces separate **Pause Jobs** / **Unpause Jobs**
+buttons (`pauseJobsFromSelectedRows` / `unpauseJobsFromSelectedRows` in
+`action_utils.ts`) because the toolbar acts on the multi-row checkbox
+selection - those rows can have mixed `isPaused` states, so a single
+toggle would be ambiguous. Only the single-row right-click menu collapses
+to one entry.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

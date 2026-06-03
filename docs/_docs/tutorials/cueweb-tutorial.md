@@ -116,12 +116,24 @@ The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
-5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+5. **Subscribe to Job Completion - in-browser**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
    - Outline bell &rarr; not subscribed
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
    The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+
+6. **Subscribe to Job Completion - by email**: For notifications that survive closing the browser or that should go to a team alias, right-click the job row and pick **Subscribe to Job**. A small dialog opens with the job name, an informational **From** address, and an editable **To** address (pre-filled with your account email).
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+   Adjust **To** if you want notifications sent somewhere else and click **Save**. A toast confirms the address has been registered with Cuebot; the email arrives from Cuebot when the job finishes.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+   The Notify bell and **Subscribe to Job** are independent - the bell lives in your browser, the email subscription lives on Cuebot. You can use either or both at the same time.
 
 ### Understanding Job Status
 
@@ -146,27 +158,59 @@ Jobs are color-coded for quick identification:
 
 ### Pausing and Resuming Jobs
 
-Sometimes you need to pause jobs to free up resources or fix issues.
+Sometimes you need to pause jobs to free up resources or fix issues. The
+context menu shows a single Pause/Unpause entry whose label reflects the
+job's current state - **Pause** when the job is running, **Unpause** when
+the job is already paused, and grayed out when the job is Finished.
 
 #### Pause a Job
 
-1. Find the job you want to pause
-2. Click the **Pause** button in the Actions menu
-3. The job status should change to "PAUSED" with a blue indicator
+1. Find the job you want to pause (anything that is not already Finished
+   or Paused).
+2. Right-click the row - the entry will read **Pause**.
+3. Click **Pause**.
+4. The job status changes to "Paused" with a blue indicator, and the next
+   time you right-click the row the same entry will read **Unpause**.
 
 #### Resume a Job
 
-1. Find a paused job (blue indicator)
-2. Click the **Unpause** button in the Actions menu
-3. The job should return to "PENDING" or "RUNNING"
+1. Find a paused job (blue indicator).
+2. Right-click the row - the entry will read **Unpause**.
+3. Click **Unpause**.
+4. The job returns to In Progress (or Failing / Dependency if it has dead
+   frames or unmet dependencies).
+
+#### What you'll see in other states
+
+- **In Progress, Failing, Dependency**: entry reads **Pause** and is active.
+- **Paused**: entry reads **Unpause** and is active.
+- **Finished**: entry reads **Pause** but is grayed out - a completed job
+  cannot be paused.
 
 ### Pause and Resume Practice
 
-1. Find an active job with running frames
-2. Pause the job and watch the status change
-3. Wait 30 seconds for the interface to refresh
-4. Resume the job
-5. Observe how the job returns to the queue
+1. Find an active job with running frames.
+2. Right-click and choose **Pause** - watch the status change to Paused.
+3. Wait 30 seconds for the interface to refresh.
+4. Right-click again - the entry now reads **Unpause**.
+5. Choose **Unpause** and observe how the job returns to the queue.
+
+### Adjusting Priority
+
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** and **CueCommander &rarr; Monitor Cue**. The walk-through below uses Cuetopia.
+
+1. Right-click any job row in Monitor Jobs and pick **Set Priority...**.
+
+   ![Set Priority entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+2. A themed dialog opens with a 1-100 slider and a matching number input. Either control drives the value; both stay in sync. The current priority is pre-filled (cuebot's default is 100). Higher numbers dispatch first.
+
+   ![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+3. Drag the slider to 50 (or type a value) and click **Apply**.
+4. A toast confirms the change. The Priority column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+   ![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
 ---
 

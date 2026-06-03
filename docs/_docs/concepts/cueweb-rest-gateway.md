@@ -198,7 +198,7 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | Interface | Description | Example Endpoints |
 |-----------|-------------|-------------------|
 | **ShowInterface** | Project management | `GetShows`, `FindShow`, `CreateShow` |
-| **JobInterface** | Job lifecycle + launch | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment`, `LaunchSpecAndWait` |
+| **JobInterface** | Job lifecycle + launch | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment`, `SetPriority`, `LaunchSpecAndWait` |
 | **CommentInterface** | Comment management | `Save`, `Delete` |
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |

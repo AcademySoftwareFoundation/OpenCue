@@ -411,22 +411,79 @@ export function dropInternalDependsGivenRow(row: Row<any>) {
   dropJobDepends(row.original, "INTERNAL");
 }
 
-// Prompt-driven wrappers. CueGUI's MenuActions uses Qt input dialogs; we
-// reuse window.prompt for parity in this round. A native shadcn dialog
-// replacement is a follow-up.
+// Right-click "Set Priority..." handler. Dispatches a CustomEvent
+// that the SetPriorityDialog (mounted at the page level) listens for;
+// the dialog opens with a slider + number input pre-filled with the
+// row's current priority and calls setJobPriority on Apply. Decoupled
+// this way so the free-function context-menu handlers don't need to
+// reach into the table's component state.
 export function setPriorityGivenRow(row: Row<any>) {
   const job = row.original as Job;
-  const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
-  if (raw === null) return;
-  // Strict whole-string match - Number.parseInt would silently accept
-  // "10abc" / "10.5" / " 10 " and quietly truncate, sending a value the
-  // user didn't actually type to Cuebot.
-  const trimmed = raw.trim();
-  if (!/^-?\d+$/.test(trimmed)) {
-    toastWarning("Priority must be an integer");
-    return;
-  }
-  setJobPriority(job, Number.parseInt(trimmed, 10));
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-priority", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Email Artist..." handler. Dispatches a CustomEvent that
+// the EmailArtistDialog (mounted at the page level) listens for; the
+// dialog opens pre-filled with From/To/CC/Subject/Body derived from the
+// job and the deployment's email domain. Decoupled this way so the
+// free-function context-menu handlers don't need to reach into the
+// table's component state.
+export function emailArtistGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-email-artist", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Request Cores..." handler. Dispatches a CustomEvent
+// that the RequestCoresDialog (mounted at the page level) listens for;
+// the dialog opens with an email composer pre-filled with To/CC/Subject
+// and an auto-populated body listing the layers with frames remaining
+// (waiting + running). User adds the wanted completion date and any
+// notes, hits Send, and the OS hands the mail off to their default
+// client via a mailto: URL. Decoupled this way so the free-function
+// context-menu handlers don't need to reach into the table's component
+// state.
+export function requestCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-request-cores", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Subscribe to Job" handler. Dispatches a CustomEvent that
+// the SubscribeToJobDialog listens for. The dialog mirrors CueGUI's
+// SubscribeToJobDialog: a small form with the job name, a (read-only)
+// From address and an editable To address. Save calls
+// addJobSubscriber() which forwards to the AddSubscriber RPC on Cuebot;
+// when the job finishes Cuebot sends an email to the subscriber.
+export function subscribeToJobGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Calls the Cuebot AddSubscriber RPC to register an email subscriber for
+// the job. Cuebot sends notification email to subscriber on job completion.
+export async function addJobSubscriber(job: Job, subscriber: string) {
+  const endpoint = "/api/job/action/addsubscriber";
+  const body = JSON.stringify({ job, subscriber });
+  await performAction(endpoint, [body], `Subscribed ${subscriber} to ${job.name}`);
 }
 
 export function setMaxRetriesGivenRow(row: Row<any>) {

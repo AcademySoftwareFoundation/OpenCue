@@ -290,8 +290,20 @@ Jobs are color-coded by status:
 
 #### Pause/Resume Jobs
 
-1. **Single Job**: Click the `Pause`/`Unpause` button in the Actions menu
-2. **Multiple Jobs**: Select jobs using checkboxes, then use the `Pause`/`Unpause` button
+The right-click menu shows a single entry that reflects the job's current
+state:
+
+- The entry reads **Pause** when the job is running (In Progress, Failing,
+  or Dependency) - clicking it pauses the job.
+- The entry reads **Unpause** when the job is already paused - clicking
+  it resumes the job.
+- The entry is shown disabled (grayed) when the job is Finished, since a
+  completed job cannot be paused.
+
+1. **Single Job**: Right-click the row and pick **Pause** / **Unpause**, or
+   click the toolbar button in the Actions menu.
+2. **Multiple Jobs**: Select jobs using checkboxes, then use the
+   **Pause Jobs** / **Unpause Jobs** toolbar buttons.
 
 #### Kill Jobs
 
@@ -316,7 +328,24 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, **Pause / Unpause** (single toggle - the label flips with the job's paused state and is grayed out for Finished jobs), Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+
+### Adjusting job priority (Set Priority)
+
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (the `/` page you land on by default) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and behavior are identical on either page.
+
+Right-click a job row and pick **Set Priority...** to open a themed dialog. The dialog has a 1-100 range slider and a matching number input - either control drives the value; both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; the cuebot default is 100.
+
+![Set Priority entry in the right-click menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+After Apply:
+
+- A success toast confirms the new value.
+- The job's Priority column in the Jobs table updates immediately (no need to wait for the regular 5-second refresh tick).
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 - **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
 - **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 
@@ -339,6 +368,32 @@ Important notes:
    ![CueWeb with job context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
 
    ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
+
+#### Emailing the artist
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog. Right-click a job and pick the entry from the menu:
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+A themed dialog opens pre-filled from the job - From, To (the job's owner), CC, Subject (`cuemail: please check <jobName>`), and a Body that greets the artist by name. Every field is editable.
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Clicking **Send** hands the filled-in fields to your default mail client (Mail.app on macOS, Outlook on Windows, your configured `mailto:` handler on Linux). Because the browser uses a `mailto:` URL, the **From** header on the email you actually send is decided by your mail client - the From field in the dialog is informational and shows the support alias the team typically uses.
+
+The email domain and the per-show support alias suffix are configured at deployment time, so production emails resolve to your real addresses rather than the `your.domain.com` placeholder shown in the sandbox.
+
+#### Requesting cores from the support team
+
+When a job is starved for cores, the **Request Cores...** entry on the job context menu opens an email composer addressed to the show's support team (mirroring CueGUI's `RequestCoresDialog`). Right-click a job and pick the entry:
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+The dialog opens pre-filled: **From** comes from your signed-in session, **CC** is the per-show support alias (`<show>-support@<domain>`), **Subject** is `Requesting Cores for <jobName>`, and the body is auto-populated with a table of the job's still-active layers (Layer Name / Minimum Memory / Min Cores) so the support team can see at a glance which layers need more capacity. Two extra fields below the table let you add the **Date/Time by which completion is needed** and any **additional notes** (priority frames, willingness to raise the memory floor, etc.).
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Clicking **Send** stitches the auto-populated body together with your Date/Time and Notes and hands the result to your default mail client. As with **Email Artist...**, the **From** header on the email you actually send is decided by your mail client, not by the dialog.
 
 ---
 
@@ -743,6 +798,37 @@ Behavior:
 - When several CueWeb tabs are open for the same job, only one of them shows the notification, so you see exactly one notification per finished job per browser profile.
 - Subscriptions are saved in your browser and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
 - If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
+
+### Subscribe to Job (email subscription)
+
+The **Notify bell** above is a *browser-side* subscription: it stays in your browser and fires a popup in your CueWeb tab. If you want Cuebot to send you an **email** when the job finishes - for example, so you get notified after closing the browser, or so a team alias is informed - use the **Subscribe to Job** entry in the job's right-click menu instead.
+
+The two are independent. You can use either, or both at the same time. Their differences in plain terms:
+
+| | **Notify bell** (Notify column) | **Subscribe to Job** (right-click menu) |
+|--|---------------------------------|------------------------------------------|
+| Where the subscription lives | Your browser | Cuebot |
+| Notification channel | In-app toast (always) + desktop popup (when permission granted) | Email sent by Cuebot |
+| Survives a browser reset or new device | No | Yes |
+| Cancel | Click the bell again | Outside CueWeb (whatever Cuebot supports) |
+
+**To subscribe by email:**
+
+1. Right-click the job row in the Jobs table and pick **Subscribe to Job**.
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+2. A small dialog opens with the job name, an informational **From** address (your administrator sets the default), and an editable **To** address pre-filled with your account email.
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+3. Edit the **To** field if you want notifications sent somewhere else (a team alias, a personal address, etc.) and click **Save**.
+
+4. A toast confirms the subscription is registered with Cuebot.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+When the job reaches `FINISHED`, Cuebot sends the configured notification email to the saved address. The address you see in the **From** field is informational only - the real sender is whatever your Cuebot deployment is configured with.
 
 ---
 

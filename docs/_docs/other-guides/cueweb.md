@@ -88,7 +88,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 17. **CueWeb actions and context menu (CueGUI parity):**
    - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
    - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
-   - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, Set Max Retries, Reorder / Stagger Frames, Pause / Unpause, Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
+   - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, View Dependencies, Dependency Wizard, Drop External / Internal Dependencies, Set / Clear User Color, **Set Priority...** (themed 1-100 slider + number input), Set Max Retries, Reorder / Stagger Frames, **Pause / Unpause** (single toggle - the label and icon flip with the job's paused state, and the entry is grayed out for Finished jobs), Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
    - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
    - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
    - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
@@ -106,13 +106,9 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Selections combine with OR semantics; the table pages back to the first page on selection change so the filtered results are immediately visible.
    - The current selection is mirrored to the `frameStates` URL query parameter (e.g. `?frameStates=WAITING,DEAD`), making filtered views bookmarkable and shareable.
 
-21. **Per-job completion notifications:**
-   - The Jobs table includes a **Notify** column with a bell button per row. Clicking it subscribes the browser to a notification when the job reaches `FINISHED`.
-   - The bell has three visual states: outline (not subscribed), filled (subscribed/waiting), and filled with a green dot (notification has fired - click to clear).
-   - The bell is disabled on rows whose job state is already `FINISHED` when first viewed.
-   - Subscriptions always succeed; the OS-level notification permission is an optional upgrade for desktop popups. Clicking the bell branches the resulting toast on `granted` / `denied` / `default` so users know whether they got an in-app-only subscription or also a system popup.
-   - An app-wide background poller checks each subscribed job every 15 seconds. When a job reaches `FINISHED` an in-app toast fires (always), and a desktop popup appears too if the OS-level notification permission was granted. When several CueWeb tabs poll the same job concurrently only one tab actually fires the toast, so you see exactly one notification per finished job.
-   - Subscriptions are persisted in the browser and survive page reloads. Subscriptions to jobs that no longer exist in Cuebot are removed automatically on the next poll. Mutations are synced across tabs.
+21. **Per-job completion notifications (two channels):**
+   - **Notify bell** (Jobs table **Notify** column): clicking the bell subscribes the *browser* to an in-app toast (and an optional desktop popup) when the job reaches `FINISHED`. Three visual states - outline (not subscribed), filled (subscribed/waiting), filled with a green dot (notification fired). The bell is disabled on rows whose job state is already `FINISHED` when first viewed. Subscriptions always succeed; the OS-level notification permission is an optional upgrade. An app-wide background poller checks each subscribed job every 15 seconds; when several tabs poll the same job concurrently only one actually fires the toast. Subscriptions are persisted in the browser, survive page reloads, sync across tabs, and self-prune when the job is deleted from Cuebot.
+   - **Subscribe to Job** (right-click menu on a job row): opens a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered on Cuebot via the `AddSubscriber` RPC, so Cuebot **emails** the subscriber when the job finishes. Use this when you want notifications to survive closing the browser, going to a different machine, or to alert a team alias instead of yourself. Independent of the Notify bell; you can use one, the other, or both.
 
 22. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
    - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
@@ -427,7 +423,9 @@ Selecting **Other -> Show Shortcuts** opens an overlay listing the available key
 
 ### CueWeb Actions for Jobs / Layers / Frames
 
-The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type. 
+The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type.
+
+The Pause / Unpause entry in the job context menu is a single toggle: it reads **Pause** when the job is running (In Progress, Failing, Dependency), **Unpause** when the job is already paused, and is shown disabled (grayed) when the job is Finished.
 
 Figure 52 shows the `job` context menu with options to `un-monitor`, `comments`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 53 shows the successful message after selecting `kill` a job.
 
@@ -462,6 +460,60 @@ The **CueSubmit** top-level menu (header / sidebar / mobile drawer) opens the br
 
 **Figure 59: CueSubmit Submit Job page**
 ![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+### Email the artist about a job
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog (Figures 60 and 61). It opens a themed dialog pre-filled with From, To (the job's owner), CC, Subject (`cuemail: please check <jobName>`), and a Body that greets the artist by name. Every field is editable. **Send** hands the result to your default mail client via a `mailto:` URL.
+
+**Figure 60: Email Artist entry in the job context menu**
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+**Figure 61: Email Artist dialog pre-filled from the selected job**
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+### Request cores from the support team
+
+The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCoresDialog` (Figures 62 and 63). It opens an email composer pre-filled with **From** (your signed-in session), **CC** (`<show>-support@<domain>`), **Subject** (`Requesting Cores for <jobName>`), and an auto-populated body listing the job's still-active layers (Layer Name / Minimum Memory / Min Cores). Two extra fields let you add the **Date/Time by which completion is needed** and any **additional notes**. **Send** hands the result to your default mail client via a `mailto:` URL.
+
+**Figure 62: Request Cores entry in the job context menu**
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+**Figure 63: Request Cores dialog pre-filled from the selected job**
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+
+### Subscribe to a job by email
+
+The job context menu's **Subscribe to Job** entry mirrors CueGUI's `SubscribeToJobDialog` (Figures 64 to 66). Unlike the **Notify bell** in the Jobs table - which is a *browser-side* subscription that fires an in-app toast (and optional desktop popup) - this entry registers a *server-side, email* subscriber on Cuebot. When the job reaches `FINISHED`, Cuebot sends an email to the saved address.
+
+The dialog shows the job name, an informational **From** address (deployment default), and an editable **To** address pre-filled with your account email (or `<user>@<domain>` if your session doesn't expose one). Edit the **To** field if you want notifications sent somewhere else - a team alias, a personal address, etc. - and click **Save**. A toast confirms the subscription is registered.
+
+The two subscription mechanisms are independent; you can use one, the other, or both.
+
+**Figure 64: Subscribe to Job entry in the job context menu**
+![Subscribe to Job entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+**Figure 65: Subscribe to Job dialog pre-filled from the selected job**
+![Subscribe to Job dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+**Figure 66: Toast confirming the subscription is registered**
+![Toast confirming the subscription is registered](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+
+### Adjust a job's dispatch priority
+
+The job context menu's **Set Priority...** entry opens a themed dialog with a 1-100 range slider and a matching number input - either control drives the value, and both stay in sync. The current priority is pre-filled (cuebot's default is 100); higher numbers dispatch first. **Set Priority...** is available everywhere the job context menu appears: both **Cuetopia &rarr; Monitor Jobs** (the default landing page) and **CueCommander &rarr; Monitor Cue**. The dialog and behavior are identical on either page (Figures 67 to 69).
+
+After **Apply**, a toast confirms the new value and the **Priority** column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+**Figure 67: Set Priority entry in the job context menu (Cuetopia Monitor Jobs)**
+![Set Priority entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+**Figure 68: Set Priority dialog with slider and number input**
+![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+**Figure 69: Toast confirming the priority change and immediate column update**
+![Toast confirming the priority change](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
 
 ## Conclusion

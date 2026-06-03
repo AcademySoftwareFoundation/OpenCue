@@ -95,6 +95,10 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
 | `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
+| `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
+| `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
+| `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
+| `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | Informational **From** label shown by the **Subscribe to Job** dialog. The actual email sender is whatever Cuebot is configured with - this is purely a UI hint. See [Subscribe to Job dialog](#subscribe-to-job-dialog). | `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>` |
 
 ### Authentication Variables
 
@@ -404,9 +408,9 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Job** | Navigate to the job detail page. *(placeholder)* |
 | **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
 | **Copy Job Name** | Copy the full job name to the clipboard. |
-| **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
-| **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
-| **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
+| **Email Artist...** | Open a themed dialog mirroring CueGUI's Email dialog. Fields (From, To, CC, BCC, Subject, Body) are pre-filled from the job and editable; see [Email Artist dialog](#email-artist-dialog). |
+| **Request Cores...** | Open a themed dialog mirroring CueGUI's `RequestCoresDialog`. From / To / CC / BCC / Subject inputs are pre-filled; the body is auto-populated with the job's still-active layers (Layer Name / Minimum Memory / Min Cores) and two editable Date/Time + Notes sections. **Send** hands the result to the user's default mail client via a `mailto:` URL. See [Request Cores dialog](#request-cores-dialog). |
+| **Subscribe to Job** | Open a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered with Cuebot via the `AddSubscriber` RPC, so Cuebot emails the subscriber when the job finishes. This is the *server-side, email* subscription - different from the [Notify bell](#job-finished-notifications) (browser-side, in-app + optional desktop popup). See [Subscribe to Job dialog](#subscribe-to-job-dialog). |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
 | **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
 | **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
@@ -414,9 +418,10 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Drop External Dependencies** | Drop external job-on-job dependencies. |
 | **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
+| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`); the entry is *not* gated by `usePathname()`. See [Set Priority dialog](#set-priority-dialog). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
-| **Pause** / **Unpause** | Pause or resume the job. |
+| **Pause** / **Unpause** | Single toggle entry: shows **Pause** when the job is running and **Unpause** when the job is already paused. The label, icon (`TbPlayerPause` / `TbPlayerPlay`) and dispatched action all flip on the row's `isPaused` flag. The entry is shown disabled (grayed) when the job's `state === "FINISHED"` (a terminal state can't be paused), and when the global *Disable Job Interaction* safety flag is on. Active in all other states (In Progress, Failing, Dependency). |
 | **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
 | **Retry Dead Frames** | Retry every dead frame. |
 | **Eat Dead Frames** | Mark every dead frame as eaten. |
@@ -468,6 +473,117 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 | **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
 | **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
 | **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
+
+---
+
+### Set Priority dialog
+
+The job context menu's **Set Priority...** entry opens a themed dialog with a 1-100 range slider and a matching number input - either control drives the value, and both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; cuebot's default is 100. Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and the dispatched action are identical on either page; only the **View Job** entry above it remains gated to `/monitor-cue`.
+
+Mounted once via `<SetPriorityDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-set-priority` CustomEvent that `setPriorityGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/set-priority-dialog.tsx`.
+
+![Set Priority entry in the job context menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with 1-100 slider + matching number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+After **Apply**:
+
+- `setJobPriority(job, value)` from `action_utils.ts` posts `{ job, val }` to `/api/job/action/setpriority`, which forwards to `/job.JobInterface/SetPriority` on the REST gateway.
+- A success toast confirms the new value.
+- The dialog dispatches a `cueweb:priority-changed` CustomEvent that the Jobs table consumes to update the row's **Priority** column optimistically, so the change is visible without waiting for the regular 5-second poll.
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
+
+---
+
+### Email Artist dialog
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's `EmailDialog`. Mounted once via `<EmailArtistDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-email-artist` CustomEvent that `emailArtistGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/email-artist-dialog.tsx`.
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | `<show>-<NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (informational - see below) |
+| **To** | `<user>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (the job's owner) |
+| **CC** | same as From |
+| **BCC** | empty |
+| **Subject** | `cuemail: please check <jobName>` |
+| **Body** | `Your Support Team requests that you check <jobName>` followed by `Hi <user>,` |
+
+Send mechanism: the **Send** button builds a `mailto:` URL with the dialog's `to`, `cc`, `bcc`, `subject`, and `body` and assigns it to `window.location.href`. The OS hands the URL to the user's default mail client (Mail.app, Outlook, Thunderbird, etc.).
+
+Browsers don't let `mailto:` override the user's account's `From:` header, so the **From** field in the dialog is informational only - it surfaces the support alias the team typically uses. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with.
+
+Configurable at build time via two env vars (see [Environment Variables](#environment-variables)):
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`).
+- `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` (default `pst`, matching CueGUI's "production support team" alias convention).
+
+---
+
+### Request Cores dialog
+
+The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCoresDialog`. Mounted once via `<RequestCoresDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-request-cores` CustomEvent that `requestCoresGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/request-cores-dialog.tsx`.
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | The signed-in user's email (`session.user.email`, falling back to `<sessionName>@<NEXT_PUBLIC_EMAIL_DOMAIN>` and then to empty). |
+| **To** | Empty - the user fills in the recipient (team lead, support queue, etc.). |
+| **CC** | `<show>-<NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+| **BCC** | Empty. |
+| **Subject** | `Requesting Cores for <jobName>`. |
+| **Body (auto-populated)** | `Requesting more cores for:` header, `Job Name:` + `Group (Folder):`, then a fixed-width table of layers with `waitingFrames + runningFrames > 0` (`Layer Name / Minimum Memory / Min Cores`). |
+| **Date/Time by which completion is needed** | Editable textarea, appended to the body on Send. |
+| **Additional notes (flag priority frames etc.)** | Editable textarea, appended to the body on Send. |
+
+Layer breakdown is fetched asynchronously on dialog open via `getLayersForJob(job)`; the body shows `Loading layers...` until the response lands, then re-renders with the filtered table.
+
+Send mechanism: the **Send** button stitches the auto-populated prelude together with the Date/Time and Notes sections, builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body`, and assigns it to `window.location.href`. Same `From:`-is-informational caveat as the [Email Artist dialog](#email-artist-dialog). The button is disabled while **To** is empty.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with Email Artist).
+- `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` (default `support`, matching CueGUI's `<show>-support@<domain>` convention - distinct from Email Artist's `pst`).
+
+### Subscribe to Job dialog
+
+The job context menu's **Subscribe to Job** entry mirrors CueGUI's `SubscribeToJobDialog`. Unlike the [Notify bell](#job-finished-notifications) - which is a *browser-side* subscription that fires an in-app toast (and optional desktop popup) - this entry registers a *server-side, email* subscriber on Cuebot. When the job reaches `FINISHED`, Cuebot sends an email to the saved address.
+
+Mounted once via `<SubscribeToJobDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-subscribe-to-job` CustomEvent that `subscribeToJobGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/subscribe-to-job-dialog.tsx`.
+
+![Subscribe to Job entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+![Subscribe to Job dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **Job name** | Read-only, taken from the row. |
+| **From** | Read-only label - `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` if set, otherwise `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>`. Informational only - the actual sender is whatever Cuebot is configured with. |
+| **To** | Editable; the signed-in user's `session.user.email`, falling back to `<sessionName-or-jobUser>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+
+Save mechanism: the **Save** button trims and validates the **To** address with a permissive `^\S+@\S+\.\S+$` check (Cuebot does its own validation server-side), then calls `addJobSubscriber(job, subscriber)` from `action_utils.ts`. That posts `{ job, subscriber }` to `/api/job/action/addsubscriber`, which forwards to `/job.JobInterface/AddSubscriber` via the REST gateway. A success toast confirms the subscription:
+
+![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+The **Save** button is disabled while the **To** field is empty or while a save is in flight. **Cancel** closes the dialog without contacting Cuebot.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with the other email dialogs).
+- `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` (default `opencue-noreply@<EMAIL_DOMAIN>`). Use this to surface a deployment-specific informational From label without touching the code.
 
 ---
 
@@ -601,6 +717,7 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 |-------|-------------|
 | `POST /api/job/getcomments` | `job.JobInterface/GetComments` |
 | `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` |
+| `POST /api/job/action/addsubscriber` | `job.JobInterface/AddSubscriber` |
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 
@@ -840,9 +957,10 @@ When the flag is on:
   Pause, Unpause, Kill) disable themselves visually and ignore clicks.
   *Unmonitor* is non-destructive and remains active.
 - The right-click context menus on **job**, **layer**, and **frame** rows
-  dim every destructive item (Pause / Retry / Retry Dead Frames / Eat /
-  Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
-  remain active.
+  dim every destructive item (Pause / Unpause / Retry / Retry Dead Frames
+  / Eat / Eat Dead Frames / Kill). The Pause/Unpause entry is a single
+  toggle whose label flips on `isPaused` - both flavors are dimmed the
+  same way. *Unmonitor* and *Comments* on the job menu remain active.
 
 ![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
 

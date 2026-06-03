@@ -160,8 +160,13 @@ export default function JobDetailPage() {
     if (tab === "overview") return;
 
     let cancelled = false;
+    // Serialize polls per active tab: a slow request must not be overtaken
+    // by a newer 5s tick that stomps on fresher state with stale data.
+    let inFlight = false;
 
     const runFetch = async () => {
+      if (inFlight) return;
+      inFlight = true;
       // Recompute firstLoad every tick instead of capturing it once when
       // the effect ran - otherwise the 5s setInterval keeps firing the
       // "first load" branch and flips the loading skeleton on for every
@@ -185,6 +190,7 @@ export default function JobDetailPage() {
       } catch (error) {
         if (!cancelled) handleError(error, `Error loading ${tab}`);
       } finally {
+        inFlight = false;
         if (!cancelled) {
           loadedTabs.current.add(tab);
           if (tab === "layers") setLayersLoading(false);

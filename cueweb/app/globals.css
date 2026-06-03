@@ -105,8 +105,8 @@
   --toastify-text-color-light: hsl(var(--foreground));
   --toastify-text-color-dark: hsl(var(--foreground));
   --toastify-color-info: hsl(var(--primary));
-  --toastify-color-success: 16 185 129;          /* emerald-500 */
-  --toastify-color-warning: 245 158 11;          /* amber-500 */
+  --toastify-color-success: rgb(16 185 129);     /* emerald-500 */
+  --toastify-color-warning: rgb(245 158 11);     /* amber-500 */
   --toastify-color-error: hsl(var(--destructive));
   --toastify-color-progress-light: hsl(var(--primary));
   --toastify-color-progress-dark: hsl(var(--primary));

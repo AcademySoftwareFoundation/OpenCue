@@ -153,6 +153,32 @@ NEXTAUTH_SECRET=nextauth-production-secret
 #   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 
+# Email Artist dialog defaults. The job context menu's
+# "Email Artist..." entry pre-fills From, To, CC, Subject and Body
+# from the selected job; these two values drive the address format
+# (<user>@<domain> for To; <show>-<suffix>@<domain> for From / CC).
+# Both default to a placeholder for the sandbox; set them to real
+# values so production emails resolve to your real addresses instead
+# of "your.domain.com".
+# NEXT_PUBLIC_EMAIL_DOMAIN=studio.example.com
+# NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX=pst
+
+# Request Cores dialog default. The job context menu's
+# "Request Cores..." entry pre-fills CC with
+# <show>-<suffix>@<NEXT_PUBLIC_EMAIL_DOMAIN>. CueGUI traditionally
+# targets a different team queue than Email Artist (which uses "pst"),
+# so this is broken out as its own env var. Set it to your real
+# Request-Cores team alias for production.
+# NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX=support
+
+# Subscribe to Job dialog default. The job context menu's
+# "Subscribe to Job" entry shows an informational From label that
+# defaults to opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>. Set this
+# to your deployment's real no-reply alias if you want the dialog
+# to show a more accurate sender. The actual email sender is whatever
+# Cuebot is configured with; this label is informational only.
+# NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL=opencue-noreply@studio.example.com
+
 # OAuth providers
 OKTA_CLIENT_ID=your-okta-client-id
 OKTA_CLIENT_SECRET=your-okta-client-secret
