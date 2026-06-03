@@ -27,6 +27,7 @@ import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
 import {
   filterMenuCommands,
@@ -68,6 +69,11 @@ function NavMenuButton({
   pathname: string | null;
 }) {
   const active = isMenuActive(pathname, menu);
+  // The Cuetopia menu gets an extra checkable "View Job Graph" entry
+  // that toggles the inline Dependency Graph panel in JobDetailsInline
+  // (mirrors CueGUI's `Cuetopia > Job Graph` toggle dock).
+  const isCuetopia = menu.label === "Cuetopia";
+  const { show: showGraph, toggle: toggleGraph } = useShowDependencyGraph();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -103,6 +109,27 @@ function NavMenuButton({
             </DropdownMenuItem>
           );
         })}
+        {isCuetopia ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={(e) => {
+                // Keep the menu open so the user can see the check
+                // appear before it dismisses on the next click outside.
+                e.preventDefault();
+                toggleGraph();
+              }}
+              className="cursor-pointer"
+              aria-checked={showGraph}
+              role="menuitemcheckbox"
+            >
+              <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                {showGraph && <Check className="h-4 w-4" aria-hidden="true" />}
+              </span>
+              View Job Graph
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

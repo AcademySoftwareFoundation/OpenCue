@@ -33,6 +33,20 @@ export type JobComment = {
     message: string;
 };
 
+export type Depend = {
+    id: string;
+    type: string | number;
+    target: string | number;
+    anyFrame: boolean;
+    active: boolean;
+    dependErJob: string;
+    dependErLayer: string;
+    dependErFrame: string;
+    dependOnJob: string;
+    dependOnLayer: string;
+    dependOnFrame: string;
+};
+
 // Minimal Host shape - matches the host.Host proto fields the dashboard cares about.
 export type Host = {
     id: string;
@@ -141,6 +155,19 @@ export async function getFramesForJob(job: Job): Promise<Frame[]> {
         req: { include_finished: true, page: 1, limit: 500 },
     };
     return getFrames(JSON.stringify(body));
+}
+
+// Fetch all dependencies for a given job. Routes through the validated
+// proxy at /api/job/action/getdepends (camelCase fields, double-
+// nested response). Tolerates both nested and flat shapes so a gateway
+// marshaller change can't silently break the consumer.
+export async function getDependsForJob(job: Job): Promise<Depend[]> {
+    const ENDPOINT = "/api/job/action/getdepends";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const data = await accessGetApi(ENDPOINT, body);
+    if (!data) return [];
+    const seq: any = data?.depends?.depends ?? data?.depends ?? data;
+    return Array.isArray(seq) ? (seq as Depend[]) : [];
 }
 
 // Get the job that a layer belongs to using the layer's parentId

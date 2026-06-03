@@ -23,9 +23,11 @@ import { Layer, layerColumns } from "@/app/layers/layer-columns";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
+import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Inbox, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Inbox, X } from "lucide-react";
+import { JobDependencyGraph } from "./job-dependency-graph";
 import { SimpleDataTable } from "./simple-data-table";
 
 /**
@@ -58,6 +60,12 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
   // attributes panel to the parent job (so the panel always reflects the
   // most-relevant selection).
   const [selectedLayer, setSelectedLayer] = React.useState<Layer | null>(null);
+
+  // Dependency graph panel visibility. The shared hook persists in
+  // localStorage AND broadcasts a CustomEvent so the Cuetopia > View
+  // Job Graph menu entry can flip it without a URL navigation - which
+  // wouldn't fire a second time because the URL would already be set.
+  const { show: showGraph, toggle: toggleGraph } = useShowDependencyGraph();
 
   // Clear stale rows when the parent selects a different job so the
   // previous job's data doesn't briefly flash in the new context.
@@ -193,6 +201,23 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
             ) : null}
           </p>
         </div>
+        <div>
+          <button
+            type="button"
+            onClick={toggleGraph}
+            className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-accent"
+            aria-pressed={showGraph}
+            aria-controls="job-dependency-graph-panel"
+            title={showGraph ? "Hide the dependency graph" : "Show the dependency graph"}
+          >
+            {showGraph ? (
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            <span>Dependency Graph</span>
+          </button>
+        </div>
       </header>
 
       <div>
@@ -276,6 +301,30 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
           </div>
         );
       })()}
+
+      {showGraph ? (
+        <div
+          id="job-dependency-graph-panel"
+          className="rounded-md border border-border bg-background"
+        >
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Dependency Graph for{" "}
+              <span className="font-mono text-foreground">{job.name}</span>
+            </span>
+            <button
+              type="button"
+              onClick={toggleGraph}
+              className="rounded text-muted-foreground hover:text-foreground"
+              aria-label="Hide the dependency graph"
+              title="Hide the dependency graph"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <JobDependencyGraph job={job} />
+        </div>
+      ) : null}
     </section>
   );
 }
