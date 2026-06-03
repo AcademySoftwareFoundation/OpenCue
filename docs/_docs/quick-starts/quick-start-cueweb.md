@@ -175,7 +175,7 @@ The CueWeb interface includes:
 - **Layer Operations**: Manage job layers and dependencies (CueGUI-parity columns include Eligible and a stacked Progress bar).
 - **Dark/Light Mode**: Toggle between themes via the sun/moon button in the header
 - **Real-time Updates**: Automatic refresh of job status
-- **Job-finished Notifications**: Per-row bell button to subscribe to a browser notification when a job reaches `FINISHED`
+- **Job-finished Notifications**: Two channels - a per-row **Notify bell** for browser notifications (in-app toast + optional desktop popup) and a right-click **Subscribe to Job** entry for *email* notifications sent by Cuebot. Independent of each other.
 - **Disable Job Interaction**: Read-only safety toggle in File ▸ Disable Job Interaction (header or sidebar). When on, an amber banner appears under the header and destructive actions (Pause / Unpause / Retry / Eat / Kill) — in the toolbar and in the right-click menus — are dim and inert.
 - **Attributes Panel**: Other ▸ Attributes opens a docked drawer with a collapsible key/value tree of the selected entity. Click a row in the jobs table to populate it; pick the dock position (right / bottom / left / top) from the panel's title bar.
 - **Bottom Status Bar**: a fixed 24-pixel bar at the bottom of every page shows REST gateway status (a colored dot + Online/Offline + the last round-trip latency), the time since the jobs table last refreshed, and the CueWeb build version. The whole bar turns red when the gateway is unreachable.
@@ -214,7 +214,13 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
 ### Job Management
 
-- **Pause/Resume**: Click the pause/play button for individual jobs
+- **Pause/Resume**: Right-click a job and pick **Pause** (or **Unpause** if the job is already paused). The same entry toggles between the two labels based on the job's current state, and is grayed out for Finished jobs.
+- **Set Priority**: Right-click a job and pick **Set Priority...** to open a 1-100 slider + number input. Either control drives the value; both stay in sync. The Priority column updates immediately on Apply. Available on both Cuetopia Monitor Jobs and CueCommander Monitor Cue.
+- **Manage Dependencies**: Right-click a job to access four dependency entries. **View Dependencies...** opens a read-only dialog listing every depend on the job (Type / Target / Active / OnJob / OnLayer / OnFrame). **Dependency Wizard...** walks you through creating a new depend across every CueGUI `depend.DependType` (Job On Job, Job On Layer / Frame, Hard Depend, Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, Layer on Simulation Frame); every picker is multi-select and Done fires the full source x target cross-product. **Drop External Dependencies** and **Drop Internal Dependencies** clear those depend categories in one click; the Jobs table auto-refreshes after success.
+
+  ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+  ![Dependency Wizard type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.
@@ -236,9 +242,10 @@ The job right-click menu, and the tabbed Job Details page it can open:
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
-7. **Subscribe to Completion**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. When the same job is open in several tabs, only one tab shows the notification.
-8. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
-9. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
+7. **Subscribe to Completion - in browser**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. When the same job is open in several tabs, only one tab shows the notification.
+8. **Subscribe to Completion - by email**: For notifications that should survive a browser close, follow you between machines, or fan out to a team alias, right-click the job and pick **Subscribe to Job**. A dialog opens with the job name and an editable **To** address; Save registers the address with Cuebot so Cuebot emails the subscriber when the job finishes. Independent of the Notify bell.
+9. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
+10. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
 
 ### Search Functionality
 
@@ -248,6 +255,25 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 ![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
 
+
+---
+
+## Step 6 (optional): Submit a job from the browser (CueSubmit)
+
+CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so you don't need a separate desktop install just to launch a test job:
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+1. Click **CueSubmit > Submit Job** in the top header (or the matching entry in the sidebar / mobile drawer).
+2. In **Job Info** fill in a Job Name (e.g. `quickstart_test`), pick `testing` for Show, type a Shot like `test_shot`, leave Facility as `[Default]`, and confirm Username.
+3. In **Layer Info** fill in a Layer Name (e.g. `layer1`), set Frame Spec to `1-3`, leave Chunk Size at `1` and Memory at the `256m` default, and keep Job Type set to **Shell**.
+4. In **Shell options** type `sleep 5` for Command To Run. Watch the **Final command** field at the bottom update per-keystroke.
+5. Click **Submit**. CueWeb redirects you to the job's detail page where the three frames will go WAITING -> RUNNING -> SUCCEEDED in a few seconds.
+6. Click **View in Monitor Jobs** in the detail-page header to open Cuetopia with the new job already loaded.
+
+The form keeps an autocomplete history (per browser) for Job Name, Shot, and Layer Name across submissions, and auto-saves a draft on every keystroke so an accidental refresh never wipes a multi-layer setup. Click **Reset** to clear the form back to a blank canvas.
 
 ---
 

@@ -19,7 +19,7 @@ import { Row } from "@tanstack/react-table";
 import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
-import { accessActionApi } from "./api_utils";
+import { accessActionApi, accessGetApi } from "./api_utils";
 import { getFrameLogDir, getJobForLayer, JobComment } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
@@ -228,6 +228,214 @@ export async function setJobAutoEat(job: Job, value: boolean) {
 export async function dropJobDepends(job: Job, target: "INTERNAL" | "EXTERNAL") {
   const endpoint = "/api/job/action/dropdepends";
   await performAction(endpoint, [JSON.stringify({ job, target })], `Dropped ${target.toLowerCase()} depends on ${job.name}`);
+  // Drop dependencies materially changes the Jobs table (a job stuck in
+  // DEPENDENCY state can flip to IN PROGRESS / PAUSED the moment its
+  // depends are removed) and invalidates the Group-By Dependent tree
+  // cache. Dispatch two events so the table doesn't have to wait for
+  // the 5s autoload tick to catch up:
+  //   - cueweb:refresh-now triggers an immediate addUsersJobs() poll.
+  //   - cueweb:depends-changed clears the dependency-graph cache and
+  //     bumps the tree-fetch token so chevrons re-resolve.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("cueweb:refresh-now"));
+    window.dispatchEvent(new CustomEvent("cueweb:depends-changed"));
+  }
+}
+
+// Fetch the depend.DependSeq for a job (mirrors Job.getDepends() in pycue).
+// Returns the raw list of Depend protos so the View Dependencies dialog can
+// render Type / Target / Active / OnJob / OnLayer / OnFrame. Errors are
+// surfaced via accessGetApi's handleError; on failure we return [].
+export async function fetchJobDepends(job: Job): Promise<any[]> {
+  const endpoint = "/api/job/action/getdepends";
+  const body = JSON.stringify({ job });
+  const data = await accessGetApi(endpoint, body);
+  if (!data) return [];
+  // The REST gateway wraps the DependSeq under `depends.depends`. Tolerate
+  // both shapes so the dialog stays robust to minor proto-gateway shifts.
+  const seq = data?.depends?.depends ?? data?.depends ?? [];
+  return Array.isArray(seq) ? seq : [];
+}
+
+// Wizard dispatchers. Each takes a *cross-product* of sources x targets:
+// the wizard's pickers are all multi-select (CueGUI parity), so one
+// Done click can fan out to len(sources) * len(targets) parallel RPCs.
+// The Cuebot REST gateway is name- or id-keyed on each target object,
+// so we pass both for resolution flexibility.
+
+type ObjRef = { id: string; name: string };
+
+function fanOutLabel(count: number, kind: string): string {
+  if (count === 1) return `1 ${kind}`;
+  return `${count} ${kind}s`;
+}
+
+// Build a cross-product body array. Skips empty source / target lists
+// (treating them as "no work") and returns [] when either is empty.
+function crossBodies<S, T>(sources: S[], targets: T[], make: (s: S, t: T) => unknown): string[] {
+  if (sources.length === 0 || targets.length === 0) return [];
+  const out: string[] = [];
+  for (const s of sources) for (const t of targets) out.push(JSON.stringify(make(s, t)));
+  return out;
+}
+
+// Job-On-X: source is always THIS job (singleton). Target list fans out.
+export async function createDependOnJob(thisJob: Job, onJobs: ObjRef[]) {
+  if (onJobs.length === 0) return;
+  const endpoint = "/api/job/action/createdependonjob";
+  const bodyAr = onJobs.map((j) => JSON.stringify({ job: thisJob, on_job: { id: j.id, name: j.name } }));
+  await performAction(endpoint, bodyAr, `Added Job-On-Job depend: ${thisJob.name} -> ${fanOutLabel(bodyAr.length, "job")}`);
+}
+
+export async function createDependOnLayer(thisJob: Job, onLayers: ObjRef[]) {
+  if (onLayers.length === 0) return;
+  const endpoint = "/api/job/action/createdependonlayer";
+  const bodyAr = onLayers.map((l) => JSON.stringify({ job: thisJob, layer: { id: l.id, name: l.name } }));
+  await performAction(endpoint, bodyAr, `Added Job-On-Layer depend: ${thisJob.name} -> ${fanOutLabel(bodyAr.length, "layer")}`);
+}
+
+export async function createDependOnFrame(thisJob: Job, onFrames: ObjRef[]) {
+  if (onFrames.length === 0) return;
+  const endpoint = "/api/job/action/createdependonframe";
+  const bodyAr = onFrames.map((f) => JSON.stringify({ job: thisJob, frame: { id: f.id, name: f.name } }));
+  await performAction(endpoint, bodyAr, `Added Job-On-Frame depend: ${thisJob.name} -> ${fanOutLabel(bodyAr.length, "frame")}`);
+}
+
+// Layer-On-X: M source layers in THIS job x N targets = M*N RPCs.
+export async function createLayerOnJob(thisJob: Job, sourceLayers: ObjRef[], onJobs: ObjRef[]) {
+  const bodyAr = crossBodies(sourceLayers, onJobs, (l, j) => ({
+    layer: { id: l.id, name: l.name },
+    job: { id: j.id, name: j.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/layer/action/createdependonjob", bodyAr,
+    `Added Layer-On-Job depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+export async function createLayerOnLayer(thisJob: Job, sourceLayers: ObjRef[], onLayers: ObjRef[]) {
+  const bodyAr = crossBodies(sourceLayers, onLayers, (s, t) => ({
+    layer: { id: s.id, name: s.name },
+    depend_on_layer: { id: t.id, name: t.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/layer/action/createdependonlayer", bodyAr,
+    `Added Layer-On-Layer depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+export async function createLayerOnFrame(thisJob: Job, sourceLayers: ObjRef[], onFrames: ObjRef[]) {
+  const bodyAr = crossBodies(sourceLayers, onFrames, (l, f) => ({
+    layer: { id: l.id, name: l.name },
+    frame: { id: f.id, name: f.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/layer/action/createdependonframe", bodyAr,
+    `Added Layer-On-Frame depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+// Frame-By-Frame: M source layers x N target layers = M*N FBF pairs.
+export async function createFrameByFrameDepend(
+  thisJob: Job,
+  sourceLayers: ObjRef[],
+  dependLayers: ObjRef[],
+  anyFrame: boolean = false,
+) {
+  const bodyAr = crossBodies(sourceLayers, dependLayers, (s, t) => ({
+    layer: { id: s.id, name: s.name },
+    depend_layer: { id: t.id, name: t.name },
+    any_frame: anyFrame,
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/layer/action/createframebyframedepend", bodyAr,
+    `Added Frame-By-Frame depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+// Hard Depend (JFBF, "Frame By Frame for all layers"): client-side. For
+// each picked target job, pair THIS job's layers with the target job's
+// layers by `layer.type` and fire CreateFrameByFrameDependency for every
+// match. With multiple target jobs we accumulate every pair across them
+// into a single performAction call so the user gets one summary toast.
+export async function createHardDepend(
+  thisJob: Job,
+  thisJobLayers: { id: string; name: string; type?: string }[],
+  perTargetJobLayers: { job: ObjRef; layers: { id: string; name: string; type?: string }[] }[],
+) {
+  const bodyAr: string[] = [];
+  let matchedJobs = 0;
+  for (const { layers: targetLayers } of perTargetJobLayers) {
+    let matched = 0;
+    for (const src of thisJobLayers) {
+      const match = targetLayers.find((t) => t.type && src.type && t.type === src.type);
+      if (!match) continue;
+      matched += 1;
+      bodyAr.push(JSON.stringify({
+        layer: { id: src.id, name: src.name },
+        depend_layer: { id: match.id, name: match.name },
+        any_frame: false,
+      }));
+    }
+    if (matched > 0) matchedJobs += 1;
+  }
+  if (bodyAr.length === 0) {
+    toastWarning(`No matching layer types found for Hard Depend on ${thisJob.name}.`);
+    return;
+  }
+  await performAction("/api/layer/action/createframebyframedepend", bodyAr,
+    `Added Hard Depend: ${thisJob.name} -> ${fanOutLabel(matchedJobs, "job")} (${fanOutLabel(bodyAr.length, "layer pair")})`);
+}
+
+// Frame-On-X: M source frames x N targets = M*N RPCs.
+export async function createFrameOnJob(thisJob: Job, sourceFrames: ObjRef[], onJobs: ObjRef[]) {
+  const bodyAr = crossBodies(sourceFrames, onJobs, (f, j) => ({
+    frame: { id: f.id, name: f.name },
+    job: { id: j.id, name: j.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/frame/action/createdependonjob", bodyAr,
+    `Added Frame-On-Job depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+export async function createFrameOnLayer(thisJob: Job, sourceFrames: ObjRef[], onLayers: ObjRef[]) {
+  const bodyAr = crossBodies(sourceFrames, onLayers, (f, l) => ({
+    frame: { id: f.id, name: f.name },
+    layer: { id: l.id, name: l.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/frame/action/createdependonlayer", bodyAr,
+    `Added Frame-On-Layer depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+export async function createFrameOnFrame(thisJob: Job, sourceFrames: ObjRef[], onFrames: ObjRef[]) {
+  const bodyAr = crossBodies(sourceFrames, onFrames, (s, t) => ({
+    frame: { id: s.id, name: s.name },
+    depend_on_frame: { id: t.id, name: t.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/frame/action/createdependonframe", bodyAr,
+    `Added Frame-On-Frame depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "pair")})`);
+}
+
+// Layer-On-Simulation-Frame: pycue / CueGUI implement this by looping
+// FrameInterface.CreateDependencyOnFrame for every frame in each source
+// layer, all pointing at the chosen sim frame(s). We accept the already-
+// expanded source-frame list per source layer (the wizard fetches and
+// filters those) plus the target frames, then cross-product.
+export async function createLayerOnSimFrame(
+  thisJob: Job,
+  sourceLayerNames: string[],
+  sourceFrames: ObjRef[],
+  onFrames: ObjRef[],
+) {
+  if (sourceFrames.length === 0) {
+    toastWarning(`No frames found in source layer${sourceLayerNames.length > 1 ? "s" : ""} ${sourceLayerNames.join(", ")}.`);
+    return;
+  }
+  const bodyAr = crossBodies(sourceFrames, onFrames, (s, t) => ({
+    frame: { id: s.id, name: s.name },
+    depend_on_frame: { id: t.id, name: t.name },
+  }));
+  if (bodyAr.length === 0) return;
+  await performAction("/api/frame/action/createdependonframe", bodyAr,
+    `Added Layer-On-Sim-Frame depend: ${thisJob.name} (${fanOutLabel(bodyAr.length, "frame pair")})`);
 }
 
 /**************************************/
@@ -411,22 +619,104 @@ export function dropInternalDependsGivenRow(row: Row<any>) {
   dropJobDepends(row.original, "INTERNAL");
 }
 
-// Prompt-driven wrappers. CueGUI's MenuActions uses Qt input dialogs; we
-// reuse window.prompt for parity in this round. A native shadcn dialog
-// replacement is a follow-up.
+// Right-click "View Dependencies..." handler. Dispatches a CustomEvent
+// that the ViewDependenciesDialog (mounted at the page level) listens for;
+// the dialog opens, fetches the job's DependSeq via fetchJobDepends, and
+// renders the CueGUI-parity Type / Target / Active / OnJob / OnLayer /
+// OnFrame table.
+export function viewDependenciesGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-view-dependencies", { detail: { job } }),
+  );
+}
+
+// Right-click "Dependency Wizard..." handler. Dispatches a CustomEvent
+// that the DependencyWizardDialog (mounted at the page level) listens
+// for; the wizard walks the user through picking a dependency type and
+// target object, then dispatches to the right CreateDependencyOn* RPC.
+export function dependencyWizardGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-dependency-wizard", { detail: { job } }),
+  );
+}
+
+// Right-click "Set Priority..." handler. Dispatches a CustomEvent
+// that the SetPriorityDialog (mounted at the page level) listens for;
+// the dialog opens with a slider + number input pre-filled with the
+// row's current priority and calls setJobPriority on Apply. Decoupled
+// this way so the free-function context-menu handlers don't need to
+// reach into the table's component state.
 export function setPriorityGivenRow(row: Row<any>) {
   const job = row.original as Job;
-  const raw = window.prompt(`Set priority for ${job.name}`, String(job.priority ?? 100));
-  if (raw === null) return;
-  // Strict whole-string match - Number.parseInt would silently accept
-  // "10abc" / "10.5" / " 10 " and quietly truncate, sending a value the
-  // user didn't actually type to Cuebot.
-  const trimmed = raw.trim();
-  if (!/^-?\d+$/.test(trimmed)) {
-    toastWarning("Priority must be an integer");
-    return;
-  }
-  setJobPriority(job, Number.parseInt(trimmed, 10));
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-priority", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Email Artist..." handler. Dispatches a CustomEvent that
+// the EmailArtistDialog (mounted at the page level) listens for; the
+// dialog opens pre-filled with From/To/CC/Subject/Body derived from the
+// job and the deployment's email domain. Decoupled this way so the
+// free-function context-menu handlers don't need to reach into the
+// table's component state.
+export function emailArtistGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-email-artist", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Request Cores..." handler. Dispatches a CustomEvent
+// that the RequestCoresDialog (mounted at the page level) listens for;
+// the dialog opens with an email composer pre-filled with To/CC/Subject
+// and an auto-populated body listing the layers with frames remaining
+// (waiting + running). User adds the wanted completion date and any
+// notes, hits Send, and the OS hands the mail off to their default
+// client via a mailto: URL. Decoupled this way so the free-function
+// context-menu handlers don't need to reach into the table's component
+// state.
+export function requestCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-request-cores", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Subscribe to Job" handler. Dispatches a CustomEvent that
+// the SubscribeToJobDialog listens for. The dialog mirrors CueGUI's
+// SubscribeToJobDialog: a small form with the job name, a (read-only)
+// From address and an editable To address. Save calls
+// addJobSubscriber() which forwards to the AddSubscriber RPC on Cuebot;
+// when the job finishes Cuebot sends an email to the subscriber.
+export function subscribeToJobGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Calls the Cuebot AddSubscriber RPC to register an email subscriber for
+// the job. Cuebot sends notification email to subscriber on job completion.
+export async function addJobSubscriber(job: Job, subscriber: string) {
+  const endpoint = "/api/job/action/addsubscriber";
+  const body = JSON.stringify({ job, subscriber });
+  await performAction(endpoint, [body], `Subscribed ${subscriber} to ${job.name}`);
 }
 
 export function setMaxRetriesGivenRow(row: Row<any>) {

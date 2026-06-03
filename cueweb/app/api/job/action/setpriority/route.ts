@@ -42,10 +42,44 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json({ error: 'Invalid request body (need {job, val:number})' }, { status: 400 });
   }
+  const val = (jsonBody as { val: number }).val;
+  // CueGUI's Set Priority dialog and the Jobs table both treat priority
+  // as an integer in 1..100. Reject out-of-range values here so a buggy
+  // client can't silently push 99999 into Cuebot.
+  if (!Number.isInteger(val) || val < 1 || val > 100) {
+    return NextResponse.json(
+      { error: 'val must be an integer between 1 and 100' },
+      { status: 400 },
+    );
+  }
   const body = JSON.stringify(jsonBody);
 
   const response = await handleRoute(method, endpoint, body, true);
-  const responseData = await response.json();
+  // The REST gateway is supposed to return JSON, but a misconfigured or down
+  // gateway can answer with empty bodies / HTML / plain text. Read the raw
+  // text and parse defensively so a non-JSON upstream surfaces as the real
+  // upstream status instead of crashing the route with a 500.
+  const raw = await response.text();
+  let responseData: any = {};
+  let parseFailed = false;
+  if (raw) {
+    try {
+      responseData = JSON.parse(raw);
+    } catch {
+      parseFailed = true;
+      responseData = { error: raw };
+    }
+  }
+  // A non-JSON body on an otherwise-OK upstream response is itself an
+  // upstream outage (HTML error page, plain-text proxy notice, ...) -
+  // surface it as a 502 instead of letting the UI treat the priority
+  // change as successful with a data:undefined envelope.
+  if (response.ok && parseFailed) {
+    return NextResponse.json(
+      { error: responseData.error ?? 'Upstream returned a non-JSON response', status: 502 },
+      { status: 502 },
+    );
+  }
   // Preserve the upstream HTTP status. NextResponse.json defaults to 200
   // when the second argument is omitted, which would otherwise mask
   // gateway 4xx / 5xx responses behind a 200 envelope.

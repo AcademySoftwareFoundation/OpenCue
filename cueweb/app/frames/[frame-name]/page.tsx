@@ -263,7 +263,9 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for retrieving log lines
   const fetchPaginatedLogs = async (start: number, end: number) => {
-    let res = await fetch(`/api/getlines?path=${curLogPath}&start=${start}&end=${end}`);
+    let res = await fetch(
+      `/api/getlines?path=${encodeURIComponent(curLogPath)}&start=${start}&end=${end}`,
+    );
     let json = await res.json();
     if (json.error) {
       handleError(json.error, "Could not load frame log lines");
@@ -274,7 +276,7 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for counting lines
   const getLogLineCount = async () => {
-    const numLines = fetch(`/api/countlines?path=${curLogPath}`);
+    const numLines = fetch(`/api/countlines?path=${encodeURIComponent(curLogPath)}`);
     const data = await (await numLines).json();
     const totLines = data.count;
     return totLines;

@@ -102,15 +102,29 @@ export function StatusBar() {
     if (pathname?.startsWith("/login")) return;
 
     let cancelled = false;
+    // Serialize health polls with an AbortController so a slow probe can't
+    // arrive out-of-order and stomp on fresher state. Each tick aborts any
+    // still-running previous fetch and only publishes state when its own
+    // controller is still the active one.
+    let inFlight: AbortController | null = null;
 
     async function check() {
+      inFlight?.abort();
+      const controller = new AbortController();
+      inFlight = controller;
       try {
-        const res = await fetch("/api/health", { cache: "no-store" });
+        const res = await fetch("/api/health", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = (await res.json()) as HealthBody;
-        if (!cancelled) setHealth(body);
+        if (!cancelled && inFlight === controller) setHealth(body);
       } catch (err) {
-        if (!cancelled) {
+        // Ignore aborts triggered by the next tick / unmount; only the
+        // freshest poll should publish state.
+        if ((err as { name?: string })?.name === "AbortError") return;
+        if (!cancelled && inFlight === controller) {
           setHealth({
             gatewayOnline: false,
             status: 0,
@@ -126,6 +140,7 @@ export function StatusBar() {
     const id = setInterval(check, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
+      inFlight?.abort();
       clearInterval(id);
     };
   }, [pathname]);

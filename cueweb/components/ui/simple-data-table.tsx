@@ -630,7 +630,7 @@ export function SimpleDataTable<TData, TValue>({
         <div className="space-x-2 py-4">
           <DataTablePagination
             table={table}
-            pageSizes={[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100, 150, 200, 250, 300]}
+            pageSizes={[5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]}
           />
         </div>
       )}

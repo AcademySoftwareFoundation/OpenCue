@@ -56,4 +56,8 @@ export const NAV_MENUS: NavMenu[] = [
       { label: "Subscriptions", href: "/subscriptions" },
     ],
   },
+  {
+    label: "CueSubmit",
+    items: [{ label: "Submit Job", href: "/cuesubmit" }],
+  },
 ];

@@ -28,8 +28,10 @@ import {
 } from "@/app/utils/action_utils";
 import {
   getJobsForRegex,
-  getJobsForUser
+  getJobsForUser,
+  getWhatDependsOnThisJobNames
 } from "@/app/utils/get_utils";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
@@ -43,7 +45,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { DependencyWizardDialog } from "@/components/ui/dependency-wizard-dialog";
+import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
+import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
+import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
+import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
+import { ViewDependenciesDialog } from "@/components/ui/view-dependencies-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -241,11 +249,11 @@ function reducer(state: State, action: Action): State {
 // auto-disabled when the "Disable Job Interaction" safety flag is on.
 // Resolves the group-by key for a single job. The key is also the label
 // rendered on the group-header row in the table body. Matches CueGUI's
-// MonitorJobsPlugin grouping modes; the "Dependent" mode is the
-// approximate (job-local) variant - it splits jobs into "Has pending
-// dependencies" vs "Independent jobs" based on jobStats.dependFrames.
-// Full dependency-graph grouping would require fetching each job's
-// depends from Cuebot and is tracked as a follow-up.
+// MonitorJobsPlugin grouping modes for the "header bucket" variants
+// (Show / Show-Shot / Show-Shot-Username). The "Dependent" mode is
+// handled separately because it renders the parent-child dependency
+// graph as a tree (see the dependencyChildren state + tree branch in
+// displayItems below), not as flat group buckets.
 function getJobGroupKey(job: Job, mode: State["groupBy"]): string {
   switch (mode) {
     case "Show":
@@ -255,9 +263,6 @@ function getJobGroupKey(job: Job, mode: State["groupBy"]): string {
     case "Show-Shot-Username":
       return `${job.show || "(no show)"} - ${job.shot || "(no shot)"} - ${job.user || "(no user)"}`;
     case "Dependent":
-      return (job.jobStats?.dependFrames ?? 0) > 0
-        ? "Has pending dependencies"
-        : "Independent jobs";
     case "Clear":
     default:
       return "";
@@ -339,6 +344,169 @@ export function DataTable({ columns, username }: DataTableProps) {
       return next;
     });
   }, []);
+
+  // CueGUI parity: Group By "Dependent" renders the monitored jobs as a
+  // parent/child tree (a job that other monitored jobs depend on becomes
+  // a parent; the dependent jobs nest under it). The graph is built by
+  // calling /job.JobInterface/GetWhatDependsOnThis once per monitored
+  // job and caching the result by jobId, so a Group-By switch doesn't
+  // refire every RPC. dependencyChildren[parentId] is the list of child
+  // *names* (the gateway encodes `depend_er_job` as a name). The DFS
+  // builder below maps names back to monitored Jobs.
+  const [dependencyChildren, setDependencyChildren] = React.useState<Record<string, string[]>>({});
+
+  // Job ids whose subtree is collapsed in tree mode. Default is fully
+  // expanded; toggling a parent flips this set.
+  const [collapsedTreeNodes, setCollapsedTreeNodes] = React.useState<Set<string>>(new Set());
+  const toggleTreeNode = React.useCallback((jobId: string) => {
+    setCollapsedTreeNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  }, []);
+
+  // Hold a stable ref to the cache so the fetcher effect doesn't re-run
+  // when dependencyChildren itself updates (that update is what the
+  // effect *produces*; including it in deps would re-run the effect on
+  // every produced state change for no benefit). Updated in render so
+  // the effect always sees the latest value when it next fires.
+  const dependencyChildrenRef = React.useRef(dependencyChildren);
+  dependencyChildrenRef.current = dependencyChildren;
+
+  // Latest snapshot of state.tableDataUnfiltered, read by the fetcher
+  // effect without listing it as a dep (we only want the effect to
+  // re-run when the *set of monitored ids* changes, not when the 5s
+  // poll swaps the array reference - see monitoredJobIdsKey below).
+  const tableDataUnfilteredRef = React.useRef(state.tableDataUnfiltered);
+  tableDataUnfilteredRef.current = state.tableDataUnfiltered;
+
+  // In-flight job ids - prevents duplicate parallel RPCs when the
+  // monitored set changes mid-fetch (e.g. user adds a job while an
+  // initial 700-job sweep is still running).
+  const inFlightJobIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Force-refresh token: incremented every time the user transitions
+  // INTO Dependent mode. The fetcher effect below includes this in
+  // its dep list, so a re-entry guarantees a fresh sweep even when
+  // the monitored-id set hasn't changed. Pairs with the cache reset
+  // below so `toFetch` actually picks up every job.
+  const [treeFetchToken, setTreeFetchToken] = React.useState(0);
+
+  // CueGUI-style: rebuild the dependency tree from scratch every time
+  // the user enters Dependent mode. Any previously-cached graph is
+  // dropped along with collapse state and in-flight markers; bumping
+  // the fetch token re-triggers the fetcher effect on the next render
+  // (after the cache reset has committed) so it actually sees the
+  // empty cache and re-runs the full sweep. Leaving Dependent mode
+  // also clears the collapse state so a fresh entry starts fully
+  // expanded.
+  const prevGroupByRef = React.useRef<State["groupBy"]>(state.groupBy);
+  React.useEffect(() => {
+    const prev = prevGroupByRef.current;
+    if (prev !== "Dependent" && state.groupBy === "Dependent") {
+      setDependencyChildren({});
+      setCollapsedTreeNodes(new Set());
+      inFlightJobIdsRef.current.clear();
+      setTreeFetchToken((n) => n + 1);
+    } else if (prev === "Dependent" && state.groupBy !== "Dependent") {
+      setCollapsedTreeNodes(new Set());
+    }
+    prevGroupByRef.current = state.groupBy;
+  }, [state.groupBy]);
+
+  // Listen for `cueweb:depends-changed` (fired by Drop External /
+  // Internal Dependencies on success). Clears the cached dependency
+  // graph and bumps the fetch token so chevrons re-resolve against the
+  // post-drop state instead of waiting for the user to toggle Group By.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      setDependencyChildren({});
+      inFlightJobIdsRef.current.clear();
+      setTreeFetchToken((n) => n + 1);
+    };
+    window.addEventListener("cueweb:depends-changed", handler);
+    return () => window.removeEventListener("cueweb:depends-changed", handler);
+  }, []);
+
+  // Stable key over the monitored job-id set. Polls swap the array
+  // reference every 5s but the underlying ids don't change, so we
+  // derive a sorted-joined string and key the fetcher off *that*.
+  // Without this, every poll cancels the in-flight fetch via the
+  // effect's cleanup (cancelled=true) and the loop bails mid-chunk -
+  // for big monitored sets (700+ jobs) the fetcher would never
+  // complete and chevrons would never appear.
+  const monitoredJobIdsKey = React.useMemo(
+    () => (state.tableDataUnfiltered as Job[]).map((j) => j.id).sort().join(","),
+    [state.tableDataUnfiltered],
+  );
+
+  // Fetch the dependency graph for every monitored job whenever we're
+  // in Dependent mode AND the monitored set changes. Cached results are
+  // preserved so adding one new job doesn't re-fire every RPC.
+  React.useEffect(() => {
+    if (state.groupBy !== "Dependent") return;
+    let cancelled = false;
+    const jobs: Job[] = tableDataUnfilteredRef.current;
+    const haveIds = new Set(Object.keys(dependencyChildrenRef.current));
+    const toFetch = jobs.filter(
+      (j) => !haveIds.has(j.id) && !inFlightJobIdsRef.current.has(j.id),
+    );
+    if (toFetch.length === 0) return;
+    for (const j of toFetch) inFlightJobIdsRef.current.add(j.id);
+
+    // 50-at-a-time keeps tail-latency low while staying comfortably
+    // under typical gateway / browser connection caps. For a 750-job
+    // monitored set that's ~15 sequential chunks, well under the 5s
+    // poll cadence.
+    const CHUNK = 50;
+    (async () => {
+      try {
+        for (let i = 0; i < toFetch.length; i += CHUNK) {
+          if (cancelled) return;
+          const chunk = toFetch.slice(i, i + CHUNK);
+          const results = await Promise.all(
+            chunk.map(async (j) => {
+              try {
+                const names = await getWhatDependsOnThisJobNames(j);
+                return [j.id, names] as [string, string[]];
+              } catch {
+                return [j.id, []] as [string, string[]];
+              }
+            }),
+          );
+          if (cancelled) return;
+          setDependencyChildren((prev) => {
+            const next = { ...prev };
+            for (const [id, names] of results) next[id] = names;
+            return next;
+          });
+        }
+      } finally {
+        for (const j of toFetch) inFlightJobIdsRef.current.delete(j.id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [state.groupBy, monitoredJobIdsKey, treeFetchToken]);
+
+  // When a monitored job goes away (unmonitor, finished sweep, etc.) we
+  // drop its cache entry to keep the map bounded. Children that no
+  // longer have a monitored parent are surfaced as new tree roots in
+  // the DFS below, matching CueGUI's behavior.
+  React.useEffect(() => {
+    setDependencyChildren((prev) => {
+      const validIds = new Set(state.tableDataUnfiltered.map((j: Job) => j.id));
+      const next: Record<string, string[]> = {};
+      let changed = false;
+      for (const [id, names] of Object.entries(prev)) {
+        if (validIds.has(id)) next[id] = names;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [state.tableDataUnfiltered]);
 
   // Skeleton rows are shown only on the very first paint while we wait
   // for the autoload-mine fetch to complete. If localStorage already has
@@ -603,17 +771,20 @@ export function DataTable({ columns, username }: DataTableProps) {
   // win after a toggle change).
   const handleGetJobs = React.useCallback(
     debounce(async (query: string, searchType: string, includeFinished: boolean) => {
+      if (searchType !== SEARCH_BY_REGEX) return;
+      dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
+      setJobSearchLoading(true);
       try {
-        if (searchType !== SEARCH_BY_REGEX) return;
-        dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
-        setJobSearchLoading(true);
         const newJobs = await getJobsForRegex(query, includeFinished);
-        setJobSearchLoading(false);
         dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
         dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
         searchFinishedRef.current = true;
       } catch (error) {
         handleError(error, "Error searching for jobs");
+      } finally {
+        // Always clear the spinner, even when getJobsForRegex throws -
+        // otherwise the search input stays stuck in the loading state.
+        setJobSearchLoading(false);
       }
     }, searchDelay),
     [],
@@ -783,6 +954,59 @@ export function DataTable({ columns, username }: DataTableProps) {
     }
   };
 
+  // Deep-link: `/?search=<jobname>` from elsewhere in the app
+  // (the job detail page's "View in Monitor Jobs" button) auto-loads
+  // the matching job into the Cuetopia table on mount. Regex special
+  // characters in the URL param are escaped so the value behaves as a
+  // literal substring instead of accidentally matching unrelated jobs.
+  const router = useRouter();
+  const pathname = usePathname();
+  // Optimistic in-row priority update after a successful SetPriority
+  // call. The SetPriorityDialog dispatches `cueweb:priority-changed`
+  // with { jobId, priority } so we don't have to wait for the next 5s
+  // poll to surface the new value in the Priority column.
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ jobId: string; priority: number }>).detail;
+      if (!detail?.jobId || typeof detail.priority !== "number") return;
+      const bump = (jobs: Job[]) =>
+        jobs.map((j) =>
+          j.id === detail.jobId ? { ...j, priority: detail.priority } : j,
+        );
+      dispatch({ type: "SET_TABLE_DATA", payload: bump(state.tableData) });
+      dispatch({
+        type: "SET_TABLE_DATA_UNFILTERED",
+        payload: bump(state.tableDataUnfiltered),
+      });
+    }
+    window.addEventListener("cueweb:priority-changed", handler);
+    return () => window.removeEventListener("cueweb:priority-changed", handler);
+  }, [state.tableData, state.tableDataUnfiltered]);
+
+  const searchParams = useSearchParams();
+  const autoLoadedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const q = searchParams?.get("search") ?? "";
+    if (!q) return;
+    if (autoLoadedRef.current === q) return; // already handled this query
+    autoLoadedRef.current = q;
+    const escaped = q.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    handleSearchSubmit(escaped).finally(() => {
+      // Drop the param so reloads do not keep re-firing the search.
+      try {
+        const next = new URLSearchParams(searchParams?.toString() ?? "");
+        next.delete("search");
+        const qs = next.toString();
+        router.replace(qs ? `${pathname}?${qs}` : (pathname ?? "/"), {
+          scroll: false,
+        });
+      } catch {
+        /* ignore */
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const handleUnmonitorSelected = () => {
     const selectedRows = table.getSelectedRowModel().rows;
     let jobsToUnmonitorSet = new Set(selectedRows.map((row: Row<Job>) => JSON.stringify(row.original)));
@@ -935,6 +1159,48 @@ export function DataTable({ columns, username }: DataTableProps) {
   // list" searches at the top of the page).
   const [jobLocalFilter, setJobLocalFilter] = React.useState<string>("");
 
+  // Per-row tree info for Group-By "Dependent" mode. Computed from
+  // state.tableData (the State-filtered set of monitored jobs) so it
+  // doesn't depend on the table's own row model - that would create a
+  // circular reference because meta.dependencyTree below has to be
+  // ready at useReactTable time. The Name column reads this via
+  // table.options.meta.dependencyTree to render an indent + chevron.
+  const treeInfoById = React.useMemo<Map<string, { depth: number; hasChildren: boolean }>>(() => {
+    const out = new Map<string, { depth: number; hasChildren: boolean }>();
+    if (state.groupBy !== "Dependent") return out;
+    const jobsByName = new Map<string, Job>();
+    for (const j of state.tableData as Job[]) jobsByName.set(j.name, j);
+    const childrenByParentId = new Map<string, Job[]>();
+    const parentIdByChildName = new Map<string, string>();
+    for (const j of state.tableData as Job[]) {
+      const childNames = dependencyChildren[j.id] ?? [];
+      const childJobs = childNames
+        .map((n) => jobsByName.get(n))
+        .filter((c): c is Job => c !== undefined && c.id !== j.id);
+      if (childJobs.length > 0) childrenByParentId.set(j.id, childJobs);
+      for (const c of childJobs) {
+        if (!parentIdByChildName.has(c.name)) parentIdByChildName.set(c.name, j.id);
+      }
+    }
+    const roots = (state.tableData as Job[]).filter((j) => !parentIdByChildName.has(j.name));
+    const visited = new Set<string>();
+    function visit(j: Job, depth: number) {
+      if (visited.has(j.id)) return;
+      visited.add(j.id);
+      out.set(j.id, {
+        depth,
+        hasChildren: (childrenByParentId.get(j.id)?.length ?? 0) > 0,
+      });
+      for (const c of childrenByParentId.get(j.id) ?? []) visit(c, depth + 1);
+    }
+    for (const r of roots) visit(r, 0);
+    for (const j of state.tableData as Job[]) {
+      if (!out.has(j.id))
+        out.set(j.id, { depth: 0, hasChildren: (childrenByParentId.get(j.id)?.length ?? 0) > 0 });
+    }
+    return out;
+  }, [state.groupBy, state.tableData, dependencyChildren]);
+
   const table = useReactTable({
     data: state.tableData,
     columns,
@@ -969,7 +1235,14 @@ export function DataTable({ columns, username }: DataTableProps) {
     initialState: {
       pagination: {
         pageIndex: 0,
-        pageSize: 10,
+        // Hydrate from localStorage so a hard refresh keeps the user's
+        // chosen rows-per-page. Defaults to 10 on first visit.
+        pageSize: (() => {
+          if (typeof window === "undefined") return 10;
+          const raw = window.localStorage.getItem("cueweb:jobs-page-size");
+          const parsed = raw ? parseInt(raw, 10) : NaN;
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+        })(),
       },
     },
 
@@ -978,8 +1251,37 @@ export function DataTable({ columns, username }: DataTableProps) {
       // this and calls it from a button click; mobile users get the same
       // menu without needing a real contextmenu event.
       openContextMenu: contextMenuHandleOpen,
+      // Group-By "Dependent" tree info, consumed by the Name column to
+      // render an indent + chevron in front of the job name. `undefined`
+      // when not in Dependent mode so the cell falls back to its
+      // default centered layout. Exposed as accessor functions (not raw
+      // Map / Set) so the column never sees the underlying structure -
+      // we can swap to a ref-based getter later without touching the
+      // cell.
+      dependencyTree:
+        state.groupBy === "Dependent"
+          ? {
+              getInfo: (jobId: string) => treeInfoById.get(jobId),
+              isCollapsed: (jobId: string) => collapsedTreeNodes.has(jobId),
+              toggle: toggleTreeNode,
+            }
+          : undefined,
     },
   });
+
+  // Persist rows-per-page across hard reloads. TanStack manages the
+  // pagination state internally; we subscribe to changes via the
+  // table's onStateChange-equivalent by reading the current pageSize
+  // after every render and writing it through to localStorage when
+  // it differs from the cached value.
+  const currentPageSize = table.getState().pagination.pageSize;
+  const lastSavedPageSizeRef = React.useRef<number>(currentPageSize);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (currentPageSize === lastSavedPageSizeRef.current) return;
+    lastSavedPageSizeRef.current = currentPageSize;
+    window.localStorage.setItem("cueweb:jobs-page-size", String(currentPageSize));
+  }, [currentPageSize]);
 
   // Snap back to page 1 whenever the substring filter changes so the user
   // never lands on an empty page after narrowing the result set.
@@ -1011,19 +1313,77 @@ export function DataTable({ columns, username }: DataTableProps) {
 
   // Compute the list of items to render in the TableBody. In "Clear"
   // mode this is the raw row list (1:1 with the table's row model). In
-  // every other mode the rows are re-sorted by their group key and a
-  // header item is interleaved before each group. The header row owns
-  // the expand/collapse toggle for that group; row items carry their
-  // group key so the renderer can skip them when the group is collapsed.
+  // the header-bucket modes (Show / Show-Shot / Show-Shot-Username) the
+  // rows are re-sorted by their group key and a header item is
+  // interleaved before each group. In Dependent mode we render the
+  // parent/child dependency graph as a depth-first tree instead.
   type DisplayItem =
     | { kind: "row"; row: Row<Job>; groupKey: string }
     | { kind: "header"; key: string; count: number };
   const tableRows = table.getRowModel().rows;
+
   const displayItems = React.useMemo<DisplayItem[]>(() => {
     if (state.groupBy === "Clear") {
       return tableRows.map((row) => ({ kind: "row" as const, row, groupKey: "" }));
     }
 
+    if (state.groupBy === "Dependent") {
+      // Build the same parent/child maps the treeInfo memo built, but
+      // also keep the original Row<Job> references so we can emit them
+      // in DFS order.
+      const jobsByName = new Map<string, Job>();
+      for (const r of tableRows) jobsByName.set((r.original as Job).name, r.original as Job);
+      const rowsByJobId = new Map<string, Row<Job>>();
+      for (const r of tableRows) rowsByJobId.set((r.original as Job).id, r);
+      const childrenByParentId = new Map<string, Job[]>();
+      const parentIdByChildName = new Map<string, string>();
+      for (const r of tableRows) {
+        const j = r.original as Job;
+        const childNames = dependencyChildren[j.id] ?? [];
+        const childJobs = childNames
+          .map((n) => jobsByName.get(n))
+          .filter((c): c is Job => c !== undefined && c.id !== j.id);
+        if (childJobs.length > 0) childrenByParentId.set(j.id, childJobs);
+        for (const c of childJobs) {
+          if (!parentIdByChildName.has(c.name)) parentIdByChildName.set(c.name, j.id);
+        }
+      }
+      const roots = tableRows.filter((r) => !parentIdByChildName.has((r.original as Job).name));
+      const out: DisplayItem[] = [];
+      // Two-state walk:
+      //  - `claimed` marks every job the tree walk owns (visible OR
+      //    hidden under a collapsed ancestor). The fallback below skips
+      //    these so collapsing a parent actually removes its subtree
+      //    from view.
+      //  - `hidden` propagates down the recursion - children of a
+      //    collapsed ancestor are claimed but never pushed to `out`.
+      const claimed = new Set<string>();
+      const walk = (row: Row<Job>, hidden: boolean) => {
+        const job = row.original as Job;
+        if (claimed.has(job.id)) return;
+        claimed.add(job.id);
+        if (!hidden) out.push({ kind: "row" as const, row, groupKey: "" });
+        // Descend so descendants get claimed even when hidden; the
+        // `hidden` flag prevents them from emitting until the user
+        // expands an ancestor again.
+        const collapsedHere = collapsedTreeNodes.has(job.id);
+        for (const c of childrenByParentId.get(job.id) ?? []) {
+          const childRow = rowsByJobId.get(c.id);
+          if (childRow) walk(childRow, hidden || collapsedHere);
+        }
+      };
+      for (const r of roots) walk(r, false);
+      // True orphans (rows whose ancestor was filtered out so the tree
+      // never reached them) get appended at the bottom so the local
+      // substring filter never silently drops rows.
+      for (const r of tableRows) {
+        const id = (r.original as Job).id;
+        if (!claimed.has(id)) out.push({ kind: "row" as const, row: r, groupKey: "" });
+      }
+      return out;
+    }
+
+    // Header-bucket modes (Show / Show-Shot / Show-Shot-Username).
     // Annotate + stable sort by group key (preserves the table's own
     // sort within each group via the original index as tiebreaker).
     const annotated = tableRows.map((row, idx) => ({
@@ -1051,7 +1411,7 @@ export function DataTable({ columns, username }: DataTableProps) {
       out.push({ kind: "row", row, groupKey: key });
     }
     return out;
-  }, [tableRows, state.groupBy]);
+  }, [tableRows, state.groupBy, dependencyChildren, collapsedTreeNodes]);
 
   return (
     <>
@@ -1563,7 +1923,7 @@ export function DataTable({ columns, username }: DataTableProps) {
       <div className="space-x-2 py-4">
         <DataTablePagination
           table={table}
-          pageSizes={[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100, 150, 200, 250, 300]}
+          pageSizes={[5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]}
         />
       </div>
 
@@ -1571,6 +1931,48 @@ export function DataTable({ columns, username }: DataTableProps) {
           per-row popup with stacked Layers + Frames panels for the row
           the user last clicked above. */}
       <JobDetailsInline job={detailJob} username={state.username} />
+
+      {/* Set Priority dialog. Mounted once here; opens in response to
+          a `cueweb:open-set-priority` CustomEvent fired from the row
+          context menu's "Set Priority..." entry. */}
+      <SetPriorityDialog />
+
+      {/* Email Artist dialog. Mounted once here; opens in response to
+          a `cueweb:open-email-artist` CustomEvent fired from the row
+          context menu's "Email Artist..." entry. Pre-fills From/To/CC/
+          Subject/Body from the job and hands the result to the user's
+          default mail client via a mailto: URL on Send. */}
+      <EmailArtistDialog />
+
+      {/* Request Cores dialog. Mounted once here; opens in response to
+          a `cueweb:open-request-cores` CustomEvent fired from the row
+          context menu's "Request Cores..." entry. Pre-fills From/CC/
+          Subject and auto-populates the body with the job's still-
+          active layers; user fills Date/Time + notes; Send hands the
+          result to the user's default mail client via a mailto: URL. */}
+      <RequestCoresDialog />
+
+      {/* Subscribe to Job dialog. Mounted once here; opens in response
+          to a `cueweb:open-subscribe-to-job` CustomEvent fired from the
+          row context menu's "Subscribe to Job" entry. On Save it calls
+          the Cuebot AddSubscriber RPC so Cuebot emails the subscriber
+          when the job finishes. */}
+      <SubscribeToJobDialog />
+
+      {/* View Dependencies dialog. Mounted once here; opens in response
+          to a `cueweb:open-view-dependencies` CustomEvent fired from the
+          row context menu's "View Dependencies..." entry. On open, fetches
+          the job's DependSeq via the GetDepends RPC and renders the
+          CueGUI-parity Type / Target / Active / OnJob / OnLayer / OnFrame
+          table. */}
+      <ViewDependenciesDialog />
+
+      {/* Dependency Wizard dialog. Mounted once here; opens in response
+          to a `cueweb:open-dependency-wizard` CustomEvent fired from the
+          row context menu's "Dependency Wizard..." entry. Walks the user
+          through picking a dependency type and target object, then
+          dispatches to the matching CreateDependencyOn* RPC. */}
+      <DependencyWizardDialog />
     </>
   );
 }

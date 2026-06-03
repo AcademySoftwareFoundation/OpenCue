@@ -963,7 +963,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         batch_pause=args.batch_pause,
         dry_run=args.dry_run,
         print_names=args.print_names,
-        unique_suffix=("_t%d" % int(time.time())) if args.unique else "",
+        # Use nanosecond precision so two invocations launched within the
+        # same second still get distinct suffixes (int(time.time()) was
+        # second-level and could collide).
+        unique_suffix=("_t%d" % time.time_ns()) if args.unique else "",
     )
 
     return args.func(args, common)

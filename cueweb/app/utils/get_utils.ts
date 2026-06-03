@@ -199,3 +199,30 @@ export async function getJobComments(job: Job): Promise<JobComment[]> {
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
 }
+
+// Fetch the depend.DependSeq of every job currently blocked on the
+// supplied job. The Cuebot REST gateway emits camelCase field names
+// (proto `depend_er_job` -> JSON `dependErJob`) and double-nests the
+// list as `{depends: {depends: [...]}}`. We accept both camelCase and
+// snake_case as a belt-and-braces fallback against gateway-side
+// marshaller config changes. Returns the list of dependent job names
+// so the caller can build a parent -> children adjacency map without
+// re-parsing.
+export async function getWhatDependsOnThisJobNames(job: Job): Promise<string[]> {
+    const ENDPOINT = "/api/job/action/getwhatdependsonthis";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const data = await accessGetApi(ENDPOINT, body);
+    if (!data) return [];
+    const seq: any[] = data?.depends?.depends ?? data?.depends ?? [];
+    if (!Array.isArray(seq)) return [];
+    // Mirrors CueGUI's filter: only active depends contribute children.
+    // A satisfied / dropped depend should NOT keep the dependent job
+    // nested under the parent.
+    const names = new Set<string>();
+    for (const d of seq) {
+        if (d?.active === false) continue;
+        const name: string | undefined = d?.dependErJob ?? d?.depend_er_job;
+        if (typeof name === "string" && name && name !== job.name) names.add(name);
+    }
+    return Array.from(names);
+}

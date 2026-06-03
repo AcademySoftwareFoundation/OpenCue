@@ -25,29 +25,35 @@ import {
   copyFrameNameGivenRow,
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
+  dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
   eatFrameGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
+  emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
   killLayerGivenRow,
   pauseJobGivenRow,
+  requestCoresGivenRow,
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
   retryLayerFramesGivenRow,
   setMaxRetriesGivenRow,
+  setPriorityGivenRow,
+  subscribeToJobGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
+  viewDependenciesGivenRow,
 } from "@/app/utils/action_utils";
 import { Frame } from "@/app/frames/frame-columns";
 import { getFrameLogDir } from "@/app/utils/get_utils";
 import { toastWarning } from "@/app/utils/notify_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { Row } from "@tanstack/react-table";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
 import {
@@ -164,6 +170,10 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   unfilteredTableStorageName,
 }) => {
   const router = useRouter();
+  // "View Job" loads the selected row into the Monitor Jobs (Cuetopia) table.
+  // It is meaningless on Cuetopia itself, so we only expose it on Monitor Cue.
+  const pathname = usePathname();
+  const isOnMonitorCue = pathname === "/monitor-cue";
 
   // Navigate to the tabbed job detail page at /jobs/<jobName>?tab=overview.
   // The page (app/jobs/[job-name]/page.tsx) owns the Overview / Layers /
@@ -172,6 +182,16 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   function handleViewJobDetails(row: Row<any>) {
     const job = row.original as Job;
     router.push(`/jobs/${encodeURIComponent(job.name)}?tab=overview`);
+  }
+
+  // "View Job" deep-links to the Cuetopia Monitor Jobs page (/) with the
+  // selected job's name in the search query. The jobs table reads `search`
+  // on mount, auto-loads the matching job into the monitored set, then
+  // strips the param so a refresh doesn't re-fire. Same mechanism as the
+  // "View in Monitor Jobs" button on the tabbed job detail page.
+  function handleViewJob(row: Row<any>) {
+    const job = row.original as Job;
+    router.push(`/?search=${encodeURIComponent(job.name)}`);
   }
 
   function handleUnmonitorJobGivenRow(row: Row<any>) {
@@ -211,6 +231,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   const editable = !jobInteractionDisabled;
   const grayIfDisabled = (active: boolean) => (active ? undefined : "gray");
 
+  // Pause/Unpause is a single toggle (CueGUI parity): show "Unpause" when
+  // the job is paused, "Pause" otherwise. destructiveActive already
+  // disables the entry on FINISHED jobs and when the global safety flag
+  // is set, so In Progress / Failing / Dependency all behave correctly.
+  const isJobPaused = !!contextMenuState.row?.original.isPaused;
+
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.JobActions
   const menuItems: MenuItem[] = [
     // -- Top group: identity + lookup actions ----------------------
@@ -220,12 +246,19 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: true,
       component: <TbEyeOff className="mr-1" size={14} />,
     },
-    {
-      label: "View Job",
-      onClick: notYetImplemented("View Job"),
-      isActive: true,
-      component: <TbDots className="mr-1" size={14} />,
-    },
+    // "View Job" loads the row into Cuetopia's Monitor Jobs table; on
+    // Cuetopia itself the user is already viewing it, so the entry is
+    // only included when the menu opens on the Monitor Cue page.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "View Job",
+            onClick: handleViewJob,
+            isActive: true,
+            component: <TbDots className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       // Tabbed detail page (Overview / Layers / Frames / Comments /
       // Dependencies) with URL-synced active-tab state. Lives at
@@ -244,19 +277,22 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Email Artist...",
-      onClick: notYetImplemented("Email Artist"),
+      onClick: emailArtistGivenRow,
       isActive: true,
       component: <TbMessage className="mr-1" size={14} />,
     },
     {
       label: "Request Cores...",
-      onClick: notYetImplemented("Request Cores"),
+      onClick: requestCoresGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
+      // Opens a small dialog mirroring CueGUI's SubscribeToJobDialog. On
+      // Save the address is registered with Cuebot via the AddSubscriber
+      // RPC; Cuebot emails the subscriber when the job finishes.
       label: "Subscribe to Job",
-      onClick: notYetImplemented("Subscribe to Job"),
+      onClick: subscribeToJobGivenRow,
       isActive: true,
       component: <TbStar className="mr-1" size={14} />,
     },
@@ -278,13 +314,13 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     // contiguous group with the rest of the top section).
     {
       label: "View Dependencies...",
-      onClick: notYetImplemented("View Dependencies"),
+      onClick: viewDependenciesGivenRow,
       isActive: true,
       component: <TbLink className="mr-1" size={14} />,
     },
     {
       label: "Dependency Wizard...",
-      onClick: notYetImplemented("Dependency Wizard"),
+      onClick: dependencyWizardGivenRow,
       isActive: editable,
       component: <TbHelp className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -320,6 +356,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
     // -- Frame-level controls (CueGUI parity).
     {
+      label: "Set Priority...",
+      onClick: setPriorityGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,
       isActive: editable,
@@ -340,18 +382,16 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
     sep("group-pause"),
 
-    // -- Pause / Unpause ------------------------------------------
+    // -- Pause / Unpause (single toggle) --------------------------
     {
-      label: "Pause",
-      onClick: pauseJobGivenRow,
+      label: isJobPaused ? "Unpause" : "Pause",
+      onClick: isJobPaused ? unpauseJobGivenRow : pauseJobGivenRow,
       isActive: destructiveActive,
-      component: <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
-    },
-    {
-      label: "Unpause",
-      onClick: unpauseJobGivenRow,
-      isActive: destructiveActive,
-      component: <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
+      component: isJobPaused ? (
+        <TbPlayerPlay className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+      ) : (
+        <TbPlayerPause className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />
+      ),
     },
 
     sep("group-eat-kill"),

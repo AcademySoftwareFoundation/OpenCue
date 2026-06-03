@@ -43,7 +43,31 @@ export async function POST(request: NextRequest) {
   const body = JSON.stringify(jsonBody);
 
   const response = await handleRoute(method, endpoint, body);
-  const responseData = await response.json();
+  // The REST gateway is supposed to return JSON, but a misconfigured or down
+  // gateway / proxy can answer with empty bodies / HTML / plain text. Read
+  // the raw text and parse defensively so a non-JSON upstream surfaces as a
+  // proper upstream error instead of crashing the route with a 500.
+  const raw = await response.text();
+  let responseData: any = {};
+  let parseFailed = false;
+  if (raw) {
+    try {
+      responseData = JSON.parse(raw);
+    } catch {
+      parseFailed = true;
+      responseData = { error: raw };
+    }
+  }
+  // A non-JSON body on an otherwise-OK upstream response is itself an
+  // upstream outage (HTML error page, plain-text proxy notice, ...) -
+  // surface it as a 502 instead of silently returning an empty host
+  // list and hiding the failure as "no hosts".
+  if (response.ok && parseFailed) {
+    return NextResponse.json(
+      { error: responseData.error ?? 'Upstream returned a non-JSON response', status: 502 },
+      { status: 502 },
+    );
+  }
 
   // Preserve the upstream HTTP status. NextResponse.json defaults to 200
   // when the second argument is omitted, which would otherwise mask
