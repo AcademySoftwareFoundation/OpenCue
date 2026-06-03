@@ -88,6 +88,15 @@ interface SimpleDataTableProps<TData, TValue> {
   // Columns dropdown. Typically a section title with a row count, e.g.
   // <span>Layers [Total Count: 3]</span>.
   toolbarLeft?: React.ReactNode;
+  // When true, this table renders no row context menu (read-only tables such
+  // as the hosts page). Frames/layers callers leave it false and keep theirs.
+  disableContextMenu?: boolean;
+  // Override the substring-filter placeholder. Defaults to the frames/layers
+  // wording when omitted.
+  filterPlaceholder?: string;
+  // Override the empty-table content. Defaults to the frames/layers EmptyState
+  // when omitted.
+  emptyState?: React.ReactNode;
 }
 
 export function SimpleDataTable<TData, TValue>({
@@ -103,6 +112,9 @@ export function SimpleDataTable<TData, TValue>({
   onRowClick,
   selectedRowId,
   toolbarLeft,
+  disableContextMenu = false,
+  filterPlaceholder,
+  emptyState,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -498,8 +510,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isFramesTable ? "Filter frames..." : "Filter layers..."}
-              aria-label={isFramesTable ? "Filter frames" : "Filter layers"}
+              placeholder={filterPlaceholder ?? (isFramesTable ? "Filter frames..." : "Filter layers...")}
+              aria-label={filterPlaceholder ?? (isFramesTable ? "Filter frames" : "Filter layers")}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -566,7 +578,7 @@ export function SimpleDataTable<TData, TValue>({
                     data-state={
                       isSelectedById || row.getIsSelected() ? "selected" : undefined
                     }
-                    onContextMenu={(e) => contextMenuHandleOpen(e, row)}
+                    onContextMenu={disableContextMenu ? undefined : (e) => contextMenuHandleOpen(e, row)}
                     onClick={
                       onRowClick
                         ? () => onRowClick(row.original as TData)
@@ -602,23 +614,25 @@ export function SimpleDataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 p-0">
-                  <EmptyState
-                    icon={<Layers className="h-6 w-6" aria-hidden="true" />}
-                    title={
-                      isFramesTable
-                        ? "Layer has no frames"
-                        : isFramesLogTable
-                          ? "Frame not found"
-                          : "Job has no layers"
-                    }
-                    description={
-                      isFramesTable
-                        ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
-                        : isFramesLogTable
-                          ? "The frame referenced by this URL is no longer available in Cuebot."
-                          : "This job does not contain any layers yet."
-                    }
-                  />
+                  {emptyState ?? (
+                    <EmptyState
+                      icon={<Layers className="h-6 w-6" aria-hidden="true" />}
+                      title={
+                        isFramesTable
+                          ? "Layer has no frames"
+                          : isFramesLogTable
+                            ? "Frame not found"
+                            : "Job has no layers"
+                      }
+                      description={
+                        isFramesTable
+                          ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
+                          : isFramesLogTable
+                            ? "The frame referenced by this URL is no longer available in Cuebot."
+                            : "This job does not contain any layers yet."
+                      }
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}
@@ -635,8 +649,9 @@ export function SimpleDataTable<TData, TValue>({
         </div>
       )}
 
-      {/* Context menus for frames and layers */}
-      {(isFramesTable || isFramesLogTable) ? (
+      {/* Context menus for frames and layers. Read-only tables (e.g. hosts)
+          opt out via disableContextMenu and render no menu. */}
+      {disableContextMenu ? null : (isFramesTable || isFramesLogTable) ? (
         <FrameContextMenu
           username={username}
           job={job}
