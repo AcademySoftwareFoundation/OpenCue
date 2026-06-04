@@ -278,10 +278,12 @@ public class PrometheusMetricsCollector {
             // as stale series.
             if (hostManager != null) {
                 try {
+                    java.util.List<StrandedCoreStats> strandedStats =
+                            hostManager.getStrandedCoreStats();
                     coresTotal.clear();
                     coresIdle.clear();
                     coresMemoryStranded.clear();
-                    for (StrandedCoreStats stats : hostManager.getStrandedCoreStats()) {
+                    for (StrandedCoreStats stats : strandedStats) {
                         coresTotal.labels(this.deployment_environment, this.cuebot_host,
                                 stats.allocName).set(stats.totalCores / 100.0);
                         coresIdle.labels(this.deployment_environment, this.cuebot_host,
