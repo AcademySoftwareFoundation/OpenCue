@@ -63,6 +63,20 @@ lazy_static! {
     )
     .expect("Failed to register time_to_book_seconds histogram");
 
+    // Accounting metrics from accounting/mod.rs + dispatcher/actor.rs
+    //
+    // Labeled by the table whose cap was hit (subscription / folder / job). Tracks
+    // dispatch attempts that paid for a Redis Lua round-trip only to be rejected by
+    // the Lua cap check. Used to decide whether the pre-CheckOut pre-check
+    // optimization described in `pipeline/matcher.rs::process_layer` is worth
+    // implementing.
+    pub static ref ACCOUNTING_LIMIT_EXCEEDED_TOTAL: CounterVec = register_counter_vec!(
+        "scheduler_accounting_limit_exceeded_total",
+        "Dispatch attempts rejected by the Redis Lua cap check, labeled by table",
+        &["table"]
+    )
+    .expect("Failed to register accounting_limit_exceeded_total counter");
+
     // Job query metrics from dao/job_dao.rs
     pub static ref JOB_QUERY_DURATION_SECONDS: Histogram = register_histogram!(
         "scheduler_job_query_duration_seconds",
@@ -70,6 +84,14 @@ lazy_static! {
         vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
     )
     .expect("Failed to register job_query_duration_seconds histogram");
+
+    // Cluster feed metrics from cluster.rs
+    pub static ref CLUSTER_ROUND_TRIP_SECONDS: Histogram = register_histogram!(
+        "scheduler_cluster_round_trip_seconds",
+        "Time between successive emissions of the same active (non-sleeping) cluster",
+        vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
+    )
+    .expect("Failed to register cluster_round_trip_seconds histogram");
 }
 
 /// Handler for the /metrics endpoint
@@ -161,8 +183,22 @@ pub fn observe_time_to_book(duration: Duration) {
     TIME_TO_BOOK_SECONDS.observe(duration.as_secs_f64());
 }
 
+/// Helper function to increment accounting limit-exceeded counter
+#[inline]
+pub fn increment_accounting_limit_exceeded(table: &str) {
+    ACCOUNTING_LIMIT_EXCEEDED_TOTAL
+        .with_label_values(&[table])
+        .inc();
+}
+
 /// Helper function to observe job query duration
 #[inline]
 pub fn observe_job_query_duration(duration: Duration) {
     JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
+}
+
+/// Helper function to observe cluster round-trip duration
+#[inline]
+pub fn observe_cluster_round_trip(duration: Duration) {
+    CLUSTER_ROUND_TRIP_SECONDS.observe(duration.as_secs_f64());
 }

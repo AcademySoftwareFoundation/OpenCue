@@ -97,17 +97,27 @@ queue:
   # Default: 300s (5 minutes)
   # job_back_off_duration: 300s
 
+  # Duration a cluster sleeps after a pass returned no dispatchable jobs.
+  # Larger values reduce empty-pass query load on the database.
+  # Default: 30s
+  # cluster_empty_sleep: 30s
+
   # Chunk size for processing manual tags
-  # Default: 100
-  # manual_tags_chunk_size: 100
+  # Default: 50
+  # manual_tags_chunk_size: 50
 
   # Chunk size for processing hostname tags
-  # Default: 300
-  # hostname_tags_chunk_size: 300
+  # Default: 50
+  # hostname_tags_chunk_size: 50
 
   # Maximum number of host candidate attempts per layer
   # Default: 10
   # host_candidate_attemps_per_layer: 10
+
+  # Maximum number of jobs returned per cluster pass. Strict ORDER BY priority
+  # DESC means low-priority jobs are deferred to subsequent passes.
+  # Default: 20
+  # max_jobs_per_cluster_pass: 20
 
   # Number of empty job cycles before scheduler quits (None = run forever)
   # Default: None

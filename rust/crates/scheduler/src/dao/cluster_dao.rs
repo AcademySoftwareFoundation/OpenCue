@@ -69,7 +69,7 @@ FROM host_tag
     JOIN show sh ON sub.pk_show = sh.pk_show
 WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
-    AND LOWER(a.pk_facility) = LOWER($1)
+    AND a.pk_facility = $1
 "#;
 
 static QUERY_ALLOC_CLUSTERS_WITH_SHOW_NAMES: &str = r#"
@@ -99,7 +99,7 @@ FROM host_tag
     JOIN show sh ON sub.pk_show = sh.pk_show
 WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
-    AND LOWER(a.pk_facility) = LOWER($1)
+    AND a.pk_facility = $1
     AND sh.str_name = ANY($2)
 "#;
 
@@ -130,7 +130,7 @@ JOIN host h on h.pk_host = host_tag.pk_host
 JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
 WHERE str_tag_type <> 'ALLOC'
-    AND LOWER(a.pk_facility) = LOWER($1)
+    AND a.pk_facility = $1
 "#;
 
 static QUERY_NON_ALLOC_CLUSTERS_WITH_SHOW_NAMES: &str = r#"
@@ -160,7 +160,7 @@ JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
 JOIN show sh ON sh.pk_show = s.pk_show
 WHERE str_tag_type <> 'ALLOC'
-    AND LOWER(a.pk_facility) = LOWER($1)
+    AND a.pk_facility = $1
     AND sh.str_name = ANY($2)
 "#;
 
@@ -207,7 +207,7 @@ impl ClusterDao {
     /// * `Stream<Result<ClusterModel, sqlx::Error>>` - Stream of allocation clusters
     pub fn fetch_alloc_clusters(
         &self,
-        facility_id: Option<Uuid>,
+        facility_id: Option<String>,
         shows_filter: Option<Vec<String>>,
     ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
         match (facility_id, shows_filter) {
@@ -215,13 +215,13 @@ impl ClusterDao {
                 sqlx::query_as::<_, ClusterModel>(
                     QUERY_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES,
                 )
-                .bind(fid.to_string())
+                .bind(fid)
                 .bind(show_names)
                 .fetch(&*self.connection_pool),
             ),
             (Some(fid), None) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_ALLOC_CLUSTERS_WITH_FACILITY)
-                    .bind(fid.to_string())
+                    .bind(fid)
                     .fetch(&*self.connection_pool),
             ),
             (None, Some(show_names)) => Box::pin(
@@ -251,7 +251,7 @@ impl ClusterDao {
     /// * `Stream<Result<ClusterModel, sqlx::Error>>` - Stream of non-allocation clusters
     pub fn fetch_non_alloc_clusters(
         &self,
-        facility_id: Option<Uuid>,
+        facility_id: Option<String>,
         shows_filter: Option<Vec<String>>,
     ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
         match (facility_id, shows_filter) {
@@ -259,13 +259,13 @@ impl ClusterDao {
                 sqlx::query_as::<_, ClusterModel>(
                     QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES,
                 )
-                .bind(fid.to_string())
+                .bind(fid)
                 .bind(show_names)
                 .fetch(&*self.connection_pool),
             ),
             (Some(fid), None) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY)
-                    .bind(fid.to_string())
+                    .bind(fid)
                     .fetch(&*self.connection_pool),
             ),
             (None, Some(show_names)) => Box::pin(
@@ -288,14 +288,14 @@ impl ClusterDao {
     ///
     /// # Returns
     ///
-    /// * `Ok(Uuid)` - The facility ID
+    /// * `Ok(String)` - The facility ID (verbatim from the DB, canonical casing)
     /// * `Err(sqlx::Error)` - If facility not found or database error
-    pub async fn get_facility_id(&self, facility_name: &str) -> Result<Uuid, sqlx::Error> {
+    pub async fn get_facility_id(&self, facility_name: &str) -> Result<String, sqlx::Error> {
         let row: (String,) = sqlx::query_as(QUERY_FACILITY_ID)
             .bind(facility_name)
             .fetch_one(&*self.connection_pool)
             .await?;
-        Ok(parse_uuid(&row.0))
+        Ok(row.0)
     }
 
     /// Looks up a show ID by show name.

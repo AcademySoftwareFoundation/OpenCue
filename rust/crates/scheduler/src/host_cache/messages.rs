@@ -63,7 +63,7 @@ pub struct CheckOut<F>
 where
     F: Fn(&Host) -> bool,
 {
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
     pub tags: Vec<Tag>,
     pub cores: CoreSize,

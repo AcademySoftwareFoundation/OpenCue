@@ -95,6 +95,8 @@ import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusResponse;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusResponse;
+import com.imageworks.spcue.grpc.show.ShowSetSchedulerManagedRequest;
+import com.imageworks.spcue.grpc.show.ShowSetSchedulerManagedResponse;
 import com.imageworks.spcue.grpc.show.ShowArchiveRequest;
 import com.imageworks.spcue.grpc.show.ShowArchiveResponse;
 import com.imageworks.spcue.grpc.subscription.Subscription;
@@ -275,6 +277,15 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         ShowEntity show = getShowEntity(request.getShow());
         showDao.updateShowDefaultMinGpus(show, request.getMinGpus());
         responseObserver.onNext(ShowSetDefaultMinGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setSchedulerManaged(ShowSetSchedulerManagedRequest request,
+            StreamObserver<ShowSetSchedulerManagedResponse> responseObserver) {
+        ShowEntity show = getShowEntity(request.getShow());
+        showDao.updateSchedulerManaged(show, request.getEnabled());
+        responseObserver.onNext(ShowSetSchedulerManagedResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
