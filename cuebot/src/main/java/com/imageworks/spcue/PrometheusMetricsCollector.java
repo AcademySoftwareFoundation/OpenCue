@@ -1,5 +1,7 @@
 package com.imageworks.spcue;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -8,6 +10,7 @@ import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.dispatcher.HostReportQueue;
+import com.imageworks.spcue.service.HostManager;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
@@ -151,6 +154,22 @@ public class PrometheusMetricsCollector {
             .name("cue_host_reports_received_total").help("Total number of host reports received")
             .labelNames("env", "cuebot_host", "facility").register();
 
+    // Memory-stranded cores: idle cores that cannot be booked because their host is out of memory.
+    // Reported per allocation.
+    private static final Gauge coresTotal =
+            Gauge.build().name("cue_cores_total").help("Total cores on UP and OPEN hosts")
+                    .labelNames("env", "cuebot_hosts", "alloc").register();
+    private static final Gauge coresIdle =
+            Gauge.build().name("cue_cores_idle").help("Idle cores on UP and OPEN hosts")
+                    .labelNames("env", "cuebot_hosts", "alloc").register();
+    private static final Gauge coresMemoryStranded = Gauge.build().name("cue_cores_memory_stranded")
+            .help("Idle cores on UP and OPEN hosts stranded by insufficient host memory")
+            .labelNames("env", "cuebot_hosts", "alloc").register();
+
+    private static final Logger logger = LogManager.getLogger(PrometheusMetricsCollector.class);
+
+    private HostManager hostManager;
+
     private String deployment_environment;
     private String cuebot_host;
 
@@ -251,6 +270,29 @@ public class PrometheusMetricsCollector {
                     .set(reportQueue.getTaskCount());
             reportQueueRejectedTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(reportQueue.getRejectedTaskCount());
+
+            // Memory-stranded cores, per allocation. Wrapped separately so a query failure does
+            // not prevent the queue metrics above from being collected. Core counts are stored in
+            // units of 100 (100 == one physical core), so divide to report whole cores. The gauges
+            // are cleared first so allocations that no longer have UP and OPEN hosts do not linger
+            // as stale series.
+            if (hostManager != null) {
+                try {
+                    coresTotal.clear();
+                    coresIdle.clear();
+                    coresMemoryStranded.clear();
+                    for (StrandedCoreStats stats : hostManager.getStrandedCoreStats()) {
+                        coresTotal.labels(this.deployment_environment, this.cuebot_host,
+                                stats.allocName).set(stats.totalCores / 100.0);
+                        coresIdle.labels(this.deployment_environment, this.cuebot_host,
+                                stats.allocName).set(stats.idleCores / 100.0);
+                        coresMemoryStranded.labels(this.deployment_environment, this.cuebot_host,
+                                stats.allocName).set(stats.strandedCores / 100.0);
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to collect memory-stranded core metrics", e);
+                }
+            }
         }
     }
 
@@ -392,5 +434,9 @@ public class PrometheusMetricsCollector {
 
     public void setReportQueue(HostReportQueue reportQueue) {
         this.reportQueue = reportQueue;
+    }
+
+    public void setHostManager(HostManager hostManager) {
+        this.hostManager = hostManager;
     }
 }
