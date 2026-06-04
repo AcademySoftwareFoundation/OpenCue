@@ -255,6 +255,22 @@ The job context menu groups four dependency actions so you can audit, create, or
 
    ![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
 
+### Visualizing the dependency graph
+
+When you want to *see* a render chain rather than read a table of depends, turn on the **Job Dependency Graph** - a read-only node graph mirroring CueGUI's Monitor-Jobs dependency-graph dock.
+
+1. **Enable the graph.** Open the **Cuetopia** menu (header dropdown or sidebar) and click **View Job Graph**. The entry is a checkable toggle - a check mark appears when it is on, and the choice is remembered across pages, tabs, and reloads.
+
+   ![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+2. **Open a job.** Click a job row in Monitor Jobs. The graph mounts as a third panel under the inline Layers and Frames panels. It walks the job's depends in both directions - what the job depends on and what depends on the job - and lays the result out top-to-bottom.
+
+   ![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+3. **Read and navigate the graph.** Each node carries a kind label (JOB / LAYER / FRAME) and a color-coded left border; the job you opened the panel for is ringed. Hover a node to see its full name, and click a node to open that job's detail page. Use the corner controls to pan, zoom, and fit. Collapse or close the panel from the **Dependency Graph** button above Layers or the panel's **&times;** button. A job with no depends shows **No dependencies found for this job.**
+
+   ![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+
 ---
 
 ## Job Details and Frame Management

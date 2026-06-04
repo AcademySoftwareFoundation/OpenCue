@@ -224,6 +224,9 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 - **Kill Jobs**: Use the stop button to terminate jobs
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.
+- **Job Dependency Graph**: Toggle **Cuetopia &rarr; View Job Graph**, then click a job to mount a read-only, interactive node graph of its dependency tree below the inline Layers + Frames panels. Nodes are color-coded by kind (JOB / LAYER / FRAME), the focus job is ringed, and clicking a node opens that job's detail page.
+
+  ![Dependency graph panel below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 - **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon in the Jobs table's **Comments** column (sortable, sits right after Name), to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros.
 
 The job right-click menu, and the tabbed Job Details page it can open:
