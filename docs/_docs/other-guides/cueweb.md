@@ -150,6 +150,11 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
    - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path) work even when CueWeb is reached over plain HTTP at a LAN IP, including on iOS Safari.
 
+27. **Job dependency graph (Cuetopia &rarr; View Job Graph):**
+   - A read-only, interactive node graph of a job's dependency tree, mirroring CueGUI's Monitor-Jobs dependency-graph dock.
+   - Toggled from the checkable **Cuetopia &rarr; View Job Graph** entry (header dropdown and sidebar); the choice is persisted and synced across tabs.
+   - When on, selecting a job in Monitor Jobs mounts the graph as a third panel under the inline Layers and Frames panels. It walks the depends in both directions (what the job depends on and what depends on the job), color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, truncates long names with a full-name tooltip, and lets you click a node to open that job's detail page. Pan / zoom / fit controls and a "No dependencies found" empty state are included.
+
 
 ## CueWeb's user interface
 
@@ -518,6 +523,17 @@ After **Apply**, a toast confirms the new value and the **Priority** column in t
 
 **Figure 69: Toast confirming the priority change and immediate column update**
 ![Toast confirming the priority change](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
+
+The checkable **Cuetopia &rarr; View Job Graph** entry (Figure 70) toggles a read-only dependency-graph panel. With it on, selecting a job in Monitor Jobs mounts an interactive node graph of the job's dependency tree as a third panel under the inline Layers and Frames panels (Figure 71). The graph walks the depends in both directions, color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, and lets you click a node to open that job's detail page (Figure 72).
+
+**Figure 70: View Job Graph entry in the Cuetopia menu**
+![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+**Figure 71: Dependency graph panel below the inline Layers and Frames panels**
+![Dependency graph panel below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+**Figure 72: The dependency graph panel on its own**
+![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 
 
 ## Conclusion

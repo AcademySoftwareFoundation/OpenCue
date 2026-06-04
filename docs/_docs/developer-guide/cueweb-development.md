@@ -178,7 +178,8 @@ loads at runtime are copies under `cueweb/public/`.
 - **`AppSessionProvider`** (`app/providers/session-provider.tsx`): Thin client wrapper around `next-auth/react`'s `SessionProvider` so `useSession()` works inside the header and any other client component.
 - **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
 - **`JobsTable`** (`app/jobs/data-table.tsx`): Main jobs dashboard table (no longer renders its own inline header - the global `AppHeader` owns that chrome). Each `TableRow` left-click dispatches `setAttributeSelection(...)` so the Attributes panel updates as the user inspects rows and also surfaces the inline Layers + Frames panel below the grid via `JobDetailsInline`. Destructive toolbar actions (Eat / Retry / Pause / Unpause / Kill) consume `useDisableJobInteraction()` and dim themselves when the safety flag is on. Wires TanStack's `columnVisibility`, `columnOrder`, and `globalFilter` state into the reducer State so each is persisted to `localStorage` (`columnVisibility`, `columnOrder`); the per-table substring filter is purely component-state.
-- **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel.
+- **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
+- **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`.
 - **`JobDetailsPage`** (`app/jobs/[job-name]/page.tsx`): Standalone tabbed job-details route reached via the **View Job Details** right-click entry (or the row's `⋮` Actions button). Resolves the job by name through `findJobByName(...)`, polls layers + frames every 5s with cancellation guards, and exposes five tabs - **Overview**, **Layers**, **Frames**, **Comments**, **Dependencies**. The active tab is mirrored to the URL as `?tab=<key>` and read back through `useSearchParams()` + `router.replace(...)` so the page is bookmarkable and browser back/forward walks between tabs. `isTabKey(value)` rejects unknown query values so the URL can never select a missing tab. The Comments tab embeds a read-only preview of `getJobComments(...)` with a link out to the full `/jobs/<jobName>/comments` editor; Dependencies is currently a placeholder. The standard `Breadcrumbs` + `EmptyState` (`FileX` icon, "Job not found") wrappers cover loading and missing-job paths.
 - **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers and Frames (and the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action.
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
@@ -243,6 +244,15 @@ provider tree.
   - Helper: `getShortcutNotificationsEnabled()` reads the pref
     imperatively at fire time, so flipping the toggle takes effect on
     the very next keypress without remounting the listener.
+- **`useShowDependencyGraph`** (`app/utils/use_show_dependency_graph.ts`)
+  &mdash; `{ show, set, toggle }`. Drives the inline Dependency Graph
+  panel and the checkable **Cuetopia &rarr; View Job Graph** menu entry.
+  - Key: `cueweb.jobs.showDependencyGraph` (`"1"`/`"0"`, defaults off).
+  - Event: `cueweb:show-dependency-graph-changed` (same-tab) plus the
+    standard `storage` event for cross-tab sync. Exported as
+    `SHOW_DEP_GRAPH_CHANGED_EVENT`.
+  - Hydrates to `false` on first render so SSR and the first client
+    paint agree, then upgrades from `localStorage` in an effect.
 
 The header and sidebar share their NAV data via
 `app/utils/menus.ts` (exports `NAV_MENUS`, `NavMenu`, `NavItem`). The Help
@@ -267,6 +277,7 @@ on `window` instead of prop-drilling shared state. Existing events:
 | `cueweb:attribute-selection-changed` | `setAttributeSelection()` | `useAttributeSelection` listeners | Same-tab sync of the selected entity |
 | `cueweb:disable-job-interaction-changed` | `useDisableJobInteraction().toggle` | `useDisableJobInteraction` listeners | Same-tab sync of the safety flag |
 | `cueweb:open-mobile-nav` | `AppHeader` hamburger button (`md:hidden`) | `MobileNavSheet` | Open the mobile nav drawer |
+| `cueweb:show-dependency-graph-changed` | `useShowDependencyGraph().set` (Cuetopia ▸ View Job Graph, panel toggle) | `useShowDependencyGraph` listeners | Same-tab sync of the inline Dependency Graph panel visibility |
 
 The browser's built-in `storage` event handles cross-tab sync for every
 pref that lives in `localStorage`, so the `CustomEvent`s only need to
@@ -812,6 +823,51 @@ Data flow:
    returns a TreeInfo it renders a chevron + `padding-left = depth *
    14px`; otherwise it falls back to the default centered layout, so
    the column stays decoupled from the grouping mode.
+
+### Dependency graph panel
+
+The inline **Job Dependency Graph** (`JobDependencyGraph`,
+`components/ui/job-dependency-graph.tsx`) is the read-only, visual
+counterpart to the Group-By Dependent tree - it mirrors CueGUI's
+`JobMonitorGraph` Monitor-Jobs dock rather than the tree view.
+
+- **New dependencies.** The component pulls in three new npm packages:
+  `@xyflow/react` (React Flow, `^12`) for the canvas, `dagre`
+  (`^0.8.5`) for directed-graph layout, and `@types/dagre` (dev).
+- **Toggle + mount.** Visibility is owned by the shared
+  `useShowDependencyGraph()` hook (see *Application state hooks*),
+  flipped from the **Cuetopia &rarr; View Job Graph** menu entry and the
+  panel header. `JobDetailsInline` mounts it as a third stacked panel
+  under Layers + Frames when the hook is on.
+- **Tree walk.** `walkDependencyTree(focus, maxDepth)` runs a BFS from
+  the focus job over both directions - `silentGetDepends` (downstream,
+  `GetDepends`) and `silentGetWhatDependsOnThis` (upstream,
+  `GetWhatDependsOnThis`, filtered to `active !== false`) - bounded by
+  `maxDepth` (default 4) and a `visited` job-name set to break cycles.
+  Mirrors `JobMonitorGraph.getRecursiveDependentJobs`.
+- **Name &rarr; UUID resolution.** Each hop calls
+  `resolveJobIdByName(name, cache)`, which posts an anchored
+  `^escapeRegex(name)$` query to `/api/job/getjobs` (Cuebot rejects
+  name-only depend lookups). Results are memoized in a `Map` seeded
+  with the focus job, so the walk costs ~one `GetJobs` per distinct job.
+- **Silent fetches.** `silentPost(endpoint, body)` deliberately bypasses
+  `accessGetApi`; non-OK responses and `{ error }` bodies return `null`
+  so jobs in other shows / unmonitored + pruned don't fire
+  `handleError()` red toasts.
+- **Layout + rendering.** `layoutNodes` builds a fresh
+  `dagre.graphlib.Graph` per call (no module-level singleton) with
+  `rankdir: "TB"`. `describeEndpoint` derives a stable node id, kind
+  (JOB / LAYER / FRAME), and a hierarchical label per endpoint;
+  `ingestDepend` merges each `Depend` into node/edge `Map`s and returns
+  the er/on job names to expand the frontier. The custom
+  `DependencyNode` truncates the label (full name in `title`),
+  color-codes the left border by kind, and rings the focus job.
+- **Decoupled effects.** The data fetch is keyed on `[job.id, job.name,
+  maxDepth]` so flipping the theme doesn't re-walk the tree; the
+  crosshair-cursor SVG is memoized on `resolvedTheme` and scoped to the
+  instance via a `data-graph-id` attribute. Node clicks call
+  `onNodeNavigate(jobName)` when supplied, else
+  `router.push("/jobs/<jobName>?tab=overview")`.
 
 ---
 

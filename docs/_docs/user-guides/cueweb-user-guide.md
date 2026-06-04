@@ -58,6 +58,7 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Job statistics and performance metrics
    - Stacked job progress bar with hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead)
    - Frame state filter chips above the frames table (WAITING / RUNNING / SUCCEEDED / DEAD / EATEN / DEPEND) with per-state counts, OR-combined selection, and URL-persisted state
+   - Interactive **Job Dependency Graph** - a read-only node graph of the selected job's upstream and downstream dependency tree, toggled from **Cuetopia &rarr; View Job Graph**
 
 5. **Frame Navigation and Logs Access**
    - Hyperlinked frames leading to dedicated pages
@@ -152,9 +153,11 @@ The left sidebar and the header menus give you the same set of groups. Use the s
 ![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
 
 
-The **Cuetopia** menu opens Monitor Jobs.
+The **Cuetopia** menu opens Monitor Jobs and holds the checkable **View Job Graph** toggle (see [Job dependency graph](#job-dependency-graph)).
 
 ![Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+
+![Cuetopia menu with the View Job Graph toggle](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
 
 
 The **Cuebot Facility** menu lets you switch the active facility.
@@ -643,6 +646,37 @@ The **Comments** tab shows the job's comments.
 The **Dependencies** tab shows the job's dependency relationships.
 
 ![Job Details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
+
+### Job dependency graph
+
+The **Job Dependency Graph** is a read-only, interactive node graph of a job's dependency tree (CueGUI Monitor-Jobs parity). It walks the job's depends in both directions - what the job depends on *and* what depends on the job - and lays the result out as a top-to-bottom tree so you can see an entire render chain at a glance.
+
+**Turning it on.** Open the **Cuetopia** menu (header dropdown or sidebar) and click **View Job Graph**. The entry is a checkable toggle - a check mark appears when it is on, and the choice is remembered across pages, tabs, and reloads.
+
+![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+![View Job Graph entry in the Cuetopia menu (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu_dark.png)
+
+**Where it appears.** With the toggle on, click any job row in **Monitor Jobs**. The graph mounts as a third panel stacked under the inline **Layers** and **Frames** panels. The panel header names the focus job and has a close (**&times;**) button; you can also collapse or expand it from the **Dependency Graph** button above the Layers panel.
+
+![Monitor Jobs with the dependency graph panel open below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+**Reading the graph.**
+
+- Each box is a node. A small kind label (**JOB**, **LAYER**, or **FRAME**) and a color-coded left border tell you what the node represents; layer and frame nodes also show their parent job below the name.
+- The job you opened the panel for - the *focus* node - is highlighted with a ring.
+- Long names are truncated; hover any node to see its full name in a tooltip.
+- Edges flow from upstream (top) to the jobs that wait on them (bottom).
+- **Click a node** to open that job's tabbed detail page.
+- Use the zoom / fit / lock controls in the corner to pan and zoom; the view fits the whole tree on first render.
+
+![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+
+The graph is theme-aware: it follows the light/dark toggle without re-fetching the dependency tree.
+
+![The dependency graph panel in dark mode](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only_dark.png)
+
+If the selected job has no dependencies, the panel shows **No dependencies found for this job.** The graph is read-only - to create or remove depends, use the [dependency context-menu actions](#managing-job-dependencies).
 
 ### Layer Operations
 
