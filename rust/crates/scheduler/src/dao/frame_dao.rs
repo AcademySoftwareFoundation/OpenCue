@@ -113,7 +113,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             id: parse_uuid(&val.pk_frame),
             frame_name: val.str_frame_name,
             show_id: parse_uuid(&val.pk_show),
-            facility_id: parse_uuid(&val.pk_facility),
+            facility_id: val.pk_facility,
             job_id: parse_uuid(&val.pk_job),
             layer_id: parse_uuid(&val.pk_layer),
             command: val.str_cmd,
@@ -131,11 +131,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             log_dir: val.str_log_dir,
             layer_name: val.str_layer_name,
             job_name: val.str_job_name,
-            min_cores: CoreSize::from_multiplied(
-                val.int_min_cores
-                    .try_into()
-                    .expect("layer.int_cores_min should fix i32"),
-            ),
+            min_cores: CoreSize::from_multiplied(val.int_min_cores),
             threadable: val.b_threadable,
             min_gpus: val
                 .int_gpus_min

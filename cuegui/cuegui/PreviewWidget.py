@@ -145,9 +145,19 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         return name
 
     def __close(self, event):
-        """Close preview thread"""
+        """Stop the preview thread and wait for it to finish before the dialog
+        is destroyed.
+
+        Closing the dialog while the watch thread is still running would destroy
+        the QThread mid-execution, which Qt treats as a fatal error
+        ("QThread: Destroyed while thread is still running") and aborts the
+        whole application. Signalling the thread to stop and blocking until it
+        actually exits avoids that crash.
+        """
         del event
-        self.__previewThread.terminate = True
+        if self.__previewThread is not None:
+            self.__previewThread.stop()
+            self.__previewThread.wait()
 
     def __findHttpPort(self):
         """Figure out what port is being used by the tool to write previews"""
@@ -194,11 +204,17 @@ class PreviewProcessorWatchThread(QtCore.QThread):
             self.existCountChanged.emit(count, len(self.__items))
             if count == len(self.__items):
                 break
-            time.sleep(1)
             if time.time() > self.__timeout + start_time:
                 self.timeout.emit()
                 logger.warning('Timed out waiting for preview server.')
                 break
+            # Sleep in small slices so the thread reacts to stop() promptly
+            # (e.g. when the dialog is closed) instead of blocking for a full
+            # second, which would briefly freeze the GUI while it waits to exit.
+            for _ in range(10):
+                if self.terminate:
+                    break
+                time.sleep(0.1)
 
     def stop(self):
         """Stop the preview capture thread"""

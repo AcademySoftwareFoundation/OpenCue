@@ -301,6 +301,33 @@ Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/component
 | **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
 | **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). |
 
+### Job dependency graph panel
+
+A read-only, interactive node graph of a job's dependency tree, rendered with [React Flow](https://reactflow.dev/) (`@xyflow/react`) and laid out with [dagre](https://github.com/dagrejs/dagre). It mirrors CueGUI's `JobMonitorGraph` Monitor-Jobs dock. Lives in `JobDependencyGraph` (`cueweb/components/ui/job-dependency-graph.tsx`).
+
+**Toggle.** The checkable **Cuetopia &rarr; View Job Graph** entry (header dropdown in `app-header.tsx`, sidebar in `app-sidebar.tsx`, both expanded and collapsed) drives a shared `useShowDependencyGraph()` hook. The hook persists to `localStorage["cueweb.jobs.showDependencyGraph"]` and syncs in-tab via the `cueweb:show-dependency-graph-changed` CustomEvent and cross-tab via the `storage` event, so the menu items, the panel header toggle, and the panel itself stay in lockstep without prop drilling.
+
+![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+**Mounting.** When the toggle is on, `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`) renders the graph as a third stacked panel (`id="job-dependency-graph-panel"`) under Layers and Frames, with a header naming the focus job and a close button.
+
+![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+![Dependency graph panel below the inline Layers and Frames panels (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_dark.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Tree walk** | Breadth-first search from the focus job over both directions - `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active depends only) - bounded by `maxDepth` (default 4) and a visited-job set to break cycles. Mirrors CueGUI's `JobMonitorGraph.getRecursiveDependentJobs`. |
+| **Name resolution** | Each BFS hop first resolves a job name to its UUID via `/api/job/getjobs` with an anchored `^name$` regex (Cuebot rejects name-only depend lookups). Resolved IDs are memoized in a `Map`, so a 12-job chain costs ~12 lookups across the whole walk, not 12 per hop. |
+| **Silent fetches** | All BFS requests go through a `silentPost` helper that bypasses `accessGetApi`. Partial failures (jobs in other shows, unmonitored/finished + pruned) return `null` instead of cascading red "Resource not found" toasts. |
+| **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
+| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. |
+| **Navigation** | Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. |
+| **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
+| **Empty / loading states** | `Loading dependency graph...` while walking; `No dependencies found for this job.` when only the focus node remains. |
+
+![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+
 ### Job-finished notifications
 
 | Behavior | Description |

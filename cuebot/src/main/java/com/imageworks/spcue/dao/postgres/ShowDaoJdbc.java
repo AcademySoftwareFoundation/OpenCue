@@ -18,9 +18,12 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -39,6 +42,9 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     @Autowired
     private Environment env;
 
+    private final Cache<String, Boolean> schedulerManagedCache =
+            CacheBuilder.newBuilder().expireAfterWrite(30, TimeUnit.SECONDS).build();
+
     private static final RowMapper<ShowEntity> SHOW_MAPPER = new RowMapper<ShowEntity>() {
         public ShowEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
             ShowEntity show = new ShowEntity();
@@ -49,6 +55,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             show.defaultMaxGpus = rs.getInt("int_default_max_gpus");
             show.defaultMinGpus = rs.getInt("int_default_min_gpus");
             show.active = rs.getBoolean("b_active");
+            show.schedulerManaged = rs.getBoolean("b_scheduler_managed");
 
             if (rs.getString("str_comment_email") != null) {
                 show.commentMail = rs.getString("str_comment_email").split(",");
@@ -69,6 +76,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 + "show.int_default_min_gpus, "
                 + "show.str_name, "
                 + "show.b_active, "
+                + "show.b_scheduler_managed, "
                 + "show.str_comment_email "
             + "FROM "
                 + "show ";
@@ -82,6 +90,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 + "show.int_default_min_gpus, "
                 + "show_alias.str_name, "
                 + "show.b_active, "
+                + "show.b_scheduler_managed, "
                 + "show.str_comment_email "
             + "FROM "
                 + "show, "
@@ -114,6 +123,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 + "show.int_default_min_gpus, "
                 + "show.str_name, "
                 + "show.b_active, "
+                + "show.b_scheduler_managed, "
                 + "show.str_comment_email "
             + "FROM "
                 + "show, "
@@ -223,6 +233,40 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     public void updateActive(ShowInterface s, boolean enabled) {
         getJdbcTemplate().update("UPDATE show SET b_active= ? WHERE pk_show=?", enabled,
                 s.getShowId());
+    }
+
+    @Override
+    public void updateSchedulerManaged(ShowInterface s, boolean value) {
+        getJdbcTemplate().update("UPDATE show SET b_scheduler_managed = ? WHERE pk_show=?", value,
+                s.getShowId());
+        // Refresh the local cache entry so the writer Cuebot sees its own write
+        // immediately. Other Cuebots in the fleet pick up the change within the
+        // ~30s TTL (Q9b).
+        schedulerManagedCache.put(s.getShowId(), value);
+    }
+
+    @Override
+    public boolean isSchedulerManaged(String showId) {
+        Boolean cached = schedulerManagedCache.getIfPresent(showId);
+        if (cached != null) {
+            return cached;
+        }
+        boolean value = Boolean.TRUE.equals(getJdbcTemplate().queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, showId));
+        schedulerManagedCache.put(showId, value);
+        return value;
+    }
+
+    @Override
+    public int countSchedulerManagedShows() {
+        Integer count = getJdbcTemplate().queryForObject(
+                "SELECT COUNT(*) FROM show WHERE b_scheduler_managed = true", Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    @Override
+    public void invalidateSchedulerManagedCache() {
+        schedulerManagedCache.invalidateAll();
     }
 
     @Override

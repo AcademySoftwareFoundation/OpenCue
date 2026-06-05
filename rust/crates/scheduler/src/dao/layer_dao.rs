@@ -48,6 +48,8 @@ pub struct DispatchLayerModel {
     pub pk_job: String,
     pub pk_facility: String,
     pub pk_show: String,
+    pub pk_folder: String,
+    pub pk_dept: String,
     pub str_name: String,
     pub str_job_name: String,
     pub str_os: Option<String>,
@@ -71,6 +73,8 @@ pub struct LayerWithFramesModel {
     pub pk_job: String,
     pub pk_facility: String,
     pub pk_show: String,
+    pub pk_folder: String,
+    pub pk_dept: String,
     pub layer_name: String,
     pub job_name: String,
     pub str_os: Option<String>,
@@ -121,17 +125,14 @@ impl DispatchLayer {
         DispatchLayer {
             id: parse_uuid(&layer.pk_layer),
             job_id: parse_uuid(&layer.pk_job),
-            facility_id: parse_uuid(&layer.pk_facility),
+            facility_id: layer.pk_facility,
             show_id: parse_uuid(&layer.pk_show),
+            folder_id: parse_uuid(&layer.pk_folder),
+            dept_id: parse_uuid(&layer.pk_dept),
             job_name: layer.str_job_name,
             layer_name: layer.str_name,
             str_os: layer.str_os,
-            cores_min: CoreSize::from_multiplied(
-                layer
-                    .int_cores_min
-                    .try_into()
-                    .expect("int_cores_min should fit on a i32"),
-            ),
+            cores_min: CoreSize::from_multiplied(layer.int_cores_min),
             mem_min: ByteSize::kb(layer.int_mem_min as u64),
             threadable: layer.b_threadable,
             gpus_min: layer
@@ -224,6 +225,8 @@ SELECT DISTINCT
     j.pk_job,
     j.pk_facility,
     j.pk_show,
+    j.pk_folder,
+    j.pk_dept,
     l.str_name as layer_name,
     j.str_name as job_name,
     j.str_os,
@@ -362,6 +365,8 @@ impl LayerDao {
                 pk_job: model.pk_job.clone(),
                 pk_facility: model.pk_facility.clone(),
                 pk_show: model.pk_show.clone(),
+                pk_folder: model.pk_folder.clone(),
+                pk_dept: model.pk_dept.clone(),
                 str_name: model.layer_name.clone(),
                 str_job_name: model.job_name.clone(),
                 str_os: model.str_os.clone(),

@@ -155,6 +155,26 @@ class ShowTests(unittest.TestCase):
 
         showMock.enableDispatching.assert_called_with(False)
 
+    def testEnableSchedulerManaged(self, getStubMock, findShowMock):
+        args = self.parser.parse_args(
+            ["-scheduler-managed", TEST_SHOW, "on", "-force"])
+        showMock = mock.Mock()
+        findShowMock.return_value = showMock
+
+        cueadmin.common.handleArgs(args)
+
+        showMock.setSchedulerManaged.assert_called_with(True)
+
+    def testDisableSchedulerManaged(self, getStubMock, findShowMock):
+        args = self.parser.parse_args(
+            ["-scheduler-managed", TEST_SHOW, "off", "-force"])
+        showMock = mock.Mock()
+        findShowMock.return_value = showMock
+
+        cueadmin.common.handleArgs(args)
+
+        showMock.setSchedulerManaged.assert_called_with(False)
+
     def testDefaultMinCores(self, getStubMock, findShowMock):
         arbitraryCoreCount = 873
         args = self.parser.parse_args(

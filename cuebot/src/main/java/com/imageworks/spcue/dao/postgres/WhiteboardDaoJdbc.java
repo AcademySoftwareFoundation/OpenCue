@@ -1486,6 +1486,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setDefaultMinGpus(rs.getInt("int_default_min_gpus"))
                     .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
                     .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
+                    .setSchedulerManaged(rs.getBoolean("b_scheduler_managed"))
                     .setCommentEmail(SqlUtil.getString(rs, "str_comment_email")).setShowStats(stats)
                     .build();
         }
@@ -2114,6 +2115,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "show.b_booking_enabled,"
                 + "show.b_dispatch_enabled,"
                 + "show.b_active,"
+                + "show.b_scheduler_managed,"
                 + "show.str_comment_email,"
                 + "show_stats.int_frame_insert_count,"
                 + "show_stats.int_job_insert_count,"
