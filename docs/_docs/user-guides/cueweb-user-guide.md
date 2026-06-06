@@ -87,9 +87,11 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Predefined comment macros stored per browser for repeated text
 
 10. **Monitor Hosts**
-   - Read-only host registry table (CueCommander &rarr; Monitor Hosts) with sortable columns
+   - Host registry table (CueCommander &rarr; Monitor Hosts) with sortable columns
    - Columns: Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp
    - Substring filter and auto-refresh every 30 seconds
+   - Right-click host actions: lock / unlock, reboot / reboot when idle, edit tags
+   - Per-host detail page (Overview / Procs / Comments / Tags) with an auto-refreshing running-procs table
 
 ---
 
@@ -940,7 +942,63 @@ Numeric columns sort by their underlying value rather than the formatted text, s
 
 The host list auto-refreshes every 30 seconds. A failed refresh keeps the previously loaded rows in place; if the first load fails with no data, an inline error with a **Retry** button is shown.
 
-This page is read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) are tracked separately and are not part of this page yet.
+### Host actions
+
+Right-click a host row to open its actions menu. From here you can lock or unlock the host, reboot it (immediately or when idle), and edit its tags. After an action succeeds the affected row updates immediately, then reconciles on the next refresh.
+
+![Host actions menu on the Monitor Hosts table](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock.png)
+
+#### Lock and unlock
+
+Locking a host takes it out of the booking pool so it stops picking up new frames; frames already running keep going. CueWeb asks you to confirm, listing the host(s) affected.
+
+![Lock host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock_confirmation.png)
+
+On success a toast confirms the action and the row's **Locked** badge updates.
+
+![Host locked confirmation message](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock_host_locked_message.png)
+
+**Unlock** returns the host to the booking pool. A host that is `NIMBY_LOCKED` cannot be unlocked this way, so the **Unlock** entry stays disabled for those hosts.
+
+![Unlock host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_unlock_confirmation.png)
+
+#### Reboot and reboot when idle
+
+**Reboot** issues an immediate reboot. Any frames running on the host are killed, so CueWeb asks you to confirm first.
+
+![Reboot host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_reboot_confirmation.png)
+
+**Reboot When Idle** schedules the reboot for when the host finishes its running frames - nothing is killed, so it applies without a confirmation step. Both entries are disabled while the host is already rebooting or already scheduled to reboot when idle.
+
+![Reboot When Idle entry disabled](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_reboot_when_idle_option_disabled.png)
+
+#### Edit tags
+
+**Edit Tags** opens a dialog to add or remove the host's tags. The current tags show as removable chips; start typing to autocomplete from tags that already exist across the host registry, or create a new one. **Save** applies your changes.
+
+![Edit host tags dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_edit_tags_window.png)
+
+### Host detail page
+
+Click a host's **Name** in the table to open its detail page. The page has four tabs, and the active tab is kept in the URL so the view is bookmarkable.
+
+**Overview** - identity and resource summary (state, lock state, NIMBY, allocation, OS, load, thread mode, boot/ping time, cores, memory, free /mcp, GPUs).
+
+![Host detail page - Overview tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_overview.png)
+
+**Procs** - the frames currently running on the host, auto-refreshing every 15 seconds. Click a proc to open that frame's log.
+
+![Host detail page - Procs tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_procs.png)
+
+**Comments** - comments attached to the host.
+
+![Host detail page - Comments tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_comments.png)
+
+**Tags** - the host's tags, with an **Edit tags** button that opens the same dialog as the table's context menu.
+
+![Host detail page - Tags tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_tags.png)
+
+![Editing tags from the host detail page Tags tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_tags_edit_tags_window.png)
 
 ---
 
