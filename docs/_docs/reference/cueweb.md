@@ -328,6 +328,23 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 
+### Monitor Hosts
+
+A read-only host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
+
+![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getHosts()` (`app/utils/get_utils.ts`), which posts to the `/api/host/gethosts` proxy &rarr; `host.HostInterface/GetHosts`. `getHosts()` returns an array on success and throws on a failed request so the page can tell a real failure from an empty registry. |
+| **Columns** | Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp (`app/hosts/columns.tsx`). State and Locked reuse the shared `Status` badge. |
+| **Sorting** | Resource columns sort by their underlying numeric value, not the formatted string: Cores and Memory by idle ratio (`idleRatio`), Free /mcp by byte count. Memory / mcp arrive from the gateway as KB-in-string and are parsed/formatted by `app/hosts/host_format_utils.ts` (`kbStringToNumber`, `kbStringToHuman`). |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isHostsTable` flag - host-specific filter placeholder and empty-state copy, and no row context menu (read-only). Column show/hide persists to `localStorage["cueweb.hosts.columnVisibility"]`. |
+| **Refresh** | Auto-refreshes every 30s. A failed poll keeps previously loaded rows; a failed first load renders an inline error with a **Retry** button. |
+| **Scope** | Read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) and server-side filtering are tracked under sibling issues and are not part of this page. |
+
 ### Job-finished notifications
 
 | Behavior | Description |
@@ -937,10 +954,11 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Retry` | Retry frame |
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
+| `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
 
 ### CueWeb Proxy Routes
 
-The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment-related routes:
+The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment- and host-related routes:
 
 | Route | Forwards to |
 |-------|-------------|
@@ -949,6 +967,7 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/job/action/addsubscriber` | `job.JobInterface/AddSubscriber` |
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
+| `POST /api/host/gethosts` | `host.HostInterface/GetHosts` (unwraps the gateway's double-nested `{hosts:{hosts:[...]}}` to a flat array) |
 
 ---
 
@@ -1028,7 +1047,8 @@ Layout, left to right:
   - Allocations (`/allocations`)
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
-  - Monitor Hosts (`/hosts`)
+  - Monitor Hosts (`/hosts`) - implemented; read-only host registry (see
+    [Monitor Hosts](#monitor-hosts)).
   - Redirect (`/redirect`)
   - Services (`/services`)
   - Shows (`/shows`)

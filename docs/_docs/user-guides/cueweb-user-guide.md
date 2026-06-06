@@ -133,7 +133,7 @@ The screen is composed of:
     - **File** -> *Disable Job Interaction* (read-only safety toggle, see below).
     - **Cuebot Facility** -> switch between `local` · `dev` · `cloud` · `external` (the active facility is shown as a small chip on the menu trigger).
     - **Cuetopia** -> Monitor Jobs.
-    - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully - they are placeholders for upcoming features.
+    - **CueCommander** -> Allocations, Limits, Monitor Cue, **Monitor Hosts** (see [Monitor Hosts](#monitor-hosts)), Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. The remaining unimplemented routes 404 gracefully - they are placeholders for upcoming features.
     - **Other** -> *Attributes* (toggles the docked Attributes panel, see below).
     - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, and Report a Bug.
   - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
@@ -910,7 +910,17 @@ When the job reaches `FINISHED`, Cuebot sends the configured notification email 
 
 ## Monitor Hosts
 
-The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar, or the **View hosts** link on the dashboard hosts widget) lists the render hosts registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin, and mirrors the jobs table interactions (sortable columns, substring filter, column show/hide, pagination).
+The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar or header, or the **View hosts** link on the dashboard hosts widget) lists the render hosts registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin, and mirrors the jobs table interactions (sortable columns, substring filter, column show/hide, pagination).
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+The page renders a sortable, filterable table of every host. It follows the active theme:
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+![CueWeb Monitor Hosts page in dark mode](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_dark.png)
 
 ### Host columns
 
@@ -921,10 +931,10 @@ The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar, or
 | Locked | Lock state (`OPEN`, `LOCKED`, `NIMBY_LOCKED`) shown as a status badge |
 | NIMBY | Whether NIMBY is enabled on the host (`Yes` / `No`) |
 | Cores (Idle/Total) | Idle vs total cores. Sorts by the idle ratio |
-| Memory (Idle/Total) | Idle vs total memory, human-readable. Sorts by idle bytes |
+| Memory (Idle/Total) | Idle vs total memory, human-readable. Sorts by the idle ratio |
 | Free /mcp | Free temporary (`/mcp`) space, human-readable |
 
-Numeric columns sort by their underlying value rather than the formatted text, so memory and core counts sort numerically.
+Numeric columns sort by their underlying value rather than the formatted text, so memory and core counts sort numerically. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter hosts...** box to narrow the table by a substring of the host name.
 
 ### Refresh
 
