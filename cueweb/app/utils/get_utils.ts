@@ -51,8 +51,15 @@ export type Depend = {
 export type Host = {
     id: string;
     name: string;
-    state: string;
-    lockState: string;
+    state: string;        // UP / DOWN / REPAIR ...
+    lockState: string;    // OPEN / LOCKED / NIMBY_LOCKED
+    nimbyEnabled: boolean;
+    cores: number;
+    idleCores: number;
+    memory: string;       // KB, as string from the gateway
+    idleMemory: string;   // KB, as string
+    totalMemory: string;  // KB, as string
+    freeMcp: string;      // KB, as string
     bootTime: number;
     pingTime: number;
 };
@@ -184,10 +191,15 @@ export const getFrameLogDir = (job: Job, frame: Frame): string => {
 };
 
 // Fetch every host known to Cuebot. Optionally accepts a host-search filter (HostSearchCriteria).
+// Returns an array (possibly empty) on success; throws on a failed request so
+// callers can tell a real failure apart from an empty registry.
 export async function getHosts(body: string = JSON.stringify({ r: {} })): Promise<Host[]> {
     const ENDPOINT = "/api/host/gethosts";
     const response = await accessGetApi(ENDPOINT, body);
-    return Array.isArray(response) ? response : [];
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load hosts from Cuebot.");
+    }
+    return response;
 }
 
 // Fetch every show known to Cuebot.

@@ -155,6 +155,11 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Toggled from the checkable **Cuetopia &rarr; View Job Graph** entry (header dropdown and sidebar); the choice is persisted and synced across tabs.
    - When on, selecting a job in Monitor Jobs mounts the graph as a third panel under the inline Layers and Frames panels. It walks the depends in both directions (what the job depends on and what depends on the job), color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, truncates long names with a full-name tooltip, and lets you click a node to open that job's detail page. Pan / zoom / fit controls and a "No dependencies found" empty state are included.
 
+28. **Monitor Hosts (CueCommander &rarr; Monitor Hosts):**
+   - A read-only host registry at `/hosts`, the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin. Reached from the CueCommander menu / sidebar entry or the dashboard hosts widget's **View hosts** link.
+   - Sortable, filterable table with columns Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), and Free /mcp. Resource columns sort by their underlying numeric value, not the formatted text. Column show/hide and pagination mirror the jobs table.
+   - Auto-refreshes every 30 seconds; a failed refresh keeps the previously loaded rows in place, and a failed first load shows an inline error with a **Retry** button. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) are out of scope for this page.
+
 
 ## CueWeb's user interface
 
