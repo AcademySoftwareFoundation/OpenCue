@@ -27,18 +27,24 @@ import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 // Helper function for API calls
 /**************************************/
 
-export async function performAction(endpoint: string, bodyAr: string[], successMessage: string) {
-  if (bodyAr.length === 0) return;
+// Returns true when the action succeeded, false otherwise. Errors are still
+// surfaced via handleError (a toast); the boolean lets callers gate optimistic
+// UI updates on success so they don't briefly show a state the backend
+// rejected. Existing callers that ignore the return value are unaffected.
+export async function performAction(endpoint: string, bodyAr: string[], successMessage: string): Promise<boolean> {
+  if (bodyAr.length === 0) return false;
 
   try {
     const result = await accessActionApi(endpoint, bodyAr);
     if (result?.success) {
       toastSuccess(successMessage);
+      return true;
     } else {
       throw new Error(result.error);
     }
   } catch (error) {
     handleError(error, `Error performing action for: ${endpoint}`);
+    return false;
   }
 }
 
@@ -212,19 +218,19 @@ export async function unpauseJobs(jobs: Job[]) {
 
 // Lock the given hosts so they stop booking new frames. Batch-capable:
 // each host is locked in parallel via performAction, mirroring pauseJobs.
-export async function lockHosts(hosts: Host[]) {
+export async function lockHosts(hosts: Host[]): Promise<boolean> {
   const endpoint = "/api/host/action/lock";
   const bodyAr = hosts.map(host => JSON.stringify({ host }));
-  await performAction(endpoint, bodyAr, `Locked ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Locked ${hosts.length} host(s)`);
 }
 
 // Unlock the given hosts, returning them to the booking pool. NIMBY-locked
 // hosts cannot be unlocked this way (the gateway rejects them); the context
 // menu disables Unlock for those so the request never reaches here.
-export async function unlockHosts(hosts: Host[]) {
+export async function unlockHosts(hosts: Host[]): Promise<boolean> {
   const endpoint = "/api/host/action/unlock";
   const bodyAr = hosts.map(host => JSON.stringify({ host }));
-  await performAction(endpoint, bodyAr, `Unlocked ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Unlocked ${hosts.length} host(s)`);
 }
 
 /**************************************/
@@ -233,18 +239,18 @@ export async function unlockHosts(hosts: Host[]) {
 
 // Immediately reboot the given hosts. Cuebot flips each to REBOOTING and
 // signals RQD; frames running on those hosts are killed. Batch-capable.
-export async function rebootHosts(hosts: Host[]) {
+export async function rebootHosts(hosts: Host[]): Promise<boolean> {
   const endpoint = "/api/host/action/reboot";
   const bodyAr = hosts.map(host => JSON.stringify({ host }));
-  await performAction(endpoint, bodyAr, `Rebooting ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Rebooting ${hosts.length} host(s)`);
 }
 
 // Schedule a reboot for when the given hosts go idle (REBOOT_WHEN_IDLE).
 // Nothing is killed - the reboot waits for running frames to finish.
-export async function rebootHostsWhenIdle(hosts: Host[]) {
+export async function rebootHostsWhenIdle(hosts: Host[]): Promise<boolean> {
   const endpoint = "/api/host/action/rebootwhenidle";
   const bodyAr = hosts.map(host => JSON.stringify({ host }));
-  await performAction(endpoint, bodyAr, `Scheduled reboot-when-idle for ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Scheduled reboot-when-idle for ${hosts.length} host(s)`);
 }
 
 /**************************************/
@@ -252,19 +258,19 @@ export async function rebootHostsWhenIdle(hosts: Host[]) {
 /**************************************/
 
 // Add the given tags to every host. No-op when there are no tags to add.
-export async function addHostTags(hosts: Host[], tags: string[]) {
-  if (tags.length === 0) return;
+export async function addHostTags(hosts: Host[], tags: string[]): Promise<boolean> {
+  if (tags.length === 0) return false;
   const endpoint = "/api/host/action/addtags";
   const bodyAr = hosts.map(host => JSON.stringify({ host, tags }));
-  await performAction(endpoint, bodyAr, `Added ${tags.length} tag(s) to ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Added ${tags.length} tag(s) to ${hosts.length} host(s)`);
 }
 
 // Remove the given tags from every host. No-op when there are no tags to remove.
-export async function removeHostTags(hosts: Host[], tags: string[]) {
-  if (tags.length === 0) return;
+export async function removeHostTags(hosts: Host[], tags: string[]): Promise<boolean> {
+  if (tags.length === 0) return false;
   const endpoint = "/api/host/action/removetags";
   const bodyAr = hosts.map(host => JSON.stringify({ host, tags }));
-  await performAction(endpoint, bodyAr, `Removed ${tags.length} tag(s) from ${hosts.length} host(s)`);
+  return performAction(endpoint, bodyAr, `Removed ${tags.length} tag(s) from ${hosts.length} host(s)`);
 }
 
 /**************************************/
@@ -703,8 +709,11 @@ export function rebootHostGivenRow(row: Row<any>) {
 // next poll.
 export function rebootHostWhenIdleGivenRow(row: Row<any>) {
   const host = row.original as Host;
-  void rebootHostsWhenIdle([host]).then(() => {
-    if (typeof window === "undefined") return;
+  void rebootHostsWhenIdle([host]).then((ok) => {
+    // Only patch the row optimistically when the action actually succeeded;
+    // performAction swallows errors (returning false) and toasts them, so a
+    // failed request leaves the row at its true state instead of flickering.
+    if (!ok || typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent("cueweb:hosts-changed", {
         detail: { hostIds: [host.id], patch: { state: "REBOOT_WHEN_IDLE" } },

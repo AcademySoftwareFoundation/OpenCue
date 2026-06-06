@@ -73,20 +73,28 @@ export function HostLockDialog() {
     if (!hosts.length) return;
     setSubmitting(true);
     try {
-      if (action === "lock") {
-        await lockHosts(hosts);
-      } else {
-        await unlockHosts(hosts);
+      const ok =
+        action === "lock" ? await lockHosts(hosts) : await unlockHosts(hosts);
+      // Only fire the optimistic update when the action succeeded; on failure
+      // performAction has already toasted the error and the row keeps its
+      // real state.
+      if (ok) {
+        window.dispatchEvent(
+          new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
+            detail: {
+              hostIds: hosts.map((h) => h.id),
+              patch: { lockState: action === "lock" ? "LOCKED" : "OPEN" },
+            },
+          }),
+        );
       }
-      window.dispatchEvent(
-        new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
-          detail: {
-            hostIds: hosts.map((h) => h.id),
-            patch: { lockState: action === "lock" ? "LOCKED" : "OPEN" },
-          },
-        }),
-      );
       setOpen(false);
+    } catch (error) {
+      // lockHosts/unlockHosts route failures through performAction, which
+      // toasts them and returns false rather than throwing, so this catch only
+      // guards against an unexpected throw leaving an unhandled rejection or a
+      // stuck submitting state. The dialog stays open so the user can retry.
+      console.error(`Failed to ${action} host(s):`, error);
     } finally {
       setSubmitting(false);
     }

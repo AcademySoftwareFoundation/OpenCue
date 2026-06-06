@@ -125,15 +125,36 @@ export function EditHostTagsDialog() {
       const added = tags.filter((t) => !original.has(t));
       const removed = originalTags.filter((t) => !current.has(t));
 
-      await addHostTags(hosts, added);
-      await removeHostTags(hosts, removed);
+      // An empty add/remove is a no-op success; otherwise gate on the action
+      // result so a failed call doesn't optimistically patch the row to a tag
+      // set the backend rejected.
+      const addOk = added.length === 0 || (await addHostTags(hosts, added));
+      const removeOk = removed.length === 0 || (await removeHostTags(hosts, removed));
 
-      window.dispatchEvent(
-        new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
-          detail: { hostIds: hosts.map((h) => h.id), patch: { tags } },
-        }),
-      );
+      if (addOk && removeOk) {
+        // Dispatch a per-host optimistic patch. Each host's resulting tag set
+        // is its own tags plus what was added, minus what was removed. The
+        // shared `tags` working set only equals this for a single host; on a
+        // multi-host edit each host reaches a different state, so a single
+        // union patch would over-claim (e.g. removing a tag only some hosts
+        // had). RemoveTags is idempotent, so the RPC effect already matches.
+        const removedSet = new Set(removed);
+        for (const host of hosts) {
+          const result = uniqSorted(
+            [...(host.tags ?? []), ...added].filter((t) => !removedSet.has(t)),
+          );
+          window.dispatchEvent(
+            new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
+              detail: { hostIds: [host.id], patch: { tags: result } },
+            }),
+          );
+        }
+      }
       setOpen(false);
+    } catch (error) {
+      // addHostTags/removeHostTags route failures through performAction (toast
+      // + false), so this catch only guards against an unexpected throw.
+      console.error("Failed to update host tags:", error);
     } finally {
       setSubmitting(false);
     }

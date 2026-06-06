@@ -73,16 +73,23 @@ export function HostRebootDialog() {
     if (!hosts.length) return;
     setSubmitting(true);
     try {
-      await rebootHosts(hosts);
-      window.dispatchEvent(
-        new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
-          detail: {
-            hostIds: hosts.map((h) => h.id),
-            patch: { state: "REBOOTING" },
-          },
-        }),
-      );
+      const ok = await rebootHosts(hosts);
+      // Only fire the optimistic update when the reboot request succeeded.
+      if (ok) {
+        window.dispatchEvent(
+          new CustomEvent<HostsChangedDetail>(HOSTS_CHANGED_EVENT, {
+            detail: {
+              hostIds: hosts.map((h) => h.id),
+              patch: { state: "REBOOTING" },
+            },
+          }),
+        );
+      }
       setOpen(false);
+    } catch (error) {
+      // rebootHosts routes failures through performAction (toast + false), so
+      // this catch only guards against an unexpected throw. Dialog stays open.
+      console.error("Failed to reboot host(s):", error);
     } finally {
       setSubmitting(false);
     }
