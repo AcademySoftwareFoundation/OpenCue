@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, JobComment } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -204,6 +204,67 @@ export async function unpauseJobs(jobs: Job[]) {
   const endpoint = "/api/job/action/unpause";
   const bodyAr = jobs.map(job => JSON.stringify({ job }));
   await performAction(endpoint, bodyAr, `Unpaused ${jobs.length} job(s)`);
+}
+
+/**************************************/
+// Lock/Unlock Hosts (CueCommander parity)
+/**************************************/
+
+// Lock the given hosts so they stop booking new frames. Batch-capable:
+// each host is locked in parallel via performAction, mirroring pauseJobs.
+export async function lockHosts(hosts: Host[]) {
+  const endpoint = "/api/host/action/lock";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  await performAction(endpoint, bodyAr, `Locked ${hosts.length} host(s)`);
+}
+
+// Unlock the given hosts, returning them to the booking pool. NIMBY-locked
+// hosts cannot be unlocked this way (the gateway rejects them); the context
+// menu disables Unlock for those so the request never reaches here.
+export async function unlockHosts(hosts: Host[]) {
+  const endpoint = "/api/host/action/unlock";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  await performAction(endpoint, bodyAr, `Unlocked ${hosts.length} host(s)`);
+}
+
+/**************************************/
+// Reboot Hosts (CueCommander parity)
+/**************************************/
+
+// Immediately reboot the given hosts. Cuebot flips each to REBOOTING and
+// signals RQD; frames running on those hosts are killed. Batch-capable.
+export async function rebootHosts(hosts: Host[]) {
+  const endpoint = "/api/host/action/reboot";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  await performAction(endpoint, bodyAr, `Rebooting ${hosts.length} host(s)`);
+}
+
+// Schedule a reboot for when the given hosts go idle (REBOOT_WHEN_IDLE).
+// Nothing is killed - the reboot waits for running frames to finish.
+export async function rebootHostsWhenIdle(hosts: Host[]) {
+  const endpoint = "/api/host/action/rebootwhenidle";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  await performAction(endpoint, bodyAr, `Scheduled reboot-when-idle for ${hosts.length} host(s)`);
+}
+
+/**************************************/
+// Host Tags (CueCommander parity)
+/**************************************/
+
+// Add the given tags to every host. No-op when there are no tags to add.
+export async function addHostTags(hosts: Host[], tags: string[]) {
+  if (tags.length === 0) return;
+  const endpoint = "/api/host/action/addtags";
+  const bodyAr = hosts.map(host => JSON.stringify({ host, tags }));
+  await performAction(endpoint, bodyAr, `Added ${tags.length} tag(s) to ${hosts.length} host(s)`);
+}
+
+// Remove the given tags from every host. No-op when there are no tags to remove.
+export async function removeHostTags(hosts: Host[], tags: string[]) {
+  if (tags.length === 0) return;
+  const endpoint = "/api/host/action/removetags";
+  const bodyAr = hosts.map(host => JSON.stringify({ host, tags }));
+  await performAction(endpoint, bodyAr, `Removed ${tags.length} tag(s) from ${hosts.length} host(s)`);
 }
 
 /**************************************/
@@ -593,6 +654,75 @@ export function killFrameGivenRow(row: Row<any>, username: string) {
 export function eatFrameGivenRow(row: Row<any>) {
     const frames = [row.original];
     eatFrames(frames);
+}
+
+/********************************/
+/* Host context menu functions  */
+/********************************/
+
+// Right-click "Lock"/"Unlock" handlers. Rather than calling the action
+// directly, these dispatch a CustomEvent that the HostLockDialog (mounted
+// on the hosts page) listens for, so the user gets a confirmation step
+// before the host leaves / rejoins the booking pool. Decoupled the same
+// way as setPriorityGivenRow so the free-function context-menu handlers
+// don't need to reach into the table's component state.
+export function lockHostGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-host-lock", {
+      detail: { hosts: [row.original as Host], action: "lock" },
+    }),
+  );
+}
+
+export function unlockHostGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-host-lock", {
+      detail: { hosts: [row.original as Host], action: "unlock" },
+    }),
+  );
+}
+
+// Immediate reboot kills running frames, so route it through the
+// confirmation dialog (cueweb:open-host-reboot -> HostRebootDialog)
+// rather than firing straight away.
+export function rebootHostGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-host-reboot", {
+      detail: { hosts: [row.original as Host] },
+    }),
+  );
+}
+
+// Reboot-when-idle is non-destructive (it waits for running frames to
+// finish before rebooting), so it fires immediately without a confirm
+// step, mirroring CueGUI. Optimistically flip the row to REBOOT_WHEN_IDLE
+// once the request is sent so the table updates without waiting for the
+// next poll.
+export function rebootHostWhenIdleGivenRow(row: Row<any>) {
+  const host = row.original as Host;
+  void rebootHostsWhenIdle([host]).then(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("cueweb:hosts-changed", {
+        detail: { hostIds: [host.id], patch: { state: "REBOOT_WHEN_IDLE" } },
+      }),
+    );
+  });
+}
+
+// "Edit Tags..." opens the tag editor dialog (cueweb:open-host-tags ->
+// EditHostTagsDialog), which loads existing tags for autocomplete and
+// diffs the working set into add/remove calls on save.
+export function editHostTagsGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-host-tags", {
+      detail: { hosts: [row.original as Host] },
+    }),
+  );
 }
 
 /**********************************************/
