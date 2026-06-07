@@ -1267,7 +1267,9 @@ public class DispatchQuery {
             + "AND "
                 + "s.int_burst - s.int_cores >= 100 "
             + "AND "
-                + "s.int_cores < s.int_burst ";
+                + "s.int_cores < s.int_burst "
+            + "AND "
+                + "show.b_scheduler_managed = false ";
     // spotless:on
 
 }

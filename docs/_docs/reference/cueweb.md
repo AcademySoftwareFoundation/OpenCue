@@ -95,6 +95,10 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
 | `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
+| `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
+| `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
+| `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
+| `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` | Informational **From** label shown by the **Subscribe to Job** dialog. The actual email sender is whatever Cuebot is configured with - this is purely a UI hint. See [Subscribe to Job dialog](#subscribe-to-job-dialog). | `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>` |
 
 ### Authentication Variables
 
@@ -266,6 +270,25 @@ Each data table renders a small **Filter jobs / layers / frames...** `<input typ
 | **Clear** | An `×` button appears inside the input once it has a value; clears the filter in one click. Pressing `Esc` while focused also clears the native `<input type="search">`. |
 | **Scope** | Client-side only - distinct from the top-of-page "Search jobs - Enter to load" box on the Jobs page which hits Cuebot to load matching jobs. |
 
+### Group By (Jobs table)
+
+The Jobs table toolbar has a **Group By** dropdown that mirrors CueGUI's `MonitorJobsPlugin` grouping modes:
+
+| Mode | Layout | Notes |
+|------|--------|-------|
+| **Clear** | Flat list (default). | No grouping. |
+| **Dependent** | Parent / child dependency **tree**. | The Name column renders a chevron + depth-based indent in front of each row. A job that other monitored jobs depend on becomes a parent; the dependents nest under it. Click the chevron to collapse / expand a subtree. |
+| **Show** | One collapsible header per show. | Header text is the show name (`(no show)` when missing); count in parentheses. |
+| **Show-Shot** | `<show> - <shot>` headers. | Same collapse behavior. |
+| **Show-Shot-Username** | `<show> - <shot> - <user>` headers. | Same. |
+
+**Dependent tree details:**
+
+- On entry, the dialog fires `/job.JobInterface/GetWhatDependsOnThis` for every monitored job in parallel and caches the result in component state, keyed by `jobId`. Adding a new monitored job fires one extra RPC; unmonitoring a job drops the cache entry. The cache is cleared when the page reloads.
+- The tree builder walks the cached graph: a job's children are the *monitored* jobs whose `depend_er_job` field appears in the parent's depend list (active depends only, matching CueGUI). Jobs that appear as a child of any other monitored job are pulled under that parent; everyone else is a root.
+- The Name column reads `table.options.meta.dependencyTree` (a `Map<jobId, { depth, hasChildren }>` plus a `toggle(jobId)` callback) and renders the chevron + indent. Empty `dependencyTree` falls back to the default centered layout.
+- Filtering, sorting, and pagination all still apply on top of the tree: an orphaned child (parent filtered out) is re-rooted at depth 0 so the row never disappears silently.
+
 ### Inline JobDetails (Layers + Frames panel)
 
 Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`), which renders the **Layers** and **Frames** tables stacked below the jobs grid (CueGUI Monitor Jobs + Monitor Job Details parity).
@@ -277,6 +300,50 @@ Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/component
 | **Frames panel** | Lists every frame in the job (or the layer-filtered subset). Total count shows `X of Y` when filtered. |
 | **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
 | **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). |
+
+### Job dependency graph panel
+
+A read-only, interactive node graph of a job's dependency tree, rendered with [React Flow](https://reactflow.dev/) (`@xyflow/react`) and laid out with [dagre](https://github.com/dagrejs/dagre). It mirrors CueGUI's `JobMonitorGraph` Monitor-Jobs dock. Lives in `JobDependencyGraph` (`cueweb/components/ui/job-dependency-graph.tsx`).
+
+**Toggle.** The checkable **Cuetopia &rarr; View Job Graph** entry (header dropdown in `app-header.tsx`, sidebar in `app-sidebar.tsx`, both expanded and collapsed) drives a shared `useShowDependencyGraph()` hook. The hook persists to `localStorage["cueweb.jobs.showDependencyGraph"]` and syncs in-tab via the `cueweb:show-dependency-graph-changed` CustomEvent and cross-tab via the `storage` event, so the menu items, the panel header toggle, and the panel itself stay in lockstep without prop drilling.
+
+![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+**Mounting.** When the toggle is on, `JobDetailsInline` (`cueweb/components/ui/job-details-inline.tsx`) renders the graph as a third stacked panel (`id="job-dependency-graph-panel"`) under Layers and Frames, with a header naming the focus job and a close button.
+
+![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+![Dependency graph panel below the inline Layers and Frames panels (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_dark.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Tree walk** | Breadth-first search from the focus job over both directions - `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active depends only) - bounded by `maxDepth` (default 4) and a visited-job set to break cycles. Mirrors CueGUI's `JobMonitorGraph.getRecursiveDependentJobs`. |
+| **Name resolution** | Each BFS hop first resolves a job name to its UUID via `/api/job/getjobs` with an anchored `^name$` regex (Cuebot rejects name-only depend lookups). Resolved IDs are memoized in a `Map`, so a 12-job chain costs ~12 lookups across the whole walk, not 12 per hop. |
+| **Silent fetches** | All BFS requests go through a `silentPost` helper that bypasses `accessGetApi`. Partial failures (jobs in other shows, unmonitored/finished + pruned) return `null` instead of cascading red "Resource not found" toasts. |
+| **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
+| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. |
+| **Navigation** | Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. |
+| **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
+| **Empty / loading states** | `Loading dependency graph...` while walking; `No dependencies found for this job.` when only the focus node remains. |
+
+![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+
+### Monitor Hosts
+
+A read-only host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
+
+![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getHosts()` (`app/utils/get_utils.ts`), which posts to the `/api/host/gethosts` proxy &rarr; `host.HostInterface/GetHosts`. `getHosts()` returns an array on success and throws on a failed request so the page can tell a real failure from an empty registry. |
+| **Columns** | Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp (`app/hosts/columns.tsx`). State and Locked reuse the shared `Status` badge. |
+| **Sorting** | Resource columns sort by their underlying numeric value, not the formatted string: Cores and Memory by idle ratio (`idleRatio`), Free /mcp by byte count. Memory / mcp arrive from the gateway as KB-in-string and are parsed/formatted by `app/hosts/host_format_utils.ts` (`kbStringToNumber`, `kbStringToHuman`). |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isHostsTable` flag - host-specific filter placeholder and empty-state copy, and no row context menu (read-only). Column show/hide persists to `localStorage["cueweb.hosts.columnVisibility"]`. |
+| **Refresh** | Auto-refreshes every 30s. A failed poll keeps previously loaded rows; a failed first load renders an inline error with a **Retry** button. |
+| **Scope** | Read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) and server-side filtering are tracked under sibling issues and are not part of this page. |
 
 ### Job-finished notifications
 
@@ -404,19 +471,20 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Job** | Navigate to the job detail page. *(placeholder)* |
 | **View Job Details** | Open the tabbed job detail page at `/jobs/<jobName>?tab=overview`. The page exposes five tabs (Overview, Layers, Frames, Comments, Dependencies) with the active tab synced into the URL so it's bookmarkable and back-button friendly. |
 | **Copy Job Name** | Copy the full job name to the clipboard. |
-| **Email Artist** | Compose an email to the job's owner. *(placeholder)* |
-| **Request Cores** | Open the Request Cores dialog. *(placeholder)* |
-| **Subscribe to Job** | Same as clicking the Notify bell. *(placeholder)* |
+| **Email Artist...** | Open a themed dialog mirroring CueGUI's Email dialog. Fields (From, To, CC, BCC, Subject, Body) are pre-filled from the job and editable; see [Email Artist dialog](#email-artist-dialog). |
+| **Request Cores...** | Open a themed dialog mirroring CueGUI's `RequestCoresDialog`. From / To / CC / BCC / Subject inputs are pre-filled; the body is auto-populated with the job's still-active layers (Layer Name / Minimum Memory / Min Cores) and two editable Date/Time + Notes sections. **Send** hands the result to the user's default mail client via a `mailto:` URL. See [Request Cores dialog](#request-cores-dialog). |
+| **Subscribe to Job** | Open a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered with Cuebot via the `AddSubscriber` RPC, so Cuebot emails the subscriber when the job finishes. This is the *server-side, email* subscription - different from the [Notify bell](#job-finished-notifications) (browser-side, in-app + optional desktop popup). See [Subscribe to Job dialog](#subscribe-to-job-dialog). |
 | **Comments** | Open the per-job Comments page (`/jobs/<jobName>/comments`). |
 | **Use Local Cores** | Reserve local cores for this job. *(placeholder)* |
-| **View Dependencies** | Open the dependency graph for the job. *(placeholder)* |
-| **Dependency Wizard** | Open the dependency-creation wizard. *(placeholder)* |
-| **Drop External Dependencies** | Drop external job-on-job dependencies. |
-| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies. |
+| **View Dependencies...** | Open a themed dialog mirroring CueGUI's `DependDialog`. On open, the dialog calls the `GetDepends` RPC via `/api/job/action/getdepends` and renders the job's `depend.DependSeq` as a table with columns Type / Target / Active / OnJob / OnLayer / OnFrame. **Refresh** re-fetches the list. See [View Dependencies dialog](#view-dependencies-dialog). |
+| **Dependency Wizard...** | Open a themed three-step dialog mirroring CueGUI's `DependWizard`. Step 1 picks the dependency type (the three Job-On-X types are supported; the other CueGUI types are listed as `CueGUI only` to set expectations). Step 2 prompts for the target object's identifiers (job name, plus layer / frame names as needed). Step 3 confirms and dispatches to `CreateDependencyOnJob` / `CreateDependencyOnLayer` / `CreateDependencyOnFrame` via the matching `/api/job/action/createdependon*` proxy route. See [Dependency Wizard dialog](#dependency-wizard-dialog). |
+| **Drop External Dependencies** | Drop external job-on-job dependencies via the `DropDepends` RPC with `target = EXTERNAL`. |
+| **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies via the `DropDepends` RPC with `target = INTERNAL`. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
+| **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`); the entry is *not* gated by `usePathname()`. See [Set Priority dialog](#set-priority-dialog). |
 | **Set Max Retries** | Edit the per-frame retry budget. |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
-| **Pause** / **Unpause** | Pause or resume the job. |
+| **Pause** / **Unpause** | Single toggle entry: shows **Pause** when the job is running and **Unpause** when the job is already paused. The label, icon (`TbPlayerPause` / `TbPlayerPlay`) and dispatched action all flip on the row's `isPaused` flag. The entry is shown disabled (grayed) when the job's `state === "FINISHED"` (a terminal state can't be paused), and when the global *Disable Job Interaction* safety flag is on. Active in all other states (In Progress, Failing, Dependency). |
 | **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
 | **Retry Dead Frames** | Retry every dead frame. |
 | **Eat Dead Frames** | Mark every dead frame as eaten. |
@@ -471,6 +539,378 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 
 ---
 
+### Set Priority dialog
+
+The job context menu's **Set Priority...** entry opens a themed dialog with a 1-100 range slider and a matching number input - either control drives the value, and both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; cuebot's default is 100. Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and the dispatched action are identical on either page; only the **View Job** entry above it remains gated to `/monitor-cue`.
+
+Mounted once via `<SetPriorityDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-set-priority` CustomEvent that `setPriorityGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/set-priority-dialog.tsx`.
+
+![Set Priority entry in the job context menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with 1-100 slider + matching number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+After **Apply**:
+
+- `setJobPriority(job, value)` from `action_utils.ts` posts `{ job, val }` to `/api/job/action/setpriority`, which forwards to `/job.JobInterface/SetPriority` on the REST gateway.
+- A success toast confirms the new value.
+- The dialog dispatches a `cueweb:priority-changed` CustomEvent that the Jobs table consumes to update the row's **Priority** column optimistically, so the change is visible without waiting for the regular 5-second poll.
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
+
+---
+
+### Email Artist dialog
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's `EmailDialog`. Mounted once via `<EmailArtistDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-email-artist` CustomEvent that `emailArtistGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/email-artist-dialog.tsx`.
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | `<show>-<NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (informational - see below) |
+| **To** | `<user>@<NEXT_PUBLIC_EMAIL_DOMAIN>` (the job's owner) |
+| **CC** | same as From |
+| **BCC** | empty |
+| **Subject** | `cuemail: please check <jobName>` |
+| **Body** | `Your Support Team requests that you check <jobName>` followed by `Hi <user>,` |
+
+Send mechanism: the **Send** button builds a `mailto:` URL with the dialog's `to`, `cc`, `bcc`, `subject`, and `body` and assigns it to `window.location.href`. The OS hands the URL to the user's default mail client (Mail.app, Outlook, Thunderbird, etc.).
+
+Browsers don't let `mailto:` override the user's account's `From:` header, so the **From** field in the dialog is informational only - it surfaces the support alias the team typically uses. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with.
+
+Configurable at build time via two env vars (see [Environment Variables](#environment-variables)):
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`).
+- `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` (default `pst`, matching CueGUI's "production support team" alias convention).
+
+---
+
+### Request Cores dialog
+
+The job context menu's **Request Cores...** entry mirrors CueGUI's `RequestCoresDialog`. Mounted once via `<RequestCoresDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-request-cores` CustomEvent that `requestCoresGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/request-cores-dialog.tsx`.
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **From** | The signed-in user's email (`session.user.email`, falling back to `<sessionName>@<NEXT_PUBLIC_EMAIL_DOMAIN>` and then to empty). |
+| **To** | Empty - the user fills in the recipient (team lead, support queue, etc.). |
+| **CC** | `<show>-<NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+| **BCC** | Empty. |
+| **Subject** | `Requesting Cores for <jobName>`. |
+| **Body (auto-populated)** | `Requesting more cores for:` header, `Job Name:` + `Group (Folder):`, then a fixed-width table of layers with `waitingFrames + runningFrames > 0` (`Layer Name / Minimum Memory / Min Cores`). |
+| **Date/Time by which completion is needed** | Editable textarea, appended to the body on Send. |
+| **Additional notes (flag priority frames etc.)** | Editable textarea, appended to the body on Send. |
+
+Layer breakdown is fetched asynchronously on dialog open via `getLayersForJob(job)`; the body shows `Loading layers...` until the response lands, then re-renders with the filtered table.
+
+Send mechanism: the **Send** button stitches the auto-populated prelude together with the Date/Time and Notes sections, builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body`, and assigns it to `window.location.href`. Same `From:`-is-informational caveat as the [Email Artist dialog](#email-artist-dialog). The button is disabled while **To** is empty.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with Email Artist).
+- `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` (default `support`, matching CueGUI's `<show>-support@<domain>` convention - distinct from Email Artist's `pst`).
+
+### Subscribe to Job dialog
+
+The job context menu's **Subscribe to Job** entry mirrors CueGUI's `SubscribeToJobDialog`. Unlike the [Notify bell](#job-finished-notifications) - which is a *browser-side* subscription that fires an in-app toast (and optional desktop popup) - this entry registers a *server-side, email* subscriber on Cuebot. When the job reaches `FINISHED`, Cuebot sends an email to the saved address.
+
+Mounted once via `<SubscribeToJobDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-subscribe-to-job` CustomEvent that `subscribeToJobGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/subscribe-to-job-dialog.tsx`.
+
+![Subscribe to Job entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+![Subscribe to Job dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+Defaults derived from the row:
+
+| Field | Default value |
+|-------|---------------|
+| **Job name** | Read-only, taken from the row. |
+| **From** | Read-only label - `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` if set, otherwise `opencue-noreply@<NEXT_PUBLIC_EMAIL_DOMAIN>`. Informational only - the actual sender is whatever Cuebot is configured with. |
+| **To** | Editable; the signed-in user's `session.user.email`, falling back to `<sessionName-or-jobUser>@<NEXT_PUBLIC_EMAIL_DOMAIN>`. |
+
+Save mechanism: the **Save** button trims and validates the **To** address with a permissive `^\S+@\S+\.\S+$` check (Cuebot does its own validation server-side), then calls `addJobSubscriber(job, subscriber)` from `action_utils.ts`. That posts `{ job, subscriber }` to `/api/job/action/addsubscriber`, which forwards to `/job.JobInterface/AddSubscriber` via the REST gateway. A success toast confirms the subscription:
+
+![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+The **Save** button is disabled while the **To** field is empty or while a save is in flight. **Cancel** closes the dialog without contacting Cuebot.
+
+Configurable at build time:
+
+- `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`, shared with the other email dialogs).
+- `NEXT_PUBLIC_SUBSCRIBE_FROM_EMAIL` (default `opencue-noreply@<EMAIL_DOMAIN>`). Use this to surface a deployment-specific informational From label without touching the code.
+
+---
+
+### Drop External / Internal Dependencies
+
+Two one-click context-menu entries clear the matching depend bucket without opening a dialog. The action posts `{ job, target }` to `/api/job/action/dropdepends`, which validates `target` against `{ INTERNAL, EXTERNAL, ANY_TARGET }` server-side and forwards to `/job.JobInterface/DropDepends`. On success the helper dispatches `cueweb:refresh-now` (an immediate poll of the Jobs table) and `cueweb:depends-changed` (clears the Group-By Dependent tree cache and bumps its fetch token), so the Jobs row state, the chevrons in the dependency tree, and any open View Dependencies dialog all reconverge without waiting for the 5s autoload tick.
+
+| Entry | Action |
+|-------|--------|
+| **Drop External Dependencies** | `DropDepends` with `target = EXTERNAL` - removes every cross-job depend. |
+| **Drop Internal Dependencies** | `DropDepends` with `target = INTERNAL` - removes every within-job (layer-on-layer / frame-on-X) depend. |
+
+![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
+
+---
+
+### View Dependencies dialog
+
+The job context menu's **View Dependencies...** entry mirrors CueGUI's `DependDialog`: a read-only table of the job's `depend.DependSeq` so the user can audit which depends are still blocking the job.
+
+![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+Mounted once via `<ViewDependenciesDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-view-dependencies` CustomEvent that `viewDependenciesGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/view-dependencies-dialog.tsx`.
+
+On open, the dialog calls `fetchJobDepends(job)` from `action_utils.ts`, which posts `{ job }` to `/api/job/action/getdepends`. The proxy route forwards to `/job.JobInterface/GetDepends` via the REST gateway, and the dialog renders the returned `DependSeq` as a table.
+
+![View Dependencies dialog showing the depend.DependSeq table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+Columns mirror CueGUI's `DependDialog` table:
+
+| Column | Source field |
+|--------|--------------|
+| **Type** | `depend.type` (e.g. `JOB_ON_JOB`, `LAYER_ON_FRAME`). |
+| **Target** | `depend.target` (`INTERNAL` or `EXTERNAL`). |
+| **Active** | `depend.active` boolean - `true` while the depend still blocks the dependent. |
+| **OnJob** | `depend.depend_on_job` - the job this depend waits on. |
+| **OnLayer** | `depend.depend_on_layer` - the layer (empty for job-level depends). |
+| **OnFrame** | `depend.depend_on_frame` - the frame (empty for job / layer-level depends). |
+
+The **Refresh** button re-issues the `GetDepends` RPC so the user can verify that a freshly created depend appears in the table without re-opening the dialog. **Close** dismisses the dialog.
+
+---
+
+### Dependency Wizard dialog
+
+The job context menu's **Dependency Wizard...** entry mirrors CueGUI's `DependWizard`: a multi-step dialog that walks the user through creating a new depend on the current job.
+
+![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+Mounted once via `<DependencyWizardDialog />` in `cueweb/app/jobs/data-table.tsx`; opens in response to a `cueweb:open-dependency-wizard` CustomEvent that `dependencyWizardGivenRow(row)` in `cueweb/app/utils/action_utils.ts` dispatches with `{ job }`. Lives in `cueweb/components/ui/dependency-wizard-dialog.tsx`.
+
+The wizard implements every CueGUI `depend.DependType`, including the UI-only Hard Depend variant. Every picker is multi-select (matching CueGUI's `QListWidget(ExtendedSelection)` behavior) and **Done** fires the full cross-product of source x target picks. The table below summarizes the step list and underlying RPC per type:
+
+| Type | Steps | Underlying RPC(s) |
+|------|-------|-------------------|
+| `JOB_ON_JOB` | Type &rarr; Job &rarr; Confirm | `/job.JobInterface/CreateDependencyOnJob` |
+| `JOB_ON_LAYER` | Type &rarr; Job &rarr; Layer &rarr; Confirm | `/job.JobInterface/CreateDependencyOnLayer` |
+| `JOB_ON_FRAME` | Type &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/job.JobInterface/CreateDependencyOnFrame` |
+| `JFBF` (Hard Depend - "Frame By Frame for all layers") | Type &rarr; Job &rarr; Confirm | `/layer.LayerInterface/CreateFrameByFrameDependency` per matched-type layer pair, across every picked target job |
+| `LAYER_ON_JOB` | Type &rarr; Source Layer &rarr; Job &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnJob` |
+| `LAYER_ON_LAYER` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnLayer` |
+| `LAYER_ON_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/layer.LayerInterface/CreateDependencyOnFrame` |
+| `FRAME_BY_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Layer &rarr; Confirm | `/layer.LayerInterface/CreateFrameByFrameDependency` |
+| `FRAME_ON_JOB` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnJob` |
+| `FRAME_ON_LAYER` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Layer &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnLayer` |
+| `FRAME_ON_FRAME` | Type &rarr; Source Layer &rarr; Source Frame &rarr; Job &rarr; Layer &rarr; Frame &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnFrame` |
+| `LAYER_ON_SIM_FRAME` | Type &rarr; Source Layer &rarr; Job &rarr; Sim Layer &rarr; Frame &rarr; Confirm | `/frame.FrameInterface/CreateDependencyOnFrame` per source frame x picked sim frame |
+
+Fan-out semantics: **Done** issues `len(sources) * len(targets)` parallel RPCs through one `performAction` call so the user gets a single summary toast. Picking M source layers and N target layers under `LAYER_ON_LAYER`, for example, fires M*N `CreateDependencyOnLayer` RPCs.
+
+1. **Select Dependency Type.** A radio-group lists every `depend.DependType` CueGUI offers, including the UI-only Hard Depend variant. All twelve are now wired.
+2. **Source pickers (Layer / Frame in THIS job).** Layer-On-X, Frame-By-Frame, Frame-On-X, and Layer-On-Sim-Frame all need source object(s) in this job before targeting another job. The wizard fetches `getLayersForJob(thisJob)` to populate the source-layer picker; the source-frame picker then fetches `getFramesForJob(thisJob)` once and filters client-side to *every* picked source layer (so the user can multi-select layers and still pick frames across them).
+3. **Target Job picker.** A regex search box drives a scrollable list of matching jobs (debounced 250ms, capped at 200 rows). The query is forwarded to `getJobsForRegex(regex, include_finished=true)`, which posts to `/api/job/getjobs`. An empty query falls back to `.*`. Multi-select - pick as many target jobs as you want.
+4. **Target Layer picker.** Layers are fetched in parallel from every picked target job via `getLayersForJob` and concatenated. Each row carries its `parentJobName`; when multiple target jobs are picked the parent is rendered as a `[parentJob]` annotation so duplicates can be told apart. For `LAYER_ON_SIM_FRAME` the list is filtered client-side to layers whose `services` array contains a token matching `/sim/i`.
+5. **Target Frame picker.** Frames are fetched in parallel from every parent job of the picked target layers, then filtered to the picked layer names. Each row shows `(state) [layerName] <parentJobName>` annotations where useful for disambiguation.
+6. **Confirmation.** A read-only summary of the dependency type, this job, picked source object(s), and picked target object(s). **Done** dispatches to the matching wrapper in `action_utils.ts`, which expands the full source x target cross-product into one `performAction` call (parallel RPCs, single summary toast).
+
+The Hard Depend (`JFBF`) case is handled client-side: on **Done** the wizard fetches the layer list for this job and for every picked target job in parallel, pairs each target job's layers with this job's layers by `layer.type`, and bulk-fires `/layer.LayerInterface/CreateFrameByFrameDependency` for every matched pair across every target job. The success toast notes how many target jobs and layer pairs were created (`<this-job> -> <N> jobs (<M> layer pairs)`). If no types match, the wizard surfaces a warning toast instead of opening empty RPCs against Cuebot.
+
+Each step has **Go Back** / **Continue** (or **Done**) buttons; **Cancel** on step 1 dismisses the wizard. The dialog is locked while a Done request is in flight, and **Go Back** rewinds one step at a time so a wrong choice can be corrected without restarting the wizard.
+
+#### Wizard walk-throughs
+
+The screenshots below show the screen flow for each dependency type. Every picker is multi-select; **Done** fires the full source x target cross-product (see the table above for which RPC each type calls).
+
+**Job On Job (3 steps)** - the shortest path. Pick the target job(s) the current job should wait on.
+
+![Job On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+![Job On Job step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+![Job On Job step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+**Job On Layer (4 steps)** - one extra target-layer picker.
+
+![Job On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step1_select_type.png)
+![Job On Layer step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step2_select_jobs_to_depend_on.png)
+![Job On Layer step 3 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step3_select_target_layers_to_depend_on.png)
+![Job On Layer step 4 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_layer_step4_confirmation.png)
+
+**Job On Frame (5 steps)** - drill all the way down to specific target frames.
+
+![Job On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step1_select_type.png)
+![Job On Frame step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step2_select_jobs_to_depend_on.png)
+![Job On Frame step 3 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step3_select_target_layers_to_depend_on.png)
+![Job On Frame step 4 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step4_select_target_frames_to_depend_on.png)
+![Job On Frame step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_frame_step5_confirmation.png)
+
+**Frame By Frame for all layers (Hard Depend, 3 steps)** - the wizard pairs source/target layers by `layer.type` and bulk-fires one Frame-By-Frame depend per matched pair on Done.
+
+![Hard Depend step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step1_select_type.png)
+![Hard Depend step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step2_select_jobs_to_depend_on.png)
+![Hard Depend step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_for_all_layers_step3_confirmation.png)
+
+**Layer On Job (4 steps)** - first source-side type. Pick layer(s) in THIS job, then the target job(s).
+
+![Layer On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step1_select_job.png)
+![Layer On Job step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step2_select_source_layers_in_this_job.png)
+![Layer On Job step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step3_select_jobs_to_depend_on.png)
+![Layer On Job step 4 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_job_step4_confirmation.png)
+
+**Layer On Layer (5 steps).**
+
+![Layer On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step1_select_type.png)
+![Layer On Layer step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step2_select_source_layers_in_this_job.png)
+![Layer On Layer step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step3_select_jobs_to_depend_on.png)
+![Layer On Layer step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step4_select_target_layers_to_depend_on.png)
+![Layer On Layer step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_layer_step5_confirmation.png)
+
+**Layer On Frame (6 steps).**
+
+![Layer On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step1_select_type.png)
+![Layer On Frame step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step2_select_source_layers_in_this_job.png)
+![Layer On Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step3_select_jobs_to_depend_on.png)
+![Layer On Frame step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step4_select_target_layers_to_depend_on.png)
+![Layer On Frame step 5 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step5_select_target_frames_to_depend_on.png)
+![Layer On Frame step 6 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_frame_step6_confirmation.png)
+
+**Frame By Frame (5 steps).** Single source layer x single target layer, frame-by-frame.
+
+![Frame By Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step1_select_type.png)
+![Frame By Frame step 2 - pick the source layer(s) in this job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step2_select_source_layers_in_this_job.png)
+![Frame By Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step3_select_jobs_to_depend_on.png)
+![Frame By Frame step 4 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step4_select_target_layers_to_depend_on.png)
+![Frame By Frame step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_by_frame_step5_confirmation.png)
+
+**Frame On Job (5 steps).** Drill into source frames, then pick target job(s).
+
+![Frame On Job step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step1_select_type.png)
+![Frame On Job step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step2_select_source_layers_in_this_job.png)
+![Frame On Job step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step3_select_source_frames_in_this_job.png)
+![Frame On Job step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step4_select_jobs_to_depend_on.png)
+![Frame On Job step 5 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_job_step5_confirmation.png)
+
+**Frame On Layer (6 steps).**
+
+![Frame On Layer step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step1_select_type.png)
+![Frame On Layer step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step2_select_source_layers_in_this_job.png)
+![Frame On Layer step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step3_select_source_frames_in_this_job.png)
+![Frame On Layer step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step4_select_jobs_to_depend_on.png)
+![Frame On Layer step 5 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step5_select_target_layers_to_depend_on.png)
+![Frame On Layer step 6 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_layer_step6_confirmation.png)
+
+**Frame On Frame (7 steps)** - the longest path. Drill into a source frame and a target frame.
+
+![Frame On Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step1_select_type.png)
+![Frame On Frame step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step2_select_source_layers_in_this_job.png)
+![Frame On Frame step 3 - pick the source frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step3_select_source_frames_in_this_job.png)
+![Frame On Frame step 4 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step4_select_jobs_to_depend_on.png)
+![Frame On Frame step 5 - pick the target layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step5_select_target_layers_to_depend_on.png)
+![Frame On Frame step 6 - pick the target frame(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step6_select_target_frames_to_depend_on.png)
+![Frame On Frame step 7 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_frame_on_frame_step7_confirmation.png)
+
+**Layer On Simulation Frame.** Similar to Layer On Frame, but the target layer picker is filtered to layers whose `services` array matches `/sim/i`.
+
+![Layer On Simulation Frame step 1 - select the dependency type](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step1_select_type.png)
+![Layer On Simulation Frame step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step2_select_source_layers_in_this_job.png)
+![Layer On Simulation Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step3_select_jobs_to_depend_on.png)
+![Layer On Simulation Frame step 4 - pick the target sim layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step4_select_target_layers_to_depend_on.png)
+
+---
+
+## CueSubmit (Job Submission UI)
+
+CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at the `/cuesubmit` route, reachable from the **CueSubmit** top-level dropdown in the header (and the matching entry in the sidebar / mobile nav drawer). It mirrors the CueSubmit dialog layout one-for-one with a few quality-of-life improvements made possible by running in the browser.
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+### Sections
+
+| Section | Fields |
+|---------|--------|
+| **Job Info** | Job Name, Show (dropdown populated from `/api/show/getshows`), Shot, Facility (dropdown from `NEXT_PUBLIC_CUEBOT_FACILITIES`), Username |
+| **Layer Info** | Layer Name, Dependency Type (none / Layer / Frame), Frame Spec, Chunk Size, Memory, Job Type, Services, Limits, Override Cores |
+| **Per-type options** | Shell: Command To Run. Maya: Maya File + Camera. Nuke: Nuke File + Write Nodes. Blender: Blender File + Output Path + Output Format. |
+| **Final command** | Read-only preview that updates per-keystroke. Mirrors the same text cuebot will see. |
+| **Submission Details** | Multi-layer table (Layer Name / Job Type / Frames / Depend Type) with `+ / − / ↓ / ↑` buttons. Clicking a row loads it into the Layer Info editor. |
+| **Action row** | Cancel · Reset · Submit. |
+
+### Validation rules
+
+| Field | Rule |
+|-------|------|
+| Job Name, Layer Name, Shot | Letters, numbers, `.`, `-`, `_` only. No spaces (cuebot uses the name in the log path). |
+| Frame Spec | Must match cuebot frame-spec syntax: `1-10`, `1-100x2`, `1-100y3`, `1-100:2`, comma-separated segments. Reverse ranges (e.g. `10-1`) are rejected. |
+| Memory | Number with optional unit suffix (`256m`, `1g`, `3.2G`). Empty inherits the service's `int_mem_min`. |
+| Chunk Size | Positive integer. |
+| At least one layer | Submit is disabled with a validation error when zero layers are configured. |
+
+### Username and the Edit override
+
+When CueWeb is deployed with `NEXT_PUBLIC_AUTH_PROVIDER` non-empty, the Username field is pre-populated from the signed-in session and rendered read-only. A small **Edit** checkbox to the right of the field toggles it editable. Unticking the box snaps the value back to the signed-in user. In sandbox mode (no auth) the field is always editable and the Edit checkbox is hidden.
+
+### Defaults tuned for the OpenCue sandbox
+
+The form chooses defaults that produce a runnable submission against the seeded sandbox out of the box:
+
+- **Memory**: `256m`. The seeded `default` service has a 3.2 GB minimum, which the sandbox RQD usually can't satisfy. The 256 MB default keeps trivial jobs dispatchable.
+- **Facility**: `local` when the user picks `[Default]`. The seeded sandbox's RQD belongs to the `local.general` allocation; cuebot's internal fallback (`cloud`) does not match.
+- **UID**: derived deterministically from the username (1000-65000). Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so CueWeb never emits zero.
+
+These three defaults match what the standalone CueSubmit CLI tool produces against the same sandbox.
+
+### Autocomplete history
+
+Job Name, Shot, and Layer Name are wired to native `<datalist>` dropdowns populated from `localStorage` (per-field, deduped case-insensitively, capped at 25 entries). The Python CueSubmit CLI keeps an on-disk cache for the same reason - so a user's previous values are one keystroke away. On every successful submit the relevant values are recorded automatically.
+
+### Draft auto-save
+
+The whole form auto-saves to `localStorage` on every change and restores on mount, so an accidental refresh doesn't wipe a multi-layer setup. The draft is cleared on Cancel, on Reset (after the confirm dialog), and on a successful submit.
+
+### Reset
+
+Between Cancel and Submit, a Reset button clears every field and brings the form back to the blank-canvas state. A themed confirmation dialog (Radix-based, light/dark aware) replaces the native browser `confirm()` so the prompt doesn't look like an OS pop-up. Autocomplete history is **not** cleared on Reset.
+
+### Submit flow
+
+| Step | Detail |
+|------|--------|
+| 1. Validate | The form payload is parsed against the zod schema before any network call. Inline error messages render under each field on blur. |
+| 2. Build spec | The server-side route builds the OpenCue cjsl XML spec - direct port of pyoutline's `outline.backend.cue.serialize` (cores / threadable heuristic, depend element shape, service defaulting, XML escaping). |
+| 3. Launch | `POST /api/job/submit` proxies to `job.JobInterface/LaunchSpecAndWait` on the REST gateway, which returns the resolved job(s). |
+| 4. Persist history | Job Name, Shot, and all Layer Names are appended to the autocomplete histories; the draft is cleared. |
+| 5. Redirect | The page navigates to the tabbed `/jobs/<name>` job-detail view so the user can watch the new job's frames go WAITING -> RUNNING -> SUCCEEDED. |
+
+### "View in Monitor Jobs" deep link
+
+The tabbed job-detail page has a **View in Monitor Jobs** button in its header (next to the title). Clicking it navigates to `/?search=<jobname>`. Cuetopia's Jobs table reads the `search` URL param on mount, runs the same search the toolbar input would (regex-escaped so the literal job name matches), and then strips the param so a refresh doesn't re-fire.
+
+### Help popovers
+
+The `?` buttons next to Frame Spec and Command To Run open small themed popovers with:
+
+- **Frame Spec** examples: `1-10`, `1-100x2`, `1-100y2`, `1-100:2`, `1,3,5,7`, `1-50,75-100`.
+- **Command tokens** substituted by cuebot at dispatch: `#IFRAME#`, `#ZFRAME#`, `#FRAME_START#`, `#FRAME_END#`, `#FRAME_CHUNK#`, `#FRAMESPEC#`, `#LAYER#`, `#JOB#`, `#FRAME#`.
+
+---
+
 ## API Integration
 
 ### JWT Token Generation
@@ -514,17 +954,20 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Retry` | Retry frame |
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
+| `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
 
 ### CueWeb Proxy Routes
 
-The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment-related routes:
+The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment- and host-related routes:
 
 | Route | Forwards to |
 |-------|-------------|
 | `POST /api/job/getcomments` | `job.JobInterface/GetComments` |
 | `POST /api/job/action/addcomment` | `job.JobInterface/AddComment` |
+| `POST /api/job/action/addsubscriber` | `job.JobInterface/AddSubscriber` |
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
+| `POST /api/host/gethosts` | `host.HostInterface/GetHosts` (unwraps the gateway's double-nested `{hosts:{hosts:[...]}}` to a flat array) |
 
 ---
 
@@ -604,7 +1047,8 @@ Layout, left to right:
   - Allocations (`/allocations`)
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
-  - Monitor Hosts (`/hosts`)
+  - Monitor Hosts (`/hosts`) - implemented; read-only host registry (see
+    [Monitor Hosts](#monitor-hosts)).
   - Redirect (`/redirect`)
   - Services (`/services`)
   - Shows (`/shows`)
@@ -762,9 +1206,10 @@ When the flag is on:
   Pause, Unpause, Kill) disable themselves visually and ignore clicks.
   *Unmonitor* is non-destructive and remains active.
 - The right-click context menus on **job**, **layer**, and **frame** rows
-  dim every destructive item (Pause / Retry / Retry Dead Frames / Eat /
-  Eat Dead Frames / Kill). *Unmonitor* and *Comments* on the job menu
-  remain active.
+  dim every destructive item (Pause / Unpause / Retry / Retry Dead Frames
+  / Eat / Eat Dead Frames / Kill). The Pause/Unpause entry is a single
+  toggle whose label flips on `isPaused` - both flavors are dimmed the
+  same way. *Unmonitor* and *Comments* on the job menu remain active.
 
 ![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
 

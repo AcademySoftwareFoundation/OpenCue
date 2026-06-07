@@ -27,6 +27,7 @@ use crate::{
     config::CONFIG,
 };
 
+mod accounting;
 mod cluster;
 mod cluster_key;
 mod config;
@@ -36,7 +37,6 @@ mod metrics;
 mod models;
 mod pgpool;
 mod pipeline;
-mod resource_accounting;
 
 // scheduler --facility eat --alloc_tags=show:tag,show:tag,show:tag --manual_tags=tag1,tag2
 #[derive(StructOpt, Debug)]
@@ -190,7 +190,7 @@ impl JobQueueCli {
                     .await
                     .wrap_err(format!("Could not find show {}.", alloc_tag.show))?;
                 clusters.push(Cluster::single_tag(
-                    *facility_id,
+                    facility_id.clone(),
                     show_id,
                     Tag {
                         name: alloc_tag.tag.clone(),
@@ -205,7 +205,7 @@ impl JobQueueCli {
                     .await
                     .wrap_err(format!("Could not find show {}.", manual_tag.show))?;
                 clusters.push(Cluster::multiple_tag(
-                    *facility_id,
+                    facility_id.clone(),
                     show_id,
                     manual_tag
                         .tags

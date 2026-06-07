@@ -34,7 +34,12 @@ export function ActiveJobsWidget() {
 
   React.useEffect(() => {
     let cancelled = false;
+    // Serialize polls: a slow getJobs() must not be overtaken by a newer
+    // tick that would overwrite fresher state with stale data.
+    let inFlight = false;
     const load = async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         // include_finished:false matches the default "active jobs" view used
         // by CueGUI's monitor (cuegui.JobMonitor.getJobs without a finished tag).
@@ -49,6 +54,8 @@ export function ActiveJobsWidget() {
           setError(err instanceof Error ? err.message : String(err));
           // Leave any prior data in place so a transient blip does not blank the card.
         }
+      } finally {
+        inFlight = false;
       }
     };
     load();

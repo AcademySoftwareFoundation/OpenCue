@@ -46,16 +46,29 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
   // out the browser to reach items that fell off screen on jobs with
   // the full ~25-item menu.
   //
-  // No 240px floor: when the click lands near the bottom of the
-  // viewport, the floor would let the menu spill below the fold. The
-  // internal scroll handles a short cap fine. Clamped at 0 so a click
-  // past the bottom margin doesn't emit a negative CSS value.
+  // When the click lands near the bottom of the viewport the remaining
+  // space below the cursor can be only a few pixels (or even negative).
+  // We do two things to keep the menu usable:
+  //   1) Clamp the menu's top position so the menu still has at least
+  //      MIN_MENU_HEIGHT_PX of vertical room before the viewport edge.
+  //   2) Floor menuMaxHeight to MIN_MENU_HEIGHT_PX so it never resolves
+  //      to "min(80vh, 0px)" and collapses the menu to zero height.
   const VIEWPORT_MARGIN_PX = 16;
-  const remainingBelow =
+  const MIN_MENU_HEIGHT_PX = 160;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+  const clampedTop =
     typeof window !== "undefined"
-      ? window.innerHeight - contextMenuState.position.y - VIEWPORT_MARGIN_PX
-      : 480;
-  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, 0)}px)`;
+      ? Math.min(
+          contextMenuState.position.y,
+          Math.max(
+            VIEWPORT_MARGIN_PX,
+            viewportHeight - VIEWPORT_MARGIN_PX - MIN_MENU_HEIGHT_PX,
+          ),
+        )
+      : contextMenuState.position.y;
+  const remainingBelow = viewportHeight - clampedTop - VIEWPORT_MARGIN_PX;
+  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, MIN_MENU_HEIGHT_PX)}px)`;
 
   // Event handlers for better performance and readability
   const handleItemClick = (item: MenuItem) => {
@@ -76,7 +89,7 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
       ref={contextMenuRef}
       style={{
         position: 'fixed',
-        top: contextMenuState.position.y,
+        top: clampedTop,
         left: contextMenuState.position.x,
         zIndex: 2000,
         background: '#fff',

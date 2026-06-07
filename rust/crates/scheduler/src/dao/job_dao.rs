@@ -65,49 +65,50 @@ impl DispatchJob {
 }
 
 static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
---bookable_shows: Shows that have room in at least one of its subscriptions
+-- bookable_shows: shows that still have room in at least one subscription.
 WITH bookable_shows AS (
-    SELECT
-        distinct w.pk_show,
-        sh.str_name as show_name
+    SELECT DISTINCT w.pk_show, sh.str_name AS show_name
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
     INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.pk_show = $1
-        -- Burst == 0 is used to freeze a subscription
+        -- Burst == 0 is used to freeze a subscription.
         AND s.int_burst > 0
-        -- At least one core unit available
+        -- At least one core unit available.
         AND s.int_burst - s.int_cores >= $2
         AND s.int_cores < s.int_burst
-),
-filtered_jobs AS (
-    SELECT
-        j.pk_job,
-        jr.int_priority,
-        bookable_shows.show_name
-    FROM job j
-    INNER JOIN bookable_shows on j.pk_show = bookable_shows.pk_show
-    INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
-    INNER JOIN folder f ON j.pk_folder = f.pk_folder
-    INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
-    INNER JOIN layer l ON l.pk_job = j.pk_job
-    WHERE j.str_state = 'PENDING'
-        AND j.b_paused = false
-        -- Check for room on folder resources
-        AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
-        AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
-        -- Match tags: jobs with at least one layer that contains the queried tag
-        AND string_to_array(REPLACE($3, ' ', ''), '|') && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
-        AND LOWER(j.pk_facility) = LOWER($4)
 )
-SELECT DISTINCT
-    fj.pk_job,
-    fj.int_priority,
-    fj.show_name
-FROM filtered_jobs fj
-INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
-WHERE ls.int_waiting_count > 0
-ORDER BY int_priority DESC
+SELECT
+    j.pk_job,
+    jr.int_priority,
+    bs.show_name
+FROM job j
+INNER JOIN bookable_shows bs ON j.pk_show = bs.pk_show
+INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
+INNER JOIN folder f ON j.pk_folder = f.pk_folder
+INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
+WHERE j.str_state = 'PENDING'
+    AND j.b_paused = false
+    AND j.pk_facility = $4
+    -- Folder must have any room at all; per-layer fit is checked below.
+    AND (fr.int_max_cores = -1 OR fr.int_cores < fr.int_max_cores)
+    AND (fr.int_max_gpus = -1 OR fr.int_gpus < fr.int_max_gpus)
+    -- The job must have at least one layer that matches the tag set, has waiting
+    -- frames, and fits within the folder cap. EXISTS short-circuits per job and
+    -- avoids the cardinality blowup of joining layer + layer_stat at the outer level.
+    AND EXISTS (
+        SELECT 1
+        FROM layer l
+        INNER JOIN layer_stat ls ON ls.pk_layer = l.pk_layer
+        WHERE l.pk_job = j.pk_job
+          AND ls.int_waiting_count > 0
+          AND string_to_array(REPLACE($3, ' ', ''), '|')
+              && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
+          AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min <= fr.int_max_cores)
+          AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min <= fr.int_max_gpus)
+    )
+ORDER BY jr.int_priority DESC
+LIMIT $5
 "#;
 
 impl JobDao {
@@ -160,7 +161,7 @@ impl JobDao {
     pub async fn query_pending_jobs_by_show_facility_and_tags(
         &self,
         show_id: Uuid,
-        facility_id: Uuid,
+        facility_id: &str,
         tags: impl Iterator<Item = String>,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         trace!(
@@ -177,7 +178,8 @@ impl JobDao {
             .bind(show_id.to_string())
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tags_collected.join(" | ").to_string())
-            .bind(facility_id.to_string())
+            .bind(facility_id)
+            .bind(CONFIG.queue.max_jobs_per_cluster_pass)
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());

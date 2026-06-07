@@ -40,7 +40,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SimpleDataTable } from "@/components/ui/simple-data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileX, GitFork, MessageSquare } from "lucide-react";
+import { FileX, GitFork, LayoutGrid, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -160,8 +160,13 @@ export default function JobDetailPage() {
     if (tab === "overview") return;
 
     let cancelled = false;
+    // Serialize polls per active tab: a slow request must not be overtaken
+    // by a newer 5s tick that stomps on fresher state with stale data.
+    let inFlight = false;
 
     const runFetch = async () => {
+      if (inFlight) return;
+      inFlight = true;
       // Recompute firstLoad every tick instead of capturing it once when
       // the effect ran - otherwise the 5s setInterval keeps firing the
       // "first load" branch and flips the loading skeleton on for every
@@ -185,6 +190,7 @@ export default function JobDetailPage() {
       } catch (error) {
         if (!cancelled) handleError(error, `Error loading ${tab}`);
       } finally {
+        inFlight = false;
         if (!cancelled) {
           loadedTabs.current.add(tab);
           if (tab === "layers") setLayersLoading(false);
@@ -219,12 +225,25 @@ export default function JobDetailPage() {
         className="mb-4"
       />
 
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold break-all">{jobName || "Job"}</h1>
-        {job && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {getState(job)} - {job.show} / {job.shot} - owned by {job.user}
-          </p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold break-all">{jobName || "Job"}</h1>
+          {job && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {getState(job)} - {job.show} / {job.shot} - owned by {job.user}
+            </p>
+          )}
+        </div>
+        {jobName && (
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link
+              href={`/?search=${encodeURIComponent(jobName)}`}
+              title="Open this job in the Cuetopia jobs table"
+            >
+              <LayoutGrid className="mr-2 h-4 w-4" aria-hidden="true" />
+              View in Monitor Jobs
+            </Link>
+          </Button>
         )}
       </header>
 

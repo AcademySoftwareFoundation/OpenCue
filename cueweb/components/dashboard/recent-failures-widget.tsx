@@ -81,10 +81,13 @@ export function RecentFailuresWidget() {
   const failing = (jobs ?? []).filter((j) => {
     const dead = j.jobStats?.deadFrames ?? 0;
     if (dead <= 0) return false;
-    // Anchor recency on stopTime when set (finished failing jobs) and on
-    // startTime otherwise (currently failing jobs keep startTime forever).
-    const anchor = j.stopTime && j.stopTime > 0 ? j.stopTime : j.startTime;
-    return anchor >= cutoff;
+    // Finished jobs: anchor on stopTime so only failures from the last
+    // FAILURE_WINDOW_SEC show up. Active jobs (stopTime falsy / zero) are
+    // always considered "recent" while they still have dead frames - a job
+    // that started before the window but is failing right now must not
+    // disappear from the widget just because its startTime is stale.
+    if (!j.stopTime || j.stopTime <= 0) return true;
+    return j.stopTime >= cutoff;
   });
 
   const totalDeadFrames = failing.reduce(

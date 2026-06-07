@@ -593,8 +593,8 @@ mod scheduler_smoke_test {
         job_name: &str,
         layers: Vec<(&str, &str, i64, i64, i64, i64)>, // (layer_name, tag, min_cores, min_mem, min_gpus, min_gpu_mem)
         frames_by_layer: usize,
-        max_cores: Option<i64>,  // job_resource.int_max_cores (in 100x units), None = use DB default
-        max_gpus: Option<i64>,   // job_resource.int_max_gpus, None = use DB default
+        max_cores: Option<i64>, // job_resource.int_max_cores (in 100x units), None = use DB default
+        max_gpus: Option<i64>,  // job_resource.int_max_gpus, None = use DB default
     ) -> Result<TestJob, sqlx::Error> {
         let mut tx = pool.begin().await?;
         let job_id = Uuid::new_v4();
@@ -1152,7 +1152,15 @@ mod scheduler_smoke_test {
 
         let _ = OVERRIDE_CONFIG.set(create_test_config());
 
-        Ok((pool, show_id, facility_id, dept_id, folder_id, alloc_id, test_suffix.to_string()))
+        Ok((
+            pool,
+            show_id,
+            facility_id,
+            dept_id,
+            folder_id,
+            alloc_id,
+            test_suffix.to_string(),
+        ))
     }
 
     /// Count total frames returned across all layers from query_layers
@@ -1167,7 +1175,9 @@ mod scheduler_smoke_test {
         // Bug regression: PARTITION BY l.pk_layer caused each layer to independently
         // accumulate cores, effectively multiplying the limit by the number of layers.
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("multi_layer_core").await.expect("setup failed");
+            setup_resource_limit_test("multi_layer_core")
+                .await
+                .expect("setup failed");
 
         // 2 layers, each with int_cores_min=1 (100 in DB units), 4 frames per layer = 8 frames total.
         // int_max_cores=400 means at most 4 frames across the entire job.
@@ -1180,11 +1190,25 @@ mod scheduler_smoke_test {
             folder_id,
             &format!("reslimit_multi_layer_job_{}", suffix),
             vec![
-                (&format!("reslimit_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
-                (&format!("reslimit_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+                (
+                    &format!("reslimit_layer_a_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    0,
+                    0,
+                ),
+                (
+                    &format!("reslimit_layer_b_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    0,
+                    0,
+                ),
             ],
-            4,             // 4 frames per layer
-            Some(400),     // int_max_cores = 400 (4 cores in 100x units)
+            4,         // 4 frames per layer
+            Some(400), // int_max_cores = 400 (4 cores in 100x units)
             None,
         )
         .await
@@ -1200,7 +1224,10 @@ mod scheduler_smoke_test {
             .expect("query_layers failed");
 
         let total_frames = count_dispatch_frames(&layers);
-        info!("Multi-layer core limit test: got {} frames (limit=4 cores, 2 layers x 4 frames)", total_frames);
+        info!(
+            "Multi-layer core limit test: got {} frames (limit=4 cores, 2 layers x 4 frames)",
+            total_frames
+        );
 
         // With the fix, total frames should be at most 4 (400 cores / 100 per frame).
         // Before the fix, each layer independently allowed 4 frames = 8 total.
@@ -1210,7 +1237,10 @@ mod scheduler_smoke_test {
              The job_resource core limit is not being enforced across layers.",
             total_frames,
         );
-        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
+        assert!(
+            total_frames > 0,
+            "Expected at least 1 frame to be dispatched"
+        );
     }
 
     #[tokio::test]
@@ -1218,7 +1248,9 @@ mod scheduler_smoke_test {
     #[serial]
     async fn test_job_resource_core_limit_single_layer() {
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("single_layer_core").await.expect("setup failed");
+            setup_resource_limit_test("single_layer_core")
+                .await
+                .expect("setup failed");
 
         // 1 layer with int_cores_min=1 (100 in DB units), 10 frames.
         // int_max_cores=300 means at most 3 frames.
@@ -1230,11 +1262,16 @@ mod scheduler_smoke_test {
             dept_id,
             folder_id,
             &format!("reslimit_single_layer_job_{}", suffix),
-            vec![
-                (&format!("reslimit_layer_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
-            ],
-            10,            // 10 frames
-            Some(300),     // int_max_cores = 300 (3 cores)
+            vec![(
+                &format!("reslimit_layer_{}", suffix),
+                &tag,
+                1,
+                1024 * 1024,
+                0,
+                0,
+            )],
+            10,        // 10 frames
+            Some(300), // int_max_cores = 300 (3 cores)
             None,
         )
         .await
@@ -1250,7 +1287,10 @@ mod scheduler_smoke_test {
             .expect("query_layers failed");
 
         let total_frames = count_dispatch_frames(&layers);
-        info!("Single-layer core limit test: got {} frames (limit=3 cores, 10 available)", total_frames);
+        info!(
+            "Single-layer core limit test: got {} frames (limit=3 cores, 10 available)",
+            total_frames
+        );
 
         assert!(
             total_frames <= 3,
@@ -1258,7 +1298,10 @@ mod scheduler_smoke_test {
              The job_resource core limit is not being enforced.",
             total_frames,
         );
-        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
+        assert!(
+            total_frames > 0,
+            "Expected at least 1 frame to be dispatched"
+        );
     }
 
     #[tokio::test]
@@ -1267,7 +1310,9 @@ mod scheduler_smoke_test {
     async fn test_job_resource_no_core_limit() {
         // When int_max_cores <= 0, no limit should be applied.
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("no_core_limit").await.expect("setup failed");
+            setup_resource_limit_test("no_core_limit")
+                .await
+                .expect("setup failed");
 
         let tag = format!("reslimit_tag_{}", suffix);
         let job = create_job_scenario_with_limits(
@@ -1278,11 +1323,25 @@ mod scheduler_smoke_test {
             folder_id,
             &format!("reslimit_no_limit_job_{}", suffix),
             vec![
-                (&format!("reslimit_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
-                (&format!("reslimit_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 0, 0),
+                (
+                    &format!("reslimit_layer_a_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    0,
+                    0,
+                ),
+                (
+                    &format!("reslimit_layer_b_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    0,
+                    0,
+                ),
             ],
-            4,            // 4 frames per layer = 8 total
-            Some(0),      // int_max_cores = 0 means no limit
+            4,       // 4 frames per layer = 8 total
+            Some(0), // int_max_cores = 0 means no limit
             None,
         )
         .await
@@ -1298,7 +1357,10 @@ mod scheduler_smoke_test {
             .expect("query_layers failed");
 
         let total_frames = count_dispatch_frames(&layers);
-        info!("No core limit test: got {} frames (no limit, 8 available)", total_frames);
+        info!(
+            "No core limit test: got {} frames (no limit, 8 available)",
+            total_frames
+        );
 
         // All 8 frames should be returned (subject to dispatch_frames_per_layer_limit config)
         assert!(
@@ -1314,7 +1376,9 @@ mod scheduler_smoke_test {
     async fn test_job_resource_gpu_limit_multi_layer() {
         // Verify that GPU limits are also enforced across layers.
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("multi_layer_gpu").await.expect("setup failed");
+            setup_resource_limit_test("multi_layer_gpu")
+                .await
+                .expect("setup failed");
 
         // 2 layers, each with int_gpus_min=1, 4 frames per layer = 8 frames total.
         // int_max_gpus=3 means at most 3 frames across the entire job.
@@ -1327,12 +1391,26 @@ mod scheduler_smoke_test {
             folder_id,
             &format!("reslimit_gpu_job_{}", suffix),
             vec![
-                (&format!("reslimit_gpu_layer_a_{}", suffix), &tag, 1, 1024 * 1024, 1, 1024 * 1024),
-                (&format!("reslimit_gpu_layer_b_{}", suffix), &tag, 1, 1024 * 1024, 1, 1024 * 1024),
+                (
+                    &format!("reslimit_gpu_layer_a_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    1,
+                    1024 * 1024,
+                ),
+                (
+                    &format!("reslimit_gpu_layer_b_{}", suffix),
+                    &tag,
+                    1,
+                    1024 * 1024,
+                    1,
+                    1024 * 1024,
+                ),
             ],
-            4,             // 4 frames per layer
-            None,          // no core limit restriction
-            Some(3),       // int_max_gpus = 3
+            4,       // 4 frames per layer
+            None,    // no core limit restriction
+            Some(3), // int_max_gpus = 3
         )
         .await
         .expect("failed to create job");
@@ -1347,7 +1425,10 @@ mod scheduler_smoke_test {
             .expect("query_layers failed");
 
         let total_frames = count_dispatch_frames(&layers);
-        info!("Multi-layer GPU limit test: got {} frames (limit=3 GPUs, 2 layers x 4 frames)", total_frames);
+        info!(
+            "Multi-layer GPU limit test: got {} frames (limit=3 GPUs, 2 layers x 4 frames)",
+            total_frames
+        );
 
         assert!(
             total_frames <= 3,
@@ -1355,7 +1436,10 @@ mod scheduler_smoke_test {
              The job_resource GPU limit is not being enforced across layers.",
             total_frames,
         );
-        assert!(total_frames > 0, "Expected at least 1 frame to be dispatched");
+        assert!(
+            total_frames > 0,
+            "Expected at least 1 frame to be dispatched"
+        );
     }
 
     // ============================================================
@@ -1369,7 +1453,9 @@ mod scheduler_smoke_test {
         // Regression: layers stored with 'tag1|tag2' (no spaces) were dropped
         // by string_to_array(..., ' | ') and never dispatched.
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("tag_nospace").await.expect("setup failed");
+            setup_resource_limit_test("tag_nospace")
+                .await
+                .expect("setup failed");
 
         let tag_a = format!("tag_a_{}", suffix);
         let tag_b = format!("tag_b_{}", suffix);
@@ -1420,7 +1506,9 @@ mod scheduler_smoke_test {
         // Some rows end up with inconsistent delimiters ('a|b | c'); the query
         // should still match any individual tag.
         let (pool, show_id, facility_id, dept_id, folder_id, _alloc_id, suffix) =
-            setup_resource_limit_test("tag_mixed").await.expect("setup failed");
+            setup_resource_limit_test("tag_mixed")
+                .await
+                .expect("setup failed");
 
         let tag_a = format!("tag_a_{}", suffix);
         let tag_b = format!("tag_b_{}", suffix);

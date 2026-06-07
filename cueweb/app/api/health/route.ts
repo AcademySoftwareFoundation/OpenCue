@@ -76,13 +76,14 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
   try {
     token = createJwtToken(jwtParams);
   } catch (err) {
+    console.error("Health JWT signing failed", err);
     return NextResponse.json(
       {
         gatewayOnline: false,
         status: 0,
         latencyMs: 0,
         checkedAt,
-        error: `JWT signing failed: ${String(err)}`,
+        error: "JWT signing failed",
       },
       { status: 200 },
     );
@@ -122,13 +123,14 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
       { status: 200 },
     );
   } catch (err) {
+    console.error("Health probe failed", err);
     return NextResponse.json(
       {
         gatewayOnline: false,
         status,
         latencyMs: Date.now() - start,
         checkedAt,
-        error: String(err),
+        error: "Gateway probe failed",
       },
       { status: 200 },
     );

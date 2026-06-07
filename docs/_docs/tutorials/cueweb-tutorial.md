@@ -116,12 +116,24 @@ The Cuetopia Monitor Jobs view, with the collapsible left sidebar:
 
 4. **Inspect Per-state Progress**: Hover the progress bar in the **Progress** column to display a tooltip with the exact frame count and percentage for each state (succeeded, running, waiting, depend, dead).
 
-5. **Subscribe to Job Completion**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
+5. **Subscribe to Job Completion - in-browser**: Click the bell in the **Notify** column to subscribe to a notification when a job reaches `FINISHED`. The bell cycles through three visual states:
    - Outline bell &rarr; not subscribed
    - Filled bell &rarr; subscribed, waiting
    - Filled bell with green dot &rarr; notification has fired (click to clear)
 
    The subscription always succeeds; the OS-level notification permission is requested afterward as an optional upgrade. A toast tells you the outcome - `granted` (in-app + desktop popup), `denied` (in-app only), or `default` (in-app only, user dismissed the prompt). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. The bell is disabled on jobs that are already `FINISHED` when first viewed.
+
+6. **Subscribe to Job Completion - by email**: For notifications that survive closing the browser or that should go to a team alias, right-click the job row and pick **Subscribe to Job**. A small dialog opens with the job name, an informational **From** address, and an editable **To** address (pre-filled with your account email).
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+   Adjust **To** if you want notifications sent somewhere else and click **Save**. A toast confirms the address has been registered with Cuebot; the email arrives from Cuebot when the job finishes.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+   The Notify bell and **Subscribe to Job** are independent - the bell lives in your browser, the email subscription lives on Cuebot. You can use either or both at the same time.
 
 ### Understanding Job Status
 
@@ -146,27 +158,118 @@ Jobs are color-coded for quick identification:
 
 ### Pausing and Resuming Jobs
 
-Sometimes you need to pause jobs to free up resources or fix issues.
+Sometimes you need to pause jobs to free up resources or fix issues. The
+context menu shows a single Pause/Unpause entry whose label reflects the
+job's current state - **Pause** when the job is running, **Unpause** when
+the job is already paused, and grayed out when the job is Finished.
 
 #### Pause a Job
 
-1. Find the job you want to pause
-2. Click the **Pause** button in the Actions menu
-3. The job status should change to "PAUSED" with a blue indicator
+1. Find the job you want to pause (anything that is not already Finished
+   or Paused).
+2. Right-click the row - the entry will read **Pause**.
+3. Click **Pause**.
+4. The job status changes to "Paused" with a blue indicator, and the next
+   time you right-click the row the same entry will read **Unpause**.
 
 #### Resume a Job
 
-1. Find a paused job (blue indicator)
-2. Click the **Unpause** button in the Actions menu
-3. The job should return to "PENDING" or "RUNNING"
+1. Find a paused job (blue indicator).
+2. Right-click the row - the entry will read **Unpause**.
+3. Click **Unpause**.
+4. The job returns to In Progress (or Failing / Dependency if it has dead
+   frames or unmet dependencies).
+
+#### What you'll see in other states
+
+- **In Progress, Failing, Dependency**: entry reads **Pause** and is active.
+- **Paused**: entry reads **Unpause** and is active.
+- **Finished**: entry reads **Pause** but is grayed out - a completed job
+  cannot be paused.
 
 ### Pause and Resume Practice
 
-1. Find an active job with running frames
-2. Pause the job and watch the status change
-3. Wait 30 seconds for the interface to refresh
-4. Resume the job
-5. Observe how the job returns to the queue
+1. Find an active job with running frames.
+2. Right-click and choose **Pause** - watch the status change to Paused.
+3. Wait 30 seconds for the interface to refresh.
+4. Right-click again - the entry now reads **Unpause**.
+5. Choose **Unpause** and observe how the job returns to the queue.
+
+### Adjusting Priority
+
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** and **CueCommander &rarr; Monitor Cue**. The walk-through below uses Cuetopia.
+
+1. Right-click any job row in Monitor Jobs and pick **Set Priority...**.
+
+   ![Set Priority entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+2. A themed dialog opens with a 1-100 slider and a matching number input. Either control drives the value; both stay in sync. The current priority is pre-filled (cuebot's default is 100). Higher numbers dispatch first.
+
+   ![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+3. Drag the slider to 50 (or type a value) and click **Apply**.
+4. A toast confirms the change. The Priority column in the Jobs table updates immediately - no need to wait for the regular 5-second refresh tick.
+
+   ![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
+
+### Managing Job Dependencies
+
+The job context menu groups four dependency actions so you can audit, create, or remove depends on a job without leaving Monitor Jobs.
+
+1. Right-click any job row in Monitor Jobs.
+
+2. **Review what's blocking the job.** Pick **View Dependencies...** to open a read-only dialog listing every depend on the job. Columns mirror CueGUI's `DependDialog`: Type (e.g. `JOB_ON_JOB`), Target (`INTERNAL` or `EXTERNAL`), Active (boolean), and the OnJob / OnLayer / OnFrame identifiers. Click **Refresh** to re-poll the list, or **Close** to dismiss.
+
+   ![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+   ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+3. **Add a new depend.** Pick **Dependency Wizard...** to open the wizard.
+
+   ![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+   The wizard implements every CueGUI `depend.DependType` (Job On Job, Job On Layer, Job On Frame, Frame By Frame for all layers / Hard Depend, Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, and Layer on Simulation Frame). Step count scales with the chosen type - the simplest (Job On Job) is three steps, the longest (Frame On Frame) is seven. Every picker is multi-select; **Done** fires the full source x target cross-product in one batch.
+
+   The simplest path - **Job On Job** - has three steps:
+   - Step 1: pick the dependency type.
+
+     ![Job On Job step 1](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+
+   - Step 2: pick the target job(s) the current job should depend on.
+
+     ![Job On Job step 2](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+
+   - Step 3: confirm the summary and click **Done**. A success toast confirms the depend was created.
+
+     ![Job On Job step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+   Per-type walk-throughs for every other depend type (with screenshots of every step) live in the [Dependency Wizard dialog reference](../reference/cueweb.md#dependency-wizard-dialog).
+
+4. **Remove depends in one click.** Pick **Drop External Dependencies** to remove every cross-job depend, or **Drop Internal Dependencies** to remove every within-job depend. Both surface a success toast and trigger an immediate re-poll of the Jobs table plus a refresh of the Group-By Dependent tree, so the chevrons and DEPENDENCY-state rows update without waiting for the autoload tick.
+
+   ![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+   ![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+   ![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+   ![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
+
+### Visualizing the dependency graph
+
+When you want to *see* a render chain rather than read a table of depends, turn on the **Job Dependency Graph** - a read-only node graph mirroring CueGUI's Monitor-Jobs dependency-graph dock.
+
+1. **Enable the graph.** Open the **Cuetopia** menu (header dropdown or sidebar) and click **View Job Graph**. The entry is a checkable toggle - a check mark appears when it is on, and the choice is remembered across pages, tabs, and reloads.
+
+   ![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+2. **Open a job.** Click a job row in Monitor Jobs. The graph mounts as a third panel under the inline Layers and Frames panels. It walks the job's depends in both directions - what the job depends on and what depends on the job - and lays the result out top-to-bottom.
+
+   ![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+3. **Read and navigate the graph.** Each node carries a kind label (JOB / LAYER / FRAME) and a color-coded left border; the job you opened the panel for is ringed. Hover a node to see its full name, and click a node to open that job's detail page. Use the corner controls to pan, zoom, and fit. Collapse or close the panel from the **Dependency Graph** button above Layers or the panel's **&times;** button. A job with no depends shows **No dependencies found for this job.**
+
+   ![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 
 ---
 
@@ -447,6 +550,66 @@ CueWeb is responsive down to phone-sized viewports. Every action available on de
 - **Clipboard works** on plain-HTTP LAN access. The browser's modern clipboard API is restricted to secure contexts (HTTPS / `localhost`), but CueWeb automatically uses a legacy copy path when the modern one isn't available.
 - **Subscribe to Job** still works - the in-app toast always fires. The optional desktop popup is skipped on LAN HTTP because the Web Notifications API also requires a secure context; serve CueWeb over HTTPS (self-signed cert is enough) to enable that path.
 - **View Log on \<editor\>** depends on the user's device having the URL scheme registered. iOS Safari doesn't route arbitrary custom schemes to apps the way macOS does, so the in-browser **View Log** is the reliable path on phones - CueWeb falls back to a warning toast when the scheme isn't handled.
+
+---
+
+## Submitting a job from CueWeb (CueSubmit tutorial)
+
+This walkthrough mirrors what you would do in the standalone CueSubmit CLI tool, but inside the browser. It assumes the OpenCue sandbox is running on `localhost:3000` and you have the `testing` show registered in cuebot (the default seed data includes it).
+
+### Open CueSubmit
+
+Click **CueSubmit > Submit Job** in the top header. The form opens at `/cuesubmit` with three main sections (Job Info, Layer Info, Submission Details) plus a read-only Final command preview between them.
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+### Single-layer Shell submission
+
+1. **Job Info**
+   - Job Name: `tutorial_shell`
+   - Show: pick `testing` from the dropdown
+   - Shot: `test_shot`
+   - Facility: leave as `[Default]`
+   - Username: pre-filled when you're signed in. If you want to submit as someone else, tick the **Edit** checkbox next to the field and type their name.
+2. **Layer Info**
+   - Layer Name: `layer1`
+   - Frame Spec: `1-3`
+   - Chunk Size: `1`
+   - Memory: `256m` (the default; works on the sandbox RQD)
+   - Job Type: `Shell`
+3. **Shell options** (the panel below Layer Info)
+   - Command To Run: `echo "frame #IFRAME#" && sleep 2`. Click the `?` next to the field for the cuebot token cheatsheet (`#IFRAME#` is the current frame number).
+4. Watch the **Final command** preview at the bottom of the panel update per-keystroke. This is exactly what cuebot will execute on each frame.
+5. Click **Submit**. CueWeb redirects to the job detail page; the three frames cycle WAITING -> RUNNING -> SUCCEEDED in a few seconds.
+
+### Multi-layer chain with a Layer dependency
+
+Use the multi-layer table at the bottom of the form (the **Submission Details** section) to chain layers.
+
+1. Set up the first layer as above (Layer Name `preview`, Job Type `Shell`, Command `echo preview frame #IFRAME#`).
+2. Click the **+** button under the Submission Details table to add a second layer.
+3. The Layer Info section now edits the new layer. Set Layer Name `final`, Frame Spec `1-3`, Job Type `Shell`, Command `echo final frame #IFRAME#`. In the **Dependency Type** dropdown pick `Layer` so the `final` layer waits for `preview` to fully finish.
+4. The table at the bottom now shows two rows. Click either row to flip the editor between them; use `↑ / ↓` to reorder; use `−` to drop the selected layer.
+5. Submit. The detail page shows both layers; `final` stays in DEPEND state until `preview` completes, then dispatches.
+
+### Maya / Nuke / Blender layers
+
+Flip Job Type to **Maya**, **Nuke**, or **Blender** to swap the per-type options panel:
+
+- **Maya** asks for a Maya File (`.ma` / `.mb`) and an optional Camera. The Final command becomes `Render -r file -s #FRAME_START# -e #FRAME_END# [-cam CAM] <file>`.
+- **Nuke** asks for a Nuke File (`.nk`) and optional comma-separated Write Nodes. The Final command becomes `nuke -F #IFRAME# [-X WriteNodes] -x <file>`.
+- **Blender** asks for a Blender File (`.blend`), an Output Path, and an Output Format. Simple ranges (`1-10`) use `-s/-e/-a`; more complex ranges use the per-frame `-f #IFRAME#` token.
+
+The CueWeb panel always preserves the inputs you typed even when you flip between types, so iterating doesn't lose your scene path or camera.
+
+### Convenience features
+
+- **Autocomplete history**: start typing in Job Name, Shot, or Layer Name to pull values you've used before. The list is kept per-browser, deduped, capped at 25 entries.
+- **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
+- **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
+- **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
 
 ---
 

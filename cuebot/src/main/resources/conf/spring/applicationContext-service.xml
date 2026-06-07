@@ -305,6 +305,7 @@
     <property name="manageQueue" ref="manageQueue" />
     <property name="dispatchQueue" ref="dispatchQueue" />
     <property name="reportQueue" ref="reportQueue" />
+    <property name="hostManager" ref="hostManager" />
   </bean>
 
   <bean id="historicalManager" class="com.imageworks.spcue.service.HistoricalManagerService">

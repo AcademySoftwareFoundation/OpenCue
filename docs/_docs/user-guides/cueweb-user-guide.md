@@ -58,6 +58,7 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - Job statistics and performance metrics
    - Stacked job progress bar with hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead)
    - Frame state filter chips above the frames table (WAITING / RUNNING / SUCCEEDED / DEAD / EATEN / DEPEND) with per-state counts, OR-combined selection, and URL-persisted state
+   - Interactive **Job Dependency Graph** - a read-only node graph of the selected job's upstream and downstream dependency tree, toggled from **Cuetopia &rarr; View Job Graph**
 
 5. **Frame Navigation and Logs Access**
    - Hyperlinked frames leading to dedicated pages
@@ -84,6 +85,11 @@ CueWeb is a web-based interface for managing OpenCue render farms, replicating t
    - View, add, edit, and delete per-job comments (markdown-supported, sanitized)
    - Sticky-note indicator on the jobs table for jobs that already have comments
    - Predefined comment macros stored per browser for repeated text
+
+10. **Monitor Hosts**
+   - Read-only host registry table (CueCommander &rarr; Monitor Hosts) with sortable columns
+   - Columns: Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp
+   - Substring filter and auto-refresh every 30 seconds
 
 ---
 
@@ -127,7 +133,7 @@ The screen is composed of:
     - **File** -> *Disable Job Interaction* (read-only safety toggle, see below).
     - **Cuebot Facility** -> switch between `local` · `dev` · `cloud` · `external` (the active facility is shown as a small chip on the menu trigger).
     - **Cuetopia** -> Monitor Jobs.
-    - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully - they are placeholders for upcoming features.
+    - **CueCommander** -> Allocations, Limits, Monitor Cue, **Monitor Hosts** (see [Monitor Hosts](#monitor-hosts)), Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. The remaining unimplemented routes 404 gracefully - they are placeholders for upcoming features.
     - **Other** -> *Attributes* (toggles the docked Attributes panel, see below).
     - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, and Report a Bug.
   - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
@@ -152,9 +158,11 @@ The left sidebar and the header menus give you the same set of groups. Use the s
 ![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
 
 
-The **Cuetopia** menu opens Monitor Jobs.
+The **Cuetopia** menu opens Monitor Jobs and holds the checkable **View Job Graph** toggle (see [Job dependency graph](#job-dependency-graph)).
 
 ![Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+
+![Cuetopia menu with the View Job Graph toggle](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
 
 
 The **Cuebot Facility** menu lets you switch the active facility.
@@ -271,6 +279,16 @@ The filter snaps you back to page 1 on every keystroke so you never sit on an em
 ![Filtering the rows loaded into the jobs table](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_data_table_filtering.png)
 
 
+### Group By (Jobs table)
+
+The Jobs toolbar has a **Group By** dropdown that lets you reshape the table the same way CueGUI does:
+
+- **Clear** keeps the flat list.
+- **Dependent** renders the jobs as a parent / child **tree**. A job that other monitored jobs depend on becomes a parent with a chevron in front of its name; the dependents nest under it at increasing depth. Click the chevron to collapse or expand a subtree. CueWeb fetches the dependency graph from Cuebot in the background, so the tree fills in within a second or two of switching modes.
+- **Show**, **Show-Shot**, and **Show-Shot-Username** group the rows under collapsible headers (with a count on each header). Useful for sorting jobs by who owns them.
+
+The default is **Clear**. Switching modes preserves your filters, column visibility, and substring search.
+
 ### Job Status Indicators
 
 Jobs are color-coded by status:
@@ -290,8 +308,20 @@ Jobs are color-coded by status:
 
 #### Pause/Resume Jobs
 
-1. **Single Job**: Click the `Pause`/`Unpause` button in the Actions menu
-2. **Multiple Jobs**: Select jobs using checkboxes, then use the `Pause`/`Unpause` button
+The right-click menu shows a single entry that reflects the job's current
+state:
+
+- The entry reads **Pause** when the job is running (In Progress, Failing,
+  or Dependency) - clicking it pauses the job.
+- The entry reads **Unpause** when the job is already paused - clicking
+  it resumes the job.
+- The entry is shown disabled (grayed) when the job is Finished, since a
+  completed job cannot be paused.
+
+1. **Single Job**: Right-click the row and pick **Pause** / **Unpause**, or
+   click the toolbar button in the Actions menu.
+2. **Multiple Jobs**: Select jobs using checkboxes, then use the
+   **Pause Jobs** / **Unpause Jobs** toolbar buttons.
 
 #### Kill Jobs
 
@@ -316,7 +346,61 @@ Jobs can be added or removed from monitoring:
 
 Right-click on a job, layer, or frame row to open a CueGUI-parity context menu. The full menu structure for each type is listed in the reference doc; common entries:
 
-- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, Pause / Unpause, Retry / Eat Dead Frames, Kill, Set Max Retries, Auto-Eat On / Off, Drop External / Internal Dependencies.
+- **Job menu**: Unmonitor, **View Job Details** (tabbed detail page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Comments, **Pause / Unpause** (single toggle - the label flips with the job's paused state and is grayed out for Finished jobs), Retry / Eat Dead Frames, Kill, **Set Priority...**, Set Max Retries, Auto-Eat On / Off, **View Dependencies...**, **Dependency Wizard...**, Drop External / Internal Dependencies.
+
+#### Managing job dependencies
+
+The job context menu groups four dependency actions together so you can audit, create, or remove depends without leaving Monitor Jobs:
+
+- **View Dependencies...** opens a read-only dialog listing every depend on the job (Type, Target, Active, OnJob, OnLayer, OnFrame). Use **Refresh** to re-poll after creating or dropping depends elsewhere.
+- **Dependency Wizard...** opens a multi-step dialog that creates a new depend on the job. The CueWeb wizard supports every CueGUI `depend.DependType`: Job On Job / Layer / Frame, Frame By Frame for all layers (Hard Depend), Layer On Job / Layer / Frame, Frame By Frame, Frame On Job / Layer / Frame, and Layer on Simulation Frame. Every picker (source layers, source frames, target jobs, target layers, target frames) is multi-select; **Done** fires the full source x target cross-product in one batch.
+- **Drop External Dependencies** removes every external (cross-job) depend on the selected job in one click. The Jobs table re-polls immediately after success.
+- **Drop Internal Dependencies** removes every internal (within-job) depend in one click. Same auto-refresh.
+
+**View Dependencies**
+
+![View Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_menu.png)
+
+![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
+
+**Dependency Wizard** (the menu entry plus the Job On Job flow as the simplest example):
+
+![Dependency Wizard entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu.png)
+
+![Dependency Wizard step 1 - Job On Job selected](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
+
+![Dependency Wizard step 2 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step2_select_jobs_to_depend.png)
+
+![Dependency Wizard step 3 - confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step3_confirmation.png)
+
+The full per-type screenshot set lives in the [Dependency Wizard dialog reference](../reference/cueweb.md#dependency-wizard-dialog).
+
+**Drop External / Internal**
+
+![Drop External Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_menu.png)
+
+![Drop External Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_external_dependencies_confirmation.png)
+
+![Drop Internal Dependencies entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_menu.png)
+
+![Drop Internal Dependencies success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_drop_internal_dependencies_confirmation.png)
+
+### Adjusting job priority (Set Priority)
+
+**Set Priority...** is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (the `/` page you land on by default) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). The dialog and behavior are identical on either page.
+
+Right-click a job row and pick **Set Priority...** to open a themed dialog. The dialog has a 1-100 range slider and a matching number input - either control drives the value; both stay in sync. The number input is pre-filled with the job's current priority. Higher numbers dispatch first; the cuebot default is 100.
+
+![Set Priority entry in the right-click menu on Cuetopia Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_menu.png)
+
+![Set Priority dialog with slider and number input](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_window.png)
+
+After Apply:
+
+- A success toast confirms the new value.
+- The job's Priority column in the Jobs table updates immediately (no need to wait for the regular 5-second refresh tick).
+
+![Set Priority success confirmation toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 - **Layer menu**: View Layer, **Copy Layer Name**, Kill, Eat, Retry, Retry Dead Frames.
 - **Frame menu**: **Tail Log** / **View Log** (in-browser viewer), **View Log on <editor>** (external editor - see below), **Copy Log Path**, **Copy Frame Name**, Retry, Eat, Kill.
 
@@ -340,11 +424,37 @@ Important notes:
 
    ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
 
+#### Emailing the artist
+
+The job context menu's **Email Artist...** entry mirrors CueGUI's Email dialog. Right-click a job and pick the entry from the menu:
+
+![Email Artist entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_menu.png)
+
+A themed dialog opens pre-filled from the job - From, To (the job's owner), CC, Subject (`cuemail: please check <jobName>`), and a Body that greets the artist by name. Every field is editable.
+
+![Email Artist dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_email_artist_window.png)
+
+Clicking **Send** hands the filled-in fields to your default mail client (Mail.app on macOS, Outlook on Windows, your configured `mailto:` handler on Linux). Because the browser uses a `mailto:` URL, the **From** header on the email you actually send is decided by your mail client - the From field in the dialog is informational and shows the support alias the team typically uses.
+
+The email domain and the per-show support alias suffix are configured at deployment time, so production emails resolve to your real addresses rather than the `your.domain.com` placeholder shown in the sandbox.
+
+#### Requesting cores from the support team
+
+When a job is starved for cores, the **Request Cores...** entry on the job context menu opens an email composer addressed to the show's support team (mirroring CueGUI's `RequestCoresDialog`). Right-click a job and pick the entry:
+
+![Request Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_menu.png)
+
+The dialog opens pre-filled: **From** comes from your signed-in session, **CC** is the per-show support alias (`<show>-support@<domain>`), **Subject** is `Requesting Cores for <jobName>`, and the body is auto-populated with a table of the job's still-active layers (Layer Name / Minimum Memory / Min Cores) so the support team can see at a glance which layers need more capacity. Two extra fields below the table let you add the **Date/Time by which completion is needed** and any **additional notes** (priority frames, willingness to raise the memory floor, etc.).
+
+![Request Cores dialog pre-filled from the selected job](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_request_cores_window.png)
+
+Clicking **Send** stitches the auto-populated body together with your Date/Time and Notes and hands the result to your default mail client. As with **Email Artist...**, the **From** header on the email you actually send is decided by your mail client, not by the dialog.
+
 ---
 
 ## Job Comments
 
-CueWeb provides full CRUD for per-job comments, equivalent to the **Comments** dialog in CueGUI (`cuegui/cuegui/Comments.py`).
+CueWeb provides full per-job comments, equivalent to the **Comments** dialog in CueGUI.
 
 ### Opening the Comments page
 
@@ -542,6 +652,36 @@ The **Dependencies** tab shows the job's dependency relationships.
 
 ![Job Details Dependencies tab](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_dependencies.png)
 
+### Job dependency graph
+
+The **Job Dependency Graph** is a read-only, interactive node graph of a job's dependency tree (CueGUI Monitor-Jobs parity). It walks the job's depends in both directions - what the job depends on *and* what depends on the job - and lays the result out as a top-to-bottom tree so you can see an entire render chain at a glance.
+
+**Turning it on.** Open the **Cuetopia** menu (header dropdown or sidebar) and click **View Job Graph**. The entry is a checkable toggle - a check mark appears when it is on, and the choice is remembered across pages, tabs, and reloads.
+
+![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
+
+![View Job Graph entry in the Cuetopia menu (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu_dark.png)
+
+**Where it appears.** With the toggle on, click any job row in **Monitor Jobs**. The graph mounts as a third panel stacked under the inline **Layers** and **Frames** panels. The panel header names the focus job and has a close (**&times;**) button; you can also collapse or expand it from the **Dependency Graph** button above the Layers panel.
+
+![Monitor Jobs with the dependency graph panel open below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
+
+**Reading the graph.**
+
+- Each box is a node. A small kind label (**JOB**, **LAYER**, or **FRAME**) and a color-coded left border tell you what the node represents; layer and frame nodes also show their parent job below the name.
+- The job you opened the panel for - the *focus* node - is highlighted with a ring.
+- Long names are truncated; hover any node to see its full name in a tooltip.
+- Edges flow from upstream (top) to the jobs that wait on them (bottom).
+- **Click a node** to open that job's tabbed detail page.
+- Use the zoom / fit / lock controls in the corner to pan and zoom; the view fits the whole tree on first render.
+
+![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+
+The graph is theme-aware: it follows the light/dark toggle without re-fetching the dependency tree.
+
+![The dependency graph panel in dark mode](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only_dark.png)
+
+If the selected job has no dependencies, the panel shows **No dependencies found for this job.** The graph is read-only - to create or remove depends, use the [dependency context-menu actions](#managing-job-dependencies).
 
 ### Layer Operations
 
@@ -735,6 +875,73 @@ Behavior:
 - Subscriptions are saved in your browser and survive page reloads. They are scoped to the browser and profile; clearing site data removes them.
 - If a subscribed job is deleted from Cuebot (the API returns null), the subscription is removed automatically on the next poll.
 
+### Subscribe to Job (email subscription)
+
+The **Notify bell** above is a *browser-side* subscription: it stays in your browser and fires a popup in your CueWeb tab. If you want Cuebot to send you an **email** when the job finishes - for example, so you get notified after closing the browser, or so a team alias is informed - use the **Subscribe to Job** entry in the job's right-click menu instead.
+
+The two are independent. You can use either, or both at the same time. Their differences in plain terms:
+
+| | **Notify bell** (Notify column) | **Subscribe to Job** (right-click menu) |
+|--|---------------------------------|------------------------------------------|
+| Where the subscription lives | Your browser | Cuebot |
+| Notification channel | In-app toast (always) + desktop popup (when permission granted) | Email sent by Cuebot |
+| Survives a browser reset or new device | No | Yes |
+| Cancel | Click the bell again | Outside CueWeb (whatever Cuebot supports) |
+
+**To subscribe by email:**
+
+1. Right-click the job row in the Jobs table and pick **Subscribe to Job**.
+
+   ![Subscribe to Job entry in the right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_menu.png)
+
+2. A small dialog opens with the job name, an informational **From** address (your administrator sets the default), and an editable **To** address pre-filled with your account email.
+
+   ![Subscribe to Job dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_window.png)
+
+3. Edit the **To** field if you want notifications sent somewhere else (a team alias, a personal address, etc.) and click **Save**.
+
+4. A toast confirms the subscription is registered with Cuebot.
+
+   ![Subscribe to Job success confirmation](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_subscribe_to_job_confirmation.png)
+
+When the job reaches `FINISHED`, Cuebot sends the configured notification email to the saved address. The address you see in the **From** field is informational only - the real sender is whatever your Cuebot deployment is configured with.
+
+---
+
+## Monitor Hosts
+
+The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar or header, or the **View hosts** link on the dashboard hosts widget) lists the render hosts registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin, and mirrors the jobs table interactions (sortable columns, substring filter, column show/hide, pagination).
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+The page renders a sortable, filterable table of every host. It follows the active theme:
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+![CueWeb Monitor Hosts page in dark mode](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_dark.png)
+
+### Host columns
+
+| Column | Description |
+|--------|-------------|
+| Name | Host name as reported to Cuebot |
+| State | Hardware state (`UP`, `DOWN`, `REPAIR`, ...) shown as a status badge |
+| Locked | Lock state (`OPEN`, `LOCKED`, `NIMBY_LOCKED`) shown as a status badge |
+| NIMBY | Whether NIMBY is enabled on the host (`Yes` / `No`) |
+| Cores (Idle/Total) | Idle vs total cores. Sorts by the idle ratio |
+| Memory (Idle/Total) | Idle vs total memory, human-readable. Sorts by the idle ratio |
+| Free /mcp | Free temporary (`/mcp`) space, human-readable |
+
+Numeric columns sort by their underlying value rather than the formatted text, so memory and core counts sort numerically. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter hosts...** box to narrow the table by a substring of the host name.
+
+### Refresh
+
+The host list auto-refreshes every 30 seconds. A failed refresh keeps the previously loaded rows in place; if the first load fails with no data, an inline error with a **Retry** button is shown.
+
+This page is read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) are tracked separately and are not part of this page yet.
+
 ---
 
 ## Keyboard Shortcuts
@@ -762,6 +969,57 @@ The same overlay is reachable from the menu if you prefer mouse navigation:
 ### Toast on shortcut
 
 A small toast appears every time you trigger a shortcut so you know it registered (e.g. pressing `r` toasts `Shortcut: r → Refresh table`). The toast can be turned off via **Other ▸ Notify on Shortcut** in the header or sidebar. The preference persists across reloads and across browser tabs.
+
+---
+
+## Submitting Jobs (CueSubmit)
+
+CueWeb has a browser-based equivalent of the standalone CueSubmit CLI tool. Open it from the **CueSubmit > Submit Job** menu in the header (or from the matching entry in the sidebar / mobile drawer) to reach the `/cuesubmit` form.
+
+![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
+
+![CueSubmit Submit Job page](/assets/images/cueweb/cueweb_cuesubmit_submit_job.png)
+
+### Filling in a job
+
+1. **Job Info** at the top of the page:
+   - **Job Name** - free text. The actual cuebot job name will be `<show>-<shot>-<user>_<jobname>`.
+   - **Show** - pick one from the dropdown (populated from the shows registered in cuebot).
+   - **Shot** - free text. Letters, numbers, `.`, `-`, `_`.
+   - **Facility** - leave as `[Default]` to use the sandbox's local facility, or pick another if your deployment runs multiple.
+   - **Username** - pre-filled with your signed-in identity when CueWeb is deployed with authentication. Tick the **Edit** checkbox next to the field to submit as someone else; unticking snaps it back to you.
+
+2. **Layer Info** describes the first (and possibly only) layer:
+   - **Layer Name** - free text.
+   - **Frame Spec** - the frames to render. `1-10` means frames 1 through 10. `1-100x2` means every other frame. Click the **?** badge next to the field for more examples.
+   - **Chunk Size** - how many frames cuebot bundles into one dispatched frame.
+   - **Memory** - per-frame request, e.g. `256m`, `1g`. Leave empty to inherit the service default.
+   - **Job Type** - Shell, Maya, Nuke, or Blender. The panel below changes to ask for the inputs that type needs (Shell asks for a command, Maya asks for a scene file + camera, etc.).
+   - **Services** - pick the cuebot service that should run this layer.
+   - **Limits** - optional cuebot limits to apply.
+   - **Override Cores** - tick to pin the per-frame core count (otherwise the service default is used).
+   - **Dependency Type** - for second-and-later layers only: `Layer` means the whole previous layer must finish first; `Frame` means just the matching frame number.
+
+3. **Per-type options panel** is the white box below Layer Info:
+   - **Shell** asks for the command to run. Use `#IFRAME#` for the current frame number and other cuebot tokens (click the **?** for the cheatsheet).
+   - **Maya / Nuke / Blender** ask for a scene file path plus the type-specific inputs (Maya camera, Nuke write nodes, Blender output path / format).
+
+4. **Final command** is a read-only preview of exactly what cuebot will execute. It updates per-keystroke as you fill the form.
+
+5. **Submission Details** is the layers table at the bottom. Use the `+` button to add a second layer (or third, etc.); use `−` to remove the selected layer; the `↑ / ↓` buttons reorder. Clicking a row loads it back into the Layer Info section above for editing.
+
+6. Click **Submit**. CueWeb sends the job to cuebot and redirects you to its detail page so you can watch the frames cycle through WAITING -> RUNNING -> SUCCEEDED.
+
+### Convenience features
+
+- **Autocomplete history**: Job Name, Shot, and Layer Name remember everything you've submitted (per browser). Start typing to see previous values. Mirrors the on-disk cache the standalone CueSubmit keeps.
+- **Auto-saved draft**: the form saves to your browser on every change and restores on next page load, so an accidental refresh never wipes a 10-layer setup. Submitting or Resetting clears the draft.
+- **Reset button**: between Cancel and Submit. Opens a themed confirmation dialog before clearing every field; autocomplete history is kept.
+- **View in Monitor Jobs**: after the page redirects to the new job's detail view, the **View in Monitor Jobs** button in its header opens Cuetopia with the job auto-searched, so you can act on it alongside the rest of your monitored set.
+
+### Sandbox defaults
+
+The form ships with defaults tuned for the OpenCue sandbox so a fresh `sleep 5` test job runs end-to-end without further setup: Memory `256m` (the seeded default service requires 3.2 GB which the sandbox RQD usually can't satisfy), Facility `local` (matches the sandbox RQD's allocation), and a per-user UID that cuebot will accept. Adjust Memory and Facility for production deployments.
 
 ---
 

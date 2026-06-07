@@ -59,12 +59,33 @@ export type GroupStats = {
     reservedGpus: number;
 };
 
+export type Depend = {
+    id: string;
+    type: string | number;
+    target: string | number;
+    anyFrame: boolean;
+    active: boolean;
+    dependErJob: string;
+    dependErLayer: string;
+    dependErFrame: string;
+    dependOnJob: string;
+    dependOnLayer: string;
+    dependOnFrame: string;
+};
+
 // Minimal Host shape - matches the host.Host proto fields the dashboard cares about.
 export type Host = {
     id: string;
     name: string;
-    state: string;
-    lockState: string;
+    state: string;        // UP / DOWN / REPAIR ...
+    lockState: string;    // OPEN / LOCKED / NIMBY_LOCKED
+    nimbyEnabled: boolean;
+    cores: number;
+    idleCores: number;
+    memory: string;       // KB, as string from the gateway
+    idleMemory: string;   // KB, as string
+    totalMemory: string;  // KB, as string
+    freeMcp: string;      // KB, as string
     bootTime: number;
     pingTime: number;
 };
@@ -169,6 +190,19 @@ export async function getFramesForJob(job: Job): Promise<Frame[]> {
     return getFrames(JSON.stringify(body));
 }
 
+// Fetch all dependencies for a given job. Routes through the validated
+// proxy at /api/job/action/getdepends (camelCase fields, double-
+// nested response). Tolerates both nested and flat shapes so a gateway
+// marshaller change can't silently break the consumer.
+export async function getDependsForJob(job: Job): Promise<Depend[]> {
+    const ENDPOINT = "/api/job/action/getdepends";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const data = await accessGetApi(ENDPOINT, body);
+    if (!data) return [];
+    const seq: any = data?.depends?.depends ?? data?.depends ?? data;
+    return Array.isArray(seq) ? (seq as Depend[]) : [];
+}
+
 // Get the job that a layer belongs to using the layer's parentId
 export async function getJobForLayer(layer: Layer): Promise<Job | null> {
     const body = JSON.stringify({ r: { include_finished: true, ids: [`${layer.parentId}`] } });
@@ -183,10 +217,15 @@ export const getFrameLogDir = (job: Job, frame: Frame): string => {
 };
 
 // Fetch every host known to Cuebot. Optionally accepts a host-search filter (HostSearchCriteria).
+// Returns an array (possibly empty) on success; throws on a failed request so
+// callers can tell a real failure apart from an empty registry.
 export async function getHosts(body: string = JSON.stringify({ r: {} })): Promise<Host[]> {
     const ENDPOINT = "/api/host/gethosts";
     const response = await accessGetApi(ENDPOINT, body);
-    return Array.isArray(response) ? response : [];
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load hosts from Cuebot.");
+    }
+    return response;
 }
 
 // Fetch every show known to Cuebot.
@@ -234,4 +273,31 @@ export async function getGroupJobs(groupId: string): Promise<Job[]> {
     const body = JSON.stringify({ group: { id: groupId } });
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
+}
+
+// Fetch the depend.DependSeq of every job currently blocked on the
+// supplied job. The Cuebot REST gateway emits camelCase field names
+// (proto `depend_er_job` -> JSON `dependErJob`) and double-nests the
+// list as `{depends: {depends: [...]}}`. We accept both camelCase and
+// snake_case as a belt-and-braces fallback against gateway-side
+// marshaller config changes. Returns the list of dependent job names
+// so the caller can build a parent -> children adjacency map without
+// re-parsing.
+export async function getWhatDependsOnThisJobNames(job: Job): Promise<string[]> {
+    const ENDPOINT = "/api/job/action/getwhatdependsonthis";
+    const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const data = await accessGetApi(ENDPOINT, body);
+    if (!data) return [];
+    const seq: any[] = data?.depends?.depends ?? data?.depends ?? [];
+    if (!Array.isArray(seq)) return [];
+    // Mirrors CueGUI's filter: only active depends contribute children.
+    // A satisfied / dropped depend should NOT keep the dependent job
+    // nested under the parent.
+    const names = new Set<string>();
+    for (const d of seq) {
+        if (d?.active === false) continue;
+        const name: string | undefined = d?.dependErJob ?? d?.depend_er_job;
+        if (typeof name === "string" && name && name !== job.name) names.add(name);
+    }
+    return Array.from(names);
 }

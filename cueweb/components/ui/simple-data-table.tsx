@@ -46,7 +46,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Layers, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Layers, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -66,6 +66,9 @@ interface SimpleDataTableProps<TData, TValue> {
   job?: Job;
   isFramesTable?: boolean;
   isFramesLogTable?: boolean;
+  // Hosts variant (read-only): host-specific filter/empty copy and no row
+  // context menu. Mirrors the isFramesTable / isFramesLogTable flags.
+  isHostsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -97,6 +100,7 @@ export function SimpleDataTable<TData, TValue>({
   job,
   isFramesTable = false,
   isFramesLogTable = false,
+  isHostsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
@@ -498,8 +502,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isFramesTable ? "Filter frames..." : "Filter layers..."}
-              aria-label={isFramesTable ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isFramesTable ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isFramesTable ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -566,7 +570,7 @@ export function SimpleDataTable<TData, TValue>({
                     data-state={
                       isSelectedById || row.getIsSelected() ? "selected" : undefined
                     }
-                    onContextMenu={(e) => contextMenuHandleOpen(e, row)}
+                    onContextMenu={isHostsTable ? undefined : (e) => contextMenuHandleOpen(e, row)}
                     onClick={
                       onRowClick
                         ? () => onRowClick(row.original as TData)
@@ -603,20 +607,30 @@ export function SimpleDataTable<TData, TValue>({
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 p-0">
                   <EmptyState
-                    icon={<Layers className="h-6 w-6" aria-hidden="true" />}
+                    icon={
+                      isHostsTable ? (
+                        <Server className="h-6 w-6" aria-hidden="true" />
+                      ) : (
+                        <Layers className="h-6 w-6" aria-hidden="true" />
+                      )
+                    }
                     title={
-                      isFramesTable
-                        ? "Layer has no frames"
-                        : isFramesLogTable
-                          ? "Frame not found"
-                          : "Job has no layers"
+                      isHostsTable
+                        ? "No hosts registered"
+                        : isFramesTable
+                          ? "Layer has no frames"
+                          : isFramesLogTable
+                            ? "Frame not found"
+                            : "Job has no layers"
                     }
                     description={
-                      isFramesTable
-                        ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
-                        : isFramesLogTable
-                          ? "The frame referenced by this URL is no longer available in Cuebot."
-                          : "This job does not contain any layers yet."
+                      isHostsTable
+                        ? "No hosts have reported to Cuebot yet."
+                        : isFramesTable
+                          ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
+                          : isFramesLogTable
+                            ? "The frame referenced by this URL is no longer available in Cuebot."
+                            : "This job does not contain any layers yet."
                     }
                   />
                 </TableCell>
@@ -630,13 +644,14 @@ export function SimpleDataTable<TData, TValue>({
         <div className="space-x-2 py-4">
           <DataTablePagination
             table={table}
-            pageSizes={[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100, 150, 200, 250, 300]}
+            pageSizes={[5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 10000]}
           />
         </div>
       )}
 
-      {/* Context menus for frames and layers */}
-      {(isFramesTable || isFramesLogTable) ? (
+      {/* Context menus for frames and layers. The read-only hosts table
+          renders no menu. */}
+      {isHostsTable ? null : (isFramesTable || isFramesLogTable) ? (
         <FrameContextMenu
           username={username}
           job={job}
