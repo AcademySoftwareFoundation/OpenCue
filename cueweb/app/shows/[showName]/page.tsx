@@ -18,8 +18,9 @@ import { findShow } from "@/app/utils/show_utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-export default async function ShowPage({ params }: { params: { showName: string } }) {
-  const show = await findShow(params.showName);
+export default async function ShowPage({ params }: { params: Promise<{ showName: string }> }) {
+  const { showName } = await params;
+  const show = await findShow(showName);
 
   if (!show) notFound();
 
