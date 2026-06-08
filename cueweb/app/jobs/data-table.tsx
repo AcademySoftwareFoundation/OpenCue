@@ -20,6 +20,7 @@
 import {
   eatJobsDeadFramesFromSelectedRows,
   getItemFromLocalStorage,
+  getJobsFromSelectedRows,
   killJobFromSelectedRows,
   pauseJobsFromSelectedRows,
   retryJobsDeadFramesFromSelectedRows,
@@ -45,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DependencyWizardDialog } from "@/components/ui/dependency-wizard-dialog";
 import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
@@ -245,9 +247,14 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-// Reusable compact action button used in the Monitor Jobs toolbar.
-// Mirrors the CueGUI Monitor Jobs dock buttons: small icon + short label,
-// auto-disabled when the "Disable Job Interaction" safety flag is on.
+// #2283: a toolbar bulk action captured at click time, awaiting confirmation.
+type PendingBulk = {
+  title: string;
+  description: React.ReactNode;
+  variant: "default" | "destructive";
+  run: () => void | Promise<void>;
+};
+
 // Resolves the group-by key for a single job. The key is also the label
 // rendered on the group-header row in the table body. Matches CueGUI's
 // MonitorJobsPlugin grouping modes for the "header bucket" variants
@@ -270,6 +277,26 @@ function getJobGroupKey(job: Job, mode: State["groupBy"]): string {
   }
 }
 
+// Renders the scrollable affected-jobs list shown inside the #2283 batch
+// confirmation dialog.
+function jobListNode(jobs: Job[]): React.ReactNode {
+  return (
+    <span className="block">
+      <span className="block">{jobs.length} job(s):</span>
+      <span className="mt-2 block max-h-40 overflow-auto rounded border border-border p-2 font-mono text-xs">
+        {jobs.map((j) => (
+          <span key={j.id} className="block break-all">
+            {j.name}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+// Reusable compact action button used in the Monitor Jobs toolbar.
+// Mirrors the CueGUI Monitor Jobs dock buttons: small icon + short label,
+// auto-disabled when the "Disable Job Interaction" safety flag is on.
 const JobActionButton = ({
   icon: Icon,
   label,
@@ -1290,6 +1317,60 @@ export function DataTable({ columns, username }: DataTableProps) {
     },
   });
 
+  // #2283: pending toolbar bulk action awaiting confirmation.
+  const [pendingBulk, setPendingBulk] = React.useState<PendingBulk | null>(null);
+
+  // Confirmation policy (#2283): destructive actions (kill/eat/retry) always
+  // confirm; pause/unpause confirm only for multi-select (>=2 jobs); an empty
+  // selection warns. Matches CueGUI, which always confirms destructive bulk
+  // ops and never prompts for pause/resume.
+  function runBulkAction(kind: "eat" | "retry" | "kill" | "pause" | "unpause") {
+    const jobs = getJobsFromSelectedRows(table).filter((job) => job.state !== "FINISHED");
+    if (jobs.length === 0) {
+      toastWarning("Please select unfinished jobs");
+      return;
+    }
+    const run = () => {
+      switch (kind) {
+        case "eat": return eatJobsDeadFramesFromSelectedRows(table);
+        case "retry": return retryJobsDeadFramesFromSelectedRows(table);
+        case "kill": return killJobFromSelectedRows(table, state.username);
+        case "pause": return pauseJobsFromSelectedRows(table);
+        case "unpause": return unpauseJobsFromSelectedRows(table);
+        default: return kind satisfies never;
+      }
+    };
+    const destructive = kind === "eat" || kind === "retry" || kind === "kill";
+    if (!destructive && jobs.length < 2) {
+      run();
+      return;
+    }
+    const titles: Record<"eat" | "retry" | "kill" | "pause" | "unpause", string> = {
+      eat: `Eat dead frames in ${jobs.length} job(s)?`,
+      retry: `Retry dead frames in ${jobs.length} job(s)?`,
+      kill: `Kill ${jobs.length} job(s)?`,
+      pause: `Pause ${jobs.length} job(s)?`,
+      unpause: `Unpause ${jobs.length} job(s)?`,
+    };
+    const killWarning =
+      "This will stop all running frames and permanently remove the jobs from the cue. The jobs will NOT be able to return once killed.";
+    const description =
+      kind === "kill" ? (
+        <span className="block space-y-2">
+          <span className="block text-destructive">{killWarning}</span>
+          {jobListNode(jobs)}
+        </span>
+      ) : (
+        jobListNode(jobs)
+      );
+    setPendingBulk({
+      title: titles[kind],
+      description,
+      variant: destructive ? "destructive" : "default",
+      run,
+    });
+  }
+
   // Persist rows-per-page across hard reloads. TanStack manages the
   // pagination state internally; we subscribe to changes via the
   // table's onStateChange-equivalent by reading the current pageSize
@@ -1591,11 +1672,11 @@ export function DataTable({ columns, username }: DataTableProps) {
             <span className="w-full px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:w-auto">
               Job Actions
             </span>
-            <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => eatJobsDeadFramesFromSelectedRows(table)} color="#f59e0b" />
-            <JobActionButton icon={TbReload} label="Retry Dead Frames" onClick={() => retryJobsDeadFramesFromSelectedRows(table)} color="#3b82f6" />
-            <JobActionButton icon={MdOutlineCancel} label="Kill Jobs" onClick={() => killJobFromSelectedRows(table, state.username)} color="#ef4444" variant="destructive" />
-            <JobActionButton icon={TbPlayerPause} label="Pause Jobs" onClick={() => pauseJobsFromSelectedRows(table)} color="#3b82f6" />
-            <JobActionButton icon={TbPlayerPlay} label="Unpause Jobs" onClick={() => unpauseJobsFromSelectedRows(table)} color="#10b981" />
+            <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => runBulkAction("eat")} color="#f59e0b" />
+            <JobActionButton icon={TbReload} label="Retry Dead Frames" onClick={() => runBulkAction("retry")} color="#3b82f6" />
+            <JobActionButton icon={MdOutlineCancel} label="Kill Jobs" onClick={() => runBulkAction("kill")} color="#ef4444" variant="destructive" />
+            <JobActionButton icon={TbPlayerPause} label="Pause Jobs" onClick={() => runBulkAction("pause")} color="#3b82f6" />
+            <JobActionButton icon={TbPlayerPlay} label="Unpause Jobs" onClick={() => runBulkAction("unpause")} color="#10b981" />
           </div>
         </div>
 
@@ -1999,6 +2080,24 @@ export function DataTable({ columns, username }: DataTableProps) {
           through picking a dependency type and target object, then
           dispatches to the matching CreateDependencyOn* RPC. */}
       <DependencyWizardDialog />
+
+      {/* Batch-action confirmation (#2283). Opened by the toolbar bulk
+          actions via runBulkAction: kill/eat/retry always confirm,
+          pause/unpause confirm only for >=2 selected. Lists the affected
+          jobs; Cancel aborts without dispatching anything. */}
+      <ConfirmDialog
+        open={!!pendingBulk}
+        onOpenChange={(o) => !o && setPendingBulk(null)}
+        title={pendingBulk?.title ?? ""}
+        description={pendingBulk?.description}
+        variant={pendingBulk?.variant ?? "default"}
+        confirmLabel="Confirm"
+        onConfirm={async () => {
+          if (!pendingBulk) return;
+          await pendingBulk.run();
+          setPendingBulk(null);
+        }}
+      />
     </>
   );
 }
