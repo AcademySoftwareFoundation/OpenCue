@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FrameContextMenu, LayerContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { FrameContextMenu, HostContextMenu, LayerContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -46,7 +46,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Layers, Search, Server, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Layers, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -69,6 +69,10 @@ interface SimpleDataTableProps<TData, TValue> {
   // Hosts variant (read-only): host-specific filter/empty copy and no row
   // context menu. Mirrors the isFramesTable / isFramesLogTable flags.
   isHostsTable?: boolean;
+  // Procs variant (read-only, host detail page): proc-specific filter/empty
+  // copy and no row context menu. Rows are typically made clickable via
+  // onRowClick to open the frame log.
+  isProcsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -101,6 +105,7 @@ export function SimpleDataTable<TData, TValue>({
   isFramesTable = false,
   isFramesLogTable = false,
   isHostsTable = false,
+  isProcsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
@@ -502,8 +507,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isFramesTable ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isFramesTable ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isFramesTable ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isFramesTable ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -570,7 +575,7 @@ export function SimpleDataTable<TData, TValue>({
                     data-state={
                       isSelectedById || row.getIsSelected() ? "selected" : undefined
                     }
-                    onContextMenu={isHostsTable ? undefined : (e) => contextMenuHandleOpen(e, row)}
+                    onContextMenu={isProcsTable ? undefined : (e) => contextMenuHandleOpen(e, row)}
                     onClick={
                       onRowClick
                         ? () => onRowClick(row.original as TData)
@@ -610,6 +615,8 @@ export function SimpleDataTable<TData, TValue>({
                     icon={
                       isHostsTable ? (
                         <Server className="h-6 w-6" aria-hidden="true" />
+                      ) : isProcsTable ? (
+                        <Cpu className="h-6 w-6" aria-hidden="true" />
                       ) : (
                         <Layers className="h-6 w-6" aria-hidden="true" />
                       )
@@ -617,20 +624,24 @@ export function SimpleDataTable<TData, TValue>({
                     title={
                       isHostsTable
                         ? "No hosts registered"
-                        : isFramesTable
-                          ? "Layer has no frames"
-                          : isFramesLogTable
-                            ? "Frame not found"
-                            : "Job has no layers"
+                        : isProcsTable
+                          ? "No running procs"
+                          : isFramesTable
+                            ? "Layer has no frames"
+                            : isFramesLogTable
+                              ? "Frame not found"
+                              : "Job has no layers"
                     }
                     description={
                       isHostsTable
                         ? "No hosts have reported to Cuebot yet."
-                        : isFramesTable
-                          ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
-                          : isFramesLogTable
-                            ? "The frame referenced by this URL is no longer available in Cuebot."
-                            : "This job does not contain any layers yet."
+                        : isProcsTable
+                          ? "This host is not running any frames right now."
+                          : isFramesTable
+                            ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
+                            : isFramesLogTable
+                              ? "The frame referenced by this URL is no longer available in Cuebot."
+                              : "This job does not contain any layers yet."
                     }
                   />
                 </TableCell>
@@ -649,9 +660,17 @@ export function SimpleDataTable<TData, TValue>({
         </div>
       )}
 
-      {/* Context menus for frames and layers. The read-only hosts table
-          renders no menu. */}
-      {isHostsTable ? null : (isFramesTable || isFramesLogTable) ? (
+      {/* Row context menu. Hosts get Lock/Unlock/Reboot; frames/frame-logs
+          get the frame menu; the read-only procs table gets none; everything
+          else (layers) gets the layer menu. */}
+      {isProcsTable ? null : isHostsTable ? (
+        <HostContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
+      ) : (isFramesTable || isFramesLogTable) ? (
         <FrameContextMenu
           username={username}
           job={job}
