@@ -49,6 +49,7 @@ import { DependencyWizardDialog } from "@/components/ui/dependency-wizard-dialog
 import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
+import { SetCoresDialog } from "@/components/ui/set-cores-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
 import { ViewDependenciesDialog } from "@/components/ui/view-dependencies-dialog";
@@ -981,6 +982,26 @@ export function DataTable({ columns, username }: DataTableProps) {
     }
     window.addEventListener("cueweb:priority-changed", handler);
     return () => window.removeEventListener("cueweb:priority-changed", handler);
+  }, [state.tableData, state.tableDataUnfiltered]);
+
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ jobId: string; minCores: number; maxCores: number }>).detail;
+      if (!detail?.jobId || typeof detail.minCores !== "number" || typeof detail.maxCores !== "number") return;
+      const bump = (jobs: Job[]) =>
+        jobs.map((j) =>
+          j.id === detail.jobId
+            ? { ...j, minCores: detail.minCores, maxCores: detail.maxCores }
+            : j,
+        );
+      dispatch({ type: "SET_TABLE_DATA", payload: bump(state.tableData) });
+      dispatch({
+        type: "SET_TABLE_DATA_UNFILTERED",
+        payload: bump(state.tableDataUnfiltered),
+      });
+    }
+    window.addEventListener("cueweb:cores-changed", handler);
+    return () => window.removeEventListener("cueweb:cores-changed", handler);
   }, [state.tableData, state.tableDataUnfiltered]);
 
   const searchParams = useSearchParams();
@@ -1936,6 +1957,11 @@ export function DataTable({ columns, username }: DataTableProps) {
           a `cueweb:open-set-priority` CustomEvent fired from the row
           context menu's "Set Priority..." entry. */}
       <SetPriorityDialog />
+
+      {/* Set Min/Max Cores dialog. Mounted once here; opens in response to
+          a `cueweb:open-set-cores` CustomEvent fired from the row context
+          menu's "Set Min/Max Cores..." entry. */}
+      <SetCoresDialog />
 
       {/* Email Artist dialog. Mounted once here; opens in response to
           a `cueweb:open-email-artist` CustomEvent fired from the row

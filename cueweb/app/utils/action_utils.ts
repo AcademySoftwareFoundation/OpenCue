@@ -282,6 +282,25 @@ export async function setJobPriority(job: Job, priority: number) {
   await performAction(endpoint, [JSON.stringify({ job, val: priority })], `Set priority ${priority} on ${job.name}`);
 }
 
+// Set a job's min and max cores in one user action (CueWeb #2281). Cuebot
+// exposes SetMinCores / SetMaxCores as two RPCs, so we POST both in turn;
+// one toast on full success, and if the min call fails we skip max and
+// surface the error. Returns true on full success, false otherwise, so the
+// dialog can gate its optimistic row update on success (mirrors performAction).
+export async function setJobCores(job: Job, minCores: number, maxCores: number): Promise<boolean> {
+  try {
+    const minRes = await accessActionApi("/api/job/action/setmincores", [JSON.stringify({ job, val: minCores })]);
+    if (!minRes?.success) throw new Error(minRes?.error ?? "Failed to set min cores");
+    const maxRes = await accessActionApi("/api/job/action/setmaxcores", [JSON.stringify({ job, val: maxCores })]);
+    if (!maxRes?.success) throw new Error(maxRes?.error ?? "Failed to set max cores");
+    toastSuccess(`Set cores ${minCores}-${maxCores} on ${job.name}`);
+    return true;
+  } catch (error) {
+    handleError(error, `Error setting cores on ${job.name}`);
+    return false;
+  }
+}
+
 export async function setJobMaxRetries(job: Job, maxRetries: number) {
   const endpoint = "/api/job/action/setmaxretries";
   await performAction(endpoint, [JSON.stringify({ job, max_retries: maxRetries })], `Set max retries ${maxRetries} on ${job.name}`);
@@ -794,6 +813,22 @@ export function setPriorityGivenRow(row: Row<any>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("cueweb:open-set-priority", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Set Min/Max Cores..." handler. Dispatches a CustomEvent that
+// the SetCoresDialog (mounted at the page level) listens for; the dialog
+// opens with Min/Max number inputs pre-filled with the row's current cores
+// and a client-side min<=max guard, and calls setJobCores on Apply.
+// Decoupled this way so the free-function context-menu handlers don't need
+// to reach into the table's component state.
+export function setCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-cores", {
       detail: { job },
     }),
   );

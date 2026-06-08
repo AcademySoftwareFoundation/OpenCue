@@ -45,6 +45,7 @@ import {
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
   retryLayerFramesGivenRow,
+  setCoresGivenRow,
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
   subscribeToJobGivenRow,
@@ -375,6 +376,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     {
       label: "Set Priority...",
       onClick: setPriorityGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
+      label: "Set Min/Max Cores...",
+      onClick: setCoresGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
