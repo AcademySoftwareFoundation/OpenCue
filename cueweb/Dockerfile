@@ -25,7 +25,7 @@ COPY next.config.js /opt/cueweb/
 COPY postcss.config.js /opt/cueweb/
 COPY tailwind.config.js /opt/cueweb/
 COPY app/ /opt/cueweb/app/
-COPY components/ui /opt/cueweb/components/ui
+COPY components/ /opt/cueweb/components/
 COPY lib/ /opt/cueweb/lib/
 COPY sentry.client.config.ts /opt/cueweb/sentry.client.config.ts
 COPY sentry.server.config.ts /opt/cueweb/sentry.server.config.ts
@@ -63,17 +63,48 @@ ENV LDAP_URI=tobeoverriden
 
 # The following environment variables need to be accurately defined during production or dev builds as their
 # values cannot be changed after build time. Use ARG to allow override at build time.
-ARG NEXT_PUBLIC_URL=http://localhost:3000
+#
+# NEXT_PUBLIC_URL defaults to an empty string so the client builds a
+# same-origin relative URL (e.g. /api/job/getjobs) for every API call.
+# That lets any other LAN client (e.g. other computer or smartphone)
+# load CueWeb from the Mac's LAN IP (`http://<lan-ip>:3000`) and have
+# its API calls land on the same host instead of trying to fetch from
+# `localhost`, which on the phone resolves to the phone itself.
+# Override at build time only if your deployment serves the API from a
+# different origin than the UI.
+ARG NEXT_PUBLIC_URL=
 ENV NEXT_PUBLIC_URL=${NEXT_PUBLIC_URL}
 
 ARG NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448
 ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=${NEXT_PUBLIC_OPENCUE_ENDPOINT}
+
+# Optional URL template used by the Frame context menu's "View Log on
+# <editor>" item. The literal `{path}` is replaced at click time with
+# the absolute frame log path, and the resulting custom-URL-scheme link
+# is handed to the OS so it launches the registered handler. Examples:
+#   vscode://file{path}
+#   vscode-insiders://file{path}
+#   subl://open?url=file://{path}
+#   txmt://open?url=file://{path}
+#   idea://open?file={path}
+# Web browsers can't read the user's $EDITOR or spawn subprocesses, so
+# this URL-scheme route is the web-native equivalent of cuegui's
+# popupView(file) helper. Leave empty to omit the menu item entirely
+# (today's in-browser Monaco log viewer remains the default).
+ARG NEXT_PUBLIC_LOG_EDITOR_URL=
+ENV NEXT_PUBLIC_LOG_EDITOR_URL=${NEXT_PUBLIC_LOG_EDITOR_URL}
 
 # Authentication providers - use ARG to allow override at build time
 # Set to empty string to disable authentication (sandbox mode)
 # Set to comma-separated list for production (e.g., "google,okta,github,ldap")
 ARG NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github,ldap
 ENV NEXT_PUBLIC_AUTH_PROVIDER=${NEXT_PUBLIC_AUTH_PROVIDER}
+
+# Build version shown in the bottom status bar. Defaults to the
+# package.json version (resolved in next.config.js) when this ARG is not
+# overridden at build time. CI can override with a Git SHA or build tag.
+ARG NEXT_PUBLIC_APP_VERSION=
+ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION}
 
 RUN npm run build
 CMD ["npm", "run", "start"]

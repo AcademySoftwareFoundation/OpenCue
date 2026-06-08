@@ -14,15 +14,4 @@
  * limitations under the License.
  */
 
-.sticky {
-  position: sticky !important;
-  right: 0;
-  top: 0;
-  z-index: 1;
-  background-color: white;
-}
-
-/* if in dark mode, override background colour of pop-up column to be black */
-.sticky.dark {
-  background-color: black;
-}
+/* No jobs-table-specific rules right now; kept for future use. */

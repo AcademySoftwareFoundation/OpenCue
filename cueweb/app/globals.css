@@ -90,3 +90,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * react-toastify token overrides. The library uses a `--toastify-*` palette
+ * sourced from its bundled stylesheet; mapping each surface/status onto our
+ * shadcn tokens means toasts inherit the CueWeb palette (and dark mode) for
+ * free, without forking the library's CSS. See ToastHost for the container
+ * options and notify_utils.ts for the public API (`toastSuccess`,
+ * `toastWarning`, `handleError`).
+ */
+:root {
+  --toastify-color-light: hsl(var(--card));
+  --toastify-color-dark: hsl(var(--card));
+  --toastify-text-color-light: hsl(var(--foreground));
+  --toastify-text-color-dark: hsl(var(--foreground));
+  --toastify-color-info: hsl(var(--primary));
+  --toastify-color-success: rgb(16 185 129);     /* emerald-500 */
+  --toastify-color-warning: rgb(245 158 11);     /* amber-500 */
+  --toastify-color-error: hsl(var(--destructive));
+  --toastify-color-progress-light: hsl(var(--primary));
+  --toastify-color-progress-dark: hsl(var(--primary));
+  --toastify-toast-bd-radius: 0.5rem;
+  --toastify-toast-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.dark {
+  --toastify-color-light: hsl(var(--card));
+  --toastify-color-dark: hsl(var(--card));
+  --toastify-text-color-light: hsl(var(--foreground));
+  --toastify-text-color-dark: hsl(var(--foreground));
+  --toastify-toast-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}

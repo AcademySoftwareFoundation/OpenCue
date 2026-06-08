@@ -119,29 +119,17 @@ impl From<HostModel> for Host {
             id: parse_uuid(&val.pk_host),
             name: val.str_name,
             str_os: val.str_os,
-            idle_cores: CoreSize::from_multiplied(
-                val.int_cores_idle
-                    .try_into()
-                    .expect("int_cores_min/multiplier should fit on a i32"),
-            ),
+            idle_cores: CoreSize::from_multiplied(val.int_cores_idle),
             idle_memory: ByteSize::kb(val.int_mem_free as u64),
             idle_gpus: val
                 .int_gpus_idle
                 .try_into()
                 .expect("int_gpus should fit on a i32"),
             idle_gpu_memory: ByteSize::kb(val.int_gpu_mem_free as u64),
-            total_cores: CoreSize::from_multiplied(
-                val.int_cores
-                    .try_into()
-                    .expect("total_cores should fit on a i32"),
-            ),
+            total_cores: CoreSize::from_multiplied(val.int_cores),
             total_memory: ByteSize::kb(val.int_mem_total as u64),
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
-            alloc_available_cores: CoreSize::from_multiplied(
-                val.int_alloc_available_cores
-                    .try_into()
-                    .expect("alloc_available_cores should fit on a i32"),
-            ),
+            alloc_available_cores: CoreSize::from_multiplied(val.int_alloc_available_cores),
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
@@ -179,7 +167,7 @@ FROM host h
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
     INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
     INNER JOIN host_tag ht ON h.pk_host = ht.pk_host
-WHERE LOWER(a.pk_facility) = LOWER($2)
+WHERE a.pk_facility = $2
     AND h.str_lock_state = 'OPEN'
     AND hs.str_state = 'UP'
     AND ht.str_tag = $3
@@ -265,12 +253,12 @@ impl HostDao {
     pub async fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
         show_id: Uuid,
-        facility_id: Uuid,
+        facility_id: &'a str,
         tag: &'a str,
     ) -> Result<Vec<HostModel>, sqlx::Error> {
         let out = sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
             .bind(show_id.to_string())
-            .bind(facility_id.to_string())
+            .bind(facility_id)
             .bind(tag)
             .fetch_all(&*self.connection_pool)
             .await;
@@ -392,7 +380,7 @@ impl HostDao {
 
     /// Restores host resources after a failed RQD launch.
     ///
-    /// This is the reverse of `update_resources` — it adds back the cores, memory, and GPUs
+    /// This is the reverse of `update_resources` - it adds back the cores, memory, and GPUs
     /// that were reserved during dispatch. Used during compensation when the database was
     /// committed but the RQD launch failed.
     pub async fn restore_resources(

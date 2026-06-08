@@ -18,26 +18,43 @@
 
 
 import { getFrame } from "@/app/utils/get_utils";
+import { handleError } from "@/app/utils/notify_utils";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import Editor, { Monaco } from "@monaco-editor/react";
+import { FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import { editor } from "monaco-editor";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import * as path from "path";
-import React, { useEffect, useRef, useState } from "react";
-import CueWebIcon from "../../../components/ui/cuewebicon";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
+
+/**
+ * Best-effort extraction of the job name from a frame's log file path.
+ * RQD writes log files as `<jobName>.<frameName>.rqlog`, so the prefix
+ * up to the first `.` is the job name. Returns an empty string when
+ * the path doesn't follow that convention.
+ */
+function jobNameFromLogPath(logPath: string): string {
+  if (!logPath) return "";
+  const filename = path.basename(logPath);
+  const firstDot = filename.indexOf(".");
+  return firstDot > 0 ? filename.slice(0, firstDot) : "";
+}
 
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;
 
 export default function FramePage() {
   const searchParams = useSearchParams();
+  const routeParams = useParams<{ "frame-name": string }>();
   const [frameObject, setFrame] = React.useState<Frame | null>(null);
   const [totalNumLogLines, setTotalNumLogLines] = useState(-1);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -54,6 +71,12 @@ export default function FramePage() {
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [scrollTrigger, setScrollTrigger] = useState(false);
   const [editorMounted, setEditorMounted] = useState(false);
+  // Status of the log file currently selected in the version dropdown.
+  // `loading` (initial), `ready` (we have lines), `empty` (the log file
+  // exists but is empty), or `missing` (the log file could not be found).
+  const [logStatus, setLogStatus] = useState<
+    "loading" | "ready" | "empty" | "missing"
+  >("loading");
   // To track log line display
   const [logDisplayStart, setLogDisplayStart] = useState(-1);
   const [logDisplayEnd, setLogDisplayEnd] = useState(-1);
@@ -80,15 +103,16 @@ export default function FramePage() {
     try {
       const totalLines = await getLogLineCount();
       if (totalLines == -1) {
-        updateTextInEditor("Could not find log file for the frame.");
+        setLogStatus("missing");
         return;
       }
       if (totalLines === 0) {
-        updateTextInEditor("No log output to display yet.");
+        setLogStatus("empty");
         setNumberOfLinesLoaded(0);
         return;
       }
 
+      setLogStatus("ready");
       setTotalNumLogLines(totalLines);
       let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
       let endline = totalLines;
@@ -239,10 +263,12 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for retrieving log lines
   const fetchPaginatedLogs = async (start: number, end: number) => {
-    let res = await fetch(`/api/getlines?path=${curLogPath}&start=${start}&end=${end}`);
+    let res = await fetch(
+      `/api/getlines?path=${encodeURIComponent(curLogPath)}&start=${start}&end=${end}`,
+    );
     let json = await res.json();
     if (json.error) {
-      alert("error");
+      handleError(json.error, "Could not load frame log lines");
       return;
     }
     return json.lines;
@@ -250,7 +276,7 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for counting lines
   const getLogLineCount = async () => {
-    const numLines = fetch(`/api/countlines?path=${curLogPath}`);
+    const numLines = fetch(`/api/countlines?path=${encodeURIComponent(curLogPath)}`);
     const data = await (await numLines).json();
     const totLines = data.count;
     return totLines;
@@ -261,6 +287,7 @@ export default function FramePage() {
     setCurLogVersion(e.target.value);
     setCurLogPath(path.dirname(logDirPath) + "/" + e.target.value);
     setInitialDataLoaded(false); // Reset data for new log version
+    setLogStatus("loading"); // Re-render the editor on the next fetch
   };
   // Retreives new log versions when the logDirPath changes
   useEffect(() => {
@@ -276,13 +303,29 @@ export default function FramePage() {
     fetchLogVersions();
   }, [logDirPath]);
 
+  const frameNameFromRoute = decodeURIComponent(routeParams?.["frame-name"] ?? "");
+  const derivedJobName = jobNameFromLogPath(logDirPath);
+  const breadcrumbItems = useMemo(() => {
+    const items = [{ label: "Jobs", href: "/" }];
+    if (derivedJobName) {
+      items.push({ label: derivedJobName, href: "" });
+    }
+    if (frameObject?.layerName) {
+      items.push({ label: frameObject.layerName, href: "" });
+    }
+    items.push({
+      label: frameObject?.name || frameNameFromRoute || "Frame",
+      href: "",
+    });
+    // Drop the `href: ""` placeholders so non-clickable segments render
+    // as plain text (only "Jobs" stays a link until the job/layer detail
+    // pages are implemented).
+    return items.map((it) => (it.href === "" ? { label: it.label } : it));
+  }, [derivedJobName, frameObject?.layerName, frameObject?.name, frameNameFromRoute]);
+
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
-      {/* Cueweb icon, Mode Toggle */}
-      <div className="flex items-center justify-between px-1 py-4">
-        <CueWebIcon />
-        <ThemeToggle />
-      </div>
+      <Breadcrumbs items={breadcrumbItems} className="mb-4" />
 
       {/* Table for frame */}
       {frameObject != null ? (
@@ -337,13 +380,60 @@ export default function FramePage() {
           </span>
         </div>
         <div className="mt-1">
-          <Editor
-            theme="my-theme"
-            height="50vh"
-            defaultLanguage="plaintext"
-            defaultValue={defaultMessage.replaceAll("  ", "")}
-            onMount={handleEditorDidMount}
-          />
+          {logStatus === "missing" || logStatus === "empty" ? (
+            <div
+              className="flex items-center justify-center bg-black text-white"
+              style={{ height: "50vh" }}
+            >
+              <EmptyState
+                icon={<FileX className="h-6 w-6" aria-hidden="true" />}
+                title={
+                  logStatus === "missing"
+                    ? "Log file not found"
+                    : "No log output yet"
+                }
+                description={
+                  logStatus === "missing"
+                    ? "Cuebot could not locate the log file for this frame. The frame may not have started yet, or the log has been moved or purged."
+                    : "This frame has no log output yet. Once the frame starts producing lines they will appear here automatically."
+                }
+              />
+            </div>
+          ) : logStatus === "loading" && !initialDataLoaded ? (
+            // Reserve the editor's 50vh footprint and show shimmer
+            // skeleton bars so the panel does not shift when Monaco
+            // mounts and the real log content streams in.
+            <div
+              className="flex flex-col gap-2 bg-black p-6"
+              style={{ height: "50vh" }}
+              aria-busy="true"
+            >
+              <Skeleton className="h-6 w-3/5" />
+              <Skeleton className="h-4 w-2/5" />
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <Skeleton
+                    key={`log-skeleton-${i}`}
+                    className={`h-3 ${
+                      i % 5 === 0
+                        ? "w-3/4"
+                        : i % 3 === 0
+                          ? "w-1/2"
+                          : "w-11/12"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Editor
+              theme="my-theme"
+              height="50vh"
+              defaultLanguage="plaintext"
+              defaultValue={defaultMessage.replaceAll("  ", "")}
+              onMount={handleEditorDidMount}
+            />
+          )}
         </div>
       </div>
     </div>

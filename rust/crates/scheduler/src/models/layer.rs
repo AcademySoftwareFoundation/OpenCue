@@ -23,8 +23,10 @@ use crate::models::{core_size::CoreSize, fmt_uuid, DispatchFrame};
 pub struct DispatchLayer {
     pub id: Uuid,
     pub job_id: Uuid,
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
+    pub folder_id: Uuid,
+    pub dept_id: Uuid,
     pub job_name: String,
     pub layer_name: String,
     pub str_os: Option<String>,

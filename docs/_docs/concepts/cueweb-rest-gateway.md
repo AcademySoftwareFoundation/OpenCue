@@ -31,15 +31,27 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 
 ### Key Features
 
-- **Job Management Dashboard**: View, filter, and manage rendering jobs
+- **Persistent Global Header**: OpenCue logo + **CueWeb** wordmark, plus the full CueGUI menu bar (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** [Attributes / Show Shortcuts / Notify on Shortcut], **Help** with a search box that finds commands across every menu), a theme toggle, and an always-visible Sign out button
+- **Collapsible Left Sidebar**: Same six groups as the header, organized as accordion sections; persists open/closed state and overall collapsed-vs-expanded width across reloads
+- **Disable Job Interaction**: Global read-only safety toggle (File ▸ Disable Job Interaction) that dims every destructive action and shows an amber banner under the header
+- **Attributes Panel**: Docked drawer (Other ▸ Attributes) with a position picker (right / bottom / left / top), filter input, and a collapsible key/value tree of the selected entity
+- **Bottom Status Bar**: IDE-style 24-pixel fixed bar showing REST gateway reachability (Online / Offline + round-trip latency, polled every 10 seconds via `/api/health`), time since the jobs table last refreshed, and the CueWeb build version (`NEXT_PUBLIC_APP_VERSION`). Turns red when the gateway is unreachable.
+- **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a "Home > Jobs > ..." trail above the content. Long labels truncate with an ellipsis; the full text is recoverable on hover.
+- **Job / Layer / Frame tables (CueGUI parity)**: Full CueGUI column sets (Comments / Launched / Eligible / Finished / User Color on Jobs; Eligible on Layers; LLU / Memory (RSS) / Memory (PSS) / Remain / Eligible Time / Submission Time / Last Line on Frames). The Jobs table's dedicated **Comments** column shows a sortable sticky-note icon next to Name, so jobs with comments can be pulled to the top in one click. Per-table substring filter, hide / show + `← / →` reorder + **Reset to Default** in each table's Columns dropdown. Both visibility and ordering persist in `localStorage`.
+- **Inline Layers + Frames panel**: Clicking a job row reveals the associated Layers and Frames tables stacked below the Jobs grid; clicking a layer narrows the frames panel to that layer and pushes the layer attributes into the docked Attributes panel; double-clicking a frame opens the log viewer.
+- **CueGUI-parity context menus**: right-clicking any row in the Jobs, Layers, or Frames tables opens a menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus. Touch devices get the same menu via a `⋮` Actions button as the leftmost cell of each row. Includes **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** (works on plain-HTTP LAN deployments too), plus **View Log** / **Tail Log** (in-browser viewer) and an optional **View Log on \<editor\>** that launches the log file directly in a desktop editor (configured at build time via `NEXT_PUBLIC_LOG_EDITOR_URL`, defaults to VSCode in the sandbox).
+- **Animated progress bar (Jobs AND Layers)**: shared stacked-segment renderer with a hover tooltip showing per-state counts and percentages.
 - **Real-time Updates**: Automatic refresh of job, layer, and frame status
 - **Advanced Search**: Regex-enabled search with dropdown suggestions
 - **Frame Navigation**: Detailed frame inspection with log viewing
 - **Multi-job Operations**: Bulk operations on multiple jobs
 - **Job Comments**: List / add / edit / delete per-job comments (markdown, sanitized) with predefined-comment macros - mirrors CueGUI's Comments dialog
+- **Job-finished Notifications**: Per-job bell that subscribes the browser to an in-app toast (always) and an optional desktop popup (when Notification permission is granted) when the job reaches `FINISHED`. The notify decision is serialized cross-tab via the Web Locks API.
+- **Keyboard shortcuts + menu access**: press `?` (or use Other ▸ Show Shortcuts) for the cheat-sheet overlay. An opt-out toggle (Other ▸ Notify on Shortcut) controls whether a toast names every triggered shortcut.
 - **Dark/Light Mode**: Theme switching for user preference
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta)
+- **Mobile-friendly UI**: Hamburger-triggered nav drawer on phones, per-row `⋮` Actions button so touch users reach the right-click menu via a tap, swipeable wide data tables, and tappable key badges in the shortcuts overlay so single-letter shortcuts work without a physical keyboard.
+- **LAN access by default**: The same image works whether the browser loads CueWeb from `localhost`, a LAN IP, or a reverse-proxy host. Clipboard actions also work over plain-HTTP LAN access.
+- **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta, LDAP)
 
 ### CueWeb vs CueGUI
 
@@ -186,7 +198,7 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | Interface | Description | Example Endpoints |
 |-----------|-------------|-------------------|
 | **ShowInterface** | Project management | `GetShows`, `FindShow`, `CreateShow` |
-| **JobInterface** | Job lifecycle | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment` |
+| **JobInterface** | Job lifecycle + launch | `GetJobs`, `Kill`, `Pause`, `Resume`, `GetComments`, `AddComment`, `SetPriority`, `LaunchSpecAndWait` |
 | **CommentInterface** | Comment management | `Save`, `Delete` |
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |
@@ -211,6 +223,18 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | **ServiceInterface** | Service definitions | `GetService`, `CreateService`, `Update` |
 | **ServiceOverrideInterface** | Service overrides | `Update`, `Delete` |
 | **TaskInterface** | Task management | `Delete`, `SetMinCores` |
+
+### Job Submission (CueSubmit)
+
+CueWeb's `/cuesubmit` route is a browser-based equivalent of the standalone CueSubmit CLI tool. The data path is:
+
+1. The form serializes a typed payload (job info, layers, per-type options) to JSON.
+2. The Next.js route `POST /api/job/submit` parses + validates the payload with zod.
+3. The same route assembles an OpenCue job-spec XML document (the CJSL format that the standalone pyoutline tool also emits) and forwards it to `job.JobInterface/LaunchSpecAndWait` on the REST Gateway.
+4. The gateway calls the same gRPC RPC against cuebot. Cuebot creates the job, dispatches frames as RQDs become available, and returns the resolved `JobSeq` to the gateway.
+5. CueWeb redirects the browser to the tabbed `/jobs/<name>` detail view; the user can immediately watch their frames go WAITING -> RUNNING -> SUCCEEDED.
+
+The browser never needs `outline` / `pyoutline` / `pycuerun` runtime - the XML the CLI tool builds locally is built server-side inside CueWeb's Node process and posted straight to the gateway. This keeps the deploy footprint small and ensures that submissions from the browser are indistinguishable from CueGUI / CueSubmit-CLI submissions on cuebot's side.
 
 ### Real-time Updates
 

@@ -19,6 +19,27 @@
 import type { MouseEvent } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { useJobSubscriptions } from "@/app/utils/use_job_subscriptions";
+import { toastSuccess, toastWarning } from "@/app/utils/notify_utils";
+
+// Request the OS-level Notification permission directly here. The helper
+// that used to live in subscription_utils was removed upstream when the
+// poller switched to in-app toasts; we still want the optional desktop
+// popup upgrade when the user explicitly subscribes, so we prompt inline.
+type NotificationPermissionResult = "granted" | "denied" | "default" | "unsupported";
+
+async function requestNotificationPermission(): Promise<NotificationPermissionResult> {
+  if (typeof window === "undefined" || typeof Notification === "undefined") {
+    return "unsupported";
+  }
+  if (Notification.permission === "granted" || Notification.permission === "denied") {
+    return Notification.permission;
+  }
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return "default";
+  }
+}
 
 interface Props {
   jobId: string;
@@ -36,12 +57,30 @@ export function SubscribeBell({ jobId, jobName, jobState }: Props) {
 
   const isDisabled = !entry && jobState === "FINISHED";
 
-  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // don't trigger the row's click-through to the job detail dialog
     if (entry) {
       unsubscribe(jobId);
+      return;
+    }
+
+    // Subscription is a localStorage flag - it's useful on its own (the
+    // bell turns into a notified-state pip when the job finishes, and the
+    // poller fires an in-app toast). So we ALWAYS subscribe; the OS-level
+    // permission is just an optional upgrade for desktop popups.
+    subscribe(jobId, jobName);
+
+    const permission = await requestNotificationPermission();
+    if (permission === "granted") {
+      toastSuccess(`Subscribed to "${jobName}" - you'll get a desktop popup when it finishes.`);
+    } else if (permission === "denied") {
+      toastWarning(
+        `Subscribed to "${jobName}" (in-app only). Desktop popups are blocked - enable notifications for this site in your browser settings to also receive system popups.`,
+      );
     } else {
-      subscribe(jobId, jobName);
+      // "default" - user dismissed the prompt without choosing. Still
+      // subscribed; they can retry from browser site settings later.
+      toastSuccess(`Subscribed to "${jobName}" (in-app only).`);
     }
   };
 

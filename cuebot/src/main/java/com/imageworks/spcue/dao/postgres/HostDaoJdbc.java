@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +42,7 @@ import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
@@ -593,6 +595,31 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         } catch (EmptyResultDataAccessException e) {
             return 0;
         }
+    }
+
+    // spotless:off
+    private static final String GET_STRANDED_CORE_STATS =
+            "SELECT "
+            + "  alloc.str_name AS alloc_name, "
+            + "  COALESCE(SUM(host.int_cores), 0) AS total_cores, "
+            + "  COALESCE(SUM(host.int_cores_idle), 0) AS idle_cores, "
+            + "  COALESCE(SUM(CASE WHEN host.int_mem_idle <= ? "
+            + "                    THEN host.int_cores_idle ELSE 0 END), 0) AS stranded_cores "
+            + "FROM host "
+            + "INNER JOIN host_stat ON host.pk_host = host_stat.pk_host "
+            + "INNER JOIN alloc ON host.pk_alloc = alloc.pk_alloc "
+            + "WHERE host_stat.str_state = ? AND host.str_lock_state = ? "
+            + "GROUP BY alloc.str_name";
+    // spotless:on
+
+    @Override
+    public List<StrandedCoreStats> getStrandedCoreStats() {
+        return getJdbcTemplate().query(GET_STRANDED_CORE_STATS,
+                (rs, rowNum) -> new StrandedCoreStats(rs.getString("alloc_name"),
+                        rs.getLong("total_cores"), rs.getLong("idle_cores"),
+                        rs.getLong("stranded_cores")),
+                Dispatcher.MEM_STRANDED_THRESHHOLD, HardwareState.UP.toString(),
+                LockState.OPEN.toString());
     }
 
     @Override

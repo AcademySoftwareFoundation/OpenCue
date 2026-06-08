@@ -19,18 +19,37 @@ const { loadServerEnvVars } = require("./app/utils/config");
 // Verify that all environment variables exist and throws an error if they are not defined
 loadServerEnvVars();
 
+// Read the package.json version once at build time so we can expose it to
+// the client as `process.env.NEXT_PUBLIC_APP_VERSION`. An explicit
+// NEXT_PUBLIC_APP_VERSION env var (e.g. set in the Dockerfile to a Git SHA
+// or CI build number) takes precedence over the package.json value.
+const PKG_VERSION = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("./package.json").version || "";
+  } catch (_) {
+    return "";
+  }
+})();
+process.env.NEXT_PUBLIC_APP_VERSION =
+  process.env.NEXT_PUBLIC_APP_VERSION || PKG_VERSION;
+
 const nextConfig = {
   // WebPack is a module bundler for JavaScript applications
   // Running NextJS in dev mode allows webpack to watch for file changes and rebuild when changes happen
   webpack: config => {
     config.watchOptions = {
-      // The interval in milliseconds that webpack checks for file changes 
+      // The interval in milliseconds that webpack checks for file changes
       poll: 1000,
 
       // The delay in milliseconds before webpack rebuilds the app (after first file change)
       aggregateTimeout: 300,
     }
     return config
+  },
+  // Whitelist NEXT_PUBLIC_APP_VERSION so it's inlined into the client bundle.
+  env: {
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
   },
 };
 

@@ -24,8 +24,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CueWebIcon from "@/components/ui/cuewebicon";
 import { handleError } from "@/app/utils/notify_utils";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 export default function Page() {
     const router = useRouter();
@@ -60,8 +58,7 @@ export default function Page() {
     return (
         <div className="flex flex-col sm:flex-row w-full justify-center items-center h-screen bg-gray-100 
             dark:bg-gray-800">
-            <ToastContainer />
-            <div className="flex flex-col sm:flex-row sm:space-x-20 max-w-[100vh] bg-white dark:bg-black sm:px-16 
+            <div className="flex flex-col sm:flex-row sm:space-x-20 max-w-[100vh] bg-white dark:bg-black sm:px-16
                 sm:py-8 rounded-xl">
                 <div className="flex flex-col justify-center items-center">
                     <CueWebIcon/>

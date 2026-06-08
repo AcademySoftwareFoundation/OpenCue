@@ -77,22 +77,32 @@ To enable the Scheduler and Cuebot to run concurrently without competing for wor
 
 ### Cuebot Exclusion Controls
 
-In `opencue.properties`:
+Two complementary mechanisms:
 
-```properties
-# Turn off booking for ALL allocations
-dispatcher.turn_off_booking=false
+- **Global**: Disable all Cuebot booking via `dispatcher.turn_off_booking=true` in `opencue.properties`.
+- **Per-show**: Hand a show to the standalone scheduler with the `cueadmin` toggle:
 
-# Exclude specific show:facility.allocation combinations
-dispatcher.exclusion_list=show1:facility.alloc1,show2:facility.alloc2
-```
+  ```bash
+  cueadmin -scheduler-managed myshow on
+  ```
+
+  This sets `show.b_scheduler_managed=true`; Cuebot's dispatcher then skips that show
+  on its next bookable-shows refresh (≤8 s) and the standalone scheduler owns its
+  dispatch. Run with `off` to hand the show back to Cuebot.
+
+> **Note on earlier preview builds.** Two interim properties — `dispatcher.exclusion_list`
+> and `dispatcher.scheduler_manages_resources` — existed in pre-release builds for the
+> same purpose. They have been removed in favor of the per-show flag. Operators who
+> were running with `dispatcher.exclusion_list=showA,showB,...` should run
+> `cueadmin -scheduler-managed <show> on` for each entry before upgrading, otherwise
+> those shows will resume being booked by Cuebot.
 
 **Migration Strategy**:
-1. Deploy the Scheduler with specific `--alloc_tags` and `--manual_tags`
-2. Configure Cuebot's `dispatcher.exclusion_list` to skip those same tags
-3. Monitor both systems to verify no overlap
-4. Gradually migrate more clusters to the Scheduler
-5. Eventually disable Cuebot booking entirely with `dispatcher.turn_off_booking=true`
+1. Deploy the Scheduler with specific `--alloc_tags` and `--manual_tags`.
+2. Mark each show the Scheduler should own with `cueadmin -scheduler-managed <show> on`.
+3. Monitor both systems to verify no overlap.
+4. Gradually migrate more shows to the Scheduler.
+5. Eventually disable Cuebot booking entirely with `dispatcher.turn_off_booking=true`.
 
 ## Performance Benefits
 

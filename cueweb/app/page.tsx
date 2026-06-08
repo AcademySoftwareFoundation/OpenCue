@@ -18,8 +18,6 @@ import { getJobsForUser } from "@/app/utils/get_utils";
 import { authOptions } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import { columns, Job } from "./jobs/columns";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 // Next.js 15 disallows `ssr: false` in `next/dynamic` from Server Components.
@@ -58,7 +56,6 @@ export default async function Page() {
 
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
-      <ToastContainer />
       <DataTable columns={columns} username={username}/>
     </div>
   );
