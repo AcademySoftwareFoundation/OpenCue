@@ -124,14 +124,8 @@ pub struct CacheRatio;
 ///
 /// # Fields
 ///
-/// * `hit` - Total number of cache hits (hosts found in cache)
-/// * `miss` - Total number of cache misses (required database fetch)
 /// * `hit_ratio` - Percentage of cache hits (0-100)
 #[derive(MessageResponse)]
 pub struct CacheRatioResponse {
-    #[allow(dead_code)]
-    pub hit: u64,
-    #[allow(dead_code)]
-    pub miss: u64,
     pub hit_ratio: usize,
 }

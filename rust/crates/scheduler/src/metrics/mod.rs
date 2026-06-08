@@ -103,6 +103,18 @@ lazy_static! {
         vec![0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 1000.0]
     )
     .expect("Failed to register placement_score_chosen histogram");
+
+    // Incremented when `remove_host_best` exits its bounded inner retry loop
+    // (EPVM_INNER_RETRIES attempts) without committing a host. A sustained
+    // non-zero rate signals contention: candidates are being CAS-busted by
+    // concurrent checkouts faster than we can pick alternates. Pairs with
+    // PLACEMENT_SCORE_CHOSEN — together they describe both the wins and
+    // the give-ups on the EPVM path.
+    pub static ref PLACEMENT_INNER_RETRIES_EXHAUSTED: Counter = register_counter!(
+        "scheduler_placement_inner_retries_exhausted_total",
+        "Times remove_host_best gave up after exhausting its inner retry budget"
+    )
+    .expect("Failed to register placement_inner_retries_exhausted_total counter");
 }
 
 /// Handler for the /metrics endpoint
@@ -219,4 +231,12 @@ pub fn observe_cluster_round_trip(duration: Duration) {
 #[inline]
 pub fn observe_placement_score_chosen(score: f64) {
     PLACEMENT_SCORE_CHOSEN.observe(score);
+}
+
+/// Increments the counter for `remove_host_best` give-ups after the inner
+/// retry budget is exhausted (every candidate's CAS lost to a concurrent
+/// checkout). Called only on the Epvm path.
+#[inline]
+pub fn increment_placement_inner_retries_exhausted() {
+    PLACEMENT_INNER_RETRIES_EXHAUSTED.inc();
 }

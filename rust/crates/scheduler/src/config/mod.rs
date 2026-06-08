@@ -210,7 +210,7 @@ impl Default for StreamConfig {
 /// E-PVM stranding and picks the lowest score. Saturation is the default;
 /// Epvm is opt-in.
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostBookingStrategy {
     Saturation {
         core_saturation: bool,
@@ -257,7 +257,7 @@ impl Default for HostBookingStrategy {
 ///
 /// See `rust/config/scheduler.yaml` for annotated example configurations
 /// (baseline, GPU-scarce, memory-tight, cores-only) and the
-/// `gpu_reservation` semantics.
+/// `gpu_count_reservation` / `gpu_mem_reservation` semantics.
 #[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(default)]
 pub struct ScoreWeights {
@@ -271,10 +271,14 @@ pub struct ScoreWeights {
     /// Penalty per fractional stranded GPU-memory-layer-frame (GPU layers only).
     /// Default `1.0`.
     pub gpu_mem: f64,
-    /// Soft-reservation penalty for non-GPU layers on GPU hosts. Scales the
-    /// host's idle GPU capacity (count + GB). Default `2.0`. See risk #3 — this
-    /// is the weight most likely to need adjustment after a production rollout.
-    pub gpu_reservation: f64,
+    /// Soft-reservation penalty per idle GPU on the host for non-GPU layers.
+    /// Default `2.0`. With 8 idle GPUs, contributes `8 * gpu_count_reservation`
+    /// to the score.
+    pub gpu_count_reservation: f64,
+    /// Soft-reservation penalty per idle GB of GPU memory on the host for
+    /// non-GPU layers. Default `2.0`. With 80 GB idle, contributes
+    /// `80 * gpu_mem_reservation` to the score.
+    pub gpu_mem_reservation: f64,
 }
 
 impl Default for ScoreWeights {
@@ -284,7 +288,8 @@ impl Default for ScoreWeights {
             mem: 1.0,
             gpus: 2.0,
             gpu_mem: 1.0,
-            gpu_reservation: 2.0,
+            gpu_count_reservation: 2.0,
+            gpu_mem_reservation: 2.0,
         }
     }
 }
@@ -519,5 +524,75 @@ impl Config {
                     err
                 ))
             })
+    }
+}
+
+#[cfg(test)]
+mod host_booking_strategy_tests {
+    //! `deny_unknown_fields` is format-agnostic; testing with JSON is
+    //! sufficient to verify the serde behavior we care about (operators
+    //! configure via YAML in production, but the loader uses the same
+    //! `serde::Deserialize` impl).
+    use super::*;
+
+    #[test]
+    fn saturation_accepts_valid_fields() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false}"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Saturation {
+                core_saturation: true,
+                memory_saturation: false
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_accepts_valid_fields() {
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Epvm {
+                max_candidates: 500,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_rejects_saturation_field() {
+        // `core_saturation` belongs to the Saturation variant; under `type: epvm`
+        // it must be rejected, not silently ignored.
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "core_saturation":false,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("core_saturation"),
+            "expected unknown-field error mentioning core_saturation, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn saturation_rejects_epvm_field() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false,"max_candidates":500}"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("max_candidates"),
+            "expected unknown-field error mentioning max_candidates, got: {}",
+            msg
+        );
     }
 }

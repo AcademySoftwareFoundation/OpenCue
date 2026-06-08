@@ -193,6 +193,16 @@ impl JobQueueCli {
                 // Resolving str_tag → pk_alloc at startup is a future enhancement;
                 // for now the matcher's burst snapshot is disabled for CLI-built
                 // alloc tags and falls back to today's burst-unaware behavior.
+                tracing::warn!(
+                    "CLI alloc-tag override for show '{}' tag '{}': pk_alloc not \
+                     resolved; the matcher will skip the subscription burst \
+                     snapshot for this cluster and E-PVM placement will run \
+                     without burst awareness. Use the streamed-cluster path for \
+                     production-equivalent placement. This CLI override is \
+                     scheduled for removal.",
+                    alloc_tag.show,
+                    alloc_tag.tag
+                );
                 clusters.push(Cluster::single_tag(
                     facility_id.clone(),
                     show_id,

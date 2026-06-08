@@ -139,12 +139,12 @@ impl RedisAccounting {
         Ok(v.unwrap_or(0))
     }
 
-    /// Reads the subscription hash's booked cores + burst in one round-trip. Missing
-    /// keys/fields are treated as `(0, 0)`. Used by `MatchingService::process_layer`
-    /// to snapshot the (show, alloc) cap before host checkout — both to early-skip
-    /// over-burst layers and to feed real values into the E-PVM `LayerProfile`. The
-    /// dispatcher hot path still relies on the authoritative Lua booking check; this
-    /// snapshot is an optimistic pre-filter, not authoritative.
+    /// Reads the subscription hash's booked cores + burst in one round-trip from
+    /// `acct:sub:{show_id}:{alloc_id}` (fields `int_cores`, `burst`, both in
+    /// centicores). Missing keys/fields are treated as `(0, 0)`. Non-authoritative:
+    /// the dispatcher's Lua `BOOK_OR_FORCE` call remains the source of truth for
+    /// the booking decision; this is a snapshot suitable for optimistic pre-filters
+    /// and scoring inputs.
     pub async fn read_sub_counters(
         &self,
         show_id: uuid::Uuid,

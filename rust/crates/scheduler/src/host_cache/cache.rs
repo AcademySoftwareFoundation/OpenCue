@@ -63,6 +63,18 @@ pub type MemoryBTree = BTreeMap<MemoryKey, HashSet<HostId>>;
 /// so the actor's `CheckOut` message stays non-generic.
 pub type Gate = fn(&Host, &LayerProfile) -> Option<f64>;
 
+/// One Phase-1 candidate captured by the Epvm scan: the index coordinates
+/// (so we can locate the entry to remove from the B-tree on commit), the
+/// CAS witness (`expected_last_updated`), and the score that determines
+/// commit order in Phase 3.
+struct ScoredCandidate {
+    core_key: CoreKey,
+    memory_key: MemoryKey,
+    host_id: Uuid,
+    expected_last_updated: chrono::DateTime<chrono::Utc>,
+    score: f64,
+}
+
 pub struct HostCache {
     /// B-Tree of host groups ordered by their number of available cores
     hosts_index: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
@@ -305,9 +317,12 @@ impl HostCache {
     /// engages), score them via the gate, and try `atomic_remove_if_valid`
     /// in ascending score order. First successful CAS wins.
     ///
-    /// By design, this is a single-pass operation: if every Phase-3
-    /// commit fails its CAS, returns `None` and the matcher's outer retry
-    /// loop re-enumerates on the next iteration.
+    /// Under contention every Phase-3 commit can lose its CAS to a concurrent
+    /// checkout. In that case we re-scan (up to `EPVM_INNER_RETRIES` times)
+    /// with the just-busted host ids excluded so the re-scan doesn't pick the
+    /// same losers again — mirrors the Saturation path's `failed_candidates`
+    /// retry. If retries are exhausted, returns `None` and the matcher's outer
+    /// retry loop re-enumerates from scratch.
     fn remove_host_best(
         &self,
         cores: CoreSize,
@@ -317,74 +332,109 @@ impl HostCache {
         reserved_check: &impl Fn(&Host) -> bool,
         max_candidates: usize,
     ) -> Option<Host> {
+        const EPVM_INNER_RETRIES: usize = 3;
+
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
 
-        // Phase 1 + 2: scan and score under the index read lock. Memory floor
-        // is enforced by the `memory_key..` range; cores floor by `core_key..`.
-        // Saturated-first iteration on both dims so candidates are visited in
-        // best-first order until `max_candidates` is hit.
-        let mut scored: Vec<(CoreKey, MemoryKey, Uuid, chrono::DateTime<chrono::Utc>, f64)> = {
-            let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
-            let mut acc = Vec::with_capacity(max_candidates.min(64));
+        // Phase 3 CAS failures within this call. Any host_id added here is
+        // skipped by subsequent re-scans so we don't burn retries scoring and
+        // re-failing the same losing candidates.
+        let mut failed_candidates: HashSet<Uuid> = HashSet::new();
 
-            'outer: for (by_core_key, hosts_by_memory) in host_index_lock.range(core_key..) {
-                for (by_memory_key, hosts) in hosts_by_memory.range(memory_key..) {
-                    for host_id in hosts.iter() {
-                        if let Some(host) = HOST_STORE.get(host_id) {
-                            if !reserved_check(&host) {
+        // Phase 3 validation: re-check the gate (atomic_remove_if_valid
+        // CAS-guards last_updated, so a successful commit means the host
+        // snapshot is identical to what we scored).
+        let host_validation = |host: &Host| gate(host, profile).is_some() && reserved_check(host);
+
+        for _ in 0..EPVM_INNER_RETRIES {
+            // Phase 1 + 2: scan and score under the index read lock. Memory
+            // floor is enforced by the `memory_key..` range; cores floor by
+            // `core_key..`. Saturated-first iteration on both dims so
+            // candidates are visited in best-first order until `max_candidates`
+            // is hit. Hosts in `failed_candidates` (CAS-busted earlier in this
+            // call) are skipped here.
+            let mut scored: Vec<ScoredCandidate> = {
+                let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
+                let mut acc = Vec::with_capacity(max_candidates.min(64));
+
+                'outer: for (by_core_key, hosts_by_memory) in host_index_lock.range(core_key..) {
+                    for (by_memory_key, hosts) in hosts_by_memory.range(memory_key..) {
+                        for host_id in hosts.iter() {
+                            if failed_candidates.contains(host_id) {
                                 continue;
                             }
-                            if let Some(score) = gate(&host, profile) {
-                                acc.push((
-                                    *by_core_key,
-                                    *by_memory_key,
-                                    *host_id,
-                                    host.last_updated,
-                                    score,
-                                ));
-                                if acc.len() >= max_candidates {
-                                    break 'outer;
+                            if let Some(host) = HOST_STORE.get(host_id) {
+                                if !reserved_check(&host) {
+                                    continue;
+                                }
+                                if let Some(score) = gate(&host, profile) {
+                                    acc.push(ScoredCandidate {
+                                        core_key: *by_core_key,
+                                        memory_key: *by_memory_key,
+                                        host_id: *host_id,
+                                        expected_last_updated: host.last_updated,
+                                        score,
+                                    });
+                                    if acc.len() >= max_candidates {
+                                        break 'outer;
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                acc
+            };
+
+            if scored.is_empty() {
+                return None;
             }
-            acc
-        };
 
-        // Sort ascending: lowest stranding wins.
-        scored.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
+            // Sort ascending: lowest stranding wins.
+            scored.sort_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
-        // Phase 3: try commits in score order. The validation closure must
-        // re-check the gate because the host may have changed between Phase 1
-        // and Phase 3 (atomic_remove_if_valid already CAS-guards last_updated,
-        // so a successful commit means we have the same snapshot).
-        let host_validation = |host: &Host| gate(host, profile).is_some() && reserved_check(host);
+            // Phase 3: try commits in score order. Within this attempt the
+            // `for ... continue` already skips past CAS failures; the
+            // failed_candidates set protects the *next* attempt's re-scan from
+            // re-picking the same losers.
+            for candidate in scored {
+                match HOST_STORE.atomic_remove_if_valid(
+                    &candidate.host_id,
+                    candidate.expected_last_updated,
+                    host_validation,
+                ) {
+                    Ok(Some(removed_host)) => {
+                        let mut host_index_lock =
+                            self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
 
-        for (by_core_key, by_memory_key, host_id, expected_last_updated, score) in scored {
-            match HOST_STORE.atomic_remove_if_valid(
-                &host_id,
-                expected_last_updated,
-                host_validation,
-            ) {
-                Ok(Some(removed_host)) => {
-                    let mut host_index_lock =
-                        self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
+                        host_index_lock
+                            .get_mut(&candidate.core_key)
+                            .and_then(|hosts_by_memory| {
+                                hosts_by_memory.get_mut(&candidate.memory_key)
+                            })
+                            .map(|hosts| hosts.remove(&candidate.host_id));
 
-                    host_index_lock
-                        .get_mut(&by_core_key)
-                        .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
-                        .map(|hosts| hosts.remove(&host_id));
-
-                    metrics::observe_placement_score_chosen(score);
-                    return Some(removed_host);
+                        metrics::observe_placement_score_chosen(candidate.score);
+                        return Some(removed_host);
+                    }
+                    Ok(None) | Err(()) => {
+                        failed_candidates.insert(candidate.host_id);
+                        continue;
+                    }
                 }
-                Ok(None) | Err(()) => continue,
             }
         }
 
+        // Fell through every retry attempt without committing — every scan
+        // had candidates but every CAS lost. The `scored.is_empty()` early
+        // return above filters out the no-candidate case, so this is purely
+        // a contention signal.
+        metrics::increment_placement_inner_retries_exhausted();
         None
     }
 
@@ -874,36 +924,47 @@ mod tests {
     fn epvm_respects_max_candidates_cap() {
         let cache = epvm_cache(2);
 
-        // Add three hosts. Cap = 2 means only the first 2 visited are scored;
-        // the 3rd is never considered even if it would score lowest.
-        // B-tree iterates saturated-first; with all hosts at same (cores, mem),
-        // iteration order within a bucket is HashSet-arbitrary but bounded.
-        let id_a = Uuid::from_bytes([0x10; 16]);
-        let id_b = Uuid::from_bytes([0x20; 16]);
-        let id_c = Uuid::from_bytes([0x05; 16]);
+        // Place each host in its own B-tree bucket so the scan order is
+        // deterministic: ascending (core_key, memory_key). With cap=2 only
+        // the first two buckets are visited; the third host is never scored
+        // even though its id_byte gives it the lowest (best) score.
+        //
+        // Bucket A: ( 2 cores,  2GB) — visited 1st — id_byte 0x42 (worst)
+        // Bucket B: ( 4 cores,  4GB) — visited 2nd — id_byte 0x21 (medium)
+        // Bucket C: ( 8 cores,  8GB) — NEVER visited under cap=2 — id_byte 0x07 (best)
+        //
+        // UUIDs avoid the 0x05/0x10/0x20 bytes used by `epvm_picks_lowest_score`
+        // — the global HOST_STORE leaks state across tests, and reusing those
+        // ids causes the prior test's host resources to mask this test's
+        // bucket assignments.
+        let id_a = Uuid::from_bytes([0x42; 16]);
+        let id_b = Uuid::from_bytes([0x21; 16]);
+        let id_c = Uuid::from_bytes([0x07; 16]);
 
-        cache.check_in(create_test_host(id_a, 8, ByteSize::gb(16)), false);
-        cache.check_in(create_test_host(id_b, 8, ByteSize::gb(16)), false);
-        cache.check_in(create_test_host(id_c, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(id_a, 2, ByteSize::gb(2)), false);
+        cache.check_in(create_test_host(id_b, 4, ByteSize::gb(4)), false);
+        cache.check_in(create_test_host(id_c, 8, ByteSize::gb(8)), false);
 
-        let profile = test_profile(2, ByteSize::gb(4));
+        let profile = test_profile(2, ByteSize::gb(2));
         let chosen = cache
             .check_out(
                 CoreSize(2),
-                ByteSize::gb(4),
+                ByteSize::gb(2),
                 &profile,
                 id_byte_gate,
                 no_reservation_check,
             )
             .expect("expected a checkout");
 
-        // With cap=2 and HashSet iteration arbitrary, the lowest score winner
-        // is one of the first 2 visited — not necessarily id_c (0x05). The
-        // chosen host's id MUST be one of the three checked-in ids though.
-        assert!(
-            chosen.id == id_a || chosen.id == id_b || chosen.id == id_c,
-            "unexpected host id {}",
-            chosen.id
+        // With the cap enforced: id_c is never scored, so the winner is the
+        // lowest of {id_a, id_b}, which is id_b (0x10 < 0x20).
+        //
+        // Without the cap (regression): id_c WOULD be scored and would win
+        // since 0x05 is the lowest. So an assertion that the chosen host is
+        // id_b actively verifies the cap is enforced.
+        assert_eq!(
+            chosen.id, id_b,
+            "expected id_b to win under cap=2 (id_c should not have been scored)"
         );
     }
 

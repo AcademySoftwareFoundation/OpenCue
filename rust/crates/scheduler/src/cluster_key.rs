@@ -21,6 +21,15 @@ pub enum TagType {
     Hardware,
 }
 
+/// IDENTITY NOTE: the derived `Hash`/`PartialEq`/`Eq`/`Ord` include every field,
+/// so `alloc_id` participates in tag identity. A `Tag{name, Alloc, Some(uuid)}`
+/// and a `Tag{name, Alloc, None}` with the same `name`/`ttype` are *distinct*
+/// keys in `BTreeSet<Tag>` and `HashMap<ClusterKey, _>`. Today the DB-loaded
+/// path produces `Some(uuid)` for alloc tags and the CLI override path produces
+/// `None`; the two are not mixed within a single set, so this is latent. The
+/// CLI override path for alloc tags is being discontinued in the next stage,
+/// after which every `TagType::Alloc` tag carries a resolved `alloc_id` and
+/// this becomes a non-issue.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tag {
     pub name: String,

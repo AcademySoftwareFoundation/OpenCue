@@ -198,11 +198,12 @@ pub fn placement_score(host: &Host, profile: &LayerProfile) -> f64 {
         );
         w.gpus * g_waste + w.gpu_mem * gm_waste
     } else {
-        // SI gigabytes — exact divisor doesn't matter; what matters is that
-        // the penalty scales with the host's GPU capacity and is on the same
-        // order as the W3-normalized stranding terms.
-        let gpu_capacity_gb = host.idle_gpus as f64 + (host.idle_gpu_memory.as_u64() as f64 / 1e9);
-        w.gpu_reservation * gpu_capacity_gb
+        // Soft-reservation penalty for non-GPU layers on GPU hosts. Count and
+        // GB are scaled by independent weights so operators tune the
+        // count-vs-memory balance explicitly. SI gigabytes (1e9) for the
+        // memory unit.
+        let idle_gpu_mem_gb = host.idle_gpu_memory.as_u64() as f64 / 1e9;
+        w.gpu_count_reservation * host.idle_gpus as f64 + w.gpu_mem_reservation * idle_gpu_mem_gb
     };
 
     w.cores * cores_waste + w.mem * mem_waste + gpu_term
@@ -515,7 +516,9 @@ mod scoring_tests {
         // Java parity: 4-core / 4GB host, 4-core / 4GB layer → max_more=0, score=0
         let h = host(4, 4, 0, 0);
         let mut l = layer(4, 4, 0, 0);
-        l.weights.gpu_reservation = 0.0; // no GPU on host so this is moot
+        // no GPU on host so reservation penalty is moot
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.0;
         assert_eq!(placement_score(&h, &l), 0.0);
     }
 
@@ -524,7 +527,8 @@ mod scoring_tests {
         // Java parity: 64-core / 64GB host, 4-core / 4GB layer → max_more=15, score=0
         let h = host(64, 64, 0, 0);
         let mut l = layer(4, 4, 0, 0);
-        l.weights.gpu_reservation = 0.0;
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.0;
         assert_eq!(placement_score(&h, &l), 0.0);
     }
 
@@ -534,7 +538,8 @@ mod scoring_tests {
         // memory has 60GB stranded.
         let h = host(4, 64, 0, 0);
         let mut l = layer(4, 4, 0, 0);
-        l.weights.gpu_reservation = 0.0;
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.0;
         // mem_waste = ((64GB - 4GB) - 0 * 4GB) / 4GB = 15 fractional frames
         // score = weights.mem * 15 = 15.0 with defaults.
         let s = placement_score(&h, &l);
@@ -546,7 +551,8 @@ mod scoring_tests {
         let h = host(4, 64, 0, 0);
         let mut l = layer(4, 4, 0, 0);
         l.weights.mem = 2.0; // double the memory weight
-        l.weights.gpu_reservation = 0.0;
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.0;
         let s = placement_score(&h, &l);
         assert!(s > 29.99 && s < 30.01, "expected ~30, got {}", s);
     }
@@ -558,13 +564,16 @@ mod scoring_tests {
         let gpu_host = host(4, 4, 8, 80);
         let non_gpu_host = host(4, 4, 0, 0);
         let mut l = layer(4, 4, 0, 0);
-        l.weights.gpu_reservation = 1.0;
+        // Equal-weight split so the legacy single-knob math (penalty = count + GB)
+        // is preserved as the baseline.
+        l.weights.gpu_count_reservation = 1.0;
+        l.weights.gpu_mem_reservation = 1.0;
 
         let s_gpu = placement_score(&gpu_host, &l);
         let s_non_gpu = placement_score(&non_gpu_host, &l);
 
         assert_eq!(s_non_gpu, 0.0);
-        // Penalty = 1.0 * (8 + 80) = 88
+        // Penalty = 1.0 * 8 + 1.0 * 80 = 88
         assert!(
             s_gpu > 87.99 && s_gpu < 88.01,
             "expected ~88, got {}",
@@ -573,10 +582,39 @@ mod scoring_tests {
     }
 
     #[test]
+    fn score_split_gpu_reservation_weights_independent() {
+        // Same host, vary each reservation weight independently and check that
+        // each contributes only the dimension it controls.
+        let gpu_host = host(4, 4, 8, 80);
+        let mut l = layer(4, 4, 0, 0);
+
+        // Count-only: should be 3.0 * 8 + 0.0 * 80 = 24
+        l.weights.gpu_count_reservation = 3.0;
+        l.weights.gpu_mem_reservation = 0.0;
+        let s_count_only = placement_score(&gpu_host, &l);
+        assert!(
+            (s_count_only - 24.0).abs() < 0.01,
+            "expected ~24, got {}",
+            s_count_only
+        );
+
+        // Mem-only: should be 0.0 * 8 + 0.5 * 80 = 40
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.5;
+        let s_mem_only = placement_score(&gpu_host, &l);
+        assert!(
+            (s_mem_only - 40.0).abs() < 0.01,
+            "expected ~40, got {}",
+            s_mem_only
+        );
+    }
+
+    #[test]
     fn score_non_gpu_layer_on_non_gpu_host_no_gpu_term() {
         let h = host(4, 4, 0, 0);
         let l = layer(4, 4, 0, 0);
-        // Even with default gpu_reservation = 2.0, host has 0 GPUs → 0 penalty.
+        // Even with default reservation weights (2.0, 2.0), host has 0 GPUs and
+        // 0 GPU memory → 0 penalty.
         assert_eq!(placement_score(&h, &l), 0.0);
     }
 
@@ -586,7 +624,9 @@ mod scoring_tests {
         // GPU dimensions contribute via W3 stranding only.
         let h = host(4, 4, 4, 8);
         let mut l = layer(4, 4, 2, 8);
-        l.weights.gpu_reservation = 100.0; // would dominate if applied
+        // Would dominate if applied.
+        l.weights.gpu_count_reservation = 100.0;
+        l.weights.gpu_mem_reservation = 100.0;
 
         let s = placement_score(&h, &l);
         // GPU: (4-2 - 1*2) / 2 = 0, GPU mem: (8-8 - 1*8) / 8 = -1
@@ -628,7 +668,8 @@ mod scoring_tests {
     fn epvm_gate_returns_score_when_valid() {
         let h = host(64, 64, 0, 0);
         let mut l = layer(4, 4, 0, 0);
-        l.weights.gpu_reservation = 0.0;
+        l.weights.gpu_count_reservation = 0.0;
+        l.weights.gpu_mem_reservation = 0.0;
         // Ratio match → score 0
         assert_eq!(epvm_gate(&h, &l), Some(0.0));
     }
@@ -658,7 +699,9 @@ mod scoring_tests {
             prop_assume!(idle_mem_gb >= mem_min_gb);
             let h = host(idle_cores, idle_mem_gb, 0, 0);
             let mut l = layer(cores_min, mem_min_gb, 0, 0);
-            l.weights.gpu_reservation = 0.0; // GPU term zero on non-GPU host anyway
+            // GPU terms zero on non-GPU host anyway, but be explicit.
+            l.weights.gpu_count_reservation = 0.0;
+            l.weights.gpu_mem_reservation = 0.0;
             let s = placement_score(&h, &l);
             prop_assert!(s >= 0.0, "score was negative: {}", s);
         }
@@ -674,7 +717,9 @@ mod scoring_tests {
             let h_a = host(4, 4, gpus_a, 0);
             let h_b = host(4, 4, gpus_b, 0);
             let mut l = layer(4, 4, 0, 0);
-            l.weights.gpu_reservation = 1.0;
+            // Only count varies in this prop; isolate the count knob.
+            l.weights.gpu_count_reservation = 1.0;
+            l.weights.gpu_mem_reservation = 0.0;
             let s_a = placement_score(&h_a, &l);
             let s_b = placement_score(&h_b, &l);
             prop_assert!(s_b > s_a, "expected {} > {} (a={} gpus, b={} gpus)", s_b, s_a, gpus_a, gpus_b);
@@ -691,7 +736,8 @@ mod scoring_tests {
             // Host is k times the layer on both dims (so ratios match).
             let h = host((cores_min as u64 * k) as i32, mem_min_gb * k, 0, 0);
             let mut l = layer(cores_min, mem_min_gb, 0, 0);
-            l.weights.gpu_reservation = 0.0;
+            l.weights.gpu_count_reservation = 0.0;
+            l.weights.gpu_mem_reservation = 0.0;
             let s = placement_score(&h, &l);
             prop_assert!(s.abs() < 1e-6, "expected ~0, got {}", s);
         }

@@ -182,8 +182,6 @@ impl Handler<CacheRatio> for HostCacheService {
 
     fn handle(&mut self, _msg: CacheRatio, _ctx: &mut Self::Context) -> Self::Result {
         CacheRatioResponse {
-            hit: self.cache_hit.load(atomic::Ordering::Relaxed),
-            miss: self.cache_miss.load(atomic::Ordering::Relaxed),
             hit_ratio: self.cache_hit_ratio(),
         }
     }

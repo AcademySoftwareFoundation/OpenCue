@@ -256,7 +256,7 @@ impl MatchingService {
         } else {
             None
         };
-        let (show_cores_in_use, show_burst): (i32, i32) = match alloc_id_opt {
+        let (initial_show_cores_in_use, show_burst): (i32, i32) = match alloc_id_opt {
             Some(alloc_id) => match self
                 .accounting
                 .redis()
@@ -287,7 +287,8 @@ impl MatchingService {
         // and self-corrects on the next wake; the Lua booking call remains
         // authoritative on the actual booking.
         if show_burst > 0
-            && show_cores_in_use.saturating_add(dispatch_layer.cores_min.value()) > show_burst
+            && initial_show_cores_in_use.saturating_add(dispatch_layer.cores_min.value())
+                > show_burst
         {
             metrics::increment_accounting_limit_exceeded("subscription");
             debug!(
@@ -297,7 +298,7 @@ impl MatchingService {
                 dispatch_layer,
                 dispatch_layer.show_id,
                 alloc_id_opt,
-                show_cores_in_use,
+                initial_show_cores_in_use,
                 dispatch_layer.cores_min.value(),
                 show_burst,
                 cluster,
@@ -310,6 +311,7 @@ impl MatchingService {
                 .await;
             return;
         }
+        let mut local_show_cores_booked: i32 = 0;
 
         // Use Option to handle ownership transfer cleanly
         let mut current_layer_version = Some(dispatch_layer);
@@ -379,7 +381,7 @@ impl MatchingService {
                 job_max_cores: layer.job_max_cores,
                 show_burst,
                 job_cores_in_use: initial_job_cores_in_use + local_job_cores_booked,
-                show_cores_in_use,
+                show_cores_in_use: initial_show_cores_in_use + local_show_cores_booked,
                 weights,
             };
 
@@ -419,11 +421,15 @@ impl MatchingService {
                             updated_layer,
                         }) => {
                             // Track cores actually consumed so the next iteration's
-                            // LayerProfile sees the local picture of usage.
+                            // LayerProfile sees the local picture of usage. The same
+                            // delta applies to the (show, alloc) subscription burst
+                            // since every dispatched frame counts against both caps.
                             let dispatched = frames_before_dispatch
                                 .saturating_sub(updated_layer.frames.len())
                                 as i32;
-                            local_job_cores_booked += dispatched * cores_per_frame;
+                            let booked_cores = dispatched * cores_per_frame;
+                            local_job_cores_booked += booked_cores;
+                            local_show_cores_booked += booked_cores;
 
                             self.host_service
                                 .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
