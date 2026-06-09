@@ -54,6 +54,7 @@ import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
 import { SetCoresDialog } from "@/components/ui/set-cores-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
+import { UnbookDialog } from "@/components/ui/unbook-dialog";
 import { ViewDependenciesDialog } from "@/components/ui/view-dependencies-dialog";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
 import JobSearchbox from "@/components/ui/jobs-searchbox";
@@ -2080,6 +2081,11 @@ export function DataTable({ columns, username }: DataTableProps) {
           through picking a dependency type and target object, then
           dispatches to the matching CreateDependencyOn* RPC. */}
       <DependencyWizardDialog />
+
+      {/* Unbook dialog (#2288). Mounted once here; opens in response to a
+          `cueweb:open-unbook` CustomEvent fired from the row context menu's
+          "Unbook..." entry. Job-scoped unbook with an optional kill step. */}
+      <UnbookDialog />
 
       {/* Batch-action confirmation (#2283). Opened by the toolbar bulk
           actions via runBulkAction: kill/eat/retry always confirm,

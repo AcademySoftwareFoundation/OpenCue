@@ -49,6 +49,7 @@ import {
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
   subscribeToJobGivenRow,
+  unbookGivenRow,
   unlockHostGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
@@ -446,10 +447,10 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
     {
-      label: "Unbook",
-      onClick: notYetImplemented("Unbook"),
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+      label: "Unbook...",
+      onClick: unbookGivenRow,
+      isActive: destructiveActive,
+      component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
     {
       label: "Kill",

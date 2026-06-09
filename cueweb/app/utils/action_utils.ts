@@ -163,6 +163,20 @@ export async function retryFrames(frames: Frame[]) {
   await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
 }
 
+/**************************************/
+// Unbook
+/**************************************/
+
+// Unbook every proc a job currently holds (CueWeb #2288). Job-scoped MVP:
+// the proc search criteria is just { jobs: [job.name] }. kill=true also kills
+// the running frames. Allocation / amount / redirect scoping from CueGUI's
+// UnbookDialog is intentionally deferred. Returns performAction's success
+// boolean so the dialog can gate its table refresh on success.
+export async function unbookJob(job: Job, kill: boolean): Promise<boolean> {
+  const endpoint = "/api/proc/action/unbook";
+  const body = JSON.stringify({ r: { jobs: [job.name] }, kill });
+  return performAction(endpoint, [body], kill ? `Unbooked and killed procs on ${job.name}` : `Unbooked procs on ${job.name}`);
+}
 
 /**************************************/
 // Job Comments
@@ -880,6 +894,21 @@ export function subscribeToJobGivenRow(row: Row<any>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Unbook..." handler. Dispatches a CustomEvent that the
+// UnbookDialog (mounted at the page level) listens for; the dialog opens
+// with an optional "Kill unbooked frames?" checkbox and calls unbookJob on
+// confirm. Decoupled this way so the free-function context-menu handlers
+// don't need to reach into the table's component state.
+export function unbookGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-unbook", {
       detail: { job },
     }),
   );
