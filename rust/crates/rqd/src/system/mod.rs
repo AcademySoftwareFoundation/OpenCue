@@ -12,6 +12,7 @@
 
 use uuid::Uuid;
 
+pub mod capabilities;
 #[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
 pub mod linux;
 pub mod machine;
