@@ -764,28 +764,20 @@ scheduler_host_cache_hits_total
 
 ### Cluster Configuration
 
-**Allocation Tags**:
+**Show selection** is driven solely by the `show.b_scheduler_managed` boolean DB column
+(toggled with `cueadmin -scheduler-managed <show> on|off`). The scheduler automatically
+loads *all* clusters — allocation, manual-tag, hostname-tag, and hardware host-tag — for
+every show where `b_scheduler_managed = true`. There is no per-show, per-allocation, or
+per-tag selection in the config; a show is wholly scheduler-managed or wholly
+Cuebot-managed.
+
+**Facility**:
 ```yaml
 scheduler:
-  alloc_tags:
-    - show: myshow
-      tag: general
+  facility: spi
 ```
 
-Loads one cluster per entry: `(facility_id, show_id, "general")`
-
-**Manual Tags**:
-```yaml
-scheduler:
-  manual_tags:
-    - urgent
-    - desktop
-    - workstation
-```
-
-Chunks into groups (default: 100 tags per cluster):
-- Cluster 1: `(facility_id, [urgent, desktop, workstation])`
-- If more than 100 tags, splits into multiple clusters
+Optionally scopes the instance to one facility's scheduler-managed clusters.
 
 **Ignore Tags**:
 ```yaml
@@ -794,7 +786,22 @@ scheduler:
     - deprecated_tag
 ```
 
-Filters out specified tags from all cluster types before processing.
+Filters out specified tags from all loaded clusters before processing.
+
+**Cluster Reload Interval**:
+```yaml
+queue:
+  cluster_reload_interval: 120s
+```
+
+Interval between full reloads of the cluster set from the DB. The scheduler periodically
+rebuilds the set of clusters from all currently-managed shows and swaps the live set only
+when it actually changed, so flipping `b_scheduler_managed` (and host-tag / subscription
+changes) is picked up without a restart. Default: 120s.
+
+The manual-tag and hostname-tag chunk sizes (`queue.manual_tags_chunk_size`,
+`queue.hostname_tags_chunk_size`) control how DB-loaded host-tags are grouped into
+clusters (see [Cluster System](#1-cluster-system)).
 
 ### Performance Tuning
 
@@ -904,24 +911,28 @@ The matching Cuebot side requires `accounting.redis.enabled=true` and the same
 
 ### Current Architecture (v1.0)
 
-The scheduler supports distributed operation via manual cluster assignment:
+The scheduler supports distributed operation by scoping each instance to a facility with
+`--facility`. Show ownership is selected by the per-show `b_scheduler_managed` flag, and
+each instance automatically loads all clusters (allocation, manual, hostname, and
+hardware host-tags) for every scheduler-managed show in its facility:
 
 **Instance 1**:
 ```bash
-cue-scheduler --alloc_tags=show1:general,show1:priority
+cue-scheduler --facility spi
 ```
 
 **Instance 2**:
 ```bash
-cue-scheduler --alloc_tags=show2:general,show2:priority
+cue-scheduler --facility lax
 ```
 
-**Instance 3**:
-```bash
-cue-scheduler --manual_tags=urgent,desktop
-```
+There is no hand-listing of tags or clusters. To move work onto (or off) the scheduler,
+toggle the show with `cueadmin -scheduler-managed <show> on|off`; the change is picked up
+on the next cluster reload (`queue.cluster_reload_interval`, default 120s) with no
+restart.
 
-**Critical**: Ensure no cluster overlap between instances to prevent race conditions.
+**Critical**: When running multiple instances, scope them to non-overlapping facilities
+to prevent two instances from owning the same clusters.
 
 ### Coordination Mechanisms
 
