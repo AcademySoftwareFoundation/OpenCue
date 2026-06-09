@@ -34,8 +34,9 @@ use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
     config::CONFIG,
     dao::HostDao,
-    host_cache::{messages::*, store, *},
+    host_cache::{cache::Gate, messages::*, store, *},
     models::{CoreSize, Host},
+    pipeline::placement::LayerProfile,
 };
 
 #[derive(Clone)]
@@ -123,20 +124,18 @@ impl Actor for HostCacheService {
     }
 }
 
-impl<F> Handler<CheckOut<F>> for HostCacheService
-where
-    F: Fn(&Host) -> bool + 'static,
-{
+impl Handler<CheckOut> for HostCacheService {
     type Result = ResponseActFuture<Self, Result<CheckedOutHost, HostCacheError>>;
 
-    fn handle(&mut self, msg: CheckOut<F>, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: CheckOut, _ctx: &mut Self::Context) -> Self::Result {
         let CheckOut {
             facility_id,
             show_id,
             tags,
             cores,
             memory,
-            validation,
+            profile,
+            gate,
         } = msg;
 
         let service = self.clone();
@@ -144,7 +143,7 @@ where
         Box::pin(
             async move {
                 let out = service
-                    .check_out(facility_id, show_id, tags, cores, memory, validation)
+                    .check_out(facility_id, show_id, tags, cores, memory, profile, gate)
                     .await;
                 if let Ok(host) = &out {
                     debug!("Checked out {}", host.1);
@@ -233,27 +232,25 @@ impl HostCacheService {
     ///
     /// * `Ok(CheckedOutHost)` - Host with cluster key
     /// * `Err(HostCacheError)` - No suitable host found or database error
-    async fn check_out<F>(
+    #[allow(clippy::too_many_arguments)]
+    async fn check_out(
         &self,
         facility_id: String,
         show_id: Uuid,
         tags: Vec<Tag>,
         cores: CoreSize,
         memory: ByteSize,
-        validation: F,
-    ) -> Result<CheckedOutHost, HostCacheError>
-    where
-        F: Fn(&Host) -> bool,
-    {
+        profile: LayerProfile,
+        gate: Gate,
+    ) -> Result<CheckedOutHost, HostCacheError> {
         let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
 
-        // Extend validation to also check for hosts that are already reserved
-        let validation = |host: &Host| {
-            let available = self
-                .reserved_hosts
+        // Per-actor reservation availability check. ANDed with the gate inside
+        // the cache so reserved hosts are skipped during scan/score.
+        let reserved_check = |host: &Host| {
+            self.reserved_hosts
                 .read_sync(&host.id, |_, reservation| reservation.expired())
-                .unwrap_or(true);
-            validation(host) && available
+                .unwrap_or(true)
         };
 
         for cache_key in cache_keys {
@@ -266,8 +263,7 @@ impl HostCacheService {
                 .read_async(&cache_key, |_, cached_group| {
                     if !cached_group.expired() {
                         cached_group
-                            // Checkout host from a group
-                            .check_out(cores, memory, validation)
+                            .check_out(cores, memory, &profile, gate, reserved_check)
                             .map(|host| (cache_key.clone(), host.clone()))
                             .ok()
                     } else {
@@ -289,8 +285,7 @@ impl HostCacheService {
                         .await
                         .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
                     let checked_out_host = group
-                        // Checkout host from a group
-                        .check_out(cores, memory, validation)
+                        .check_out(cores, memory, &profile, gate, reserved_check)
                         .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
 
                     if let Ok(checked_out_host) = checked_out_host {

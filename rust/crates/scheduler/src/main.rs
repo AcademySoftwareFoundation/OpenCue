@@ -189,12 +189,17 @@ impl JobQueueCli {
                 let show_id = cluster::get_show_id(&alloc_tag.show)
                     .await
                     .wrap_err(format!("Could not find show {}.", alloc_tag.show))?;
+                // CLI override path: we only have str_tag, not pk_alloc.
+                // Resolving str_tag → pk_alloc at startup is a future enhancement;
+                // for now the matcher's burst snapshot is disabled for CLI-built
+                // alloc tags and falls back to today's burst-unaware behavior.
                 clusters.push(Cluster::single_tag(
                     facility_id.clone(),
                     show_id,
                     Tag {
                         name: alloc_tag.tag.clone(),
                         ttype: TagType::Alloc,
+                        alloc_id: None,
                     },
                 ));
             }
@@ -213,6 +218,7 @@ impl JobQueueCli {
                         .map(|name| Tag {
                             name: name.clone(),
                             ttype: TagType::Manual,
+                            alloc_id: None,
                         })
                         .collect(),
                 ));

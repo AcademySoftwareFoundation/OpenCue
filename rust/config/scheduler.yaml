@@ -151,15 +151,92 @@ queue:
   #   # Default: 3
   #   job_buffer_size: 3
 
-  # Host booking strategy configuration
-  # host_booking_strategy:
-  #   # Enable core saturation booking
-  #   # Default: true
-  #   core_saturation: true
+  # ---------------------------------------------------------------------------
+  # Host booking strategy. Two variants:
   #
-  #   # Enable memory saturation booking
-  #   # Default: false
+  # Saturation (default) — legacy first-fit. Saturation flags control B-tree
+  # iteration direction (saturated-first vs spread-first per dimension).
+  # host_booking_strategy:
+  #   type: saturation
+  #   core_saturation: true
   #   memory_saturation: false
+  #
+  # Epvm — E-PVM stranding score; picks the lowest-scoring host among up to
+  # `max_candidates` scanned. Iteration is always saturated-first under Epvm,
+  # independent of the Saturation flags. `weights` express per-dimension
+  # importance ratios (W3 normalization, see scheduler design doc).
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_reservation: 2.0
+  #
+  # --- gpu_reservation (soft-reservation penalty) ----------------------------
+  # Applied ONLY when the layer requests no GPUs (gpus_min == 0). It penalizes
+  # GPU hosts proportional to their idle GPU capacity (idle GPU count + idle
+  # GPU memory in GB), nudging non-GPU work onto non-GPU hosts. Unlike the
+  # other weights, this scales a raw capacity term (not a normalized stranding
+  # term) — 1.0 means "1 idle GPU or 1GB idle GPU memory contributes 1 score
+  # unit". A typical setting is 2.0: strong enough to push GPU hosts behind
+  # non-GPU hosts for non-GPU work, weak enough not to swamp the cores/mem
+  # stranding signal.
+  #
+  # --- Example: equal-weight baseline ----------------------------------------
+  # Cores and memory stranding count equally; GPU dimensions count slightly
+  # more; non-GPU work mildly prefers non-GPU hosts. Matches the defaults.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_reservation: 2.0
+  #
+  # --- Example: GPU-scarce farm ----------------------------------------------
+  # Protect GPU hosts aggressively for GPU work and make GPU stranding very
+  # expensive (don't waste a GPU on a low-GPU layer).
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 8.0
+  #     gpu_mem: 2.0
+  #     gpu_reservation: 5.0
+  #
+  # --- Example: memory-tight farm --------------------------------------------
+  # Penalize memory stranding more than cores so jobs with high mem:core
+  # ratios go to high-memory hosts first.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 3.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_reservation: 2.0
+  #
+  # --- Example: cores-only (debugging sanity check) --------------------------
+  # Scoring degenerates to "pack cores tightest" — useful for diagnosing
+  # whether other dimensions are responsible for a placement regression.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 0.0
+  #     gpus: 0.0
+  #     gpu_mem: 0.0
+  #     gpu_reservation: 0.0
+  # ---------------------------------------------------------------------------
 
   # Soft memory limit multiplier for frame memory requirements
   # Used as a threshold to determine if a frame can be dispatched based on available memory

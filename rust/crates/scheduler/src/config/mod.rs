@@ -201,18 +201,90 @@ impl Default for StreamConfig {
     }
 }
 
+/// Strategy for selecting a host when multiple candidates satisfy a layer's
+/// floor requirements.
+///
+/// `Saturation` is the legacy first-fit strategy: scan the B-tree in a
+/// configurable direction (`core_saturation` / `memory_saturation`) and take
+/// the first valid host. `Epvm` scores up to `max_candidates` hosts via
+/// E-PVM stranding and picks the lowest score. Saturation is the default;
+/// Epvm is opt-in.
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(default)]
-pub struct HostBookingStrategy {
-    pub core_saturation: bool,
-    pub memory_saturation: bool,
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum HostBookingStrategy {
+    Saturation {
+        core_saturation: bool,
+        memory_saturation: bool,
+    },
+    Epvm {
+        weights: ScoreWeights,
+        max_candidates: usize,
+    },
 }
 
 impl Default for HostBookingStrategy {
     fn default() -> Self {
-        Self {
+        Self::Saturation {
             core_saturation: true,
             memory_saturation: false,
+        }
+    }
+}
+
+/// Weights for the E-PVM placement score.
+///
+/// For each resource dimension (cores, memory, GPUs, GPU memory), E-PVM
+/// computes how much of that resource will be "stranded" on a host — left
+/// idle because some other dimension ran out first. The weights here scale
+/// each dimension's stranding before they're summed into a single score.
+/// The cache picks the host with the lowest score.
+///
+/// # Units and range
+///
+/// All weights are dimensionless `f64`. Because stranding terms are themselves
+/// normalized (divided by the layer's per-dim minimum), a weight of `1.0`
+/// means "1 stranded layer-frame on this dimension contributes 1 score unit".
+///
+/// Practical range: **`0.0` to ~`10.0`**.
+/// * `0.0` — disables this dimension's contribution to the score.
+/// * `1.0` — baseline; this dimension counts at par with other unit-weighted dims.
+/// * `>1.0` — emphasizes the dimension (e.g. set `gpus: 4.0` to make GPU
+///   stranding hurt 4× as much as core stranding).
+/// * Values much higher than ~10.0 risk single-dimension dominance —
+///   placements become driven by one resource, ignoring everything else.
+/// * Negative values are not meaningful (would reward stranding); the gate
+///   does not enforce non-negativity, but operators should keep weights `>= 0`.
+///
+/// See `rust/config/scheduler.yaml` for annotated example configurations
+/// (baseline, GPU-scarce, memory-tight, cores-only) and the
+/// `gpu_reservation` semantics.
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(default)]
+pub struct ScoreWeights {
+    /// Penalty per fractional stranded core-layer-frame. Default `1.0`.
+    pub cores: f64,
+    /// Penalty per fractional stranded mem-layer-frame. Default `1.0`.
+    pub mem: f64,
+    /// Penalty per fractional stranded GPU-layer-frame (GPU layers only).
+    /// Default `2.0` — GPU jobs are rarer, so wasting GPU capacity hurts more.
+    pub gpus: f64,
+    /// Penalty per fractional stranded GPU-memory-layer-frame (GPU layers only).
+    /// Default `1.0`.
+    pub gpu_mem: f64,
+    /// Soft-reservation penalty for non-GPU layers on GPU hosts. Scales the
+    /// host's idle GPU capacity (count + GB). Default `2.0`. See risk #3 — this
+    /// is the weight most likely to need adjustment after a production rollout.
+    pub gpu_reservation: f64,
+}
+
+impl Default for ScoreWeights {
+    fn default() -> Self {
+        Self {
+            cores: 1.0,
+            mem: 1.0,
+            gpus: 2.0,
+            gpu_mem: 1.0,
+            gpu_reservation: 2.0,
         }
     }
 }

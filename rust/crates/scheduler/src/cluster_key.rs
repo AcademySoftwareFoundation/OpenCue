@@ -25,6 +25,17 @@ pub enum TagType {
 pub struct Tag {
     pub name: String,
     pub ttype: TagType,
+    /// `pk_alloc` (allocation UUID) when this tag was loaded as a
+    /// `TagType::Alloc` cluster tag from the database. Populated by
+    /// `cluster.rs::load_clusters` on the `"ALLOC"` arm and consumed by
+    /// `MatchingService::process_layer` to read the per-(show, alloc)
+    /// subscription burst snapshot from Redis before host checkout.
+    ///
+    /// `None` for non-alloc tags (manual / hostname / hardware) and for
+    /// CLI-built tags where the str_tag → pk_alloc mapping isn't resolved
+    /// at startup. Those paths fall back to the burst-unaware behavior.
+    #[serde(default)]
+    pub alloc_id: Option<Uuid>,
 }
 
 impl std::ops::Deref for Tag {

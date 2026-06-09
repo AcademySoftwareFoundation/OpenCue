@@ -18,8 +18,9 @@ use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag},
-    host_cache::HostCacheError,
+    host_cache::{cache::Gate, HostCacheError},
     models::{CoreSize, Host},
+    pipeline::placement::LayerProfile,
 };
 
 /// Response containing a checked-out host and its associated cluster key.
@@ -36,21 +37,23 @@ pub struct CheckedOutHost(pub ClusterKey, pub Host);
 
 /// Actor message to check out a host from the cache.
 ///
-/// Requests a host that matches the specified resource requirements and passes
-/// the validation function. The cache will search through groups for each tag
-/// in priority order (MANUAL > HOSTNAME > ALLOC) until a suitable host is found.
+/// Requests a host that matches the layer's floor (carried by `profile`) and
+/// passes the `gate` function. The cache searches through groups for each
+/// tag in priority order (MANUAL > HOSTNAME > HARDWARE > ALLOC) until a
+/// suitable host is found.
 ///
-/// If not found in cache, the service will fetch from the database. The host
-/// is removed from the cache and must be checked back in after use.
+/// The `gate` is a plain `fn` pointer (no closure capture), so this message
+/// is non-generic and a single `Handler` impl serves every booking strategy.
+/// All per-call data flows through `profile`.
 ///
 /// # Fields
 ///
 /// * `facility_id` - Facility identifier for the cluster key
 /// * `show_id` - Show identifier for the cluster key
 /// * `tags` - List of tags to search (tried in priority order)
-/// * `cores` - Minimum number of cores required
-/// * `memory` - Minimum memory required
-/// * `validation` - Function to validate additional host requirements
+/// * `cores` / `memory` - Range hints for the B-tree query (floors enforced by `gate`)
+/// * `profile` - Placement context (floors, compatibility, E-PVM caps + weights)
+/// * `gate` - Validates and (for E-PVM) scores each candidate
 ///
 /// # Returns
 ///
@@ -59,16 +62,14 @@ pub struct CheckedOutHost(pub ClusterKey, pub Host);
 /// * `Err(HostCacheError::FailedToQueryHostCache)` - Database query failed
 #[derive(Message)]
 #[rtype(result = "Result<CheckedOutHost, HostCacheError>")]
-pub struct CheckOut<F>
-where
-    F: Fn(&Host) -> bool,
-{
+pub struct CheckOut {
     pub facility_id: String,
     pub show_id: Uuid,
     pub tags: Vec<Tag>,
     pub cores: CoreSize,
     pub memory: ByteSize,
-    pub validation: F,
+    pub profile: LayerProfile,
+    pub gate: Gate,
 }
 
 /// Payload for checking in a host or invalidating a host in the cache.

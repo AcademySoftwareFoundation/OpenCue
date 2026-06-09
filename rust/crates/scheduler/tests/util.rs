@@ -101,7 +101,7 @@ pub fn create_test_config() -> Config {
             empty_job_cycles_before_quiting: Some(20),
             mem_reserved_min: bytesize::ByteSize::mb(250),
             selfish_services: Vec::new(),
-            host_booking_strategy: HostBookingStrategy {
+            host_booking_strategy: HostBookingStrategy::Saturation {
                 core_saturation: true,
                 memory_saturation: false,
             },
@@ -600,6 +600,7 @@ pub async fn create_test_data(
                     .map(|tag_name| Tag {
                         name: tag_name.clone(),
                         ttype: TagType::Manual,
+                        alloc_id: None,
                     })
                     .collect(),
             );
@@ -632,6 +633,7 @@ pub async fn create_test_data(
             Tag {
                 name: alloc_name.clone(),
                 ttype: TagType::Alloc,
+                alloc_id: Some(*alloc_id),
             },
         );
         clusters.push(cluster);

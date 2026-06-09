@@ -92,6 +92,17 @@ lazy_static! {
         vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
     )
     .expect("Failed to register cluster_round_trip_seconds histogram");
+
+    // E-PVM placement metrics from host_cache/cache.rs. Observed only on the
+    // Epvm path (Saturation always scores 0.0). Buckets are dimensionless W3
+    // fractional-layer-frames units; calibration may need adjustment after
+    // production rollout. See design Risk 1.
+    pub static ref PLACEMENT_SCORE_CHOSEN: Histogram = register_histogram!(
+        "scheduler_placement_score_chosen",
+        "E-PVM score of the host chosen by check_out_best",
+        vec![0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 1000.0]
+    )
+    .expect("Failed to register placement_score_chosen histogram");
 }
 
 /// Handler for the /metrics endpoint
@@ -201,4 +212,11 @@ pub fn observe_job_query_duration(duration: Duration) {
 #[inline]
 pub fn observe_cluster_round_trip(duration: Duration) {
     CLUSTER_ROUND_TRIP_SECONDS.observe(duration.as_secs_f64());
+}
+
+/// Records the E-PVM score of the host returned by `check_out_best`.
+/// Called only on the Epvm path; Saturation never invokes this.
+#[inline]
+pub fn observe_placement_score_chosen(score: f64) {
+    PLACEMENT_SCORE_CHOSEN.observe(score);
 }

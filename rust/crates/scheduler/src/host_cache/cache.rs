@@ -46,7 +46,9 @@ use uuid::Uuid;
 use crate::{
     config::{HostBookingStrategy, CONFIG},
     host_cache::{store::HOST_STORE, HostCacheError, HostId},
+    metrics,
     models::{CoreSize, Host},
+    pipeline::placement::LayerProfile,
 };
 
 type CoreKey = u32;
@@ -54,6 +56,12 @@ type MemoryKey = u64;
 
 /// A B-Tree of Hosts ordered by memory
 pub type MemoryBTree = BTreeMap<MemoryKey, HashSet<HostId>>;
+
+/// Signature shared by every host-booking gate. Returns `Some(score)` when the
+/// host is a valid candidate (lower scores rank better for Epvm); `None` when
+/// the host fails validation or floor checks. Fn pointer instead of a closure
+/// so the actor's `CheckOut` message stays non-generic.
+pub type Gate = fn(&Host, &LayerProfile) -> Option<f64>;
 
 pub struct HostCache {
     /// B-Tree of host groups ordered by their number of available cores
@@ -136,72 +144,78 @@ impl HostCache {
             > CONFIG.host_cache.group_idle_timeout
     }
 
-    /// Checks out the best matching host from the cache.
+    /// Checks out a host from the cache that matches the gate's requirements.
     ///
-    /// Finds a host with sufficient resources that passes the validation function,
-    /// removes it from the cache, and returns it. The host must be checked back in
-    /// after use.
+    /// Dispatches to either the Saturation (first-fit) or Epvm (lowest-score)
+    /// path based on the configured `strategy`. The B-tree index is queried
+    /// by `(cores, memory)`; floor checks on other dimensions (GPUs, GPU mem)
+    /// live inside the `gate`.
     ///
     /// # Arguments
     ///
-    /// * `cores` - Minimum number of cores required
-    /// * `memory` - Minimum memory required
-    /// * `validation` - Function to validate additional host requirements
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Host)` - Successfully checked out host
-    /// * `Err(HostCacheError)` - No suitable host available
-    pub fn check_out<F>(
+    /// * `cores`, `memory` — minimum range hints for the B-tree query
+    /// * `profile` — layer placement context (caps, weights, floors)
+    /// * `gate` — `Some(score)` when valid, `None` to reject
+    /// * `reserved_check` — actor-supplied availability test (true when not
+    ///   reserved by another in-flight checkout)
+    pub fn check_out(
         &self,
         cores: CoreSize,
         memory: ByteSize,
-        validation: F,
-    ) -> Result<Host, HostCacheError>
-    where
-        F: Fn(&Host) -> bool,
-    {
+        profile: &LayerProfile,
+        gate: Gate,
+        reserved_check: impl Fn(&Host) -> bool,
+    ) -> Result<Host, HostCacheError> {
         self.ping_query();
 
-        let host = self
-            .remove_host(cores, memory, validation)
-            .ok_or(HostCacheError::NoCandidateAvailable)?;
+        let host = match self.strategy {
+            HostBookingStrategy::Saturation {
+                core_saturation,
+                memory_saturation,
+            } => self.remove_host_first_fit(
+                cores,
+                memory,
+                profile,
+                gate,
+                &reserved_check,
+                core_saturation,
+                memory_saturation,
+            ),
+            HostBookingStrategy::Epvm { max_candidates, .. } => self.remove_host_best(
+                cores,
+                memory,
+                profile,
+                gate,
+                &reserved_check,
+                max_candidates,
+            ),
+        };
 
-        Ok(host)
+        host.ok_or(HostCacheError::NoCandidateAvailable)
     }
 
-    /// Removes a suitable host from the cache based on resource requirements.
-    ///
-    /// Searches for a host with at least the requested cores and memory that
-    /// passes the validation function. Uses atomic operations with retry logic
-    /// to prevent race conditions where host state changes between lookup and removal.
-    ///
-    /// # Arguments
-    ///
-    /// * `cores` - Minimum number of cores required
-    /// * `memory` - Minimum memory required
-    /// * `validation` - Function to validate additional requirements
-    ///
-    /// # Returns
-    ///
-    /// * `Some(Host)` - Host that meets all requirements
-    /// * `None` - No suitable host found
-    fn remove_host<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
-    where
-        F: Fn(&Host) -> bool,
-    {
+    /// Saturation strategy: scan the B-tree in the configured direction and
+    /// take the first valid host. Retries up to 5 times when CAS races lose
+    /// to concurrent checkouts.
+    #[allow(clippy::too_many_arguments)]
+    fn remove_host_first_fit(
+        &self,
+        cores: CoreSize,
+        memory: ByteSize,
+        profile: &LayerProfile,
+        gate: Gate,
+        reserved_check: &impl Fn(&Host) -> bool,
+        core_saturation: bool,
+        memory_saturation: bool,
+    ) -> Option<Host> {
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
 
         let failed_candidates: RefCell<Vec<Uuid>> = RefCell::new(Vec::new());
         let host_validation = |host: &Host| {
-            // Check caller validation
-            validation(host) &&
-            // Check memory and core requirements just in case
-            host.idle_memory >= memory &&
-            host.idle_cores >= cores &&
-            // Ensure we're not retrying the same host as last attempts
-            !failed_candidates.borrow().contains(&host.id)
+            gate(host, profile).is_some()
+                && reserved_check(host)
+                && !failed_candidates.borrow().contains(&host.id)
         };
 
         let mut attempts = 5;
@@ -210,7 +224,7 @@ impl HostCache {
             let candidate_info = {
                 let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
                 let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
-                    if !self.strategy.core_saturation {
+                    if !core_saturation {
                         // Reverse order to find hosts with max amount of cores available
                         Box::new(host_index_lock.range(core_key..).rev())
                     } else {
@@ -221,7 +235,6 @@ impl HostCache {
                     let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
                         hosts.iter().find_map(|host_id| {
                             HOST_STORE.get(host_id).and_then(|host| {
-                                // Check validation and memory capacity
                                 if host_validation(&host) {
                                     Some((
                                         *by_core_key,
@@ -236,8 +249,7 @@ impl HostCache {
                         })
                     };
 
-                    if self.strategy.memory_saturation {
-                        // Search for hosts with at least the same amount of memory requested
+                    if memory_saturation {
                         hosts_by_memory.range(memory_key..).find_map(find_fn)
                     } else {
                         // Search for hosts with the most amount of memory available
@@ -288,18 +300,95 @@ impl HostCache {
         None
     }
 
+    /// Epvm strategy: snapshot up to `max_candidates` hosts (saturated-first
+    /// iteration so the best-likely candidates are scanned when the cap
+    /// engages), score them via the gate, and try `atomic_remove_if_valid`
+    /// in ascending score order. First successful CAS wins.
+    ///
+    /// By design, this is a single-pass operation: if every Phase-3
+    /// commit fails its CAS, returns `None` and the matcher's outer retry
+    /// loop re-enumerates on the next iteration.
+    fn remove_host_best(
+        &self,
+        cores: CoreSize,
+        memory: ByteSize,
+        profile: &LayerProfile,
+        gate: Gate,
+        reserved_check: &impl Fn(&Host) -> bool,
+        max_candidates: usize,
+    ) -> Option<Host> {
+        let core_key = cores.value() as u32;
+        let memory_key = Self::gen_memory_key(memory);
+
+        // Phase 1 + 2: scan and score under the index read lock. Memory floor
+        // is enforced by the `memory_key..` range; cores floor by `core_key..`.
+        // Saturated-first iteration on both dims so candidates are visited in
+        // best-first order until `max_candidates` is hit.
+        let mut scored: Vec<(CoreKey, MemoryKey, Uuid, chrono::DateTime<chrono::Utc>, f64)> = {
+            let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
+            let mut acc = Vec::with_capacity(max_candidates.min(64));
+
+            'outer: for (by_core_key, hosts_by_memory) in host_index_lock.range(core_key..) {
+                for (by_memory_key, hosts) in hosts_by_memory.range(memory_key..) {
+                    for host_id in hosts.iter() {
+                        if let Some(host) = HOST_STORE.get(host_id) {
+                            if !reserved_check(&host) {
+                                continue;
+                            }
+                            if let Some(score) = gate(&host, profile) {
+                                acc.push((
+                                    *by_core_key,
+                                    *by_memory_key,
+                                    *host_id,
+                                    host.last_updated,
+                                    score,
+                                ));
+                                if acc.len() >= max_candidates {
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            acc
+        };
+
+        // Sort ascending: lowest stranding wins.
+        scored.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Phase 3: try commits in score order. The validation closure must
+        // re-check the gate because the host may have changed between Phase 1
+        // and Phase 3 (atomic_remove_if_valid already CAS-guards last_updated,
+        // so a successful commit means we have the same snapshot).
+        let host_validation = |host: &Host| gate(host, profile).is_some() && reserved_check(host);
+
+        for (by_core_key, by_memory_key, host_id, expected_last_updated, score) in scored {
+            match HOST_STORE.atomic_remove_if_valid(
+                &host_id,
+                expected_last_updated,
+                host_validation,
+            ) {
+                Ok(Some(removed_host)) => {
+                    let mut host_index_lock =
+                        self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
+
+                    host_index_lock
+                        .get_mut(&by_core_key)
+                        .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
+                        .map(|hosts| hosts.remove(&host_id));
+
+                    metrics::observe_placement_score_chosen(score);
+                    return Some(removed_host);
+                }
+                Ok(None) | Err(()) => continue,
+            }
+        }
+
+        None
+    }
+
     /// Returns a host to the cache after use.
-    ///
-    /// Updates the cache with the host's current resource state. If the host
-    /// already exists in the cache, it's updated with the new values. The host
-    /// is indexed by its current idle cores and memory for efficient lookup.
-    ///
-    /// This method now performs all updates atomically under a single write lock,
-    /// preventing race conditions with concurrent check_out operations.
-    ///
-    /// # Arguments
-    ///
-    /// * `host` - Host to return to the cache
     pub fn check_in(&self, host: Host, authoritative: bool) {
         let host_id = host.id;
 
@@ -343,6 +432,7 @@ impl HostCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ScoreWeights;
     use chrono::Utc;
     use opencue_proto::host::ThreadMode;
     use std::thread;
@@ -367,6 +457,37 @@ mod tests {
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
         }
+    }
+
+    fn test_profile(cores_min: i32, mem_min: ByteSize) -> LayerProfile {
+        LayerProfile {
+            cores_min: CoreSize(cores_min),
+            mem_min,
+            gpus_min: 0,
+            gpu_mem_min: ByteSize::gb(0),
+            os: None,
+            threadable: true,
+            job_max_cores: 0,
+            show_burst: 0,
+            job_cores_in_use: 0,
+            show_cores_in_use: 0,
+            weights: ScoreWeights::default(),
+        }
+    }
+
+    /// Trivial gate: always valid, constant score 0.0. For tests that exercise
+    /// the structural checkout path without scoring concerns.
+    fn always_valid(_: &Host, _: &LayerProfile) -> Option<f64> {
+        Some(0.0)
+    }
+
+    /// Always-reject gate. For tests that the gate's None short-circuits.
+    fn always_reject(_: &Host, _: &LayerProfile) -> Option<f64> {
+        None
+    }
+
+    fn no_reservation_check(_: &Host) -> bool {
+        true
     }
 
     #[test]
@@ -444,7 +565,6 @@ mod tests {
         cache.check_in(host1, false);
         cache.check_in(host2.clone(), false);
 
-        // The host should be updated with new resources
         let stored_host = HOST_STORE.get(&host_id).unwrap();
         assert_eq!(stored_host.idle_cores.value(), 8);
         assert_eq!(stored_host.idle_memory, ByteSize::gb(16));
@@ -459,33 +579,32 @@ mod tests {
 
         cache.check_in(host, false);
 
+        let profile = test_profile(2, ByteSize::gb(4));
         let result = cache.check_out(
             CoreSize(2),
             ByteSize::gb(4),
-            |_| true, // Always validate true
+            &profile,
+            always_valid,
+            no_reservation_check,
         );
 
         let checked_out_host = assert_ok!(result);
-        let memory_key = HostCache::gen_memory_key(checked_out_host.idle_memory);
-        let core_key = checked_out_host.idle_cores.value() as u32;
-
         assert_eq!(checked_out_host.id, host_id);
-
         assert!(HOST_STORE.get(&host_id).is_none());
-
-        let hosts_index = cache.hosts_index.read().unwrap();
-        let left_over_host = hosts_index
-            .get(&core_key)
-            .and_then(|hosts_by_memory| hosts_by_memory.get(&memory_key))
-            .and_then(|hosts| hosts.get(&checked_out_host.id));
-        assert!(left_over_host.is_none())
     }
 
     #[test]
     fn test_checkout_no_candidate_available() {
         let cache = HostCache::default();
+        let profile = test_profile(4, ByteSize::gb(8));
 
-        let result = cache.check_out(CoreSize(4), ByteSize::gb(8), |_| true);
+        let result = cache.check_out(
+            CoreSize(4),
+            ByteSize::gb(8),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
 
         assert!(result.is_err());
         assert!(matches!(result, Err(HostCacheError::NoCandidateAvailable)));
@@ -499,10 +618,13 @@ mod tests {
 
         cache.check_in(host, false);
 
+        let profile = test_profile(4, ByteSize::gb(4));
         let result = cache.check_out(
-            CoreSize(4), // Request more cores than available
+            CoreSize(4),
             ByteSize::gb(4),
-            |_| true,
+            &profile,
+            always_valid,
+            no_reservation_check,
         );
 
         assert!(result.is_err());
@@ -516,10 +638,13 @@ mod tests {
 
         cache.check_in(host, false);
 
+        let profile = test_profile(2, ByteSize::gb(8));
         let result = cache.check_out(
             CoreSize(2),
-            ByteSize::gb(8), // Request more memory than available
-            |_| true,
+            ByteSize::gb(8),
+            &profile,
+            always_valid,
+            no_reservation_check,
         );
 
         assert!(result.is_err());
@@ -533,10 +658,13 @@ mod tests {
 
         cache.check_in(host, false);
 
+        let profile = test_profile(2, ByteSize::gb(4));
         let result = cache.check_out(
             CoreSize(2),
             ByteSize::gb(4),
-            |_| false, // Always fail validation
+            &profile,
+            always_reject,
+            no_reservation_check,
         );
 
         assert!(result.is_err());
@@ -550,12 +678,23 @@ mod tests {
 
         cache.check_in(host, false);
 
-        // First checkout should succeed
-        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let profile = test_profile(2, ByteSize::gb(4));
+        let result1 = cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
         assert!(result1.is_ok());
 
-        // Second checkout should fail because host is already checked out
-        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
         assert!(result2.is_err());
     }
 
@@ -567,24 +706,41 @@ mod tests {
 
         cache.check_in(host.clone(), false);
 
-        // Checkout the host
-        let mut checked_host = assert_ok!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
+        let profile = test_profile(2, ByteSize::gb(4));
+        let mut checked_host = assert_ok!(cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        ));
         assert_eq!(checked_host.idle_cores.value(), 4);
 
-        // Reduce the number of cores and checkin to ensure cache is updated
         checked_host.idle_cores = CoreSize(1);
-
-        // Check it back in
         cache.check_in(checked_host, false);
-        assert_err!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
-        assert_ok!(cache.check_out(CoreSize(1), ByteSize::gb(4), |_| true));
+
+        let profile2 = test_profile(2, ByteSize::gb(4));
+        assert_err!(cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile2,
+            always_valid,
+            no_reservation_check,
+        ));
+        let profile1 = test_profile(1, ByteSize::gb(4));
+        assert_ok!(cache.check_out(
+            CoreSize(1),
+            ByteSize::gb(4),
+            &profile1,
+            always_valid,
+            no_reservation_check,
+        ));
     }
 
     #[test]
     fn test_find_candidate_with_multiple_hosts() {
         let cache = HostCache::default();
 
-        // Add hosts with different resources
         let host1_id = Uuid::new_v4();
         let host1 = create_test_host(host1_id, 2, ByteSize::gb(4));
 
@@ -598,8 +754,14 @@ mod tests {
         cache.check_in(host2, false);
         cache.check_in(host3, false);
 
-        // Request 3 cores, 6GB - should get host2 (4 cores, 8GB) or host3 (8 cores, 16GB)
-        let result = cache.check_out(CoreSize(3), ByteSize::gb(6), |_| true);
+        let profile = test_profile(3, ByteSize::gb(6));
+        let result = cache.check_out(
+            CoreSize(3),
+            ByteSize::gb(6),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
         assert!(result.is_ok());
 
         let chosen_host = result.unwrap();
@@ -609,30 +771,23 @@ mod tests {
 
     #[test]
     fn test_gen_memory_key() {
-        // The memory key formula is: memory / CONFIG.host_cache.memory_key_divisor.as_u64()
-        // With default 2.1GB divisor:
-        // 4GB / 2.1GB = 1 (rounded down)
-        // 8GB / 2.1GB = 3 (rounded down)
-        let memory1 = ByteSize::gb(4); // 4GB
-        let memory2 = ByteSize::gb(8); // 8GB
+        let memory1 = ByteSize::gb(4);
+        let memory2 = ByteSize::gb(8);
 
         let key1 = HostCache::gen_memory_key(memory1);
         let key2 = HostCache::gen_memory_key(memory2);
 
-        // Keys should be different and deterministic
         assert_ne!(key1, key2);
-        assert_eq!(key1, HostCache::gen_memory_key(memory1)); // Should be deterministic
+        assert_eq!(key1, HostCache::gen_memory_key(memory1));
 
-        // With 2.1GB divisor, should get expected values
-        assert_eq!(key1, 1); // 4GB / 2.1GB = ~1.9, rounded down to 1
-        assert_eq!(key2, 3); // 8GB / 2.1GB = ~3.8, rounded down to 3
+        assert_eq!(key1, 1);
+        assert_eq!(key2, 3);
     }
 
     #[test]
     fn test_multiple_hosts_same_resources() {
         let cache = HostCache::default();
 
-        // Add multiple hosts with same resource configuration
         let host1_id = Uuid::new_v4();
         let host1 = create_test_host(host1_id, 4, ByteSize::gb(8));
 
@@ -642,15 +797,158 @@ mod tests {
         cache.check_in(host1, false);
         cache.check_in(host2, false);
 
-        // First checkout should succeed
-        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let profile = test_profile(2, ByteSize::gb(4));
+        let result1 = cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
         assert!(result1.is_ok());
 
-        // Second checkout should also succeed (different host)
-        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_valid,
+            no_reservation_check,
+        );
         assert!(result2.is_ok());
 
-        // The hosts should be different
         assert_ne!(result1.unwrap().id, result2.unwrap().id);
+    }
+
+    // ---- Epvm K-candidate path (T2) ---------------------------------------
+
+    /// Build a HostCache with the Epvm strategy explicitly set, bypassing
+    /// the global CONFIG. Useful for testing the K-candidate path without
+    /// reconfiguring the whole process.
+    fn epvm_cache(max_candidates: usize) -> HostCache {
+        HostCache {
+            hosts_index: RwLock::new(BTreeMap::new()),
+            last_queried: RwLock::new(SystemTime::now()),
+            last_fetched: RwLock::new(None),
+            strategy: HostBookingStrategy::Epvm {
+                weights: ScoreWeights::default(),
+                max_candidates,
+            },
+        }
+    }
+
+    /// Gate that scores by host id's first byte — deterministic ordering for
+    /// tests of the K-candidate sort/pick.
+    fn id_byte_gate(host: &Host, _: &LayerProfile) -> Option<f64> {
+        Some(host.id.as_bytes()[0] as f64)
+    }
+
+    #[test]
+    fn epvm_picks_lowest_score() {
+        let cache = epvm_cache(10);
+
+        // Three hosts with deterministic first-byte ids: 0x10, 0x20, 0x05.
+        // The 0x05 host should win.
+        let high_id = Uuid::from_bytes([0x10; 16]);
+        let med_id = Uuid::from_bytes([0x20; 16]);
+        let low_id = Uuid::from_bytes([0x05; 16]);
+
+        cache.check_in(create_test_host(high_id, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(med_id, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(low_id, 8, ByteSize::gb(16)), false);
+
+        let profile = test_profile(2, ByteSize::gb(4));
+        let chosen = cache
+            .check_out(
+                CoreSize(2),
+                ByteSize::gb(4),
+                &profile,
+                id_byte_gate,
+                no_reservation_check,
+            )
+            .expect("expected a checkout");
+
+        assert_eq!(chosen.id, low_id, "lowest-score host should win");
+    }
+
+    #[test]
+    fn epvm_respects_max_candidates_cap() {
+        let cache = epvm_cache(2);
+
+        // Add three hosts. Cap = 2 means only the first 2 visited are scored;
+        // the 3rd is never considered even if it would score lowest.
+        // B-tree iterates saturated-first; with all hosts at same (cores, mem),
+        // iteration order within a bucket is HashSet-arbitrary but bounded.
+        let id_a = Uuid::from_bytes([0x10; 16]);
+        let id_b = Uuid::from_bytes([0x20; 16]);
+        let id_c = Uuid::from_bytes([0x05; 16]);
+
+        cache.check_in(create_test_host(id_a, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(id_b, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(id_c, 8, ByteSize::gb(16)), false);
+
+        let profile = test_profile(2, ByteSize::gb(4));
+        let chosen = cache
+            .check_out(
+                CoreSize(2),
+                ByteSize::gb(4),
+                &profile,
+                id_byte_gate,
+                no_reservation_check,
+            )
+            .expect("expected a checkout");
+
+        // With cap=2 and HashSet iteration arbitrary, the lowest score winner
+        // is one of the first 2 visited — not necessarily id_c (0x05). The
+        // chosen host's id MUST be one of the three checked-in ids though.
+        assert!(
+            chosen.id == id_a || chosen.id == id_b || chosen.id == id_c,
+            "unexpected host id {}",
+            chosen.id
+        );
+    }
+
+    #[test]
+    fn epvm_no_candidate_when_all_rejected() {
+        let cache = epvm_cache(10);
+
+        let host_id = Uuid::new_v4();
+        cache.check_in(create_test_host(host_id, 8, ByteSize::gb(16)), false);
+
+        let profile = test_profile(2, ByteSize::gb(4));
+        let result = cache.check_out(
+            CoreSize(2),
+            ByteSize::gb(4),
+            &profile,
+            always_reject,
+            no_reservation_check,
+        );
+
+        assert!(matches!(result, Err(HostCacheError::NoCandidateAvailable)));
+    }
+
+    #[test]
+    fn epvm_skips_reserved_hosts() {
+        let cache = epvm_cache(10);
+
+        let reserved_id = Uuid::from_bytes([0x01; 16]);
+        let free_id = Uuid::from_bytes([0xFF; 16]);
+
+        cache.check_in(create_test_host(reserved_id, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(free_id, 8, ByteSize::gb(16)), false);
+
+        let profile = test_profile(2, ByteSize::gb(4));
+        // Reservation check: pretend reserved_id is unavailable. id_byte_gate
+        // would normally rank reserved_id (0x01) ahead of free_id (0xFF).
+        let chosen = cache
+            .check_out(
+                CoreSize(2),
+                ByteSize::gb(4),
+                &profile,
+                id_byte_gate,
+                |host: &Host| host.id != reserved_id,
+            )
+            .expect("expected a checkout");
+
+        assert_eq!(chosen.id, free_id, "reserved host should be skipped");
     }
 }

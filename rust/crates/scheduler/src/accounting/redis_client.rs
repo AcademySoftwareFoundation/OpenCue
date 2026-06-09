@@ -140,10 +140,11 @@ impl RedisAccounting {
     }
 
     /// Reads the subscription hash's booked cores + burst in one round-trip. Missing
-    /// keys/fields are treated as `(0, 0)`. Currently used by `AccountingService::
-    /// subscription_can_book` for diagnostic visibility and reachable future use; the
-    /// dispatcher hot path relies on the authoritative Lua booking check instead.
-    #[allow(dead_code)]
+    /// keys/fields are treated as `(0, 0)`. Used by `MatchingService::process_layer`
+    /// to snapshot the (show, alloc) cap before host checkout — both to early-skip
+    /// over-burst layers and to feed real values into the E-PVM `LayerProfile`. The
+    /// dispatcher hot path still relies on the authoritative Lua booking check; this
+    /// snapshot is an optimistic pre-filter, not authoritative.
     pub async fn read_sub_counters(
         &self,
         show_id: uuid::Uuid,
@@ -155,6 +156,19 @@ impl RedisAccounting {
         let booked = values.first().copied().flatten().unwrap_or(0);
         let burst = values.get(1).copied().flatten().unwrap_or(0);
         Ok((booked, burst))
+    }
+
+    /// Reads `acct:job:{job_id}` `int_cores` (live booked cores, in centicores).
+    /// Returns 0 when the key/field is missing. Used by the E-PVM placement
+    /// snapshot in `MatchingService::process_layer` (design Branch 2a).
+    pub async fn read_job_cores_in_use(
+        &self,
+        job_id: uuid::Uuid,
+    ) -> Result<i64, AccountingError> {
+        let mut conn = self.conn.clone();
+        let key = format!("acct:job:{}", job_id);
+        let v: Option<i64> = conn.hget(&key, "int_cores").await?;
+        Ok(v.unwrap_or(0))
     }
 }
 
