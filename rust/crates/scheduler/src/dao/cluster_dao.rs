@@ -89,6 +89,7 @@ JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
 JOIN show sh ON sh.pk_show = s.pk_show
 WHERE str_tag_type <> 'ALLOC'
+    AND sh.b_active = true
     AND sh.b_scheduler_managed = true
 "#;
 
@@ -104,6 +105,7 @@ JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
 JOIN show sh ON sh.pk_show = s.pk_show
 WHERE str_tag_type <> 'ALLOC'
+    AND sh.b_active = true
     AND sh.b_scheduler_managed = true
     AND a.pk_facility = $1
 "#;
