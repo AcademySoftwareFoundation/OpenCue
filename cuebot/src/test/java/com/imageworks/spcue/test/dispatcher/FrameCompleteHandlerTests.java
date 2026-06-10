@@ -37,6 +37,8 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
@@ -52,6 +54,8 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
+
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -99,6 +103,12 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
     @Resource
     ServiceManager serviceManager;
+
+    @Resource
+    ProcDao procDao;
+
+    @Resource
+    ShowDao showDao;
 
     private static final String HOSTNAME = "beta";
     private static final String HOSTNAME2 = "zeta";
@@ -533,5 +543,63 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     public void testDependRetryExhausted() {
         // All three calls fail — depend remains unsatisfied, frame stays in DEPEND
         executeDependWithRetry(3, 1, FrameState.DEPEND);
+    }
+
+    /**
+     * Runs a frame completion through the proc-reuse path (the job still has a WAITING frame, so it
+     * stays dispatchable) and returns whether the proc survived. When the show is
+     * scheduler-managed, the standalone scheduler owns dispatch, so Cuebot must release (unbook)
+     * the proc instead of rebooking it on the same proc, otherwise the proc lingers with
+     * pk_frame=NULL holding reserved cores. When it is not scheduler-managed, the proc is reused.
+     */
+    private boolean procSurvivesReuseAfterComplete(boolean schedulerManaged) {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        if (schedulerManaged) {
+            showDao.updateSchedulerManaged(showDao.getShowDetail(proc.getShowId()), true);
+        }
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.SUCCEEDED, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                dispatchFrame, FrameState.SUCCEEDED, frameDetail);
+
+        try {
+            procDao.getVirtualProc(proc.getId());
+            return true;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
+        }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSchedulerManagedShowReleasesProc() {
+        // Scheduler-managed: the proc must be unbooked (released), not reused.
+        assertFalse(procSurvivesReuseAfterComplete(true));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNonSchedulerManagedShowReusesProc() {
+        // Control: the proc is reused on the same host, so it still exists.
+        assertTrue(procSurvivesReuseAfterComplete(false));
     }
 }
