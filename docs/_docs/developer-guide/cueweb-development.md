@@ -181,7 +181,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
 - **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`.
 - **`JobDetailsPage`** (`app/jobs/[job-name]/page.tsx`): Standalone tabbed job-details route reached via the **View Job Details** right-click entry (or the row's `⋮` Actions button). Resolves the job by name through `findJobByName(...)`, polls layers + frames every 5s with cancellation guards, and exposes five tabs - **Overview**, **Layers**, **Frames**, **Comments**, **Dependencies**. The active tab is mirrored to the URL as `?tab=<key>` and read back through `useSearchParams()` + `router.replace(...)` so the page is bookmarkable and browser back/forward walks between tabs. `isTabKey(value)` rejects unknown query values so the URL can never select a missing tab. The Comments tab embeds a read-only preview of `getJobComments(...)` with a link out to the full `/jobs/<jobName>/comments` editor; Dependencies is currently a placeholder. The standard `Breadcrumbs` + `EmptyState` (`FileX` icon, "Job not found") wrappers cover loading and missing-job paths.
-- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers and Frames (and the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action.
+- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, and the host detail page's procs table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 - **`FrameViewer`**: Frame log viewer component
@@ -943,6 +943,88 @@ buttons (`pauseJobsFromSelectedRows` / `unpauseJobsFromSelectedRows` in
 selection - those rows can have mixed `isPaused` states, so a single
 toggle would be ambiguous. Only the single-row right-click menu collapses
 to one entry.
+
+---
+
+## Host management actions (CueCommander parity)
+
+The Monitor Hosts table (`app/hosts/page.tsx`) and the host detail page
+(`app/hosts/[host-name]/page.tsx`) share one set of host actions, all routed
+through the REST gateway. Files involved:
+
+```text
+app/api/host/action/{lock,unlock,reboot,rebootwhenidle,addtags,removetags}/route.ts  # proxy routes
+app/api/host/{findhost,getprocs,getcomments}/route.ts  # detail-page data routes
+app/utils/action_utils.ts                              # lockHosts/unlockHosts/rebootHosts/rebootHostsWhenIdle/addHostTags/removeHostTags + *GivenRow
+app/utils/get_utils.ts                                 # Host/Proc types, findHostByName/getHostProcs/getHostComments
+components/ui/host-action-events.ts                    # shared event names + payload types
+components/ui/host-lock-dialog.tsx                     # Lock/Unlock confirmation
+components/ui/host-reboot-dialog.tsx                   # immediate-Reboot confirmation
+components/ui/edit-host-tags-dialog.tsx                # tag editor (cmdk autocomplete)
+components/ui/context_menus/action-context-menu.tsx    # HostContextMenu
+```
+
+### CustomEvent dance
+
+The free-function context-menu handlers (`lockHostGivenRow`,
+`rebootHostGivenRow`, `editHostTagsGivenRow`, ...) don't touch component
+state - they dispatch a `window` CustomEvent that a page-level dialog listens
+for, mirroring the Set Priority / Email Artist pattern. All names + payload
+types live in one module (`host-action-events.ts`) so the dialogs and the
+pages agree on the contract:
+
+- `cueweb:open-host-lock` &rarr; `HostLockDialog` (detail: `{ hosts, action }`).
+- `cueweb:open-host-reboot` &rarr; `HostRebootDialog` (immediate reboot is
+  destructive, so it confirms; **Reboot When Idle** fires directly from
+  `rebootHostWhenIdleGivenRow`).
+- `cueweb:open-host-tags` &rarr; `EditHostTagsDialog`.
+- `cueweb:hosts-changed` (detail: `{ hostIds, patch }`) is fired **on success**
+  by every action; the hosts table and the detail page listen for it,
+  optimistically apply `patch` (a `Partial<Pick<Host, "lockState"|"state"|"tags">>`)
+  to the matching rows, then re-fetch to reconcile.
+
+### Success gating
+
+`performAction` (`action_utils.ts`) returns a `boolean` instead of `void`; the
+six host helpers propagate it. The dialogs and `rebootHostWhenIdleGivenRow`
+fire `cueweb:hosts-changed` **only when the action succeeded**, so a rejected
+RPC (toasted via `handleError`) never optimistically flashes a state the
+backend refused. Existing job/layer/frame callers ignore the return value and
+are unaffected.
+
+### Menu gating
+
+`HostContextMenu` enables entries from the row's state: **Lock** when
+`lockState === "OPEN"`, **Unlock** when `LOCKED` (a `NIMBY_LOCKED` host can't be
+unlocked), **Reboot** unless `REBOOTING`, **Reboot When Idle** unless
+`REBOOTING` / `REBOOT_WHEN_IDLE`. **Edit Tags** is always enabled.
+
+### Edit Tags diff
+
+`EditHostTagsDialog` loads the registry-wide tag set on open (via `getHosts()`)
+for cmdk autocomplete, plus a "create" item for new tags. On **Save** it diffs
+the working set against the original (`added` / `removed`), calls
+`addHostTags` / `removeHostTags` (each a no-op when its list is empty), and
+dispatches a **per-host** optimistic patch - each host's resulting tag set is
+`(its tags ∪ added) ∖ removed`, so a multi-host edit never over-claims the
+shared working set.
+
+### Host detail page
+
+`/hosts/[host-name]` resolves the host by name (`findHostByName` &rarr;
+`FindHost`), with **Overview / Procs / Comments / Tags** tabs synced to `?tab=`.
+The Procs tab polls `getHostProcs` every 15s and renders `proc-columns.tsx` in a
+`SimpleDataTable` with the read-only `isProcsTable` flag; an `onRowClick` opens
+the proc's frame log by passing the proc's `logPath` as the viewer's
+`frameLogDir`.
+
+### Route hardening
+
+The `/api/host/action/*` routes validate the body (`400` on malformed JSON or a
+missing `host`; `addtags` / `removetags` additionally require a `tags` array),
+set the real HTTP status via `NextResponse.json`'s second argument (a failed RPC
+returns its `4xx`/`5xx`, not `200`), and avoid the redundant stringify/parse
+round-trip - matching the `findhost` / `getprocs` / `getcomments` data routes.
 
 ---
 

@@ -156,12 +156,12 @@ describe('action_utils', () => {
             );
         });
 
-        it('returns the result on success (the group tree relies on this to refetch)', async () => {
+        it('returns true on success (the group tree relies on this to refetch)', async () => {
             (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
 
             const result = await reparentGroups('parent-1', ['g1']);
 
-            expect(result).toEqual({ success: true });
+            expect(result).toBe(true);
         });
 
         it('handles API errors gracefully', async () => {
@@ -175,12 +175,12 @@ describe('action_utils', () => {
             );
         });
 
-        it('returns an error object on failure (the group tree relies on this to roll back)', async () => {
+        it('returns false on failure (the group tree relies on this to roll back)', async () => {
             (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
 
             const result = await reparentGroups('parent-1', ['g1']);
 
-            expect(result).toEqual({ error: 'API Error' });
+            expect(result).toBe(false);
         });
     });
 
@@ -200,12 +200,12 @@ describe('action_utils', () => {
             );
         });
 
-        it('returns the result on success (the group tree relies on this to refetch)', async () => {
+        it('returns true on success (the group tree relies on this to refetch)', async () => {
             (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
 
             const result = await reparentJobs('parent-1', ['j1']);
 
-            expect(result).toEqual({ success: true });
+            expect(result).toBe(true);
         });
 
         it('handles API errors gracefully', async () => {
@@ -219,12 +219,12 @@ describe('action_utils', () => {
             );
         });
 
-        it('returns an error object on failure (the group tree relies on this to roll back)', async () => {
+        it('returns false on failure (the group tree relies on this to roll back)', async () => {
             (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
 
             const result = await reparentJobs('parent-1', ['j1']);
 
-            expect(result).toEqual({ error: 'API Error' });
+            expect(result).toBe(false);
         });
     });
 

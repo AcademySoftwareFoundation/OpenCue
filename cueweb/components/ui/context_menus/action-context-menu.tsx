@@ -31,11 +31,15 @@ import {
   eatFrameGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
+  editHostTagsGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
   killLayerGivenRow,
+  lockHostGivenRow,
   pauseJobGivenRow,
+  rebootHostGivenRow,
+  rebootHostWhenIdleGivenRow,
   requestCoresGivenRow,
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
@@ -44,6 +48,7 @@ import {
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
   subscribeToJobGivenRow,
+  unlockHostGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
   viewDependenciesGivenRow,
@@ -64,14 +69,19 @@ import {
   TbHelp,
   TbLayoutDashboard,
   TbLink,
+  TbLock,
+  TbLockOpen,
   TbMessage,
   TbPacman,
   TbPlayerPause,
   TbPlayerPlay,
   TbPlugConnectedX,
+  TbPower,
+  TbRefresh,
   TbReload,
   TbSettings,
   TbStar,
+  TbTag,
 } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
@@ -147,6 +157,13 @@ interface FrameContextMenuProps {
   // still renders in contexts where the parent job isn't known yet, but
   // Copy Log Path will surface a toast warning in that case.
   job?: Job;
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+interface HostContextMenuProps {
   contextMenuState: ContextMenuState;
   contextMenuHandleClose: () => void;
   contextMenuRef: React.RefObject<HTMLDivElement>;
@@ -500,6 +517,82 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
     { label: "Eat", onClick: eatLayerFramesGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
     { label: "Retry", onClick: retryLayerFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
     { label: "Retry Dead Frames", onClick: retryLayerDeadFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "red" : "gray"} /> },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+// Context menu for the Monitor Hosts table. Currently exposes Lock /
+// Unlock (D2); reboot, tag edit and the other CueCommander host actions
+// land in sibling issues and slot in here as they're built.
+export const HostContextMenu: React.FC<HostContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  // lockState drives which entry is live: a host can be Locked only when
+  // it is currently OPEN, and Unlocked only when it is plainly LOCKED.
+  // NIMBY_LOCKED hosts cannot be unlocked via this RPC (the gateway
+  // rejects it), so both entries are inactive for them.
+  const lockState = contextMenuState.row?.original.lockState as string | undefined;
+  const canLock = lockState === "OPEN";
+  const canUnlock = lockState === "LOCKED";
+
+  // Hardware state gates the reboot entries. An immediate reboot is
+  // pointless while the host is already REBOOTING; scheduling a
+  // reboot-when-idle is pointless once it is already REBOOTING or
+  // REBOOT_WHEN_IDLE.
+  const hardwareState = contextMenuState.row?.original.state as string | undefined;
+  const canReboot = hardwareState !== "REBOOTING";
+  const canRebootWhenIdle =
+    hardwareState !== "REBOOTING" && hardwareState !== "REBOOT_WHEN_IDLE";
+
+  const items: MenuItem[] = [
+    {
+      label: "Lock",
+      onClick: lockHostGivenRow,
+      isActive: canLock,
+      component: <TbLock className="mr-1" size={14} color={canLock ? undefined : "gray"} />,
+    },
+    {
+      label: "Unlock",
+      onClick: unlockHostGivenRow,
+      isActive: canUnlock,
+      component: <TbLockOpen className="mr-1" size={14} color={canUnlock ? undefined : "gray"} />,
+    },
+
+    sep("group-reboot"),
+
+    {
+      label: "Reboot",
+      onClick: rebootHostGivenRow,
+      isActive: canReboot,
+      component: <TbPower className="mr-1" size={14} color={canReboot ? "red" : "gray"} />,
+    },
+    {
+      label: "Reboot When Idle",
+      onClick: rebootHostWhenIdleGivenRow,
+      isActive: canRebootWhenIdle,
+      component: <TbRefresh className="mr-1" size={14} color={canRebootWhenIdle ? undefined : "gray"} />,
+    },
+
+    sep("group-tags"),
+
+    {
+      label: "Edit Tags...",
+      onClick: editHostTagsGivenRow,
+      isActive: true,
+      component: <TbTag className="mr-1" size={14} />,
+    },
   ];
 
   return (

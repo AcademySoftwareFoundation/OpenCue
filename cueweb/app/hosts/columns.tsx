@@ -18,6 +18,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Status } from "@/components/ui/status";
 import { Host } from "@/app/utils/get_utils";
@@ -42,7 +43,17 @@ export const hostColumns: ColumnDef<Host>[] = [
   {
     accessorKey: "name",
     header: sortableHeader("Name"),
-    cell: ({ row }) => <span>{row.original.name}</span>,
+    // Link into the host detail page (procs / comments / tags). stopPropagation
+    // so the click doesn't also trigger any row-level handler.
+    cell: ({ row }) => (
+      <Link
+        href={`/hosts/${encodeURIComponent(row.original.name)}`}
+        className="text-primary underline-offset-2 hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {row.original.name}
+      </Link>
+    ),
   },
   {
     accessorKey: "state",

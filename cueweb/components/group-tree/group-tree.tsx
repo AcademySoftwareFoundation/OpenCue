@@ -163,8 +163,8 @@ export function GroupTree({ showId }: { showId: string }) {
   const persistGroupReparent = useCallback(
     async (sourceId: string, targetId: string, before: Group[]) => {
       try {
-        const result = await reparentGroups(targetId, [sourceId]);
-        if (result.error) {
+        const ok = await reparentGroups(targetId, [sourceId]);
+        if (!ok) {
           setGroups(before);
           return;
         }
@@ -180,8 +180,8 @@ export function GroupTree({ showId }: { showId: string }) {
   const persistJobReparent = useCallback(
     async (sourceId: string, fromGroupId: string, targetId: string, before: JobsState) => {
       try {
-        const result = await reparentJobs(targetId, [sourceId]);
-        if (result.error) {
+        const ok = await reparentJobs(targetId, [sourceId]);
+        if (!ok) {
           setJobsByGroup(before);
           return;
         }
