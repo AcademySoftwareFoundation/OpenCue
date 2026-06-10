@@ -56,6 +56,10 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     info!("Starting scheduler feed");
 
     let (tx, cluster_receiver) = mpsc::channel(16);
+    // Periodically reload the cluster set from the DB so b_scheduler_managed
+    // flips (and host-tag/subscription churn) are picked up without a restart.
+    // No-op for feeds built from an explicit cluster list (tests).
+    cluster_feed.start_reload_loop();
     let feed_sender = cluster_feed.stream(tx).await;
 
     ReceiverStream::new(cluster_receiver)
