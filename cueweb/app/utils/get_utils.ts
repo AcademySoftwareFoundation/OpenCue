@@ -313,14 +313,6 @@ export async function getShowGroups(showId: string): Promise<Group[]> {
     return Array.isArray(response) ? response : [];
 }
 
-// Fetch the direct subgroups of a group
-export async function getSubgroups(groupId: string): Promise<Group[]> {
-    const ENDPOINT = "/api/group/getgroups";
-    const body = JSON.stringify({ group: { id: groupId } });
-    const response = await accessGetApi(ENDPOINT, body);
-    return Array.isArray(response) ? response : [];
-}
-
 // Fetch the direct jobs in a group
 export async function getGroupJobs(groupId: string): Promise<Job[]> {
     const ENDPOINT = "/api/group/getjobs";

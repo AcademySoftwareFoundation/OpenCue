@@ -169,7 +169,8 @@ export function GroupTree({ showId }: { showId: string }) {
           return;
         }
         const fresh = await getShowGroups(showId);
-        setGroups(fresh);
+        // Empty means the refetch failed (a show always has a root); keep optimistic state.
+        if (fresh.length > 0) setGroups(fresh);
       } finally {
         reparentingRef.current = false;
       }
@@ -186,7 +187,8 @@ export function GroupTree({ showId }: { showId: string }) {
           return;
         }
         const fresh = await getShowGroups(showId);
-        setGroups(fresh);
+        // Empty means the refetch failed (a show always has a root); keep optimistic state.
+        if (fresh.length > 0) setGroups(fresh);
       } finally {
         reparentingRef.current = false;
       }

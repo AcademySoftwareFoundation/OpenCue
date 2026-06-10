@@ -17,7 +17,6 @@
 import {
     findShowByName,
     getShowGroups,
-    getSubgroups,
     getGroupJobs,
 } from '@/app/utils/get_utils';
 import { accessGetApi } from '@/app/utils/api_utils';
@@ -57,28 +56,6 @@ describe('get_utils group helpers', () => {
             (accessGetApi as jest.Mock).mockResolvedValue(null);
 
             const result = await getShowGroups('show-123');
-
-            expect(result).toEqual([]);
-        });
-    });
-
-    describe('getSubgroups', () => {
-        it('posts to /api/group/getgroups with the group id and returns the subgroups array', async () => {
-            (accessGetApi as jest.Mock).mockResolvedValue(mockGroups);
-
-            const result = await getSubgroups('group-abc');
-
-            expect(accessGetApi).toHaveBeenCalledWith(
-                '/api/group/getgroups',
-                JSON.stringify({ group: { id: 'group-abc' } })
-            );
-            expect(result).toEqual(mockGroups);
-        });
-
-        it('returns [] when the API responds with null', async () => {
-            (accessGetApi as jest.Mock).mockResolvedValue(null);
-
-            const result = await getSubgroups('group-abc');
 
             expect(result).toEqual([]);
         });
