@@ -156,6 +156,14 @@ describe('action_utils', () => {
             );
         });
 
+        it('returns the result on success (the group tree relies on this to refetch)', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            const result = await reparentGroups('parent-1', ['g1']);
+
+            expect(result).toEqual({ success: true });
+        });
+
         it('handles API errors gracefully', async () => {
             (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
 
@@ -165,6 +173,14 @@ describe('action_utils', () => {
                 new Error('API Error'),
                 `Error performing action for: /api/group/action/reparentgroups`
             );
+        });
+
+        it('returns an error object on failure (the group tree relies on this to roll back)', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            const result = await reparentGroups('parent-1', ['g1']);
+
+            expect(result).toEqual({ error: 'API Error' });
         });
     });
 
@@ -184,6 +200,14 @@ describe('action_utils', () => {
             );
         });
 
+        it('returns the result on success (the group tree relies on this to refetch)', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            const result = await reparentJobs('parent-1', ['j1']);
+
+            expect(result).toEqual({ success: true });
+        });
+
         it('handles API errors gracefully', async () => {
             (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
 
@@ -193,6 +217,14 @@ describe('action_utils', () => {
                 new Error('API Error'),
                 `Error performing action for: /api/group/action/reparentjobs`
             );
+        });
+
+        it('returns an error object on failure (the group tree relies on this to roll back)', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            const result = await reparentJobs('parent-1', ['j1']);
+
+            expect(result).toEqual({ error: 'API Error' });
         });
     });
 

@@ -14,22 +14,55 @@
  * limitations under the License.
  */
 
-import type { Group } from "@/app/utils/get_utils";
+import type { Group, GroupStats } from "@/app/utils/get_utils";
 
 export type TreeNode = {
   group: Group;
   children: TreeNode[];
+  rolledUpStats: GroupStats;
 };
 
-// Converts the flat list returned by ShowInterface.GetGroups into a nested tree
-// rooted at the show's root group (parentId === ""). Orphan groups whose parentId
-// references a missing group are dropped. Returns null if no root is present.
+export const ZERO_STATS: GroupStats = {
+  runningFrames: 0,
+  deadFrames: 0,
+  dependFrames: 0,
+  waitingFrames: 0,
+  pendingJobs: 0,
+  reservedCores: 0,
+  reservedGpus: 0,
+};
+
+function addStats(a: GroupStats, b: GroupStats): GroupStats {
+  return {
+    runningFrames: a.runningFrames + b.runningFrames,
+    deadFrames: a.deadFrames + b.deadFrames,
+    dependFrames: a.dependFrames + b.dependFrames,
+    waitingFrames: a.waitingFrames + b.waitingFrames,
+    pendingJobs: a.pendingJobs + b.pendingJobs,
+    reservedCores: a.reservedCores + b.reservedCores,
+    reservedGpus: a.reservedGpus + b.reservedGpus,
+  };
+}
+
+// Post-order: each node's rolledUpStats = own stats + children's rolled-up stats.
+function computeRollup(node: TreeNode): GroupStats {
+  const own = node.group.groupStats ?? ZERO_STATS;
+  const summed = node.children.reduce(
+    (acc, child) => addStats(acc, computeRollup(child)),
+    own,
+  );
+  node.rolledUpStats = summed;
+  return summed;
+}
+
+// Flat group list -> tree rooted at the show's root (parentId === ""). Orphans
+// (parent missing/unreachable) are dropped; null if there's no root.
 export function buildTreeFromGroups(groups: Group[]): TreeNode | null {
   if (groups.length === 0) return null;
 
   const byId = new Map<string, TreeNode>();
   for (const g of groups) {
-    byId.set(g.id, { group: g, children: [] });
+    byId.set(g.id, { group: g, children: [], rolledUpStats: ZERO_STATS });
   }
 
   let root: TreeNode | null = null;
@@ -42,5 +75,7 @@ export function buildTreeFromGroups(groups: Group[]): TreeNode | null {
     const parent = byId.get(g.parentId);
     if (parent) parent.children.push(node);
   }
+
+  if (root) computeRollup(root);
   return root;
 }

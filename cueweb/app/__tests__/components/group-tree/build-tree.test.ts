@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-import { buildTreeFromGroups } from "@/components/group-tree/build-tree";
-import type { Group } from "@/app/utils/get_utils";
+import { buildTreeFromGroups, ZERO_STATS } from "@/components/group-tree/build-tree";
+import type { Group, GroupStats } from "@/app/utils/get_utils";
 
-// Helper to build a minimal Group with sane defaults. Only id, name, parentId matter to the tree builder.
-const g = (id: string, parentId: string, name = id): Group => ({
+// Helper to build a minimal Group with sane defaults. Only id, name, parentId
+// (and optionally groupStats) matter to the tree builder + rollup.
+const g = (id: string, parentId: string, groupStats?: GroupStats): Group => ({
     id,
-    name,
+    name: id,
     parentId,
     department: "",
     defaultJobPriority: -1,
@@ -29,6 +30,13 @@ const g = (id: string, parentId: string, name = id): Group => ({
     minCores: 0,
     maxCores: -1,
     level: parentId ? 1 : 0,
+    groupStats,
+});
+
+// Build a GroupStats with the named counters set; everything else stays 0.
+const stats = (overrides: Partial<GroupStats>): GroupStats => ({
+    ...ZERO_STATS,
+    ...overrides,
 });
 
 describe("buildTreeFromGroups", () => {
@@ -39,7 +47,8 @@ describe("buildTreeFromGroups", () => {
     it("returns a single-node tree when only the root group is present", () => {
         const root = g("root", "");
         const tree = buildTreeFromGroups([root]);
-        expect(tree).toEqual({ group: root, children: [] });
+        expect(tree?.group).toEqual(root);
+        expect(tree?.children).toEqual([]);
     });
 
     it("nests two children under their shared root", () => {
@@ -75,5 +84,58 @@ describe("buildTreeFromGroups", () => {
         const a = g("a", "missing");
         const b = g("b", "also-missing");
         expect(buildTreeFromGroups([a, b])).toBeNull();
+    });
+
+    it("drops cycle-stranded groups without hanging", () => {
+        // x <-> y are each other's parent (cycle); must terminate and exclude them.
+        const root = g("root", "");
+        const x = g("x", "y");
+        const y = g("y", "x");
+        const tree = buildTreeFromGroups([root, x, y]);
+        expect(tree?.group.id).toBe("root");
+        expect(tree?.children).toHaveLength(0);
+    });
+});
+
+describe("buildTreeFromGroups rollup", () => {
+    it("sets rolledUpStats to zeros for a leaf group with no own groupStats", () => {
+        const root = g("root", "");
+        const tree = buildTreeFromGroups([root]);
+        expect(tree?.rolledUpStats).toEqual(ZERO_STATS);
+    });
+
+    it("uses own stats for a leaf group", () => {
+        const root = g("root", "", stats({ pendingJobs: 3, runningFrames: 5 }));
+        const tree = buildTreeFromGroups([root]);
+        expect(tree?.rolledUpStats).toMatchObject({ pendingJobs: 3, runningFrames: 5 });
+    });
+
+    it("sums own stats with direct children stats", () => {
+        const root = g("root", "", stats({ pendingJobs: 1, runningFrames: 2 }));
+        const a = g("a", "root", stats({ pendingJobs: 3, runningFrames: 4 }));
+        const b = g("b", "root", stats({ pendingJobs: 5, runningFrames: 6 }));
+        const tree = buildTreeFromGroups([root, a, b]);
+        expect(tree?.rolledUpStats).toMatchObject({
+            pendingJobs: 1 + 3 + 5,
+            runningFrames: 2 + 4 + 6,
+        });
+    });
+
+    it("rolls up recursively across multiple levels", () => {
+        const root = g("root", "", stats({ pendingJobs: 1 }));
+        const mid = g("mid", "root", stats({ pendingJobs: 2 }));
+        const leaf = g("leaf", "mid", stats({ pendingJobs: 4 }));
+        const tree = buildTreeFromGroups([root, mid, leaf]);
+        expect(tree?.rolledUpStats.pendingJobs).toBe(1 + 2 + 4);
+        expect(tree?.children[0].rolledUpStats.pendingJobs).toBe(2 + 4);
+        expect(tree?.children[0].children[0].rolledUpStats.pendingJobs).toBe(4);
+    });
+
+    it("treats missing groupStats as zero in mixed trees", () => {
+        const root = g("root", "");
+        const a = g("a", "root", stats({ pendingJobs: 5 }));
+        const b = g("b", "root");
+        const tree = buildTreeFromGroups([root, a, b]);
+        expect(tree?.rolledUpStats.pendingJobs).toBe(5);
     });
 });

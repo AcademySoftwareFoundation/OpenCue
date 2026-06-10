@@ -17,8 +17,12 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { findShowByName, Show } from "@/app/utils/get_utils";
 import { GroupTree } from "@/components/group-tree/group-tree";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type LoadState = "loading" | "not-found" | Show;
 
@@ -30,6 +34,9 @@ export default function ShowPage({
   const { showName } = use(params);
   const decodedName = decodeURIComponent(showName);
   const [show, setShow] = useState<LoadState>("loading");
+  // Bumping this remounts GroupTree to reload its groups + jobs (expand state
+  // survives via the URL).
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,27 +47,57 @@ export default function ShowPage({
     return () => { cancelled = true; };
   }, [decodedName]);
 
-  if (show === "loading") {
-    return <p className="p-6 text-sm text-muted-foreground">Loading show…</p>;
-  }
-
-  if (show === "not-found") {
-    return (
-      <p className="p-6 text-sm text-destructive">
-        Show <span className="font-mono">{decodedName}</span> not found.
-      </p>
-    );
-  }
+  // Use the URL name while loading so the chrome renders immediately (no collapse).
+  const title = typeof show === "string" ? decodedName : show.name;
+  const subtitle =
+    show === "loading"
+      ? "Loading…"
+      : show === "not-found"
+        ? "Not found"
+        : show.active
+          ? "Active show"
+          : "Inactive show";
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">{show.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {show.active ? "Active show" : "Inactive show"}
-        </p>
+    <div className="container mx-auto py-10 max-w-[90%]">
+      <Breadcrumbs
+        items={[{ label: "Shows", href: "/shows" }, { label: title }]}
+        className="mb-4"
+      />
+      <header className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">{title}</h1>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        {typeof show !== "string" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReloadNonce(n => n + 1)}
+            aria-label="Refresh"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        )}
       </header>
-      <GroupTree showId={show.id} />
+
+      {show === "loading" ? (
+        <div className="text-sm border rounded-md divide-y">
+          {[0, 1, 2, 3, 4].map(i => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          ))}
+        </div>
+      ) : show === "not-found" ? (
+        <p className="text-sm text-destructive">
+          Show <span className="font-mono">{decodedName}</span> not found.
+        </p>
+      ) : (
+        <GroupTree key={reloadNonce} showId={show.id} />
+      )}
     </div>
   );
 }

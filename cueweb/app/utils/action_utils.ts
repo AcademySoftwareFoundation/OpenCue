@@ -27,18 +27,23 @@ import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 // Helper function for API calls
 /**************************************/
 
-export async function performAction(endpoint: string, bodyAr: string[], successMessage: string) {
-  if (bodyAr.length === 0) return;
+export async function performAction(
+  endpoint: string,
+  bodyAr: string[],
+  successMessage: string,
+): Promise<{ success?: boolean; error?: string }> {
+  if (bodyAr.length === 0) return { success: true };
 
   try {
     const result = await accessActionApi(endpoint, bodyAr);
     if (result?.success) {
       toastSuccess(successMessage);
-    } else {
-      throw new Error(result.error);
+      return result;
     }
+    throw new Error(result.error);
   } catch (error) {
     handleError(error, `Error performing action for: ${endpoint}`);
+    return { error: (error as Error).message };
   }
 }
 
@@ -216,7 +221,7 @@ export async function reparentGroups(newParentId: string, groupIds: string[]) {
     group: { id: newParentId },
     groups: { groups: groupIds.map(id => ({ id })) },
   });
-  await performAction(endpoint, [body], `Reparented ${groupIds.length} group(s)`);
+  return performAction(endpoint, [body], `Reparented ${groupIds.length} group(s)`);
 }
 
 export async function reparentJobs(newParentId: string, jobIds: string[]) {
@@ -225,7 +230,7 @@ export async function reparentJobs(newParentId: string, jobIds: string[]) {
     group: { id: newParentId },
     jobs: { jobs: jobIds.map(id => ({ id })) },
   });
-  await performAction(endpoint, [body], `Reparented ${jobIds.length} job(s)`);
+  return performAction(endpoint, [body], `Reparented ${jobIds.length} job(s)`);
 }
 
 /**************************************/
