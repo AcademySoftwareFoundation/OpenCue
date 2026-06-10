@@ -30,11 +30,16 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
-  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.name) {
+  if (
+    !jsonBody ||
+    typeof jsonBody !== 'object' ||
+    typeof jsonBody.name !== 'string' ||
+    jsonBody.name.trim().length === 0
+  ) {
     return NextResponse.json({ error: 'Invalid request body: name is required' }, { status: 400 });
   }
 
-  const body = JSON.stringify(jsonBody);
+  const body = JSON.stringify({ name: jsonBody.name.trim() });
   const response = await handleRoute(method, endpoint, body, true);
   const responseData = await response.json();
 

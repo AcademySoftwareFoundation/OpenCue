@@ -30,21 +30,28 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
-  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.name) {
+  if (
+    !jsonBody ||
+    typeof jsonBody !== 'object' ||
+    typeof jsonBody.name !== 'string' ||
+    jsonBody.name.trim().length === 0
+  ) {
     return NextResponse.json({ error: 'Invalid request body: name is required' }, { status: 400 });
   }
 
-  const body = JSON.stringify(jsonBody);
+  const body = JSON.stringify({ name: jsonBody.name.trim() });
   const response = await handleRoute(method, endpoint, body);
   const responseData = await response.json();
 
   if (!response.ok) {
-    // An unknown show comes back as a not-found error -> report { notFound }.
-    // Any other error is a real failure, so keep its status instead of
-    // reporting the name as available.
-    const message = String(responseData?.error ?? "");
+    // Not-found comes back as an error from Cuebot. Report it as { notFound }
+    // under `data` (the client's accessGetApi only surfaces res.data) so the
+    // caller reads the name as available. Any other failure keeps its real
+    // status + { error }, which accessGetApi collapses to null so findShow
+    // can fail closed instead of treating an errored lookup as available.
+    const message = String(responseData?.error ?? "Failed to look up show");
     if (/not\s*found/i.test(message)) {
-      return NextResponse.json({ notFound: true }, { status: 200 });
+      return NextResponse.json({ data: { notFound: true } }, { status: 200 });
     }
     return NextResponse.json({ error: responseData.error }, { status: response.status });
   }

@@ -62,9 +62,9 @@ describe('show_utils', () => {
       await expect(findShow('nope')).resolves.toBeNull();
     });
 
-    it('returns null when nothing comes back', async () => {
+    it('throws (fails closed) when the lookup itself failed', async () => {
       (accessGetApi as jest.Mock).mockResolvedValue(null);
-      await expect(findShow('nope')).resolves.toBeNull();
+      await expect(findShow('nope')).rejects.toThrow('Could not verify the show name');
     });
   });
 

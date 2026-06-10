@@ -31,9 +31,17 @@ export function isValidShowName(name: string): boolean {
 export async function findShow(name: string): Promise<Show | null> {
   const body = JSON.stringify({ name });
   const response = await accessGetApi("/api/show/findshow", body);
-  if (!response || response.notFound) return null;
+  // accessGetApi returns null only when the lookup itself failed (it has
+  // already surfaced the error). Throw rather than returning null so the
+  // duplicate-name check fails closed instead of reading an errored lookup
+  // as an available name. A genuine miss returns { notFound }.
+  if (response == null) {
+    throw new Error("Could not verify the show name. Please try again.");
+  }
+  if (response.notFound) return null;
   return response.show ?? null;
 }
+
 
 // Creates a new show with the given name and returns it. Throws on failure so
 // the modal form can surface the reason inline.
