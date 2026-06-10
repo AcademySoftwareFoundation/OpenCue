@@ -558,7 +558,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
      * so a real write would leak scheduler-managed behavior into other tests sharing the Spring
      * context.
      */
-    private void executeProcReuseGate(boolean schedulerManaged) {
+    private void executeProcReuseGate(boolean schedulerManaged, FrameState terminalState) {
         JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
         jobManager.setJobPaused(job, false);
 
@@ -583,7 +583,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
         FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
-        dispatchSupport.stopFrame(dispatchFrame, FrameState.SUCCEEDED, report.getExitStatus(),
+        dispatchSupport.stopFrame(dispatchFrame, terminalState, report.getExitStatus(),
                 report.getFrame().getMaxRss());
 
         // The DAO beans are Spring JDK dynamic proxies (final), so they can't be spied. Wrap them
@@ -600,7 +600,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         frameCompleteHandler.setDispatchSupport(mockDispatchSupport);
         try {
             frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
-                    dispatchFrame, FrameState.SUCCEEDED, frameDetail);
+                    dispatchFrame, terminalState, frameDetail);
         } finally {
             frameCompleteHandler.setShowDao(originalShowDao);
             frameCompleteHandler.setDispatchSupport(originalDispatchSupport);
@@ -614,15 +614,32 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     @Transactional
     @Rollback(true)
     public void testSchedulerManagedShowReleasesProc() {
-        // Scheduler-managed: the proc must be unbooked (released), not reused.
-        executeProcReuseGate(true);
+        // Scheduler-managed, SUCCEEDED: the proc must be unbooked (released), not reused.
+        executeProcReuseGate(true, FrameState.SUCCEEDED);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testNonSchedulerManagedShowReusesProc() {
-        // Control: the scheduler-managed release branch must not fire.
-        executeProcReuseGate(false);
+        // Control, SUCCEEDED: the scheduler-managed release branch must not fire.
+        executeProcReuseGate(false, FrameState.SUCCEEDED);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSchedulerManagedShowReleasesProcWaiting() {
+        // Scheduler-managed, WAITING: the other side of the WAITING/SUCCEEDED gate must also
+        // release the proc.
+        executeProcReuseGate(true, FrameState.WAITING);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNonSchedulerManagedShowReusesProcWaiting() {
+        // Control, WAITING: the scheduler-managed release branch must not fire.
+        executeProcReuseGate(false, FrameState.WAITING);
     }
 }
