@@ -54,12 +54,9 @@ mod imp {
             return Ok(());
         }
 
-        // root holds the full capability set implicitly, so there is nothing to verify.
-        // SAFETY: geteuid is an always-successful syscall with no preconditions.
-        if unsafe { nix::libc::geteuid() } == 0 {
-            return Ok(());
-        }
-
+        // Validate the effective set even when running as root: in containers and user
+        // namespaces a uid-0 process can have a reduced CapEff and would otherwise fail
+        // at frame launch instead of here.
         let caps = effective_caps().ok_or_else(|| {
             miette!(
                 "runner.run_as_user is enabled but RQD could not read its effective \

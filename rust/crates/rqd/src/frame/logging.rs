@@ -570,16 +570,19 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn test_init_into_unwritable_dir_reports_failing_op() {
-        // root bypasses DAC, so the unwritable-dir scenario can't be reproduced there.
-        // SAFETY: geteuid is an always-successful syscall with no preconditions.
-        if unsafe { nix::libc::geteuid() } == 0 {
-            return;
-        }
-
         let dir = tempfile::tempdir().unwrap();
         let locked = dir.path().join("locked");
         fs::create_dir(&locked).unwrap();
         fs::set_permissions(&locked, Permissions::from_mode(0o000)).unwrap();
+
+        // If this process can still create files in the locked dir (running as root, or
+        // holding CAP_DAC_OVERRIDE), the unwritable-dir scenario can't be reproduced.
+        let probe = locked.join(".probe");
+        if File::create(&probe).is_ok() {
+            let _ = fs::remove_file(&probe);
+            let _ = fs::set_permissions(&locked, Permissions::from_mode(0o755));
+            return;
+        }
 
         let log_path = locked.join("frame.rqlog");
         let result = FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None);
