@@ -570,8 +570,15 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
                 .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
                 .setResourceId(proc.getProcId()).build();
-        FrameCompleteReport report =
-                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
+        // The report must carry a healthy host (UP, plenty of free memory), otherwise the handler
+        // unbooks the proc early (e.g. the < 512MB low-memory check) and returns before reaching
+        // the
+        // WAITING/SUCCEEDED proc-reuse branch that the scheduler-managed gate lives in.
+        RenderHost reportHost =
+                RenderHost.newBuilder().setName(HOSTNAME).setFreeMem((int) CueUtil.GB8)
+                        .setNimbyEnabled(false).setState(HardwareState.UP).build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
+                .setHost(reportHost).setExitStatus(0).build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
