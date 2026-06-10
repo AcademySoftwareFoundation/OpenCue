@@ -57,11 +57,13 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -577,14 +579,18 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         dispatchSupport.stopFrame(dispatchFrame, FrameState.SUCCEEDED, report.getExitStatus(),
                 report.getFrame().getMaxRss());
 
+        // The DAO beans are Spring JDK dynamic proxies (final), so they can't be spied. Wrap them
+        // in interface mocks that delegate to the real bean for everything except the one method we
+        // stub, while still recording invocations for verification.
         ShowDao originalShowDao = frameCompleteHandler.getShowDao();
         DispatchSupport originalDispatchSupport = frameCompleteHandler.getDispatchSupport();
-        ShowDao spyShowDao = spy(originalShowDao);
-        DispatchSupport spyDispatchSupport = spy(originalDispatchSupport);
-        doReturn(schedulerManaged).when(spyShowDao).isSchedulerManaged(proc.getShowId());
+        ShowDao mockShowDao = mock(ShowDao.class, delegatesTo(originalShowDao));
+        DispatchSupport mockDispatchSupport =
+                mock(DispatchSupport.class, delegatesTo(originalDispatchSupport));
+        doReturn(schedulerManaged).when(mockShowDao).isSchedulerManaged(proc.getShowId());
 
-        frameCompleteHandler.setShowDao(spyShowDao);
-        frameCompleteHandler.setDispatchSupport(spyDispatchSupport);
+        frameCompleteHandler.setShowDao(mockShowDao);
+        frameCompleteHandler.setDispatchSupport(mockDispatchSupport);
         try {
             frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
                     dispatchFrame, FrameState.SUCCEEDED, frameDetail);
@@ -593,7 +599,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
             frameCompleteHandler.setDispatchSupport(originalDispatchSupport);
         }
 
-        verify(spyDispatchSupport, schedulerManaged ? times(1) : never())
+        verify(mockDispatchSupport, schedulerManaged ? times(1) : never())
                 .unbookProc(any(VirtualProc.class), eq("scheduler-managed show, releasing proc"));
     }
 
