@@ -22,6 +22,13 @@ import { hostColumns } from "@/app/hosts/columns";
 import { SimpleDataTable } from "@/components/ui/simple-data-table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HostLockDialog } from "@/components/ui/host-lock-dialog";
+import { HostRebootDialog } from "@/components/ui/host-reboot-dialog";
+import { EditHostTagsDialog } from "@/components/ui/edit-host-tags-dialog";
+import {
+  HOSTS_CHANGED_EVENT,
+  type HostsChangedDetail,
+} from "@/components/ui/host-action-events";
 
 const REFRESH_MS = 30000;
 
@@ -57,6 +64,27 @@ export default function HostsPage() {
     };
   }, [load]);
 
+  // After a lock/unlock/reboot the dialogs fire cueweb:hosts-changed.
+  // Optimistically apply the patch (lockState and/or state) to the affected
+  // rows so the table reflects the change immediately, then kick off a fetch
+  // to reconcile with Cuebot (the gateway may take a beat to settle, and a
+  // request it rejects will be corrected on the next poll).
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<HostsChangedDetail>).detail;
+      if (!detail?.hostIds?.length || !detail.patch) return;
+      const ids = new Set(detail.hostIds);
+      setHosts((prev) =>
+        prev
+          ? prev.map((h) => (ids.has(h.id) ? { ...h, ...detail.patch } : h))
+          : prev,
+      );
+      load();
+    }
+    window.addEventListener(HOSTS_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(HOSTS_CHANGED_EVENT, handler);
+  }, [load]);
+
   return (
     <div className="p-4">
       <h1 className="mb-4 text-lg font-semibold">Monitor Hosts</h1>
@@ -86,6 +114,13 @@ export default function HostsPage() {
           />
         </>
       )}
+
+      {/* Dialogs opened by the host row context menu: Lock / Unlock
+          (cueweb:open-host-lock), immediate Reboot (cueweb:open-host-reboot),
+          and Edit Tags (cueweb:open-host-tags). */}
+      <HostLockDialog />
+      <HostRebootDialog />
+      <EditHostTagsDialog />
     </div>
   );
 }

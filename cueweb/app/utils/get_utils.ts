@@ -47,11 +47,12 @@ export type Depend = {
     dependOnFrame: string;
 };
 
-// Minimal Host shape - matches the host.Host proto fields the dashboard cares about.
+// Minimal Host shape - matches the host.Host proto fields the dashboard
+// and the Monitor Hosts / host detail pages care about.
 export type Host = {
     id: string;
     name: string;
-    state: string;        // UP / DOWN / REPAIR ...
+    state: string;        // HardwareState: UP / DOWN / REBOOTING / REBOOT_WHEN_IDLE / REPAIR
     lockState: string;    // OPEN / LOCKED / NIMBY_LOCKED
     nimbyEnabled: boolean;
     cores: number;
@@ -62,6 +63,37 @@ export type Host = {
     freeMcp: string;      // KB, as string
     bootTime: number;
     pingTime: number;
+    // Extra fields surfaced on the host detail page. Optional so the
+    // dashboard/Monitor Hosts callers that don't request them still typecheck.
+    allocName?: string;
+    os?: string;
+    load?: number;
+    tags?: string[];
+    threadMode?: string;  // ThreadMode: AUTO / ALL / VARIABLE
+    gpus?: number;
+    idleGpus?: number;
+    hasComment?: boolean;
+};
+
+// Minimal Proc shape - the host.Proc proto fields the host detail page's
+// running-procs table needs. Memory values arrive from the gateway as
+// KB-in-string, mirroring the Host memory fields.
+export type Proc = {
+    id: string;
+    name: string;
+    showName: string;
+    jobName: string;
+    frameName: string;
+    groupName: string;
+    pingTime: number;
+    bookedTime: number;
+    dispatchTime: number;
+    reservedMemory: string;   // KB, as string
+    usedMemory: string;       // KB, as string
+    reservedCores: number;
+    services: string[];
+    logPath: string;
+    unbooked: boolean;
 };
 
 // Minimal Show shape - matches the show.Show proto fields the dashboard cares about.
@@ -200,6 +232,28 @@ export async function getHosts(body: string = JSON.stringify({ r: {} })): Promis
         throw new Error("Failed to load hosts from Cuebot.");
     }
     return response;
+}
+
+// Resolve a single host by its exact name (FindHost). Returns null when no
+// host matches so the detail page can render a "host not found" state.
+export async function findHostByName(name: string): Promise<Host | null> {
+    const ENDPOINT = "/api/host/findhost";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ name }));
+    return response ?? null;
+}
+
+// Fetch the procs (booked frames) running on a host.
+export async function getHostProcs(host: Host): Promise<Proc[]> {
+    const ENDPOINT = "/api/host/getprocs";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ host }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the comments attached to a host (same comment.Comment shape as jobs).
+export async function getHostComments(host: Host): Promise<JobComment[]> {
+    const ENDPOINT = "/api/host/getcomments";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ host }));
+    return Array.isArray(response) ? response : [];
 }
 
 // Fetch every show known to Cuebot.

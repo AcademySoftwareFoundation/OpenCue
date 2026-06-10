@@ -330,7 +330,7 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ### Monitor Hosts
 
-A read-only host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
+A host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
 
 ![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
 
@@ -341,9 +341,25 @@ A read-only host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb 
 | **Data source** | Loads via `getHosts()` (`app/utils/get_utils.ts`), which posts to the `/api/host/gethosts` proxy &rarr; `host.HostInterface/GetHosts`. `getHosts()` returns an array on success and throws on a failed request so the page can tell a real failure from an empty registry. |
 | **Columns** | Name, State, Locked, NIMBY, Cores (Idle/Total), Memory (Idle/Total), Free /mcp (`app/hosts/columns.tsx`). State and Locked reuse the shared `Status` badge. |
 | **Sorting** | Resource columns sort by their underlying numeric value, not the formatted string: Cores and Memory by idle ratio (`idleRatio`), Free /mcp by byte count. Memory / mcp arrive from the gateway as KB-in-string and are parsed/formatted by `app/hosts/host_format_utils.ts` (`kbStringToNumber`, `kbStringToHuman`). |
-| **Table** | Rendered by the shared `SimpleDataTable` with the `isHostsTable` flag - host-specific filter placeholder and empty-state copy, and no row context menu (read-only). Column show/hide persists to `localStorage["cueweb.hosts.columnVisibility"]`. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isHostsTable` flag - host-specific filter placeholder and empty-state copy, and the host row context menu. Column show/hide persists to `localStorage["cueweb.hosts.columnVisibility"]`. |
 | **Refresh** | Auto-refreshes every 30s. A failed poll keeps previously loaded rows; a failed first load renders an inline error with a **Retry** button. |
-| **Scope** | Read-only. Host actions (lock/unlock, tag editing, reboot, NIMBY toggle) and server-side filtering are tracked under sibling issues and are not part of this page. |
+| **Row actions** | A right-click `HostContextMenu` (`components/ui/context_menus/action-context-menu.tsx`) exposes Lock / Unlock, Reboot / Reboot When Idle, and Edit Tags. The action helpers (`lockHosts`, `unlockHosts`, `rebootHosts`, `rebootHostsWhenIdle`, `addHostTags`, `removeHostTags` in `app/utils/action_utils.ts`) post to the `/api/host/action/*` proxies and return a success boolean from `performAction`. Lock/Reboot/Edit-Tags open confirmation dialogs (`host-lock-dialog.tsx`, `host-reboot-dialog.tsx`, `edit-host-tags-dialog.tsx`); on success they fire a `cueweb:hosts-changed` event (`host-action-events.ts`) so the page optimistically patches the affected row and reconciles on the next fetch. The Edit Tags dialog autocompletes from existing registry tags via the shared `command.tsx` (cmdk) primitive. |
+| **Gating** | Unlock is disabled for `NIMBY_LOCKED` hosts; Reboot is disabled while `REBOOTING`; Reboot When Idle is disabled while `REBOOTING` or `REBOOT_WHEN_IDLE`. |
+| **Server-side filtering** | Not yet implemented; filtering is client-side over the loaded rows. |
+
+### Host detail page
+
+A per-host page at `/hosts/[host-name]` (`cueweb/app/hosts/[host-name]/page.tsx`) reached by clicking a host's Name in the Monitor Hosts table.
+
+![Host detail page - Overview tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_overview.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Resolution** | Resolves the host by name via `findHostByName()` (`app/utils/get_utils.ts`) &rarr; `/api/host/findhost` &rarr; `host.HostInterface/FindHost`. |
+| **Tabs** | Overview / Procs / Comments / Tags, with the active tab synced to the `?tab=` query (same pattern as the job detail page). |
+| **Procs** | Loads via `getHostProcs()` &rarr; `/api/host/getprocs` &rarr; `host.HostInterface/GetProcs`, rendered by `SimpleDataTable` with the read-only `isProcsTable` flag (no row context menu) and `proc-columns.tsx`. Auto-refreshes every 15s; an `onRowClick` opens the proc's frame log using the proc's `logPath` as the `frameLogDir`. |
+| **Comments** | Loads via `getHostComments()` &rarr; `/api/host/getcomments` &rarr; `host.HostInterface/GetComments` (read-only list). |
+| **Tags** | Renders `host.tags`; an **Edit tags** button dispatches the same `cueweb:open-host-tags` event as the table menu. The page listens for `cueweb:hosts-changed` to patch and silently reconcile its host. |
 
 ### Job-finished notifications
 
@@ -955,6 +971,12 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
 | `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
+| `host.HostInterface/FindHost` | Resolve a single host by name for the host detail page |
+| `host.HostInterface/GetProcs` | List the procs running on a host (detail page Procs tab) |
+| `host.HostInterface/GetComments` | List a host's comments (detail page Comments tab) |
+| `host.HostInterface/Lock` / `Unlock` | Lock / unlock a host |
+| `host.HostInterface/Reboot` / `RebootWhenIdle` | Reboot a host immediately / when idle |
+| `host.HostInterface/AddTags` / `RemoveTags` | Add / remove host tags |
 
 ### CueWeb Proxy Routes
 
@@ -968,6 +990,17 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 | `POST /api/host/gethosts` | `host.HostInterface/GetHosts` (unwraps the gateway's double-nested `{hosts:{hosts:[...]}}` to a flat array) |
+| `POST /api/host/findhost` | `host.HostInterface/FindHost` (unwraps to the bare host, or `null`) |
+| `POST /api/host/getprocs` | `host.HostInterface/GetProcs` (unwraps `{procs:{procs:[...]}}` to a flat array) |
+| `POST /api/host/getcomments` | `host.HostInterface/GetComments` (unwraps `{comments:{comments:[...]}}` to a flat array) |
+| `POST /api/host/action/lock` | `host.HostInterface/Lock` |
+| `POST /api/host/action/unlock` | `host.HostInterface/Unlock` |
+| `POST /api/host/action/reboot` | `host.HostInterface/Reboot` |
+| `POST /api/host/action/rebootwhenidle` | `host.HostInterface/RebootWhenIdle` |
+| `POST /api/host/action/addtags` | `host.HostInterface/AddTags` (body `{ host, tags }`) |
+| `POST /api/host/action/removetags` | `host.HostInterface/RemoveTags` (body `{ host, tags }`) |
+
+The `/api/host/action/*` routes validate the request body (`400` on malformed JSON or a missing `host`; `addtags` / `removetags` additionally require a `tags` array), forward through `handleRoute`, and propagate the gateway's real HTTP status (a failed RPC returns its `4xx`/`5xx`, not `200`).
 
 ---
 
@@ -1047,7 +1080,8 @@ Layout, left to right:
   - Allocations (`/allocations`)
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
-  - Monitor Hosts (`/hosts`) - implemented; read-only host registry (see
+  - Monitor Hosts (`/hosts`) - implemented; host registry with row actions
+    (lock/unlock, reboot, edit tags) and a per-host detail page (see
     [Monitor Hosts](#monitor-hosts)).
   - Redirect (`/redirect`)
   - Services (`/services`)
