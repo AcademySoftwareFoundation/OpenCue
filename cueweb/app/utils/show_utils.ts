@@ -15,15 +15,12 @@
  */
 
 import { accessGetApi } from "./api_utils";
+import type { Show } from "./get_utils";
 
-// Mirrors the Show proto message at proto/src/show.proto.
-export type Show = {
-  id: string;
-  name: string;
-  active: boolean;
-  bookingEnabled: boolean;
-  dispatchEnabled: boolean;
-};
+// Single source of truth: Show and getShows live in get_utils with the other
+// object getters; re-exported here so the Shows feature imports from one place.
+export type { Show };
+export { getShows } from "./get_utils";
 
 // Show names must be alphanumeric only (no spaces, dashes, or punctuation).
 export function isValidShowName(name: string): boolean {
@@ -38,13 +35,8 @@ export async function findShow(name: string): Promise<Show | null> {
   return response.show ?? null;
 }
 
-// Returns all shows.
-export async function getShows(): Promise<Show[]> {
-  const response = await accessGetApi("/api/show/getshows", JSON.stringify({}));
-  return response ?? [];
-}
-
-// Creates a new show with the given name and returns it.
+// Creates a new show with the given name and returns it. Throws on failure so
+// the modal form can surface the reason inline.
 export async function createShow(name: string): Promise<Show> {
   const body = JSON.stringify({ name });
   const response = await accessGetApi("/api/show/createshow", body);

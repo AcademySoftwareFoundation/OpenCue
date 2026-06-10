@@ -15,16 +15,15 @@
  */
 
 import { getShows } from "@/app/utils/show_utils";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import ShowsClient from "./shows-client";
 
+// Toasts render through the global <ToastHost /> mounted in app/layout.tsx,
+// so this page does not mount its own ToastContainer.
 export default async function ShowsPage() {
   const shows = await getShows();
 
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
-      <ToastContainer />
       <ShowsClient shows={shows} />
     </div>
   );

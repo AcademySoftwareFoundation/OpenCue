@@ -25,8 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toastSuccess } from "@/app/utils/notify_utils";
 import * as React from "react";
-import { toast } from "react-toastify";
 
 interface CreateShowDialogProps {
   open: boolean;
@@ -71,7 +71,7 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
       }
 
       await createShow(trimmed);
-      toast.success(`Show "${trimmed}" created successfully.`);
+      toastSuccess(`Show "${trimmed}" created successfully.`);
       handleOpenChange(false);
       onSuccess?.(trimmed);
     } catch (err) {
