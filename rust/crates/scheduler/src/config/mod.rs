@@ -18,7 +18,7 @@ use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{collections::HashSet, env, fs, path::PathBuf, time::Duration};
+use std::{env, fs, path::PathBuf, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/scheduler.yaml";
 
@@ -140,6 +140,12 @@ pub struct QueueConfig {
     /// Larger values reduce empty-pass query load on the database.
     #[serde(with = "humantime_serde")]
     pub cluster_empty_sleep: Duration,
+    /// Interval between full reloads of the cluster set from the database. The
+    /// feed re-runs the cluster query each tick so `show.b_scheduler_managed`
+    /// flips (and host-tag/subscription churn) are picked up without a restart.
+    /// The reload only swaps the live set when it actually changed.
+    #[serde(with = "humantime_serde")]
+    pub cluster_reload_interval: Duration,
     pub stream: StreamConfig,
     /// Maximum number of jobs returned per cluster pass. Caps the per-pass
     /// dispatch cost so a big-show cluster doesn't iterate thousands of jobs
@@ -169,6 +175,7 @@ impl Default for QueueConfig {
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
             cluster_empty_sleep: Duration::from_secs(30),
+            cluster_reload_interval: Duration::from_secs(120),
             stream: StreamConfig::default(),
             max_jobs_per_cluster_pass: 20,
             manual_tags_chunk_size: 50,
@@ -309,36 +316,7 @@ impl Default for HostCacheConfig {
 #[serde(default)]
 pub struct SchedulerConfig {
     pub facility: Option<String>,
-    pub entire_shows: Vec<String>,
-    pub alloc_tags: Vec<AllocTag>,
-    pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
-}
-
-impl SchedulerConfig {
-    pub fn show_names(&self) -> Option<Vec<String>> {
-        let mut show_names: HashSet<String> = HashSet::from_iter(self.entire_shows.iter().cloned());
-        for tag in &self.alloc_tags {
-            show_names.insert(tag.show.clone());
-        }
-        if show_names.is_empty() {
-            None
-        } else {
-            Some(show_names.into_iter().collect())
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct AllocTag {
-    pub show: String,
-    pub tag: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ManualTags {
-    pub show: String,
-    pub tags: Vec<String>,
 }
 
 //===Config Loader===
