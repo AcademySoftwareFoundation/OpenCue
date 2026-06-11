@@ -28,10 +28,15 @@ import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.show.Show;
+import com.imageworks.spcue.grpc.show.ShowSetCommentEmailRequest;
+import com.imageworks.spcue.grpc.show.ShowSetCommentEmailResponse;
 import com.imageworks.spcue.grpc.show.ShowSetSchedulerManagedRequest;
 import com.imageworks.spcue.grpc.show.ShowSetSchedulerManagedResponse;
 import com.imageworks.spcue.servant.ManageShow;
 
+import io.grpc.stub.StreamObserver;
+
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -46,6 +51,55 @@ public class ManageShowTests extends AbstractTransactionalJUnit4SpringContextTes
     ManageShow manageShow;
 
     private static final String SHOW_NAME = "pipe";
+
+    /**
+     * StreamObserver that records whether onNext / onCompleted were called, so a servant method
+     * that forgets to close the stream (onCompleted) is caught.
+     */
+    private static class RecordingStreamObserver<T> implements StreamObserver<T> {
+        boolean nextCalled = false;
+        boolean completed = false;
+        Throwable error = null;
+
+        @Override
+        public void onNext(T value) {
+            nextCalled = true;
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            error = t;
+        }
+
+        @Override
+        public void onCompleted() {
+            completed = true;
+        }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetCommentEmail() {
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        Show showProto = Show.newBuilder().setId(show.id).setName(show.name).build();
+
+        ShowSetCommentEmailRequest request = ShowSetCommentEmailRequest.newBuilder()
+                .setShow(showProto).setEmail("first@example.com,second@example.com").build();
+        RecordingStreamObserver<ShowSetCommentEmailResponse> observer =
+                new RecordingStreamObserver<ShowSetCommentEmailResponse>();
+
+        manageShow.setCommentEmail(request, observer);
+
+        // The RPC must both emit a response and CLOSE the stream; a missing
+        // onCompleted() leaves callers hanging until they time out.
+        assertTrue(observer.nextCalled);
+        assertTrue(observer.completed);
+
+        // And the email is persisted (split on comma, matching the servant).
+        assertArrayEquals(new String[] {"first@example.com", "second@example.com"},
+                showDao.findShowDetail(SHOW_NAME).commentMail);
+    }
 
     @Test
     @Transactional
