@@ -17,33 +17,29 @@
 import { handleRoute } from '@/app/utils/api_utils';
 import { NextRequest, NextResponse } from "next/server";
 
-// Lists every allocation for the Allocations page. The gateway double-nests
-// the result as { allocations: { allocations: [...] } }; we unwrap to a flat
-// array. RPC: /facility.AllocationInterface/GetAll.
+// Set a show's default minimum cores. Request: { show, min_cores }.
+// RPC: /show.ShowInterface/SetDefaultMinCores.
 export async function POST(request: NextRequest) {
-  const endpoint = "/facility.AllocationInterface/GetAll";
+  const endpoint = "/show.ShowInterface/SetDefaultMinCores";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
   }
 
-  let parsed: unknown = {};
+  let jsonBody: any;
   try {
-    parsed = await request.json();
+    jsonBody = await request.json();
   } catch {
-    // Empty body is acceptable - GetAll takes no parameters.
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
-  const body = JSON.stringify(parsed ?? {});
+  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.show || typeof jsonBody.min_cores !== 'number') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
-  const response = await handleRoute(method, endpoint, body);
+  const body = JSON.stringify(jsonBody);
+  const response = await handleRoute(method, endpoint, body, true);
   const responseData = await response.json();
 
-  if (!response.ok) {
-    return NextResponse.json(
-      { error: responseData?.error ?? "Failed to fetch allocations" },
-      { status: response.status },
-    );
-  }
-  const allocations = responseData?.data?.allocations?.allocations ?? [];
-  return NextResponse.json({ data: allocations }, { status: response.status });
+  if (!response.ok) return NextResponse.json({ error: responseData.error }, { status: response.status });
+  return NextResponse.json({ data: responseData.data }, { status: response.status });
 }

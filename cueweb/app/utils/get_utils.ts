@@ -105,23 +105,35 @@ export type Show = {
     active: boolean;
     bookingEnabled?: boolean;
     dispatchEnabled?: boolean;
+    defaultMinCores?: number;
+    defaultMaxCores?: number;
+    commentEmail?: string;
     showStats?: {
         runningFrames: number;
         pendingFrames: number;
         deadFrames: number;
         pendingJobs: number;
+        // Extra stats surfaced on the Shows table / Show Properties dialog.
+        // int64 counts arrive from the gateway as strings.
+        reservedCores?: number;
+        reservedGpus?: number;
+        createdJobCount?: string;
+        createdFrameCount?: string;
+        renderedFrameCount?: string;
+        failedFrameCount?: string;
     };
 };
 
 // Allocation shape - mirrors facility.Allocation. `stats` (AllocationStats)
-// arrives from the gateway in camelCase. The Allocations page also derives a
-// few host-state columns (down/repair) that AllocationStats doesn't expose,
-// by aggregating the host list client-side.
+// arrives from the gateway in camelCase. The Allocations page derives a few
+// host-state columns (down/repair) that AllocationStats doesn't expose, by
+// aggregating the host list client-side; the Shows subscription dialogs only
+// read id/name for their allocation dropdowns.
 export type Allocation = {
     id: string;
     name: string;
-    tag: string;
-    facility: string;
+    tag?: string;
+    facility?: string;
     billable?: boolean;
     stats?: {
         cores: number;
@@ -289,9 +301,18 @@ export async function getShows(): Promise<Show[]> {
     return Array.isArray(response) ? response : [];
 }
 
-// Fetch every allocation known to Cuebot (for the Allocations page).
+// Fetch only the active shows (mirrors CueGUI's Shows window, which calls
+// getActiveShows). Includes show_stats for the table columns.
+export async function getActiveShows(): Promise<Show[]> {
+    const ENDPOINT = "/api/show/getactiveshows";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch all allocations (the Allocations page table + the subscription
+// allocation dropdowns).
 export async function getAllocations(): Promise<Allocation[]> {
-    const ENDPOINT = "/api/allocation/getallocations";
+    const ENDPOINT = "/api/allocation/getall";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
     return Array.isArray(response) ? response : [];
 }

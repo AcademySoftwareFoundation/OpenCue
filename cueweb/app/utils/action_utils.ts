@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -1007,4 +1007,69 @@ export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
   } catch (err) {
     handleError(err, "Could not copy log path to clipboard");
   }
+}
+/**************************************/
+// Show actions (CueCommander Shows window parity)
+/**************************************/
+
+// Show mutations call accessActionApi directly (no per-call success toast) so
+// the calling dialog can show a single "Saved" toast after applying several
+// changes at once. Errors are still surfaced as toasts by accessActionApi.
+async function showAction(endpoint: string, body: object): Promise<boolean> {
+  const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+export async function enableShowBooking(show: Show, enabled: boolean): Promise<boolean> {
+  return showAction("/api/show/action/enablebooking", { show, enabled });
+}
+
+export async function enableShowDispatching(show: Show, enabled: boolean): Promise<boolean> {
+  return showAction("/api/show/action/enabledispatching", { show, enabled });
+}
+
+export async function setShowDefaultMaxCores(show: Show, maxCores: number): Promise<boolean> {
+  return showAction("/api/show/action/setdefaultmaxcores", { show, max_cores: maxCores });
+}
+
+export async function setShowDefaultMinCores(show: Show, minCores: number): Promise<boolean> {
+  return showAction("/api/show/action/setdefaultmincores", { show, min_cores: minCores });
+}
+
+export async function setShowCommentEmail(show: Show, email: string): Promise<boolean> {
+  return showAction("/api/show/action/setcommentemail", { show, email });
+}
+
+export async function createShowSubscription(
+  show: Show,
+  allocationId: string,
+  size: number,
+  burst: number,
+): Promise<boolean> {
+  return showAction("/api/show/action/createsubscription", {
+    show,
+    allocation_id: allocationId,
+    size,
+    burst,
+  });
+}
+
+// Context-menu dispatchers: open the page-level dialogs via CustomEvent so the
+// free-function handlers stay free of component state (same pattern as hosts).
+export function showPropertiesGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-show-properties", {
+      detail: { show: row.original as Show },
+    }),
+  );
+}
+
+export function createSubscriptionGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-create-subscription", {
+      detail: { show: row.original as Show },
+    }),
+  );
 }

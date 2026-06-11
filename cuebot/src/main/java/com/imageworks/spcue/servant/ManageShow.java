@@ -448,6 +448,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         adminManager.updateShowCommentEmail(getShowEntity(request.getShow()),
                 request.getEmail().split(","));
         responseObserver.onNext(ShowSetCommentEmailResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     public AdminManager getAdminManager() {
