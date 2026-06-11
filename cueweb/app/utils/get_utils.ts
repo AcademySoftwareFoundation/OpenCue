@@ -124,13 +124,27 @@ export type Show = {
     };
 };
 
-// Minimal Allocation shape - the facility.Allocation proto fields the
-// subscription dialogs need for their allocation dropdowns.
+// Allocation shape - mirrors facility.Allocation. `stats` (AllocationStats)
+// arrives from the gateway in camelCase. The Allocations page derives a few
+// host-state columns (down/repair) that AllocationStats doesn't expose, by
+// aggregating the host list client-side; the Shows subscription dialogs only
+// read id/name for their allocation dropdowns.
 export type Allocation = {
     id: string;
     name: string;
     tag?: string;
     facility?: string;
+    billable?: boolean;
+    stats?: {
+        cores: number;
+        availableCores: number;  // "Idle" column
+        idleCores: number;
+        runningCores: number;
+        lockedCores: number;
+        hosts: number;
+        lockedHosts: number;
+        downHosts: number;
+    };
 };
 
 // Fetch a single frame based on the request body
@@ -295,7 +309,8 @@ export async function getActiveShows(): Promise<Show[]> {
     return Array.isArray(response) ? response : [];
 }
 
-// Fetch all allocations (for the subscription allocation dropdowns).
+// Fetch all allocations (the Allocations page table + the subscription
+// allocation dropdowns).
 export async function getAllocations(): Promise<Allocation[]> {
     const ENDPOINT = "/api/allocation/getall";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
