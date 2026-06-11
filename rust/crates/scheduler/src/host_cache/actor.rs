@@ -250,40 +250,60 @@ impl HostCacheService {
                 .unwrap_or(true)
         };
 
+        /// Outcome of probing a cached group during checkout. Distinguishes a
+        /// fresh group that simply has no matching host (move on to the next
+        /// tag) from a group that needs a database fetch (absent or expired).
+        enum GroupOutcome {
+            Found(Host),
+            NoCandidate,
+            Expired,
+        }
+
         for cache_key in cache_keys {
             // Attempt to read from the cache
-            let cached_candidate = self
+            let outcome = self
                 .cluster_index
                 // Using the async counterpart here to prevent blocking during checkout.
                 // As the number of groups is not very large, consumers are eventually going to
                 // fight for the same rows.
                 .read_async(&cache_key, |_, cached_group| {
-                    if !cached_group.expired() {
-                        cached_group
-                            .check_out(cores, memory, &profile, gate, reserved_check)
-                            .map(|host| (cache_key.clone(), host.clone()))
-                            .ok()
+                    if cached_group.expired() {
+                        GroupOutcome::Expired
                     } else {
-                        None
+                        match cached_group.check_out(cores, memory, &profile, gate, reserved_check)
+                        {
+                            Ok(host) => GroupOutcome::Found(host),
+                            Err(_) => GroupOutcome::NoCandidate,
+                        }
                     }
                 })
-                .await
-                .flatten();
+                .await;
 
-            // Fetch form the database if not found on cache
-            match cached_candidate {
-                Some(cached) => {
-                    self.reserve_host(cached.1.id, true);
-                    return Ok(CheckedOutHost(cached.0, cached.1));
+            match outcome {
+                Some(GroupOutcome::Found(host)) => {
+                    self.reserve_host(host.id, true);
+                    return Ok(CheckedOutHost(cache_key, host));
                 }
-                None => {
+                Some(GroupOutcome::NoCandidate) => {
+                    // The group is cached and fresh, it just has no host that
+                    // fits this layer right now. Refetching from the database
+                    // here would add a full host-list query to every failed
+                    // checkout; the periodic refresh loop keeps the group up to
+                    // date instead. Try the next tag.
+                    debug!(
+                        "Wasn't able to find suitable hosts for group {:?}",
+                        &cache_key
+                    );
+                }
+                // Group is absent or its data expired: fetch from the database
+                Some(GroupOutcome::Expired) | None => {
                     let group = self
                         .fetch_group_data(&cache_key)
                         .await
                         .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
                     let checked_out_host = group
                         .check_out(cores, memory, &profile, gate, reserved_check)
-                        .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
+                        .map(|host| CheckedOutHost(cache_key.clone(), host));
 
                     if let Ok(checked_out_host) = checked_out_host {
                         self.reserve_host(checked_out_host.1.id, false);
