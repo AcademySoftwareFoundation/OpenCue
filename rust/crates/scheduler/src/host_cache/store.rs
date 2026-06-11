@@ -171,9 +171,10 @@ impl HostStore {
     ///
     /// # Staleness Handling
     ///
-    /// Stale hosts are always removed regardless of timestamp or validation checks.
-    /// This ensures the store doesn't accumulate stale entries even when removal
-    /// attempts fail validation.
+    /// Stale hosts are always removed regardless of timestamp or validation checks,
+    /// so the store doesn't accumulate stale entries — but the call reports `Err(())`
+    /// rather than success: a host that stopped reporting must not be handed to the
+    /// caller as a valid checkout candidate.
     ///
     /// # Race Condition Prevention
     ///
@@ -213,9 +214,11 @@ impl HostStore {
 
                 // Check staleness first
                 if Self::is_host_stale(host) {
-                    // Host is stale, remove it
-                    let removed_host = entry.remove();
-                    return Ok(Some(removed_host));
+                    // Host is stale: evict it from the store, but signal failure so
+                    // the caller skips it instead of dispatching to a host that
+                    // stopped reporting.
+                    let _ = entry.remove();
+                    return Err(());
                 }
 
                 // Verify host hasn't changed since we looked it up
@@ -675,17 +678,14 @@ mod tests {
         let host = create_test_host_with_timestamp(host_id, 4, ByteSize::gb(8), stale_timestamp);
         store.insert(host.clone(), true);
 
-        // Atomic remove should succeed and remove stale host regardless of validation
+        // A stale host must be evicted but never handed back as a valid candidate
         let result = store.atomic_remove_if_valid(
             &host.id,
             stale_timestamp,
             |h| h.idle_cores.value() >= 8, // Would normally fail, but staleness overrides
         );
 
-        assert!(matches!(result, Ok(Some(_))));
-        if let Ok(Some(removed_host)) = result {
-            assert_eq!(removed_host.id, host.id);
-        }
+        assert!(result.is_err());
 
         // Host should be gone from store
         assert!(store.get(&host.id).is_none());
