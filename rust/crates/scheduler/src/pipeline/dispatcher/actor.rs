@@ -195,16 +195,12 @@ impl RqdDispatcherService {
             return Err(DispatchError::HostLock(host.name.clone()));
         }
 
-        // Ensure unlock is always called, regardless of panics or fails
+        // The advisory lock is transaction-scoped: it is released automatically
+        // when the caller commits or rolls back `transaction`, including when
+        // dispatch_inner panics.
         let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
             .catch_unwind()
             .await;
-
-        // Always attempt to unlock, regardless of outcome. Failing to unlock here can be ignored as
-        // endint the transaction will automatically unlock.
-        if let Err(unlock_err) = self.host_dao.unlock(transaction, &host_id).await {
-            trace!("Failed to unlock host {}: {}", host_disp, unlock_err);
-        }
 
         // Handle the result from dispatch_inner
         match result {

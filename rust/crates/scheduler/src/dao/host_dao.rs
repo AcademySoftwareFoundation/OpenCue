@@ -272,9 +272,11 @@ impl HostDao {
 
     /// Acquires an advisory lock on a host to prevent concurrent dispatch.
     ///
-    /// Uses PostgreSQL's advisory lock mechanism to ensure only one dispatcher
-    /// can modify a host's resources at a time. The lock is based on a hash
-    /// of the host ID string.
+    /// Uses PostgreSQL's transaction-scoped advisory lock mechanism to ensure
+    /// only one dispatcher can modify a host's resources at a time. The lock is
+    /// based on a hash of the host ID string and is released automatically when
+    /// the surrounding transaction commits or rolls back — there is no unlock
+    /// call, so the lock can never leak onto a pooled connection.
     ///
     /// # Arguments
     /// * `host_id` - The UUID of the host to lock
@@ -289,38 +291,12 @@ impl HostDao {
         host_id: &Uuid,
     ) -> Result<bool> {
         trace!("Locking {}", host_id);
-        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
+        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_xact_lock(hashtext($1))")
             .bind(host_id.to_string())
             .fetch_one(&mut **transaction)
             .await
             .into_diagnostic()
             .wrap_err("Failed to acquire advisory lock")
-    }
-
-    /// Releases an advisory lock on a host after dispatch completion.
-    ///
-    /// Releases the PostgreSQL advisory lock that was acquired during
-    /// the dispatch process, allowing other dispatchers to access the host.
-    ///
-    /// # Arguments
-    /// * `host_id` - The UUID of the host to unlock
-    ///
-    /// # Returns
-    /// * `Ok(true)` - Lock successfully released
-    /// * `Ok(false)` - Lock was not held by this process
-    /// * `Err(miette::Error)` - Database operation failed
-    pub async fn unlock(
-        &self,
-        transaction: &mut Transaction<'_, Postgres>,
-        host_id: &Uuid,
-    ) -> Result<bool> {
-        trace!("Unlocking {}", host_id);
-        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
-            .bind(host_id.to_string())
-            .fetch_one(&mut **transaction)
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to release advisory lock")
     }
 
     /// Updates a host's available resource counts after frame dispatch.
