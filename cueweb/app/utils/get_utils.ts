@@ -113,6 +113,28 @@ export type Show = {
     };
 };
 
+// Allocation shape - mirrors facility.Allocation. `stats` (AllocationStats)
+// arrives from the gateway in camelCase. The Allocations page also derives a
+// few host-state columns (down/repair) that AllocationStats doesn't expose,
+// by aggregating the host list client-side.
+export type Allocation = {
+    id: string;
+    name: string;
+    tag: string;
+    facility: string;
+    billable?: boolean;
+    stats?: {
+        cores: number;
+        availableCores: number;  // "Idle" column
+        idleCores: number;
+        runningCores: number;
+        lockedCores: number;
+        hosts: number;
+        lockedHosts: number;
+        downHosts: number;
+    };
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -263,6 +285,13 @@ export async function getHostComments(host: Host): Promise<JobComment[]> {
 // Fetch every show known to Cuebot.
 export async function getShows(): Promise<Show[]> {
     const ENDPOINT = "/api/show/getshows";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every allocation known to Cuebot (for the Allocations page).
+export async function getAllocations(): Promise<Allocation[]> {
+    const ENDPOINT = "/api/allocation/getallocations";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
     return Array.isArray(response) ? response : [];
 }
