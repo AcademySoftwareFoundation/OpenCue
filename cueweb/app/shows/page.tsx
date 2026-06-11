@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-import { getShows } from "@/app/utils/show_utils";
 import ShowsClient from "./shows-client";
 
 // Toasts render through the global <ToastHost /> mounted in app/layout.tsx,
-// so this page does not mount its own ToastContainer.
-export default async function ShowsPage() {
-  const shows = await getShows();
-
+// so this page does not mount its own ToastContainer. ShowsClient fetches the
+// active shows on the client so the table can auto-refresh.
+export default function ShowsPage() {
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
-      <ShowsClient shows={shows} />
+      <ShowsClient />
     </div>
   );
 }
