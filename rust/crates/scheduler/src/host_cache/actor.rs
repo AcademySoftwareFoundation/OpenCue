@@ -336,10 +336,12 @@ impl HostCacheService {
         } else {
             self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
         }
-        // Mark host as reserved
+        // Mark host as reserved. Upsert so a leftover expired reservation (e.g.
+        // from a dispatch that never checked the host back in) is refreshed
+        // rather than silently keeping its old timestamp.
         let _ = self
             .reserved_hosts
-            .insert_sync(host_id, HostReservation::new());
+            .upsert_sync(host_id, HostReservation::new());
     }
 
     /// Returns a host to the cache group after use.
