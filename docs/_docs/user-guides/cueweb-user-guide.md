@@ -1002,6 +1002,78 @@ Click a host's **Name** in the table to open its detail page. The page has four 
 
 ---
 
+## Shows
+
+The **Shows** page (CueCommander &rarr; Shows in the sidebar or header) lists the active shows registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Shows window, with a sortable, filterable stats table, a **Create Show** button, and a per-row actions menu.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Shows entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_shows_menu.png)
+
+The page renders a sortable, filterable table of the active shows.
+
+![CueWeb Shows page](/assets/images/cueweb/cueweb_cuecommander_shows.png)
+
+### Show columns
+
+| Column | Description |
+|--------|-------------|
+| Show Name | Show name. Click it to open the show's detail page |
+| Cores Run | Reserved (running) cores |
+| Frames Run | Running frame count |
+| Frames Pending | Pending frame count |
+| Jobs | Pending job count |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter shows...** box to narrow the table by a substring of the show name. The table auto-refreshes every 30 seconds.
+
+![Filtering the Shows table](/assets/images/cueweb/cueweb_cuecommander_shows_search.png)
+
+### Create a show
+
+Click **Create Show** to open the dialog. Enter a show name (alphanumeric, must be unique), then optionally subscribe the new show to one or more allocations by checking each allocation and setting its **Size** and **Burst**. Clicking **Create** registers the show and creates a subscription on each checked allocation.
+
+![Create New Show dialog](/assets/images/cueweb/cueweb_cuecommander_shows_create_new_show.png)
+
+### Show row actions
+
+Right-click a show row to open its actions menu: **Show Properties** and **Create Subscription...**.
+
+![Show row context menu](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu.png)
+
+#### Show Properties
+
+**Show Properties** opens a dialog with four tabs:
+
+**Settings** - default maximum cores, default minimum cores, and the comment notification email.
+
+![Show Properties - Settings tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_settings_tab.png)
+
+**Booking** - toggle **Enable booking** and **Enable dispatch**.
+
+![Show Properties - Booking tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_booking_tab.png)
+
+**Statistics** - read-only show statistics (running / pending / dead frames, pending jobs, reserved cores, and created / rendered / failed counts).
+
+![Show Properties - Statistics tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_statistics_tab.png)
+
+**Raw Show Data** - a read-only dump of the show object for support and debugging.
+
+![Show Properties - Raw Show Data tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_raw_show_data_tab.png)
+
+**Save** applies only the values you changed; **Close** dismisses the dialog without saving.
+
+#### Create Subscription
+
+**Create Subscription...** opens a dialog to subscribe a show to an allocation. Pick the **Show** and **Alloc** from the dropdowns and set the **Size** and **Burst**, then click **OK**.
+
+![Create Subscription menu entry](/assets/images/cueweb/cueweb_cuecommander_shows_create_subscription_menu.png)
+
+![Create Subscription dialog](/assets/images/cueweb/cueweb_cuecommander_shows_create_subscription_window.png)
+
+A show can have only one subscription per allocation; if one already exists, CueWeb reports that instead of creating a duplicate.
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
