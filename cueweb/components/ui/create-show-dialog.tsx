@@ -107,6 +107,12 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
       .map((a) => ({ a, row: subs[a.id] }))
       .filter(({ row }) => row?.enabled);
     for (const { a, row } of checked) {
+      // Reject blank explicitly: Number("") / Number("  ") are 0 and would
+      // otherwise pass the finite/non-negative checks below.
+      if (row.size.trim() === "" || row.burst.trim() === "") {
+        setError(`Size and Burst for ${a.name} must be non-negative numbers.`);
+        return;
+      }
       const s = Number(row.size);
       const b = Number(row.burst);
       if (!Number.isFinite(s) || s < 0 || !Number.isFinite(b) || b < 0) {

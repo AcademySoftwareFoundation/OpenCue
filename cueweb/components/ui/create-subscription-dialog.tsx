@@ -93,6 +93,11 @@ export function CreateSubscriptionDialog() {
 
     // Block submit on invalid input rather than coercing it to 0, which would
     // silently create a subscription with a value the user didn't intend.
+    // Empty / whitespace is rejected explicitly because Number("") is 0.
+    if (size.trim() === "" || burst.trim() === "") {
+      toastWarning("Size and Burst must be non-negative numbers.");
+      return;
+    }
     const parsedSize = Number(size);
     const parsedBurst = Number(burst);
     if (
