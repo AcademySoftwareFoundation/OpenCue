@@ -482,6 +482,17 @@ impl HostCacheService {
         if removed_count > 0 {
             info!("Cleaned up {} stale hosts from store", removed_count);
         }
+
+        // Drop index entries referencing hosts that are no longer in the store
+        // (removed by the staleness cleanup above or by lazy removal on get).
+        let mut swept = 0;
+        self.cluster_index.iter_sync(|_, cache| {
+            swept += cache.sweep_dead_entries(|host_id| store::HOST_STORE.contains(host_id));
+            true
+        });
+        if swept > 0 {
+            info!("Swept {} dead host entries from cache indexes", swept);
+        }
     }
 
     /// Fetches host data from the database and populates a cache group.

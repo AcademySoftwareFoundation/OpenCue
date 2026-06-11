@@ -126,6 +126,14 @@ impl HostStore {
         Some(host)
     }
 
+    /// Returns true when a host with the given ID is present in the store.
+    ///
+    /// Does not perform staleness checks or clone the host data; intended for
+    /// cheap liveness probes such as the cache index dead-entry sweep.
+    pub fn contains(&self, host_id: &HostId) -> bool {
+        self.host_store.read_sync(host_id, |_, _| ()).is_some()
+    }
+
     /// Removes a host from the store by ID.
     ///
     /// # Arguments
@@ -282,9 +290,10 @@ impl HostStore {
                 return existing_host.get().clone();
             }
         }
-        self.host_store
-            .upsert_sync(host.id, host.clone())
-            .unwrap_or(host)
+        // upsert_sync returns the PREVIOUS value when overwriting; the value
+        // now stored (and the one callers must index by) is `host` itself.
+        let _ = self.host_store.upsert_sync(host.id, host.clone());
+        host
     }
 
     /// Removes all stale hosts from the store in a batch operation.

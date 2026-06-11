@@ -34,7 +34,7 @@
 /// ...
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::RwLock,
     time::{Duration, SystemTime},
 };
@@ -63,21 +63,71 @@ pub type MemoryBTree = BTreeMap<MemoryKey, HashSet<HostId>>;
 /// so the actor's `CheckOut` message stays non-generic.
 pub type Gate = fn(&Host, &LayerProfile) -> Option<f64>;
 
-/// One Phase-1 candidate captured by the Epvm scan: the index coordinates
-/// (so we can locate the entry to remove from the B-tree on commit), the
-/// CAS witness (`expected_last_updated`), and the score that determines
-/// commit order in Phase 3.
+/// One Phase-1 candidate captured by the Epvm scan: the CAS witness
+/// (`expected_last_updated`) and the score that determines commit order in
+/// Phase 3.
 struct ScoredCandidate {
-    core_key: CoreKey,
-    memory_key: MemoryKey,
     host_id: Uuid,
     expected_last_updated: chrono::DateTime<chrono::Utc>,
     score: f64,
 }
 
+/// Dual index of hosts: a B-tree keyed by (cores, memory) buckets for ordered
+/// scans, plus a reverse map recording each host's current bucket.
+///
+/// The reverse map keeps the B-tree consistent when a host is re-indexed with
+/// different idle resources (e.g. by the periodic database refresh): without
+/// it, the host would be inserted at its new bucket while the entry at the old
+/// bucket lingered forever, growing the index unboundedly and degrading scan
+/// order.
+#[derive(Default)]
+struct HostIndex {
+    by_resources: BTreeMap<CoreKey, MemoryBTree>,
+    locations: HashMap<HostId, (CoreKey, MemoryKey)>,
+}
+
+impl HostIndex {
+    /// Inserts a host at the bucket for (core_key, memory_key), moving it from
+    /// its previous bucket if it was already indexed elsewhere.
+    fn upsert(&mut self, host_id: HostId, core_key: CoreKey, memory_key: MemoryKey) {
+        if let Some(old_location) = self.locations.insert(host_id, (core_key, memory_key)) {
+            if old_location != (core_key, memory_key) {
+                self.remove_from_bucket(&host_id, old_location.0, old_location.1);
+            }
+        }
+        self.by_resources
+            .entry(core_key)
+            .or_default()
+            .entry(memory_key)
+            .or_default()
+            .insert(host_id);
+    }
+
+    /// Removes a host from the index, pruning buckets left empty.
+    fn remove(&mut self, host_id: &HostId) {
+        if let Some((core_key, memory_key)) = self.locations.remove(host_id) {
+            self.remove_from_bucket(host_id, core_key, memory_key);
+        }
+    }
+
+    fn remove_from_bucket(&mut self, host_id: &HostId, core_key: CoreKey, memory_key: MemoryKey) {
+        if let Some(by_memory) = self.by_resources.get_mut(&core_key) {
+            if let Some(hosts) = by_memory.get_mut(&memory_key) {
+                hosts.remove(host_id);
+                if hosts.is_empty() {
+                    by_memory.remove(&memory_key);
+                }
+            }
+            if by_memory.is_empty() {
+                self.by_resources.remove(&core_key);
+            }
+        }
+    }
+}
+
 pub struct HostCache {
-    /// B-Tree of host groups ordered by their number of available cores
-    hosts_index: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
+    /// Index of hosts ordered by their available resources
+    hosts_index: RwLock<HostIndex>,
     /// If a cache stops being queried for a certain amount of time, stop keeping it up to date
     last_queried: RwLock<SystemTime>,
     /// Marks if the data on this cache have expired
@@ -88,7 +138,7 @@ pub struct HostCache {
 impl Default for HostCache {
     fn default() -> Self {
         HostCache {
-            hosts_index: RwLock::new(BTreeMap::new()),
+            hosts_index: RwLock::new(HostIndex::default()),
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
             strategy: CONFIG.queue.host_booking_strategy,
@@ -238,22 +288,17 @@ impl HostCache {
                 let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
                     if !core_saturation {
                         // Reverse order to find hosts with max amount of cores available
-                        Box::new(host_index_lock.range(core_key..).rev())
+                        Box::new(host_index_lock.by_resources.range(core_key..).rev())
                     } else {
-                        Box::new(host_index_lock.range(core_key..))
+                        Box::new(host_index_lock.by_resources.range(core_key..))
                     };
 
-                iter.find_map(|(by_core_key, hosts_by_memory)| {
-                    let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
+                iter.find_map(|(_, hosts_by_memory)| {
+                    let find_fn = |(_, hosts): (&u64, &HashSet<Uuid>)| {
                         hosts.iter().find_map(|host_id| {
                             HOST_STORE.get(host_id).and_then(|host| {
                                 if host_validation(&host) {
-                                    Some((
-                                        *by_core_key,
-                                        *by_memory_key,
-                                        *host_id,
-                                        host.last_updated,
-                                    ))
+                                    Some((*host_id, host.last_updated))
                                 } else {
                                     None
                                 }
@@ -271,9 +316,7 @@ impl HostCache {
             };
 
             // Step 2: Attempt atomic removal if we found a candidate
-            if let Some((by_core_key, by_memory_key, host_id, expected_last_updated)) =
-                candidate_info
-            {
+            if let Some((host_id, expected_last_updated)) = candidate_info {
                 // Atomic check-and-remove from HOST_STORE
                 // Ensure host is still valid when it's time to remove it
                 match HOST_STORE.atomic_remove_if_valid(
@@ -283,14 +326,10 @@ impl HostCache {
                 ) {
                     Ok(Some(removed_host)) => {
                         // Successfully removed from store, now remove from index
-                        let mut host_index_lock =
-                            self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
-
-                        // Remove from hosts_by_core_and_memory index
-                        host_index_lock
-                            .get_mut(&by_core_key)
-                            .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
-                            .map(|hosts| hosts.remove(&host_id));
+                        self.hosts_index
+                            .write()
+                            .unwrap_or_else(|p| p.into_inner())
+                            .remove(&host_id);
 
                         return Some(removed_host);
                     }
@@ -358,8 +397,9 @@ impl HostCache {
                 let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
                 let mut acc = Vec::with_capacity(max_candidates.min(64));
 
-                'outer: for (by_core_key, hosts_by_memory) in host_index_lock.range(core_key..) {
-                    for (by_memory_key, hosts) in hosts_by_memory.range(memory_key..) {
+                'outer: for (_, hosts_by_memory) in host_index_lock.by_resources.range(core_key..)
+                {
+                    for (_, hosts) in hosts_by_memory.range(memory_key..) {
                         for host_id in hosts.iter() {
                             if failed_candidates.contains(host_id) {
                                 continue;
@@ -370,8 +410,6 @@ impl HostCache {
                                 }
                                 if let Some(score) = gate(&host, profile) {
                                     acc.push(ScoredCandidate {
-                                        core_key: *by_core_key,
-                                        memory_key: *by_memory_key,
                                         host_id: *host_id,
                                         expected_last_updated: host.last_updated,
                                         score,
@@ -409,15 +447,10 @@ impl HostCache {
                     host_validation,
                 ) {
                     Ok(Some(removed_host)) => {
-                        let mut host_index_lock =
-                            self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
-
-                        host_index_lock
-                            .get_mut(&candidate.core_key)
-                            .and_then(|hosts_by_memory| {
-                                hosts_by_memory.get_mut(&candidate.memory_key)
-                            })
-                            .map(|hosts| hosts.remove(&candidate.host_id));
+                        self.hosts_index
+                            .write()
+                            .unwrap_or_else(|p| p.into_inner())
+                            .remove(&candidate.host_id);
 
                         metrics::observe_placement_score_chosen(candidate.score);
                         return Some(removed_host);
@@ -448,18 +481,35 @@ impl HostCache {
         let core_key = last_host_version.idle_cores.value() as CoreKey;
         let memory_key = Self::gen_memory_key(last_host_version.idle_memory);
 
+        // Insert at the new location, removing any entry left at the host's
+        // previous bucket
+        self.hosts_index
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .upsert(host_id, core_key, memory_key);
+    }
+
+    /// Removes index entries whose hosts are no longer present in the store
+    /// (e.g. removed by staleness cleanup while still referenced here).
+    ///
+    /// Returns the number of entries removed. Called periodically by the cache
+    /// service so indexes don't accumulate references to dead hosts.
+    pub(super) fn sweep_dead_entries(&self, is_live: impl Fn(&HostId) -> bool) -> usize {
         let mut host_index = self
             .hosts_index
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        // Insert at the new location
-        host_index
-            .entry(core_key)
-            .or_default()
-            .entry(memory_key)
-            .or_default()
-            .insert(host_id);
+        let dead: Vec<HostId> = host_index
+            .locations
+            .keys()
+            .filter(|host_id| !is_live(host_id))
+            .copied()
+            .collect();
+        for host_id in &dead {
+            host_index.remove(host_id);
+        }
+        dead.len()
     }
 
     /// Generates a memory key for cache indexing by bucketing memory values.
@@ -544,7 +594,8 @@ mod tests {
     fn test_new_host_cache() {
         let cache = HostCache::default();
         let hosts_index = cache.hosts_index.read().unwrap();
-        assert!(hosts_index.is_empty());
+        assert!(hosts_index.by_resources.is_empty());
+        assert!(hosts_index.locations.is_empty());
         drop(hosts_index);
         assert!(!cache.expired());
     }
@@ -601,7 +652,8 @@ mod tests {
 
         assert!(HOST_STORE.get(&host_id).is_some());
         let hosts_index = cache.hosts_index.read().unwrap();
-        assert!(!hosts_index.is_empty());
+        assert!(!hosts_index.by_resources.is_empty());
+        assert!(hosts_index.locations.contains_key(&host_id));
     }
 
     #[test]
@@ -820,6 +872,39 @@ mod tests {
     }
 
     #[test]
+    fn test_checkin_reindexes_host_without_leaving_ghost_entry() {
+        let cache = HostCache::default();
+        let host_id = Uuid::new_v4();
+
+        // Insert at one bucket, then re-insert (as the periodic refresh does)
+        // with different idle resources. The old bucket entry must be removed.
+        let host_before = create_test_host(host_id, 16, ByteSize::gb(32));
+        cache.check_in(host_before, false);
+        let mut host_after = create_test_host(host_id, 2, ByteSize::gb(4));
+        host_after.last_updated = Utc::now() + chrono::Duration::seconds(1);
+        cache.check_in(host_after, false);
+
+        let hosts_index = cache.hosts_index.read().unwrap();
+        let occurrences: usize = hosts_index
+            .by_resources
+            .values()
+            .flat_map(|by_memory| by_memory.values())
+            .filter(|hosts| hosts.contains(&host_id))
+            .count();
+        assert_eq!(occurrences, 1, "host should be indexed in exactly one bucket");
+        assert_eq!(
+            hosts_index.locations.get(&host_id),
+            Some(&(2, HostCache::gen_memory_key(ByteSize::gb(4))))
+        );
+        drop(hosts_index);
+
+        // Cleanup global store state for other tests
+        let _ = HOST_STORE.remove(&host_id);
+        cache.sweep_dead_entries(|id| HOST_STORE.contains(id));
+        assert!(cache.hosts_index.read().unwrap().locations.is_empty());
+    }
+
+    #[test]
     fn test_gen_memory_key() {
         let memory1 = ByteSize::gb(4);
         let memory2 = ByteSize::gb(8);
@@ -876,7 +961,7 @@ mod tests {
     /// reconfiguring the whole process.
     fn epvm_cache(max_candidates: usize) -> HostCache {
         HostCache {
-            hosts_index: RwLock::new(BTreeMap::new()),
+            hosts_index: RwLock::new(HostIndex::default()),
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
             strategy: HostBookingStrategy::Epvm {
