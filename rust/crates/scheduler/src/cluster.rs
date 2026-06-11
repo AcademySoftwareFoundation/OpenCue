@@ -783,6 +783,7 @@ mod tests {
             Tag {
                 name: tag.to_string(),
                 ttype: TagType::Alloc,
+                alloc_id: None,
             },
         )
     }
