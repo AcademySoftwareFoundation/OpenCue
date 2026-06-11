@@ -243,7 +243,7 @@ SELECT DISTINCT
     l.int_gpus_min,
     l.int_gpu_mem_min,
     l.str_tags,
-    jr.int_max_cores AS int_job_max_cores,
+    jr.int_max_cores::bigint AS int_job_max_cores,
     je.job_env,
     le.layer_env,
     l.int_dispatch_order,
