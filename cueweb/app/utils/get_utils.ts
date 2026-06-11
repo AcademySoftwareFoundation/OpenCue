@@ -96,11 +96,15 @@ export type Proc = {
     unbooked: boolean;
 };
 
-// Minimal Show shape - matches the show.Show proto fields the dashboard cares about.
+// Minimal Show shape - matches the show.Show proto fields the dashboard and
+// the Shows page care about. booking/dispatch are optional so dashboard
+// callers that don't request them still typecheck.
 export type Show = {
     id: string;
     name: string;
     active: boolean;
+    bookingEnabled?: boolean;
+    dispatchEnabled?: boolean;
     showStats?: {
         runningFrames: number;
         pendingFrames: number;

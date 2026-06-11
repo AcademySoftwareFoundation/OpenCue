@@ -12,7 +12,7 @@
 
 use crate::config::RunnerConfig;
 use chrono::{DateTime, Local, Utc};
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::rqd::RunFrame;
 use serde_derive::Serialize;
 use std::collections::HashMap;
@@ -72,17 +72,31 @@ impl FrameFileLogger {
     ) -> Result<Self> {
         let log_path = Path::new(path.as_str());
         if log_path.exists() {
-            Self::rotate_existing_files(&path)?;
+            Self::rotate_existing_files(&path)
+                .wrap_err_with(|| format!("failed to rotate existing frame log {log_path:?}"))?;
         } else if let Some(parent_path) = log_path.parent() {
             if !parent_path.exists() {
-                fs::create_dir_all(parent_path).into_diagnostic()?;
+                if let Err(err) = fs::create_dir_all(parent_path) {
+                    let diag = Self::describe_path_failure(parent_path, uid_gid, Some(&err));
+                    return Err(err).into_diagnostic().wrap_err(format!(
+                        "failed to create parent log dir {parent_path:?}{diag}"
+                    ));
+                }
                 if let Some((uid, gid)) = uid_gid {
                     Self::change_ownership(parent_path, uid, gid)?;
                 }
             }
         }
 
-        let file = File::create(log_path).into_diagnostic()?;
+        let file = match File::create(log_path) {
+            Ok(file) => file,
+            Err(err) => {
+                let diag = Self::describe_path_failure(log_path, uid_gid, Some(&err));
+                return Err(err).into_diagnostic().wrap_err(format!(
+                    "failed to create frame log file {log_path:?}{diag}"
+                ));
+            }
+        };
         if let Some((uid, gid)) = uid_gid {
             Self::change_ownership(log_path, uid, gid)?;
         }
@@ -98,8 +112,6 @@ impl FrameFileLogger {
     fn change_ownership(path: &Path, uid: u32, gid: u32) -> Result<()> {
         use std::os::unix::fs::chown;
 
-        use miette::Context;
-
         fs::set_permissions(path, Permissions::from_mode(0o775))
             .into_diagnostic()
             .wrap_err(format!("Failed to change log dir permissions: {path:?}"))?;
@@ -112,6 +124,113 @@ impl FrameFileLogger {
     #[cfg(target_os = "windows")]
     fn change_ownership(_path: &Path, _uid: u32, _gid: u32) -> Result<()> {
         Ok(())
+    }
+
+    /// Best-effort diagnostics gathered when a log-path operation fails, so the error
+    /// explains *why* (process creds, the directory's ownership/mode/writability, and the
+    /// backing filesystem) instead of a bare `os error 13`. Never panics; only invoked on
+    /// the error path, so the cost is irrelevant.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn describe_path_failure(
+        path: &Path,
+        intended: Option<(u32, u32)>,
+        err: Option<&std::io::Error>,
+    ) -> String {
+        use std::os::unix::fs::MetadataExt;
+
+        // SAFETY: geteuid/getegid are always-successful syscalls with no preconditions.
+        let (euid, egid) = unsafe { (nix::libc::geteuid(), nix::libc::getegid()) };
+
+        let mut out = format!("\n  diagnostics: process euid={euid} egid={egid}");
+        if let Some((uid, gid)) = intended {
+            out.push_str(&format!(", intended chown uid={uid} gid={gid}"));
+        }
+
+        // The directory we actually need write access to (a new entry is created inside it).
+        let dir = path.parent().unwrap_or(path);
+        match fs::metadata(dir) {
+            Ok(md) => {
+                let writable = nix::unistd::access(dir, nix::unistd::AccessFlags::W_OK).is_ok();
+                out.push_str(&format!(
+                    "\n  parent dir {dir:?}: owner uid={} gid={} mode={:#o} writable_by_euid={writable}",
+                    md.uid(),
+                    md.gid(),
+                    md.mode() & 0o7777,
+                ));
+            }
+            Err(stat_err) => {
+                out.push_str(&format!("\n  parent dir {dir:?}: stat failed: {stat_err}"));
+            }
+        }
+
+        if let Some((fstype, source)) = Self::mount_for_path(path) {
+            out.push_str(&format!("\n  filesystem: type={fstype} source={source}"));
+
+            let denied = err.and_then(|e| e.raw_os_error()).is_some_and(|code| {
+                code == nix::libc::EACCES || code == nix::libc::EPERM || code == nix::libc::ESTALE
+            });
+            if denied && fstype.starts_with("nfs") && euid == 0 {
+                out.push_str(
+                    "\n  hint: a permission/stale error as root on an NFS path almost always means a \
+                     stale or divergent NFS mount (or a private mount namespace), not a permission \
+                     bug. Check: `findmnt -T <path>`; compare `/proc/<rqd-pid>/ns/mnt` against a \
+                     fresh shell; `nsenter -t <rqd-pid> -m -- touch <dir>/probe`.",
+                );
+            }
+        }
+
+        out
+    }
+
+    #[cfg(target_os = "windows")]
+    fn describe_path_failure(
+        _path: &Path,
+        _intended: Option<(u32, u32)>,
+        _err: Option<&std::io::Error>,
+    ) -> String {
+        String::new()
+    }
+
+    /// Returns `(fstype, source)` of the mount that contains `path`, matching the longest
+    /// mount-point prefix in `/proc/self/mountinfo` (Linux only).
+    #[cfg(target_os = "linux")]
+    fn mount_for_path(path: &Path) -> Option<(String, String)> {
+        let target = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let content = fs::read_to_string("/proc/self/mountinfo").ok()?;
+
+        let mut best: Option<(usize, String, String)> = None;
+        for line in content.lines() {
+            // mountinfo: `<fields...> - <fstype> <source> <super opts>`
+            let Some((left, right)) = line.split_once(" - ") else {
+                continue;
+            };
+            let left_fields: Vec<&str> = left.split_whitespace().collect();
+            let right_fields: Vec<&str> = right.split_whitespace().collect();
+            if left_fields.len() < 5 || right_fields.len() < 2 {
+                continue;
+            }
+            let mount_point = left_fields[4];
+            if target.starts_with(mount_point) {
+                let len = mount_point.len();
+                let better = match &best {
+                    Some((best_len, _, _)) => len > *best_len,
+                    None => true,
+                };
+                if better {
+                    best = Some((
+                        len,
+                        right_fields[0].to_string(),
+                        right_fields[1].to_string(),
+                    ));
+                }
+            }
+        }
+        best.map(|(_, fstype, source)| (fstype, source))
+    }
+
+    #[cfg(target_os = "macos")]
+    fn mount_for_path(_path: &Path) -> Option<(String, String)> {
+        None
     }
 
     fn rotate_existing_files(path: &String) -> Result<()> {
@@ -426,6 +545,64 @@ mod tests {
         file.read_to_string(&mut buffer).unwrap();
 
         assert_eq!(buffer, "First write. Second write. Third write.");
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn test_describe_path_failure_reports_creds_and_dir() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let path = temp_file.path();
+
+        let diag = FrameFileLogger::describe_path_failure(path, Some((1234, 5678)), None);
+
+        assert!(diag.contains("euid="), "diag missing euid: {diag}");
+        assert!(
+            diag.contains("intended chown uid=1234 gid=5678"),
+            "diag missing intended chown: {diag}"
+        );
+        assert!(
+            diag.contains("parent dir"),
+            "diag missing parent dir: {diag}"
+        );
+        assert!(diag.contains("mode="), "diag missing mode: {diag}");
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn test_init_into_unwritable_dir_reports_failing_op() {
+        let dir = tempfile::tempdir().unwrap();
+        let locked = dir.path().join("locked");
+        fs::create_dir(&locked).unwrap();
+        fs::set_permissions(&locked, Permissions::from_mode(0o000)).unwrap();
+
+        // If this process can still create files in the locked dir (running as root, or
+        // holding CAP_DAC_OVERRIDE), the unwritable-dir scenario can't be reproduced.
+        let probe = locked.join(".probe");
+        if File::create(&probe).is_ok() {
+            let _ = fs::remove_file(&probe);
+            let _ = fs::set_permissions(&locked, Permissions::from_mode(0o755));
+            return;
+        }
+
+        let log_path = locked.join("frame.rqlog");
+        let result = FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None);
+
+        // Restore perms so the tempdir can be cleaned up.
+        let _ = fs::set_permissions(&locked, Permissions::from_mode(0o755));
+
+        let err = match result {
+            Ok(_) => panic!("expected init to fail on an unwritable dir"),
+            Err(err) => err,
+        };
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("failed to create frame log file"),
+            "error should name the failing op: {msg}"
+        );
+        assert!(
+            msg.contains("euid="),
+            "error should include diagnostics: {msg}"
+        );
     }
 
     #[test]

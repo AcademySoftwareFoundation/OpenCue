@@ -98,8 +98,8 @@ Two complementary mechanisms:
 > those shows will resume being booked by Cuebot.
 
 **Migration Strategy**:
-1. Deploy the Scheduler with specific `--alloc_tags` and `--manual_tags`.
-2. Mark each show the Scheduler should own with `cueadmin -scheduler-managed <show> on`.
+1. Deploy the Scheduler (optionally scoped to a facility with `--facility`).
+2. Mark each show the Scheduler should own with `cueadmin -scheduler-managed <show> on`; the Scheduler then auto-loads all of that show's clusters.
 3. Monitor both systems to verify no overlap.
 4. Gradually migrate more shows to the Scheduler.
 5. Eventually disable Cuebot booking entirely with `dispatcher.turn_off_booking=true`.
@@ -117,7 +117,7 @@ Early testing shows significant improvements:
 
 ### Current Version (v1.0)
 
-- **Manual Cluster Distribution**: Operators must manually specify which clusters each scheduler instance handles via `--alloc_tags` and `--manual_tags`
+- **Facility-Scoped Distribution**: Scheduler instances are scoped by `--facility`; show ownership is the per-show `b_scheduler_managed` flag (`cueadmin -scheduler-managed <show> on|off`). Each instance auto-loads all clusters for the scheduler-managed shows in its facility and reloads that set periodically, so no per-cluster configuration or restart is needed.
 - **Single Instance Recommended**: While multi-instance deployment is supported, cluster assignment is static and requires careful configuration
 
 ### Future Development
