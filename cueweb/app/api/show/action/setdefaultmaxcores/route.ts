@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
-  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.show) {
+  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.show || typeof jsonBody.max_cores !== 'number') {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 

@@ -21,7 +21,7 @@ import * as React from "react";
 import type { Allocation, Show } from "@/app/utils/get_utils";
 import { getAllocations, getShows } from "@/app/utils/get_utils";
 import { createShowSubscription } from "@/app/utils/action_utils";
-import { toastSuccess } from "@/app/utils/notify_utils";
+import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -81,7 +81,7 @@ export function CreateSubscriptionDialog() {
           setShowName(detail?.show?.name ?? s[0]?.name ?? "");
           setAllocId(a[0]?.id ?? "");
         })
-        .catch(() => {});
+        .catch((err) => handleError(err, "Could not load shows / allocations"));
     }
     window.addEventListener(OPEN_CREATE_SUBSCRIPTION_EVENT, handler);
     return () => window.removeEventListener(OPEN_CREATE_SUBSCRIPTION_EVENT, handler);
@@ -90,14 +90,22 @@ export function CreateSubscriptionDialog() {
   async function handleCreate() {
     const show = shows.find((s) => s.name === showName);
     if (!show || !allocId) return;
+
+    // Block submit on invalid input rather than coercing it to 0, which would
+    // silently create a subscription with a value the user didn't intend.
+    const parsedSize = Number(size);
+    const parsedBurst = Number(burst);
+    if (
+      !Number.isFinite(parsedSize) || parsedSize < 0 ||
+      !Number.isFinite(parsedBurst) || parsedBurst < 0
+    ) {
+      toastWarning("Size and Burst must be non-negative numbers.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const ok = await createShowSubscription(
-        show,
-        allocId,
-        Number.parseFloat(size) || 0,
-        Number.parseFloat(burst) || 0,
-      );
+      const ok = await createShowSubscription(show, allocId, parsedSize, parsedBurst);
       if (ok) {
         const allocName = allocs.find((a) => a.id === allocId)?.name ?? "allocation";
         toastSuccess(`Subscribed ${show.name} to ${allocName}`);

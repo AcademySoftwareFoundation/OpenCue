@@ -511,8 +511,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isFramesTable ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isFramesTable ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (

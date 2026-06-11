@@ -26,7 +26,7 @@ import {
   setShowDefaultMaxCores,
   setShowDefaultMinCores,
 } from "@/app/utils/action_utils";
-import { toastSuccess } from "@/app/utils/notify_utils";
+import { toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -98,16 +98,29 @@ export function ShowPropertiesDialog() {
 
   async function handleSave() {
     if (!show) return;
+
+    // Validate the core inputs before saving anything. Reject invalid input
+    // explicitly rather than silently skipping those fields, which would apply
+    // a partial save while the user believes everything was saved.
+    const nextMax = Number(maxCores);
+    const nextMin = Number(minCores);
+    if (!Number.isFinite(nextMax) || nextMax < 0 || !Number.isFinite(nextMin) || nextMin < 0) {
+      toastWarning("Default cores must be non-negative numbers.");
+      return;
+    }
+    if (nextMin > nextMax) {
+      toastWarning("Default minimum cores cannot exceed default maximum cores.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const nextMax = Number.parseFloat(maxCores);
-      const nextMin = Number.parseFloat(minCores);
       const tasks: Promise<boolean>[] = [];
 
-      if (Number.isFinite(nextMax) && nextMax !== (show.defaultMaxCores ?? 0)) {
+      if (nextMax !== (show.defaultMaxCores ?? 0)) {
         tasks.push(setShowDefaultMaxCores(show, nextMax));
       }
-      if (Number.isFinite(nextMin) && nextMin !== (show.defaultMinCores ?? 0)) {
+      if (nextMin !== (show.defaultMinCores ?? 0)) {
         tasks.push(setShowDefaultMinCores(show, nextMin));
       }
       if (email !== (show.commentEmail ?? "")) {

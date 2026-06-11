@@ -19,7 +19,7 @@
 import { createShow, findShow, isValidShowName } from "@/app/utils/show_utils";
 import { createShowSubscription } from "@/app/utils/action_utils";
 import { getAllocations, type Allocation } from "@/app/utils/get_utils";
-import { toastSuccess } from "@/app/utils/notify_utils";
+import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -56,15 +56,19 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
       .then((list) => {
         if (cancelled) return;
         setAllocs(list);
-        setSubs((prev) => {
-          const next = { ...prev };
-          for (const a of list) {
-            if (!next[a.id]) next[a.id] = { enabled: false, size: "100", burst: "100" };
-          }
-          return next;
-        });
+        // Build a fresh subscription map each time the dialog opens (do not
+        // merge prior state) so a previous session's checked allocations /
+        // sizes can't carry over and create subscriptions the user didn't
+        // re-select for this show.
+        setSubs(
+          Object.fromEntries(
+            list.map((a) => [a.id, { enabled: false, size: "100", burst: "100" }]),
+          ),
+        );
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (!cancelled) handleError(err, "Could not load allocations");
+      });
     return () => {
       cancelled = true;
     };
@@ -74,6 +78,7 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
     if (!nextOpen) {
       setShowName("");
       setError(null);
+      setSubs({});
     }
     onOpenChange(nextOpen);
   };
@@ -96,6 +101,20 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
       return;
     }
 
+    // Validate the checked allocations' Size/Burst before creating anything,
+    // so an invalid value blocks submit instead of being coerced to 0.
+    const checked = allocs
+      .map((a) => ({ a, row: subs[a.id] }))
+      .filter(({ row }) => row?.enabled);
+    for (const { a, row } of checked) {
+      const s = Number(row.size);
+      const b = Number(row.burst);
+      if (!Number.isFinite(s) || s < 0 || !Number.isFinite(b) || b < 0) {
+        setError(`Size and Burst for ${a.name} must be non-negative numbers.`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const existing = await findShow(trimmed);
@@ -107,19 +126,28 @@ export function CreateShowDialog({ open, onOpenChange, onSuccess }: CreateShowDi
       const created = await createShow(trimmed);
 
       // Create a subscription on each checked allocation (CueGUI parity).
-      for (const a of allocs) {
-        const row = subs[a.id];
-        if (row?.enabled) {
-          await createShowSubscription(
-            created,
-            a.id,
-            Number.parseFloat(row.size) || 0,
-            Number.parseFloat(row.burst) || 0,
-          );
-        }
+      // createShowSubscription returns false (and has already toasted the
+      // specific error) on failure; collect the allocations that failed so we
+      // don't report unqualified success.
+      const failed: string[] = [];
+      for (const { a, row } of checked) {
+        const ok = await createShowSubscription(
+          created,
+          a.id,
+          Number(row.size),
+          Number(row.burst),
+        );
+        if (!ok) failed.push(a.name);
       }
 
-      toastSuccess(`Show "${trimmed}" created successfully.`);
+      // The show itself was created, so close + refresh regardless (reopening
+      // would only hit a duplicate-show error). Warn instead of claiming full
+      // success when one or more subscriptions failed.
+      if (failed.length > 0) {
+        toastWarning(`Show "${trimmed}" created, but subscriptions failed for: ${failed.join(", ")}.`);
+      } else {
+        toastSuccess(`Show "${trimmed}" created successfully.`);
+      }
       handleOpenChange(false);
       onSuccess?.(trimmed);
     } catch (err) {
