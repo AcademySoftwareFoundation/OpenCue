@@ -146,6 +146,13 @@ pub struct QueueConfig {
     /// The reload only swaps the live set when it actually changed.
     #[serde(with = "humantime_serde")]
     pub cluster_reload_interval: Duration,
+    /// Duration a cluster sleeps after a pass found jobs but dispatched zero
+    /// frames (saturated farm: no host candidate fits any pending layer).
+    /// Keeps the loop from re-querying jobs and layers continuously while
+    /// nothing can be placed. Should stay in the same order of magnitude as
+    /// the host cache refresh interval so freed hosts are picked up promptly.
+    #[serde(with = "humantime_serde")]
+    pub cluster_saturated_sleep: Duration,
     pub stream: StreamConfig,
     /// Maximum number of jobs returned per cluster pass. Caps the per-pass
     /// dispatch cost so a big-show cluster doesn't iterate thousands of jobs
@@ -176,6 +183,7 @@ impl Default for QueueConfig {
             job_back_off_duration: Duration::from_secs(300),
             cluster_empty_sleep: Duration::from_secs(30),
             cluster_reload_interval: Duration::from_secs(120),
+            cluster_saturated_sleep: Duration::from_secs(5),
             stream: StreamConfig::default(),
             max_jobs_per_cluster_pass: 20,
             manual_tags_chunk_size: 50,

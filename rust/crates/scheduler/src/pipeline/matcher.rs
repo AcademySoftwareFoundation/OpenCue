@@ -111,9 +111,15 @@ impl MatchingService {
     /// * `feed_sender` - Control channel for the cluster feed; used by
     ///   `process_layer` to sleep the cluster when the (show, alloc)
     ///   subscription is over burst (Alloc clusters + managed shows only).
-    pub async fn process(&self, job: DispatchJob, feed_sender: &mpsc::Sender<FeedMessage>) {
+    ///
+    /// # Returns
+    ///
+    /// Number of frames dispatched for this job. The caller uses this to back
+    /// the cluster off when an entire pass dispatches nothing.
+    pub async fn process(&self, job: DispatchJob, feed_sender: &mpsc::Sender<FeedMessage>) -> usize {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
+        let mut frames_dispatched = 0;
 
         let layers = self
             .layer_dao
@@ -159,7 +165,7 @@ impl MatchingService {
 
                     if layer_permit {
                         let layer_id = layer.id;
-                        self.process_layer(layer, cluster, feed_sender).await;
+                        frames_dispatched += self.process_layer(layer, cluster, feed_sender).await;
                         debug!("{}: Processed layer", layer_disp);
 
                         self.layer_permit_service
@@ -185,6 +191,7 @@ impl MatchingService {
                 error!("Failed to query layers. {:?}", err);
             }
         }
+        frames_dispatched
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -201,12 +208,17 @@ impl MatchingService {
     /// * `cluster` - The cluster context for this dispatch operation
     /// * `feed_sender` - Control channel for sleeping the cluster on
     ///   pre-checkout over-burst detection.
+    ///
+    /// # Returns
+    ///
+    /// Number of frames dispatched for this layer.
     async fn process_layer(
         &self,
         dispatch_layer: DispatchLayer,
         cluster: Arc<Cluster>,
         feed_sender: &mpsc::Sender<FeedMessage>,
-    ) {
+    ) -> usize {
+        let mut frames_dispatched: usize = 0;
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attempts_per_layer;
         let initial_attempts = attempts;
@@ -309,7 +321,7 @@ impl MatchingService {
                     CONFIG.queue.cluster_empty_sleep,
                 ))
                 .await;
-            return;
+            return frames_dispatched;
         }
         let mut local_show_cores_booked: i32 = 0;
 
@@ -427,6 +439,7 @@ impl MatchingService {
                             let dispatched = frames_before_dispatch
                                 .saturating_sub(updated_layer.frames.len())
                                 as i32;
+                            frames_dispatched += dispatched as usize;
                             let booked_cores = dispatched * cores_per_frame;
                             local_job_cores_booked += booked_cores;
                             local_show_cores_booked += booked_cores;
@@ -515,6 +528,7 @@ impl MatchingService {
                 }
             }
         }
+        frames_dispatched
     }
 
     /// Handles various dispatch errors with appropriate logging and actions.
