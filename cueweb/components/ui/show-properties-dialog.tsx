@@ -102,6 +102,12 @@ export function ShowPropertiesDialog() {
     // Validate the core inputs before saving anything. Reject invalid input
     // explicitly rather than silently skipping those fields, which would apply
     // a partial save while the user believes everything was saved.
+    // Reject blank input explicitly: Number("") and Number("  ") are 0, which
+    // would otherwise pass the finite/non-negative checks below as a valid 0.
+    if (maxCores.trim() === "" || minCores.trim() === "") {
+      toastWarning("Default cores must be non-negative numbers.");
+      return;
+    }
     const nextMax = Number(maxCores);
     const nextMin = Number(minCores);
     if (!Number.isFinite(nextMax) || nextMax < 0 || !Number.isFinite(nextMin) || nextMin < 0) {
