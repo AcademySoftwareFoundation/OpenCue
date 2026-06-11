@@ -397,8 +397,7 @@ impl HostCache {
                 let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
                 let mut acc = Vec::with_capacity(max_candidates.min(64));
 
-                'outer: for (_, hosts_by_memory) in host_index_lock.by_resources.range(core_key..)
-                {
+                'outer: for (_, hosts_by_memory) in host_index_lock.by_resources.range(core_key..) {
                     for (_, hosts) in hosts_by_memory.range(memory_key..) {
                         for host_id in hosts.iter() {
                             if failed_candidates.contains(host_id) {
@@ -891,7 +890,10 @@ mod tests {
             .flat_map(|by_memory| by_memory.values())
             .filter(|hosts| hosts.contains(&host_id))
             .count();
-        assert_eq!(occurrences, 1, "host should be indexed in exactly one bucket");
+        assert_eq!(
+            occurrences, 1,
+            "host should be indexed in exactly one bucket"
+        );
         assert_eq!(
             hosts_index.locations.get(&host_id),
             Some(&(2, HostCache::gen_memory_key(ByteSize::gb(4))))

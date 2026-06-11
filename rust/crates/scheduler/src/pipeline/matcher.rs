@@ -116,7 +116,11 @@ impl MatchingService {
     ///
     /// Number of frames dispatched for this job. The caller uses this to back
     /// the cluster off when an entire pass dispatches nothing.
-    pub async fn process(&self, job: DispatchJob, feed_sender: &mpsc::Sender<FeedMessage>) -> usize {
+    pub async fn process(
+        &self,
+        job: DispatchJob,
+        feed_sender: &mpsc::Sender<FeedMessage>,
+    ) -> usize {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
         let mut frames_dispatched = 0;
