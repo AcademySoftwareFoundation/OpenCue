@@ -361,6 +361,19 @@ A per-host page at `/hosts/[host-name]` (`cueweb/app/hosts/[host-name]/page.tsx`
 | **Comments** | Loads via `getHostComments()` &rarr; `/api/host/getcomments` &rarr; `host.HostInterface/GetComments` (read-only list). |
 | **Tags** | Renders `host.tags`; an **Edit tags** button dispatches the same `cueweb:open-host-tags` event as the table menu. The page listens for `cueweb:hosts-changed` to patch and silently reconcile its host. |
 
+### Allocations
+
+An allocations table at `/allocations` (`cueweb/app/allocations/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from **CueCommander &rarr; Allocations** (header dropdown and sidebar).
+
+![CueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getAllocations()` (`app/utils/get_utils.ts`) &rarr; `/api/allocation/getallocations` &rarr; `facility.AllocationInterface/GetAll`. Auto-refreshes every 30s. |
+| **Columns** | Name (links to `/hosts?allocation=<name>`), Tag, then a cores group (Cores, Idle, Locked, Down, Repair) and a hosts group (Hosts, Locked, Down, Repair) - `app/allocations/allocation-columns.tsx`. Numeric columns sort by their underlying value; cores render as integers. |
+| **Derived columns** | `AllocationStats` does not expose Down cores, Repair cores, or Repair hosts, so the page fetches the host list once (`getHosts()`) and aggregates it on `allocName` via `computeAllocationHostStats` / `buildAllocationRows` (`app/allocations/allocation-utils.ts`). The host fetch is best-effort - those columns fall back to 0 if it fails. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the read-only `isAllocationsTable` flag - allocation-specific filter/empty-state copy and no row context menu. Column show/hide persists to `localStorage["cueweb.allocations.columnVisibility"]`. |
+
 ### Job-finished notifications
 
 | Behavior | Description |
@@ -971,6 +984,7 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
 | `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
+| `facility.AllocationInterface/GetAll` | List allocations for the Allocations page |
 | `host.HostInterface/FindHost` | Resolve a single host by name for the host detail page |
 | `host.HostInterface/GetProcs` | List the procs running on a host (detail page Procs tab) |
 | `host.HostInterface/GetComments` | List a host's comments (detail page Comments tab) |
@@ -990,6 +1004,7 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/comment/action/save` | `comment.CommentInterface/Save` |
 | `POST /api/comment/action/delete` | `comment.CommentInterface/Delete` |
 | `POST /api/host/gethosts` | `host.HostInterface/GetHosts` (unwraps the gateway's double-nested `{hosts:{hosts:[...]}}` to a flat array) |
+| `POST /api/allocation/getallocations` | `facility.AllocationInterface/GetAll` (unwraps `{allocations:{allocations:[...]}}` to a flat array) |
 | `POST /api/host/findhost` | `host.HostInterface/FindHost` (unwraps to the bare host, or `null`) |
 | `POST /api/host/getprocs` | `host.HostInterface/GetProcs` (unwraps `{procs:{procs:[...]}}` to a flat array) |
 | `POST /api/host/getcomments` | `host.HostInterface/GetComments` (unwraps `{comments:{comments:[...]}}` to a flat array) |
@@ -1077,7 +1092,8 @@ Layout, left to right:
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
-  - Allocations (`/allocations`)
+  - Allocations (`/allocations`) - implemented; allocations table with
+    cores/hosts stats (see [Allocations](#allocations)).
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
   - Monitor Hosts (`/hosts`) - implemented; host registry with row actions

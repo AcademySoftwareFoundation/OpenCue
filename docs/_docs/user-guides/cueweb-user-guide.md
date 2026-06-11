@@ -1002,6 +1002,46 @@ Click a host's **Name** in the table to open its detail page. The page has four 
 
 ---
 
+## Allocations
+
+The **Allocations** page (CueCommander &rarr; Allocations in the sidebar or header) lists the allocations configured in Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Allocations window, with a sortable, filterable table.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Allocations entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_allocation_menu.png)
+
+The page renders a sortable, filterable table of every allocation.
+
+![CueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+
+### Allocation columns
+
+The columns mirror CueGUI: an identity pair, a **cores** group, and a **hosts** group.
+
+| Column | Group | Description |
+|--------|-------|-------------|
+| Name | - | Allocation name. Click it to open the hosts list filtered to this allocation |
+| Tag | - | Allocation tag |
+| Cores | Cores | Total cores in the allocation |
+| Idle | Cores | Available (idle) cores |
+| Locked | Cores | Locked cores |
+| Down | Cores | Cores on hosts in the `DOWN` state |
+| Repair | Cores | Cores on hosts in the `REPAIR` state |
+| Hosts | Hosts | Number of hosts |
+| Locked | Hosts | Number of locked hosts |
+| Down | Hosts | Number of hosts in the `DOWN` state |
+| Repair | Hosts | Number of hosts in the `REPAIR` state |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter allocations...** box to narrow the table by a substring. The table auto-refreshes every 30 seconds.
+
+![Allocations Columns chooser](/assets/images/cueweb/cueweb_cuecommander_allocation_columns.png)
+
+![Filtering the Allocations table](/assets/images/cueweb/cueweb_cuecommander_allocation_search.png)
+
+Clicking an allocation's **Name** navigates to the hosts list scoped to that allocation (`/hosts?allocation=<name>`).
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
