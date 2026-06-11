@@ -17,7 +17,6 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
 use std::{
-    cmp::Ordering,
     sync::{
         atomic::{self, AtomicBool, AtomicU64},
         Arc,
@@ -400,15 +399,11 @@ impl HostCacheService {
             })
             // Make sure tags are evaluated in this order:
             // MANUAL -> HOSTNAME -> HARDWARE -> ALLOC
-            .sorted_by(|l, r| match (&l.tag.ttype, &r.tag.ttype) {
-                (TagType::Alloc, TagType::Alloc)
-                | (TagType::HostName, TagType::HostName)
-                | (TagType::Hardware, TagType::Hardware)
-                | (TagType::Manual, TagType::Manual) => Ordering::Equal,
-                (TagType::Manual, _) => Ordering::Less,
-                (TagType::HostName, _) => Ordering::Less,
-                (TagType::Hardware, _) => Ordering::Less,
-                (TagType::Alloc, _) => Ordering::Greater,
+            .sorted_by_key(|key| match key.tag.ttype {
+                TagType::Manual => 0u8,
+                TagType::HostName => 1,
+                TagType::Hardware => 2,
+                TagType::Alloc => 3,
             })
     }
 
