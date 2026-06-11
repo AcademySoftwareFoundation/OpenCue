@@ -123,8 +123,17 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         }
                     }
                     Err(err) => {
-                        let _ = feed_sender.send(FeedMessage::Stop()).await;
-                        error!("Failed to fetch job: {}", err);
+                        // A failed job query is usually transient (pool pressure,
+                        // network blip, failover). Stopping the whole feed here
+                        // would shut the scheduler down on the first hiccup; back
+                        // this cluster off instead and let the next pass retry.
+                        error!("Failed to fetch jobs for cluster {}: {}", cluster, err);
+                        let _ = feed_sender
+                            .send(FeedMessage::Sleep(
+                                cluster,
+                                CONFIG.queue.cluster_empty_sleep,
+                            ))
+                            .await;
                     }
                 }
             }
