@@ -348,7 +348,8 @@ impl HostDao {
                 .bind(virtual_proc.cores_reserved.value())
                 .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
                 .bind(virtual_proc.gpus_reserved as i32)
-                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                // GPU memory is stored in KB on the database, like main memory
+                .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i64)
                 .bind(host_id.to_string())
                 .fetch_optional(&mut **transaction)
                 .await
@@ -362,7 +363,7 @@ impl HostDao {
         if CONFIG.host_cache.update_stat_on_book {
             sqlx::query(UPDATE_HOST_STAT)
                 .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
-                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i64)
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await
@@ -395,7 +396,8 @@ impl HostDao {
             .bind(virtual_proc.cores_reserved.value())
             .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+            // GPU memory is stored in KB on the database, like main memory
+            .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i64)
             .bind(host_id.to_string())
             .execute(&mut **transaction)
             .await
@@ -404,7 +406,7 @@ impl HostDao {
         if CONFIG.host_cache.update_stat_on_book {
             sqlx::query(RESTORE_HOST_STAT)
                 .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
-                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i64)
                 .bind(host_id.to_string())
                 .execute(&mut **transaction)
                 .await
