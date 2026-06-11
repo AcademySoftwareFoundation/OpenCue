@@ -40,6 +40,7 @@ use crate::accounting::redis_client::ReseedOp;
 use crate::accounting::AccountingService;
 use crate::config::CONFIG;
 use crate::dao::ResourceAccountingDao;
+use crate::metrics;
 use crate::models::CoreSize;
 
 pub fn spawn_loop(service: Arc<AccountingService>) {
@@ -51,11 +52,27 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
                 return;
             }
         };
-        let mut interval = time::interval(CONFIG.accounting.recompute_interval);
+        let interval_dur = CONFIG.accounting.recompute_interval;
+        let mut interval = time::interval(interval_dur);
         // Skip the immediate first tick - bootstrap reseed already ran at startup.
         interval.tick().await;
+        // Dispatch heartbeat baseline: snapshot the session counter so the first
+        // logged delta only covers frames dispatched after this point.
+        let mut last_dispatched = metrics::frames_dispatched_session();
         loop {
             interval.tick().await;
+
+            // Dispatch heartbeat: the aggregate INFO that replaces the demoted
+            // per-frame dispatch logs. Decoupled from the accounting reseed below.
+            let current_dispatched = metrics::frames_dispatched_session();
+            let delta = current_dispatched.saturating_sub(last_dispatched);
+            last_dispatched = current_dispatched;
+            info!(
+                "Dispatched {} frames in the last {}ms",
+                delta,
+                interval_dur.as_millis()
+            );
+
             let result = AssertUnwindSafe(async {
                 if let Err(err) = run_once(&service, &pg_dao).await {
                     warn!("Recompute cycle failed: {err}");

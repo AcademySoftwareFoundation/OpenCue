@@ -206,7 +206,7 @@ impl RqdDispatcherService {
         match result {
             Ok(result) => {
                 if result.is_ok() {
-                    info!(
+                    debug!(
                         "Successfully dispatched layer {} on {}.",
                         layer_disp, host_disp
                     );
@@ -296,13 +296,13 @@ impl RqdDispatcherService {
                 Err(err) => {
                     match err {
                         DispatchVirtualProcError::AllocationOverBurst(err) => {
-                            info!("({dispatch_id}) {frame_str} {err}");
+                            debug!("({dispatch_id}) {frame_str} {err}");
 
                             last_error = Some(err);
                             break;
                         }
                         DispatchVirtualProcError::LayerLimitReached => {
-                            info!("({dispatch_id}) Skipping layer {}, reached limits", layer);
+                            debug!("({dispatch_id}) Skipping layer {}, reached limits", layer);
                             break;
                         }
                         DispatchVirtualProcError::FailedToStartOnDb(err) => {
@@ -317,7 +317,7 @@ impl RqdDispatcherService {
                                 | DispatchError::FailedToCreateProc { .. } => {
                                     // Resource contention during DB updates is expected in
                                     // multi-scheduler environments.
-                                    info!(
+                                    debug!(
                                         "({dispatch_id}) Failed to start frame {} on Db. {}",
                                         frame_str, err
                                     );
@@ -338,7 +338,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::HostResourcesExhausted => {
                             // Host resources were booked by another scheduler (e.g. Cuebot)
                             // between cache refresh and dispatch. Break the loop and try another host.
-                            info!(
+                            debug!(
                                 "({dispatch_id}) Host resources exhausted for frame {} (likely booked by another scheduler)",
                                 frame_str
                             );
@@ -350,7 +350,7 @@ impl RqdDispatcherService {
                             // Frame was already claimed by another dispatcher - skip it
                             // and continue with the next frame. No proc or host resources
                             // were consumed since the frame update is the first operation.
-                            info!(
+                            debug!(
                                 "({dispatch_id}) Frame {} already claimed by another dispatcher. Skipping.",
                                 frame_str
                             );
@@ -360,7 +360,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::ResourceLimitExceeded(err) => {
                             // Resource limit enforced by database trigger (e.g. job max cores,
                             // subscription burst size). This is expected in normal operation.
-                            info!("({dispatch_id}) {frame_str} {err}");
+                            debug!("({dispatch_id}) {frame_str} {err}");
                             last_error = Some(err);
                             break;
                         }
