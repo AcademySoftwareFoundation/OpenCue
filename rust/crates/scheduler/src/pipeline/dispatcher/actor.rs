@@ -409,7 +409,7 @@ impl RqdDispatcherService {
         }
 
         if non_retrieable_frames.is_empty() {
-            info!(
+            debug!(
                 "Found no frames on {} to dispatch to {}",
                 layer, last_host_version
             );
@@ -431,12 +431,17 @@ impl RqdDispatcherService {
 
         if let Some(error) = last_error {
             match &error {
-                DispatchError::ResourceLimitExceeded(_)
-                | DispatchError::AllocationOverBurst(_)
+                DispatchError::ResourceLimitExceeded(_) => {
+                    // Counted into an aggregate surfaced by the recompute heartbeat
+                    // rather than logged per layer-dispatch (this is hot on a capped show).
+                    metrics::increment_resource_limit_exceeded();
+                    debug!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+                DispatchError::AllocationOverBurst(_)
                 | DispatchError::HostResourcesExhausted(_)
                 | DispatchError::FailedToUpdateResources(_)
                 | DispatchError::FailedToCreateProc { .. } => {
-                    info!("Wasn't able to dispatch all frames: {:?}", error)
+                    debug!("Wasn't able to dispatch all frames: {:?}", error)
                 }
                 _ => {
                     warn!("Wasn't able to dispatch all frames: {:?}", error)

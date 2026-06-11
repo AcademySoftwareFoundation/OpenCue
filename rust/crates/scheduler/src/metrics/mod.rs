@@ -123,6 +123,12 @@ lazy_static! {
 /// dispatch heartbeat reads one value instead of summing across show labels.
 static FRAMES_DISPATCHED_SESSION: AtomicU64 = AtomicU64::new(0);
 
+/// Process-wide monotonic count of layer-dispatch attempts that were cut short by a
+/// `ResourceLimitExceeded` error (subscription/folder/job cap hit) this session.
+/// Read as a delta by the periodic dispatch heartbeat instead of logging once per
+/// occurrence.
+static RESOURCE_LIMIT_EXCEEDED_SESSION: AtomicU64 = AtomicU64::new(0);
+
 /// Handler for the /metrics endpoint
 async fn metrics_handler() -> impl IntoResponse {
     let encoder = TextEncoder::new();
@@ -214,6 +220,19 @@ pub fn increment_frames_dispatched(show_name: &str) {
 #[inline]
 pub fn frames_dispatched_session() -> u64 {
     FRAMES_DISPATCHED_SESSION.load(Ordering::Relaxed)
+}
+
+/// Helper to record a layer dispatch cut short by a `ResourceLimitExceeded` error.
+#[inline]
+pub fn increment_resource_limit_exceeded() {
+    RESOURCE_LIMIT_EXCEEDED_SESSION.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Returns the process-wide count of `ResourceLimitExceeded` dispatch cut-offs since
+/// startup. Monotonic; callers keep a `last` value and log `current - last` each interval.
+#[inline]
+pub fn resource_limit_exceeded_session() -> u64 {
+    RESOURCE_LIMIT_EXCEEDED_SESSION.load(Ordering::Relaxed)
 }
 
 /// Helper function to observe time to book

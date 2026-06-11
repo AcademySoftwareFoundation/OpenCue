@@ -56,21 +56,29 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
         let mut interval = time::interval(interval_dur);
         // Skip the immediate first tick - bootstrap reseed already ran at startup.
         interval.tick().await;
-        // Dispatch heartbeat baseline: snapshot the session counter so the first
-        // logged delta only covers frames dispatched after this point.
+        // Dispatch heartbeat baseline: snapshot the session counters so the first
+        // logged delta only covers events after this point.
         let mut last_dispatched = metrics::frames_dispatched_session();
+        let mut last_limit_exceeded = metrics::resource_limit_exceeded_session();
         loop {
             interval.tick().await;
 
             // Dispatch heartbeat: the aggregate INFO that replaces the demoted
             // per-frame dispatch logs. Decoupled from the accounting reseed below.
             let current_dispatched = metrics::frames_dispatched_session();
-            let delta = current_dispatched.saturating_sub(last_dispatched);
+            let dispatched_delta = current_dispatched.saturating_sub(last_dispatched);
             last_dispatched = current_dispatched;
+
+            let current_limit_exceeded = metrics::resource_limit_exceeded_session();
+            let limit_exceeded_delta =
+                current_limit_exceeded.saturating_sub(last_limit_exceeded);
+            last_limit_exceeded = current_limit_exceeded;
+
             info!(
-                "Dispatched {} frames in the last {}ms",
-                delta,
-                interval_dur.as_millis()
+                "Dispatched {} frames in the last {}ms ({} resource-limit-exceeded)",
+                dispatched_delta,
+                interval_dur.as_millis(),
+                limit_exceeded_delta
             );
 
             let result = AssertUnwindSafe(async {
