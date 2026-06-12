@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-/** @type {import('ts-jest').JestConfigWithTsJest} **/
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: "node",
-  setupFilesAfterEnv: ['./jest/jest.setup.js'],
-  transform: {
-    // jsx override (base tsconfig is "preserve") so .tsx tests compile; tests only.
-    "^.+.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }],
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-  }
+"use client";
+
+import { Briefcase, Folder } from "lucide-react";
+
+export type DragPreviewProps = {
+  type: "group" | "job";
+  name: string;
 };
+
+export function DragPreview({ type, name }: DragPreviewProps) {
+  const Icon = type === "group" ? Folder : Briefcase;
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-background border rounded-md shadow-lg text-sm">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="font-medium">{name}</span>
+    </div>
+  );
+}

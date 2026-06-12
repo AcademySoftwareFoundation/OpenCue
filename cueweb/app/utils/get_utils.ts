@@ -33,6 +33,32 @@ export type JobComment = {
     message: string;
 };
 
+// Mirrors the job.Group proto message at proto/src/job.proto.
+export type Group = {
+    id: string;
+    name: string;
+    department: string;
+    defaultJobPriority: number;
+    defaultJobMinCores: number;
+    defaultJobMaxCores: number;
+    minCores: number;
+    maxCores: number;
+    level: number;
+    parentId: string;
+    groupStats?: GroupStats;
+};
+
+// Mirrors the job.GroupStats proto message at proto/src/job.proto.
+export type GroupStats = {
+    runningFrames: number;
+    deadFrames: number;
+    dependFrames: number;
+    waitingFrames: number;
+    pendingJobs: number;
+    reservedCores: number;
+    reservedGpus: number;
+};
+
 export type Depend = {
     id: string;
     type: string | number;
@@ -321,6 +347,22 @@ export async function getAllocations(): Promise<Allocation[]> {
 export async function getJobComments(job: Job): Promise<JobComment[]> {
     const ENDPOINT = "/api/job/getcomments";
     const body = JSON.stringify({ job: { id: job.id, name: job.name } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the root group's subgroups for a show
+export async function getShowGroups(showId: string): Promise<Group[]> {
+    const ENDPOINT = "/api/show/getgroups";
+    const body = JSON.stringify({ show: { id: showId } });
+    const response = await accessGetApi(ENDPOINT, body);
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the direct jobs in a group
+export async function getGroupJobs(groupId: string): Promise<Job[]> {
+    const ENDPOINT = "/api/group/getjobs";
+    const body = JSON.stringify({ group: { id: groupId } });
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
 }

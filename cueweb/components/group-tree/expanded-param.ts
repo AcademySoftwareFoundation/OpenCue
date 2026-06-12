@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-/** @type {import('ts-jest').JestConfigWithTsJest} **/
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: "node",
-  setupFilesAfterEnv: ['./jest/jest.setup.js'],
-  transform: {
-    // jsx override (base tsconfig is "preserve") so .tsx tests compile; tests only.
-    "^.+.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }],
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-  }
-};
+// Parse the comma-separated list of group ids in the `expanded` search param.
+export function parseExpandedParam(value: string | null): Set<string> {
+  if (!value) return new Set();
+  return new Set(value.split(",").filter(part => part.length > 0));
+}
+
+// Serialize the set back to a comma-separated string. Empty set returns "".
+export function serializeExpandedParam(ids: Set<string>): string {
+  return Array.from(ids).join(",");
+}
