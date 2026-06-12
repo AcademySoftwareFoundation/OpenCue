@@ -290,6 +290,51 @@ export async function rebootHostsWhenIdle(hosts: Host[]): Promise<boolean> {
 }
 
 /**************************************/
+// Layer properties (CueGUI LayerDialog parity)
+/**************************************/
+
+// Apply min memory (KB), min cores (whole cores) and/or tags to a layer.
+// Cuebot exposes SetMinMemory / SetMinCores / SetTags as separate RPCs, so
+// we POST each provided field in turn and surface a single toast on full
+// success. Only the fields present in `changes` are sent, so the dialog can
+// diff against the layer's current values and skip untouched ones. Returns
+// true only when every requested change applied, so the caller can gate its
+// optimistic row patch on success (mirrors setJobCores).
+export async function editLayerProperties(
+  layer: Layer,
+  changes: { minMemory?: number; minCores?: number; tags?: string[] },
+): Promise<boolean> {
+  try {
+    if (typeof changes.minMemory === "number") {
+      const res = await accessActionApi(
+        "/api/layer/action/setminmemory",
+        [JSON.stringify({ layer, memory: changes.minMemory })],
+      );
+      if (!res?.success) throw new Error(res?.error ?? "Failed to set min memory");
+    }
+    if (typeof changes.minCores === "number") {
+      const res = await accessActionApi(
+        "/api/layer/action/setmincores",
+        [JSON.stringify({ layer, cores: changes.minCores })],
+      );
+      if (!res?.success) throw new Error(res?.error ?? "Failed to set min cores");
+    }
+    if (changes.tags) {
+      const res = await accessActionApi(
+        "/api/layer/action/settags",
+        [JSON.stringify({ layer, tags: changes.tags })],
+      );
+      if (!res?.success) throw new Error(res?.error ?? "Failed to set tags");
+    }
+    toastSuccess(`Updated properties on ${layer.name}`);
+    return true;
+  } catch (error) {
+    handleError(error, `Error updating properties on ${layer.name}`);
+    return false;
+  }
+}
+
+/**************************************/
 // Host Tags (CueCommander parity)
 /**************************************/
 
@@ -695,6 +740,22 @@ export function retryLayerFramesGivenRow(row: Row<any>) {
 export function retryLayerDeadFramesGivenRow(row: Row<any>) {
     const layers = [row.original]
     retryLayersDeadFrames(layers);
+}
+
+// Right-click "Properties..." handler. Dispatches a CustomEvent that the
+// EditLayerPropertiesDialog (mounted at the page level) listens for; the
+// dialog opens pre-filled with the row's min memory / min cores / tags and
+// calls editLayerProperties on Save. Decoupled this way so the free-function
+// context-menu handlers don't need to reach into the table's component state
+// (same pattern as setCoresGivenRow / editHostTagsGivenRow).
+export function editLayerPropertiesGivenRow(row: Row<any>) {
+    const layer = row.original as Layer;
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("cueweb:open-layer-properties", {
+        detail: { layer },
+      }),
+    );
 }
 
 /********************************/

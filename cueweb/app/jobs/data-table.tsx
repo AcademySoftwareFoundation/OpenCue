@@ -51,6 +51,7 @@ import { DependencyWizardDialog } from "@/components/ui/dependency-wizard-dialog
 import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
+import { EditLayerPropertiesDialog } from "@/components/ui/edit-layer-properties-dialog";
 import { SetCoresDialog } from "@/components/ui/set-cores-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
@@ -2044,6 +2045,12 @@ export function DataTable({ columns, username }: DataTableProps) {
           a `cueweb:open-set-cores` CustomEvent fired from the row context
           menu's "Set Min/Max Cores..." entry. */}
       <SetCoresDialog />
+
+      {/* Layer Properties dialog. Mounted once here; opens in response to a
+          `cueweb:open-layer-properties` CustomEvent fired from the layer row
+          context menu (in the inline job details below) "Properties..."
+          entry. */}
+      <EditLayerPropertiesDialog />
 
       {/* Email Artist dialog. Mounted once here; opens in response to
           a `cueweb:open-email-artist` CustomEvent fired from the row

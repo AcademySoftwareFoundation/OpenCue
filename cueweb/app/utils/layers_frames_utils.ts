@@ -62,6 +62,52 @@ export const convertMemoryToString = (kmem: number, object: string): string => {
   return `${mem.toFixed(1)}G`;
 };
 
+// Parse a user-entered memory string into KB (the unit Cuebot stores layer
+// min_memory in). Accepts an optional unit suffix - K/KB, M/MB, G/GB,
+// T/TB (case-insensitive); a bare number is interpreted as GB, matching
+// CueGUI's LayerDialog whose memory spinner is labelled in GB. Returns null
+// when the input is blank, not a finite positive number, or carries an
+// unrecognised unit, so callers can surface a validation error.
+//
+//   "4"     -> 4 GB  -> 4194304 KB
+//   "512M"  -> 512 MB -> 524288 KB
+//   "2.5gb" -> 2.5 GB -> 2621440 KB
+export const parseMemoryToKb = (input: string): number | null => {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+
+  const match = trimmed.match(/^([0-9]*\.?[0-9]+)\s*([a-zA-Z]*)$/);
+  if (!match) return null;
+
+  const value = Number.parseFloat(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  const unit = match[2].toLowerCase();
+  const multipliers: Record<string, number> = {
+    "": 1024 * 1024, // bare number == GB (CueGUI parity)
+    k: 1,
+    kb: 1,
+    m: 1024,
+    mb: 1024,
+    g: 1024 * 1024,
+    gb: 1024 * 1024,
+    t: 1024 * 1024 * 1024,
+    tb: 1024 * 1024 * 1024,
+  };
+  if (!(unit in multipliers)) return null;
+
+  return Math.round(value * multipliers[unit]);
+};
+
+// Format a KB amount as a GB string for editing (e.g. 4194304 -> "4"). Used
+// to seed the memory input of the layer property dialog. Keeps up to two
+// decimals and trims trailing zeros so common round values stay tidy.
+export const formatKbToGbInput = (kb: number): string => {
+  if (!Number.isFinite(kb) || kb <= 0) return "";
+  const gb = kb / (1024 * 1024);
+  return Number.parseFloat(gb.toFixed(2)).toString();
+};
+
 // Converts seconds to a string formatted as HH:MM:SS
 export const secondsToHHMMSS = (sec: number): string => {
   // Floor the input so fractional inputs (e.g. (Date.now()/1000) deltas)

@@ -36,7 +36,12 @@ import {
 import { handleError } from "@/app/utils/notify_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
+import { EditLayerPropertiesDialog } from "@/components/ui/edit-layer-properties-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  LAYERS_CHANGED_EVENT,
+  type LayersChangedDetail,
+} from "@/components/ui/layer-action-events";
 import { SimpleDataTable } from "@/components/ui/simple-data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -208,6 +213,23 @@ export default function JobDetailPage() {
     };
   }, [job, tab]);
 
+  // Optimistic patch from the layer property editor: when a layer's min
+  // memory / min cores / tags change, update the matching row immediately so
+  // the change reflects without waiting for the next 5s poll (which then
+  // reconciles with Cuebot).
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<LayersChangedDetail>).detail;
+      if (!detail?.layerIds?.length) return;
+      const ids = new Set(detail.layerIds);
+      setLayers((prev) =>
+        prev.map((l) => (ids.has(l.id) ? { ...l, ...detail.patch } : l)),
+      );
+    }
+    window.addEventListener(LAYERS_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(LAYERS_CHANGED_EVENT, handler);
+  }, []);
+
   const setTab = React.useCallback(
     (next: string) => {
       if (!isTabKey(next) || next === tab) return;
@@ -327,6 +349,10 @@ export default function JobDetailPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Mounted once for the whole page; opened by the layer row context
+          menu's "Properties..." action via a CustomEvent. */}
+      <EditLayerPropertiesDialog />
     </div>
   );
 }

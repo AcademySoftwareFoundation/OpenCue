@@ -33,6 +33,7 @@ import {
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
   editHostTagsGivenRow,
+  editLayerPropertiesGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
@@ -520,7 +521,7 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
 
     sep("group-properties"),
 
-    { label: "Properties...", onClick: notYetImplemented("Properties"), isActive: true, component: <TbSettings className="mr-1" size={14} /> },
+    { label: "Properties...", onClick: editLayerPropertiesGivenRow, isActive: true, component: <TbSettings className="mr-1" size={14} /> },
 
     sep("group-actions"),
 

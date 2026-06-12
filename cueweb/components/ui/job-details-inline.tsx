@@ -25,6 +25,10 @@ import { handleError } from "@/app/utils/notify_utils";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  LAYERS_CHANGED_EVENT,
+  type LayersChangedDetail,
+} from "@/components/ui/layer-action-events";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronRight, Inbox, X } from "lucide-react";
 import { JobDependencyGraph } from "./job-dependency-graph";
@@ -106,6 +110,22 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
     },
     [job],
   );
+
+  // Optimistic patch from the layer property editor: apply min memory / min
+  // cores / tags changes to the matching row immediately so the edit reflects
+  // without waiting for the next 5s poll (which then reconciles with Cuebot).
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<LayersChangedDetail>).detail;
+      if (!detail?.layerIds?.length) return;
+      const ids = new Set(detail.layerIds);
+      setLayers((prev) =>
+        prev.map((l) => (ids.has(l.id) ? { ...l, ...detail.patch } : l)),
+      );
+    }
+    window.addEventListener(LAYERS_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(LAYERS_CHANGED_EVENT, handler);
+  }, []);
 
   // If the selected layer disappears (e.g. job switched, layer removed by
   // the next poll), clear it so the frames filter doesn't leave the table
