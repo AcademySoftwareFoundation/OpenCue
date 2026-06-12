@@ -102,6 +102,13 @@ queue:
   # Default: 30s
   # cluster_empty_sleep: 30s
 
+  # Interval between full reloads of the cluster set from the database. The feed
+  # re-runs the cluster query each tick so show.b_scheduler_managed flips (and
+  # host-tag/subscription changes) are picked up without a restart. The live set
+  # is only swapped when it actually changed.
+  # Default: 120s
+  # cluster_reload_interval: 120s
+
   # Chunk size for processing manual tags
   # Default: 50
   # manual_tags_chunk_size: 50
@@ -213,37 +220,18 @@ host_cache:
 # =============================================================================
 # SCHEDULER CONFIGURATION
 # =============================================================================
+# Which shows the scheduler owns is NOT configured here. It is driven entirely by
+# the show.b_scheduler_managed database column (toggle it per show with
+# `cueadmin -scheduler-managed <show> on|off`). The scheduler automatically loads
+# every cluster (allocation, manual, hostname, and hardware host-tags) for shows
+# where b_scheduler_managed = true, and refreshes that set periodically - see
+# queue.cluster_reload_interval - so toggling a show takes effect without a
+# restart.
 scheduler:
-  # Optional facility code to run on (can be overridden with --facility flag)
-  # This optional is a no-op for entire_shows and manual_tags
+  # Optional facility code to run on (can be overridden with --facility flag).
+  # Scopes this instance to one facility's scheduler-managed clusters.
   # Default: None
   # facility: eat
-
-  # List of show names to be fully scheduled (can be overridden with --entire_show flag)
-  # Default: []
-  # entire_shows:
-  #   - show1
-  #   - show2
-
-  # List of allocation tags in show:tag format (can be overridden with --alloc_tags flag)
-  # Default: []
-  # alloc_tags:
-  #   - show: show1
-  #     tag: general
-  #   - show: show2
-  #     tag: priority
-
-  # List of manual tags not associated with an allocation, scoped by show
-  # (can be overridden with --manual_tags flag, eg. show1:tag1,tag2,tag3)
-  # Default: []
-  # manual_tags:
-  #   - show: show1
-  #     tags:
-  #       - tag1
-  #       - tag2
-  #   - show: show2
-  #     tags:
-  #       - tag3
 
   # List of tags to ignore when loading clusters (can be overridden with --ignore_tags flag)
   # These tags will be filtered out from all cluster types (manual, hostname, and alloc)

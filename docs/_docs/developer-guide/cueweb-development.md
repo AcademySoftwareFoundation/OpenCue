@@ -181,7 +181,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
 - **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`.
 - **`JobDetailsPage`** (`app/jobs/[job-name]/page.tsx`): Standalone tabbed job-details route reached via the **View Job Details** right-click entry (or the row's `⋮` Actions button). Resolves the job by name through `findJobByName(...)`, polls layers + frames every 5s with cancellation guards, and exposes five tabs - **Overview**, **Layers**, **Frames**, **Comments**, **Dependencies**. The active tab is mirrored to the URL as `?tab=<key>` and read back through `useSearchParams()` + `router.replace(...)` so the page is bookmarkable and browser back/forward walks between tabs. `isTabKey(value)` rejects unknown query values so the URL can never select a missing tab. The Comments tab embeds a read-only preview of `getJobComments(...)` with a link out to the full `/jobs/<jobName>/comments` editor; Dependencies is currently a placeholder. The standard `Breadcrumbs` + `EmptyState` (`FileX` icon, "Job not found") wrappers cover loading and missing-job paths.
-- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, and the host detail page's procs table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
+- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, the host detail page's procs table, the Shows table, and the Allocations table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` / `isShowsTable` / `isAllocationsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; `isShowsTable` &rarr; `ShowContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` / `isAllocationsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 - **`FrameViewer`**: Frame log viewer component
@@ -946,6 +946,84 @@ to one entry.
 
 ---
 
+## Set Min/Max Cores dialog (CueGUI parity)
+
+The Jobs table's right-click **Set Min/Max Cores...** entry opens a themed dialog with two number inputs (Min / Max, range 0-50000) pre-filled with the job's current cores and a client-side `min <= max` guard. Like **Set Priority**, the entry is not path-gated, so it appears on both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). Files involved:
+
+```
+cueweb/
+├── app/api/job/action/setmincores/route.ts   # Proxy to JobInterface/SetMinCores
+├── app/api/job/action/setmaxcores/route.ts   # Proxy to JobInterface/SetMaxCores
+├── app/utils/action_utils.ts                 # setJobCores(job, min, max) + setCoresGivenRow event dispatcher
+├── components/ui/set-cores-dialog.tsx        # The dialog component (two number inputs + min<=max guard)
+├── components/ui/context_menus/action-context-menu.tsx  # "Set Min/Max Cores..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <SetCoresDialog/> + listens for cueweb:cores-changed
+```
+
+### CustomEvent dance
+
+The dialog is mounted once at the bottom of `DataTable`, decoupled from the menu the same way as Set Priority:
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-set-cores` | `setCoresGivenRow(row)` in `action_utils.ts` | `SetCoresDialog` | `{ job: Job }` |
+| `cueweb:cores-changed` | `SetCoresDialog` after a successful `setJobCores(job, min, max)` | `DataTable` (a `useEffect`) | `{ jobId: string; minCores: number; maxCores: number }` |
+
+`cueweb:cores-changed` patches the in-memory job data (`tableData[].minCores`/`maxCores`) so a re-opened **Set Min/Max Cores** dialog pre-fills the new values without waiting for the next 5-second poll. The jobs table has no cores column, so — like the existing Set Priority / `cueweb:priority-changed` update — this is an in-memory refresh rather than a visible cell change. Following the same success-gating contract as the host actions, `setJobCores` returns a `boolean` and the dialog fires `cueweb:cores-changed` **only when both calls succeeded**, so a rejected change never patches stale data.
+
+### API route
+
+`POST /api/job/action/setmincores` and `POST /api/job/action/setmaxcores` each validate `{ job, val: number }`, check `Number.isFinite(val) && 0 <= val <= 50000`, and forward to `/job.JobInterface/SetMinCores` and `/job.JobInterface/SetMaxCores` respectively. `setJobCores` POSTs both in turn (Cuebot has no combined call); if the min call fails it skips the max call and surfaces the error.
+
+---
+
+## Unbook job dialog (CueGUI parity)
+
+The Jobs table's right-click **Unbook...** entry opens a dialog that unbooks every proc the job currently holds, with an optional **Kill unbooked frames?** checkbox that adds a second kill-confirmation phase. It is the first CueWeb action to route through `ProcInterface`. Files involved:
+
+```
+cueweb/
+├── app/api/proc/action/unbook/route.ts       # Proxy to ProcInterface/UnbookProcs
+├── app/utils/action_utils.ts                 # unbookJob(job, kill) + unbookGivenRow event dispatcher
+├── components/ui/unbook-dialog.tsx           # The dialog (kill checkbox + 2nd kill-confirm phase)
+├── components/ui/context_menus/action-context-menu.tsx  # "Unbook..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <UnbookDialog/> + listens for cueweb:refresh-now
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-unbook` | `unbookGivenRow(row)` in `action_utils.ts` | `UnbookDialog` | `{ job: Job }` |
+| `cueweb:refresh-now` | `UnbookDialog` after a successful `unbookJob(job, kill)` | `DataTable` (an immediate re-poll) | _(none)_ |
+
+Unlike the cores / priority dialogs (which patch one column optimistically), an unbook can free an arbitrary number of procs across layers, so on success it asks the table to re-poll immediately via the existing `cueweb:refresh-now` event instead of patching a row. `unbookJob` propagates `performAction`'s `boolean`, so the refresh fires **only on success**.
+
+### Gateway path
+
+`UnbookProcs` lives on `ProcInterface`, but the REST path is **`/host.ProcInterface/UnbookProcs`**, not `/proc.ProcInterface/...`: `host.proto` declares `package host;`, and grpc-gateway derives the path prefix from the proto package, not the file or service name. (The gateway's own test scripts use the wrong `proc.` prefix; the correct one was verified live against a running rest-gateway.)
+
+### API route
+
+`POST /api/proc/action/unbook` validates `{ r, kill: boolean }` and forwards to `/host.ProcInterface/UnbookProcs`. `unbookJob` posts `{ r: { jobs: [job.name] }, kill }` - a job-scoped `ProcSearchCriteria`. That criteria's other fields (`allocs`, `max_results`, `memory_range`, `duration_range`) map to CueGUI's allocation / amount / memory / runtime filters and are intentionally left out of this MVP; adding them later needs no backend change.
+
+---
+
+## Multi-job batch operation confirmation
+
+Selecting two or more jobs and using a Jobs-toolbar bulk action (Pause, Unpause, Retry, Eat, Kill) routes through a confirmation step before any RPC is sent. There is no new API route - this is purely a gate in `app/jobs/data-table.tsx` reusing the existing `components/ui/confirm-dialog.tsx`.
+
+### Confirmation policy
+
+Mirroring CueGUI, the gate is per-action:
+
+- **Kill / Eat / Retry** always confirm - even for a single job - because they are destructive.
+- **Pause / Unpause** confirm only when **two or more** jobs are selected.
+
+The confirm dialog lists the affected job names; destructive actions use the destructive button variant and CueGUI's kill warning text. **Cancel** dispatches no RPC.
+
+---
+
 ## Host management actions (CueCommander parity)
 
 The Monitor Hosts table (`app/hosts/page.tsx`) and the host detail page
@@ -1025,6 +1103,68 @@ missing `host`; `addtags` / `removetags` additionally require a `tags` array),
 set the real HTTP status via `NextResponse.json`'s second argument (a failed RPC
 returns its `4xx`/`5xx`, not `200`), and avoid the redundant stringify/parse
 round-trip - matching the `findhost` / `getprocs` / `getcomments` data routes.
+
+---
+
+## Shows window (CueCommander parity)
+
+The `/shows` page (`app/shows/page.tsx` + `shows-client.tsx`) replicates the
+CueGUI CueCommander Shows window. Files involved:
+
+```text
+app/api/show/getactiveshows/route.ts                   # active shows for the table
+app/api/allocation/getall/route.ts                     # allocations for the subscription dropdowns
+app/api/show/action/{enablebooking,enabledispatching,setdefaultmaxcores,setdefaultmincores,setcommentemail,createsubscription}/route.ts
+app/utils/get_utils.ts                                 # widened Show type + Allocation type, getActiveShows/getAllocations
+app/utils/action_utils.ts                              # enableShowBooking/Dispatching, setShowDefaultMax/MinCores, setShowCommentEmail, createShowSubscription + row dispatchers
+app/shows/show-columns.tsx                             # stats columns
+components/ui/show-action-events.ts                    # shared dialog event contract
+components/ui/show-properties-dialog.tsx               # four-tab properties dialog
+components/ui/create-subscription-dialog.tsx           # Create Subscription
+components/ui/create-show-dialog.tsx                   # Create Show + per-allocation subscriptions
+components/ui/context_menus/action-context-menu.tsx    # ShowContextMenu
+```
+
+### Stats table
+
+`shows-client.tsx` fetches the active shows on the client (`getActiveShows()`)
+so the table auto-refreshes every 30s, and re-fetches on `cueweb:shows-changed`.
+It renders through `SimpleDataTable` with the `isShowsTable` flag and
+`show-columns.tsx` - Show Name (links to the detail page), Cores Run
+(`reserved_cores`), Frames Run (`running_frames`), Frames Pending
+(`pending_frames`), Jobs (`pending_jobs`), all sorting by underlying value.
+
+### CustomEvent dance
+
+The `ShowContextMenu` dispatchers (`showPropertiesGivenRow`,
+`createSubscriptionGivenRow`) fire `cueweb:open-show-properties` /
+`cueweb:open-create-subscription`; the page-level dialogs listen for them. The
+names + payload types live in `show-action-events.ts` (same pattern as
+`host-action-events.ts`); `cueweb:shows-changed` is fired on success so the
+table re-fetches.
+
+### Dialogs
+
+- **Show Properties** (`show-properties-dialog.tsx`): four tabs (Settings,
+  Booking, Statistics, Raw Show Data). Save validates the core inputs
+  (non-negative, min &le; max), then calls only the setters whose value changed
+  and fires `cueweb:shows-changed`.
+- **Create Subscription** (`create-subscription-dialog.tsx`): Show + Alloc
+  dropdowns, Size/Burst validated as non-negative numbers before submit.
+- **Create Show** (`create-show-dialog.tsx`): the subscription map is built
+  fresh on open and cleared on close so a prior session can't carry over;
+  each checked allocation's Size/Burst is validated before anything is created;
+  the show is created then a subscription on each checked allocation, with a
+  per-allocation failure tracked so a partial failure warns rather than
+  reporting unqualified success.
+
+### Action helpers + routes
+
+The show mutations go through `accessActionApi` (returning a boolean) in
+`action_utils.ts`. The `/api/show/action/*` routes validate their bodies
+(`enabled` boolean, `max_cores`/`min_cores` numeric, `allocation_id` non-empty
+string) and propagate the gateway's real HTTP status; `createsubscription`
+rewrites Cuebot's duplicate-key error into a short user-facing message.
 
 ---
 

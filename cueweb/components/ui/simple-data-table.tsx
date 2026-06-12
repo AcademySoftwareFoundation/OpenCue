@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FrameContextMenu, HostContextMenu, LayerContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -46,7 +46,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Layers, Search, Server, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Layers, PieChart, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -73,6 +73,12 @@ interface SimpleDataTableProps<TData, TValue> {
   // copy and no row context menu. Rows are typically made clickable via
   // onRowClick to open the frame log.
   isProcsTable?: boolean;
+  // Shows variant (Shows window): show-specific filter/empty copy and the
+  // ShowContextMenu (Show Properties, Create Subscription).
+  isShowsTable?: boolean;
+  // Allocations variant (read-only, Allocations page): allocation-specific
+  // filter/empty copy and no row context menu.
+  isAllocationsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -106,6 +112,8 @@ export function SimpleDataTable<TData, TValue>({
   isFramesLogTable = false,
   isHostsTable = false,
   isProcsTable = false,
+  isShowsTable = false,
+  isAllocationsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
@@ -507,8 +515,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isFramesTable ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isFramesTable ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -575,7 +583,7 @@ export function SimpleDataTable<TData, TValue>({
                     data-state={
                       isSelectedById || row.getIsSelected() ? "selected" : undefined
                     }
-                    onContextMenu={isProcsTable ? undefined : (e) => contextMenuHandleOpen(e, row)}
+                    onContextMenu={(isProcsTable || isAllocationsTable) ? undefined : (e) => contextMenuHandleOpen(e, row)}
                     onClick={
                       onRowClick
                         ? () => onRowClick(row.original as TData)
@@ -617,6 +625,10 @@ export function SimpleDataTable<TData, TValue>({
                         <Server className="h-6 w-6" aria-hidden="true" />
                       ) : isProcsTable ? (
                         <Cpu className="h-6 w-6" aria-hidden="true" />
+                      ) : isShowsTable ? (
+                        <Film className="h-6 w-6" aria-hidden="true" />
+                      ) : isAllocationsTable ? (
+                        <PieChart className="h-6 w-6" aria-hidden="true" />
                       ) : (
                         <Layers className="h-6 w-6" aria-hidden="true" />
                       )
@@ -626,22 +638,30 @@ export function SimpleDataTable<TData, TValue>({
                         ? "No hosts registered"
                         : isProcsTable
                           ? "No running procs"
-                          : isFramesTable
-                            ? "Layer has no frames"
-                            : isFramesLogTable
-                              ? "Frame not found"
-                              : "Job has no layers"
+                          : isShowsTable
+                            ? "No shows"
+                            : isAllocationsTable
+                              ? "No allocations"
+                              : isFramesTable
+                                ? "Layer has no frames"
+                              : isFramesLogTable
+                                ? "Frame not found"
+                                : "Job has no layers"
                     }
                     description={
                       isHostsTable
                         ? "No hosts have reported to Cuebot yet."
                         : isProcsTable
                           ? "This host is not running any frames right now."
-                          : isFramesTable
-                            ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
-                            : isFramesLogTable
-                              ? "The frame referenced by this URL is no longer available in Cuebot."
-                              : "This job does not contain any layers yet."
+                          : isShowsTable
+                            ? "No active shows. Use Create Show to add one."
+                            : isAllocationsTable
+                              ? "No allocations are configured in Cuebot."
+                              : isFramesTable
+                                ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
+                              : isFramesLogTable
+                                ? "The frame referenced by this URL is no longer available in Cuebot."
+                                : "This job does not contain any layers yet."
                     }
                   />
                 </TableCell>
@@ -660,11 +680,19 @@ export function SimpleDataTable<TData, TValue>({
         </div>
       )}
 
-      {/* Row context menu. Hosts get Lock/Unlock/Reboot; frames/frame-logs
-          get the frame menu; the read-only procs table gets none; everything
+      {/* Row context menu. Hosts get Lock/Unlock/Reboot; shows get Show
+          Properties / Create Subscription; frames/frame-logs get the frame
+          menu; the read-only procs and allocations tables get none; everything
           else (layers) gets the layer menu. */}
-      {isProcsTable ? null : isHostsTable ? (
+      {(isProcsTable || isAllocationsTable) ? null : isHostsTable ? (
         <HostContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
+      ) : isShowsTable ? (
+        <ShowContextMenu
           contextMenuState={contextMenuState}
           contextMenuHandleClose={contextMenuHandleClose}
           contextMenuRef={contextMenuRef}

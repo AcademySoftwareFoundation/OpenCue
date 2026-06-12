@@ -18,7 +18,8 @@
 
 import { use, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { findShowByName, Show } from "@/app/utils/get_utils";
+import { Show } from "@/app/utils/get_utils";
+import { findShow } from "@/app/utils/show_utils";
 import { GroupTree } from "@/components/group-tree/group-tree";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -40,10 +41,15 @@ export default function ShowPage({
 
   useEffect(() => {
     let cancelled = false;
-    findShowByName(decodedName).then(result => {
-      if (cancelled) return;
-      setShow(result ?? "not-found");
-    });
+    // findShow throws when the lookup itself fails (fails closed); treat that
+    // and a genuine miss the same way here — render the not-found state.
+    findShow(decodedName)
+      .then(result => {
+        if (!cancelled) setShow(result ?? "not-found");
+      })
+      .catch(() => {
+        if (!cancelled) setShow("not-found");
+      });
     return () => { cancelled = true; };
   }, [decodedName]);
 

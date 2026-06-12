@@ -47,7 +47,7 @@ The scheduler is organized around **clusters**, which represent unique combinati
 - **Manual Tag Clusters**: Groups of manual tags (chunk size configurable)
 - **Hostname Tag Clusters**: Groups of hostname tags (chunk size configurable)
 
-Each scheduler instance processes one or more clusters in a round-robin fashion. In distributed deployments, different instances handle different clusters to share the workload.
+Each scheduler instance processes one or more clusters in a round-robin fashion. The cluster set is built automatically from every show with `b_scheduler_managed = true`, optionally scoped to one facility via `--facility`. In distributed deployments, different instances are scoped to different facilities to share the workload.
 
 ## Before You Begin
 
@@ -105,23 +105,18 @@ queue:
   dispatch_frames_per_layer_limit: 20
   manual_tags_chunk_size: 100
   hostname_tags_chunk_size: 300
+  cluster_reload_interval: 120s   # How often to reload the managed-show cluster set from the DB
 
 scheduler:
   # Optional: Filter to a specific facility
   # facility: spi
   
-  # Process these allocation clusters (show:tag format)
-  alloc_tags:
-    - show: myshow
-      tag: general
-    - show: anothershow
-      tag: priority
-  
-  # Process these manual tags
-  manual_tags:
-    - urgent
-    - desktop
+  # Optional: Tags to exclude from all loaded clusters
+  # ignore_tags:
+  #   - deprecated_tag
 ```
+
+The scheduler automatically loads every cluster (allocation, manual, hostname, and hardware host-tags) for all shows where `b_scheduler_managed = true`. There is no per-show or per-tag selection in the config; ownership is driven solely by the `show.b_scheduler_managed` DB column (see [Configuring Cuebot Exclusion List](#configuring-cuebot-exclusion-list)).
 
 #### 3. Run the Scheduler Container
 
@@ -200,8 +195,7 @@ OPENCUE_SCHEDULER_CONFIG=/path/to/scheduler.yaml cue-scheduler
 # Or use command-line overrides
 cue-scheduler \
   --facility spi \
-  --alloc_tags=show1:general,show2:priority \
-  --manual_tags=urgent,desktop
+  --ignore_tags=deprecated,old
 ```
 
 ### Option 4: Build from Source
@@ -240,7 +234,7 @@ The binary will be at `target/release/cue-scheduler`.
 #### 3. Run
 
 ```bash
-target/release/cue-scheduler --facility spi --alloc_tags=show:general
+target/release/cue-scheduler --facility spi
 ```
 
 ## Configuring Cuebot Exclusion List
@@ -260,36 +254,37 @@ Cuebot supports two exclusion mechanisms:
    Mark a show as managed by the standalone scheduler. Cuebot then skips that show in
    dispatch and the standalone scheduler dispatches its frames. Toggle with `cueadmin`:
    ```bash
-   cueadmin -show myshow -setSchedulerManaged true
-   cueadmin -show myshow -setSchedulerManaged false
+   cueadmin -scheduler-managed myshow on
+   cueadmin -scheduler-managed myshow off
    ```
 
-   Granularity is **per show**, not per show:allocation. If you need to scope dispatch
-   to a subset of a show's allocations, configure that on the scheduler side via
-   `alloc_tags` / `manual_tags`.
+   This is the **sole** onboarding mechanism. Granularity is **whole-show**: when a show
+   is scheduler-managed, the scheduler automatically loads *all* of its clusters
+   (every allocation, manual, hostname, and hardware host-tag), so there is nothing else
+   to configure per show or per allocation. The set of managed shows is reloaded from the
+   DB periodically (`queue.cluster_reload_interval`, default 120s), so flipping the flag
+   takes effect without restarting the scheduler.
 
 ### Migration Strategy
 
 We recommend a **gradual migration** approach:
 
-#### Phase 1: Test with One Cluster
+#### Phase 1: Test with One Show
 
-1. **Deploy scheduler** covering **every** allocation of the pilot show. Because
-   `show.b_scheduler_managed` is a whole-show toggle (`cueadmin -setSchedulerManaged`,
-   see [Per-show Scheduler Ownership](#understanding-exclusion-configuration)), the
-   scheduler's `alloc_tags` must list all of `testshow`'s allocations before you flip
-   it — otherwise Cuebot stops dispatching the show while the scheduler ignores any
-   allocation it isn't configured for. If `testshow` only uses the `test` allocation:
+1. **Deploy scheduler** (optionally scoped to a facility):
    ```bash
-   cue-scheduler --facility spi --alloc_tags=testshow:test
+   cue-scheduler --facility spi
    ```
-   If it spans more, list them all (for example `--alloc_tags=testshow:test,testshow:general`).
+   You do not list the show's allocations or tags anywhere — the scheduler covers all
+   of a managed show's clusters automatically.
 
-2. **Hand the show to the scheduler** (only after the scheduler covers the show's full
-   allocation set):
+2. **Hand the show to the scheduler**:
    ```bash
-   cueadmin -show testshow -setSchedulerManaged true
+   cueadmin -scheduler-managed testshow on
    ```
+   The scheduler picks up all of `testshow`'s clusters (allocation, manual, hostname,
+   and hardware host-tags) within `queue.cluster_reload_interval` (default 120s), with
+   no restart required.
 
 3. **Monitor both systems**:
    - Watch scheduler metrics at `http://scheduler-host:9090/metrics`
@@ -298,22 +293,14 @@ We recommend a **gradual migration** approach:
 
 #### Phase 2: Expand Coverage
 
-1. **Add more allocations** to scheduler:
-   ```yaml
-   scheduler:
-     alloc_tags:
-       - show: testshow
-         tag: test
-       - show: mainshow
-         tag: general
-       - show: mainshow
-         tag: priority
-   ```
+**Mark each additional show as scheduler-managed**:
+```bash
+cueadmin -scheduler-managed mainshow on
+```
 
-2. **Mark each additional show as scheduler-managed**:
-   ```bash
-   cueadmin -show mainshow -setSchedulerManaged true
-   ```
+No scheduler-side configuration change is needed: the scheduler reloads the managed-show
+set from the DB every `cluster_reload_interval` and automatically picks up all of the
+newly managed show's clusters.
 
 #### Phase 3: Full Migration (Optional)
 
@@ -327,10 +314,14 @@ At this point, all dispatching is handled by the scheduler.
 
 ### Notes on Granularity
 
-- Marking a show as scheduler-managed applies to the whole show across all allocations.
-- Manual tags and hostname tags are configured on the scheduler side (`manual_tags`);
-  they are not show-scoped.
-- To return a show to Cuebot dispatch, run `cueadmin -show myshow -setSchedulerManaged false`.
+- Marking a show as scheduler-managed applies to the whole show across all of its
+  clusters (allocation, manual, hostname, and hardware host-tags). There is no per-show,
+  per-allocation, or per-tag selection — a show is wholly scheduler-managed or wholly
+  Cuebot-managed.
+- The scheduler reloads the managed-show set from the DB every
+  `queue.cluster_reload_interval` (default 120s), so toggling a show — or changing its
+  host-tags / subscriptions — is picked up without a restart.
+- To return a show to Cuebot dispatch, run `cueadmin -scheduler-managed myshow off`.
 
 ## Configuration Reference
 
@@ -348,24 +339,16 @@ database:
 
 ### Scheduler Cluster Selection
 
+The scheduler automatically loads all clusters for every show where
+`b_scheduler_managed = true` (toggled with `cueadmin -scheduler-managed <show> on|off`).
+The only scheduler-side knobs are an optional facility scope and a tag-exclusion list:
+
 ```yaml
 scheduler:
   # Optional: Filter clusters to a specific facility
   facility: spi
-  
-  # Allocation clusters to process (show:tag format)
-  alloc_tags:
-    - show: myshow
-      tag: general
-    - show: myshow
-      tag: priority
-  
-  # Manual tags to process (not tied to allocations)
-  manual_tags:
-    - urgent
-    - desktop
-  
-  # Tags to ignore (exclude from all cluster types)
+
+  # Optional: Tags to ignore (exclude from all loaded clusters)
   ignore_tags:
     - deprecated_tag
     - old_allocation
@@ -380,6 +363,7 @@ queue:
   dispatch_frames_per_layer_limit: 20       # Max frames per layer per cycle
   manual_tags_chunk_size: 100               # Manual tags per cluster
   hostname_tags_chunk_size: 300             # Hostname tags per cluster
+  cluster_reload_interval: 120s             # How often to reload the managed-show cluster set from the DB
   host_candidate_attemps_per_layer: 10      # Host matching retries
   job_back_off_duration: 300s               # Backoff after failures
   
@@ -405,8 +389,6 @@ CLI arguments override YAML configuration:
 ```bash
 cue-scheduler \
   --facility spi \
-  --alloc_tags=show1:general,show2:priority \
-  --manual_tags=urgent,desktop \
   --ignore_tags=deprecated,old
 ```
 
@@ -541,7 +523,7 @@ Future releases will include automatic cluster distribution for true multi-insta
 
 **Check**:
 1. Database connectivity: `psql -h dbhost -U cuebot -d cuebot -c "SELECT 1"`
-2. Cluster configuration: Ensure `alloc_tags` matches show/allocation in database
+2. Show ownership: Verify the show has `b_scheduler_managed = true` (`cueadmin -scheduler-managed <show> on`) and that its hosts/allocations carry the expected tags in the database
 3. Cuebot exclusion: Verify Cuebot isn't still booking the same clusters
 4. RQD connectivity: Ensure scheduler can reach RQD gRPC port (8444)
 
@@ -570,9 +552,9 @@ Future releases will include automatic cluster distribution for true multi-insta
 
 ### Version 1.0 Constraints
 
-- **Manual cluster assignment**: You must specify which clusters each instance handles
-- **No automatic distribution**: Cluster workload isn't automatically balanced across instances
-- **Single instance recommended**: While multi-instance is supported, it requires careful manual configuration
+- **Facility-scoped distribution**: Multi-instance deployments are split by facility (`--facility`); there is no finer-grained per-cluster assignment
+- **No automatic distribution**: Cluster workload isn't automatically balanced across instances within a facility
+- **Single instance recommended**: While multi-instance is supported, it requires careful facility scoping to avoid overlap
 
 ### Future Enhancements
 

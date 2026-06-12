@@ -452,6 +452,45 @@ The dialog opens pre-filled: **From** comes from your signed-in session, **CC** 
 
 Clicking **Send** stitches the auto-populated body together with your Date/Time and Notes and hands the result to your default mail client. As with **Email Artist...**, the **From** header on the email you actually send is decided by your mail client, not by the dialog.
 
+### Setting min and max cores (Set Min/Max Cores)
+
+**Set Min/Max Cores...** on the job context menu adjusts how many cores Cuebot may book for a job (mirroring CueGUI's set-min-cores / set-max-cores actions). Like **Set Priority...**, it is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** and **CueCommander &rarr; Monitor Cue**.
+
+Right-click a job row and pick **Set Min/Max Cores...** to open a themed dialog with two number inputs - Min and Max - both pre-filled with the job's current values. The range is 0-50000. A client-side guard keeps **Min &le; Max**: enter a minimum above the maximum and the **Apply** button is disabled with an inline message explaining why.
+
+![Set Min/Max Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_menu.png)
+
+![Set Min/Max Cores dialog showing the min-greater-than-max guard](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_window.png)
+
+Apply sends both values in a single action (Cuebot exposes them as two separate calls). On success a toast confirms the new range; if Cuebot rejects the change an error toast explains why and nothing is changed.
+
+![Set Min/Max Cores success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_confirmation.png)
+
+### Unbooking a job (Unbook)
+
+**Unbook...** on the job context menu releases every proc the job currently holds (mirroring CueGUI's `UnbookDialog`). The freed procs return to the booking pool for Cuebot to re-dispatch.
+
+Right-click a job and pick **Unbook...**. The dialog explains what will happen and offers a **Kill unbooked frames?** checkbox:
+
+![Unbook entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_menu.png)
+
+![Unbook dialog with the optional Kill unbooked frames checkbox](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_window.png)
+
+- Left unchecked, the procs are unbooked but their current frames are allowed to finish.
+- Checked, a second confirmation step (mirroring CueGUI's kill confirmation) appears before the running frames are killed - killed frames stop immediately and lose their progress.
+
+![Unbook and kill confirmation step](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_kill_confirmation.png)
+
+This first version is job-scoped: it unbooks every proc the job holds. CueGUI's `UnbookDialog` additionally offers allocation, amount, and memory / runtime filters plus redirect-to-group/job; those are deferred.
+
+### Confirming multi-job toolbar actions
+
+When two or more jobs are selected, the Jobs toolbar's bulk actions ask for confirmation before running, listing the affected job names so you can double-check the selection.
+
+![Confirmation listing the affected jobs before a bulk action](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_batch_confirmation.png)
+
+The policy mirrors CueGUI and is per-action: **Kill**, **Eat**, and **Retry** always confirm (even for a single job, since they are destructive), while **Pause** and **Unpause** confirm only when two or more jobs are selected. Destructive confirmations use a red action button and CueGUI's kill warning text; **Cancel** aborts without sending anything.
+
 ---
 
 ## Job Comments
@@ -999,6 +1038,118 @@ Click a host's **Name** in the table to open its detail page. The page has four 
 ![Host detail page - Tags tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_tags.png)
 
 ![Editing tags from the host detail page Tags tab](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_detail_page_tags_edit_tags_window.png)
+
+---
+
+## Allocations
+
+The **Allocations** page (CueCommander &rarr; Allocations in the sidebar or header) lists the allocations configured in Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Allocations window, with a sortable, filterable table.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Allocations entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_allocation_menu.png)
+
+The page renders a sortable, filterable table of every allocation.
+
+![CueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+
+### Allocation columns
+
+The columns mirror CueGUI: an identity pair, a **cores** group, and a **hosts** group.
+
+| Column | Group | Description |
+|--------|-------|-------------|
+| Name | - | Allocation name. Click it to open the hosts list filtered to this allocation |
+| Tag | - | Allocation tag |
+| Cores | Cores | Total cores in the allocation |
+| Idle | Cores | Available (idle) cores |
+| Locked | Cores | Locked cores |
+| Down | Cores | Cores on hosts in the `DOWN` state |
+| Repair | Cores | Cores on hosts in the `REPAIR` state |
+| Hosts | Hosts | Number of hosts |
+| Locked | Hosts | Number of locked hosts |
+| Down | Hosts | Number of hosts in the `DOWN` state |
+| Repair | Hosts | Number of hosts in the `REPAIR` state |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter allocations...** box to narrow the table by a substring. The table auto-refreshes every 30 seconds.
+
+![Allocations Columns chooser](/assets/images/cueweb/cueweb_cuecommander_allocation_columns.png)
+
+![Filtering the Allocations table](/assets/images/cueweb/cueweb_cuecommander_allocation_search.png)
+
+Clicking an allocation's **Name** navigates to the hosts list scoped to that allocation (`/hosts?allocation=<name>`).
+
+---
+
+## Shows
+
+The **Shows** page (CueCommander &rarr; Shows in the sidebar or header) lists the active shows registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Shows window, with a sortable, filterable stats table, a **Create Show** button, and a per-row actions menu.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Shows entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_shows_menu.png)
+
+The page renders a sortable, filterable table of the active shows.
+
+![CueWeb Shows page](/assets/images/cueweb/cueweb_cuecommander_shows.png)
+
+### Show columns
+
+| Column | Description |
+|--------|-------------|
+| Show Name | Show name. Click it to open the show's detail page |
+| Cores Run | Reserved (running) cores |
+| Frames Run | Running frame count |
+| Frames Pending | Pending frame count |
+| Jobs | Pending job count |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter shows...** box to narrow the table by a substring of the show name. The table auto-refreshes every 30 seconds.
+
+![Filtering the Shows table](/assets/images/cueweb/cueweb_cuecommander_shows_search.png)
+
+### Create a show
+
+Click **Create Show** to open the dialog. Enter a show name (alphanumeric, must be unique), then optionally subscribe the new show to one or more allocations by checking each allocation and setting its **Size** and **Burst**. Clicking **Create** registers the show and creates a subscription on each checked allocation.
+
+![Create New Show dialog](/assets/images/cueweb/cueweb_cuecommander_shows_create_new_show.png)
+
+### Show row actions
+
+Right-click a show row to open its actions menu: **Show Properties** and **Create Subscription...**.
+
+![Show row context menu](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu.png)
+
+#### Show Properties
+
+**Show Properties** opens a dialog with four tabs:
+
+**Settings** - default maximum cores, default minimum cores, and the comment notification email.
+
+![Show Properties - Settings tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_settings_tab.png)
+
+**Booking** - toggle **Enable booking** and **Enable dispatch**.
+
+![Show Properties - Booking tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_booking_tab.png)
+
+**Statistics** - read-only show statistics (running / pending / dead frames, pending jobs, reserved cores, and created / rendered / failed counts).
+
+![Show Properties - Statistics tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_statistics_tab.png)
+
+**Raw Show Data** - a read-only dump of the show object for support and debugging.
+
+![Show Properties - Raw Show Data tab](/assets/images/cueweb/cueweb_cuecommander_shows_properties_menu_raw_show_data_tab.png)
+
+**Save** applies only the values you changed; **Close** dismisses the dialog without saving.
+
+#### Create Subscription
+
+**Create Subscription...** opens a dialog to subscribe a show to an allocation. Pick the **Show** and **Alloc** from the dropdowns and set the **Size** and **Burst**, then click **OK**.
+
+![Create Subscription menu entry](/assets/images/cueweb/cueweb_cuecommander_shows_create_subscription_menu.png)
+
+![Create Subscription dialog](/assets/images/cueweb/cueweb_cuecommander_shows_create_subscription_window.png)
+
+A show can have only one subscription per allocation; if one already exists, CueWeb reports that instead of creating a duplicate.
 
 ---
 

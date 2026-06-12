@@ -122,16 +122,54 @@ export type Proc = {
     unbooked: boolean;
 };
 
-// Mirrors the show.Show proto message at proto/src/show.proto.
+// Minimal Show shape - matches the show.Show proto fields the dashboard and
+// the Shows page care about. booking/dispatch are optional so dashboard
+// callers that don't request them still typecheck.
 export type Show = {
     id: string;
     name: string;
     active: boolean;
+    bookingEnabled?: boolean;
+    dispatchEnabled?: boolean;
+    defaultMinCores?: number;
+    defaultMaxCores?: number;
+    commentEmail?: string;
     showStats?: {
         runningFrames: number;
         pendingFrames: number;
         deadFrames: number;
         pendingJobs: number;
+        // Extra stats surfaced on the Shows table / Show Properties dialog.
+        // int64 counts arrive from the gateway as strings.
+        reservedCores?: number;
+        reservedGpus?: number;
+        createdJobCount?: string;
+        createdFrameCount?: string;
+        renderedFrameCount?: string;
+        failedFrameCount?: string;
+    };
+};
+
+// Allocation shape - mirrors facility.Allocation. `stats` (AllocationStats)
+// arrives from the gateway in camelCase. The Allocations page derives a few
+// host-state columns (down/repair) that AllocationStats doesn't expose, by
+// aggregating the host list client-side; the Shows subscription dialogs only
+// read id/name for their allocation dropdowns.
+export type Allocation = {
+    id: string;
+    name: string;
+    tag?: string;
+    facility?: string;
+    billable?: boolean;
+    stats?: {
+        cores: number;
+        availableCores: number;  // "Idle" column
+        idleCores: number;
+        runningCores: number;
+        lockedCores: number;
+        hosts: number;
+        lockedHosts: number;
+        downHosts: number;
     };
 };
 
@@ -289,20 +327,28 @@ export async function getShows(): Promise<Show[]> {
     return Array.isArray(response) ? response : [];
 }
 
+// Fetch only the active shows (mirrors CueGUI's Shows window, which calls
+// getActiveShows). Includes show_stats for the table columns.
+export async function getActiveShows(): Promise<Show[]> {
+    const ENDPOINT = "/api/show/getactiveshows";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch all allocations (the Allocations page table + the subscription
+// allocation dropdowns).
+export async function getAllocations(): Promise<Allocation[]> {
+    const ENDPOINT = "/api/allocation/getall";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
 // Fetch all comments for a given job
 export async function getJobComments(job: Job): Promise<JobComment[]> {
     const ENDPOINT = "/api/job/getcomments";
     const body = JSON.stringify({ job: { id: job.id, name: job.name } });
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
-}
-
-// Look up a single show by its name. Returns null if no show matches.
-export async function findShowByName(showName: string): Promise<Show | null> {
-    const ENDPOINT = "/api/show/findshow";
-    const body = JSON.stringify({ name: showName });
-    const response = await accessGetApi(ENDPOINT, body);
-    return response ?? null;
 }
 
 // Fetch the root group's subgroups for a show

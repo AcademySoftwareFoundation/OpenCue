@@ -15,7 +15,6 @@
  */
 
 import {
-    findShowByName,
     getShowGroups,
     getGroupJobs,
 } from '@/app/utils/get_utils';
@@ -58,29 +57,6 @@ describe('get_utils group helpers', () => {
             const result = await getShowGroups('show-123');
 
             expect(result).toEqual([]);
-        });
-    });
-
-    describe('findShowByName', () => {
-        it('posts to /api/show/findshow with the show name and returns the show', async () => {
-            const mockShow = { id: 'show-1', name: 'testing' };
-            (accessGetApi as jest.Mock).mockResolvedValue(mockShow);
-
-            const result = await findShowByName('testing');
-
-            expect(accessGetApi).toHaveBeenCalledWith(
-                '/api/show/findshow',
-                JSON.stringify({ name: 'testing' })
-            );
-            expect(result).toEqual(mockShow);
-        });
-
-        it('returns null when the API responds with null (show not found)', async () => {
-            (accessGetApi as jest.Mock).mockResolvedValue(null);
-
-            const result = await findShowByName('nonexistent');
-
-            expect(result).toBeNull();
         });
     });
 
