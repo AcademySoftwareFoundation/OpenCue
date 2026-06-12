@@ -1,0 +1,150 @@
+name: OpenCue Scheduler Stress Pipeline
+
+# Runs the scheduler booking + accounting stress suite
+# (rust/crates/scheduler/tests/stress_tests.rs): a full pipeline::run against a
+# seeded farm, with an end-of-run audit that cross-checks the Redis acct:*
+# hashes against SUM(proc) in Postgres and asserts cap enforcement.
+#
+# When it runs — and when it deliberately doesn't:
+#   - Pull requests: only when the scheduler crate, its proto dependency, the
+#     DB migrations, or this workflow change. The suite needs a migrated
+#     Postgres plus a Redis container and takes several minutes — running it
+#     for Python/CueGUI/docs changes would burn runner time for zero signal.
+#   - Nightly on master: catches drift from changes that slipped past the
+#     paths filter (e.g. shared workspace dependencies) and gives a daily
+#     throughput data point under fixed scale.
+#   - Manually (workflow_dispatch): for benchmarking a branch at custom scale.
+#
+# What is a gate vs. what is informational:
+#   - The job FAILS on correctness regressions: accounting drift between Redis
+#     and Postgres, cap breaches (subscription burst / job max-cores), booking
+#     liveness (<90% drain, no saturation rejections), or leftover test data.
+#   - The throughput numbers (frames/s) are reported in the step summary but
+#     are NOT asserted on: shared runners are too noisy for perf gating. For
+#     real benchmarking run the suite locally in release mode (see
+#     docs/_docs/developer-guide/scheduler-stress-testing.md).
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "rust/crates/scheduler/**"
+      - "rust/crates/opencue-proto/**"
+      - "rust/Cargo.toml"
+      - "cuebot/src/main/resources/conf/ddl/postgres/migrations/**"
+      - ".github/workflows/scheduler-stress-pipeline.yml"
+  schedule:
+    # Nightly on master. Odd minute to avoid the top-of-hour scheduling rush.
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+    inputs:
+      stress_jobs:
+        description: "Drain-phase job count (default 300)"
+        required: false
+      stress_hosts:
+        description: "Drain-phase host count (default 1200)"
+        required: false
+      stress_frames_per_layer:
+        description: "Drain-phase frames per layer (default 5)"
+        required: false
+      stress_timeout_secs:
+        description: "Per-phase hard timeout in seconds (default 600)"
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  stress:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    # The suite's Postgres half. Redis is NOT listed here on purpose: the test
+    # starts its own throwaway Redis via testcontainers, so all accounting
+    # state is guaranteed to die with the test process.
+    services:
+      postgres:
+        image: postgres:15.1
+        env:
+          POSTGRES_USER: cuebot
+          POSTGRES_PASSWORD: cuebot_password
+          POSTGRES_DB: cuebot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cuebot -d cuebot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev postgresql-client
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
+          bash ./rust-install.sh -y
+
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
+
+      # Plain psql instead of the sandbox Flyway image: the migrations are
+      # versioned plain-SQL files, so applying them in numeric order is exactly
+      # what Flyway would do, without building a JDK image first.
+      - name: Apply database migrations
+        working-directory: cuebot/src/main/resources/conf/ddl/postgres/migrations
+        env:
+          PGPASSWORD: cuebot_password
+        run: |
+          for f in $(ls V*.sql | sort -t V -k2 -n); do
+            echo "== $f"
+            psql -q -v ON_ERROR_STOP=1 -h localhost -U cuebot -d cuebot -f "$f"
+          done
+
+      - name: Run stress suite
+        working-directory: rust
+        shell: bash
+        env:
+          STRESS_JOBS: ${{ inputs.stress_jobs }}
+          STRESS_HOSTS: ${{ inputs.stress_hosts }}
+          STRESS_FRAMES_PER_LAYER: ${{ inputs.stress_frames_per_layer }}
+          STRESS_TIMEOUT_SECS: ${{ inputs.stress_timeout_secs }}
+        run: |
+          cargo test -p scheduler --features stress-tests --test stress_tests -- --nocapture 2>&1 | tee stress-output.log
+
+      - name: Publish phase report
+        if: always()
+        working-directory: rust
+        shell: bash
+        run: |
+          if [ -f stress-output.log ] && grep -q "^================ phase" stress-output.log; then
+            {
+              echo "## Scheduler stress suite"
+              echo '```'
+              sed -n '/^================ phase/,$p' stress-output.log | sed -n '1,80p'
+              echo '```'
+              echo "_Throughput numbers are informational; only the accounting/enforcement assertions gate this job._"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Scheduler stress suite: no phase report produced (failed before the run?)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload full output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduler-stress-output
+          path: rust/stress-output.log
+          if-no-files-found: ignore
+          retention-days: 30
