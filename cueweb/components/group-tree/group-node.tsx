@@ -93,8 +93,10 @@ function GroupNodeBase({ node, depth }: Props) {
 
   const isValidTarget = isDropTarget && isValidDropTarget(node.group.id);
 
+  // A <span> (not <div>) so it stays valid phrasing content when rendered
+  // inside the CollapsibleTrigger <button> below.
   const stats = (
-    <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+    <span className="ml-auto flex items-center gap-3 text-xs text-muted-foreground shrink-0">
       {isValidTarget && defaultsSummary && (
         <span className="text-primary">applies {defaultsSummary}</span>
       )}
@@ -103,7 +105,7 @@ function GroupNodeBase({ node, depth }: Props) {
       {deadFrames > 0 && (
         <span className="text-red-600 dark:text-red-400">{deadFrames} dead</span>
       )}
-    </div>
+    </span>
   );
 
   const childRows = (
@@ -160,33 +162,40 @@ function GroupNodeBase({ node, depth }: Props) {
   return (
     <div ref={dropRef} className={`transition-colors ${dropHighlight}`}>
       <Collapsible open={isOpen} onOpenChange={(next) => onToggle(node.group.id, next)}>
-      <CollapsibleTrigger asChild>
+        {/* Grip (drag handle) and the toggle are siblings, not nested, so the
+            toggle is a real focusable <button> — keyboard users can expand /
+            collapse it, and there's no interactive-inside-interactive nesting. */}
         <div
           ref={setRowRef}
-          className="group flex items-center w-full cursor-pointer hover:bg-muted/50 transition-colors"
+          className="flex items-center w-full hover:bg-muted/50 transition-colors"
           style={rowStyle}
           title={defaultsSummary || undefined}
           onMouseEnter={() => requestJobsFor(node.group.id)}
-          onFocus={() => requestJobsFor(node.group.id)}
         >
           <button
             ref={handleRef}
             type="button"
-            onClick={(e) => e.stopPropagation()}
             aria-label={`Drag group ${node.group.name}`}
             className="w-6 shrink-0 flex items-center justify-center py-1.5 cursor-grab text-muted-foreground hover:text-foreground"
           >
             <GripVertical className="h-4 w-4" />
           </button>
-          <div className="flex-1 flex items-center py-1.5 pr-3">
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-            <Folder className="h-4 w-4 shrink-0 ml-2 text-muted-foreground" />
-            <span className="font-medium truncate ml-2">{node.group.name}</span>
-            {stats}
-          </div>
+          <CollapsibleTrigger asChild>
+            {/* `group` lives here (not the row) because Radix sets data-state on
+                the trigger, and the chevron rotates via group-data-[state=open]. */}
+            <button
+              type="button"
+              className="group flex-1 flex items-center py-1.5 pr-3 text-left"
+              onFocus={() => requestJobsFor(node.group.id)}
+            >
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+              <Folder className="h-4 w-4 shrink-0 ml-2 text-muted-foreground" />
+              <span className="font-medium truncate ml-2">{node.group.name}</span>
+              {stats}
+            </button>
+          </CollapsibleTrigger>
         </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>{childRows}</CollapsibleContent>
+        <CollapsibleContent>{childRows}</CollapsibleContent>
       </Collapsible>
     </div>
   );

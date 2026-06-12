@@ -302,7 +302,7 @@ export async function findShowByName(showName: string): Promise<Show | null> {
     const ENDPOINT = "/api/show/findshow";
     const body = JSON.stringify({ name: showName });
     const response = await accessGetApi(ENDPOINT, body);
-    return response;
+    return response ?? null;
 }
 
 // Fetch the root group's subgroups for a show

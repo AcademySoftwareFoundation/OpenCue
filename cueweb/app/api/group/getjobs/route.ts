@@ -33,6 +33,6 @@ export async function POST(request: NextRequest) {
   const response = await handleRoute(method, endpoint, body);
   const responseData = await response.json();
 
-  if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });
-  return NextResponse.json({ data: responseData.data?.jobs?.jobs ?? [], status: responseData.status });
+  if (!response.ok) return NextResponse.json({ error: responseData.error }, { status: response.status });
+  return NextResponse.json({ data: responseData.data?.jobs?.jobs ?? [] }, { status: response.status });
 }
