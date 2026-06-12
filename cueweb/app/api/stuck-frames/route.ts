@@ -17,62 +17,97 @@
 import { fetchObjectFromRestGateway } from '@/app/utils/api_utils';
 import { NextRequest, NextResponse } from "next/server";
 
-// Server-side aggregation for the Stuck Frames page. There is no single RPC
-// that returns every running frame, so we list the unfinished jobs
-// (GetJobs) and fan out a GetFrames call per job filtered to RUNNING
-// (FrameState 2), then flatten. Doing the fan-out here keeps the browser to a
-// single request and avoids leaking the N+1 to the client. The page applies
-// the running-time threshold locally so the slider stays instant.
+// Server-side data gathering for the Stuck Frames page. CueGUI's
+// StuckFramePlugin walks every show's procs; we approximate by listing the
+// unfinished jobs (GetJobs) and, per job, fetching its RUNNING frames
+// (GetFrames, FrameState 2) and its layers (GetLayers, for the per-service
+// average frame time). Each frame is stamped with its job, service and the
+// layer's average frame time so the client can apply the full CueGUI
+// stuck-detection predicate (LLU / % stuck / avg-completion / runtime) live
+// against the user's per-service filter thresholds.
 //
-// RPCs: /job.JobInterface/GetJobs, /job.JobInterface/GetFrames.
+// RPCs: /job.JobInterface/GetJobs, /job.JobInterface/GetFrames,
+//       /job.JobInterface/GetLayers.
 
 const RUNNING_STATE = 2; // FrameState.RUNNING (proto/src/job.proto)
 const MAX_FRAMES_PER_JOB = 1000;
 
+async function gatewayJson(endpoint: string, body: string): Promise<any | null> {
+  try {
+    const resp = await fetchObjectFromRestGateway(endpoint, "POST", body);
+    const json = await resp.json();
+    if (json?.error) return null;
+    return json?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(_request: NextRequest) {
   try {
-    // 1. All unfinished jobs.
-    const jobsResp = await fetchObjectFromRestGateway(
+    const jobsData = await gatewayJson(
       "/job.JobInterface/GetJobs",
-      "POST",
       JSON.stringify({ r: { include_finished: false } }),
     );
-    const jobsJson = await jobsResp.json();
-    if (jobsJson?.error) {
-      return NextResponse.json({ error: jobsJson.error }, { status: 500 });
+    if (jobsData === null) {
+      return NextResponse.json({ error: "Failed to list jobs" }, { status: 500 });
     }
-    const jobs: any[] = jobsJson?.data?.jobs?.jobs ?? [];
+    const jobs: any[] = jobsData?.jobs?.jobs ?? [];
 
-    // 2. Running frames per job, in parallel. A single job's failure drops to
-    //    an empty list rather than failing the whole page.
     const perJob = await Promise.all(
       jobs.map(async (job) => {
-        const body = JSON.stringify({
-          job: { id: job.id, name: job.name },
-          req: {
-            include_finished: false,
-            page: 1,
-            limit: MAX_FRAMES_PER_JOB,
-            states: { frame_states: [RUNNING_STATE] },
-          },
-        });
-        try {
-          const framesResp = await fetchObjectFromRestGateway(
+        const [framesData, layersData] = await Promise.all([
+          gatewayJson(
             "/job.JobInterface/GetFrames",
-            "POST",
-            body,
-          );
-          const framesJson = await framesResp.json();
-          if (framesJson?.error) return [];
-          const frames: any[] = framesJson?.data?.frames?.frames ?? [];
-          // Defensive: keep only RUNNING even if the state filter was ignored,
-          // and stamp the parent job so the table can show / act on it.
-          return frames
-            .filter((f) => f.state === "RUNNING")
-            .map((f) => ({ ...f, jobId: job.id, jobName: job.name }));
-        } catch {
-          return [];
+            JSON.stringify({
+              job: { id: job.id, name: job.name },
+              req: {
+                include_finished: false,
+                page: 1,
+                limit: MAX_FRAMES_PER_JOB,
+                states: { frame_states: [RUNNING_STATE] },
+              },
+            }),
+          ),
+          gatewayJson(
+            "/job.JobInterface/GetLayers",
+            JSON.stringify({ job: { id: job.id, name: job.name } }),
+          ),
+        ]);
+
+        const layers: any[] = layersData?.layers?.layers ?? [];
+        // layerName -> details for attaching to each frame (service + average
+        // frame time for detection; id + minCores for the Core Up action).
+        const layerInfo = new Map<
+          string,
+          { id: string; service: string; avgFrameSec: number; minCores: number }
+        >();
+        for (const layer of layers) {
+          layerInfo.set(layer.name, {
+            id: layer.id ?? "",
+            service: Array.isArray(layer.services) && layer.services.length ? layer.services[0] : "",
+            avgFrameSec: Number(layer.layerStats?.avgFrameSec ?? 0),
+            minCores: Number(layer.minCores ?? 0),
+          });
         }
+
+        const frames: any[] = framesData?.frames?.frames ?? [];
+        return frames
+          .filter((f) => f.state === "RUNNING")
+          .map((f) => {
+            const info = layerInfo.get(f.layerName);
+            return {
+              ...f,
+              jobId: job.id,
+              jobName: job.name,
+              jobLogDir: job.logDir ?? "",
+              jobHasComment: !!job.hasComment,
+              service: info?.service ?? "",
+              avgFrameSec: info?.avgFrameSec ?? 0,
+              layerId: info?.id ?? "",
+              layerMinCores: info?.minCores ?? 0,
+            };
+          });
       }),
     );
 

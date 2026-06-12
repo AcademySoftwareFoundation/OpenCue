@@ -163,6 +163,13 @@ export async function retryFrames(frames: Frame[]) {
   await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
 }
 
+// Set a layer's minimum cores (CueGUI Stuck Frame "Core Up"). cores is a float
+// core count. Returns success so callers can gate a refresh.
+export async function setLayerMinCores(layer: { id: string; name?: string }, cores: number): Promise<boolean> {
+  const endpoint = "/api/layer/action/setmincores";
+  return performAction(endpoint, [JSON.stringify({ layer, cores })], `Set min cores to ${cores}`);
+}
+
 /**************************************/
 // Unbook
 /**************************************/
