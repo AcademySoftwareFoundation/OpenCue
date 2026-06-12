@@ -24,6 +24,7 @@ import unittest
 import mock
 
 from opencue_proto import cue_pb2
+from opencue_proto import department_pb2
 from opencue_proto import depend_pb2
 from opencue_proto import facility_pb2
 from opencue_proto import filter_pb2
@@ -45,6 +46,7 @@ TEST_LIMIT_NAME = 'test-limit'
 TEST_HOST_NAME = 'wolf1001'
 TEST_SUB_NAME = 'pipe.General'
 TEST_FACILITY_NAME = 'arbitrary-facility-name'
+TEST_DEPARTMENT_NAME = 'arbitrary-department-name'
 TEST_TAG = 'General'
 TEST_ALLOC_NAME = 'pipe.General'
 TEST_PROC_NAME = 'arbitrary-proc-name'
@@ -617,6 +619,46 @@ class FacilityTests(unittest.TestCase):
 
         stubMock.Delete.assert_called_with(
             facility_pb2.FacilityDeleteRequest(name=TEST_FACILITY_NAME), timeout=mock.ANY)
+
+
+class DepartmentTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetDepartmentNames(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetDepartmentNames.return_value = department_pb2.DeptGetDepartmentNamesResponse(
+            names=[TEST_DEPARTMENT_NAME])
+        getStubMock.return_value = stubMock
+
+        names = opencue.api.getDepartmentNames()
+
+        stubMock.GetDepartmentNames.assert_called_with(
+            department_pb2.DeptGetDepartmentNamesRequest(), timeout=mock.ANY)
+        self.assertEqual([TEST_DEPARTMENT_NAME], names)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testAddDepartmentName(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.AddDepartmentName.return_value = department_pb2.DeptAddDeptNameResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.addDepartmentName(TEST_DEPARTMENT_NAME)
+
+        stubMock.AddDepartmentName.assert_called_with(
+            department_pb2.DeptAddDeptNameRequest(name=TEST_DEPARTMENT_NAME), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testRemoveDepartmentName(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.RemoveDepartmentName.return_value = \
+            department_pb2.DeptRemoveDepartmentNameResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.removeDepartmentName(TEST_DEPARTMENT_NAME)
+
+        stubMock.RemoveDepartmentName.assert_called_with(
+            department_pb2.DeptRemoveDepartmentNameRequest(name=TEST_DEPARTMENT_NAME),
+            timeout=mock.ANY)
 
 
 class DependTests(unittest.TestCase):

@@ -43,6 +43,11 @@ class Task(object):
             task_pb2.TaskSetMinCoresRequest(task=self.data, new_min_cores=minCores),
             timeout=Cuebot.Timeout)
 
+    def clearAdjustments(self):
+        """Clears any manual adjustments made to the task."""
+        self.stub.ClearAdjustments(
+            task_pb2.TaskClearAdjustmentsRequest(task=self.data), timeout=Cuebot.Timeout)
+
     def delete(self):
         """Deletes the task."""
         self.stub.Delete(task_pb2.TaskDeleteRequest(task=self.data), timeout=Cuebot.Timeout)
