@@ -26,9 +26,12 @@ import {
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
   createSubscriptionGivenRow,
+  deleteSubscriptionGivenRow,
   dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
+  editSubscriptionBurstGivenRow,
+  editSubscriptionSizeGivenRow,
   eatFrameGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
@@ -645,6 +648,55 @@ export const ShowContextMenu: React.FC<ShowContextMenuProps> = ({
       onClick: createSubscriptionGivenRow,
       isActive: true,
       component: <TbPlus className="mr-1" size={14} />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+interface SubscriptionContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+// Context menu for the Subscriptions table (CueGUI SubscriptionsWidget
+// parity): Edit Subscription Size, Edit Subscription Burst, and Delete
+// Subscription.
+export const SubscriptionContextMenu: React.FC<SubscriptionContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Edit Subscription Size...",
+      onClick: editSubscriptionSizeGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    {
+      label: "Edit Subscription Burst...",
+      onClick: editSubscriptionBurstGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-delete"),
+    {
+      label: "Delete Subscription",
+      onClick: deleteSubscriptionGivenRow,
+      isActive: true,
+      component: <MdOutlineCancel className="mr-1" size={14} color="red" />,
     },
   ];
 

@@ -20,7 +20,12 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Show, Subscription } from "./get_utils";
+import {
+  OPEN_DELETE_SUBSCRIPTION_EVENT,
+  OPEN_EDIT_SUBSCRIPTION_BURST_EVENT,
+  OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT,
+} from "@/components/ui/subscription-action-events";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -1156,6 +1161,70 @@ export function createSubscriptionGivenRow(row: Row<any>) {
   window.dispatchEvent(
     new CustomEvent("cueweb:open-create-subscription", {
       detail: { show: row.original as Show },
+    }),
+  );
+}
+
+// Subscription mutations (CueGUI SubscriptionActions parity). new_size / burst
+// are passed in centcores (cores * 100); the dialogs convert, matching
+// CueGUI's int(value * 100.0). No per-call success toast - the dialog shows a
+// single toast after the call resolves.
+export async function setSubscriptionSize(
+  subscription: Subscription,
+  newSizeCentcores: number,
+): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/setsize",
+    JSON.stringify({ subscription, new_size: newSizeCentcores }),
+  );
+  return !!result?.success;
+}
+
+export async function setSubscriptionBurst(
+  subscription: Subscription,
+  burstCentcores: number,
+): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/setburst",
+    JSON.stringify({ subscription, burst: burstCentcores }),
+  );
+  return !!result?.success;
+}
+
+export async function deleteSubscription(subscription: Subscription): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/delete",
+    JSON.stringify({ subscription }),
+  );
+  return !!result?.success;
+}
+
+// Context-menu dispatchers: open the page-level subscription dialogs via
+// CustomEvent so the free-function handlers stay free of component state
+// (same pattern as the Shows window).
+export function editSubscriptionSizeGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT, {
+      detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+export function editSubscriptionBurstGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_EDIT_SUBSCRIPTION_BURST_EVENT, {
+      detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+export function deleteSubscriptionGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_DELETE_SUBSCRIPTION_EVENT, {
+      detail: { subscription: row.original as Subscription },
     }),
   );
 }

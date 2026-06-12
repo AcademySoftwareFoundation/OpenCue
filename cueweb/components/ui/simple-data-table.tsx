@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu, SubscriptionContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -46,7 +46,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Layers, PieChart, Search, Server, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Layers, PieChart, Receipt, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -79,6 +79,10 @@ interface SimpleDataTableProps<TData, TValue> {
   // Allocations variant (read-only, Allocations page): allocation-specific
   // filter/empty copy and no row context menu.
   isAllocationsTable?: boolean;
+  // Subscriptions variant (Subscriptions page): subscription-specific
+  // filter/empty copy and the SubscriptionContextMenu (Edit Size / Edit
+  // Burst / Delete).
+  isSubscriptionsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -114,6 +118,7 @@ export function SimpleDataTable<TData, TValue>({
   isProcsTable = false,
   isShowsTable = false,
   isAllocationsTable = false,
+  isSubscriptionsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
@@ -515,8 +520,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : isSubscriptionsTable ? "Filter subscriptions..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : isSubscriptionsTable ? "Filter subscriptions" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -629,6 +634,8 @@ export function SimpleDataTable<TData, TValue>({
                         <Film className="h-6 w-6" aria-hidden="true" />
                       ) : isAllocationsTable ? (
                         <PieChart className="h-6 w-6" aria-hidden="true" />
+                      ) : isSubscriptionsTable ? (
+                        <Receipt className="h-6 w-6" aria-hidden="true" />
                       ) : (
                         <Layers className="h-6 w-6" aria-hidden="true" />
                       )
@@ -642,6 +649,8 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No shows"
                             : isAllocationsTable
                               ? "No allocations"
+                              : isSubscriptionsTable
+                                ? "No subscriptions"
                               : isFramesTable
                                 ? "Layer has no frames"
                               : isFramesLogTable
@@ -657,6 +666,8 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No active shows. Use Create Show to add one."
                             : isAllocationsTable
                               ? "No allocations are configured in Cuebot."
+                              : isSubscriptionsTable
+                                ? "This show has no subscriptions. Use Add Subscription to create one."
                               : isFramesTable
                                 ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
                               : isFramesLogTable
@@ -693,6 +704,13 @@ export function SimpleDataTable<TData, TValue>({
         />
       ) : isShowsTable ? (
         <ShowContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
+      ) : isSubscriptionsTable ? (
+        <SubscriptionContextMenu
           contextMenuState={contextMenuState}
           contextMenuHandleClose={contextMenuHandleClose}
           contextMenuRef={contextMenuRef}
