@@ -206,6 +206,63 @@ export async function getJobs(body: string): Promise<Job[]> {
     return response ? response : [];
 }
 
+// Resolve a single job by its exact name (Redirect target lookup + safety
+// checks). Returns null when no job matches.
+export async function findJobByName(name: string): Promise<Job | null> {
+    if (!name) return null;
+    const jobs = await getJobs(JSON.stringify({ r: { jobs: [name], include_finished: true } }));
+    return jobs.length ? jobs[0] : null;
+}
+
+// --- Redirect tool (CueGUI Redirect) -------------------------------------
+// A proc on a candidate host, as returned by /api/redirect/search.
+export type RedirectProc = {
+    name: string;
+    jobName: string;
+    groupName: string;
+    services: string[];
+    reservedCores: number;
+    reservedMemoryKb: number;
+    runtimeSeconds: number;
+    showName: string;
+};
+
+// A candidate host whose procs can be redirected. `host` is the full Host
+// proto object (needed by RedirectToJob). cores/memoryKb/timeSeconds are the
+// accumulated totals (idle + this host's procs).
+export type RedirectHost = {
+    name: string;
+    host: Host;
+    alloc: string;
+    cores: number;
+    memoryKb: number;
+    timeSeconds: number;
+    jobCores: number;
+    waitingFrames: number;
+    procs: RedirectProc[];
+};
+
+export type RedirectSearchParams = {
+    show: string;
+    allocs: string[];
+    targetJob: string;
+    minCores: number;
+    maxCores: number;
+    minMemoryKb: number;
+    limit: number;
+    cutoffSeconds: number;
+    requireService: string;
+    includeGroups: string[];
+    excludeRegex: string;
+};
+
+// Search candidate hosts/procs to redirect (server-aggregated).
+export async function searchRedirect(params: RedirectSearchParams): Promise<RedirectHost[]> {
+    const ENDPOINT = "/api/redirect/search";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify(params));
+    return Array.isArray(response) ? response : [];
+}
+
 // Fetch all layers based on the request body
 export async function getLayers(body: string): Promise<Layer[]> {
     const ENDPOINT = "/api/job/getlayers";
