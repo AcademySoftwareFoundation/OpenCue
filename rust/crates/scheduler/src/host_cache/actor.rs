@@ -536,9 +536,20 @@ impl HostCacheService {
             );
         }
 
+        // Track the ids the fresh query returned so we can drop index entries
+        // the database no longer reports. `entry_sync(..).or_default()` reuses
+        // the existing group on refresh/expiry, so without this prune a host
+        // omitted by the query (newly locked, down, re-tagged, or
+        // unsubscribed) would linger in the group until staleness cleanup.
+        let mut live_ids = std::collections::HashSet::with_capacity(hosts.len());
         for host in hosts {
             let h: Host = host.into();
+            live_ids.insert(h.id);
             cache.check_in(h, false);
+        }
+        let pruned = cache.prune_absent(&live_ids);
+        if pruned > 0 {
+            debug!("Pruned {} stale host(s) from group {:?}", pruned, key);
         }
         cache.ping_fetch();
         Ok(cache)

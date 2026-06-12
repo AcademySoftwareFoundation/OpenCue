@@ -488,6 +488,33 @@ impl HostCache {
             .upsert(host_id, core_key, memory_key);
     }
 
+    /// Removes index entries for hosts absent from `live_ids`.
+    ///
+    /// Called right after a database refresh to drop hosts the query no longer
+    /// returns (newly locked, down, re-tagged, or unsubscribed) so the group's
+    /// candidate set stays authoritative instead of merging stale members on
+    /// top of fresh ones. Hosts currently checked out are already absent from
+    /// the index, so in-flight dispatches are never disturbed.
+    ///
+    /// Returns the number of entries removed.
+    pub(super) fn prune_absent(&self, live_ids: &HashSet<HostId>) -> usize {
+        let mut host_index = self
+            .hosts_index
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        let absent: Vec<HostId> = host_index
+            .locations
+            .keys()
+            .filter(|host_id| !live_ids.contains(*host_id))
+            .copied()
+            .collect();
+        for host_id in &absent {
+            host_index.remove(host_id);
+        }
+        absent.len()
+    }
+
     /// Removes index entries whose hosts are no longer present in the store
     /// (e.g. removed by staleness cleanup while still referenced here).
     ///
@@ -904,6 +931,49 @@ mod tests {
         let _ = HOST_STORE.remove(&host_id);
         cache.sweep_dead_entries(|id| HOST_STORE.contains(id));
         assert!(cache.hosts_index.read().unwrap().locations.is_empty());
+    }
+
+    #[test]
+    fn test_prune_absent_removes_hosts_missing_from_fresh_query() {
+        let cache = HostCache::default();
+        let kept_id = Uuid::new_v4();
+        let dropped_id = Uuid::new_v4();
+
+        cache.check_in(create_test_host(kept_id, 8, ByteSize::gb(16)), false);
+        cache.check_in(create_test_host(dropped_id, 4, ByteSize::gb(8)), false);
+
+        // Simulate a refresh whose fresh query no longer returns `dropped_id`
+        // (e.g. it was just locked). Only `kept_id` is live.
+        let live_ids = HashSet::from([kept_id]);
+        let removed = cache.prune_absent(&live_ids);
+
+        assert_eq!(removed, 1, "exactly one absent host should be pruned");
+
+        let hosts_index = cache.hosts_index.read().unwrap();
+        assert!(
+            hosts_index.locations.contains_key(&kept_id),
+            "live host must remain indexed"
+        );
+        assert!(
+            !hosts_index.locations.contains_key(&dropped_id),
+            "host absent from the fresh query must be pruned"
+        );
+        // The dropped host's bucket should be gone entirely, not left empty.
+        let still_referenced = hosts_index
+            .by_resources
+            .values()
+            .flat_map(|by_memory| by_memory.values())
+            .any(|hosts| hosts.contains(&dropped_id));
+        assert!(!still_referenced, "pruned host must not linger in any bucket");
+        drop(hosts_index);
+
+        // A second prune with the same live set is a no-op.
+        assert_eq!(cache.prune_absent(&live_ids), 0);
+
+        // Cleanup global store state for other tests
+        let _ = HOST_STORE.remove(&kept_id);
+        let _ = HOST_STORE.remove(&dropped_id);
+        cache.sweep_dead_entries(|id| HOST_STORE.contains(id));
     }
 
     #[test]
