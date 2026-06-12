@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Proc, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -787,6 +787,118 @@ export function editHostTagsGivenRow(row: Row<any>) {
       detail: { hosts: [row.original as Host] },
     }),
   );
+}
+
+/**************************************/
+// Host actions: rename tag, allocation, delete, repair, comment
+/**************************************/
+
+// Rename a tag on every host (CueGUI renameTag). Batch-capable.
+export async function renameHostTag(hosts: Host[], oldTag: string, newTag: string): Promise<boolean> {
+  const endpoint = "/api/host/action/renametag";
+  const bodyAr = hosts.map((host) => JSON.stringify({ host, old_tag: oldTag, new_tag: newTag }));
+  return performAction(endpoint, bodyAr, `Renamed tag on ${hosts.length} host(s)`);
+}
+
+// Move every host to a new allocation (CueGUI changeAllocation). Batch-capable.
+export async function setHostAllocation(hosts: Host[], allocationId: string): Promise<boolean> {
+  const endpoint = "/api/host/action/setallocation";
+  const bodyAr = hosts.map((host) => JSON.stringify({ host, allocation_id: allocationId }));
+  return performAction(endpoint, bodyAr, `Moved ${hosts.length} host(s) to a new allocation`);
+}
+
+// Delete the given hosts (CueGUI delete, admin-only). Batch-capable.
+export async function deleteHosts(hosts: Host[]): Promise<boolean> {
+  const endpoint = "/api/host/action/delete";
+  const bodyAr = hosts.map((host) => JSON.stringify({ host }));
+  return performAction(endpoint, bodyAr, `Deleted ${hosts.length} host(s)`);
+}
+
+// Set/clear the REPAIR hardware state (CueGUI setRepair/clearRepair). clearRepair
+// sets the state back to DOWN, matching CueGUI. Batch-capable.
+export async function setHostHardwareState(hosts: Host[], state: "REPAIR" | "DOWN" | "UP"): Promise<boolean> {
+  const endpoint = "/api/host/action/sethardwarestate";
+  const bodyAr = hosts.map((host) => JSON.stringify({ host, state }));
+  const verb = state === "REPAIR" ? "Set repair state on" : "Cleared repair state on";
+  return performAction(endpoint, bodyAr, `${verb} ${hosts.length} host(s)`);
+}
+
+// Add a comment to a host (CueGUI host Comments dialog).
+export async function addHostComment(
+  host: Host,
+  user: string,
+  subject: string,
+  message: string,
+): Promise<boolean> {
+  const endpoint = "/api/host/action/addcomment";
+  const body = JSON.stringify({ host, new_comment: { user, subject, message } });
+  return performAction(endpoint, [body], "Added comment");
+}
+
+/**************************************/
+// Proc monitor actions (kill / unbook)
+/**************************************/
+
+export async function killProcs(procs: Proc[]): Promise<boolean> {
+  const endpoint = "/api/proc/action/kill";
+  const bodyAr = procs.map((proc) => JSON.stringify({ proc }));
+  return performAction(endpoint, bodyAr, `Killed ${procs.length} proc(s)`);
+}
+
+// Unbook procs; kill=true also kills the running frame (CueGUI "Unbook" /
+// "Unbook and Kill").
+export async function unbookProcs(procs: Proc[], kill: boolean): Promise<boolean> {
+  const endpoint = "/api/proc/action/unbookone";
+  const bodyAr = procs.map((proc) => JSON.stringify({ proc, kill }));
+  return performAction(endpoint, bodyAr, kill ? `Unbooked and killed ${procs.length} proc(s)` : `Unbooked ${procs.length} proc(s)`);
+}
+
+/**************************************/
+// Host context-menu dispatchers (new items)
+/**************************************/
+
+export function viewHostCommentsGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-host-comments", { detail: { hosts: [row.original as Host] } }));
+}
+
+export function renameHostTagGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-host-rename-tag", { detail: { hosts: [row.original as Host] } }));
+}
+
+export function changeHostAllocationGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-host-allocation", { detail: { hosts: [row.original as Host] } }));
+}
+
+export function deleteHostGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-host-delete", { detail: { hosts: [row.original as Host] } }));
+}
+
+export function viewHostProcsGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  const host = row.original as Host;
+  window.dispatchEvent(new CustomEvent("cueweb:view-host-procs", { detail: { hostNames: [host.name] } }));
+}
+
+// Set/Clear Repair State fire immediately (CueGUI does them silently), then
+// optimistically patch the row's hardware state.
+export function setRepairGivenRow(row: Row<any>) {
+  const host = row.original as Host;
+  void setHostHardwareState([host], "REPAIR").then((ok) => {
+    if (!ok || typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("cueweb:hosts-changed", { detail: { hostIds: [host.id], patch: { state: "REPAIR" } } }));
+  });
+}
+
+export function clearRepairGivenRow(row: Row<any>) {
+  const host = row.original as Host;
+  void setHostHardwareState([host], "DOWN").then((ok) => {
+    if (!ok || typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("cueweb:hosts-changed", { detail: { hostIds: [host.id], patch: { state: "DOWN" } } }));
+  });
 }
 
 /**********************************************/

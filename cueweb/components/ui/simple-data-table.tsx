@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FrameRangeSelector } from "@/components/ui/frame-range-selector";
 import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
@@ -101,6 +102,9 @@ interface SimpleDataTableProps<TData, TValue> {
   // Columns dropdown. Typically a section title with a row count, e.g.
   // <span>Layers [Total Count: 3]</span>.
   toolbarLeft?: React.ReactNode;
+  // Optional per-row className derived from the row's data, used by the
+  // Monitor Hosts table to tint rows by hardware/lock state (CueGUI parity).
+  getRowClassName?: (rowData: TData) => string | undefined;
 }
 
 export function SimpleDataTable<TData, TValue>({
@@ -120,6 +124,7 @@ export function SimpleDataTable<TData, TValue>({
   onRowClick,
   selectedRowId,
   toolbarLeft,
+  getRowClassName,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -534,6 +539,13 @@ export function SimpleDataTable<TData, TValue>({
           {columnsDropdown}
         </div>
       </div>
+      {/* Visual frame-range selector Only on the frames table (not
+          the single-frame log table). Operates on the same state-filtered
+          rows the table shows, and its Retry/Eat/Kill buttons reuse the
+          row context menu's frame actions. */}
+      {isFramesTable && (
+        <FrameRangeSelector frames={tableData as Frame[]} username={username} />
+      )}
       {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
           on phones instead of forcing the whole page to scroll. */}
       <div className="overflow-x-auto rounded-md border" ref={tableRef}>
@@ -595,7 +607,12 @@ export function SimpleDataTable<TData, TValue>({
                         : undefined
                     }
                     className={
-                      onRowClick || isFrameRowWithJob ? "cursor-pointer" : undefined
+                      [
+                        onRowClick || isFrameRowWithJob ? "cursor-pointer" : "",
+                        getRowClassName?.(row.original as TData) ?? "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined
                     }
                   >
                     {row.getVisibleCells().map((cell) => (

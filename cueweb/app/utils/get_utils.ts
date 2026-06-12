@@ -99,6 +99,17 @@ export type Host = {
     gpus?: number;
     idleGpus?: number;
     hasComment?: boolean;
+    // Extra fields the full Monitor Hosts table needs for the bar columns
+    // (Swap/Physical/GPU/Temp) and Load %. All memory values are KB and may
+    // arrive from the gateway as strings (int64).
+    freeMemory?: string;       // free physical RAM, KB
+    freeSwap?: string;         // KB
+    totalSwap?: string;        // KB
+    freeGpuMemory?: string;    // KB
+    totalGpuMemory?: string;   // KB
+    gpuMemory?: string;        // total reservable GPU mem, KB
+    idleGpuMemory?: string;    // KB
+    totalMcp?: string;         // /mcp/ total, KB
 };
 
 // Minimal Proc shape - the host.Proc proto fields the host detail page's
@@ -116,6 +127,7 @@ export type Proc = {
     dispatchTime: number;
     reservedMemory: string;   // KB, as string
     usedMemory: string;       // KB, as string
+    reservedGpuMemory?: string; // KB, as string
     reservedCores: number;
     services: string[];
     logPath: string;
@@ -340,6 +352,16 @@ export async function getActiveShows(): Promise<Show[]> {
 export async function getAllocations(): Promise<Allocation[]> {
     const ENDPOINT = "/api/allocation/getall";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the procs running on a set of hosts (the Monitor Hosts proc panel,
+// CueGUI's "View Procs"). Uses ProcInterface.GetProcs with a host filter.
+export async function getProcsByHosts(hostNames: string[]): Promise<Proc[]> {
+    if (hostNames.length === 0) return [];
+    const ENDPOINT = "/api/proc/getprocs";
+    const body = JSON.stringify({ r: { hosts: hostNames } });
+    const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
 }
 

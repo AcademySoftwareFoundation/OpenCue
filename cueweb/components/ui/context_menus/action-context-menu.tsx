@@ -33,6 +33,13 @@ import {
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
   editHostTagsGivenRow,
+  viewHostCommentsGivenRow,
+  viewHostProcsGivenRow,
+  renameHostTagGivenRow,
+  changeHostAllocationGivenRow,
+  deleteHostGivenRow,
+  setRepairGivenRow,
+  clearRepairGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
@@ -567,18 +574,67 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
   const canRebootWhenIdle =
     hardwareState !== "REBOOTING" && hardwareState !== "REBOOT_WHEN_IDLE";
 
+  // CueGUI parity: a host is at rest in REPAIR when its hardware state is
+  // REPAIR; Clear Repair only makes sense then.
+  const inRepair = hardwareState === "REPAIR";
+
   const items: MenuItem[] = [
     {
-      label: "Lock",
+      label: "Comments...",
+      onClick: viewHostCommentsGivenRow,
+      isActive: true,
+      component: <TbMessage className="mr-1" size={14} />,
+    },
+    {
+      label: "View Procs",
+      onClick: viewHostProcsGivenRow,
+      isActive: true,
+      component: <TbDots className="mr-1" size={14} />,
+    },
+
+    sep("group-lock"),
+
+    {
+      label: "Lock Host",
       onClick: lockHostGivenRow,
       isActive: canLock,
       component: <TbLock className="mr-1" size={14} color={canLock ? undefined : "gray"} />,
     },
     {
-      label: "Unlock",
+      label: "Unlock Host",
       onClick: unlockHostGivenRow,
       isActive: canUnlock,
       component: <TbLockOpen className="mr-1" size={14} color={canUnlock ? undefined : "gray"} />,
+    },
+    {
+      // Owner/deed RPCs aren't wired in CueWeb yet; shown disabled to mirror
+      // CueGUI (which greys it out unless the host is NIMBY-locked).
+      label: "Take Ownership",
+      onClick: () => {},
+      isActive: false,
+      component: <TbStar className="mr-1" size={14} color="gray" />,
+    },
+
+    sep("group-tags"),
+
+    {
+      // CueWeb merges CueGUI's Add Tags / Remove Tags into one editor.
+      label: "Edit Tags...",
+      onClick: editHostTagsGivenRow,
+      isActive: true,
+      component: <TbTag className="mr-1" size={14} />,
+    },
+    {
+      label: "Rename Tag...",
+      onClick: renameHostTagGivenRow,
+      isActive: true,
+      component: <TbTag className="mr-1" size={14} />,
+    },
+    {
+      label: "Change Allocation...",
+      onClick: changeHostAllocationGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
     },
 
     sep("group-reboot"),
@@ -590,19 +646,31 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
       component: <TbPower className="mr-1" size={14} color={canReboot ? "red" : "gray"} />,
     },
     {
-      label: "Reboot When Idle",
+      label: "Reboot when idle",
       onClick: rebootHostWhenIdleGivenRow,
       isActive: canRebootWhenIdle,
       component: <TbRefresh className="mr-1" size={14} color={canRebootWhenIdle ? undefined : "gray"} />,
     },
+    {
+      label: "Delete Host",
+      onClick: deleteHostGivenRow,
+      isActive: true,
+      component: <MdOutlineCancel className="mr-1" size={14} color="red" />,
+    },
 
-    sep("group-tags"),
+    sep("group-repair"),
 
     {
-      label: "Edit Tags...",
-      onClick: editHostTagsGivenRow,
-      isActive: true,
-      component: <TbTag className="mr-1" size={14} />,
+      label: "Set Repair State",
+      onClick: setRepairGivenRow,
+      isActive: !inRepair,
+      component: <TbSettings className="mr-1" size={14} color={!inRepair ? undefined : "gray"} />,
+    },
+    {
+      label: "Clear Repair State",
+      onClick: clearRepairGivenRow,
+      isActive: inRepair,
+      component: <TbSettings className="mr-1" size={14} color={inRepair ? undefined : "gray"} />,
     },
   ];
 
