@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Limit, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -1070,6 +1070,63 @@ export function createSubscriptionGivenRow(row: Row<any>) {
   window.dispatchEvent(
     new CustomEvent("cueweb:open-create-subscription", {
       detail: { show: row.original as Show },
+    }),
+  );
+}
+
+/**************************************/
+// Limit actions (CueCommander Limits window parity)
+/**************************************/
+
+// Limit mutations key on the limit name (the proto requests take name /
+// old_name, not an id or object). They call accessActionApi directly so the
+// calling dialog can show a single toast; errors are surfaced by accessActionApi.
+async function limitAction(endpoint: string, body: object): Promise<boolean> {
+  const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+export async function createLimit(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/create", { name, max_value: maxValue });
+}
+
+export async function deleteLimit(name: string): Promise<boolean> {
+  return limitAction("/api/limit/action/delete", { name });
+}
+
+export async function renameLimit(oldName: string, newName: string): Promise<boolean> {
+  return limitAction("/api/limit/action/rename", { old_name: oldName, new_name: newName });
+}
+
+export async function setLimitMaxValue(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/setmaxvalue", { name, max_value: maxValue });
+}
+
+// Context-menu dispatchers: open the page-level dialogs via CustomEvent so the
+// free-function handlers stay free of component state (same pattern as hosts/shows).
+export function editLimitMaxValueGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-edit-max-value", {
+      detail: { limit: row.original as Limit },
+    }),
+  );
+}
+
+export function renameLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-rename", {
+      detail: { limit: row.original as Limit },
+    }),
+  );
+}
+
+export function deleteLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-delete", {
+      detail: { limit: row.original as Limit },
     }),
   );
 }
