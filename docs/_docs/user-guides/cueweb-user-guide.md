@@ -452,6 +452,45 @@ The dialog opens pre-filled: **From** comes from your signed-in session, **CC** 
 
 Clicking **Send** stitches the auto-populated body together with your Date/Time and Notes and hands the result to your default mail client. As with **Email Artist...**, the **From** header on the email you actually send is decided by your mail client, not by the dialog.
 
+### Setting min and max cores (Set Min/Max Cores)
+
+**Set Min/Max Cores...** on the job context menu adjusts how many cores Cuebot may book for a job (mirroring CueGUI's set-min-cores / set-max-cores actions). Like **Set Priority...**, it is available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** and **CueCommander &rarr; Monitor Cue**.
+
+Right-click a job row and pick **Set Min/Max Cores...** to open a themed dialog with two number inputs - Min and Max - both pre-filled with the job's current values. The range is 0-50000. A client-side guard keeps **Min &le; Max**: enter a minimum above the maximum and the **Apply** button is disabled with an inline message explaining why.
+
+![Set Min/Max Cores entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_menu.png)
+
+![Set Min/Max Cores dialog showing the min-greater-than-max guard](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_window.png)
+
+Apply sends both values in a single action (Cuebot exposes them as two separate calls). On success a toast confirms the new range; if Cuebot rejects the change an error toast explains why and nothing is changed.
+
+![Set Min/Max Cores success toast](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_min_max_cores_confirmation.png)
+
+### Unbooking a job (Unbook)
+
+**Unbook...** on the job context menu releases every proc the job currently holds (mirroring CueGUI's `UnbookDialog`). The freed procs return to the booking pool for Cuebot to re-dispatch.
+
+Right-click a job and pick **Unbook...**. The dialog explains what will happen and offers a **Kill unbooked frames?** checkbox:
+
+![Unbook entry in the job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_menu.png)
+
+![Unbook dialog with the optional Kill unbooked frames checkbox](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_window.png)
+
+- Left unchecked, the procs are unbooked but their current frames are allowed to finish.
+- Checked, a second confirmation step (mirroring CueGUI's kill confirmation) appears before the running frames are killed - killed frames stop immediately and lose their progress.
+
+![Unbook and kill confirmation step](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_unbook_kill_confirmation.png)
+
+This first version is job-scoped: it unbooks every proc the job holds. CueGUI's `UnbookDialog` additionally offers allocation, amount, and memory / runtime filters plus redirect-to-group/job; those are deferred.
+
+### Confirming multi-job toolbar actions
+
+When two or more jobs are selected, the Jobs toolbar's bulk actions ask for confirmation before running, listing the affected job names so you can double-check the selection.
+
+![Confirmation listing the affected jobs before a bulk action](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_batch_confirmation.png)
+
+The policy mirrors CueGUI and is per-action: **Kill**, **Eat**, and **Retry** always confirm (even for a single job, since they are destructive), while **Pause** and **Unpause** confirm only when two or more jobs are selected. Destructive confirmations use a red action button and CueGUI's kill warning text; **Cancel** aborts without sending anything.
+
 ---
 
 ## Job Comments
