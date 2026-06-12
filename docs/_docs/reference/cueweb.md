@@ -405,6 +405,22 @@ Save calls only the setters whose value changed (via the `action_utils` helpers 
 
 `create-subscription-dialog.tsx` (CueGUI `SubscriptionCreator` parity): Show + Alloc dropdowns (`getShows()` / `getAllocations()`), Size (default 100), Burst (default 110). On **OK** it calls `createShowSubscription()` &rarr; `/api/show/action/createsubscription` &rarr; `show.ShowInterface/CreateSubscription`. A show has at most one subscription per allocation; the route maps Cuebot's duplicate-key error to a short, user-facing message.
 
+### Limits
+
+A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from **CueCommander &rarr; Limits** (header dropdown and sidebar).
+
+![CueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getLimits()` (`app/utils/get_utils.ts`) &rarr; `/api/limit/getall` &rarr; `limit.LimitInterface/GetAll`. Unlike the host/show `GetAll` responses (which wrap a `*Seq`), `LimitGetAllResponse` nests a single level (`{ limits: [...] }`), so the route unwraps one level. Auto-refreshes every 30s and re-fetches on the `cueweb:limits-changed` event. |
+| **Columns** | Limit Name, Max Value, Current Running (`app/limits/limit-columns.tsx`). Numeric columns sort by their underlying value. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isLimitsTable` flag - limit-specific filter/empty-state copy and the `LimitContextMenu`. Column show/hide persists to `localStorage["cueweb.limits.columnVisibility"]`. |
+| **Add Limit** | The header **Add Limit** button opens `limit-add-dialog.tsx`; on OK it calls `createLimit(name, 0)` &rarr; `/api/limit/action/create` &rarr; `limit.LimitInterface/Create`. |
+| **Row actions** | A right-click `LimitContextMenu` exposes **Edit Max Value**, **Delete Limit**, and **Rename**, opened via the `cueweb:open-limit-edit-max-value` / `cueweb:open-limit-delete` / `cueweb:open-limit-rename` events (`components/ui/limit-action-events.ts`). |
+
+The action helpers (`createLimit` / `deleteLimit` / `renameLimit` / `setLimitMaxValue` in `app/utils/action_utils.ts`) key on the limit **name** (the proto requests take `name` / `old_name`, not an id). `setLimitMaxValue` validates a non-negative integer before calling `SetMaxValue`; on success each dialog fires `cueweb:limits-changed`.
+
 ### Job-finished notifications
 
 | Behavior | Description |
@@ -1021,6 +1037,8 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
 | `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
+| `limit.LimitInterface/GetAll` | List limits for the Limits page |
+| `limit.LimitInterface/Create` / `Delete` / `Rename` / `SetMaxValue` | Create / delete / rename a limit, set its max value |
 | `facility.AllocationInterface/GetAll` | List allocations (Allocations page + subscription dropdowns) |
 | `host.HostInterface/FindHost` | Resolve a single host by name for the host detail page |
 | `host.HostInterface/GetProcs` | List the procs running on a host (detail page Procs tab) |
@@ -1052,6 +1070,11 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/host/action/removetags` | `host.HostInterface/RemoveTags` (body `{ host, tags }`) |
 | `POST /api/show/getactiveshows` | `show.ShowInterface/GetActiveShows` (unwraps `{shows:{shows:[...]}}` to a flat array) |
 | `POST /api/allocation/getall` | `facility.AllocationInterface/GetAll` (unwraps `{allocations:{allocations:[...]}}` to a flat array) |
+| `POST /api/limit/getall` | `limit.LimitInterface/GetAll` (unwraps the single-level `{limits:[...]}` to a flat array) |
+| `POST /api/limit/action/create` | `limit.LimitInterface/Create` (body `{ name, max_value }`) |
+| `POST /api/limit/action/delete` | `limit.LimitInterface/Delete` (body `{ name }`) |
+| `POST /api/limit/action/rename` | `limit.LimitInterface/Rename` (body `{ old_name, new_name }`) |
+| `POST /api/limit/action/setmaxvalue` | `limit.LimitInterface/SetMaxValue` (body `{ name, max_value }`, non-negative) |
 | `POST /api/show/action/enablebooking` | `show.ShowInterface/EnableBooking` (body `{ show, enabled }`) |
 | `POST /api/show/action/enabledispatching` | `show.ShowInterface/EnableDispatching` (body `{ show, enabled }`) |
 | `POST /api/show/action/setdefaultmaxcores` | `show.ShowInterface/SetDefaultMaxCores` (body `{ show, max_cores }`) |
@@ -1140,7 +1163,8 @@ Layout, left to right:
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
   - Allocations (`/allocations`) - implemented; allocations table with
     cores/hosts stats (see [Allocations](#allocations)).
-  - Limits (`/limits`)
+  - Limits (`/limits`) - implemented; limits table with Add Limit and
+    Edit Max Value / Rename / Delete row actions (see [Limits](#limits)).
   - Monitor Cue (`/monitor-cue`)
   - Monitor Hosts (`/hosts`) - implemented; host registry with row actions
     (lock/unlock, reboot, edit tags) and a per-host detail page (see

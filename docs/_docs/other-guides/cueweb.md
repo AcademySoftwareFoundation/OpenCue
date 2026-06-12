@@ -173,6 +173,12 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
+31. **Limits (CueCommander &rarr; Limits):**
+   - A limits table at `/limits`, the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from the CueCommander menu / sidebar entry.
+   - Columns: Limit Name, Max Value, Current Running. Auto-refreshes every 30 seconds, with a **Refresh** button for an immediate reload.
+   - **Add Limit** dialog creates a new limit (max value starts at 0).
+   - **Limit actions** via the row's right-click menu: **Edit Max Value** (validates a non-negative integer), **Rename**, and **Delete Limit** (with a confirmation).
+
 
 ## CueWeb's user interface
 
