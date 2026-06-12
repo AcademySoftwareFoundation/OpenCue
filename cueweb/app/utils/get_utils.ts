@@ -187,6 +187,18 @@ export async function getFrames(body: string): Promise<Frame[]> {
     return response ? response : [];
 }
 
+// A running frame plus its parent job, for the Stuck Frames page.
+export type StuckFrame = Frame & { jobId: string; jobName: string };
+
+// Fetch every RUNNING frame across all unfinished jobs (server-aggregated via
+// /api/stuck-frames). The Stuck Frames page applies the running-time threshold
+// locally so the slider stays instant.
+export async function getStuckFrames(): Promise<StuckFrame[]> {
+    const ENDPOINT = "/api/stuck-frames";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
 // Fetch a pending job based on the request body
 export async function getPendingJob(body: string): Promise<Job | null> {
     const ENDPOINT = "/api/job/getjob";
