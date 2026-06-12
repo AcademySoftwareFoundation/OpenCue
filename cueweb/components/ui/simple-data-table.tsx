@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FrameRangeSelector } from "@/components/ui/frame-range-selector";
 import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
@@ -534,6 +535,13 @@ export function SimpleDataTable<TData, TValue>({
           {columnsDropdown}
         </div>
       </div>
+      {/* Visual frame-range selector Only on the frames table (not
+          the single-frame log table). Operates on the same state-filtered
+          rows the table shows, and its Retry/Eat/Kill buttons reuse the
+          row context menu's frame actions. */}
+      {isFramesTable && (
+        <FrameRangeSelector frames={tableData as Frame[]} username={username} />
+      )}
       {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
           on phones instead of forcing the whole page to scroll. */}
       <div className="overflow-x-auto rounded-md border" ref={tableRef}>
