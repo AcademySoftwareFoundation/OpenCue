@@ -28,7 +28,7 @@ use crate::{
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
     metrics,
-    models::{CoreSize, DispatchJob, DispatchLayer, Host},
+    models::{DispatchJob, DispatchLayer, Host},
     pipeline::{
         dispatcher::{
             error::DispatchError,
@@ -111,9 +111,19 @@ impl MatchingService {
     /// * `feed_sender` - Control channel for the cluster feed; used by
     ///   `process_layer` to sleep the cluster when the (show, alloc)
     ///   subscription is over burst (Alloc clusters + managed shows only).
-    pub async fn process(&self, job: DispatchJob, feed_sender: &mpsc::Sender<FeedMessage>) {
+    ///
+    /// # Returns
+    ///
+    /// Number of frames dispatched for this job. The caller uses this to back
+    /// the cluster off when an entire pass dispatches nothing.
+    pub async fn process(
+        &self,
+        job: DispatchJob,
+        feed_sender: &mpsc::Sender<FeedMessage>,
+    ) -> usize {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
+        let mut frames_dispatched = 0;
 
         let layers = self
             .layer_dao
@@ -159,7 +169,7 @@ impl MatchingService {
 
                     if layer_permit {
                         let layer_id = layer.id;
-                        self.process_layer(layer, cluster, feed_sender).await;
+                        frames_dispatched += self.process_layer(layer, cluster, feed_sender).await;
                         debug!("{}: Processed layer", layer_disp);
 
                         self.layer_permit_service
@@ -185,6 +195,7 @@ impl MatchingService {
                 error!("Failed to query layers. {:?}", err);
             }
         }
+        frames_dispatched
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -201,12 +212,17 @@ impl MatchingService {
     /// * `cluster` - The cluster context for this dispatch operation
     /// * `feed_sender` - Control channel for sleeping the cluster on
     ///   pre-checkout over-burst detection.
+    ///
+    /// # Returns
+    ///
+    /// Number of frames dispatched for this layer.
     async fn process_layer(
         &self,
         dispatch_layer: DispatchLayer,
         cluster: Arc<Cluster>,
         feed_sender: &mpsc::Sender<FeedMessage>,
-    ) {
+    ) -> usize {
+        let mut frames_dispatched: usize = 0;
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attempts_per_layer;
         let initial_attempts = attempts;
@@ -222,7 +238,12 @@ impl MatchingService {
             .read_job_cores_in_use(dispatch_layer.job_id)
             .await
         {
-            Ok(centi) => CoreSize::from_multiplied(centi).value(),
+            // Redis accounting counters are already stored in cores (the
+            // centicore→core conversion happens once at the reseed/recompute
+            // write boundaries — see `lua.rs` unit invariant), so do NOT apply
+            // `from_multiplied` here or the value is divided by the multiplier
+            // a second time.
+            Ok(cores) => cores as i32,
             Err(err) => {
                 debug!(
                     "read_job_cores_in_use failed for job {}: {}; defaulting to 0",
@@ -263,10 +284,12 @@ impl MatchingService {
                 .read_sub_counters(dispatch_layer.show_id, alloc_id)
                 .await
             {
-                Ok((booked, burst)) => (
-                    CoreSize::from_multiplied(booked).value(),
-                    CoreSize::from_multiplied(burst).value(),
-                ),
+                // Both counters are already in cores (see `lua.rs` unit
+                // invariant); the conversion from PG centicores happened at the
+                // reseed write boundary. Applying `from_multiplied` here would
+                // divide by the multiplier a second time (e.g. a burst of 200
+                // would read back as 2).
+                Ok((booked, burst)) => (booked as i32, burst as i32),
                 Err(err) => {
                     debug!(
                         "read_sub_counters failed for show={} alloc={}: {}; \
@@ -309,7 +332,7 @@ impl MatchingService {
                     CONFIG.queue.cluster_empty_sleep,
                 ))
                 .await;
-            return;
+            return frames_dispatched;
         }
         let mut local_show_cores_booked: i32 = 0;
 
@@ -427,6 +450,7 @@ impl MatchingService {
                             let dispatched = frames_before_dispatch
                                 .saturating_sub(updated_layer.frames.len())
                                 as i32;
+                            frames_dispatched += dispatched as usize;
                             let booked_cores = dispatched * cores_per_frame;
                             local_job_cores_booked += booked_cores;
                             local_show_cores_booked += booked_cores;
@@ -515,6 +539,7 @@ impl MatchingService {
                 }
             }
         }
+        frames_dispatched
     }
 
     /// Handles various dispatch errors with appropriate logging and actions.

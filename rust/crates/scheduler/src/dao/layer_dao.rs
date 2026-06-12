@@ -243,7 +243,7 @@ SELECT DISTINCT
     l.int_gpus_min,
     l.int_gpu_mem_min,
     l.str_tags,
-    jr.int_max_cores AS int_job_max_cores,
+    jr.int_max_cores::bigint AS int_job_max_cores,
     je.job_env,
     le.layer_env,
     l.int_dispatch_order,
@@ -364,33 +364,45 @@ impl LayerDao {
     ///
     /// * `Vec<DispatchLayer>` - Structured layers with grouped frames
     fn group_layers_and_frames(&self, models: Vec<LayerWithFramesModel>) -> Vec<DispatchLayer> {
-        let mut layers_map: HashMap<String, (DispatchLayerModel, Vec<DispatchFrameModel>)> =
-            HashMap::new();
+        // Rows arrive ordered by (layer.int_dispatch_order, frame order) from the SQL
+        // query. Group by layer while preserving that ordering: a HashMap maps the
+        // layer key to its slot in the output Vec, so layers keep their dispatch
+        // priority and frames keep their dispatch order within each layer.
+        let mut layer_slots: HashMap<String, usize> = HashMap::new();
+        let mut layers: Vec<(DispatchLayerModel, Vec<DispatchFrameModel>)> = Vec::new();
 
         for model in models {
-            // Extract layer data
-            let layer_model = DispatchLayerModel {
-                pk_layer: model.pk_layer.clone(),
-                pk_job: model.pk_job.clone(),
-                pk_facility: model.pk_facility.clone(),
-                pk_show: model.pk_show.clone(),
-                pk_folder: model.pk_folder.clone(),
-                pk_dept: model.pk_dept.clone(),
-                str_name: model.layer_name.clone(),
-                str_job_name: model.job_name.clone(),
-                str_os: model.str_os.clone(),
-                int_cores_min: model.int_cores_min,
-                int_mem_min: model.int_mem_min,
-                b_threadable: model.b_threadable,
-                int_gpus_min: model.int_gpus_min,
-                int_gpu_mem_min: model.int_gpu_mem_min,
-                str_tags: model.str_tags.clone(),
-                int_job_max_cores: model.int_job_max_cores,
+            let slot = match layer_slots.get(&model.pk_layer) {
+                Some(slot) => *slot,
+                None => {
+                    let layer_model = DispatchLayerModel {
+                        pk_layer: model.pk_layer.clone(),
+                        pk_job: model.pk_job.clone(),
+                        pk_facility: model.pk_facility.clone(),
+                        pk_show: model.pk_show.clone(),
+                        pk_folder: model.pk_folder.clone(),
+                        pk_dept: model.pk_dept.clone(),
+                        str_name: model.layer_name.clone(),
+                        str_job_name: model.job_name.clone(),
+                        str_os: model.str_os.clone(),
+                        int_cores_min: model.int_cores_min,
+                        int_mem_min: model.int_mem_min,
+                        b_threadable: model.b_threadable,
+                        int_gpus_min: model.int_gpus_min,
+                        int_gpu_mem_min: model.int_gpu_mem_min,
+                        str_tags: model.str_tags.clone(),
+                        int_job_max_cores: model.int_job_max_cores,
+                    };
+                    layers.push((layer_model, vec![]));
+                    let slot = layers.len() - 1;
+                    layer_slots.insert(model.pk_layer.clone(), slot);
+                    slot
+                }
             };
 
             // Extract frame data (if present)
-            let frame_model = if let Some(pk_frame) = model.pk_frame {
-                Some(DispatchFrameModel {
+            if let Some(pk_frame) = model.pk_frame {
+                let frame_model = DispatchFrameModel {
                     pk_frame,
                     str_frame_name: model.str_frame_name.unwrap_or_default(),
                     pk_show: model.pk_show.clone(),
@@ -418,26 +430,16 @@ impl LayerDao {
                     int_version: model.int_version.unwrap_or(1),
                     str_loki_url: model.str_loki_url,
                     ts_updated: model.ts_updated,
-                    job_env: model.job_env.0.clone(),
-                    layer_env: model.layer_env.0.clone(),
-                })
-            } else {
-                None
-            };
-
-            // Group by layer_id
-            let layer_entry = layers_map
-                .entry(model.pk_layer.clone())
-                .or_insert((layer_model, vec![]));
-
-            if let Some(frame) = frame_model {
-                layer_entry.1.push(frame);
+                    job_env: model.job_env.0,
+                    layer_env: model.layer_env.0,
+                };
+                layers[slot].1.push(frame_model);
             }
         }
 
         // Convert to DispatchLayer objects
-        layers_map
-            .into_values()
+        layers
+            .into_iter()
             .map(|(layer_model, frame_models)| DispatchLayer::new(layer_model, frame_models))
             .collect()
     }

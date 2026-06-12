@@ -141,7 +141,9 @@ impl RedisAccounting {
 
     /// Reads the subscription hash's booked cores + burst in one round-trip from
     /// `acct:sub:{show_id}:{alloc_id}` (fields `int_cores`, `burst`, both in
-    /// centicores). Missing keys/fields are treated as `(0, 0)`. Non-authoritative:
+    /// cores — the centicore→core conversion happens once at the reseed write
+    /// boundary, see the `lua.rs` unit invariant). Missing keys/fields are
+    /// treated as `(0, 0)`. Non-authoritative:
     /// the dispatcher's Lua `BOOK_OR_FORCE` call remains the source of truth for
     /// the booking decision; this is a snapshot suitable for optimistic pre-filters
     /// and scoring inputs.
@@ -158,8 +160,9 @@ impl RedisAccounting {
         Ok((booked, burst))
     }
 
-    /// Reads `acct:job:{job_id}` `int_cores` (live booked cores, in centicores).
-    /// Returns 0 when the key/field is missing. Used by the E-PVM placement
+    /// Reads `acct:job:{job_id}` `int_cores` (live booked cores, in cores — see
+    /// the `lua.rs` unit invariant; Redis accounting counters are never stored
+    /// in centicores). Returns 0 when the key/field is missing. Used by the E-PVM placement
     /// snapshot in `MatchingService::process_layer` (design Branch 2a).
     pub async fn read_job_cores_in_use(
         &self,
