@@ -208,18 +208,95 @@ impl Default for StreamConfig {
     }
 }
 
+/// Strategy for selecting a host when multiple candidates satisfy a layer's
+/// floor requirements.
+///
+/// `Saturation` is the legacy first-fit strategy: scan the B-tree in a
+/// configurable direction (`core_saturation` / `memory_saturation`) and take
+/// the first valid host. `Epvm` scores up to `max_candidates` hosts via
+/// E-PVM stranding and picks the lowest score. Saturation is the default;
+/// Epvm is opt-in.
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(default)]
-pub struct HostBookingStrategy {
-    pub core_saturation: bool,
-    pub memory_saturation: bool,
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HostBookingStrategy {
+    Saturation {
+        core_saturation: bool,
+        memory_saturation: bool,
+    },
+    Epvm {
+        weights: ScoreWeights,
+        max_candidates: usize,
+    },
 }
 
 impl Default for HostBookingStrategy {
     fn default() -> Self {
-        Self {
+        Self::Saturation {
             core_saturation: true,
             memory_saturation: false,
+        }
+    }
+}
+
+/// Weights for the E-PVM placement score.
+///
+/// For each resource dimension (cores, memory, GPUs, GPU memory), E-PVM
+/// computes how much of that resource will be "stranded" on a host — left
+/// idle because some other dimension ran out first. The weights here scale
+/// each dimension's stranding before they're summed into a single score.
+/// The cache picks the host with the lowest score.
+///
+/// # Units and range
+///
+/// All weights are dimensionless `f64`. Because stranding terms are themselves
+/// normalized (divided by the layer's per-dim minimum), a weight of `1.0`
+/// means "1 stranded layer-frame on this dimension contributes 1 score unit".
+///
+/// Practical range: **`0.0` to ~`10.0`**.
+/// * `0.0` — disables this dimension's contribution to the score.
+/// * `1.0` — baseline; this dimension counts at par with other unit-weighted dims.
+/// * `>1.0` — emphasizes the dimension (e.g. set `gpus: 4.0` to make GPU
+///   stranding hurt 4× as much as core stranding).
+/// * Values much higher than ~10.0 risk single-dimension dominance —
+///   placements become driven by one resource, ignoring everything else.
+/// * Negative values are not meaningful (would reward stranding); the gate
+///   does not enforce non-negativity, but operators should keep weights `>= 0`.
+///
+/// See `rust/config/scheduler.yaml` for annotated example configurations
+/// (baseline, GPU-scarce, memory-tight, cores-only) and the
+/// `gpu_count_reservation` / `gpu_mem_reservation` semantics.
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(default)]
+pub struct ScoreWeights {
+    /// Penalty per fractional stranded core-layer-frame. Default `1.0`.
+    pub cores: f64,
+    /// Penalty per fractional stranded mem-layer-frame. Default `1.0`.
+    pub mem: f64,
+    /// Penalty per fractional stranded GPU-layer-frame (GPU layers only).
+    /// Default `2.0` — GPU jobs are rarer, so wasting GPU capacity hurts more.
+    pub gpus: f64,
+    /// Penalty per fractional stranded GPU-memory-layer-frame (GPU layers only).
+    /// Default `1.0`.
+    pub gpu_mem: f64,
+    /// Soft-reservation penalty per idle GPU on the host for non-GPU layers.
+    /// Default `2.0`. With 8 idle GPUs, contributes `8 * gpu_count_reservation`
+    /// to the score.
+    pub gpu_count_reservation: f64,
+    /// Soft-reservation penalty per idle GB of GPU memory on the host for
+    /// non-GPU layers. Default `2.0`. With 80 GB idle, contributes
+    /// `80 * gpu_mem_reservation` to the score.
+    pub gpu_mem_reservation: f64,
+}
+
+impl Default for ScoreWeights {
+    fn default() -> Self {
+        Self {
+            cores: 1.0,
+            mem: 1.0,
+            gpus: 2.0,
+            gpu_mem: 1.0,
+            gpu_count_reservation: 2.0,
+            gpu_mem_reservation: 2.0,
         }
     }
 }
@@ -425,5 +502,75 @@ impl Config {
                     err
                 ))
             })
+    }
+}
+
+#[cfg(test)]
+mod host_booking_strategy_tests {
+    //! `deny_unknown_fields` is format-agnostic; testing with JSON is
+    //! sufficient to verify the serde behavior we care about (operators
+    //! configure via YAML in production, but the loader uses the same
+    //! `serde::Deserialize` impl).
+    use super::*;
+
+    #[test]
+    fn saturation_accepts_valid_fields() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false}"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Saturation {
+                core_saturation: true,
+                memory_saturation: false
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_accepts_valid_fields() {
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Epvm {
+                max_candidates: 500,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_rejects_saturation_field() {
+        // `core_saturation` belongs to the Saturation variant; under `type: epvm`
+        // it must be rejected, not silently ignored.
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "core_saturation":false,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("core_saturation"),
+            "expected unknown-field error mentioning core_saturation, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn saturation_rejects_epvm_field() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false,"max_candidates":500}"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("max_candidates"),
+            "expected unknown-field error mentioning max_candidates, got: {}",
+            msg
+        );
     }
 }

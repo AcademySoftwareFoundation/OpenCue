@@ -59,6 +59,9 @@ pub struct DispatchLayerModel {
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
     pub str_tags: String,
+    /// `job_resource.int_max_cores` (centicores). `-1` is the OpenCue
+    /// "unlimited" sentinel — preserved through `from_multiplied_cap`.
+    pub int_job_max_cores: i64,
 }
 
 /// Combined model for batched layer and frame queries.
@@ -84,6 +87,7 @@ pub struct LayerWithFramesModel {
     pub int_gpus_min: i64,
     pub int_gpu_mem_min: i64,
     pub str_tags: String,
+    pub int_job_max_cores: i64,
     pub job_env: Json<HashMap<String, String>>,
     pub layer_env: Json<HashMap<String, String>>,
 
@@ -147,6 +151,9 @@ impl DispatchLayer {
                 .filter(|t| !t.is_empty())
                 .collect(),
             frames: frames.into_iter().map(|f| f.into()).collect(),
+            // Preserves the `-1` unlimited sentinel; `compute_max_more` skips
+            // the job cap dim when `<= 0`.
+            job_max_cores: CoreSize::from_multiplied_cap(layer.int_job_max_cores).value(),
         }
     }
 }
@@ -236,6 +243,7 @@ SELECT DISTINCT
     l.int_gpus_min,
     l.int_gpu_mem_min,
     l.str_tags,
+    jr.int_max_cores AS int_job_max_cores,
     je.job_env,
     le.layer_env,
     l.int_dispatch_order,
@@ -266,6 +274,7 @@ SELECT DISTINCT
 FROM job j
     INNER JOIN layer l ON j.pk_job = l.pk_job
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
+    INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
     LEFT JOIN LATERAL (
         SELECT COALESCE(
             jsonb_object_agg(je.str_key, je.str_value),
@@ -376,6 +385,7 @@ impl LayerDao {
                 int_gpus_min: model.int_gpus_min,
                 int_gpu_mem_min: model.int_gpu_mem_min,
                 str_tags: model.str_tags.clone(),
+                int_job_max_cores: model.int_job_max_cores,
             };
 
             // Extract frame data (if present)

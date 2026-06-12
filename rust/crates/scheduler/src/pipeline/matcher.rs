@@ -18,17 +18,17 @@ use std::{
     time::Duration,
 };
 
-use opencue_proto::host::ThreadMode;
 use uuid::Uuid;
 
 use crate::{
-    cluster::Cluster,
-    cluster_key::Tag,
+    accounting::{accounting_service, AccountingService},
+    cluster::{Cluster, FeedMessage},
+    cluster_key::{Tag, TagType},
     config::CONFIG,
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
     metrics,
-    models::{DispatchJob, DispatchLayer, Host},
+    models::{CoreSize, DispatchJob, DispatchLayer, Host},
     pipeline::{
         dispatcher::{
             error::DispatchError,
@@ -36,11 +36,12 @@ use crate::{
             rqd_dispatcher_service, RqdDispatcherService,
         },
         layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
+        placement::{self, LayerProfile},
     },
 };
 use actix::Addr;
 use miette::Result;
-use tokio::sync::Semaphore;
+use tokio::sync::{mpsc, Semaphore};
 use tracing::{debug, error, info, trace};
 
 pub static HOSTS_ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
@@ -59,6 +60,7 @@ pub struct MatchingService {
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
+    accounting: Arc<AccountingService>,
 }
 
 impl MatchingService {
@@ -78,6 +80,7 @@ impl MatchingService {
         let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
         let layer_permit_service = layer_permit_service().await?;
+        let accounting = accounting_service().await?;
 
         // Limiting the concurrency here is necessary to avoid consuming the entire
         // database connection pool
@@ -91,6 +94,7 @@ impl MatchingService {
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
+            accounting,
         })
     }
 
@@ -104,7 +108,10 @@ impl MatchingService {
     /// # Arguments
     ///
     /// * `job` - The dispatch job containing layers to process
-    pub async fn process(&self, job: DispatchJob) {
+    /// * `feed_sender` - Control channel for the cluster feed; used by
+    ///   `process_layer` to sleep the cluster when the (show, alloc)
+    ///   subscription is over burst (Alloc clusters + managed shows only).
+    pub async fn process(&self, job: DispatchJob, feed_sender: &mpsc::Sender<FeedMessage>) {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
 
@@ -152,7 +159,7 @@ impl MatchingService {
 
                     if layer_permit {
                         let layer_id = layer.id;
-                        self.process_layer(layer, cluster).await;
+                        self.process_layer(layer, cluster, feed_sender).await;
                         debug!("{}: Processed layer", layer_disp);
 
                         self.layer_permit_service
@@ -180,24 +187,6 @@ impl MatchingService {
         }
     }
 
-    fn host_matches_layer_os(host: &Host, os: Option<&str>) -> bool {
-        os.is_none() || host.str_os.as_deref() == os
-    }
-
-    /// Mirrors Cuebot's DispatchQuery filter: hosts in ThreadMode::All only accept threadable
-    /// layers. Booking a non-threadable layer on such a host would diverge from Cuebot's behavior
-    /// and starve the layer when ownership of the show moves back to Cuebot.
-    fn host_matches_thread_mode(host: &Host, threadable: bool) -> bool {
-        !(host.thread_mode == ThreadMode::All && !threadable)
-    }
-
-    /// Sync per-host validation invoked from the host_cache actor. Checks OS and thread-mode
-    /// compatibility - subscription burst is enforced by the Lua booking call inside
-    /// `dispatch_virtual_proc` (see comment at the call site).
-    fn validate_match(host: &Host, os: Option<&str>, threadable: bool) -> bool {
-        Self::host_matches_layer_os(host, os) && Self::host_matches_thread_mode(host, threadable)
-    }
-
     /// Processes a single layer by finding host candidates and attempting dispatch.
     ///
     /// The process:
@@ -210,10 +199,119 @@ impl MatchingService {
     ///
     /// * `dispatch_layer` - The layer to dispatch to a host
     /// * `cluster` - The cluster context for this dispatch operation
-    async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
+    /// * `feed_sender` - Control channel for sleeping the cluster on
+    ///   pre-checkout over-burst detection.
+    async fn process_layer(
+        &self,
+        dispatch_layer: DispatchLayer,
+        cluster: Arc<Cluster>,
+        feed_sender: &mpsc::Sender<FeedMessage>,
+    ) {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attempts_per_layer;
         let initial_attempts = attempts;
+
+        // E-PVM live-usage snapshot taken once at permit entry (design Branch 2a).
+        // Locally incremented per dispatched frame within the while-loop.
+        // Redis read failures degrade to 0, leaving the cap unbounded by live usage
+        // but still bounded by `job_max_cores`.
+        let cores_per_frame = dispatch_layer.cores_min.value();
+        let initial_job_cores_in_use = match self
+            .accounting
+            .redis()
+            .read_job_cores_in_use(dispatch_layer.job_id)
+            .await
+        {
+            Ok(centi) => CoreSize::from_multiplied(centi).value(),
+            Err(err) => {
+                debug!(
+                    "read_job_cores_in_use failed for job {}: {}; defaulting to 0",
+                    dispatch_layer.job_id, err
+                );
+                0
+            }
+        };
+        let mut local_job_cores_booked: i32 = 0;
+
+        // (show, alloc) subscription burst snapshot — Alloc clusters + managed
+        // shows only. `Cluster::single_tag` is built once per (facility, show,
+        // alloc.str_tag) row and the SQL join `host_tag.str_tag = alloc.str_tag`
+        // guarantees the chosen host is in that allocation, so the alloc_id on
+        // the single Tag IS the alloc the dispatched host will be in. For
+        // Manual/HostName/Hardware clusters and CLI-built alloc tags
+        // (alloc_id = None), we fall back to the burst-unaware behavior
+        // (show_burst = 0 → treated as "unlimited" by `compute_max_more`).
+        let alloc_id_opt = if self
+            .accounting
+            .managed_shows()
+            .contains(&dispatch_layer.show_id)
+            && cluster.tags.len() == 1
+        {
+            cluster
+                .tags
+                .iter()
+                .next()
+                .filter(|tag| tag.ttype == TagType::Alloc)
+                .and_then(|tag| tag.alloc_id)
+        } else {
+            None
+        };
+        let (initial_show_cores_in_use, show_burst): (i32, i32) = match alloc_id_opt {
+            Some(alloc_id) => match self
+                .accounting
+                .redis()
+                .read_sub_counters(dispatch_layer.show_id, alloc_id)
+                .await
+            {
+                Ok((booked, burst)) => (
+                    CoreSize::from_multiplied(booked).value(),
+                    CoreSize::from_multiplied(burst).value(),
+                ),
+                Err(err) => {
+                    debug!(
+                        "read_sub_counters failed for show={} alloc={}: {}; \
+                         leaving burst unbounded, Lua will decide",
+                        dispatch_layer.show_id, alloc_id, err
+                    );
+                    (0, 0)
+                }
+            },
+            None => (0, 0),
+        };
+
+        // Pre-checkout over-burst skip. When the snapshot says the requested
+        // cores won't fit under burst, sleep the cluster for the same duration
+        // as the empty-cluster back-off and return without scanning the host
+        // cache or pinging the dispatcher. A stale "over burst" read costs at
+        // most a single cluster_empty_sleep window of latency on this cluster
+        // and self-corrects on the next wake; the Lua booking call remains
+        // authoritative on the actual booking.
+        if show_burst > 0
+            && initial_show_cores_in_use.saturating_add(dispatch_layer.cores_min.value())
+                > show_burst
+        {
+            metrics::increment_accounting_limit_exceeded("subscription");
+            debug!(
+                "Skipping layer {} pre-checkout: subscription over burst \
+                 (show={}, alloc={:?}, booked={}, requested={}, burst={}); \
+                 sleeping cluster {}",
+                dispatch_layer,
+                dispatch_layer.show_id,
+                alloc_id_opt,
+                initial_show_cores_in_use,
+                dispatch_layer.cores_min.value(),
+                show_burst,
+                cluster,
+            );
+            let _ = feed_sender
+                .send(FeedMessage::Sleep(
+                    (*cluster).clone(),
+                    CONFIG.queue.cluster_empty_sleep,
+                ))
+                .await;
+            return;
+        }
+        let mut local_show_cores_booked: i32 = 0;
 
         // Use Option to handle ownership transfer cleanly
         let mut current_layer_version = Some(dispatch_layer);
@@ -255,8 +353,37 @@ impl MatchingService {
             // TODO: if over-burst attempts become a measurable perf drag, add a precomputed
             // per-layer Redis snapshot of (show, alloc) → bookable and consult it here.
             let cores_requested = layer.cores_min;
-            let os = layer.str_os.clone();
-            let threadable = layer.threadable;
+            let (gate, weights) = match CONFIG.queue.host_booking_strategy {
+                crate::config::HostBookingStrategy::Epvm { weights, .. } => (
+                    placement::epvm_gate as crate::host_cache::cache::Gate,
+                    weights,
+                ),
+                crate::config::HostBookingStrategy::Saturation { .. } => (
+                    placement::saturation_gate as crate::host_cache::cache::Gate,
+                    Default::default(),
+                ),
+            };
+            // `show_burst` / `show_cores_in_use` come from the per-(show, alloc)
+            // Redis snapshot taken above. They're populated for managed shows on
+            // Alloc clusters (where the chosen host's allocation is deterministic
+            // from the cluster's single Tag), and 0 otherwise — in which case
+            // `compute_max_more`'s `> 0` guards treat the cap as "unlimited" and
+            // E-PVM scoring loses the show-burst component of `maxMore`. The
+            // authoritative cap remains the Lua `BOOK_OR_FORCE` call inside the
+            // dispatcher; this snapshot is an optimistic input to scoring.
+            let profile = LayerProfile {
+                cores_min: layer.cores_min,
+                mem_min: layer.mem_min,
+                gpus_min: layer.gpus_min,
+                gpu_mem_min: layer.gpu_mem_min,
+                os: layer.str_os.clone(),
+                threadable: layer.threadable,
+                job_max_cores: layer.job_max_cores,
+                show_burst,
+                job_cores_in_use: initial_job_cores_in_use + local_job_cores_booked,
+                show_cores_in_use: initial_show_cores_in_use + local_show_cores_booked,
+                weights,
+            };
 
             let host_candidate = self
                 .host_service
@@ -266,7 +393,8 @@ impl MatchingService {
                     tags,
                     cores: cores_requested,
                     memory: layer.mem_min,
-                    validation: move |host| Self::validate_match(host, os.as_deref(), threadable),
+                    profile,
+                    gate,
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");
@@ -277,6 +405,7 @@ impl MatchingService {
                     // Store layer info for error logging before moving ownership
                     let layer_display = format!("{}", layer);
                     let layer_job_id = layer.job_id;
+                    let frames_before_dispatch = layer.frames.len();
 
                     match self
                         .dispatcher_service
@@ -291,6 +420,17 @@ impl MatchingService {
                             updated_host,
                             updated_layer,
                         }) => {
+                            // Track cores actually consumed so the next iteration's
+                            // LayerProfile sees the local picture of usage. The same
+                            // delta applies to the (show, alloc) subscription burst
+                            // since every dispatched frame counts against both caps.
+                            let dispatched = frames_before_dispatch
+                                .saturating_sub(updated_layer.frames.len())
+                                as i32;
+                            let booked_cores = dispatched * cores_per_frame;
+                            local_job_cores_booked += booked_cores;
+                            local_show_cores_booked += booked_cores;
+
                             self.host_service
                                 .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
                                 .await
@@ -470,95 +610,5 @@ impl MatchingService {
                 );
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use bytesize::ByteSize;
-    use opencue_proto::host::ThreadMode;
-    use uuid::Uuid;
-
-    use super::MatchingService;
-    use crate::models::{CoreSize, Host};
-
-    fn host_with_os(str_os: Option<&str>) -> Host {
-        host_with(str_os, ThreadMode::Variable)
-    }
-
-    fn host_with_thread_mode(thread_mode: ThreadMode) -> Host {
-        host_with(Some("Linux"), thread_mode)
-    }
-
-    fn host_with(str_os: Option<&str>, thread_mode: ThreadMode) -> Host {
-        Host::new_for_test(
-            Uuid::new_v4(),
-            "test-host".to_string(),
-            str_os.map(str::to_string),
-            CoreSize::from_multiplied(100),
-            ByteSize::gb(64),
-            CoreSize::from_multiplied(100),
-            ByteSize::gb(64),
-            0,
-            ByteSize::gb(0),
-            thread_mode,
-            CoreSize::from_multiplied(100),
-            Uuid::new_v4(),
-            "test-alloc".to_string(),
-        )
-    }
-
-    #[test]
-    fn host_matches_when_layer_os_is_not_set() {
-        let host = host_with_os(Some("Linux"));
-
-        assert!(MatchingService::host_matches_layer_os(&host, None));
-    }
-
-    #[test]
-    fn host_matches_when_layer_os_matches_host_os() {
-        let host = host_with_os(Some("Linux"));
-
-        assert!(MatchingService::host_matches_layer_os(&host, Some("Linux")));
-    }
-
-    #[test]
-    fn host_does_not_match_when_layer_os_differs_from_host_os() {
-        let host = host_with_os(Some("Linux"));
-
-        assert!(!MatchingService::host_matches_layer_os(
-            &host,
-            Some("Windows")
-        ));
-    }
-
-    #[test]
-    fn thread_mode_all_rejects_non_threadable_layer() {
-        let host = host_with_thread_mode(ThreadMode::All);
-
-        assert!(!MatchingService::host_matches_thread_mode(&host, false));
-    }
-
-    #[test]
-    fn thread_mode_all_accepts_threadable_layer() {
-        let host = host_with_thread_mode(ThreadMode::All);
-
-        assert!(MatchingService::host_matches_thread_mode(&host, true));
-    }
-
-    #[test]
-    fn thread_mode_variable_accepts_any_threadability() {
-        let host = host_with_thread_mode(ThreadMode::Variable);
-
-        assert!(MatchingService::host_matches_thread_mode(&host, true));
-        assert!(MatchingService::host_matches_thread_mode(&host, false));
-    }
-
-    #[test]
-    fn thread_mode_auto_accepts_any_threadability() {
-        let host = host_with_thread_mode(ThreadMode::Auto);
-
-        assert!(MatchingService::host_matches_thread_mode(&host, true));
-        assert!(MatchingService::host_matches_thread_mode(&host, false));
     }
 }
