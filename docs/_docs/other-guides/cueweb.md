@@ -162,6 +162,17 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Host actions** via the row's right-click menu: lock / unlock (a `NIMBY_LOCKED` host cannot be unlocked), reboot (confirms first - running frames are killed) / reboot when idle, and edit tags (add/remove with autocomplete from existing tags). The affected row updates immediately on success.
    - **Host detail page**: click a host's name to open a per-host page with Overview, Procs, Comments, and Tags tabs. The Procs tab lists the frames running on the host (auto-refreshing every 15 seconds); clicking a proc opens that frame's log.
 
+29. **Allocations (CueCommander &rarr; Allocations):**
+   - An allocations table at `/allocations`, the CueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from the CueCommander menu / sidebar entry.
+   - Columns mirror CueGUI: Name, Tag, a cores group (Cores, Idle, Locked, Down, Repair) and a hosts group (Hosts, Locked, Down, Repair). Numeric columns sort by their underlying value; column show/hide and the substring filter mirror the other tables. Auto-refreshes every 30 seconds.
+   - Clicking an allocation's name navigates to the hosts list scoped to that allocation (`/hosts?allocation=<name>`).
+
+30. **Shows (CueCommander &rarr; Shows):**
+   - A shows registry at `/shows`, the CueWeb equivalent of CueGUI's CueCommander Shows window. Reached from the CueCommander menu / sidebar entry.
+   - Sortable, filterable stats table with columns Show Name, Cores Run, Frames Run, Frames Pending, and Jobs (from `GetActiveShows`), auto-refreshing every 30 seconds. Click a show name to open its detail page.
+   - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
+   - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
+
 
 ## CueWeb's user interface
 

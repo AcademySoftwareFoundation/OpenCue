@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -163,6 +163,20 @@ export async function retryFrames(frames: Frame[]) {
   await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
 }
 
+/**************************************/
+// Unbook
+/**************************************/
+
+// Unbook every proc a job currently holds (CueWeb #2288). Job-scoped MVP:
+// the proc search criteria is just { jobs: [job.name] }. kill=true also kills
+// the running frames. Allocation / amount / redirect scoping from CueGUI's
+// UnbookDialog is intentionally deferred. Returns performAction's success
+// boolean so the dialog can gate its table refresh on success.
+export async function unbookJob(job: Job, kill: boolean): Promise<boolean> {
+  const endpoint = "/api/proc/action/unbook";
+  const body = JSON.stringify({ r: { jobs: [job.name] }, kill });
+  return performAction(endpoint, [body], kill ? `Unbooked and killed procs on ${job.name}` : `Unbooked procs on ${job.name}`);
+}
 
 /**************************************/
 // Job Comments
@@ -210,6 +224,28 @@ export async function unpauseJobs(jobs: Job[]) {
   const endpoint = "/api/job/action/unpause";
   const bodyAr = jobs.map(job => JSON.stringify({ job }));
   await performAction(endpoint, bodyAr, `Unpaused ${jobs.length} job(s)`);
+}
+
+/**************************************/
+// Reparent Groups and Jobs
+/**************************************/
+
+export async function reparentGroups(newParentId: string, groupIds: string[]) {
+  const endpoint = "/api/group/action/reparentgroups";
+  const body = JSON.stringify({
+    group: { id: newParentId },
+    groups: { groups: groupIds.map(id => ({ id })) },
+  });
+  return performAction(endpoint, [body], `Reparented ${groupIds.length} group(s)`);
+}
+
+export async function reparentJobs(newParentId: string, jobIds: string[]) {
+  const endpoint = "/api/group/action/reparentjobs";
+  const body = JSON.stringify({
+    group: { id: newParentId },
+    jobs: { jobs: jobIds.map(id => ({ id })) },
+  });
+  return performAction(endpoint, [body], `Reparented ${jobIds.length} job(s)`);
 }
 
 /**************************************/
@@ -280,6 +316,25 @@ export async function removeHostTags(hosts: Host[], tags: string[]): Promise<boo
 export async function setJobPriority(job: Job, priority: number) {
   const endpoint = "/api/job/action/setpriority";
   await performAction(endpoint, [JSON.stringify({ job, val: priority })], `Set priority ${priority} on ${job.name}`);
+}
+
+// Set a job's min and max cores in one user action (CueWeb #2281). Cuebot
+// exposes SetMinCores / SetMaxCores as two RPCs, so we POST both in turn;
+// one toast on full success, and if the min call fails we skip max and
+// surface the error. Returns true on full success, false otherwise, so the
+// dialog can gate its optimistic row update on success (mirrors performAction).
+export async function setJobCores(job: Job, minCores: number, maxCores: number): Promise<boolean> {
+  try {
+    const minRes = await accessActionApi("/api/job/action/setmincores", [JSON.stringify({ job, val: minCores })]);
+    if (!minRes?.success) throw new Error(minRes?.error ?? "Failed to set min cores");
+    const maxRes = await accessActionApi("/api/job/action/setmaxcores", [JSON.stringify({ job, val: maxCores })]);
+    if (!maxRes?.success) throw new Error(maxRes?.error ?? "Failed to set max cores");
+    toastSuccess(`Set cores ${minCores}-${maxCores} on ${job.name}`);
+    return true;
+  } catch (error) {
+    handleError(error, `Error setting cores on ${job.name}`);
+    return false;
+  }
 }
 
 export async function setJobMaxRetries(job: Job, maxRetries: number) {
@@ -799,6 +854,22 @@ export function setPriorityGivenRow(row: Row<any>) {
   );
 }
 
+// Right-click "Set Min/Max Cores..." handler. Dispatches a CustomEvent that
+// the SetCoresDialog (mounted at the page level) listens for; the dialog
+// opens with Min/Max number inputs pre-filled with the row's current cores
+// and a client-side min<=max guard, and calls setJobCores on Apply.
+// Decoupled this way so the free-function context-menu handlers don't need
+// to reach into the table's component state.
+export function setCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-cores", {
+      detail: { job },
+    }),
+  );
+}
+
 // Right-click "Email Artist..." handler. Dispatches a CustomEvent that
 // the EmailArtistDialog (mounted at the page level) listens for; the
 // dialog opens pre-filled with From/To/CC/Subject/Body derived from the
@@ -845,6 +916,21 @@ export function subscribeToJobGivenRow(row: Row<any>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Unbook..." handler. Dispatches a CustomEvent that the
+// UnbookDialog (mounted at the page level) listens for; the dialog opens
+// with an optional "Kill unbooked frames?" checkbox and calls unbookJob on
+// confirm. Decoupled this way so the free-function context-menu handlers
+// don't need to reach into the table's component state.
+export function unbookGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-unbook", {
       detail: { job },
     }),
   );
@@ -1007,4 +1093,69 @@ export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
   } catch (err) {
     handleError(err, "Could not copy log path to clipboard");
   }
+}
+/**************************************/
+// Show actions (CueCommander Shows window parity)
+/**************************************/
+
+// Show mutations call accessActionApi directly (no per-call success toast) so
+// the calling dialog can show a single "Saved" toast after applying several
+// changes at once. Errors are still surfaced as toasts by accessActionApi.
+async function showAction(endpoint: string, body: object): Promise<boolean> {
+  const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+export async function enableShowBooking(show: Show, enabled: boolean): Promise<boolean> {
+  return showAction("/api/show/action/enablebooking", { show, enabled });
+}
+
+export async function enableShowDispatching(show: Show, enabled: boolean): Promise<boolean> {
+  return showAction("/api/show/action/enabledispatching", { show, enabled });
+}
+
+export async function setShowDefaultMaxCores(show: Show, maxCores: number): Promise<boolean> {
+  return showAction("/api/show/action/setdefaultmaxcores", { show, max_cores: maxCores });
+}
+
+export async function setShowDefaultMinCores(show: Show, minCores: number): Promise<boolean> {
+  return showAction("/api/show/action/setdefaultmincores", { show, min_cores: minCores });
+}
+
+export async function setShowCommentEmail(show: Show, email: string): Promise<boolean> {
+  return showAction("/api/show/action/setcommentemail", { show, email });
+}
+
+export async function createShowSubscription(
+  show: Show,
+  allocationId: string,
+  size: number,
+  burst: number,
+): Promise<boolean> {
+  return showAction("/api/show/action/createsubscription", {
+    show,
+    allocation_id: allocationId,
+    size,
+    burst,
+  });
+}
+
+// Context-menu dispatchers: open the page-level dialogs via CustomEvent so the
+// free-function handlers stay free of component state (same pattern as hosts).
+export function showPropertiesGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-show-properties", {
+      detail: { show: row.original as Show },
+    }),
+  );
+}
+
+export function createSubscriptionGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-create-subscription", {
+      detail: { show: row.original as Show },
+    }),
+  );
 }

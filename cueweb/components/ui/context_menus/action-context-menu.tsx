@@ -25,6 +25,7 @@ import {
   copyFrameNameGivenRow,
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
+  createSubscriptionGivenRow,
   dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
@@ -45,9 +46,12 @@ import {
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
   retryLayerFramesGivenRow,
+  setCoresGivenRow,
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
+  showPropertiesGivenRow,
   subscribeToJobGivenRow,
+  unbookGivenRow,
   unlockHostGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
@@ -76,6 +80,7 @@ import {
   TbPlayerPause,
   TbPlayerPlay,
   TbPlugConnectedX,
+  TbPlus,
   TbPower,
   TbRefresh,
   TbReload,
@@ -379,6 +384,12 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
+      label: "Set Min/Max Cores...",
+      onClick: setCoresGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,
       isActive: editable,
@@ -439,10 +450,10 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
     {
-      label: "Unbook",
-      onClick: notYetImplemented("Unbook"),
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+      label: "Unbook...",
+      onClick: unbookGivenRow,
+      isActive: destructiveActive,
+      component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
     {
       label: "Kill",
@@ -592,6 +603,48 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
       onClick: editHostTagsGivenRow,
       isActive: true,
       component: <TbTag className="mr-1" size={14} />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+interface ShowContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+// Context menu for the Shows table (CueGUI ShowsWidget parity): Show
+// Properties and Create Subscription.
+export const ShowContextMenu: React.FC<ShowContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Show Properties",
+      onClick: showPropertiesGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-subscription"),
+    {
+      label: "Create Subscription...",
+      onClick: createSubscriptionGivenRow,
+      isActive: true,
+      component: <TbPlus className="mr-1" size={14} />,
     },
   ];
 

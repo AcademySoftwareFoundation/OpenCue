@@ -361,6 +361,63 @@ A per-host page at `/hosts/[host-name]` (`cueweb/app/hosts/[host-name]/page.tsx`
 | **Comments** | Loads via `getHostComments()` &rarr; `/api/host/getcomments` &rarr; `host.HostInterface/GetComments` (read-only list). |
 | **Tags** | Renders `host.tags`; an **Edit tags** button dispatches the same `cueweb:open-host-tags` event as the table menu. The page listens for `cueweb:hosts-changed` to patch and silently reconcile its host. |
 
+### Allocations
+
+An allocations table at `/allocations` (`cueweb/app/allocations/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from **CueCommander &rarr; Allocations** (header dropdown and sidebar).
+
+![CueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getAllocations()` (`app/utils/get_utils.ts`) &rarr; `/api/allocation/getall` &rarr; `facility.AllocationInterface/GetAll`. Auto-refreshes every 30s. |
+| **Columns** | Name (links to `/hosts?allocation=<name>`), Tag, then a cores group (Cores, Idle, Locked, Down, Repair) and a hosts group (Hosts, Locked, Down, Repair) - `app/allocations/allocation-columns.tsx`. Numeric columns sort by their underlying value; cores render as integers. |
+| **Derived columns** | `AllocationStats` does not expose Down cores, Repair cores, or Repair hosts, so the page fetches the host list once (`getHosts()`) and aggregates it on `allocName` via `computeAllocationHostStats` / `buildAllocationRows` (`app/allocations/allocation-utils.ts`). The host fetch is best-effort - those columns fall back to 0 if it fails. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the read-only `isAllocationsTable` flag - allocation-specific filter/empty-state copy and no row context menu. Column show/hide persists to `localStorage["cueweb.allocations.columnVisibility"]`. |
+
+### Shows
+
+A shows registry at `/shows` (`cueweb/app/shows/page.tsx` + `shows-client.tsx`), the CueWeb equivalent of CueGUI's CueCommander Shows window. Reached from **CueCommander &rarr; Shows** (header dropdown and sidebar).
+
+![CueWeb Shows page](/assets/images/cueweb/cueweb_cuecommander_shows.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getActiveShows()` (`app/utils/get_utils.ts`) &rarr; `/api/show/getactiveshows` &rarr; `show.ShowInterface/GetActiveShows`. Auto-refreshes every 30s and re-fetches on the `cueweb:shows-changed` event. |
+| **Columns** | Show Name (links to the [show detail page](#show-detail-page-group-tree)), Cores Run (`reserved_cores`), Frames Run (`running_frames`), Frames Pending (`pending_frames`), Jobs (`pending_jobs`) - `app/shows/show-columns.tsx`. Numeric columns sort by their underlying value. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isShowsTable` flag - show-specific filter placeholder and empty-state copy, and the `ShowContextMenu`. Column show/hide persists to `localStorage["cueweb.shows.columnVisibility"]`. |
+| **Create Show** | The `Create Show` button opens `create-show-dialog.tsx`: a unique alphanumeric name (duplicate-checked via `FindShow`) plus an optional per-allocation Subscriptions section (checkbox + Size + Burst, allocations from `getAllocations()`). Creates the show then a subscription on each checked allocation. |
+| **Row actions** | A right-click `ShowContextMenu` (`components/ui/context_menus/action-context-menu.tsx`) exposes **Show Properties** and **Create Subscription...**, opened via the `cueweb:open-show-properties` / `cueweb:open-create-subscription` events (`components/ui/show-action-events.ts`). |
+
+#### Show Properties dialog
+
+`show-properties-dialog.tsx` (CueGUI `ShowDialog` parity), four tabs:
+
+| Tab | Contents / RPCs |
+|-----|-----------------|
+| **Settings** | Default max cores (`SetDefaultMaxCores`), default min cores (`SetDefaultMinCores`), comment notification email (`SetCommentEmail`). Inputs are validated (non-negative, min &le; max) before save. |
+| **Booking** | Enable booking (`EnableBooking`), enable dispatch (`EnableDispatching`). |
+| **Statistics** | Read-only `show_stats` counts. |
+| **Raw Show Data** | Read-only JSON dump of the show. |
+
+Save calls only the setters whose value changed (via the `action_utils` helpers `setShowDefaultMaxCores` / `setShowDefaultMinCores` / `setShowCommentEmail` / `enableShowBooking` / `enableShowDispatching`), then fires `cueweb:shows-changed`.
+
+#### Create Subscription dialog
+
+`create-subscription-dialog.tsx` (CueGUI `SubscriptionCreator` parity): Show + Alloc dropdowns (`getShows()` / `getAllocations()`), Size (default 100), Burst (default 110). On **OK** it calls `createShowSubscription()` &rarr; `/api/show/action/createsubscription` &rarr; `show.ShowInterface/CreateSubscription`. A show has at most one subscription per allocation; the route maps Cuebot's duplicate-key error to a short, user-facing message.
+
+#### Show detail page (group tree)
+
+Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/page.tsx`), a client page that resolves the show via `findShow()` (`app/utils/show_utils.ts` &rarr; `/api/show/findshow` &rarr; `show.ShowInterface/FindShow`) and renders its **group tree** (`components/group-tree/`).
+
+![CueWeb show detail page with the group tree](/assets/images/cueweb/cueweb_cuecommander_shows_group_tree_page.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Groups load via `getShowGroups()` &rarr; `/api/show/getgroups` &rarr; `show.ShowInterface/GetGroups`; a group's jobs load lazily on first expand via `getGroupJobs()` &rarr; `/api/group/getjobs` &rarr; `job.GroupInterface/GetJobs` (each group fetched at most once). |
+| **Expand state** | The set of expanded group ids is mirrored to the `?expanded=` query param, so a given view is deep-linkable. |
+| **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
+| **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
+
 ### Job-finished notifications
 
 | Behavior | Description |
@@ -954,7 +1011,17 @@ CueWeb communicates with these REST Gateway endpoints:
 | Endpoint | Purpose |
 |----------|---------|
 | `show.ShowInterface/GetShows` | List available shows |
+| `show.ShowInterface/GetActiveShows` | List active shows for the Shows page |
 | `show.ShowInterface/FindShow` | Get specific show |
+| `show.ShowInterface/CreateShow` | Create a show |
+| `show.ShowInterface/EnableBooking` / `EnableDispatching` | Toggle a show's booking / dispatch |
+| `show.ShowInterface/SetDefaultMaxCores` / `SetDefaultMinCores` | Set a show's default cores |
+| `show.ShowInterface/SetCommentEmail` | Set a show's comment notification email |
+| `show.ShowInterface/CreateSubscription` | Subscribe a show to an allocation |
+| `show.ShowInterface/GetGroups` | List a show's groups for the group-tree detail page |
+| `job.GroupInterface/GetJobs` | List a group's jobs (group tree, lazy-loaded per group) |
+| `job.GroupInterface/ReparentGroups` | Move groups under a new parent group (group-tree drag) |
+| `job.GroupInterface/ReparentJobs` | Move jobs into a group (group-tree drag) |
 | `job.JobInterface/GetJobs` | List jobs for show |
 | `job.JobInterface/FindJob` | Get specific job |
 | `job.JobInterface/GetFrames` | Get frames for job |
@@ -971,6 +1038,7 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
 | `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
+| `facility.AllocationInterface/GetAll` | List allocations (Allocations page + subscription dropdowns) |
 | `host.HostInterface/FindHost` | Resolve a single host by name for the host detail page |
 | `host.HostInterface/GetProcs` | List the procs running on a host (detail page Procs tab) |
 | `host.HostInterface/GetComments` | List a host's comments (detail page Comments tab) |
@@ -999,8 +1067,22 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/host/action/rebootwhenidle` | `host.HostInterface/RebootWhenIdle` |
 | `POST /api/host/action/addtags` | `host.HostInterface/AddTags` (body `{ host, tags }`) |
 | `POST /api/host/action/removetags` | `host.HostInterface/RemoveTags` (body `{ host, tags }`) |
+| `POST /api/show/getactiveshows` | `show.ShowInterface/GetActiveShows` (unwraps `{shows:{shows:[...]}}` to a flat array) |
+| `POST /api/allocation/getall` | `facility.AllocationInterface/GetAll` (unwraps `{allocations:{allocations:[...]}}` to a flat array) |
+| `POST /api/show/action/enablebooking` | `show.ShowInterface/EnableBooking` (body `{ show, enabled }`) |
+| `POST /api/show/action/enabledispatching` | `show.ShowInterface/EnableDispatching` (body `{ show, enabled }`) |
+| `POST /api/show/action/setdefaultmaxcores` | `show.ShowInterface/SetDefaultMaxCores` (body `{ show, max_cores }`) |
+| `POST /api/show/action/setdefaultmincores` | `show.ShowInterface/SetDefaultMinCores` (body `{ show, min_cores }`) |
+| `POST /api/show/action/setcommentemail` | `show.ShowInterface/SetCommentEmail` (body `{ show, email }`) |
+| `POST /api/show/action/createsubscription` | `show.ShowInterface/CreateSubscription` (body `{ show, allocation_id, size, burst }`) |
+| `POST /api/show/getgroups` | `show.ShowInterface/GetGroups` (group-tree detail page; body `{ show: { id } }`) |
+| `POST /api/group/getjobs` | `job.GroupInterface/GetJobs` (a group's jobs; body `{ group: { id } }`) |
+| `POST /api/group/action/reparentgroups` | `job.GroupInterface/ReparentGroups` (body `{ group: { id }, groups: { groups: [...] } }`) |
+| `POST /api/group/action/reparentjobs` | `job.GroupInterface/ReparentJobs` (body `{ group: { id }, jobs: { jobs: [...] } }`) |
 
 The `/api/host/action/*` routes validate the request body (`400` on malformed JSON or a missing `host`; `addtags` / `removetags` additionally require a `tags` array), forward through `handleRoute`, and propagate the gateway's real HTTP status (a failed RPC returns its `4xx`/`5xx`, not `200`).
+
+The `/api/show/action/*` routes likewise validate their bodies (`400` on malformed JSON or a missing/mistyped field: `enabled` must be boolean, `max_cores`/`min_cores` must be numeric, `allocation_id` a non-empty string) and propagate the real HTTP status. `createsubscription` maps Cuebot's duplicate-key error to a short "show already has a subscription on that allocation" message.
 
 ---
 
@@ -1077,7 +1159,8 @@ Layout, left to right:
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
-  - Allocations (`/allocations`)
+  - Allocations (`/allocations`) - implemented; allocations table with
+    cores/hosts stats (see [Allocations](#allocations)).
   - Limits (`/limits`)
   - Monitor Cue (`/monitor-cue`)
   - Monitor Hosts (`/hosts`) - implemented; host registry with row actions
@@ -1085,7 +1168,9 @@ Layout, left to right:
     [Monitor Hosts](#monitor-hosts)).
   - Redirect (`/redirect`)
   - Services (`/services`)
-  - Shows (`/shows`)
+  - Shows (`/shows`) - implemented; shows stats table with Create Show, Show
+    Properties, and Create Subscription, plus a per-show group-tree detail page
+    at `/shows/[showName]` (see [Shows](#shows)).
   - Stuck Frame (`/stuck-frames`)
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
