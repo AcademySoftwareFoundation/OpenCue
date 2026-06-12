@@ -163,6 +163,20 @@ export async function retryFrames(frames: Frame[]) {
   await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
 }
 
+/**************************************/
+// Unbook
+/**************************************/
+
+// Unbook every proc a job currently holds (CueWeb #2288). Job-scoped MVP:
+// the proc search criteria is just { jobs: [job.name] }. kill=true also kills
+// the running frames. Allocation / amount / redirect scoping from CueGUI's
+// UnbookDialog is intentionally deferred. Returns performAction's success
+// boolean so the dialog can gate its table refresh on success.
+export async function unbookJob(job: Job, kill: boolean): Promise<boolean> {
+  const endpoint = "/api/proc/action/unbook";
+  const body = JSON.stringify({ r: { jobs: [job.name] }, kill });
+  return performAction(endpoint, [body], kill ? `Unbooked and killed procs on ${job.name}` : `Unbooked procs on ${job.name}`);
+}
 
 /**************************************/
 // Job Comments
@@ -280,6 +294,25 @@ export async function removeHostTags(hosts: Host[], tags: string[]): Promise<boo
 export async function setJobPriority(job: Job, priority: number) {
   const endpoint = "/api/job/action/setpriority";
   await performAction(endpoint, [JSON.stringify({ job, val: priority })], `Set priority ${priority} on ${job.name}`);
+}
+
+// Set a job's min and max cores in one user action (CueWeb #2281). Cuebot
+// exposes SetMinCores / SetMaxCores as two RPCs, so we POST both in turn;
+// one toast on full success, and if the min call fails we skip max and
+// surface the error. Returns true on full success, false otherwise, so the
+// dialog can gate its optimistic row update on success (mirrors performAction).
+export async function setJobCores(job: Job, minCores: number, maxCores: number): Promise<boolean> {
+  try {
+    const minRes = await accessActionApi("/api/job/action/setmincores", [JSON.stringify({ job, val: minCores })]);
+    if (!minRes?.success) throw new Error(minRes?.error ?? "Failed to set min cores");
+    const maxRes = await accessActionApi("/api/job/action/setmaxcores", [JSON.stringify({ job, val: maxCores })]);
+    if (!maxRes?.success) throw new Error(maxRes?.error ?? "Failed to set max cores");
+    toastSuccess(`Set cores ${minCores}-${maxCores} on ${job.name}`);
+    return true;
+  } catch (error) {
+    handleError(error, `Error setting cores on ${job.name}`);
+    return false;
+  }
 }
 
 export async function setJobMaxRetries(job: Job, maxRetries: number) {
@@ -799,6 +832,22 @@ export function setPriorityGivenRow(row: Row<any>) {
   );
 }
 
+// Right-click "Set Min/Max Cores..." handler. Dispatches a CustomEvent that
+// the SetCoresDialog (mounted at the page level) listens for; the dialog
+// opens with Min/Max number inputs pre-filled with the row's current cores
+// and a client-side min<=max guard, and calls setJobCores on Apply.
+// Decoupled this way so the free-function context-menu handlers don't need
+// to reach into the table's component state.
+export function setCoresGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-set-cores", {
+      detail: { job },
+    }),
+  );
+}
+
 // Right-click "Email Artist..." handler. Dispatches a CustomEvent that
 // the EmailArtistDialog (mounted at the page level) listens for; the
 // dialog opens pre-filled with From/To/CC/Subject/Body derived from the
@@ -845,6 +894,21 @@ export function subscribeToJobGivenRow(row: Row<any>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("cueweb:open-subscribe-to-job", {
+      detail: { job },
+    }),
+  );
+}
+
+// Right-click "Unbook..." handler. Dispatches a CustomEvent that the
+// UnbookDialog (mounted at the page level) listens for; the dialog opens
+// with an optional "Kill unbooked frames?" checkbox and calls unbookJob on
+// confirm. Decoupled this way so the free-function context-menu handlers
+// don't need to reach into the table's component state.
+export function unbookGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-unbook", {
       detail: { job },
     }),
   );

@@ -946,6 +946,84 @@ to one entry.
 
 ---
 
+## Set Min/Max Cores dialog (CueGUI parity)
+
+The Jobs table's right-click **Set Min/Max Cores...** entry opens a themed dialog with two number inputs (Min / Max, range 0-50000) pre-filled with the job's current cores and a client-side `min <= max` guard. Like **Set Priority**, the entry is not path-gated, so it appears on both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`). Files involved:
+
+```
+cueweb/
+├── app/api/job/action/setmincores/route.ts   # Proxy to JobInterface/SetMinCores
+├── app/api/job/action/setmaxcores/route.ts   # Proxy to JobInterface/SetMaxCores
+├── app/utils/action_utils.ts                 # setJobCores(job, min, max) + setCoresGivenRow event dispatcher
+├── components/ui/set-cores-dialog.tsx        # The dialog component (two number inputs + min<=max guard)
+├── components/ui/context_menus/action-context-menu.tsx  # "Set Min/Max Cores..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <SetCoresDialog/> + listens for cueweb:cores-changed
+```
+
+### CustomEvent dance
+
+The dialog is mounted once at the bottom of `DataTable`, decoupled from the menu the same way as Set Priority:
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-set-cores` | `setCoresGivenRow(row)` in `action_utils.ts` | `SetCoresDialog` | `{ job: Job }` |
+| `cueweb:cores-changed` | `SetCoresDialog` after a successful `setJobCores(job, min, max)` | `DataTable` (a `useEffect`) | `{ jobId: string; minCores: number; maxCores: number }` |
+
+`cueweb:cores-changed` patches the in-memory job data (`tableData[].minCores`/`maxCores`) so a re-opened **Set Min/Max Cores** dialog pre-fills the new values without waiting for the next 5-second poll. The jobs table has no cores column, so — like the existing Set Priority / `cueweb:priority-changed` update — this is an in-memory refresh rather than a visible cell change. Following the same success-gating contract as the host actions, `setJobCores` returns a `boolean` and the dialog fires `cueweb:cores-changed` **only when both calls succeeded**, so a rejected change never patches stale data.
+
+### API route
+
+`POST /api/job/action/setmincores` and `POST /api/job/action/setmaxcores` each validate `{ job, val: number }`, check `Number.isFinite(val) && 0 <= val <= 50000`, and forward to `/job.JobInterface/SetMinCores` and `/job.JobInterface/SetMaxCores` respectively. `setJobCores` POSTs both in turn (Cuebot has no combined call); if the min call fails it skips the max call and surfaces the error.
+
+---
+
+## Unbook job dialog (CueGUI parity)
+
+The Jobs table's right-click **Unbook...** entry opens a dialog that unbooks every proc the job currently holds, with an optional **Kill unbooked frames?** checkbox that adds a second kill-confirmation phase. It is the first CueWeb action to route through `ProcInterface`. Files involved:
+
+```
+cueweb/
+├── app/api/proc/action/unbook/route.ts       # Proxy to ProcInterface/UnbookProcs
+├── app/utils/action_utils.ts                 # unbookJob(job, kill) + unbookGivenRow event dispatcher
+├── components/ui/unbook-dialog.tsx           # The dialog (kill checkbox + 2nd kill-confirm phase)
+├── components/ui/context_menus/action-context-menu.tsx  # "Unbook..." menu entry
+└── app/jobs/data-table.tsx                   # Mounts <UnbookDialog/> + listens for cueweb:refresh-now
+```
+
+### CustomEvent dance
+
+| Event | Dispatched by | Listened to by | Payload |
+|-------|---------------|----------------|---------|
+| `cueweb:open-unbook` | `unbookGivenRow(row)` in `action_utils.ts` | `UnbookDialog` | `{ job: Job }` |
+| `cueweb:refresh-now` | `UnbookDialog` after a successful `unbookJob(job, kill)` | `DataTable` (an immediate re-poll) | _(none)_ |
+
+Unlike the cores / priority dialogs (which patch one column optimistically), an unbook can free an arbitrary number of procs across layers, so on success it asks the table to re-poll immediately via the existing `cueweb:refresh-now` event instead of patching a row. `unbookJob` propagates `performAction`'s `boolean`, so the refresh fires **only on success**.
+
+### Gateway path
+
+`UnbookProcs` lives on `ProcInterface`, but the REST path is **`/host.ProcInterface/UnbookProcs`**, not `/proc.ProcInterface/...`: `host.proto` declares `package host;`, and grpc-gateway derives the path prefix from the proto package, not the file or service name. (The gateway's own test scripts use the wrong `proc.` prefix; the correct one was verified live against a running rest-gateway.)
+
+### API route
+
+`POST /api/proc/action/unbook` validates `{ r, kill: boolean }` and forwards to `/host.ProcInterface/UnbookProcs`. `unbookJob` posts `{ r: { jobs: [job.name] }, kill }` - a job-scoped `ProcSearchCriteria`. That criteria's other fields (`allocs`, `max_results`, `memory_range`, `duration_range`) map to CueGUI's allocation / amount / memory / runtime filters and are intentionally left out of this MVP; adding them later needs no backend change.
+
+---
+
+## Multi-job batch operation confirmation
+
+Selecting two or more jobs and using a Jobs-toolbar bulk action (Pause, Unpause, Retry, Eat, Kill) routes through a confirmation step before any RPC is sent. There is no new API route - this is purely a gate in `app/jobs/data-table.tsx` reusing the existing `components/ui/confirm-dialog.tsx`.
+
+### Confirmation policy
+
+Mirroring CueGUI, the gate is per-action:
+
+- **Kill / Eat / Retry** always confirm - even for a single job - because they are destructive.
+- **Pause / Unpause** confirm only when **two or more** jobs are selected.
+
+The confirm dialog lists the affected job names; destructive actions use the destructive button variant and CueGUI's kill warning text. **Cancel** dispatches no RPC.
+
+---
+
 ## Host management actions (CueCommander parity)
 
 The Monitor Hosts table (`app/hosts/page.tsx`) and the host detail page
