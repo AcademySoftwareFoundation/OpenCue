@@ -383,7 +383,7 @@ A shows registry at `/shows` (`cueweb/app/shows/page.tsx` + `shows-client.tsx`),
 | Behavior | Description |
 |----------|-------------|
 | **Data source** | Loads via `getActiveShows()` (`app/utils/get_utils.ts`) &rarr; `/api/show/getactiveshows` &rarr; `show.ShowInterface/GetActiveShows`. Auto-refreshes every 30s and re-fetches on the `cueweb:shows-changed` event. |
-| **Columns** | Show Name (links to the show detail page), Cores Run (`reserved_cores`), Frames Run (`running_frames`), Frames Pending (`pending_frames`), Jobs (`pending_jobs`) - `app/shows/show-columns.tsx`. Numeric columns sort by their underlying value. |
+| **Columns** | Show Name (links to the [show detail page](#show-detail-page-group-tree)), Cores Run (`reserved_cores`), Frames Run (`running_frames`), Frames Pending (`pending_frames`), Jobs (`pending_jobs`) - `app/shows/show-columns.tsx`. Numeric columns sort by their underlying value. |
 | **Table** | Rendered by the shared `SimpleDataTable` with the `isShowsTable` flag - show-specific filter placeholder and empty-state copy, and the `ShowContextMenu`. Column show/hide persists to `localStorage["cueweb.shows.columnVisibility"]`. |
 | **Create Show** | The `Create Show` button opens `create-show-dialog.tsx`: a unique alphanumeric name (duplicate-checked via `FindShow`) plus an optional per-allocation Subscriptions section (checkbox + Size + Burst, allocations from `getAllocations()`). Creates the show then a subscription on each checked allocation. |
 | **Row actions** | A right-click `ShowContextMenu` (`components/ui/context_menus/action-context-menu.tsx`) exposes **Show Properties** and **Create Subscription...**, opened via the `cueweb:open-show-properties` / `cueweb:open-create-subscription` events (`components/ui/show-action-events.ts`). |
@@ -404,6 +404,19 @@ Save calls only the setters whose value changed (via the `action_utils` helpers 
 #### Create Subscription dialog
 
 `create-subscription-dialog.tsx` (CueGUI `SubscriptionCreator` parity): Show + Alloc dropdowns (`getShows()` / `getAllocations()`), Size (default 100), Burst (default 110). On **OK** it calls `createShowSubscription()` &rarr; `/api/show/action/createsubscription` &rarr; `show.ShowInterface/CreateSubscription`. A show has at most one subscription per allocation; the route maps Cuebot's duplicate-key error to a short, user-facing message.
+
+#### Show detail page (group tree)
+
+Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/page.tsx`), a client page that resolves the show via `findShow()` (`app/utils/show_utils.ts` &rarr; `/api/show/findshow` &rarr; `show.ShowInterface/FindShow`) and renders its **group tree** (`components/group-tree/`).
+
+![CueWeb show detail page with the group tree](/assets/images/cueweb/cueweb_cuecommander_shows_group_tree_page.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Groups load via `getShowGroups()` &rarr; `/api/show/getgroups` &rarr; `show.ShowInterface/GetGroups`; a group's jobs load lazily on first expand via `getGroupJobs()` &rarr; `/api/group/getjobs` &rarr; `job.GroupInterface/GetJobs` (each group fetched at most once). |
+| **Expand state** | The set of expanded group ids is mirrored to the `?expanded=` query param, so a given view is deep-linkable. |
+| **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
+| **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
 
 ### Job-finished notifications
 
@@ -1005,6 +1018,10 @@ CueWeb communicates with these REST Gateway endpoints:
 | `show.ShowInterface/SetDefaultMaxCores` / `SetDefaultMinCores` | Set a show's default cores |
 | `show.ShowInterface/SetCommentEmail` | Set a show's comment notification email |
 | `show.ShowInterface/CreateSubscription` | Subscribe a show to an allocation |
+| `show.ShowInterface/GetGroups` | List a show's groups for the group-tree detail page |
+| `job.GroupInterface/GetJobs` | List a group's jobs (group tree, lazy-loaded per group) |
+| `job.GroupInterface/ReparentGroups` | Move groups under a new parent group (group-tree drag) |
+| `job.GroupInterface/ReparentJobs` | Move jobs into a group (group-tree drag) |
 | `job.JobInterface/GetJobs` | List jobs for show |
 | `job.JobInterface/FindJob` | Get specific job |
 | `job.JobInterface/GetFrames` | Get frames for job |
@@ -1058,6 +1075,10 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/show/action/setdefaultmincores` | `show.ShowInterface/SetDefaultMinCores` (body `{ show, min_cores }`) |
 | `POST /api/show/action/setcommentemail` | `show.ShowInterface/SetCommentEmail` (body `{ show, email }`) |
 | `POST /api/show/action/createsubscription` | `show.ShowInterface/CreateSubscription` (body `{ show, allocation_id, size, burst }`) |
+| `POST /api/show/getgroups` | `show.ShowInterface/GetGroups` (group-tree detail page; body `{ show: { id } }`) |
+| `POST /api/group/getjobs` | `job.GroupInterface/GetJobs` (a group's jobs; body `{ group: { id } }`) |
+| `POST /api/group/action/reparentgroups` | `job.GroupInterface/ReparentGroups` (body `{ group: { id }, groups: { groups: [...] } }`) |
+| `POST /api/group/action/reparentjobs` | `job.GroupInterface/ReparentJobs` (body `{ group: { id }, jobs: { jobs: [...] } }`) |
 
 The `/api/host/action/*` routes validate the request body (`400` on malformed JSON or a missing `host`; `addtags` / `removetags` additionally require a `tags` array), forward through `handleRoute`, and propagate the gateway's real HTTP status (a failed RPC returns its `4xx`/`5xx`, not `200`).
 
@@ -1148,7 +1169,8 @@ Layout, left to right:
   - Redirect (`/redirect`)
   - Services (`/services`)
   - Shows (`/shows`) - implemented; shows stats table with Create Show, Show
-    Properties, and Create Subscription (see [Shows](#shows)).
+    Properties, and Create Subscription, plus a per-show group-tree detail page
+    at `/shows/[showName]` (see [Shows](#shows)).
   - Stuck Frame (`/stuck-frames`)
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
