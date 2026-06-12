@@ -28,7 +28,7 @@ use crate::{
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
     metrics,
-    models::{CoreSize, DispatchJob, DispatchLayer, Host},
+    models::{DispatchJob, DispatchLayer, Host},
     pipeline::{
         dispatcher::{
             error::DispatchError,
@@ -238,7 +238,12 @@ impl MatchingService {
             .read_job_cores_in_use(dispatch_layer.job_id)
             .await
         {
-            Ok(centi) => CoreSize::from_multiplied(centi).value(),
+            // Redis accounting counters are already stored in cores (the
+            // centicore→core conversion happens once at the reseed/recompute
+            // write boundaries — see `lua.rs` unit invariant), so do NOT apply
+            // `from_multiplied` here or the value is divided by the multiplier
+            // a second time.
+            Ok(cores) => cores as i32,
             Err(err) => {
                 debug!(
                     "read_job_cores_in_use failed for job {}: {}; defaulting to 0",
@@ -279,10 +284,12 @@ impl MatchingService {
                 .read_sub_counters(dispatch_layer.show_id, alloc_id)
                 .await
             {
-                Ok((booked, burst)) => (
-                    CoreSize::from_multiplied(booked).value(),
-                    CoreSize::from_multiplied(burst).value(),
-                ),
+                // Both counters are already in cores (see `lua.rs` unit
+                // invariant); the conversion from PG centicores happened at the
+                // reseed write boundary. Applying `from_multiplied` here would
+                // divide by the multiplier a second time (e.g. a burst of 200
+                // would read back as 2).
+                Ok((booked, burst)) => (booked as i32, burst as i32),
                 Err(err) => {
                     debug!(
                         "read_sub_counters failed for show={} alloc={}: {}; \
