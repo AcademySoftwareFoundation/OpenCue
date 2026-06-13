@@ -91,6 +91,7 @@ pub fn create_test_config() -> Config {
             job_back_off_duration: Duration::from_secs(10),
             cluster_empty_sleep: Duration::from_secs(30),
             cluster_reload_interval: Duration::from_secs(120),
+            cluster_saturated_sleep: Duration::from_secs(1),
             stream: scheduler::config::StreamConfig {
                 cluster_buffer_size: 4,
                 job_buffer_size: 8,
@@ -102,7 +103,7 @@ pub fn create_test_config() -> Config {
             empty_job_cycles_before_quiting: Some(20),
             mem_reserved_min: bytesize::ByteSize::mb(250),
             selfish_services: Vec::new(),
-            host_booking_strategy: HostBookingStrategy {
+            host_booking_strategy: HostBookingStrategy::Saturation {
                 core_saturation: true,
                 memory_saturation: false,
             },
@@ -601,6 +602,7 @@ pub async fn create_test_data(
                     .map(|tag_name| Tag {
                         name: tag_name.clone(),
                         ttype: TagType::Manual,
+                        alloc_id: None,
                     })
                     .collect(),
             );
@@ -633,6 +635,7 @@ pub async fn create_test_data(
             Tag {
                 name: alloc_name.clone(),
                 ttype: TagType::Alloc,
+                alloc_id: Some(*alloc_id),
             },
         );
         clusters.push(cluster);

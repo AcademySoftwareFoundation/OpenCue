@@ -35,5 +35,13 @@ tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-rolling-file = "0.1.2"
 tracing-subscriber = { version = "0.3.18", features = ["ansi", "env-filter"] }
+# Pin time to 0.3.47: the 0.3.48 release adds an impl that collides with
+# sentry-types' blanket `impl<T> From<T> for LogAttribute`, producing an
+# E0119 "conflicting implementations" error when building the scheduler
+# (which pulls both `sentry` and, via tracing-appender, `time/formatting`).
+# Since Cargo.lock is gitignored, CI resolves fresh and would otherwise float
+# to the broken 0.3.48. Remove the pin once sentry-types/time resolve this
+# upstream. Referenced by the scheduler crate so the constraint takes effect.
+time = "=0.3.47"
 structopt = "0.3.26"
 home = "=0.5.9"
