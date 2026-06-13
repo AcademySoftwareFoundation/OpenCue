@@ -361,6 +361,14 @@ export async function reparentJobs(newParentId: string, jobIds: string[]) {
   return performAction(endpoint, [body], `Reparented ${jobIds.length} job(s)`);
 }
 
+// "Send To Group..." (CueGUI Monitor Cue): open the group picker dialog for the
+// clicked job. The dialog (mounted on the Monitor Cue page) reparents via
+// reparentJobs once a destination group is chosen.
+export function sendToGroupGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-send-to-group", { detail: { job: row.original as Job } }));
+}
+
 /**************************************/
 // Lock/Unlock Hosts (CueCommander parity)
 /**************************************/

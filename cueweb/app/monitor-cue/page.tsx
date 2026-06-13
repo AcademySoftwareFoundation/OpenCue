@@ -20,9 +20,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Row } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, Search, StickyNote } from "lucide-react";
+import { TbPacman, TbReload, TbPlayerPause, TbPlayerPlay } from "react-icons/tb";
+import { MdOutlineCancel } from "react-icons/md";
 
 import type { Job } from "@/app/jobs/columns";
+import { UNKNOWN_USER } from "@/app/utils/constants";
 import { Show, getActiveShows, getJobs } from "@/app/utils/get_utils";
 import {
   eatJobsDeadFrames,
@@ -32,7 +35,7 @@ import {
   unpauseJobs,
 } from "@/app/utils/action_utils";
 import { handleError, toastWarning } from "@/app/utils/notify_utils";
-import { convertMemoryToString, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
+import { convertMemoryToString, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -46,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { JobProgressBar } from "@/components/ui/job-progress-bar";
+import { JobBookingBar } from "@/components/ui/job-booking-bar";
 import { JobContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 // Job action dialogs the JobContextMenu opens via CustomEvents.
@@ -57,6 +61,9 @@ import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
 import { UnbookDialog } from "@/components/ui/unbook-dialog";
 import { ViewDependenciesDialog } from "@/components/ui/view-dependencies-dialog";
+import { JobExtraDialogs } from "@/components/ui/job-extra-dialogs";
+import { JobCommentsDialog } from "@/components/ui/job-comments-dialog";
+import { SendToGroupDialog } from "@/components/ui/send-to-group-dialog";
 
 const REFRESH_MS = 5000;
 const SELECTED_SHOWS_KEY = "cueweb.monitor-cue.shows";
@@ -66,38 +73,113 @@ const mem = (kb?: string) => {
   return Number.isFinite(n) && n > 0 ? convertMemoryToString(n, "job") : "0K";
 };
 
-// CueGUI JobWidgetItem row tint.
+// memory_warning_level (Kb) from cuegui.yaml: jobs whose peak frame memory
+// exceeds this get the yellow row tint, matching CueGUI.
+const MEMORY_WARNING_LEVEL = 5242880;
+
+// CueGUI JobWidgetTree row tint: blue=paused, red=dead frames, yellow=maxRss
+// over the warning level, green=no running frames but frames waiting,
+// purple=all remaining frames depend on something.
 function jobRowClass(j: Job): string {
   const s = j.jobStats;
-  if (j.isPaused) return "bg-blue-950/40";
-  if ((s?.deadFrames ?? 0) > 0) return "bg-red-950/40";
+  if (j.isPaused) return "bg-blue-950/50";
+  if ((s?.deadFrames ?? 0) > 0) return "bg-red-950/50";
+  if (Number.parseInt(s?.maxRss ?? "0") > MEMORY_WARNING_LEVEL) return "bg-yellow-900/40";
   if ((s?.runningFrames ?? 0) === 0) {
-    if ((s?.waitingFrames ?? 0) === 0 && (s?.dependFrames ?? 0) > 0) return "bg-purple-950/40";
-    if ((s?.waitingFrames ?? 0) > 0) return "bg-green-950/30";
+    if ((s?.waitingFrames ?? 0) === 0 && (s?.dependFrames ?? 0) > 0) return "bg-purple-950/50";
+    if ((s?.waitingFrames ?? 0) > 0) return "bg-green-950/40";
   }
   return "";
 }
 
-const NUM_COLS: { key: string; label: string; get: (j: Job) => React.ReactNode; title: string }[] = [
-  { key: "run", label: "Run", get: (j) => j.jobStats?.runningFrames ?? 0, title: "Running frames" },
-  { key: "cores", label: "Cores", get: (j) => (j.jobStats?.reservedCores ?? 0).toFixed(2), title: "Reserved cores" },
-  { key: "gpus", label: "Gpus", get: (j) => j.jobStats?.reservedGpus ?? 0, title: "Reserved GPUs" },
-  { key: "wait", label: "Wait", get: (j) => j.jobStats?.waitingFrames ?? 0, title: "Waiting frames" },
-  { key: "depend", label: "Depend", get: (j) => j.jobStats?.dependFrames ?? 0, title: "Dependent frames" },
-  { key: "total", label: "Total", get: (j) => j.jobStats?.totalFrames ?? 0, title: "Total frames" },
-  { key: "min", label: "Min", get: (j) => Math.round(j.minCores ?? 0), title: "Minimum cores" },
-  { key: "max", label: "Max", get: (j) => Math.round(j.maxCores ?? 0), title: "Maximum cores" },
-  { key: "ming", label: "Min G", get: (j) => j.minGpus ?? 0, title: "Minimum GPUs" },
-  { key: "maxg", label: "Max G", get: (j) => j.maxGpus ?? 0, title: "Maximum GPUs" },
-  { key: "pri", label: "Pri", get: (j) => j.priority ?? 0, title: "Priority" },
-  { key: "eta", label: "ETA", get: () => "", title: "ETA (disabled, as in CueGUI)" },
-  { key: "maxrss", label: "MaxRss", get: (j) => mem(j.jobStats?.maxRss), title: "Peak memory of any single frame" },
-  { key: "maxgpu", label: "MaxGpuMem", get: (j) => mem(j.jobStats?.maxGpuMemory), title: "Peak GPU memory of any single frame" },
+// Unified, ordered, hideable, sortable column model for the Monitor Cue table.
+// `cell` renders the body content; `sort` (when present) makes the header
+// sortable; `header` overrides the header text with an icon. The checkbox
+// column is fixed (not in this list).
+type CueCol = {
+  key: string;
+  label: string;
+  title?: string;
+  align?: "left" | "right" | "center";
+  minW?: string;
+  sort?: (j: Job) => number | string;
+  header?: React.ReactNode;
+  cell: (j: Job, now: number) => React.ReactNode;
+};
+
+const ALL_COLUMNS: CueCol[] = [
+  {
+    key: "job", label: "Job", align: "left", minW: "min-w-[18rem]", sort: (j) => j.name.toLowerCase(),
+    cell: (j) => (
+      <Link
+        href={`/jobs/${encodeURIComponent(j.name)}?tab=overview`}
+        className="text-primary underline-offset-2 hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {j.name}
+      </Link>
+    ),
+  },
+  {
+    key: "comment", label: "", title: "Has comments", align: "center",
+    header: <StickyNote className="mx-auto h-3.5 w-3.5" aria-hidden="true" />,
+    sort: (j) => (j.hasComment ? 1 : 0),
+    cell: (j) =>
+      j.hasComment ? (
+        <button
+          type="button"
+          title="Has comments — click to view"
+          aria-label="View comments"
+          className="inline-flex items-center justify-center text-amber-500 hover:text-amber-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("cueweb:open-job-comments", { detail: { job: j } }));
+          }}
+        >
+          <StickyNote className="h-4 w-4" />
+        </button>
+      ) : null,
+  },
+  {
+    key: "autoeat", label: "", title: "Auto-eating", align: "center",
+    header: <TbPacman className="mx-auto h-3.5 w-3.5" aria-hidden="true" />,
+    sort: (j) => (j.autoEat ? 1 : 0),
+    cell: (j) =>
+      j.autoEat ? (
+        <span title="Auto-eating enabled" className="inline-flex items-center justify-center text-yellow-500">
+          <TbPacman className="h-4 w-4" aria-hidden="true" />
+        </span>
+      ) : null,
+  },
+  { key: "run", label: "Run", align: "right", title: "Running frames", sort: (j) => j.jobStats?.runningFrames ?? 0, cell: (j) => j.jobStats?.runningFrames ?? 0 },
+  { key: "cores", label: "Cores", align: "right", title: "Reserved cores", sort: (j) => j.jobStats?.reservedCores ?? 0, cell: (j) => (j.jobStats?.reservedCores ?? 0).toFixed(2) },
+  { key: "gpus", label: "Gpus", align: "right", title: "Reserved GPUs", sort: (j) => j.jobStats?.reservedGpus ?? 0, cell: (j) => j.jobStats?.reservedGpus ?? 0 },
+  { key: "wait", label: "Wait", align: "right", title: "Waiting frames", sort: (j) => j.jobStats?.waitingFrames ?? 0, cell: (j) => j.jobStats?.waitingFrames ?? 0 },
+  { key: "depend", label: "Depend", align: "right", title: "Dependent frames", sort: (j) => j.jobStats?.dependFrames ?? 0, cell: (j) => j.jobStats?.dependFrames ?? 0 },
+  { key: "total", label: "Total", align: "right", title: "Total frames", sort: (j) => j.jobStats?.totalFrames ?? 0, cell: (j) => j.jobStats?.totalFrames ?? 0 },
+  { key: "bookingbar", label: "Booking", minW: "min-w-[8rem]", title: "Booking bar (running/waiting; min & max core markers)", cell: (j) => <JobBookingBar job={j} /> },
+  { key: "min", label: "Min", align: "right", title: "Minimum cores", sort: (j) => j.minCores ?? 0, cell: (j) => Math.round(j.minCores ?? 0) },
+  { key: "max", label: "Max", align: "right", title: "Maximum cores", sort: (j) => j.maxCores ?? 0, cell: (j) => Math.round(j.maxCores ?? 0) },
+  { key: "ming", label: "Min G", align: "right", title: "Minimum GPUs", sort: (j) => j.minGpus ?? 0, cell: (j) => j.minGpus ?? 0 },
+  { key: "maxg", label: "Max G", align: "right", title: "Maximum GPUs", sort: (j) => j.maxGpus ?? 0, cell: (j) => j.maxGpus ?? 0 },
+  { key: "pri", label: "Pri", align: "right", title: "Priority", sort: (j) => j.priority ?? 0, cell: (j) => j.priority ?? 0 },
+  { key: "eta", label: "ETA", align: "right", title: "ETA (disabled, as in CueGUI)", cell: () => "" },
+  { key: "maxrss", label: "MaxRss", align: "right", title: "Peak memory of any single frame", sort: (j) => Number.parseInt(j.jobStats?.maxRss ?? "0") || 0, cell: (j) => mem(j.jobStats?.maxRss) },
+  { key: "maxgpu", label: "MaxGpuMem", align: "right", title: "Peak GPU memory of any single frame", sort: (j) => Number.parseInt(j.jobStats?.maxGpuMemory ?? "0") || 0, cell: (j) => mem(j.jobStats?.maxGpuMemory) },
+  { key: "age", label: "Age", title: "Age (HHH:MM)", sort: (j) => j.startTime ?? 0, cell: (j, now) => secondsToHHHMM(now - (j.startTime ?? now)) },
+  { key: "readableage", label: "Readable Age", title: "Human-readable age", sort: (j) => j.startTime ?? 0, cell: (j, now) => secondsToHumanAge(now - (j.startTime ?? now)) },
+  { key: "progress", label: "Progress", minW: "min-w-[12rem]", cell: (j) => <JobProgressBar job={j} /> },
 ];
+
+const ALL_COLUMN_KEYS = ALL_COLUMNS.map((c) => c.key);
+const COLUMN_ORDER_KEY = "cueweb.monitor-cue.columnOrder";
+const COLUMN_HIDDEN_KEY = "cueweb.monitor-cue.columnHidden";
 
 export default function MonitorCuePage() {
   const { data: session } = useSession();
-  const username = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "";
+  // Fall back to UNKNOWN_USER (not "") so username-required actions like Kill
+  // still work in sandbox/no-auth mode - the kill route rejects an empty user.
+  const username = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? UNKNOWN_USER;
 
   const [shows, setShows] = React.useState<Show[]>([]);
   const [selectedShows, setSelectedShows] = React.useState<string[]>([]);
@@ -136,6 +218,72 @@ export default function MonitorCuePage() {
     window.localStorage.setItem(SELECTED_SHOWS_KEY, JSON.stringify(names));
   }, []);
 
+  // --- Column order / visibility / sort (parity with Monitor Jobs) ---------
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(ALL_COLUMN_KEYS);
+  const [hiddenColumns, setHiddenColumns] = React.useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = React.useState<string>("job");
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc");
+  // Client-side substring filter over the loaded jobs (parity with Monitor
+  // Jobs' "Filter jobs..."). Hides non-matching rows; does not refetch.
+  const [filterText, setFilterText] = React.useState("");
+
+  // Hydrate persisted order/visibility once on mount.
+  React.useEffect(() => {
+    try {
+      const rawOrder = window.localStorage.getItem(COLUMN_ORDER_KEY);
+      if (rawOrder) {
+        const parsed: string[] = JSON.parse(rawOrder);
+        // Keep only known keys, then append any new columns not yet persisted.
+        const known = parsed.filter((k) => ALL_COLUMN_KEYS.includes(k));
+        const missing = ALL_COLUMN_KEYS.filter((k) => !known.includes(k));
+        setColumnOrder([...known, ...missing]);
+      }
+      const rawHidden = window.localStorage.getItem(COLUMN_HIDDEN_KEY);
+      if (rawHidden) setHiddenColumns(new Set(JSON.parse(rawHidden) as string[]));
+    } catch {
+      /* bad value in storage; keep defaults */
+    }
+  }, []);
+
+  const persistColumnOrder = React.useCallback((next: string[]) => {
+    setColumnOrder(next);
+    try { window.localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  }, []);
+  const persistHidden = React.useCallback((next: Set<string>) => {
+    setHiddenColumns(next);
+    try { window.localStorage.setItem(COLUMN_HIDDEN_KEY, JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+  }, []);
+
+  const colByKey = React.useMemo(() => new Map(ALL_COLUMNS.map((c) => [c.key, c])), []);
+  // Columns in display order, filtering hidden ones.
+  const orderedCols = React.useMemo(
+    () => columnOrder.map((k) => colByKey.get(k)).filter((c): c is CueCol => !!c && !hiddenColumns.has(c.key)),
+    [columnOrder, hiddenColumns, colByKey],
+  );
+
+  function toggleColumn(key: string) {
+    const next = new Set(hiddenColumns);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    persistHidden(next);
+  }
+  function moveColumn(key: string, dir: -1 | 1) {
+    const idx = columnOrder.indexOf(key);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= columnOrder.length) return;
+    const next = [...columnOrder];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    persistColumnOrder(next);
+  }
+  function resetColumns() {
+    persistColumnOrder(ALL_COLUMN_KEYS);
+    persistHidden(new Set());
+  }
+  function toggleSort(key: string) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
   const load = React.useCallback(
     async (showNames: string[], isCancelled?: () => boolean) => {
       if (showNames.length === 0) {
@@ -171,29 +319,75 @@ export default function MonitorCuePage() {
   // Group jobs by show, sorted; jobs sorted by name within each show.
   const groups = React.useMemo(() => {
     if (!jobs) return null;
+    const sortCol = colByKey.get(sortKey);
+    const accessor = (j: Job): number | string =>
+      sortCol?.sort ? sortCol.sort(j) : j.name.toLowerCase();
+    const cmp = (a: Job, b: Job) => {
+      const va = accessor(a);
+      const vb = accessor(b);
+      let r: number;
+      if (typeof va === "string" || typeof vb === "string") r = String(va).localeCompare(String(vb));
+      else r = va - vb;
+      return sortDir === "asc" ? r : -r;
+    };
+    const needle = filterText.trim().toLowerCase();
     const byShow = new Map<string, Job[]>();
     for (const j of jobs) {
+      if (needle && !j.name.toLowerCase().includes(needle)) continue;
       const arr = byShow.get(j.show) ?? [];
       arr.push(j);
       byShow.set(j.show, arr);
     }
     return Array.from(byShow.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([show, js]) => ({ show, jobs: js.sort((a, b) => a.name.localeCompare(b.name)) }));
-  }, [jobs]);
+      .map(([show, js]) => ({ show, jobs: [...js].sort(cmp) }));
+  }, [jobs, sortKey, sortDir, colByKey, filterText]);
 
   const selectedJobs = React.useMemo(
     () => (jobs ?? []).filter((j) => selected.has(j.id)),
     [jobs, selected],
   );
 
-  function toggleJob(id: string, checked: boolean) {
+  // Anchor for shift-click range selection, and the visible job ids in render
+  // order (skipping collapsed shows) so a range maps to what the user sees.
+  const lastSelectedRef = React.useRef<string | null>(null);
+  const visibleJobIds = React.useMemo(
+    () => (groups ?? []).flatMap((g) => (collapsed.has(g.show) ? [] : g.jobs.map((j) => j.id))),
+    [groups, collapsed],
+  );
+
+  function selectRange(toId: string) {
+    const ids = visibleJobIds;
+    const toIdx = ids.indexOf(toId);
+    if (toIdx < 0) return;
+    const anchorIdx = lastSelectedRef.current ? ids.indexOf(lastSelectedRef.current) : -1;
+    if (anchorIdx < 0) {
+      setSelected((prev) => new Set(prev).add(toId));
+      return;
+    }
+    const [lo, hi] = anchorIdx <= toIdx ? [anchorIdx, toIdx] : [toIdx, anchorIdx];
     setSelected((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
+      for (let i = lo; i <= hi; i++) next.add(ids[i]);
       return next;
     });
+  }
+
+  // Row/checkbox selection: Shift+click extends a contiguous range from the
+  // anchor; a plain (or Cmd/Ctrl) click toggles one job and sets the anchor.
+  function handleSelect(id: string, e: React.MouseEvent) {
+    if (e.shiftKey && lastSelectedRef.current) {
+      e.preventDefault(); // suppress the browser's text-selection highlight
+      selectRange(id);
+      return;
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    lastSelectedRef.current = id;
   }
   function toggleShowCollapse(show: string) {
     setCollapsed((prev) => {
@@ -283,6 +477,71 @@ export default function MonitorCuePage() {
   }) as React.Dispatch<React.SetStateAction<Job[]>>, []);
 
   const totalJobs = jobs?.length ?? 0;
+  const allVisibleSelected = visibleJobIds.length > 0 && visibleJobIds.every((id) => selected.has(id));
+  const someVisibleSelected = !allVisibleSelected && visibleJobIds.some((id) => selected.has(id));
+
+  // Columns show/hide + reorder dropdown (parity with Monitor Jobs). Rendered
+  // at the top-right of the table next to the filter box.
+  const columnsDropdown = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8">
+          Columns
+          <ChevronDown className="ml-1 h-3 w-3 opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="max-h-[60vh] w-64 overflow-y-auto">
+        <div className="sticky top-0 z-10 mb-1 border-b border-border bg-popover pb-1">
+          <Button className="w-full justify-start px-2 py-1.5" variant="secondary" size="sm" onClick={resetColumns}>
+            Reset to Default
+          </Button>
+        </div>
+        {columnOrder.map((key, idx) => {
+          const col = colByKey.get(key);
+          if (!col) return null;
+          const label = col.label || col.title || key;
+          return (
+            <DropdownMenuItem
+              key={key}
+              onSelect={(e) => e.preventDefault()}
+              className="flex cursor-default items-center justify-between gap-2 px-2 py-1 focus:bg-accent/40"
+            >
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={!hiddenColumns.has(key)}
+                  onCheckedChange={() => toggleColumn(key)}
+                  aria-label={`Toggle ${label}`}
+                />
+                <span className="truncate">{label}</span>
+              </label>
+              <span className="inline-flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label={`Move ${label} left`}
+                  title="Move left"
+                  disabled={idx === 0}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveColumn(key, -1); }}
+                  className="rounded p-0.5 text-foreground/70 hover:bg-foreground/10 disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${label} right`}
+                  title="Move right"
+                  disabled={idx === columnOrder.length - 1}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveColumn(key, 1); }}
+                  className="rounded p-0.5 text-foreground/70 hover:bg-foreground/10 disabled:opacity-30"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="p-4">
@@ -324,23 +583,35 @@ export default function MonitorCuePage() {
           Collapse All
         </Button>
 
-        {/* Bulk actions on selected jobs */}
+        {/* Bulk actions on selected jobs. Icons mirror CueGUI's Monitor Cue
+            toolbar (eat = Pacman, retry, pause, unpause, kill). */}
         <span className="mx-1 h-5 w-px bg-border" />
-        <Button variant="outline" size="sm" className="h-8" onClick={doEat} title="Eat dead frames">Eat</Button>
-        <Button variant="outline" size="sm" className="h-8" onClick={doRetry} title="Retry dead frames">Retry</Button>
-        <Button variant="outline" size="sm" className="h-8" onClick={doPause} title="Pause">Pause</Button>
-        <Button variant="outline" size="sm" className="h-8" onClick={doUnpause} title="Unpause">Unpause</Button>
-        <Button variant="destructive" size="sm" className="h-8" onClick={doKill} title="Kill">Kill</Button>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={doEat} title="Eat dead frames">
+          <TbPacman size={16} color="orange" /> Eat
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={doRetry} title="Retry dead frames">
+          <TbReload size={16} className="text-green-600" /> Retry
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={doPause} title="Pause">
+          <TbPlayerPause size={16} /> Pause
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={doUnpause} title="Unpause">
+          <TbPlayerPlay size={16} className="text-green-600" /> Unpause
+        </Button>
+        <Button variant="destructive" size="sm" className="h-8 gap-1.5" onClick={doKill} title="Kill">
+          <MdOutlineCancel size={16} /> Kill
+        </Button>
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Select:</span>
           <Input
             value={selectText}
-            onChange={(e) => setSelectText(e.target.value)}
+            onChange={(e) => { setSelectText(e.target.value); applySelect(e.target.value); }}
             onKeyDown={(e) => e.key === "Enter" && applySelect(selectText)}
             placeholder="name / regex"
             className="h-8 w-48"
             aria-label="Select jobs"
+            title="Type a name or regex to select (check) matching jobs"
           />
           <Button variant="outline" size="sm" className="h-8" onClick={() => { setSelectText(""); setSelected(new Set()); }}>Clr</Button>
           <Button variant="outline" size="sm" className="h-8" onClick={selectMine}>selectMine</Button>
@@ -356,23 +627,67 @@ export default function MonitorCuePage() {
         <p className="text-sm text-muted-foreground">Select one or more shows from the Shows menu to monitor their jobs.</p>
       ) : (
         <div ref={contextMenuTargetAreaRef}>
+          {/* Top-right of the table: filter box + Columns dropdown (parity
+              with Monitor Jobs). */}
+          <div className="mb-2 flex items-center justify-end gap-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Filter jobs..."
+                aria-label="Filter jobs"
+                className="h-8 w-44 pl-7 text-xs"
+              />
+            </div>
+            {columnsDropdown}
+          </div>
           <div ref={tableRef} className="overflow-x-auto rounded-md border">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40 text-left">
                 <tr>
-                  <th className="w-8 p-2" />
-                  <th className="p-2 font-medium">Job</th>
-                  {NUM_COLS.map((c) => (
-                    <th key={c.key} className="p-2 text-right font-medium" title={c.title}>{c.label}</th>
-                  ))}
-                  <th className="p-2 font-medium">Age</th>
-                  <th className="min-w-[12rem] p-2 font-medium">Progress</th>
+                  <th className="w-8 p-2">
+                    {/* Select all / none across the visible (expanded) jobs. */}
+                    <Checkbox
+                      checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                      onCheckedChange={(c) => setSelected(c ? new Set(visibleJobIds) : new Set())}
+                      aria-label="Select all jobs"
+                    />
+                  </th>
+                  {orderedCols.map((c) => {
+                    const active = sortKey === c.key;
+                    const alignClass = c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "text-left";
+                    return (
+                      <th key={c.key} className={`p-2 font-medium ${c.minW ?? ""} ${alignClass}`} title={c.title}>
+                        {c.sort ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(c.key)}
+                            className={`inline-flex items-center gap-1 ${c.align === "right" ? "flex-row-reverse" : ""} hover:text-foreground`}
+                          >
+                            {c.header ?? <span>{c.label}</span>}
+                            {active ? (
+                              sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        ) : (
+                          c.header ?? c.label
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {groups.length === 0 ? (
                   <tr>
-                    <td colSpan={NUM_COLS.length + 4} className="p-3 text-sm text-muted-foreground">
+                    <td colSpan={orderedCols.length + 1} className="p-3 text-sm text-muted-foreground">
                       No jobs for the selected show(s).
                     </td>
                   </tr>
@@ -383,7 +698,7 @@ export default function MonitorCuePage() {
                       <React.Fragment key={g.show}>
                         <tr className="border-b bg-muted/30">
                           <td className="p-2" />
-                          <td className="p-2 font-semibold" colSpan={NUM_COLS.length + 3}>
+                          <td className="p-2 font-semibold" colSpan={orderedCols.length}>
                             <button className="flex items-center gap-1" onClick={() => toggleShowCollapse(g.show)}>
                               {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                               {g.show}
@@ -395,30 +710,32 @@ export default function MonitorCuePage() {
                           ? g.jobs.map((j) => (
                               <tr
                                 key={j.id}
-                                className={`cursor-context-menu border-b last:border-0 hover:bg-muted/20 ${jobRowClass(j)}`}
+                                className={`cursor-pointer select-none border-b last:border-0 ${jobRowClass(j)}`}
                                 onContextMenu={(e) => contextMenuHandleOpen(e, { original: j } as unknown as Row<Job>)}
+                                onClick={(e) => handleSelect(j.id, e)}
                               >
-                                <td className="p-2 align-middle">
+                                <td
+                                  className="p-2 align-middle"
+                                  onClick={(e) => { e.stopPropagation(); handleSelect(j.id, e); }}
+                                >
+                                  {/* Visual only; clicks (incl. Shift) are handled by the
+                                      row/cell so range selection works everywhere. */}
                                   <Checkbox
                                     checked={selected.has(j.id)}
-                                    onCheckedChange={(c) => toggleJob(j.id, !!c)}
+                                    className="pointer-events-none"
                                     aria-label={`Select ${j.name}`}
                                   />
                                 </td>
-                                <td className="max-w-[34rem] truncate p-2 pl-4" title={j.name}>
-                                  <Link
-                                    href={`/jobs/${encodeURIComponent(j.name)}?tab=overview`}
-                                    className="text-primary underline-offset-2 hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {j.name}
-                                  </Link>
-                                </td>
-                                {NUM_COLS.map((c) => (
-                                  <td key={c.key} className="p-2 text-right tabular-nums">{c.get(j)}</td>
-                                ))}
-                                <td className="p-2 tabular-nums">{secondsToHHHMM(now - (j.startTime ?? now))}</td>
-                                <td className="p-2"><JobProgressBar job={j} /></td>
+                                {orderedCols.map((c) => {
+                                  const alignClass =
+                                    c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "";
+                                  const widthClass = c.key === "job" ? "max-w-[34rem] truncate pl-4" : c.minW ?? "";
+                                  return (
+                                    <td key={c.key} className={`p-2 ${alignClass} ${widthClass}`} title={c.key === "job" ? j.name : undefined}>
+                                      {c.cell(j, now)}
+                                    </td>
+                                  );
+                                })}
                               </tr>
                             ))
                           : null}
@@ -462,6 +779,13 @@ export default function MonitorCuePage() {
       <ViewDependenciesDialog />
       <DependencyWizardDialog />
       <UnbookDialog />
+      {/* Dialogs the job menu opens via CustomEvents: Set Min/Max Cores & GPUs,
+          Max Retries, Reorder/Stagger Frames, Use Local Cores, Show Progress
+          Bar (JobExtraDialogs), Comments (JobCommentsDialog), and Send To
+          Group. Mounting them here makes every Monitor Cue menu item work. */}
+      <JobExtraDialogs />
+      <JobCommentsDialog />
+      <SendToGroupDialog />
 
       <ConfirmDialog
         open={killConfirm}

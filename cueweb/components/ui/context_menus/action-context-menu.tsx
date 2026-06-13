@@ -77,6 +77,7 @@ import {
   useLocalCoresGivenRow,
   setUserColorGivenRow,
   clearUserColorGivenRow,
+  sendToGroupGivenRow,
   showProgressBarGivenRow,
   showPropertiesGivenRow,
   subscribeToJobGivenRow,
@@ -122,6 +123,7 @@ import {
   TbServer,
   TbFilter,
   TbPhoto,
+  TbFolder,
 } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
@@ -294,16 +296,25 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   // disables the entry on FINISHED jobs and when the global safety flag
   // is set, so In Progress / Failing / Dependency all behave correctly.
   const isJobPaused = !!contextMenuState.row?.original.isPaused;
+  // Auto-eat is a single toggle (CueGUI parity): "Enable auto eating" when off,
+  // "Disable auto eating" when on.
+  const isAutoEat = !!contextMenuState.row?.original.autoEat;
 
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.JobActions
   const menuItems: MenuItem[] = [
     // -- Top group: identity + lookup actions ----------------------
-    {
-      label: "Unmonitor",
-      onClick: handleUnmonitorJobGivenRow,
-      isActive: true,
-      component: <TbEyeOff className="mr-1" size={14} />,
-    },
+    // Unmonitor only applies to the Cuetopia Monitor Jobs working set; the
+    // Monitor Cue view shows all of a show's jobs, so it's omitted there.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Unmonitor",
+            onClick: handleUnmonitorJobGivenRow,
+            isActive: true,
+            component: <TbEyeOff className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
     // "View Job" loads the row into Cuetopia's Monitor Jobs table; on
     // Cuetopia itself the user is already viewing it, so the entry is
     // only included when the menu opens on the Monitor Cue page.
@@ -360,12 +371,29 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: true,
       component: <TbMessage className="mr-1" size={14} />,
     },
-    {
-      label: "Use Local Cores...",
-      onClick: useLocalCoresGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
+    // "Send To Group..." moves the job into another group within its show.
+    // CueGUI exposes it on Monitor Cue (CueCommander) only.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "Send To Group...",
+            onClick: sendToGroupGivenRow,
+            isActive: editable,
+            component: <TbFolder className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
+    // Use Local Cores is a Cuetopia (Monitor Jobs) convenience; omit on Monitor Cue.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Use Local Cores...",
+            onClick: useLocalCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
 
     // Dependencies submenu flattened inline (CueGUI shows it as a
     // submenu; CueWeb has no submenu primitive yet, so it sits as a
@@ -395,62 +423,71 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
 
-    // Set user color submenu flattened to two stub entries; the full
-    // 15-color picker lands when the back-end is wired.
-    {
-      label: "Set User Color...",
-      onClick: setUserColorGivenRow,
-      isActive: true,
-      component: <TbStar className="mr-1" size={14} />,
-    },
-    {
-      label: "Clear User Color",
-      onClick: clearUserColorGivenRow,
-      isActive: true,
-      component: <TbStar className="mr-1" size={14} />,
-    },
+    // User color is a Cuetopia (Monitor Jobs) convenience; omit on Monitor Cue.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Set User Color...",
+            onClick: setUserColorGivenRow,
+            isActive: true,
+            component: <TbStar className="mr-1" size={14} />,
+          },
+          {
+            label: "Clear User Color",
+            onClick: clearUserColorGivenRow,
+            isActive: true,
+            component: <TbStar className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
 
     sep("group-frame-controls"),
 
-    // -- Frame-level controls (CueGUI parity).
-    {
-      label: "Set Priority...",
-      onClick: setPriorityGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      // Combined cores editor (CueWeb convenience).
-      label: "Set Min/Max Cores...",
-      onClick: setCoresGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    // Separate Min/Max Cores + Min/Max GPUs (CueGUI Monitor Cue parity).
-    {
-      label: "Set Minimum Cores...",
-      onClick: setMinCoresGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      label: "Set Maximum Cores...",
-      onClick: setMaxCoresGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      label: "Set Minimum Gpus...",
-      onClick: setMinGpusGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      label: "Set Maximum Gpus...",
-      onClick: setMaxGpusGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
+    // -- Resource / priority setters. These live on Monitor Cue (CueCommander)
+    // only; Cuetopia's Monitor Jobs keeps a lighter menu. Order mirrors CueGUI:
+    // cores, gpus, then priority.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            // Combined cores editor (CueWeb convenience).
+            label: "Set Min/Max Cores...",
+            onClick: setCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Minimum Cores...",
+            onClick: setMinCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Maximum Cores...",
+            onClick: setMaxCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Minimum Gpus...",
+            onClick: setMinGpusGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Maximum Gpus...",
+            onClick: setMaxGpusGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            // CueGUI places Set Priority after the cores/gpus setters.
+            label: "Set Priority...",
+            onClick: setPriorityGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,
@@ -488,14 +525,8 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
     // -- Eat / Retry / Kill ---------------------------------------
     {
-      label: "Auto-Eat On",
-      onClick: autoEatOnGivenRow,
-      isActive: editable,
-      component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      label: "Auto-Eat Off",
-      onClick: autoEatOffGivenRow,
+      label: isAutoEat ? "Disable auto eating" : "Enable auto eating",
+      onClick: isAutoEat ? autoEatOffGivenRow : autoEatOnGivenRow,
       isActive: editable,
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -511,12 +542,17 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: destructiveActive,
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
-    {
-      label: "Unbook...",
-      onClick: unbookGivenRow,
-      isActive: destructiveActive,
-      component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
-    },
+    // Unbook Frames is a Monitor Cue (CueCommander) action; omit on Cuetopia.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "Unbook Frames...",
+            onClick: unbookGivenRow,
+            isActive: destructiveActive,
+            component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       label: "Kill",
       onClick: handleKillJobGivenRow,
