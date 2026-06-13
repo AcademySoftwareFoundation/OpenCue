@@ -195,22 +195,18 @@ impl RqdDispatcherService {
             return Err(DispatchError::HostLock(host.name.clone()));
         }
 
-        // Ensure unlock is always called, regardless of panics or fails
+        // The advisory lock is transaction-scoped: it is released automatically
+        // when the caller commits or rolls back `transaction`, including when
+        // dispatch_inner panics.
         let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
             .catch_unwind()
             .await;
-
-        // Always attempt to unlock, regardless of outcome. Failing to unlock here can be ignored as
-        // endint the transaction will automatically unlock.
-        if let Err(unlock_err) = self.host_dao.unlock(transaction, &host_id).await {
-            trace!("Failed to unlock host {}: {}", host_disp, unlock_err);
-        }
 
         // Handle the result from dispatch_inner
         match result {
             Ok(result) => {
                 if result.is_ok() {
-                    info!(
+                    debug!(
                         "Successfully dispatched layer {} on {}.",
                         layer_disp, host_disp
                     );
@@ -300,13 +296,13 @@ impl RqdDispatcherService {
                 Err(err) => {
                     match err {
                         DispatchVirtualProcError::AllocationOverBurst(err) => {
-                            info!("({dispatch_id}) {frame_str} {err}");
+                            debug!("({dispatch_id}) {frame_str} {err}");
 
                             last_error = Some(err);
                             break;
                         }
                         DispatchVirtualProcError::LayerLimitReached => {
-                            info!("({dispatch_id}) Skipping layer {}, reached limits", layer);
+                            debug!("({dispatch_id}) Skipping layer {}, reached limits", layer);
                             break;
                         }
                         DispatchVirtualProcError::FailedToStartOnDb(err) => {
@@ -321,7 +317,7 @@ impl RqdDispatcherService {
                                 | DispatchError::FailedToCreateProc { .. } => {
                                     // Resource contention during DB updates is expected in
                                     // multi-scheduler environments.
-                                    info!(
+                                    debug!(
                                         "({dispatch_id}) Failed to start frame {} on Db. {}",
                                         frame_str, err
                                     );
@@ -342,7 +338,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::HostResourcesExhausted => {
                             // Host resources were booked by another scheduler (e.g. Cuebot)
                             // between cache refresh and dispatch. Break the loop and try another host.
-                            info!(
+                            debug!(
                                 "({dispatch_id}) Host resources exhausted for frame {} (likely booked by another scheduler)",
                                 frame_str
                             );
@@ -354,7 +350,7 @@ impl RqdDispatcherService {
                             // Frame was already claimed by another dispatcher - skip it
                             // and continue with the next frame. No proc or host resources
                             // were consumed since the frame update is the first operation.
-                            info!(
+                            debug!(
                                 "({dispatch_id}) Frame {} already claimed by another dispatcher. Skipping.",
                                 frame_str
                             );
@@ -364,7 +360,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::ResourceLimitExceeded(err) => {
                             // Resource limit enforced by database trigger (e.g. job max cores,
                             // subscription burst size). This is expected in normal operation.
-                            info!("({dispatch_id}) {frame_str} {err}");
+                            debug!("({dispatch_id}) {frame_str} {err}");
                             last_error = Some(err);
                             break;
                         }
@@ -413,7 +409,7 @@ impl RqdDispatcherService {
         }
 
         if non_retrieable_frames.is_empty() {
-            info!(
+            debug!(
                 "Found no frames on {} to dispatch to {}",
                 layer, last_host_version
             );
@@ -435,12 +431,17 @@ impl RqdDispatcherService {
 
         if let Some(error) = last_error {
             match &error {
-                DispatchError::ResourceLimitExceeded(_)
-                | DispatchError::AllocationOverBurst(_)
+                DispatchError::ResourceLimitExceeded(_) => {
+                    // Counted into an aggregate surfaced by the recompute heartbeat
+                    // rather than logged per layer-dispatch (this is hot on a capped show).
+                    metrics::increment_resource_limit_exceeded();
+                    debug!("Wasn't able to dispatch all frames: {:?}", error)
+                }
+                DispatchError::AllocationOverBurst(_)
                 | DispatchError::HostResourcesExhausted(_)
                 | DispatchError::FailedToUpdateResources(_)
                 | DispatchError::FailedToCreateProc { .. } => {
-                    info!("Wasn't able to dispatch all frames: {:?}", error)
+                    debug!("Wasn't able to dispatch all frames: {:?}", error)
                 }
                 _ => {
                     warn!("Wasn't able to dispatch all frames: {:?}", error)

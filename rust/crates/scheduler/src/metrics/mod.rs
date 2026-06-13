@@ -16,6 +16,7 @@ use prometheus::{
     register_counter, register_counter_vec, register_histogram, Counter, CounterVec, Encoder,
     Histogram, TextEncoder,
 };
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -92,7 +93,41 @@ lazy_static! {
         vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
     )
     .expect("Failed to register cluster_round_trip_seconds histogram");
+
+    // E-PVM placement metrics from host_cache/cache.rs. Observed only on the
+    // Epvm path (Saturation always scores 0.0). Buckets are dimensionless W3
+    // fractional-layer-frames units; calibration may need adjustment after
+    // production rollout. See design Risk 1.
+    pub static ref PLACEMENT_SCORE_CHOSEN: Histogram = register_histogram!(
+        "scheduler_placement_score_chosen",
+        "E-PVM score of the host chosen by check_out_best",
+        vec![0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 1000.0]
+    )
+    .expect("Failed to register placement_score_chosen histogram");
+
+    // Incremented when `remove_host_best` exits its bounded inner retry loop
+    // (EPVM_INNER_RETRIES attempts) without committing a host. A sustained
+    // non-zero rate signals contention: candidates are being CAS-busted by
+    // concurrent checkouts faster than we can pick alternates. Pairs with
+    // PLACEMENT_SCORE_CHOSEN — together they describe both the wins and
+    // the give-ups on the EPVM path.
+    pub static ref PLACEMENT_INNER_RETRIES_EXHAUSTED: Counter = register_counter!(
+        "scheduler_placement_inner_retries_exhausted_total",
+        "Times remove_host_best gave up after exhausting its inner retry budget"
+    )
+    .expect("Failed to register placement_inner_retries_exhausted_total counter");
 }
+
+/// Process-wide monotonic count of frames dispatched this session. Mirrors the
+/// `FRAMES_DISPATCHED_TOTAL` CounterVec as a single scalar so the periodic
+/// dispatch heartbeat reads one value instead of summing across show labels.
+static FRAMES_DISPATCHED_SESSION: AtomicU64 = AtomicU64::new(0);
+
+/// Process-wide monotonic count of layer-dispatch attempts that were cut short by a
+/// `ResourceLimitExceeded` error (subscription/folder/job cap hit) this session.
+/// Read as a delta by the periodic dispatch heartbeat instead of logging once per
+/// occurrence.
+static RESOURCE_LIMIT_EXCEEDED_SESSION: AtomicU64 = AtomicU64::new(0);
 
 /// Handler for the /metrics endpoint
 async fn metrics_handler() -> impl IntoResponse {
@@ -175,6 +210,29 @@ pub fn increment_frames_dispatched(show_name: &str) {
     FRAMES_DISPATCHED_TOTAL
         .with_label_values(&[show_name])
         .inc();
+    // Eventually-consistent scalar read by the periodic dispatch heartbeat; ordering
+    // against other state is not required, so Relaxed is correct.
+    FRAMES_DISPATCHED_SESSION.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Returns the process-wide count of frames dispatched since startup. Monotonic;
+/// callers keep a `last` value and log `current - last` each interval.
+#[inline]
+pub fn frames_dispatched_session() -> u64 {
+    FRAMES_DISPATCHED_SESSION.load(Ordering::Relaxed)
+}
+
+/// Helper to record a layer dispatch cut short by a `ResourceLimitExceeded` error.
+#[inline]
+pub fn increment_resource_limit_exceeded() {
+    RESOURCE_LIMIT_EXCEEDED_SESSION.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Returns the process-wide count of `ResourceLimitExceeded` dispatch cut-offs since
+/// startup. Monotonic; callers keep a `last` value and log `current - last` each interval.
+#[inline]
+pub fn resource_limit_exceeded_session() -> u64 {
+    RESOURCE_LIMIT_EXCEEDED_SESSION.load(Ordering::Relaxed)
 }
 
 /// Helper function to observe time to book
@@ -201,4 +259,19 @@ pub fn observe_job_query_duration(duration: Duration) {
 #[inline]
 pub fn observe_cluster_round_trip(duration: Duration) {
     CLUSTER_ROUND_TRIP_SECONDS.observe(duration.as_secs_f64());
+}
+
+/// Records the E-PVM score of the host returned by `check_out_best`.
+/// Called only on the Epvm path; Saturation never invokes this.
+#[inline]
+pub fn observe_placement_score_chosen(score: f64) {
+    PLACEMENT_SCORE_CHOSEN.observe(score);
+}
+
+/// Increments the counter for `remove_host_best` give-ups after the inner
+/// retry budget is exhausted (every candidate's CAS lost to a concurrent
+/// checkout). Called only on the Epvm path.
+#[inline]
+pub fn increment_placement_inner_retries_exhausted() {
+    PLACEMENT_INNER_RETRIES_EXHAUSTED.inc();
 }
