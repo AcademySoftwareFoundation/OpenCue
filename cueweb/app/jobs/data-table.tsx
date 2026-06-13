@@ -52,6 +52,8 @@ import { EmailArtistDialog } from "@/components/ui/email-artist-dialog";
 import { JobDetailsInline } from "@/components/ui/job-details-inline";
 import { RequestCoresDialog } from "@/components/ui/request-cores-dialog";
 import { SetCoresDialog } from "@/components/ui/set-cores-dialog";
+import { JobExtraDialogs } from "@/components/ui/job-extra-dialogs";
+import { JobCommentsDialog } from "@/components/ui/job-comments-dialog";
 import { SetPriorityDialog } from "@/components/ui/set-priority-dialog";
 import { SubscribeToJobDialog } from "@/components/ui/subscribe-to-job-dialog";
 import { UnbookDialog } from "@/components/ui/unbook-dialog";
@@ -63,6 +65,7 @@ import SearchDropdown from "@/components/ui/search-dropdown";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { readableTextColor, useUserColors } from "@/app/utils/user_colors";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -1425,6 +1428,11 @@ export function DataTable({ columns, username }: DataTableProps) {
     | { kind: "header"; key: string; count: number };
   const tableRows = table.getRowModel().rows;
 
+  // CueGUI parity: "Set user color" paints the whole job row. The live
+  // jobId -> hex map is read from localStorage and applied as the row's
+  // background (with a legible text color) below.
+  const userColors = useUserColors();
+
   const displayItems = React.useMemo<DisplayItem[]>(() => {
     if (state.groupBy === "Clear") {
       return tableRows.map((row) => ({ kind: "row" as const, row, groupKey: "" }));
@@ -1933,10 +1941,16 @@ export function DataTable({ columns, username }: DataTableProps) {
                   return null;
                 }
                 const row = item.row;
+                const userColor = userColors[(row.original as Job).id];
                 return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
+                    style={
+                      userColor
+                        ? { backgroundColor: userColor, color: readableTextColor(userColor) }
+                        : undefined
+                    }
                     onContextMenu={(e: React.MouseEvent) => contextMenuHandleOpen(e, row)}
                     onClick={() => {
                       const job = row.original as Job;
@@ -2039,6 +2053,15 @@ export function DataTable({ columns, username }: DataTableProps) {
           a `cueweb:open-set-priority` CustomEvent fired from the row
           context menu's "Set Priority..." entry. */}
       <SetPriorityDialog />
+
+      {/* Additional CueGUI job-menu dialogs: Set Minimum/Maximum Cores & GPUs
+          (cueweb:open-set-job-scalar), Reorder Frames, Stagger Frames, Use
+          Local Cores, and Set User Color. */}
+      <JobExtraDialogs />
+
+      {/* Comments modal (CueGUI parity), opened by the "Comments..." menu
+          item / the comment icon via cueweb:open-job-comments. */}
+      <JobCommentsDialog />
 
       {/* Set Min/Max Cores dialog. Mounted once here; opens in response to
           a `cueweb:open-set-cores` CustomEvent fired from the row context

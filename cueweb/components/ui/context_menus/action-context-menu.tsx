@@ -25,11 +25,30 @@ import {
   copyFrameNameGivenRow,
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
+  viewLayerGivenRow,
+  viewLayerDependenciesGivenRow,
+  layerDependencyWizardGivenRow,
+  markdoneLayerGivenRow,
+  reorderLayerFramesGivenRow,
+  staggerLayerFramesGivenRow,
+  layerPropertiesGivenRow,
+  eatAndMarkdoneLayerGivenRow,
+  viewLayerProcessesGivenRow,
   createSubscriptionGivenRow,
   dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
   eatFrameGivenRow,
+  viewFrameDependenciesGivenRow,
+  frameDependencyWizardGivenRow,
+  dropFrameDependsGivenRow,
+  markFrameAsWaitingGivenRow,
+  markdoneFrameGivenRow,
+  eatAndMarkdoneFrameGivenRow,
+  reorderFrameGivenRow,
+  previewAllGivenRow,
+  viewFrameProcessesGivenRow,
+  filterSelectedLayersGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
   editHostTagsGivenRow,
@@ -47,8 +66,18 @@ import {
   retryLayerDeadFramesGivenRow,
   retryLayerFramesGivenRow,
   setCoresGivenRow,
+  setMinCoresGivenRow,
+  setMaxCoresGivenRow,
+  setMinGpusGivenRow,
+  setMaxGpusGivenRow,
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
+  reorderFramesGivenRow,
+  staggerFramesGivenRow,
+  useLocalCoresGivenRow,
+  setUserColorGivenRow,
+  clearUserColorGivenRow,
+  showProgressBarGivenRow,
   showPropertiesGivenRow,
   subscribeToJobGivenRow,
   unbookGivenRow,
@@ -87,6 +116,12 @@ import {
   TbSettings,
   TbStar,
   TbTag,
+  TbCheck,
+  TbCpu,
+  TbEye,
+  TbServer,
+  TbFilter,
+  TbPhoto,
 } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
@@ -235,10 +270,11 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   }
 
   function handleCommentsGivenRow(row: Row<any>) {
-    const job = row.original as Job;
-    const params = new URLSearchParams({ jobId: job.id });
-    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Open the Comments modal (CueGUI parity) instead of a new tab.
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("cueweb:open-job-comments", { detail: { job: row.original as Job } }),
+    );
   }
 
   const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
@@ -326,7 +362,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Use Local Cores...",
-      onClick: notYetImplemented("Use Local Cores"),
+      onClick: useLocalCoresGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -363,13 +399,13 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     // 15-color picker lands when the back-end is wired.
     {
       label: "Set User Color...",
-      onClick: notYetImplemented("Set User Color"),
+      onClick: setUserColorGivenRow,
       isActive: true,
       component: <TbStar className="mr-1" size={14} />,
     },
     {
       label: "Clear User Color",
-      onClick: notYetImplemented("Clear User Color"),
+      onClick: clearUserColorGivenRow,
       isActive: true,
       component: <TbStar className="mr-1" size={14} />,
     },
@@ -384,8 +420,34 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
+      // Combined cores editor (CueWeb convenience).
       label: "Set Min/Max Cores...",
       onClick: setCoresGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    // Separate Min/Max Cores + Min/Max GPUs (CueGUI Monitor Cue parity).
+    {
+      label: "Set Minimum Cores...",
+      onClick: setMinCoresGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
+      label: "Set Maximum Cores...",
+      onClick: setMaxCoresGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
+      label: "Set Minimum Gpus...",
+      onClick: setMinGpusGivenRow,
+      isActive: editable,
+      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+    },
+    {
+      label: "Set Maximum Gpus...",
+      onClick: setMaxGpusGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -397,13 +459,13 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Reorder Frames...",
-      onClick: notYetImplemented("Reorder Frames"),
+      onClick: reorderFramesGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
       label: "Stagger Frames...",
-      onClick: notYetImplemented("Stagger Frames"),
+      onClick: staggerFramesGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -471,7 +533,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     // toggle is wired. On CueGUI, this option opens the CueProgBar tool
     {
       label: "Show Progress Bar",
-      onClick: notYetImplemented("Show Progress Bar"),
+      onClick: showProgressBarGivenRow,
       isActive: true,
       component: <TbSettings className="mr-1" size={14} />,
     },
@@ -505,22 +567,22 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
 
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.LayerActions
   const items: MenuItem[] = [
-    { label: "View Layer", onClick: notYetImplemented("View Layer"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "View Layer", onClick: viewLayerGivenRow, isActive: true, component: <TbEye className="mr-1" size={14} /> },
     { label: "Copy Layer Name", onClick: copyLayerNameGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
 
     // Dependencies submenu flattened.
-    { label: "View Dependencies...", onClick: notYetImplemented("View Dependencies"), isActive: true, component: <TbLink className="mr-1" size={14} /> },
-    { label: "Dependency Wizard...", onClick: notYetImplemented("Dependency Wizard"), isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark done", onClick: notYetImplemented("Mark done"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "View Dependencies...", onClick: viewLayerDependenciesGivenRow, isActive: true, component: <TbLink className="mr-1" size={14} /> },
+    { label: "Dependency Wizard...", onClick: layerDependencyWizardGivenRow, isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark done", onClick: markdoneLayerGivenRow, isActive: active, component: <TbCheck className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-reorder"),
 
-    { label: "Reorder Frames...", onClick: notYetImplemented("Reorder Frames"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Stagger Frames...", onClick: notYetImplemented("Stagger Frames"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Reorder Frames...", onClick: reorderLayerFramesGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Stagger Frames...", onClick: staggerLayerFramesGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-properties"),
 
-    { label: "Properties...", onClick: notYetImplemented("Properties"), isActive: true, component: <TbSettings className="mr-1" size={14} /> },
+    { label: "Properties...", onClick: layerPropertiesGivenRow, isActive: true, component: <TbSettings className="mr-1" size={14} /> },
 
     sep("group-actions"),
 
@@ -528,6 +590,8 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
     { label: "Eat", onClick: eatLayerFramesGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
     { label: "Retry", onClick: retryLayerFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
     { label: "Retry Dead Frames", onClick: retryLayerDeadFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "red" : "gray"} /> },
+    { label: "Eat and Mark done", onClick: eatAndMarkdoneLayerGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "View Processes", onClick: viewLayerProcessesGivenRow, isActive: true, component: <TbCpu className="mr-1" size={14} /> },
   ];
 
   return (
@@ -542,7 +606,7 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
 };
 
 // Context menu for the Monitor Hosts table. Currently exposes Lock /
-// Unlock (D2); reboot, tag edit and the other CueCommander host actions
+// Unlock; reboot, tag edit and the other CueCommander host actions
 // land in sibling issues and slot in here as they're built.
 export const HostContextMenu: React.FC<HostContextMenuProps> = ({
   contextMenuState,
@@ -674,6 +738,21 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
     killFrameGivenRow(row, username);
   }
 
+  // CueGUI "View Host": jump to the host running this frame. The host name is
+  // the first segment of last_resource ("<host>/<cores>/<gpus>"). WAITING /
+  // DEPEND frames have no resource yet, so the item is gated on that.
+  function handleViewHost(row: Row<any>) {
+    const frame = row.original as Frame;
+    const host = frame.lastResource ? frame.lastResource.split("/")[0] : "";
+    if (!host) {
+      toastWarning("This frame is not running on a host");
+      return;
+    }
+    router.push(`/hosts/${encodeURIComponent(host)}`);
+  }
+
+  const frameHasHost = !!(contextMenuState.row?.original as Frame | undefined)?.lastResource;
+
   // Bind the parent job into the copy handler since the absolute log
   // path is `<job.logDir>/<job.name>.<frame.name>.rqlog`. The helper
   // surfaces a toast when `job` is undefined, so users get feedback
@@ -685,7 +764,7 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
   // simple-data-table.tsx). The URL shape MUST stay in sync with that
   // handler - if either changes, update both. Requires `job` because
   // the log filename is `<job.name>.<frame.name>.rqlog`.
-  const handleViewLog = (row: Row<any>) => {
+  const openFrameLog = (row: Row<any>, tail: boolean) => {
     if (!job) {
       toastWarning("Frame log unavailable (no parent job context)");
       return;
@@ -696,8 +775,12 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
       frameLogDir: getFrameLogDir(job, frame),
       username,
     });
+    // "Tail Log" opens the viewer in live-tail mode (last lines + follow on).
+    if (tail) params.set("mode", "tail");
     router.push(`/frames/${encodeURIComponent(frame.name)}?${params.toString()}`);
   };
+  const handleViewLog = (row: Row<any>) => openFrameLog(row, false);
+  const handleTailLog = (row: Row<any>) => openFrameLog(row, true);
 
   // External-editor opener: substitutes `{path}` in the configured URL
   // template with the absolute rqlog path and hands the result to the
@@ -777,7 +860,7 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
     // (tail follows the end of the file vs. opens the static log);
     // CueWeb has one viewer today, so both items navigate there and the
     // viewer is responsible for the follow-vs-static behavior.
-    { label: "Tail Log", onClick: handleViewLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Tail Log", onClick: handleTailLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
     { label: "View Log", onClick: handleViewLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
     // External-editor item is only rendered when the deployment sets
     // NEXT_PUBLIC_LOG_EDITOR_URL. Leaves the row out entirely when
@@ -793,31 +876,31 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
       : []),
     { label: "Copy Log Path", onClick: handleCopyLogPath, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
     { label: "Copy Frame Name", onClick: copyFrameNameGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
-    { label: "View Host", onClick: notYetImplemented("View Host"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "View Host", onClick: handleViewHost, isActive: frameHasHost, component: <TbServer className="mr-1" size={14} color={frameHasHost ? undefined : "gray"} /> },
 
     // Dependencies submenu flattened (see Job menu note above).
-    { label: "View Dependencies...", onClick: notYetImplemented("View Dependencies"), isActive: true, component: <TbLink className="mr-1" size={14} /> },
-    { label: "Dependency Wizard...", onClick: notYetImplemented("Dependency Wizard"), isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Drop depends", onClick: notYetImplemented("Drop depends"), isActive: active, component: <TbPlugConnectedX className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark as waiting", onClick: notYetImplemented("Mark as waiting"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark done", onClick: notYetImplemented("Mark done"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "View Dependencies...", onClick: viewFrameDependenciesGivenRow, isActive: true, component: <TbLink className="mr-1" size={14} /> },
+    { label: "Dependency Wizard...", onClick: frameDependencyWizardGivenRow, isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Drop depends", onClick: dropFrameDependsGivenRow, isActive: active, component: <TbPlugConnectedX className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark as waiting", onClick: markFrameAsWaitingGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark done", onClick: markdoneFrameGivenRow, isActive: active, component: <TbCheck className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-filter"),
 
-    { label: "Filter Selected Layers", onClick: notYetImplemented("Filter Selected Layers"), isActive: true, component: <TbSettings className="mr-1" size={14} /> },
-    { label: "Reorder...", onClick: notYetImplemented("Reorder"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Filter Selected Layers", onClick: filterSelectedLayersGivenRow, isActive: true, component: <TbFilter className="mr-1" size={14} /> },
+    { label: "Reorder...", onClick: reorderFrameGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-preview"),
 
-    { label: "Preview All", onClick: notYetImplemented("Preview All"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Preview All", onClick: previewAllGivenRow, isActive: true, component: <TbPhoto className="mr-1" size={14} /> },
 
     sep("group-actions"),
 
     { label: "Retry", onClick: retryFrameGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
     { label: "Eat", onClick: eatFrameGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
     { label: "Kill", onClick: handleKillFrameGivenRow, isActive: active, component: <MdOutlineCancel className="mr-1" size={14} color={active ? "red" : "gray"} /> },
-    { label: "Eat and Mark done", onClick: notYetImplemented("Eat and Mark done"), isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
-    { label: "View Processes", onClick: notYetImplemented("View Processes"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Eat and Mark done", onClick: eatAndMarkdoneFrameGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "View Processes", onClick: viewFrameProcessesGivenRow, isActive: true, component: <TbCpu className="mr-1" size={14} /> },
   ];
 
   return (

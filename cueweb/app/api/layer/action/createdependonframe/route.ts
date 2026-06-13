@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 // LayerInterface.CreateDependencyOnFrame. Used by the Layer On Frame
 // dependency wizard flow.
 export async function POST(request: NextRequest) {
-  const endpoint = "/layer.LayerInterface/CreateDependencyOnFrame";
+  const endpoint = "/job.LayerInterface/CreateDependencyOnFrame";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

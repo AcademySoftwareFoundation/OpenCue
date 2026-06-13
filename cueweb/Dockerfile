@@ -94,6 +94,29 @@ ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=${NEXT_PUBLIC_OPENCUE_ENDPOINT}
 ARG NEXT_PUBLIC_LOG_EDITOR_URL=
 ENV NEXT_PUBLIC_LOG_EDITOR_URL=${NEXT_PUBLIC_LOG_EDITOR_URL}
 
+# CueProgBar launcher (Monitor Jobs "Show Progress Bar"). CueProgBar is a
+# desktop tool (python -m cuegui.cueguiplugin.cueprogbar <job>); a browser
+# can only reach it via a registered URL scheme. {job} is replaced with the
+# job name. Leave empty to fall back to the in-table Progress column.
+ARG NEXT_PUBLIC_CUEPROGBAR_URL=
+ENV NEXT_PUBLIC_CUEPROGBAR_URL=${NEXT_PUBLIC_CUEPROGBAR_URL}
+
+# The CueProgBar command shown in the "Show Progress Bar" dialog. {job} is
+# replaced with the job name. Sites override this with their own launcher,
+# e.g. "spawn launch cueprogbar {job}".
+ARG NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+ENV NEXT_PUBLIC_CUEPROGBAR_COMMAND=${NEXT_PUBLIC_CUEPROGBAR_COMMAND}
+
+# "Preview All" (Frames menu) opens rendered output in an external image
+# viewer. PREVIEW_COMMAND is the command shown/copied; PREVIEW_URL is an
+# optional registered URL scheme the Launch button hands off to a local
+# handler. Placeholders {paths} (output paths), {job}, {layer}, {frame} are
+# substituted. Override per site, e.g. a viewer scheme "openrv://{paths}".
+ARG NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+ENV NEXT_PUBLIC_PREVIEW_COMMAND=${NEXT_PUBLIC_PREVIEW_COMMAND}
+ARG NEXT_PUBLIC_PREVIEW_URL=
+ENV NEXT_PUBLIC_PREVIEW_URL=${NEXT_PUBLIC_PREVIEW_URL}
+
 # Authentication providers - use ARG to allow override at build time
 # Set to empty string to disable authentication (sandbox mode)
 # Set to comma-separated list for production (e.g., "google,okta,github,ldap")

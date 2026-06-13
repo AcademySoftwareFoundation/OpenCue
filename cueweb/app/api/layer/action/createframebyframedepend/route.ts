@@ -22,7 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Frame depend type and by the "Frame By Frame for all layers (Hard
 // Depend)" wizard option, which calls this once per matched layer pair.
 export async function POST(request: NextRequest) {
-  const endpoint = "/layer.LayerInterface/CreateFrameByFrameDependency";
+  const endpoint = "/job.LayerInterface/CreateFrameByFrameDependency";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

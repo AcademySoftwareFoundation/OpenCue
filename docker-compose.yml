@@ -276,6 +276,21 @@ services:
         #     --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='subl://open?url=file://{path}'
         # Set to an empty string to hide the menu item entirely.
         - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+        # "Show Progress Bar" launches the CueProgBar desktop tool via a URL
+        # scheme. {job} is replaced with the job name. Register an OS handler
+        # for cueprogbar:// that runs:
+        #   python -m cuegui.cueguiplugin.cueprogbar <job>
+        # (empty hides the launch and uses the in-table Progress column).
+        - NEXT_PUBLIC_CUEPROGBAR_URL=cueprogbar://{job}
+        # Command shown in the "Show Progress Bar" dialog ({job} -> job name).
+        # Override with a site launcher, e.g. "spawn launch cueprogbar {job}".
+        - NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+        # "Preview All" (Frames menu) external image viewer. PREVIEW_COMMAND is
+        # shown/copied; PREVIEW_URL (optional) is a registered scheme the Launch
+        # button hands off to a local handler. Placeholders: {paths} {job}
+        # {layer} {frame}. e.g. a viewer scheme "openrv://{paths}".
+        - NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+        - NEXT_PUBLIC_PREVIEW_URL=
         - NEXTAUTH_URL=http://localhost:3000
         - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
         # Authentication disabled by default for sandbox/development
@@ -299,6 +314,10 @@ services:
       # something reads process.env at request time; for the client
       # bundle the build arg is what matters.
       - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+      - NEXT_PUBLIC_CUEPROGBAR_URL=cueprogbar://{job}
+      - NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+      - NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+      - NEXT_PUBLIC_PREVIEW_URL=
       - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
