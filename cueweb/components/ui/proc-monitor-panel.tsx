@@ -54,18 +54,22 @@ export function ProcMonitorPanel() {
   const [menu, setMenu] = React.useState<MenuState | null>(null);
   const [busy, setBusy] = React.useState(false);
 
+  // Monotonic token so out-of-order responses can't clobber a newer scope:
+  // a quick A -> B switch must not let A's slower response land after B's.
+  const loadSeq = React.useRef(0);
   const load = React.useCallback(async (names: string[], isCancelled?: () => boolean) => {
+    const seq = ++loadSeq.current;
     if (names.length === 0) {
       setProcs(null);
       return;
     }
     try {
       const data = await getProcsByHosts(names);
-      if (isCancelled?.()) return;
+      if (isCancelled?.() || seq !== loadSeq.current) return;
       setProcs(data);
       setNow(Date.now() / 1000);
     } catch (err) {
-      if (isCancelled?.()) return;
+      if (isCancelled?.() || seq !== loadSeq.current) return;
       handleError(err, "Could not load procs");
       setProcs((prev) => prev ?? []);
     }

@@ -27,10 +27,11 @@
  * so the action wiring is shared, not duplicated.
  *
  * Accessibility note: the strip itself is a pointer affordance (one cell per
- * frame would otherwise create thousands of tab stops). Keyboard / AT users
- * keep the per-row context menu in the table for the same Retry/Eat/Kill
- * actions; once a selection exists here the action buttons below the strip
- * are fully keyboard reachable.
+ * frame would otherwise create thousands of tab stops). For keyboard / AT
+ * users, the "From #/To #" numeric range inputs below the strip provide an
+ * equivalent way to build a contiguous multi-frame selection without a mouse;
+ * the resulting selection feeds the same keyboard-reachable Retry/Eat/Kill
+ * buttons.
  */
 
 import * as React from "react";
@@ -43,6 +44,7 @@ import { eatFrames, killFrames, retryFrames } from "@/app/utils/action_utils";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
 
 // Frame state -> solid swatch color. Mirrors the hues in
 // components/ui/status.tsx but as filled cells so the strip reads like a
@@ -188,6 +190,24 @@ export function FrameRangeSelector({ frames, username, onSelectionChange }: Fram
     setAnchorId(null);
   }, []);
 
+  // Keyboard-accessible path to build a contiguous selection: type a start and
+  // end frame NUMBER (the strip is pointer-only). Selects every displayed frame
+  // whose number falls in [min, max] inclusive.
+  const [rangeStart, setRangeStart] = React.useState("");
+  const [rangeEnd, setRangeEnd] = React.useState("");
+  const selectByNumberRange = React.useCallback(() => {
+    const s = Number.parseInt(rangeStart, 10);
+    const e = Number.parseInt(rangeEnd, 10);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return;
+    const lo = Math.min(s, e);
+    const hi = Math.max(s, e);
+    const ids = new Set<string>();
+    for (const f of displayFrames) if (f.number >= lo && f.number <= hi) ids.add(f.id);
+    setSelectedIds(ids);
+    const firstIdx = displayFrames.findIndex((f) => ids.has(f.id));
+    setAnchorId(firstIdx >= 0 ? displayFrames[firstIdx].id : null);
+  }, [rangeStart, rangeEnd, displayFrames]);
+
   // Selected-range readout: min/max frame number across the subset (the
   // subset can span layers, so it isn't necessarily a single contiguous run
   // of numbers - the readout reflects the actual endpoints).
@@ -284,6 +304,35 @@ export function FrameRangeSelector({ frames, username, onSelectionChange }: Fram
           <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
             <span>#{firstNumber}</span>
             <span>#{lastNumber}</span>
+          </div>
+
+          {/* Keyboard-accessible range selection by frame number. */}
+          <div className="mt-2 flex flex-wrap items-center gap-1 text-xs">
+            <span className="text-muted-foreground">Select range</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              value={rangeStart}
+              onChange={(e) => setRangeStart(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && selectByNumberRange()}
+              placeholder={`#${firstNumber}`}
+              aria-label="Range start frame number"
+              className="h-7 w-20"
+            />
+            <span className="text-muted-foreground">–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              value={rangeEnd}
+              onChange={(e) => setRangeEnd(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && selectByNumberRange()}
+              placeholder={`#${lastNumber}`}
+              aria-label="Range end frame number"
+              className="h-7 w-20"
+            />
+            <Button size="xs" variant="outline" onClick={selectByNumberRange} disabled={!rangeStart || !rangeEnd}>
+              Select
+            </Button>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">

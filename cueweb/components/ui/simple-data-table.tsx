@@ -540,11 +540,15 @@ export function SimpleDataTable<TData, TValue>({
         </div>
       </div>
       {/* Visual frame-range selector Only on the frames table (not
-          the single-frame log table). Operates on the same state-filtered
-          rows the table shows, and its Retry/Eat/Kill buttons reuse the
+          the single-frame log table). Uses the table's filtered row model so
+          the strip mirrors exactly what's visible (state chips AND the
+          "Filter frames..." text filter); its Retry/Eat/Kill buttons reuse the
           row context menu's frame actions. */}
       {isFramesTable && (
-        <FrameRangeSelector frames={tableData as Frame[]} username={username} />
+        <FrameRangeSelector
+          frames={table.getFilteredRowModel().rows.map((row) => row.original as Frame)}
+          username={username}
+        />
       )}
       {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
           on phones instead of forcing the whole page to scroll. */}

@@ -231,6 +231,12 @@ function HostChangeAllocationDialog() {
   React.useEffect(() => {
     function handler(e: Event) {
       setHosts((e as CustomEvent<OpenHostAllocationDetail>).detail.hosts);
+      // Clear the prior open's selection so a fast OK before getAllocations()
+      // resolves can't move the new hosts to the previous allocation. With
+      // allocId empty the OK button stays disabled until fresh data loads.
+      setAllocs([]);
+      setAllocId("");
+      setBusy(false);
       setOpen(true);
       getAllocations()
         .then((a) => {

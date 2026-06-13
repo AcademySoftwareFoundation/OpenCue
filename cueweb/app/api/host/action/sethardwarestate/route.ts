@@ -34,8 +34,15 @@ export async function POST(request: NextRequest) {
   if (!jsonBody?.host || typeof jsonBody.state !== 'string') {
     return NextResponse.json({ error: 'Invalid request body: host and state required' }, { status: 400 });
   }
-  const response = await handleRoute(request.method, endpoint, JSON.stringify(jsonBody), true);
-  const responseData = await response.json();
-  if (!response.ok) return NextResponse.json({ error: responseData.error }, { status: response.status });
-  return NextResponse.json({ data: responseData.data }, { status: response.status });
+  // state must be a host.HardwareState enum name (proto/src/host.proto).
+  const VALID_STATES = ["UP", "DOWN", "REBOOTING", "REBOOT_WHEN_IDLE", "REPAIR"];
+  if (!VALID_STATES.includes(jsonBody.state)) {
+    return NextResponse.json(
+      { error: `Invalid state: must be one of ${VALID_STATES.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  // handleRoute already returns the final {data}/{error} NextResponse; return it
+  // directly so error propagation and status codes are preserved.
+  return handleRoute(request.method, endpoint, JSON.stringify(jsonBody), true);
 }
