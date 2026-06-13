@@ -223,6 +223,32 @@ async fn async_main() -> miette::Result<()> {
         }
     });
 
+    // Log which host booking strategy is active so operators can confirm the
+    // running configuration without inspecting the YAML.
+    match &CONFIG.queue.host_booking_strategy {
+        config::HostBookingStrategy::Saturation {
+            core_saturation,
+            memory_saturation,
+        } => tracing::info!(
+            core_saturation,
+            memory_saturation,
+            "Host booking strategy: Saturation (first-fit)"
+        ),
+        config::HostBookingStrategy::Epvm {
+            weights,
+            max_candidates,
+        } => tracing::info!(
+            max_candidates,
+            weight.cores = weights.cores,
+            weight.mem = weights.mem,
+            weight.gpus = weights.gpus,
+            weight.gpu_mem = weights.gpu_mem,
+            weight.gpu_count_reservation = weights.gpu_count_reservation,
+            weight.gpu_mem_reservation = weights.gpu_mem_reservation,
+            "Host booking strategy: E-PVM (lowest-stranding score)"
+        ),
+    }
+
     let opts = JobQueueCli::from_args();
     let result = opts.run().await;
 
