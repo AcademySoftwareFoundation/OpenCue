@@ -18,6 +18,7 @@
 
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Host, getHosts } from "@/app/utils/get_utils";
 import { hostColumns, hostRowClassName } from "@/app/hosts/columns";
@@ -93,16 +94,45 @@ function FilterMenu({
   );
 }
 
-export default function HostsPage() {
+// Filter state is mirrored in the URL query string (CueGUI keeps it in the
+// plugin session; the web equivalent is a shareable/bookmarkable URL):
+//   ?q=<regex>&alloc=a,b&hw=UP,DOWN&lock=OPEN&os=rhel9
+function parseSetParam(params: URLSearchParams, key: string): Set<string> {
+  return new Set(
+    (params.get(key) ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+function HostsPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [hosts, setHosts] = React.useState<Host[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = React.useState(true);
 
-  const [search, setSearch] = React.useState("");
-  const [allocFilter, setAllocFilter] = React.useState<Set<string>>(new Set());
-  const [hwFilter, setHwFilter] = React.useState<Set<string>>(new Set());
-  const [lockFilter, setLockFilter] = React.useState<Set<string>>(new Set());
-  const [osFilter, setOsFilter] = React.useState<Set<string>>(new Set());
+  // Seed filters from the URL once on mount (initializers run a single time).
+  const [search, setSearch] = React.useState(() => searchParams.get("q") ?? "");
+  const [allocFilter, setAllocFilter] = React.useState<Set<string>>(() => parseSetParam(searchParams, "alloc"));
+  const [hwFilter, setHwFilter] = React.useState<Set<string>>(() => parseSetParam(searchParams, "hw"));
+  const [lockFilter, setLockFilter] = React.useState<Set<string>>(() => parseSetParam(searchParams, "lock"));
+  const [osFilter, setOsFilter] = React.useState<Set<string>>(() => parseSetParam(searchParams, "os"));
+
+  // Keep the URL in sync as filters change (replace, so we don't spam history).
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("q", search.trim());
+    if (allocFilter.size) params.set("alloc", Array.from(allocFilter).join(","));
+    if (hwFilter.size) params.set("hw", Array.from(hwFilter).join(","));
+    if (lockFilter.size) params.set("lock", Array.from(lockFilter).join(","));
+    if (osFilter.size) params.set("os", Array.from(osFilter).join(","));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, allocFilter, hwFilter, lockFilter, osFilter, pathname, router]);
 
   const load = React.useCallback(async (isCancelled?: () => boolean) => {
     try {
@@ -244,5 +274,22 @@ export default function HostsPage() {
       <EditHostTagsDialog />
       <HostMonitorDialogs />
     </div>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary for this client route.
+export default function HostsPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="space-y-2 p-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      }
+    >
+      <HostsPageInner />
+    </React.Suspense>
   );
 }

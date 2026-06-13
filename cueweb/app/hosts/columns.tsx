@@ -17,7 +17,7 @@
  */
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MessageSquare } from "lucide-react";
+import { ArrowUpDown, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Host } from "@/app/utils/get_utils";
@@ -74,27 +74,49 @@ export const hostColumns: ColumnDef<Host>[] = [
     accessorKey: "name",
     header: sortableHeader("Name"),
     cell: ({ row }) => (
-      <div className="flex items-center gap-1">
-        <Link
-          href={`/hosts/${encodeURIComponent(row.original.name)}`}
-          className="text-primary underline-offset-2 hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {row.original.name}
-        </Link>
-        {row.original.hasComment ? (
-          <button
-            title="View comments"
-            onClick={(e) => {
-              e.stopPropagation();
-              openComments(row.original);
-            }}
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-amber-500" />
-          </button>
-        ) : null}
-      </div>
+      <Link
+        href={`/hosts/${encodeURIComponent(row.original.name)}`}
+        className="text-primary underline-offset-2 hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {row.original.name}
+      </Link>
     ),
+  },
+  {
+    // Dedicated comments column (CueGUI / Monitor Jobs parity): an amber
+    // sticky-note when the host has comments; click to view. Sortable so hosts
+    // with comments can be pulled to the top.
+    id: "comments",
+    accessorFn: (row) => (row.hasComment ? 1 : 0),
+    header: ({ column }: { column: any }) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-mx-2 h-7 px-1.5 text-xs font-medium"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        title="Sort by hosts with comments"
+      >
+        <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        <span className="sr-only">Comments</span>
+      </Button>
+    ),
+    cell: ({ row }) =>
+      row.original.hasComment ? (
+        <button
+          type="button"
+          title="View comments"
+          aria-label="View comments"
+          className="inline-flex items-center justify-center text-amber-500 hover:text-amber-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            openComments(row.original);
+          }}
+        >
+          <StickyNote className="h-4 w-4" />
+        </button>
+      ) : null,
   },
   {
     id: "load",

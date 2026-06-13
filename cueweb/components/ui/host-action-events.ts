@@ -65,6 +65,12 @@ export type OpenHostDeleteDetail = {
   hosts: Host[];
 };
 
+// Opens the take-ownership confirmation dialog (HostTakeOwnershipDialog).
+export const OPEN_HOST_TAKE_OWNERSHIP_EVENT = "cueweb:open-host-take-ownership";
+export type OpenHostTakeOwnershipDetail = {
+  hosts: Host[];
+};
+
 // Drives the bottom Proc monitor panel ("View Procs"): the host panel asks
 // the proc panel to load procs for these host names.
 export const VIEW_HOST_PROCS_EVENT = "cueweb:view-host-procs";

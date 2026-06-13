@@ -40,6 +40,7 @@ import {
   deleteHostGivenRow,
   setRepairGivenRow,
   clearRepairGivenRow,
+  takeOwnershipGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
@@ -564,6 +565,8 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
   const lockState = contextMenuState.row?.original.lockState as string | undefined;
   const canLock = lockState === "OPEN";
   const canUnlock = lockState === "LOCKED";
+  // CueGUI canTakeOwnership: only a NIMBY-locked host can be claimed.
+  const canTakeOwnership = lockState === "NIMBY_LOCKED";
 
   // Hardware state gates the reboot entries. An immediate reboot is
   // pointless while the host is already REBOOTING; scheduling a
@@ -607,12 +610,11 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
       component: <TbLockOpen className="mr-1" size={14} color={canUnlock ? undefined : "gray"} />,
     },
     {
-      // Owner/deed RPCs aren't wired in CueWeb yet; shown disabled to mirror
-      // CueGUI (which greys it out unless the host is NIMBY-locked).
+      // CueGUI (canTakeOwnership) only enables this for a NIMBY-locked host.
       label: "Take Ownership",
-      onClick: () => {},
-      isActive: false,
-      component: <TbStar className="mr-1" size={14} color="gray" />,
+      onClick: takeOwnershipGivenRow,
+      isActive: canTakeOwnership,
+      component: <TbStar className="mr-1" size={14} color={canTakeOwnership ? undefined : "gray"} />,
     },
 
     sep("group-tags"),
