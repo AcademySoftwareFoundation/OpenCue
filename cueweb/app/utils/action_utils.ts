@@ -164,6 +164,119 @@ export async function retryFrames(frames: Frame[]) {
 }
 
 /**************************************/
+// Frame depends / mark-as-waiting / mark-done / eat-and-mark-done / preview
+/**************************************/
+
+// Fetch the depends a frame depends on (CueGUI DependDialog ->
+// getWhatThisDependsOn). [] on failure.
+export async function fetchFrameDepends(frame: Frame): Promise<any[]> {
+  const data = await accessGetApi("/api/frame/action/getdepends", JSON.stringify({ frame }));
+  if (!data) return [];
+  const seq = data?.depends?.depends ?? data?.depends ?? [];
+  return Array.isArray(seq) ? seq : [];
+}
+
+// Drop ALL dependencies on the given frames (CueGUI FrameActions.dropDepends).
+export async function dropFramesDepends(frames: Frame[]): Promise<boolean> {
+  const bodyAr = frames.map((frame) => JSON.stringify({ frame, target: "ANY_TARGET" }));
+  return performAction("/api/frame/action/dropdepends", bodyAr, `Dropped depends on ${frames.length} frame(s)`);
+}
+
+// Mark frames as waiting, ignoring their depends once (CueGUI markAsWaiting).
+export async function markFramesAsWaiting(frames: Frame[]): Promise<boolean> {
+  const bodyAr = frames.map((frame) => JSON.stringify({ frame }));
+  return performAction("/api/frame/action/markaswaiting", bodyAr, `Marked ${frames.length} frame(s) as waiting`);
+}
+
+// Mark frames done via the parent job + a frame-name search criteria (CueGUI
+// FrameActions.markdone -> job.markdoneFrames(name=...)).
+export async function markdoneFrames(job: Job, frames: Frame[]): Promise<boolean> {
+  const body = JSON.stringify({ job, req: { frames: frames.map((f) => f.name) } });
+  return performAction("/api/job/action/markdoneframes", [body], `Marked ${frames.length} frame(s) done`);
+}
+
+// CueGUI "Eat and Mark done" for frames: eat the frames, then mark them done.
+export async function eatAndMarkdoneFrames(job: Job, frames: Frame[]): Promise<boolean> {
+  const ate = await performAction(
+    "/api/frame/action/eat",
+    frames.map((frame) => JSON.stringify({ frame })),
+    `Ate ${frames.length} frame(s)`,
+  );
+  if (!ate) return false;
+  return markdoneFrames(job, frames);
+}
+
+// Fetch a layer's registered output paths (web equivalent of CueGUI's Preview).
+export async function fetchLayerOutputPaths(layer: Layer): Promise<string[]> {
+  const data = await accessGetApi("/api/layer/action/getoutputpaths", JSON.stringify({ layer }));
+  if (!data) return [];
+  const paths = data?.outputPaths ?? data?.output_paths ?? [];
+  return Array.isArray(paths) ? paths : [];
+}
+
+/**************************************/
+// Layer mark done / eat-and-mark-done / reorder / stagger / properties
+/**************************************/
+
+// Mark all frames in the layers done (CueGUI LayerActions.markdone).
+export async function markdoneLayers(layers: Layer[]): Promise<boolean> {
+  const endpoint = "/api/layer/action/markdone";
+  const bodyAr = layers.map((layer) => JSON.stringify({ layer }));
+  return performAction(endpoint, bodyAr, `Marked ${layers.length} layer(s) done`);
+}
+
+// CueGUI's frame "Eat and Mark done": eat every frame, then mark done. Run as
+// two sequential batches so a failed eat doesn't silently mark frames done.
+export async function eatAndMarkdoneLayers(layers: Layer[]): Promise<boolean> {
+  const ate = await performAction(
+    "/api/layer/action/eatframes",
+    layers.map((layer) => JSON.stringify({ layer })),
+    `Ate ${layers.length} layer(s)`,
+  );
+  if (!ate) return false;
+  return performAction(
+    "/api/layer/action/markdone",
+    layers.map((layer) => JSON.stringify({ layer })),
+    `Marked ${layers.length} layer(s) done`,
+  );
+}
+
+// Reorder / stagger a single layer's frames (CueGUI reorder/stagger dialogs).
+export async function reorderLayerFrames(layer: Layer, range: string, order: "FIRST" | "LAST" | "REVERSE"): Promise<boolean> {
+  return performAction("/api/layer/action/reorderframes", [JSON.stringify({ layer, range, order })], `Reordered frames on ${layer.name}`);
+}
+export async function staggerLayerFrames(layer: Layer, range: string, stagger: number): Promise<boolean> {
+  return performAction("/api/layer/action/staggerframes", [JSON.stringify({ layer, range, stagger })], `Staggered frames on ${layer.name}`);
+}
+
+// Fetch the depends this layer depends on (CueGUI DependDialog ->
+// getWhatThisDependsOn). Returns the raw depend.Depend list, tolerating both
+// the `depends.depends` and `depends` gateway shapes; [] on failure.
+export async function fetchLayerDepends(layer: Layer): Promise<any[]> {
+  const data = await accessGetApi("/api/layer/action/getdepends", JSON.stringify({ layer }));
+  if (!data) return [];
+  const seq = data?.depends?.depends ?? data?.depends ?? [];
+  return Array.isArray(seq) ? seq : [];
+}
+
+// Layer property setters (CueGUI LayerPropertiesDialog). Memory args are KB.
+export async function setLayerMinCores(layer: Layer, cores: number): Promise<boolean> {
+  return performAction("/api/layer/action/setmincores", [JSON.stringify({ layer, cores })], `Set min cores ${cores} on ${layer.name}`);
+}
+export async function setLayerMinMemory(layer: Layer, memoryKb: number): Promise<boolean> {
+  return performAction("/api/layer/action/setminmemory", [JSON.stringify({ layer, memory: memoryKb })], `Set min memory on ${layer.name}`);
+}
+export async function setLayerMinGpuMemory(layer: Layer, gpuMemoryKb: number): Promise<boolean> {
+  return performAction("/api/layer/action/setmingpumemory", [JSON.stringify({ layer, gpu_memory: gpuMemoryKb })], `Set min GPU memory on ${layer.name}`);
+}
+export async function setLayerThreadable(layer: Layer, threadable: boolean): Promise<boolean> {
+  return performAction("/api/layer/action/setthreadable", [JSON.stringify({ layer, threadable })], `Set threadable=${threadable} on ${layer.name}`);
+}
+export async function setLayerTags(layer: Layer, tags: string[]): Promise<boolean> {
+  return performAction("/api/layer/action/settags", [JSON.stringify({ layer, tags })], `Set tags on ${layer.name}`);
+}
+
+/**************************************/
 // Unbook
 /**************************************/
 
@@ -337,14 +450,104 @@ export async function setJobCores(job: Job, minCores: number, maxCores: number):
   }
 }
 
-export async function setJobMaxRetries(job: Job, maxRetries: number) {
+export async function setJobMaxRetries(job: Job, maxRetries: number): Promise<boolean> {
   const endpoint = "/api/job/action/setmaxretries";
-  await performAction(endpoint, [JSON.stringify({ job, max_retries: maxRetries })], `Set max retries ${maxRetries} on ${job.name}`);
+  return performAction(endpoint, [JSON.stringify({ job, max_retries: maxRetries })], `Set max retries ${maxRetries} on ${job.name}`);
 }
 
 export async function setJobAutoEat(job: Job, value: boolean) {
   const endpoint = "/api/job/action/setautoeat";
   await performAction(endpoint, [JSON.stringify({ job, value })], `Auto-Eat ${value ? "ON" : "OFF"} on ${job.name}`);
+}
+
+// Single-scalar job setters (CueGUI Monitor Cue: separate Min/Max Cores and
+// Min/Max GPUs items). cores routes take a float `val`; gpu routes take int.
+export async function setJobMinCores(job: Job, val: number): Promise<boolean> {
+  return performAction("/api/job/action/setmincores", [JSON.stringify({ job, val })], `Set min cores ${val} on ${job.name}`);
+}
+export async function setJobMaxCores(job: Job, val: number): Promise<boolean> {
+  return performAction("/api/job/action/setmaxcores", [JSON.stringify({ job, val })], `Set max cores ${val} on ${job.name}`);
+}
+export async function setJobMinGpus(job: Job, val: number): Promise<boolean> {
+  return performAction("/api/job/action/setmingpus", [JSON.stringify({ job, val })], `Set min GPUs ${val} on ${job.name}`);
+}
+export async function setJobMaxGpus(job: Job, val: number): Promise<boolean> {
+  return performAction("/api/job/action/setmaxgpus", [JSON.stringify({ job, val })], `Set max GPUs ${val} on ${job.name}`);
+}
+
+// Reorder / stagger a job's frames (CueGUI reorder/stagger dialogs).
+export async function reorderJobFrames(job: Job, range: string, order: "FIRST" | "LAST" | "REVERSE"): Promise<boolean> {
+  return performAction("/api/job/action/reorderframes", [JSON.stringify({ job, range, order })], `Reordered frames on ${job.name}`);
+}
+export async function staggerJobFrames(job: Job, range: string, stagger: number): Promise<boolean> {
+  return performAction("/api/job/action/staggerframes", [JSON.stringify({ job, range, stagger })], `Staggered frames on ${job.name}`);
+}
+
+// Add a render partition (CueGUI "Use Local Cores"). Memory args are KB.
+// Done with a direct fetch (not performAction) so the server's specific error
+// message - e.g. the "host must be NIMBY-locked" precondition - is shown to the
+// user, rather than performAction's generic "Error performing action" toast.
+export async function addRenderPartition(
+  job: Job,
+  opts: { host: string; username: string; threads: number; maxCores: number; maxMemory: number; maxGpus: number; maxGpuMemory: number },
+): Promise<boolean> {
+  const base = process.env.NEXT_PUBLIC_URL ?? "";
+  const body = JSON.stringify({
+    job,
+    host: opts.host,
+    username: opts.username,
+    threads: opts.threads,
+    max_cores: opts.maxCores,
+    max_memory: opts.maxMemory,
+    max_gpus: opts.maxGpus,
+    max_gpu_memory: opts.maxGpuMemory,
+  });
+  try {
+    const resp = await fetch(`${base}/api/job/action/addrenderpart`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const res = await resp.json();
+    if (res?.error) {
+      toastWarning(res.error);
+      return false;
+    }
+    toastSuccess(`Added local cores to ${job.name}`);
+    return true;
+  } catch (error) {
+    handleError(error, "Use Local Cores failed");
+    return false;
+  }
+}
+
+// --- User color (localStorage, shared with the Jobs table's color column) --
+const USER_COLORS_KEY = "cueweb.userColors";
+function readUserColors(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(USER_COLORS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+function writeUserColors(map: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(USER_COLORS_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent("cueweb:user-colors"));
+  } catch {
+    /* quota / private mode */
+  }
+}
+export function setJobUserColor(jobId: string, color: string) {
+  writeUserColors({ ...readUserColors(), [jobId]: color });
+}
+export function clearJobUserColor(jobId: string) {
+  const map = { ...readUserColors() };
+  delete map[jobId];
+  writeUserColors(map);
 }
 
 export async function dropJobDepends(job: Job, target: "INTERNAL" | "EXTERNAL") {
@@ -697,6 +900,42 @@ export function retryLayerDeadFramesGivenRow(row: Row<any>) {
     retryLayersDeadFrames(layers);
 }
 
+// The remaining layer-menu items open a dialog (or trigger a page-level view
+// change) via a CustomEvent that the per-page LayerExtraDialogs / job detail
+// page listens for. Same decoupling pattern as the job-menu dialogs.
+function dispatchLayerEvent(name: string, layer: Layer, extra?: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(name, { detail: { layer, ...extra } }));
+}
+
+export function viewLayerGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:view-layer", row.original as Layer);
+}
+export function viewLayerDependenciesGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-dependencies", row.original as Layer);
+}
+export function layerDependencyWizardGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-depend-wizard", row.original as Layer);
+}
+export function markdoneLayerGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-confirm", row.original as Layer, { action: "markdone" });
+}
+export function reorderLayerFramesGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-reorder", row.original as Layer);
+}
+export function staggerLayerFramesGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-stagger", row.original as Layer);
+}
+export function layerPropertiesGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-properties", row.original as Layer);
+}
+export function eatAndMarkdoneLayerGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-confirm", row.original as Layer, { action: "eatandmarkdone" });
+}
+export function viewLayerProcessesGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-processes", row.original as Layer);
+}
+
 /********************************/
 /* Frame context menu functions */
 /********************************/
@@ -715,6 +954,52 @@ export function killFrameGivenRow(row: Row<any>, username: string) {
 export function eatFrameGivenRow(row: Row<any>) {
     const frames = [row.original];
     eatFrames(frames);
+}
+
+// The remaining frame-menu items open a dialog (or trigger a page-level view
+// change) via a CustomEvent that the per-page FrameExtraDialogs / job detail
+// page listens for. Same decoupling pattern as the layer-menu dialogs.
+function dispatchFrameEvent(name: string, frame: Frame, extra?: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(name, { detail: { frame, ...extra } }));
+}
+
+export function viewFrameDependenciesGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-dependencies", row.original as Frame);
+}
+export function frameDependencyWizardGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-depend-wizard", row.original as Frame);
+}
+export function dropFrameDependsGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-confirm", row.original as Frame, { action: "dropdepends" });
+}
+export function markFrameAsWaitingGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-confirm", row.original as Frame, { action: "markaswaiting" });
+}
+export function markdoneFrameGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-confirm", row.original as Frame, { action: "markdone" });
+}
+export function eatAndMarkdoneFrameGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-confirm", row.original as Frame, { action: "eatandmarkdone" });
+}
+export function reorderFrameGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-reorder", row.original as Frame);
+}
+export function previewAllGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-preview", row.original as Frame);
+}
+export function viewFrameProcessesGivenRow(row: Row<any>) {
+  dispatchFrameEvent("cueweb:open-frame-processes", row.original as Frame);
+}
+// "Filter Selected Layers": narrow the frame view to the frame's layer. Reuses
+// the layer filter the layer menu's "View Layer" uses (cueweb:view-layer).
+export function filterSelectedLayersGivenRow(row: Row<any>) {
+  const frame = row.original as Frame;
+  if (typeof window === "undefined" || !frame?.layerName) return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:view-layer", { detail: { layer: { id: "", name: frame.layerName } } }),
+  );
+  toastSuccess(`Filtered frames to layer "${frame.layerName}"`);
 }
 
 /********************************/
@@ -870,6 +1155,48 @@ export function setCoresGivenRow(row: Row<any>) {
   );
 }
 
+// Single-scalar dialogs (Set Minimum/Maximum Cores, Set Minimum/Maximum GPUs).
+// All open one generic SetJobScalarDialog, parameterized by `field`.
+function openScalar(row: Row<any>, field: "minCores" | "maxCores" | "minGpus" | "maxGpus") {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-set-job-scalar", { detail: { job: row.original as Job, field } }));
+}
+export function setMinCoresGivenRow(row: Row<any>) { openScalar(row, "minCores"); }
+export function setMaxCoresGivenRow(row: Row<any>) { openScalar(row, "maxCores"); }
+export function setMinGpusGivenRow(row: Row<any>) { openScalar(row, "minGpus"); }
+export function setMaxGpusGivenRow(row: Row<any>) { openScalar(row, "maxGpus"); }
+
+export function reorderFramesGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-reorder-frames", { detail: { job: row.original as Job } }));
+}
+export function staggerFramesGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-stagger-frames", { detail: { job: row.original as Job } }));
+}
+export function useLocalCoresGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-use-local-cores", { detail: { job: row.original as Job } }));
+}
+export function setUserColorGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-user-color", { detail: { job: row.original as Job } }));
+}
+export function clearUserColorGivenRow(row: Row<any>) {
+  const job = row.original as Job;
+  clearJobUserColor(job.id);
+  toastSuccess(`Cleared user color on ${job.name}`);
+}
+
+// "Show Progress Bar" (CueGUI parity) opens a dialog showing the configured
+// CueProgBar command for this job (NEXT_PUBLIC_CUEPROGBAR_COMMAND), with Copy
+// and Launch (the launch hands off to the NEXT_PUBLIC_CUEPROGBAR_URL scheme,
+// since a browser can't spawn a local binary directly).
+export function showProgressBarGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cueweb:open-cueprogbar", { detail: { job: row.original as Job } }));
+}
+
 // Right-click "Email Artist..." handler. Dispatches a CustomEvent that
 // the EmailArtistDialog (mounted at the page level) listens for; the
 // dialog opens pre-filled with From/To/CC/Subject/Body derived from the
@@ -945,16 +1272,10 @@ export async function addJobSubscriber(job: Job, subscriber: string) {
 }
 
 export function setMaxRetriesGivenRow(row: Row<any>) {
-  const job = row.original as Job;
-  const raw = window.prompt(`Set max retries for ${job.name}`, "3");
-  if (raw === null) return;
-  // Strict non-negative integer match; same parseInt caveats as above.
-  const trimmed = raw.trim();
-  if (!/^\d+$/.test(trimmed)) {
-    toastWarning("Max retries must be a non-negative integer");
-    return;
-  }
-  setJobMaxRetries(job, Number.parseInt(trimmed, 10));
+  if (typeof window === "undefined") return;
+  // Use the themed scalar dialog (same as Set Min/Max Cores & GPUs) instead of
+  // a native window.prompt.
+  window.dispatchEvent(new CustomEvent("cueweb:open-set-job-scalar", { detail: { job: row.original as Job, field: "maxRetries" } }));
 }
 
 // Pure-client clipboard helpers; surface a toast on success/failure so the

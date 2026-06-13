@@ -17,14 +17,15 @@
  */
 
 
-import { getFrame } from "@/app/utils/get_utils";
-import { handleError } from "@/app/utils/notify_utils";
+import { getFrame, getJobsForRegex } from "@/app/utils/get_utils";
+import type { Job } from "@/app/jobs/columns";
+import { handleError, toastSuccess } from "@/app/utils/notify_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import Editor, { Monaco } from "@monaco-editor/react";
-import { FileX } from "lucide-react";
+import { ChevronDown, FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -33,6 +34,9 @@ import { useParams, useSearchParams } from "next/navigation";
 import * as path from "path";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
+import { FrameExtraDialogs } from "../../../components/ui/frame-extra-dialogs";
+import { FramePreviewPanel } from "../../../components/ui/frame-preview-panel";
+import { FrameLogSearch } from "../../../components/ui/frame-log-search";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
 
@@ -56,11 +60,18 @@ export default function FramePage() {
   const searchParams = useSearchParams();
   const routeParams = useParams<{ "frame-name": string }>();
   const [frameObject, setFrame] = React.useState<Frame | null>(null);
+  // Parent job, resolved from the log path's job-name prefix so the frame
+  // preview panel and the job-scoped frame actions work on this page too.
+  const [job, setJob] = React.useState<Job | null>(null);
   const [totalNumLogLines, setTotalNumLogLines] = useState(-1);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const frameId = searchParams.get("frameId") || "";
   const logDirPath = searchParams.get("frameLogDir") || "";
   const username = searchParams.get("username") || "";
+  // Live-tail mode (opened via the frame menu's "Tail Log"): load only the
+  // most recent lines, follow by default, and poll faster.
+  const tailMode = searchParams.get("mode") === "tail";
+  const TAIL_INITIAL_LINES = 200;
 
   const [curLogVersion, setCurLogVersion] = useState(path.basename(logDirPath));
   const [curLogPath, setCurLogPath] = useState(logDirPath)
@@ -71,6 +82,33 @@ export default function FramePage() {
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [scrollTrigger, setScrollTrigger] = useState(false);
   const [editorMounted, setEditorMounted] = useState(false);
+  // Bumped on every editor content change (initial fill, infinite-scroll
+  // loads, version switch) so the log search can re-run as lines stream in.
+  const [logContentVersion, setLogContentVersion] = useState(0);
+  // "Follow" tail mode: auto-scroll to the bottom as new lines arrive. Pauses
+  // when the user scrolls up; the Jump-to-bottom button re-enables it.
+  const [followMode, setFollowMode] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const followRef = useRef(false);
+  // Timestamp of the last programmatic scroll / content replace, so the scroll
+  // listener can tell a setValue-induced scroll reset from a real user scroll.
+  const programmaticScrollRef = useRef(0);
+  useEffect(() => { followRef.current = followMode; }, [followMode]);
+  // Monaco namespace (for Range/MouseTargetType), the absolute line-number
+  // offset, and the per-line copy-glyph decoration ids.
+  const monacoRef = useRef<Monaco | null>(null);
+  const logDisplayStartRef = useRef(1);
+  const copyGlyphDecorationsRef = useRef<string[]>([]);
+
+  // Copy a single log line to the clipboard with a confirmation toast.
+  const copyLineText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toastSuccess("Line copied");
+    } catch (error) {
+      handleError(error, "Could not copy line");
+    }
+  };
   // Status of the log file currently selected in the version dropdown.
   // `loading` (initial), `ready` (we have lines), `empty` (the log file
   // exists but is empty), or `missing` (the log file could not be found).
@@ -80,6 +118,8 @@ export default function FramePage() {
   // To track log line display
   const [logDisplayStart, setLogDisplayStart] = useState(-1);
   const [logDisplayEnd, setLogDisplayEnd] = useState(-1);
+  // Keep the absolute line-number offset in a ref for Monaco's lineNumbers fn.
+  useEffect(() => { logDisplayStartRef.current = logDisplayStart > 0 ? logDisplayStart : 1; }, [logDisplayStart]);
   const defaultMessage =
     "Please wait while the logs are loading. \
     Important: Loading files with more than 1 million lines may take additional time.";
@@ -114,7 +154,9 @@ export default function FramePage() {
 
       setLogStatus("ready");
       setTotalNumLogLines(totalLines);
-      let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
+      // Tail mode loads the last ~200 lines; normal view loads one chunk.
+      const initialLines = tailMode ? TAIL_INITIAL_LINES : LOG_CHUNK_SIZE;
+      let startline = totalLines < initialLines ? 1 : totalLines - initialLines + 1;
       let endline = totalLines;
       let newLogs = await fetchPaginatedLogs(startline, endline);
       setNumberOfLinesLoaded(endline - startline + 1);
@@ -147,12 +189,55 @@ export default function FramePage() {
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editor.updateOptions({
       theme: "vs-dark",
-      lineNumbers: "off",
+      // Absolute file line numbers: Monaco line N maps to file line
+      // (logDisplayStart + N - 1) since only a window of the log is loaded.
+      lineNumbers: (n: number) => String(logDisplayStartRef.current + n - 1),
+      glyphMargin: true,
       readOnly: true,
+    });
+    monacoRef.current = monaco;
+
+    // Right-click / keyboard "Copy Line" (copies the line under the cursor).
+    editor.addAction({
+      id: "cueweb-copy-frame-log-line",
+      label: "Copy Line",
+      contextMenuGroupId: "9_cutcopypaste",
+      contextMenuOrder: 1.5,
+      run: (ed) => {
+        const pos = ed.getPosition();
+        const model = ed.getModel();
+        if (pos && model) copyLineText(model.getLineContent(pos.lineNumber));
+      },
+    });
+
+    // Click the hover copy glyph (or a line number) to copy that line.
+    editor.onMouseDown((e) => {
+      const t = e.target;
+      if (
+        (t.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+          t.type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS) &&
+        t.position
+      ) {
+        const model = editor.getModel();
+        if (model) copyLineText(model.getLineContent(t.position.lineNumber));
+      }
     });
 
     editorRef.current = editor;
-    editorRef.current.onDidScrollChange(() => setScrollTrigger((prev) => !prev));
+    editorRef.current.onDidScrollChange(() => {
+      const ed = editorRef.current;
+      if (ed) {
+        // Distance (px) from the very bottom of the scrollable log.
+        const dist = ed.getScrollHeight() - ed.getScrollTop() - ed.getLayoutInfo().height;
+        const near = dist <= 50;
+        setAtBottom(near);
+        // Pause follow only on a genuine user scroll-up - not the scroll reset
+        // setValue causes, nor our own auto-scroll-to-bottom.
+        const programmatic = Date.now() - programmaticScrollRef.current < 300;
+        if (!near && !programmatic && followRef.current) setFollowMode(false);
+      }
+      setScrollTrigger((prev) => !prev);
+    });
     setEditorMounted(true);
   };
 
@@ -163,9 +248,21 @@ export default function FramePage() {
     }
   };
 
+  // Hard scroll to the very bottom (used by follow mode + Jump to bottom).
+  const scrollToVeryBottom = () => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    programmaticScrollRef.current = Date.now();
+    ed.setScrollTop(ed.getScrollHeight());
+  };
+
   function updateTextInEditor(text: string) {
     if (editorRef.current !== null) {
+      // setValue resets the scroll position; mark it programmatic so the
+      // scroll listener doesn't mistake it for a user scroll-up.
+      programmaticScrollRef.current = Date.now();
       editorRef.current?.setValue(text);
+      setLogContentVersion((v) => v + 1);
     }
   }
 
@@ -282,6 +379,56 @@ export default function FramePage() {
     return totLines;
   };
 
+  // Follow tail mode: while on, poll for newer lines, append them, and stick to
+  // the bottom. Re-subscribes when the relevant log state changes so the
+  // appended-from closure stays fresh.
+  useEffect(() => {
+    if (!followMode || logStatus !== "ready") return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || !editorRef.current) return;
+      await loadNewerLogMessages();
+      if (!cancelled) scrollToVeryBottom();
+    };
+    tick();
+    // Tail mode polls every 1s; otherwise a gentler 1.5s.
+    const id = setInterval(tick, tailMode ? 1000 : 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followMode, logStatus, logDisplayEnd, totalNumLogLines, numberOfLinesLoaded, curLogPath, tailMode]);
+
+  // Start following automatically in tail mode or for a running frame
+  // (still pausable by scrolling up).
+  useEffect(() => {
+    if (tailMode || frameObject?.state === "RUNNING") {
+      setFollowMode(true);
+      setAtBottom(true);
+    }
+  }, [tailMode, frameObject?.state]);
+
+  // Maintain a hover copy-glyph on every line; rebuild when content changes.
+  useEffect(() => {
+    const ed = editorRef.current;
+    const monaco = monacoRef.current;
+    const model = ed?.getModel();
+    if (!ed || !monaco || !model) return;
+    const count = model.getLineCount();
+    const decos = [];
+    for (let i = 1; i <= count; i++) {
+      decos.push({
+        range: new monaco.Range(i, 1, i, 1),
+        options: {
+          glyphMarginClassName: "cueweb-copy-line-glyph",
+          glyphMarginHoverMessage: { value: "Copy line" },
+        },
+      });
+    }
+    copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+  }, [logContentVersion, editorMounted]);
+
   // Handles updates when a different log version is selected
   const handleVersionChange = (e: SelectChangeEvent<string>) => {
     setCurLogVersion(e.target.value);
@@ -301,6 +448,29 @@ export default function FramePage() {
       }
     }
     fetchLogVersions();
+  }, [logDirPath]);
+
+  // Resolve the parent job from the log path's job-name prefix so the frame
+  // preview panel (and job-scoped frame actions) have job context here.
+  useEffect(() => {
+    const name = jobNameFromLogPath(logDirPath);
+    if (!name) {
+      setJob(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const matches = await getJobsForRegex(`^${escaped}$`, true);
+        if (!cancelled) setJob(matches.length ? matches[0] : null);
+      } catch {
+        if (!cancelled) setJob(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [logDirPath]);
 
   const frameNameFromRoute = decodeURIComponent(routeParams?.["frame-name"] ?? "");
@@ -332,6 +502,11 @@ export default function FramePage() {
         <>
           <span>{frameObject.name}</span>
           <SimpleDataTable data={[frameObject]} columns={frameColumns} showPagination={false} isFramesLogTable={true} username={username}></SimpleDataTable>
+          {/* Frame right-click dialogs + preview panel. The parent job is
+              resolved from the log path's job-name prefix, so job-scoped
+              actions and the frame preview work here too. */}
+          <FrameExtraDialogs job={job ?? undefined} />
+          <FramePreviewPanel job={job ?? undefined} />
         </>
       ) : (
         <div />
@@ -366,8 +541,8 @@ export default function FramePage() {
       </div>
 
       {/* Logs for Frame */}
-      <div className="my-2 mt-1 pt-1 overflow-hidden w-full rounded-xl border border-gray-400 bg-black">
-        <div className="space-x-3">
+      <div className="relative my-2 mt-1 pt-1 overflow-hidden w-full rounded-xl border border-gray-400 bg-black">
+        <div className="flex items-center space-x-3">
           <Button
             size="xs"
             className="ml-4 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800"
@@ -375,10 +550,33 @@ export default function FramePage() {
           >
             Scroll from Top
           </Button>
+          <Button
+            size="xs"
+            aria-pressed={followMode}
+            title="Auto-scroll to the bottom as new lines arrive"
+            className={`text-xs font-medium ${
+              followMode
+                ? "bg-green-700 text-white hover:bg-green-800"
+                : "bg-gray-700 text-white hover:bg-gray-600"
+            }`}
+            onClick={() => {
+              const next = !followMode;
+              setFollowMode(next);
+              if (next) {
+                setAtBottom(true);
+                scrollToVeryBottom();
+              }
+            }}
+          >
+            {followMode ? "Following" : "Follow"}
+          </Button>
           <span className="text-white ml-4">
             {totalNumLogLines && totalNumLogLines != -1 ? totalNumLogLines.toLocaleString() + " lines of logs" : ""}
           </span>
         </div>
+        {logStatus !== "missing" && logStatus !== "empty" ? (
+          <FrameLogSearch editorRef={editorRef} contentVersion={logContentVersion} />
+        ) : null}
         <div className="mt-1">
           {logStatus === "missing" || logStatus === "empty" ? (
             <div
@@ -435,6 +633,23 @@ export default function FramePage() {
             />
           )}
         </div>
+
+        {/* Floating jump-to-bottom: shown when scrolled up off the tail.
+            Clicking it re-enables follow. */}
+        {logStatus === "ready" && !atBottom ? (
+          <button
+            type="button"
+            onClick={() => {
+              scrollToVeryBottom();
+              setAtBottom(true);
+              setFollowMode(true);
+            }}
+            className="absolute bottom-4 right-6 z-10 inline-flex items-center gap-1 rounded-full border border-gray-500 bg-gray-800/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-gray-700"
+          >
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            Jump to bottom
+          </button>
+        ) : null}
       </div>
     </div>
   );

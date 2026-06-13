@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 // LayerInterface.CreateDependencyOnLayer. Used by the Layer On Layer
 // dependency wizard flow.
 export async function POST(request: NextRequest) {
-  const endpoint = "/layer.LayerInterface/CreateDependencyOnLayer";
+  const endpoint = "/job.LayerInterface/CreateDependencyOnLayer";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

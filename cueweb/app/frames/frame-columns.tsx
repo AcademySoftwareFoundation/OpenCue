@@ -19,7 +19,7 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Image as ImageIcon } from "lucide-react";
 import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "@/app/utils/layers_frames_utils";
 import { RowActionsCell } from "@/components/ui/row-actions-cell";
 
@@ -124,6 +124,32 @@ export const frameColumns: ColumnDef<Frame>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
+  },
+  {
+    // Frame preview thumbnail: opens the rendered image in a right-side
+    // slide-over (FramePreviewPanel). The panel resolves the output path from
+    // the frame's layer, so the per-row trigger only needs the frame.
+    id: "preview",
+    header: () => <span className="sr-only">Preview</span>,
+    cell: ({ row }) => (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        aria-label="Preview frame"
+        title="Preview rendered frame"
+        onClick={(e) => {
+          e.stopPropagation();
+          window.dispatchEvent(
+            new CustomEvent("cueweb:open-frame-thumbnail", { detail: { frame: row.original } }),
+          );
+        }}
+      >
+        <ImageIcon className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    ),
+    enableSorting: false,
+    enableHiding: true,
   },
   {
     accessorKey: "dispatchOrder",
