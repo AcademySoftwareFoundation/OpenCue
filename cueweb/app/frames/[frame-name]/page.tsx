@@ -397,10 +397,18 @@ export default function FramePage() {
   useEffect(() => {
     if (!followMode || logStatus !== "ready") return;
     let cancelled = false;
+    // Serialize ticks: a slow fetch must not overlap with the next interval
+    // and append the same chunk twice from stale logDisplayEnd state.
+    let inFlight = false;
     const tick = async () => {
-      if (cancelled || !editorRef.current) return;
-      await loadNewerLogMessages();
-      if (!cancelled) scrollToVeryBottom();
+      if (cancelled || !editorRef.current || inFlight) return;
+      inFlight = true;
+      try {
+        await loadNewerLogMessages();
+        if (!cancelled) scrollToVeryBottom();
+      } finally {
+        inFlight = false;
+      }
     };
     tick();
     // Tail mode polls every 1s; otherwise a gentler 1.5s.

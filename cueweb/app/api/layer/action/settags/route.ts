@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  if (!jsonBody?.layer || !Array.isArray(jsonBody.tags)) {
+  if (!jsonBody?.layer || !Array.isArray(jsonBody.tags) || !jsonBody.tags.every((t: unknown) => typeof t === 'string')) {
     return NextResponse.json({ error: 'Invalid request body (need {layer, tags:string[]})' }, { status: 400 });
   }
   const response = await handleRoute(request.method, endpoint, JSON.stringify(jsonBody), true);

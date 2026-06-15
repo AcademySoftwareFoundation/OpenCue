@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     jsonBody = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
   if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.layer) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
@@ -41,6 +41,6 @@ export async function POST(request: NextRequest) {
   const response = await handleRoute(method, endpoint, body, true);
   const responseData = await response.json();
 
-  if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status });
-  return NextResponse.json({ data: responseData.data, status: responseData.status });
+  if (!response.ok) return NextResponse.json({ error: responseData.error }, { status: response.status });
+  return NextResponse.json({ data: responseData.data }, { status: response.status });
 }

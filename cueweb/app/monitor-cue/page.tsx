@@ -215,7 +215,8 @@ export default function MonitorCuePage() {
 
   const persistShows = React.useCallback((names: string[]) => {
     setSelectedShows(names);
-    window.localStorage.setItem(SELECTED_SHOWS_KEY, JSON.stringify(names));
+    // Persistence is best-effort: a full quota must not break selection.
+    try { window.localStorage.setItem(SELECTED_SHOWS_KEY, JSON.stringify(names)); } catch { /* ignore */ }
   }, []);
 
   // --- Column order / visibility / sort (parity with Monitor Jobs) ---------
