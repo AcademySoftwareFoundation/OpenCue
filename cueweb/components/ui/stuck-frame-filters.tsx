@@ -84,7 +84,12 @@ function NumberField({
           min={1}
           value={value}
           disabled={disabled}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => {
+            // Ignore transient/invalid input (empty field, partial entry) so a
+            // NaN can't poison the filter comparisons or persisted state.
+            const n = e.currentTarget.valueAsNumber;
+            if (Number.isFinite(n)) onChange(n);
+          }}
           className={NUM}
           aria-label={label}
         />
@@ -108,8 +113,10 @@ export function StuckFrameFilters({
   }
   function addFilter() {
     // Default the new filter to the first available service not already used.
-    const used = new Set(filters.map((f) => f.service));
-    const next = availableServices.find((s) => !used.has(s)) ?? "";
+    // Bail out if every service is taken, rather than adding an empty row.
+    const used = new Set(filters.map((f) => f.service).filter(Boolean));
+    const next = availableServices.find((s) => !used.has(s));
+    if (!next) return;
     onChange([...filters, makeServiceFilter(next)]);
   }
   function removeFilter(index: number) {
@@ -117,6 +124,8 @@ export function StuckFrameFilters({
   }
 
   const hasServiceFilters = filters.some((f, i) => i > 0);
+  const usedServices = new Set(filters.map((f) => f.service).filter(Boolean));
+  const canAddFilter = availableServices.some((s) => !usedServices.has(s));
 
   return (
     <div className="space-y-2">
@@ -176,7 +185,7 @@ export function StuckFrameFilters({
             </label>
 
             {isCatchAll ? (
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={addFilter} title="Add a service-specific filter">
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={addFilter} disabled={!canAddFilter} title={canAddFilter ? "Add a service-specific filter" : "All services already have a filter"}>
                 <Plus className="h-4 w-4" />
               </Button>
             ) : (

@@ -102,7 +102,7 @@ function isStuck(f: StuckFrame, filter: StuckFilter | undefined, now: number): b
 
 type MenuState =
   | { kind: "frame"; x: number; y: number; frame: StuckFrame }
-  | { kind: "job"; x: number; y: number; jobName: string };
+  | { kind: "job"; x: number; y: number; jobId: string; jobName: string };
 
 export default function StuckFramesPage() {
   const router = useRouter();
@@ -200,24 +200,26 @@ export default function StuckFramesPage() {
     return Array.from(set).sort();
   }, [raw]);
 
-  // Apply detection + client-side removals, group by job.
+  // Apply detection + client-side removals, group by job. Identity is jobId,
+  // not jobName, so two jobs sharing a name aren't merged or acted on together.
   const groups = React.useMemo(() => {
     if (!raw) return null;
     const stuck = raw.filter(
       (f) =>
         !hiddenFrames.has(f.id) &&
-        !hiddenJobs.has(f.jobName) &&
+        !hiddenJobs.has(f.jobId) &&
         isStuck(f, pickFilter(f, filters), now),
     );
-    const byJob = new Map<string, StuckFrame[]>();
+    const byJob = new Map<string, { jobName: string; frames: StuckFrame[] }>();
     for (const f of stuck) {
-      const arr = byJob.get(f.jobName) ?? [];
-      arr.push(f);
-      byJob.set(f.jobName, arr);
+      const entry = byJob.get(f.jobId) ?? { jobName: f.jobName, frames: [] };
+      entry.frames.push(f);
+      byJob.set(f.jobId, entry);
     }
     return Array.from(byJob.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([jobName, frames]) => ({
+      .sort((a, b) => a[1].jobName.localeCompare(b[1].jobName))
+      .map(([jobId, { jobName, frames }]) => ({
+        jobId,
         jobName,
         frames: frames.sort((a, b) => metricsOf(b, now).runtime - metricsOf(a, now).runtime),
       }));
@@ -314,8 +316,8 @@ export default function StuckFramesPage() {
   function hideFrame(f: StuckFrame) {
     setHiddenFrames((prev) => new Set(prev).add(f.id));
   }
-  function hideJob(jobName: string) {
-    setHiddenJobs((prev) => new Set(prev).add(jobName));
+  function hideJob(jobId: string) {
+    setHiddenJobs((prev) => new Set(prev).add(jobId));
   }
   function addJobToExcludes(jobName: string) {
     // Append the job name to the catch-all filter's exclude keywords.
@@ -329,13 +331,17 @@ export default function StuckFramesPage() {
     toastSuccess(`Excluded ${jobName}`);
   }
 
-  async function act(f: StuckFrame, fn: () => Promise<void>) {
+  async function act(f: StuckFrame, fn: () => Promise<boolean>) {
     setBusyId(f.id);
     setMenu(null);
     try {
-      await fn();
-      hideFrame(f);
-      await load();
+      // Only remove the frame from view when the backend action succeeded;
+      // performAction resolves false (without throwing) on failure.
+      const ok = await fn();
+      if (ok) {
+        hideFrame(f);
+        await load();
+      }
     } finally {
       setBusyId(null);
     }
@@ -351,9 +357,9 @@ export default function StuckFramesPage() {
     if (!f.layerId) return;
     setCoreUp({ targets: [{ id: f.layerId, name: f.layerName }], cores: String(Math.max(1, f.layerMinCores || 1)) });
   }
-  function openCoreUpForJob(jobName: string) {
+  function openCoreUpForJob(jobId: string) {
     setMenu(null);
-    const frames = (raw ?? []).filter((f) => f.jobName === jobName && f.layerId);
+    const frames = (raw ?? []).filter((f) => f.jobId === jobId && f.layerId);
     const seen = new Map<string, string>();
     frames.forEach((f) => seen.set(f.layerId, f.layerName));
     if (seen.size === 0) return;
@@ -425,12 +431,12 @@ export default function StuckFramesPage() {
             </thead>
             <tbody>
               {groups.map((g) => (
-                <React.Fragment key={g.jobName}>
+                <React.Fragment key={g.jobId}>
                   <tr
                     className="cursor-context-menu border-b bg-muted/30"
                     onContextMenu={(e) => {
                       e.preventDefault();
-                      setMenu({ kind: "job", x: e.clientX, y: e.clientY, jobName: g.jobName });
+                      setMenu({ kind: "job", x: e.clientX, y: e.clientY, jobId: g.jobId, jobName: g.jobName });
                     }}
                   >
                     <td className="p-2 font-medium" colSpan={1} title={g.jobName}>{g.jobName}</td>
@@ -440,7 +446,7 @@ export default function StuckFramesPage() {
                           title="View comments"
                           onClick={() =>
                             window.open(
-                              `/jobs/${encodeURIComponent(g.jobName)}/comments?jobId=${encodeURIComponent(g.frames[0].jobId)}`,
+                              `/jobs/${encodeURIComponent(g.jobName)}/comments?jobId=${encodeURIComponent(g.jobId)}`,
                               "_blank",
                               "noopener,noreferrer",
                             )
@@ -517,20 +523,20 @@ export default function StuckFramesPage() {
               <div className="my-1 h-px bg-border" />
               <button className={menuItemCls} onClick={() => { hideFrame(menu.frame); setMenu(null); }}>Frame Not Stuck</button>
               <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.frame.jobName); setMenu(null); }}>Add Job to Excludes</button>
-              <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.frame.jobName); hideJob(menu.frame.jobName); setMenu(null); }}>Exclude and Remove Job</button>
+              <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.frame.jobName); hideJob(menu.frame.jobId); setMenu(null); }}>Exclude and Remove Job</button>
               <div className="my-1 h-px bg-border" />
               <button className={menuItemCls} disabled={!menu.frame.layerId} onClick={() => openCoreUpForFrame(menu.frame)}>Core Up</button>
               <button className={menuItemCls} onClick={() => { const h = hostOf(menu.frame.lastResource); if (h) window.open(`/hosts/${encodeURIComponent(h)}`, "_blank", "noopener,noreferrer"); setMenu(null); }}>View Host</button>
             </>
           ) : (
             <>
-              <button className={menuItemCls} onClick={() => { window.open(`/jobs/${encodeURIComponent(menu.jobName)}/comments`, "_blank", "noopener,noreferrer"); setMenu(null); }}>View Comments</button>
+              <button className={menuItemCls} onClick={() => { window.open(`/jobs/${encodeURIComponent(menu.jobName)}/comments?jobId=${encodeURIComponent(menu.jobId)}`, "_blank", "noopener,noreferrer"); setMenu(null); }}>View Comments</button>
               <div className="my-1 h-px bg-border" />
-              <button className={menuItemCls} onClick={() => { hideJob(menu.jobName); setMenu(null); }}>Job Not Stuck</button>
+              <button className={menuItemCls} onClick={() => { hideJob(menu.jobId); setMenu(null); }}>Job Not Stuck</button>
               <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.jobName); setMenu(null); }}>Add Job to Excludes</button>
-              <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.jobName); hideJob(menu.jobName); setMenu(null); }}>Exclude and Remove Job</button>
+              <button className={menuItemCls} onClick={() => { addJobToExcludes(menu.jobName); hideJob(menu.jobId); setMenu(null); }}>Exclude and Remove Job</button>
               <div className="my-1 h-px bg-border" />
-              <button className={menuItemCls} onClick={() => openCoreUpForJob(menu.jobName)}>Core Up</button>
+              <button className={menuItemCls} onClick={() => openCoreUpForJob(menu.jobId)}>Core Up</button>
             </>
           )}
         </div>
