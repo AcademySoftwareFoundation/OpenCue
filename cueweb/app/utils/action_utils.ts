@@ -1175,7 +1175,7 @@ export async function setSubscriptionSize(
 ): Promise<boolean> {
   const result = await accessActionApi(
     "/api/subscription/setsize",
-    JSON.stringify({ subscription, new_size: newSizeCentcores }),
+    [JSON.stringify({ subscription, new_size: newSizeCentcores })],
   );
   return !!result?.success;
 }
@@ -1186,7 +1186,7 @@ export async function setSubscriptionBurst(
 ): Promise<boolean> {
   const result = await accessActionApi(
     "/api/subscription/setburst",
-    JSON.stringify({ subscription, burst: burstCentcores }),
+    [JSON.stringify({ subscription, burst: burstCentcores })],
   );
   return !!result?.success;
 }
@@ -1194,7 +1194,7 @@ export async function setSubscriptionBurst(
 export async function deleteSubscription(subscription: Subscription): Promise<boolean> {
   const result = await accessActionApi(
     "/api/subscription/delete",
-    JSON.stringify({ subscription }),
+    [JSON.stringify({ subscription })],
   );
   return !!result?.success;
 }

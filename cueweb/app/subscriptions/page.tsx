@@ -106,7 +106,7 @@ export default function SubscriptionsPage() {
     setSubs(null);
     loadSubs(selectedShow, isCancelled);
     const interval = setInterval(() => loadSubs(selectedShow, isCancelled), REFRESH_MS);
-    const handler = () => loadSubs(selectedShow);
+    const handler = () => loadSubs(selectedShow, isCancelled);
     window.addEventListener(SUBSCRIPTIONS_CHANGED_EVENT, handler);
     window.addEventListener(SHOWS_CHANGED_EVENT, handler);
     return () => {

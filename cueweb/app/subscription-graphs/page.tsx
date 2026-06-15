@@ -129,16 +129,33 @@ export default function SubscriptionGraphsPage() {
     });
     loadSubs(selected, shows, isCancelled);
     const interval = setInterval(() => loadSubs(selected, shows, isCancelled), REFRESH_MS);
-    const handler = () => loadSubs(selected, shows);
-    window.addEventListener(SUBSCRIPTIONS_CHANGED_EVENT, handler);
-    window.addEventListener(SHOWS_CHANGED_EVENT, handler);
+    // A subscription change only affects the rows for the shows already loaded.
+    const refreshSubscriptions = () => loadSubs(selected, shows, isCancelled);
+    // A show change can add/remove/rename shows, so re-fetch the active-show
+    // list, drop any selected show that no longer exists, and reload against
+    // the fresh snapshot (otherwise the dropdown and per-show lookups go stale).
+    const refreshShows = async () => {
+      try {
+        const nextShows = await getActiveShows();
+        if (isCancelled()) return;
+        setShows(nextShows);
+        const activeNames = new Set(nextShows.map((s) => s.name));
+        const nextSelected = selected.filter((name) => activeNames.has(name));
+        if (nextSelected.length !== selected.length) persistSelected(nextSelected);
+        await loadSubs(nextSelected, nextShows, isCancelled);
+      } catch (err) {
+        if (!isCancelled()) handleError(err, "Could not load shows");
+      }
+    };
+    window.addEventListener(SUBSCRIPTIONS_CHANGED_EVENT, refreshSubscriptions);
+    window.addEventListener(SHOWS_CHANGED_EVENT, refreshShows);
     return () => {
       cancelled = true;
       clearInterval(interval);
-      window.removeEventListener(SUBSCRIPTIONS_CHANGED_EVENT, handler);
-      window.removeEventListener(SHOWS_CHANGED_EVENT, handler);
+      window.removeEventListener(SUBSCRIPTIONS_CHANGED_EVENT, refreshSubscriptions);
+      window.removeEventListener(SHOWS_CHANGED_EVENT, refreshShows);
     };
-  }, [selected, shows, loadSubs]);
+  }, [selected, shows, loadSubs, persistSelected]);
 
   // Close the right-click menu on any outside interaction.
   React.useEffect(() => {

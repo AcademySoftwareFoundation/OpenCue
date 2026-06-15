@@ -65,7 +65,11 @@ function GraphTooltip({ active, payload }: { active?: boolean; payload?: any[] }
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0]?.payload as BarDatum | undefined;
   if (!d) return null;
-  const usagePct = d.size ? (d.inUse / d.size) * 100 : 0;
+  // Surface the zero-size anomaly instead of collapsing it to 0.00%: a
+  // subscription with no size but live usage is "∞", and a genuinely empty
+  // subscription (no size, no usage) is "—".
+  const usageText =
+    d.size > 0 ? `${((d.inUse / d.size) * 100).toFixed(2)}%` : d.inUse > 0 ? "∞" : "—";
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
       <div className="mb-1 font-medium">{d.name}</div>
@@ -77,7 +81,7 @@ function GraphTooltip({ active, payload }: { active?: boolean; payload?: any[] }
         <span className="text-muted-foreground">Burst</span>
         <span className="text-right tabular-nums">{fmt(d.burst)}</span>
         <span className="text-muted-foreground">Usage</span>
-        <span className="text-right tabular-nums">{usagePct.toFixed(2)}%</span>
+        <span className="text-right tabular-nums">{usageText}</span>
       </div>
     </div>
   );
