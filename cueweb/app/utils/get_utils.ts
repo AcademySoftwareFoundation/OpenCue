@@ -210,8 +210,14 @@ export async function getJobs(body: string): Promise<Job[]> {
 // checks). Returns null when no job matches.
 export async function findJobByName(name: string): Promise<Job | null> {
     if (!name) return null;
-    const jobs = await getJobs(JSON.stringify({ r: { jobs: [name], include_finished: true } }));
-    return jobs.length ? jobs[0] : null;
+    const response = await accessGetApi(
+        "/api/job/getjobs",
+        JSON.stringify({ r: { jobs: [name], include_finished: true } }),
+    );
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to look up job from Cuebot.");
+    }
+    return response.length ? response[0] : null;
 }
 
 // --- Redirect tool (CueGUI Redirect) -------------------------------------
@@ -260,7 +266,10 @@ export type RedirectSearchParams = {
 export async function searchRedirect(params: RedirectSearchParams): Promise<RedirectHost[]> {
     const ENDPOINT = "/api/redirect/search";
     const response = await accessGetApi(ENDPOINT, JSON.stringify(params));
-    return Array.isArray(response) ? response : [];
+    if (!Array.isArray(response)) {
+        throw new Error("Redirect search failed.");
+    }
+    return response;
 }
 
 // Fetch all layers based on the request body

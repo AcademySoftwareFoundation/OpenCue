@@ -303,7 +303,13 @@ export default function RedirectPage() {
       toastWarning("You must have a job name selected.");
       return;
     }
-    const job = await findJobByName(name);
+    let job;
+    try {
+      job = await findJobByName(name);
+    } catch (err) {
+      handleError(err, "Could not verify the target job");
+      return;
+    }
     if (!job) {
       toastWarning("The job you're trying to redirect to appears to be no longer in the cue!");
       return;

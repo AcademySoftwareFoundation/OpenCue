@@ -73,6 +73,11 @@ export async function POST(request: NextRequest) {
 
   let excludeRe: RegExp | null = null;
   if (excludeRegex) {
+    // Cap the pattern length before compiling user input: a bounded pattern
+    // keeps the worst-case backtracking small and avoids a Regular Expression Denial of Service (ReDoS) vector.
+    if (excludeRegex.length > 100) {
+      return NextResponse.json({ error: "excludeRegex is too long (max 100 characters)" }, { status: 400 });
+    }
     try {
       excludeRe = new RegExp(excludeRegex);
     } catch {
@@ -116,14 +121,18 @@ export async function POST(request: NextRequest) {
     for (const proc of hostProcs) {
       cores += Number(proc.reservedCores ?? 0);
       memKb += Number(proc.reservedMemory ?? 0);
-      timeSec += now - Number(proc.dispatchTime ?? now);
+      // Missing dispatchTime falls back to 0, reading as a long runtime so the
+      // host is excluded by the cutoff (CueGUI parity).
+      timeSec += now - Number(proc.dispatchTime ?? 0);
     }
 
     if (!(cores >= minCores && cores <= maxCores && memKb >= minMemoryKb && timeSec < cutoffSeconds)) {
       continue;
     }
 
-    // Source job stats for the Job Cores / Waiting Frames columns.
+    // Job Cores / Waiting Frames columns reflect a single representative job on
+    // the host (the first proc's), not a sum across every job - matching
+    // CueGUI's Redirect, so they are intentionally not aggregated here.
     let jobCores = 0;
     let waiting = 0;
     const firstJobName = hostProcs[0]?.jobName;
