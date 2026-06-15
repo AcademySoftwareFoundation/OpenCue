@@ -39,6 +39,11 @@ pub struct ClusterModel {
     pub show_id: String,
     pub facility_id: String,
     pub ttype: String,
+    /// `pk_alloc` UUID (as text) for `'ALLOC'` rows; `NULL` for non-alloc rows.
+    /// Carried through so `Tag::alloc_id` can be populated on the ALLOC arm of
+    /// `cluster.rs::load_clusters`, enabling the matcher's pre-checkout
+    /// subscription burst snapshot.
+    pub alloc_id: Option<String>,
 }
 
 // Only shows flagged `b_scheduler_managed = true` are owned by the scheduler;
@@ -46,6 +51,7 @@ pub struct ClusterModel {
 static QUERY_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     a.str_tag as tag,
+    a.pk_alloc as alloc_id,
     sh.pk_show as show_id,
     a.pk_facility as facility_id,
     'ALLOC' as ttype
@@ -61,6 +67,7 @@ WHERE str_tag_type = 'ALLOC'
 static QUERY_ALLOC_CLUSTERS_WITH_FACILITY: &str = r#"
 SELECT DISTINCT
     a.str_tag as tag,
+    a.pk_alloc as alloc_id,
     sh.pk_show as show_id,
     a.pk_facility as facility_id,
     'ALLOC' as ttype
@@ -80,6 +87,7 @@ WHERE str_tag_type = 'ALLOC'
 static QUERY_NON_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     host_tag.str_tag as tag,
+    NULL::text as alloc_id,
     s.pk_show as show_id,
     a.pk_facility as facility_id,
     str_tag_type as ttype
@@ -96,6 +104,7 @@ WHERE str_tag_type <> 'ALLOC'
 static QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY: &str = r#"
 SELECT DISTINCT
     host_tag.str_tag as tag,
+    NULL::text as alloc_id,
     s.pk_show as show_id,
     a.pk_facility as facility_id,
     str_tag_type as ttype

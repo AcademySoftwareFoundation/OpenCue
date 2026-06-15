@@ -20,9 +20,10 @@ module.exports = {
   testEnvironment: "node",
   setupFilesAfterEnv: ['./jest/jest.setup.js'],
   transform: {
-    "^.+.tsx?$": ["ts-jest",{}],
+    // jsx override (base tsconfig is "preserve") so .tsx tests compile; tests only.
+    "^.+.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }],
   },
   moduleNameMapper: {
-    '^@/app/(.*)$': '<rootDir>/app/$1',
+    '^@/(.*)$': '<rootDir>/$1',
   }
 };
