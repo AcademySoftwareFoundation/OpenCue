@@ -177,22 +177,31 @@ export default function StuckFramesPage() {
   React.useEffect(() => {
     if (!autoRefresh) return;
     let cancelled = false;
+    // Skip a tick if the previous scan is still running, so a slow/degraded
+    // backend can't pile up overlapping, out-of-order refreshes.
+    let inFlight = false;
     const id = setInterval(async () => {
-      const data = await load(() => cancelled);
-      if (cancelled || !data) return;
-      if (notify && typeof Notification !== "undefined" && Notification.permission === "granted") {
-        // Apply the same detection + hidden filters as the table so we only
-        // notify when a stuck frame would actually be shown.
-        const scanNow = Date.now() / 1000;
-        const stuckCount = data.filter(
-          (f) =>
-            !hiddenFrames.has(f.id) &&
-            !hiddenJobs.has(f.jobId) &&
-            isStuck(f, pickFilter(f, filters), scanNow),
-        ).length;
-        if (stuckCount > 0) {
-          new Notification(`CueWeb: ${stuckCount} stuck frame(s) detected`);
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const data = await load(() => cancelled);
+        if (cancelled || !data) return;
+        if (notify && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          // Apply the same detection + hidden filters as the table so we only
+          // notify when a stuck frame would actually be shown.
+          const scanNow = Date.now() / 1000;
+          const stuckCount = data.filter(
+            (f) =>
+              !hiddenFrames.has(f.id) &&
+              !hiddenJobs.has(f.jobId) &&
+              isStuck(f, pickFilter(f, filters), scanNow),
+          ).length;
+          if (stuckCount > 0) {
+            new Notification(`CueWeb: ${stuckCount} stuck frame(s) detected`);
+          }
         }
+      } finally {
+        inFlight = false;
       }
     }, AUTO_REFRESH_MS);
     return () => {
@@ -459,6 +468,7 @@ export default function StuckFramesPage() {
                       {g.frames[0]?.jobHasComment ? (
                         <button
                           title="View comments"
+                          aria-label={`View comments for ${g.jobName}`}
                           onClick={() =>
                             window.open(
                               `/jobs/${encodeURIComponent(g.jobName)}/comments?jobId=${encodeURIComponent(g.jobId)}`,

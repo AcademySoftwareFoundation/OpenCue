@@ -32,8 +32,17 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
   }
-  if (!jsonBody || typeof jsonBody !== 'object' || !jsonBody.layer || typeof jsonBody.cores !== 'number') {
-    return NextResponse.json({ error: 'Invalid request body: layer and numeric cores are required' }, { status: 400 });
+  // cores is a float proto field (fractional core counts are valid), so reject
+  // only non-finite (typeof NaN is "number") and negative values, not fractions.
+  if (
+    !jsonBody ||
+    typeof jsonBody !== 'object' ||
+    !jsonBody.layer ||
+    typeof jsonBody.cores !== 'number' ||
+    !Number.isFinite(jsonBody.cores) ||
+    jsonBody.cores < 0
+  ) {
+    return NextResponse.json({ error: 'Invalid request body: layer and non-negative numeric cores are required' }, { status: 400 });
   }
 
   const body = JSON.stringify(jsonBody);
