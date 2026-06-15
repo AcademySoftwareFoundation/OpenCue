@@ -147,8 +147,14 @@ function HostCommentsDialog() {
     if (!host || !subject.trim()) return;
     setSubmitting(true);
     try {
-      if (isNew) await addHostComment(host, currentUser, subject.trim(), message);
-      else if (selected) await saveJobComment({ ...selected, subject: subject.trim(), message });
+      // Only refresh / dispatch the optimistic hasComment update when the
+      // action actually succeeded (the helpers resolve false on failure).
+      const ok = isNew
+        ? await addHostComment(host, currentUser, subject.trim(), message)
+        : selected
+          ? await saveJobComment({ ...selected, subject: subject.trim(), message })
+          : false;
+      if (!ok) return;
       await refresh(host);
       notifyChanged([host], { hasComment: true });
       setDirty(false);

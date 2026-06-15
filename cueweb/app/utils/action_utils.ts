@@ -199,10 +199,10 @@ export async function addJobComment(
   await performAction(endpoint, [body], "Added comment");
 }
 
-export async function saveJobComment(comment: JobComment) {
+export async function saveJobComment(comment: JobComment): Promise<boolean> {
   const endpoint = "/api/comment/action/save";
   const body = JSON.stringify({ comment });
-  await performAction(endpoint, [body], "Saved comment");
+  return performAction(endpoint, [body], "Saved comment");
 }
 
 export async function deleteJobComment(comment: JobComment): Promise<boolean> {
