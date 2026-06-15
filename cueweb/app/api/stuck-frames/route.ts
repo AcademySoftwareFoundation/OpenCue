@@ -31,6 +31,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const RUNNING_STATE = 2; // FrameState.RUNNING (proto/src/job.proto)
 const MAX_FRAMES_PER_JOB = 1000;
+// Cap the per-job GetFrames/GetLayers fan-out. Without a bound, a farm with
+// thousands of unfinished jobs would fire that many concurrent gateway calls
+// on every 30s poll; this keeps at most N jobs in flight at a time.
+const MAX_CONCURRENT_JOBS = 16;
 
 async function gatewayJson(endpoint: string, body: string): Promise<any | null> {
   try {
@@ -41,6 +45,57 @@ async function gatewayJson(endpoint: string, body: string): Promise<any | null> 
   } catch {
     return null;
   }
+}
+
+// Map over items with a fixed-size worker pool, preserving input order. Plain
+// promises (no extra dependency) so the route stays self-contained.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
+// Safety bound on pagination so a malformed/never-shrinking response can't spin
+// forever: MAX_FRAME_PAGES * MAX_FRAMES_PER_JOB frames per job.
+const MAX_FRAME_PAGES = 50;
+
+// Fetch every RUNNING frame for a job, paging through GetFrames until a short
+// page arrives. A single page caps at MAX_FRAMES_PER_JOB, so a job with more
+// running frames than that would otherwise be silently truncated.
+async function getRunningFrames(job: any): Promise<any[]> {
+  const all: any[] = [];
+  for (let page = 1; page <= MAX_FRAME_PAGES; page++) {
+    const framesData = await gatewayJson(
+      "/job.JobInterface/GetFrames",
+      JSON.stringify({
+        job: { id: job.id, name: job.name },
+        req: {
+          include_finished: false,
+          page,
+          limit: MAX_FRAMES_PER_JOB,
+          states: { frame_states: [RUNNING_STATE] },
+        },
+      }),
+    );
+    const batch: any[] = framesData?.frames?.frames ?? [];
+    all.push(...batch);
+    // A short (or empty/failed) page means we've reached the end.
+    if (batch.length < MAX_FRAMES_PER_JOB) break;
+  }
+  return all;
 }
 
 export async function POST(_request: NextRequest) {
@@ -54,21 +109,12 @@ export async function POST(_request: NextRequest) {
     }
     const jobs: any[] = jobsData?.jobs?.jobs ?? [];
 
-    const perJob = await Promise.all(
-      jobs.map(async (job) => {
-        const [framesData, layersData] = await Promise.all([
-          gatewayJson(
-            "/job.JobInterface/GetFrames",
-            JSON.stringify({
-              job: { id: job.id, name: job.name },
-              req: {
-                include_finished: false,
-                page: 1,
-                limit: MAX_FRAMES_PER_JOB,
-                states: { frame_states: [RUNNING_STATE] },
-              },
-            }),
-          ),
+    const perJob = await mapWithConcurrency(
+      jobs,
+      MAX_CONCURRENT_JOBS,
+      async (job) => {
+        const [frames, layersData] = await Promise.all([
+          getRunningFrames(job),
           gatewayJson(
             "/job.JobInterface/GetLayers",
             JSON.stringify({ job: { id: job.id, name: job.name } }),
@@ -91,7 +137,6 @@ export async function POST(_request: NextRequest) {
           });
         }
 
-        const frames: any[] = framesData?.frames?.frames ?? [];
         return frames
           .filter((f) => f.state === "RUNNING")
           .map((f) => {
@@ -108,7 +153,7 @@ export async function POST(_request: NextRequest) {
               layerMinCores: info?.minCores ?? 0,
             };
           });
-      }),
+      },
     );
 
     return NextResponse.json({ data: perJob.flat() }, { status: 200 });

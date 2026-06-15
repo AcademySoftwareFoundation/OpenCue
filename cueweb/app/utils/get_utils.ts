@@ -208,7 +208,10 @@ export type StuckFrame = Frame & {
 export async function getStuckFrames(): Promise<StuckFrame[]> {
     const ENDPOINT = "/api/stuck-frames";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
-    return Array.isArray(response) ? response : [];
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load stuck frames from Cuebot.");
+    }
+    return response;
 }
 
 // Best-effort fetch of a frame log's last line (the "Last Line" column). Empty
