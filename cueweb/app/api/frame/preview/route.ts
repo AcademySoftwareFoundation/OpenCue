@@ -55,18 +55,45 @@ export async function GET(request: NextRequest) {
   if (!path.isAbsolute(target)) {
     return NextResponse.json({ error: "Path must be absolute" }, { status: 400 });
   }
-  // Resolve to a canonical absolute path so traversal segments are collapsed
-  // before any boundary check (a literal ".." substring test is both leaky and
-  // prone to false positives on names like "foo..bar").
   const normalized = path.resolve(target);
 
-  // When preview roots are configured, the resolved path must sit inside one of
-  // them. Roots are an optional per-site allow-list; when unset, reads are not
-  // restricted to a root (render output paths are site-specific).
-  const roots = allowedRoots().map((r) => path.resolve(r));
-  if (roots.length > 0) {
+  // Canonicalize via realpath before the boundary check: path.resolve is purely
+  // lexical, but fs.readFile follows symlinks, so a symlink inside an allowed
+  // root could otherwise resolve to a file outside it and still pass. realpath
+  // also requires the file to exist, surfacing missing/permission errors here.
+  let realTarget: string;
+  try {
+    realTarget = await fs.realpath(normalized);
+  } catch (error: any) {
+    console.error(`Frame preview realpath failed for ${normalized}:`, error?.code ?? error);
+    if (error?.code === "ENOENT") {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+    if (error?.code === "EACCES") {
+      return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+    }
+    return NextResponse.json({ error: "Could not read image" }, { status: 500 });
+  }
+
+  // When preview roots are configured, the canonical target must sit inside one
+  // of them (also canonicalized). Roots are an optional per-site allow-list;
+  // when unset, reads are not restricted to a root (render output paths are
+  // site-specific). A root that can't be resolved is treated as non-matching.
+  const rawRoots = allowedRoots();
+  if (rawRoots.length > 0) {
+    const roots = (
+      await Promise.all(
+        rawRoots.map(async (r) => {
+          try {
+            return await fs.realpath(path.resolve(r));
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((r): r is string => r !== null);
     const inAllowedRoot = roots.some((root) => {
-      const rel = path.relative(root, normalized);
+      const rel = path.relative(root, realTarget);
       return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
     });
     if (!inAllowedRoot) {
@@ -74,8 +101,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const ext = fileExtension(normalized);
-  if (!isWebRenderableImage(normalized)) {
+  const ext = fileExtension(realTarget);
+  if (!isWebRenderableImage(realTarget)) {
     // EXR / TIFF / DPX etc. - the browser can't render these inline.
     return NextResponse.json(
       { error: "unsupported", ext, message: "Preview not supported in browser for this format" },
@@ -84,7 +111,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await fs.readFile(normalized);
+    const data = await fs.readFile(realTarget);
     return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
@@ -95,7 +122,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     // Log the resolved path server-side for diagnostics, but don't echo the
     // server filesystem layout back to the client.
-    console.error(`Frame preview read failed for ${normalized}:`, error?.code ?? error);
+    console.error(`Frame preview read failed for ${realTarget}:`, error?.code ?? error);
     if (error?.code === "ENOENT") {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
