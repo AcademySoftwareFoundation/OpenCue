@@ -385,10 +385,18 @@ export default function FramePage() {
   useEffect(() => {
     if (!followMode || logStatus !== "ready") return;
     let cancelled = false;
+    // Serialize ticks: a slow fetch must not overlap with the next interval
+    // and append the same chunk twice from stale logDisplayEnd state.
+    let inFlight = false;
     const tick = async () => {
-      if (cancelled || !editorRef.current) return;
-      await loadNewerLogMessages();
-      if (!cancelled) scrollToVeryBottom();
+      if (cancelled || !editorRef.current || inFlight) return;
+      inFlight = true;
+      try {
+        await loadNewerLogMessages();
+        if (!cancelled) scrollToVeryBottom();
+      } finally {
+        inFlight = false;
+      }
     };
     tick();
     // Tail mode polls every 1s; otherwise a gentler 1.5s.
@@ -409,24 +417,40 @@ export default function FramePage() {
     }
   }, [tailMode, frameObject?.state]);
 
-  // Maintain a hover copy-glyph on every line; rebuild when content changes.
+  // Maintain a hover copy-glyph on each line. Decorate only the visible lines
+  // (re-applied on scroll) rather than every loaded line, so the cost is
+  // bounded by the viewport instead of O(total loaded lines) on each content
+  // update - important for large / live-tailing logs.
   useEffect(() => {
     const ed = editorRef.current;
     const monaco = monacoRef.current;
-    const model = ed?.getModel();
-    if (!ed || !monaco || !model) return;
-    const count = model.getLineCount();
-    const decos = [];
-    for (let i = 1; i <= count; i++) {
-      decos.push({
-        range: new monaco.Range(i, 1, i, 1),
-        options: {
-          glyphMarginClassName: "cueweb-copy-line-glyph",
-          glyphMarginHoverMessage: { value: "Copy line" },
-        },
-      });
-    }
-    copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+    if (!ed || !monaco) return;
+
+    const applyVisibleGlyphs = () => {
+      const model = ed.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      const decos = [];
+      for (const range of ed.getVisibleRanges()) {
+        const start = Math.max(1, range.startLineNumber);
+        const end = Math.min(lineCount, range.endLineNumber);
+        for (let i = start; i <= end; i++) {
+          decos.push({
+            range: new monaco.Range(i, 1, i, 1),
+            options: {
+              glyphMarginClassName: "cueweb-copy-line-glyph",
+              glyphMarginHoverMessage: { value: "Copy line" },
+            },
+          });
+        }
+      }
+      copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+    };
+
+    applyVisibleGlyphs();
+    // Re-decorate as new lines scroll into view.
+    const scrollDisposable = ed.onDidScrollChange(applyVisibleGlyphs);
+    return () => scrollDisposable.dispose();
   }, [logContentVersion, editorMounted]);
 
   // Handles updates when a different log version is selected

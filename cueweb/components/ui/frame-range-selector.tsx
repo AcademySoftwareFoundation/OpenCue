@@ -129,6 +129,46 @@ export function FrameRangeSelector({
     setAnchor(null);
   };
 
+  // Keyboard operation for the ARIA slider: arrows move a single-frame cursor,
+  // Shift+arrows extend the range from the anchor, Home/End jump to the ends,
+  // and Escape clears. Mirrors the pointer-drag selection model.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (n === 0) return;
+    let target: number | null = null;
+    const cursor = sel ? sel.b : 0;
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        target = clamp(cursor + 1, 0, n - 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowDown":
+        target = clamp(cursor - 1, 0, n - 1);
+        break;
+      case "Home":
+        target = 0;
+        break;
+      case "End":
+        target = n - 1;
+        break;
+      case "Escape":
+        e.preventDefault();
+        clearSelection();
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    if (e.shiftKey) {
+      const base = anchor ?? cursor;
+      setAnchor(base);
+      setSel({ a: base, b: target });
+    } else {
+      setAnchor(target);
+      setSel({ a: target, b: target });
+    }
+  };
+
   const doRetry = () => hasSelection && retryFrames(selectedFrames);
   const doEat = () => hasSelection && eatFrames(selectedFrames);
   const doKill = () =>
@@ -152,13 +192,16 @@ export function FrameRangeSelector({
       <div
         ref={stripRef}
         role="slider"
+        tabIndex={0}
         aria-label="Frame range selector"
         aria-valuemin={sorted[0].number}
         aria-valuemax={sorted[n - 1].number}
         aria-valuenow={hasSelection ? sorted[hi].number : sorted[0].number}
-        className="relative h-7 w-full cursor-crosshair touch-none select-none overflow-hidden rounded border border-input bg-background"
+        aria-valuetext={hasSelection ? rangeLabel : "no frames selected"}
+        className="relative h-7 w-full cursor-crosshair touch-none select-none overflow-hidden rounded border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
+        onKeyDown={onKeyDown}
       >
         <svg
           className="absolute inset-0 h-full w-full"

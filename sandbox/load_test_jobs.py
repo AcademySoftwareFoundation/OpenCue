@@ -871,7 +871,9 @@ def cmd_blender(args, common: CommonOpts) -> int:
             # and the job would leave the active list before you can open it.
             outline.cuerun.launch(ol, pause=True, use_pycuerun=False)
 
-            job = _find_job(short_name)
+            # Poll for visibility rather than a one-shot lookup: _find_job can
+            # race Cuebot right after launch and would skip registerOutputPath.
+            job = _wait_for_jobs([short_name])[0]
             layer = next(l for l in job.getLayers() if l.name() == "beauty")
             layer.registerOutputPath(output_spec)
 

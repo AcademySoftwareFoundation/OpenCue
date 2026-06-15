@@ -94,7 +94,8 @@ export function JobCommentsDialog() {
 
   React.useEffect(() => {
     function handler(e: Event) {
-      const j = (e as CustomEvent<OpenJobCommentsDetail>).detail.job;
+      const j = (e as CustomEvent<OpenJobCommentsDetail>).detail?.job;
+      if (!j) return;
       setJob(j);
       setSelectedId(null);
       setSubject("");

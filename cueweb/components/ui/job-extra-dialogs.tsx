@@ -273,6 +273,20 @@ function UseLocalCoresDialog() {
       return;
     }
     const c = Number(cores);
+    const mem = Number(memGb);
+    const gpuCount = Number(gpus);
+    const gpuMem = Number(gpuMemGb);
+    // Number("") is NaN and Math.max/Math.round won't sanitize it, so validate
+    // before building the payload to avoid sending NaN fields to the API.
+    if (
+      !Number.isFinite(c) || c < 1 ||
+      !Number.isFinite(mem) || mem < 0 ||
+      !Number.isFinite(gpuCount) || gpuCount < 0 ||
+      !Number.isFinite(gpuMem) || gpuMem < 0
+    ) {
+      toastWarning("Cores/Memory/GPUs must be valid non-negative numbers (cores ≥ 1).");
+      return;
+    }
     setBusy(true);
     try {
       const ok = await addRenderPartition(job, {
@@ -280,9 +294,9 @@ function UseLocalCoresDialog() {
         username,
         threads: Math.max(1, c),
         maxCores: Math.max(1, c),
-        maxMemory: Math.round(Number(memGb) * KB_PER_GB),
-        maxGpus: Math.max(0, Number(gpus)),
-        maxGpuMemory: Math.round(Number(gpuMemGb) * KB_PER_GB),
+        maxMemory: Math.round(mem * KB_PER_GB),
+        maxGpus: Math.max(0, gpuCount),
+        maxGpuMemory: Math.round(gpuMem * KB_PER_GB),
       });
       if (ok) setOpen(false);
     } finally {

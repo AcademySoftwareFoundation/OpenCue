@@ -30,8 +30,9 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  if (!jsonBody?.layer || typeof jsonBody.memory !== 'number' || !Number.isFinite(jsonBody.memory)) {
-    return NextResponse.json({ error: 'Invalid request body (need {layer, memory:number})' }, { status: 400 });
+  // memory is KB backed by an int64 proto field: reject negative/fractional.
+  if (!jsonBody?.layer || typeof jsonBody.memory !== 'number' || !Number.isInteger(jsonBody.memory) || jsonBody.memory < 0) {
+    return NextResponse.json({ error: 'Invalid request body (need {layer, memory: non-negative integer KB})' }, { status: 400 });
   }
   const response = await handleRoute(request.method, endpoint, JSON.stringify(jsonBody), true);
   const responseData = await response.json();

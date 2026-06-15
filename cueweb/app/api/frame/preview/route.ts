@@ -55,15 +55,23 @@ export async function GET(request: NextRequest) {
   if (!path.isAbsolute(target)) {
     return NextResponse.json({ error: "Path must be absolute" }, { status: 400 });
   }
-  // Normalize and reject any traversal that escapes the literal path.
-  const normalized = path.normalize(target);
-  if (normalized.includes("..")) {
-    return NextResponse.json({ error: "Path traversal is not allowed" }, { status: 403 });
-  }
+  // Resolve to a canonical absolute path so traversal segments are collapsed
+  // before any boundary check (a literal ".." substring test is both leaky and
+  // prone to false positives on names like "foo..bar").
+  const normalized = path.resolve(target);
 
-  const roots = allowedRoots();
-  if (roots.length > 0 && !roots.some((r) => normalized === r || normalized.startsWith(r.endsWith("/") ? r : `${r}/`))) {
-    return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
+  // When preview roots are configured, the resolved path must sit inside one of
+  // them. Roots are an optional per-site allow-list; when unset, reads are not
+  // restricted to a root (render output paths are site-specific).
+  const roots = allowedRoots().map((r) => path.resolve(r));
+  if (roots.length > 0) {
+    const inAllowedRoot = roots.some((root) => {
+      const rel = path.relative(root, normalized);
+      return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+    });
+    if (!inAllowedRoot) {
+      return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
+    }
   }
 
   const ext = fileExtension(normalized);
@@ -85,12 +93,15 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    // Log the resolved path server-side for diagnostics, but don't echo the
+    // server filesystem layout back to the client.
+    console.error(`Frame preview read failed for ${normalized}:`, error?.code ?? error);
     if (error?.code === "ENOENT") {
-      return NextResponse.json({ error: "File not found", path: normalized }, { status: 404 });
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
     if (error?.code === "EACCES") {
-      return NextResponse.json({ error: "Permission denied", path: normalized }, { status: 403 });
+      return NextResponse.json({ error: "Permission denied" }, { status: 403 });
     }
-    return NextResponse.json({ error: "Could not read image", path: normalized }, { status: 500 });
+    return NextResponse.json({ error: "Could not read image" }, { status: 500 });
   }
 }

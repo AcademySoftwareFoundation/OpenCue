@@ -115,5 +115,9 @@ export function readableTextColor(hex: string): string {
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   });
   const luminance = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
-  return luminance > 0.45 ? "#000000" : "#ffffff";
+  // Pick the foreground with the higher WCAG contrast ratio against this
+  // background, rather than a fixed luminance cutoff that misjudges mid-tones.
+  const contrastWithBlack = (luminance + 0.05) / 0.05;
+  const contrastWithWhite = 1.05 / (luminance + 0.05);
+  return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff";
 }
