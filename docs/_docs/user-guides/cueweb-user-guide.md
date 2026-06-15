@@ -1097,7 +1097,7 @@ The page renders a sortable, filterable table of the active shows.
 
 | Column | Description |
 |--------|-------------|
-| Show Name | Show name. Click it to open the show's detail page |
+| Show Name | Show name. Click it to open the show's [detail page](#show-detail-page-group-tree) |
 | Cores Run | Reserved (running) cores |
 | Frames Run | Running frame count |
 | Frames Pending | Pending frame count |
@@ -1150,6 +1150,15 @@ Right-click a show row to open its actions menu: **Show Properties** and **Creat
 ![Create Subscription dialog](/assets/images/cueweb/cueweb_cuecommander_shows_create_subscription_window.png)
 
 A show can have only one subscription per allocation; if one already exists, CueWeb reports that instead of creating a duplicate.
+
+### Show detail page (group tree)
+
+Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group tree** - the nested groups and jobs that make up the show, mirroring the grouping in CueGUI's Cuetopia. The breadcrumbs and header show the show name and whether it is active, and a **Refresh** button reloads the tree.
+
+![CueWeb show detail page with the group tree](/assets/images/cueweb/cueweb_cuecommander_shows_group_tree_page.png)
+
+- **Expand or collapse** a group to load and reveal its jobs. Each job links to its job detail page and shows a frame-state progress bar, a dead-frame count when any frames have died, and a job-state indicator dot. The set of expanded groups is kept in the page URL (`?expanded=...`), so a particular view is bookmarkable and shareable.
+- **Drag to reparent**: drag a group onto another group to make it a child of that group, or drag a job onto a group to move the job into it. Only valid drop targets highlight - you cannot drop a group into itself or one of its own descendants. Moves are applied one at a time and roll back automatically if Cuebot rejects the change.
 
 ---
 

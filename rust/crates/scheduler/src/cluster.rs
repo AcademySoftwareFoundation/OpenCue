@@ -260,14 +260,19 @@ impl ClusterFeed {
                     let facility_id = cluster.facility_id;
                     let show_id = parse_uuid(&cluster.show_id);
                     match cluster.ttype.as_str() {
-                        // Each alloc tag becomes its own cluster
+                        // Each alloc tag becomes its own cluster. Carry pk_alloc
+                        // through Tag so the matcher can snapshot the
+                        // (show, alloc) subscription burst from Redis before
+                        // host checkout (see `MatchingService::process_layer`).
                         "ALLOC" => {
+                            let alloc_id = cluster.alloc_id.as_deref().map(parse_uuid);
                             clusters.push(Cluster::single_tag(
                                 facility_id,
                                 show_id,
                                 Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Alloc,
+                                    alloc_id,
                                 },
                             ));
                         }
@@ -279,6 +284,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Manual,
+                                    alloc_id: None,
                                 });
                         }
                         "HOSTNAME" => {
@@ -288,6 +294,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::HostName,
+                                    alloc_id: None,
                                 });
                         }
                         "HARDWARE" => {
@@ -297,6 +304,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Hardware,
+                                    alloc_id: None,
                                 });
                         }
                         _ => (),
@@ -775,6 +783,7 @@ mod tests {
             Tag {
                 name: tag.to_string(),
                 ttype: TagType::Alloc,
+                alloc_id: None,
             },
         )
     }

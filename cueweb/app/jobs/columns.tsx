@@ -27,6 +27,7 @@ import { RowActionsCell } from "@/components/ui/row-actions-cell";
 import { Status } from "@/components/ui/status";
 import { SubscribeBell } from "@/components/ui/subscribe-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getState } from "@/app/utils/job_state";
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -96,27 +97,9 @@ export interface TableMetaWithTree {
   };
 }
 
-export const getState = (job: Job) => {
-  // a job's state is either Paused, Failing, Finished, Dependency, or In Progress
-  // cuegui.cuigui.JobMonitorTree.displayStates contains the logic for displaying the correct job state
-  if (job?.state === "FINISHED") {
-    return "Finished";
-  }
-  if (job?.isPaused) {
-    return "Paused";
-  }
-  if (job?.jobStats.deadFrames > 0) {
-    return "Failing";
-  }
-  if (
-    job?.jobStats.dependFrames &&
-    job?.jobStats.dependFrames === job?.jobStats.pendingFrames &&
-    job?.jobStats.runningFrames === 0
-  ) {
-    return "Dependency";
-  }
-  return "In Progress";
-};
+// getState now lives in app/utils/job_state.ts; re-exported so existing importers
+// of "@/app/jobs/columns" keep working.
+export { getState };
 
 // given a job name, will return the part of the name that contains the show, shot, user
 export const getShowShotUser = (jobName: string) => {
