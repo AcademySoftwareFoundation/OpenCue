@@ -143,17 +143,21 @@ export default function StuckFramesPage() {
     window.localStorage.setItem(FILTERS_KEY, JSON.stringify(next));
   }
 
-  const load = React.useCallback(async (isCancelled?: () => boolean) => {
+  // Returns the loaded frames (null on cancel/error) so callers can act on the
+  // fresh data without waiting for the state/memo round-trip.
+  const load = React.useCallback(async (isCancelled?: () => boolean): Promise<StuckFrame[] | null> => {
     setLoading(true);
     try {
       const data = await getStuckFrames();
-      if (isCancelled?.()) return;
+      if (isCancelled?.()) return null;
       setRaw(data);
       setNow(Date.now() / 1000);
+      return data;
     } catch (err) {
-      if (isCancelled?.()) return;
+      if (isCancelled?.()) return null;
       handleError(err, "Could not load stuck frames");
       setRaw((prev) => prev ?? []);
+      return null;
     } finally {
       if (!isCancelled?.()) setLoading(false);
     }
@@ -169,22 +173,33 @@ export default function StuckFramesPage() {
 
   // Auto-refresh. CueGUI refreshes ~every 30 min; a web monitor wants fresher
   // data, so this polls every 60s while enabled. Fires a desktop notification
-  // on completion when armed and stuck frames are present.
+  // on completion when armed and stuck frames are actually present.
   React.useEffect(() => {
     if (!autoRefresh) return;
     let cancelled = false;
     const id = setInterval(async () => {
-      await load(() => cancelled);
-      if (cancelled) return;
+      const data = await load(() => cancelled);
+      if (cancelled || !data) return;
       if (notify && typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification("CueWeb: stuck-frame scan complete");
+        // Apply the same detection + hidden filters as the table so we only
+        // notify when a stuck frame would actually be shown.
+        const scanNow = Date.now() / 1000;
+        const stuckCount = data.filter(
+          (f) =>
+            !hiddenFrames.has(f.id) &&
+            !hiddenJobs.has(f.jobId) &&
+            isStuck(f, pickFilter(f, filters), scanNow),
+        ).length;
+        if (stuckCount > 0) {
+          new Notification(`CueWeb: ${stuckCount} stuck frame(s) detected`);
+        }
       }
     }, AUTO_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [autoRefresh, notify, load]);
+  }, [autoRefresh, notify, load, filters, hiddenFrames, hiddenJobs]);
 
   function toggleNotify(checked: boolean) {
     setNotify(checked);

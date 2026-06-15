@@ -151,11 +151,13 @@ export function StuckFrameFilters({
                   {f.service && !availableServices.includes(f.service) ? (
                     <option value={f.service}>{f.service}</option>
                   ) : null}
-                  {availableServices.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {availableServices
+                    .filter((s) => s === f.service || !usedServices.has(s))
+                    .map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
                 </select>
               )}
             </div>
@@ -185,11 +187,11 @@ export function StuckFrameFilters({
             </label>
 
             {isCatchAll ? (
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={addFilter} disabled={!canAddFilter} title={canAddFilter ? "Add a service-specific filter" : "All services already have a filter"}>
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={addFilter} disabled={!canAddFilter} title={canAddFilter ? "Add a service-specific filter" : "All services already have a filter"} aria-label="Add service filter">
                 <Plus className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => removeFilter(i)} title="Remove this filter">
+              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => removeFilter(i)} title="Remove this filter" aria-label="Remove service filter">
                 <X className="h-4 w-4" />
               </Button>
             )}
