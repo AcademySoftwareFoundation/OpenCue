@@ -17,15 +17,18 @@
 // Helpers shared by the frame preview side panel and the image-serving
 // API route. No Node/browser-only APIs here so both can import it.
 
-// Formats a browser <img> can render directly.
+// Formats a browser <img> can render directly. SVG is intentionally excluded:
+// see NON_WEB_IMAGE_EXTENSIONS.
 export const WEB_IMAGE_EXTENSIONS = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "bmp", "avif", "svg",
+  "png", "jpg", "jpeg", "gif", "webp", "bmp", "avif",
 ]);
 
-// Formats common in rendering that browsers can't display (surface a
-// "preview not supported" message and let the user open them externally).
+// Formats the preview route won't serve inline (surface a "preview not
+// supported" message and let the user open them externally). Mostly render
+// formats browsers can't display, plus SVG - which a browser *can* render but
+// is blocked here because serving it same-origin would allow script execution.
 export const NON_WEB_IMAGE_EXTENSIONS = new Set([
-  "exr", "tif", "tiff", "dpx", "tx", "sxr", "hdr", "cin", "rat",
+  "exr", "tif", "tiff", "dpx", "tx", "sxr", "hdr", "cin", "rat", "svg",
 ]);
 
 export function fileExtension(p: string): string {

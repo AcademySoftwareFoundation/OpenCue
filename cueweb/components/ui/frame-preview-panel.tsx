@@ -48,9 +48,13 @@ export function FramePreviewPanel({ job }: { job?: Job }) {
   const [candidates, setCandidates] = React.useState<string[]>([]);
   const [webCandidates, setWebCandidates] = React.useState<string[]>([]);
   const [webIdx, setWebIdx] = React.useState(0);
+  // Sequence token: when frames are switched quickly, only the latest resolve()
+  // may write state, so a slower earlier call can't clobber the newer preview.
+  const resolveSeq = React.useRef(0);
 
   const resolve = React.useCallback(
     async (f: Frame) => {
+      const seq = ++resolveSeq.current;
       setStatus("resolving");
       setCandidates([]);
       setWebCandidates([]);
@@ -61,8 +65,10 @@ export function FramePreviewPanel({ job }: { job?: Job }) {
       }
       try {
         const layers = await getLayersForJob(job);
+        if (seq !== resolveSeq.current) return;
         const layer = layers.find((l) => l.name === f.layerName);
         const paths = layer ? await fetchLayerOutputPaths(layer) : [];
+        if (seq !== resolveSeq.current) return;
         const resolved = resolveFramePreviewCandidates(paths, f.number);
         setCandidates(resolved);
         const web = resolved.filter(isWebRenderableImage);
@@ -75,6 +81,7 @@ export function FramePreviewPanel({ job }: { job?: Job }) {
           setStatus("nopath");
         }
       } catch (error) {
+        if (seq !== resolveSeq.current) return;
         handleError(error, "Could not resolve frame preview");
         setStatus("error");
       }

@@ -42,23 +42,29 @@ export function SendToGroupDialog() {
   const [selectedId, setSelectedId] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Staleness token: if the dialog is reopened for another job before this
+  // load finishes, only the latest load() may write state.
+  const loadVersionRef = React.useRef(0);
 
   const load = React.useCallback(async (j: Job) => {
+    const version = ++loadVersionRef.current;
     setLoading(true);
     setGroups([]);
     setSelectedId("");
     try {
       // Resolve the job's show id, then fetch that show's groups.
       const shows = await getActiveShows();
+      if (version !== loadVersionRef.current) return;
       const show = shows.find((s) => s.name === j.show);
       if (!show) return;
       const list = await getShowGroups(show.id);
+      if (version !== loadVersionRef.current) return;
       setGroups(list);
       if (list.length > 0) setSelectedId(list[0].id);
     } catch (error) {
       handleError(error, "Could not load groups");
     } finally {
-      setLoading(false);
+      if (version === loadVersionRef.current) setLoading(false);
     }
   }, []);
 

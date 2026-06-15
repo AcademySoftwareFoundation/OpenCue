@@ -99,6 +99,10 @@ export default function FramePage() {
   const monacoRef = useRef<Monaco | null>(null);
   const logDisplayStartRef = useRef(1);
   const copyGlyphDecorationsRef = useRef<string[]>([]);
+  // Shared guard so the follow-mode poll and the scroll-triggered loader can't
+  // both append newer logs at once (which would duplicate a range / drift the
+  // line counters).
+  const appendInFlightRef = useRef(false);
 
   // Copy a single log line to the clipboard with a confirmation toast.
   const copyLineText = async (text: string) => {
@@ -334,28 +338,36 @@ export default function FramePage() {
   };
 
   const loadNewerLogMessages = async () => {
-    // check if total number of lines has grown aka there are new logs
-    const newLogLineCount = await getLogLineCount();
-    // return early if the num of lines in logfile has not changed
-    // and we are displaying the end of the log already
-    if (newLogLineCount == totalNumLogLines && logDisplayEnd == totalNumLogLines) return;
+    // Serialize against the scroll-trigger loader and other poll ticks: an
+    // overlapping append would re-fetch the same range and drift the counters.
+    if (appendInFlightRef.current) return;
+    appendInFlightRef.current = true;
+    try {
+      // check if total number of lines has grown aka there are new logs
+      const newLogLineCount = await getLogLineCount();
+      // return early if the num of lines in logfile has not changed
+      // and we are displaying the end of the log already
+      if (newLogLineCount == totalNumLogLines && logDisplayEnd == totalNumLogLines) return;
 
-    // calculate new end line
-    // get the number of new lines that have been added to the log and
-    // get whichever is smaller - the difference or LOG_CHUNK_SIZE
-    const newLinesCount = Math.min(newLogLineCount - logDisplayEnd, LOG_CHUNK_SIZE);
-    let endLine = logDisplayEnd + newLinesCount;
-    // update text in editor
-    let newLogLines = await fetchPaginatedLogs(logDisplayEnd + 1, endLine);
-    let prevLogs = editorRef.current?.getValue();
-    updateTextInEditor(prevLogs + newLogLines);
+      // calculate new end line
+      // get the number of new lines that have been added to the log and
+      // get whichever is smaller - the difference or LOG_CHUNK_SIZE
+      const newLinesCount = Math.min(newLogLineCount - logDisplayEnd, LOG_CHUNK_SIZE);
+      let endLine = logDisplayEnd + newLinesCount;
+      // update text in editor
+      let newLogLines = await fetchPaginatedLogs(logDisplayEnd + 1, endLine);
+      let prevLogs = editorRef.current?.getValue();
+      updateTextInEditor(prevLogs + newLogLines);
 
-    // update the number of log lines loaded in window
-    setNumberOfLinesLoaded(numberOfLinesLoaded + newLinesCount);
-    // update the number of lines in log file
-    setTotalNumLogLines(newLogLineCount);
-    // update the new end line
-    setLogDisplayEnd(endLine);
+      // update the number of log lines loaded in window
+      setNumberOfLinesLoaded(numberOfLinesLoaded + newLinesCount);
+      // update the number of lines in log file
+      setTotalNumLogLines(newLogLineCount);
+      // update the new end line
+      setLogDisplayEnd(endLine);
+    } finally {
+      appendInFlightRef.current = false;
+    }
   };
 
   // helper function to access next js endpoint for retrieving log lines
@@ -409,24 +421,40 @@ export default function FramePage() {
     }
   }, [tailMode, frameObject?.state]);
 
-  // Maintain a hover copy-glyph on every line; rebuild when content changes.
+  // Maintain a hover copy-glyph on each line. Decorate only the visible lines
+  // (re-applied on scroll) rather than every loaded line, so the cost is
+  // bounded by the viewport instead of O(total loaded lines) on each content
+  // update - important for large / live-tailing logs.
   useEffect(() => {
     const ed = editorRef.current;
     const monaco = monacoRef.current;
-    const model = ed?.getModel();
-    if (!ed || !monaco || !model) return;
-    const count = model.getLineCount();
-    const decos = [];
-    for (let i = 1; i <= count; i++) {
-      decos.push({
-        range: new monaco.Range(i, 1, i, 1),
-        options: {
-          glyphMarginClassName: "cueweb-copy-line-glyph",
-          glyphMarginHoverMessage: { value: "Copy line" },
-        },
-      });
-    }
-    copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+    if (!ed || !monaco) return;
+
+    const applyVisibleGlyphs = () => {
+      const model = ed.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      const decos = [];
+      for (const range of ed.getVisibleRanges()) {
+        const start = Math.max(1, range.startLineNumber);
+        const end = Math.min(lineCount, range.endLineNumber);
+        for (let i = start; i <= end; i++) {
+          decos.push({
+            range: new monaco.Range(i, 1, i, 1),
+            options: {
+              glyphMarginClassName: "cueweb-copy-line-glyph",
+              glyphMarginHoverMessage: { value: "Copy line" },
+            },
+          });
+        }
+      }
+      copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+    };
+
+    applyVisibleGlyphs();
+    // Re-decorate as new lines scroll into view.
+    const scrollDisposable = ed.onDidScrollChange(applyVisibleGlyphs);
+    return () => scrollDisposable.dispose();
   }, [logContentVersion, editorMounted]);
 
   // Handles updates when a different log version is selected

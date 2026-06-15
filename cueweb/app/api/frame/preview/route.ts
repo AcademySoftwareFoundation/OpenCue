@@ -36,7 +36,8 @@ const MIME: Record<string, string> = {
   webp: "image/webp",
   bmp: "image/bmp",
   avif: "image/avif",
-  svg: "image/svg+xml",
+  // SVG is intentionally omitted: serving it same-origin would allow script
+  // execution, so the route treats .svg as an unsupported format (415).
 };
 
 function allowedRoots(): string[] {
@@ -55,20 +56,55 @@ export async function GET(request: NextRequest) {
   if (!path.isAbsolute(target)) {
     return NextResponse.json({ error: "Path must be absolute" }, { status: 400 });
   }
-  // Normalize and reject any traversal that escapes the literal path.
-  const normalized = path.normalize(target);
-  if (normalized.includes("..")) {
-    return NextResponse.json({ error: "Path traversal is not allowed" }, { status: 403 });
+  const normalized = path.resolve(target);
+
+  // Canonicalize via realpath before the boundary check: path.resolve is purely
+  // lexical, but fs.readFile follows symlinks, so a symlink inside an allowed
+  // root could otherwise resolve to a file outside it and still pass. realpath
+  // also requires the file to exist, surfacing missing/permission errors here.
+  let realTarget: string;
+  try {
+    realTarget = await fs.realpath(normalized);
+  } catch (error: any) {
+    console.error(`Frame preview realpath failed for ${normalized}:`, error?.code ?? error);
+    if (error?.code === "ENOENT") {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+    if (error?.code === "EACCES") {
+      return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+    }
+    return NextResponse.json({ error: "Could not read image" }, { status: 500 });
   }
 
-  const roots = allowedRoots();
-  if (roots.length > 0 && !roots.some((r) => normalized === r || normalized.startsWith(r.endsWith("/") ? r : `${r}/`))) {
-    return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
+  // When preview roots are configured, the canonical target must sit inside one
+  // of them (also canonicalized). Roots are an optional per-site allow-list;
+  // when unset, reads are not restricted to a root (render output paths are
+  // site-specific). A root that can't be resolved is treated as non-matching.
+  const rawRoots = allowedRoots();
+  if (rawRoots.length > 0) {
+    const roots = (
+      await Promise.all(
+        rawRoots.map(async (r) => {
+          try {
+            return await fs.realpath(path.resolve(r));
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((r): r is string => r !== null);
+    const inAllowedRoot = roots.some((root) => {
+      const rel = path.relative(root, realTarget);
+      return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+    });
+    if (!inAllowedRoot) {
+      return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
+    }
   }
 
-  const ext = fileExtension(normalized);
-  if (!isWebRenderableImage(normalized)) {
-    // EXR / TIFF / DPX etc. - the browser can't render these inline.
+  const ext = fileExtension(realTarget);
+  if (!isWebRenderableImage(realTarget)) {
+    // EXR / TIFF / DPX / SVG etc. - the browser can't (safely) render inline.
     return NextResponse.json(
       { error: "unsupported", ext, message: "Preview not supported in browser for this format" },
       { status: 415 },
@@ -76,7 +112,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await fs.readFile(normalized);
+    const data = await fs.readFile(realTarget);
     return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
@@ -85,12 +121,15 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
+    // Log the resolved path server-side for diagnostics, but don't echo the
+    // server filesystem layout back to the client.
+    console.error(`Frame preview read failed for ${realTarget}:`, error?.code ?? error);
     if (error?.code === "ENOENT") {
-      return NextResponse.json({ error: "File not found", path: normalized }, { status: 404 });
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
     if (error?.code === "EACCES") {
-      return NextResponse.json({ error: "Permission denied", path: normalized }, { status: 403 });
+      return NextResponse.json({ error: "Permission denied" }, { status: 403 });
     }
-    return NextResponse.json({ error: "Could not read image", path: normalized }, { status: 500 });
+    return NextResponse.json({ error: "Could not read image" }, { status: 500 });
   }
 }

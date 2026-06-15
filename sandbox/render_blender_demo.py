@@ -54,7 +54,7 @@ from load_test_jobs import (
     DEFAULT_SHOT,
     DEFAULT_SHOW,
     _blender_render,
-    _find_job,
+    _wait_for_jobs,
     discover_blender,
 )
 
@@ -101,7 +101,9 @@ def main() -> int:
     # Monitor Jobs before you can open it; the images exist regardless.
     outline.cuerun.launch(ol, pause=True, use_pycuerun=False)
 
-    job = _find_job(short_name)
+    # Poll for visibility rather than a one-shot lookup: _find_job can race
+    # Cuebot right after launch and would skip registerOutputPath.
+    job = _wait_for_jobs([short_name])[0]
     layer = next(l for l in job.getLayers() if l.name() == "beauty")
     layer.registerOutputPath(output_spec)
 

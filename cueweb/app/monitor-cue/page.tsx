@@ -284,19 +284,24 @@ export default function MonitorCuePage() {
     else { setSortKey(key); setSortDir("asc"); }
   }
 
+  // Monotonic token so a slower earlier load() (poller / manual Refresh /
+  // post-action refresh run concurrently) can't commit after a newer one and
+  // roll the table back to stale data.
+  const loadRequestIdRef = React.useRef(0);
   const load = React.useCallback(
     async (showNames: string[], isCancelled?: () => boolean) => {
+      const requestId = ++loadRequestIdRef.current;
       if (showNames.length === 0) {
         setJobs(null);
         return;
       }
       try {
         const data = await getJobs(JSON.stringify({ r: { shows: showNames, include_finished: false } }));
-        if (isCancelled?.()) return;
+        if (isCancelled?.() || requestId !== loadRequestIdRef.current) return;
         setJobs(data);
         setNow(Date.now() / 1000);
       } catch (err) {
-        if (isCancelled?.()) return;
+        if (isCancelled?.() || requestId !== loadRequestIdRef.current) return;
         handleError(err, "Could not load jobs");
         setJobs((prev) => prev ?? []);
       }
@@ -362,6 +367,9 @@ export default function MonitorCuePage() {
     if (toIdx < 0) return;
     const anchorIdx = lastSelectedRef.current ? ids.indexOf(lastSelectedRef.current) : -1;
     if (anchorIdx < 0) {
+      // The previous anchor is gone (refresh/filter/collapse). Select the
+      // clicked row and re-anchor to it so the next Shift-click forms a range.
+      lastSelectedRef.current = toId;
       setSelected((prev) => new Set(prev).add(toId));
       return;
     }

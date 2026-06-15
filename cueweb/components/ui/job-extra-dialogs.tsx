@@ -82,6 +82,12 @@ function SetJobScalarDialog() {
       toastWarning(`${SCALAR_LABEL[field]} must be a non-negative number.`);
       return;
     }
+    // GPUs and retries are int32 in the proto; only cores accept fractions.
+    const requiresInteger = field === "minGpus" || field === "maxGpus" || field === "maxRetries";
+    if (requiresInteger && !Number.isInteger(n)) {
+      toastWarning(`${SCALAR_LABEL[field]} must be a non-negative integer.`);
+      return;
+    }
     setBusy(true);
     try {
       const fn =
@@ -104,7 +110,7 @@ function SetJobScalarDialog() {
         </DialogHeader>
         <div className="space-y-1 py-2">
           <p className="break-all font-mono text-xs text-muted-foreground" title={job?.name}>{job?.name}</p>
-          <Input type="number" min={0} step={1} value={value} onChange={(e) => setValue(e.target.value)} aria-label={SCALAR_LABEL[field]} autoFocus />
+          <Input type="number" min={0} step={field === "minCores" || field === "maxCores" ? "0.01" : "1"} value={value} onChange={(e) => setValue(e.target.value)} aria-label={SCALAR_LABEL[field]} autoFocus />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
@@ -272,17 +278,39 @@ function UseLocalCoresDialog() {
       toastWarning("Enter the host to book.");
       return;
     }
+    // threads/maxCores and maxGpus are int32; the GB inputs may be fractional
+    // (rounded into int64 KB below). Validate before building the payload so a
+    // NaN can't serialize to null and produce a malformed request.
     const c = Number(cores);
+    const mem = Number(memGb);
+    const g = Number(gpus);
+    const gpuMem = Number(gpuMemGb);
+    if (!Number.isInteger(c) || c < 1) {
+      toastWarning("Cores must be a positive integer.");
+      return;
+    }
+    if (!Number.isFinite(mem) || mem < 0) {
+      toastWarning("Memory must be a non-negative number.");
+      return;
+    }
+    if (!Number.isInteger(g) || g < 0) {
+      toastWarning("GPUs must be a non-negative integer.");
+      return;
+    }
+    if (!Number.isFinite(gpuMem) || gpuMem < 0) {
+      toastWarning("GPU memory must be a non-negative number.");
+      return;
+    }
     setBusy(true);
     try {
       const ok = await addRenderPartition(job, {
         host: host.trim(),
         username,
-        threads: Math.max(1, c),
-        maxCores: Math.max(1, c),
-        maxMemory: Math.round(Number(memGb) * KB_PER_GB),
-        maxGpus: Math.max(0, Number(gpus)),
-        maxGpuMemory: Math.round(Number(gpuMemGb) * KB_PER_GB),
+        threads: c,
+        maxCores: c,
+        maxMemory: Math.round(mem * KB_PER_GB),
+        maxGpus: g,
+        maxGpuMemory: Math.round(gpuMem * KB_PER_GB),
       });
       if (ok) setOpen(false);
     } finally {

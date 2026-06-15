@@ -61,10 +61,7 @@ export function FrameRangeSelector({
   // Frames sorted by number define the strip's left-to-right order. Selection
   // is tracked as indices into this sorted list (robust to non-contiguous
   // frame numbers like 1-100x5).
-  const sorted = React.useMemo(
-    () => [...frames].sort((a, b) => a.number - b.number),
-    [frames],
-  );
+  const sorted = React.useMemo(() => [...frames].sort((a, b) => a.number - b.number), [frames]);
   const n = sorted.length;
 
   const [anchor, setAnchor] = React.useState<number | null>(null);
@@ -129,19 +126,56 @@ export function FrameRangeSelector({
     setAnchor(null);
   };
 
+  // Keyboard operation for the Accessible Rich Internet Applications (ARIA) slider: arrows move a single-frame cursor,
+  // Shift+arrows extend the range from the anchor, Home/End jump to the ends,
+  // and Escape clears. Mirrors the pointer-drag selection model.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (n === 0) return;
+    let target: number | null = null;
+    const cursor = sel ? sel.b : 0;
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        target = clamp(cursor + 1, 0, n - 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowDown":
+        target = clamp(cursor - 1, 0, n - 1);
+        break;
+      case "Home":
+        target = 0;
+        break;
+      case "End":
+        target = n - 1;
+        break;
+      case "Escape":
+        e.preventDefault();
+        clearSelection();
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    if (e.shiftKey) {
+      const base = anchor ?? cursor;
+      setAnchor(base);
+      setSel({ a: base, b: target });
+    } else {
+      setAnchor(target);
+      setSel({ a: target, b: target });
+    }
+  };
+
   const doRetry = () => hasSelection && retryFrames(selectedFrames);
   const doEat = () => hasSelection && eatFrames(selectedFrames);
   const doKill = () =>
-    hasSelection &&
-    killFrames(selectedFrames, username, `Frame range kill from CueWeb selector by ${username}`);
+    hasSelection && killFrames(selectedFrames, username, `Frame range kill from CueWeb selector by ${username}`);
 
   return (
     <div className="mb-2 rounded-md border border-border bg-muted/20 p-2">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium text-muted-foreground">Frame range</span>
-        <span className="text-muted-foreground/80">
-          Drag to select; Shift-click to extend.
-        </span>
+        <span className="text-muted-foreground/80">Drag to select; Shift-click to extend.</span>
         <span className="ml-auto tabular-nums">
           Selected: <span className="font-mono">{rangeLabel}</span>
         </span>
@@ -152,13 +186,16 @@ export function FrameRangeSelector({
       <div
         ref={stripRef}
         role="slider"
+        tabIndex={0}
         aria-label="Frame range selector"
         aria-valuemin={sorted[0].number}
         aria-valuemax={sorted[n - 1].number}
         aria-valuenow={hasSelection ? sorted[hi].number : sorted[0].number}
-        className="relative h-7 w-full cursor-crosshair touch-none select-none overflow-hidden rounded border border-input bg-background"
+        aria-valuetext={hasSelection ? rangeLabel : "no frames selected"}
+        className="relative h-7 w-full cursor-crosshair touch-none select-none overflow-hidden rounded border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
+        onKeyDown={onKeyDown}
       >
         <svg
           className="absolute inset-0 h-full w-full"
