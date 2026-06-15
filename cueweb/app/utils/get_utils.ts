@@ -369,7 +369,10 @@ export async function getAllocations(): Promise<Allocation[]> {
 export async function getDefaultServices(): Promise<Service[]> {
     const ENDPOINT = "/api/service/getdefaultservices";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
-    return Array.isArray(response) ? response : [];
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load default services from Cuebot.");
+    }
+    return response;
 }
 
 // Fetch all comments for a given job

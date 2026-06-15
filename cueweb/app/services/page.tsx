@@ -81,12 +81,16 @@ export default function FacilityServiceDefaultsPage() {
   async function handleDeleteConfirm() {
     if (!selectedService) return;
     const ok = await deleteService(selectedService);
-    if (ok) {
-      toastSuccess(`Deleted service ${selectedService.name}`);
-      setSelectedName(null);
-      setIsNew(false);
-      await load();
+    if (!ok) {
+      // deleteService already surfaced an error toast; throw so the
+      // ConfirmDialog keeps the modal open for retry instead of dismissing as
+      // if the delete had succeeded.
+      throw new Error(`Failed to delete service ${selectedService.name}`);
     }
+    toastSuccess(`Deleted service ${selectedService.name}`);
+    setSelectedName(null);
+    setIsNew(false);
+    await load();
   }
 
   const showForm = isNew || selectedService !== null;

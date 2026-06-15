@@ -123,10 +123,13 @@ export function ServiceDefaultsForm({
       ["Timeout LLU", timeoutLlu],
       ["OOM Increase MB", oomIncreaseMb],
     ];
+    // These all map to integer-backed proto fields (int32 centcores / int64 KB
+    // / int32 minutes), and CueGUI's ServiceDialog uses integer spin boxes for
+    // each, so reject fractional input rather than relying on backend coercion.
     for (const [fieldLabel, value] of numericFields) {
       const x = Number(value);
-      if (value.trim() === "" || !Number.isFinite(x) || x < 0) {
-        return `${fieldLabel} must be a non-negative number.`;
+      if (value.trim() === "" || !Number.isInteger(x) || x < 0) {
+        return `${fieldLabel} must be a non-negative integer.`;
       }
     }
     if (Number(maxThreads) > 0 && Number(minThreads) > Number(maxThreads)) {
@@ -173,10 +176,14 @@ export function ServiceDefaultsForm({
       minMemoryIncrease: Number(oomIncreaseMb) * 1024,
     };
     const ok = isNew ? await createService(payload) : await updateService(payload);
-    if (ok) {
-      toastSuccess(isNew ? `Created service ${payload.name}` : `Saved service ${payload.name}`);
-      onSaved(payload.name);
+    if (!ok) {
+      // The service helper already surfaced an error toast; throw so the
+      // ConfirmDialog keeps the modal open for retry instead of dismissing as
+      // if the save had succeeded.
+      throw new Error(isNew ? `Failed to create service ${payload.name}` : `Failed to save service ${payload.name}`);
     }
+    toastSuccess(isNew ? `Created service ${payload.name}` : `Saved service ${payload.name}`);
+    onSaved(payload.name);
   }
 
   return (
