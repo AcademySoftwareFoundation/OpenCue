@@ -19,7 +19,13 @@
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
 
-import { Show, Subscription, getActiveShows, getShowSubscriptions } from "@/app/utils/get_utils";
+import {
+  Show,
+  Subscription,
+  getActiveShows,
+  getAllocations,
+  getShowSubscriptions,
+} from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
 import { CreateSubscriptionDialog } from "@/components/ui/create-subscription-dialog";
@@ -47,13 +53,40 @@ import { SubscriptionDialogs } from "@/components/ui/subscription-dialogs";
 const REFRESH_MS = 15000;
 const SELECTED_SHOWS_KEY = "cueweb.subscription-graphs.shows";
 
-type MenuState = { x: number; y: number; sub: Subscription };
+// A subscription-row right-click carries the sub; an empty-area / empty-show
+// right-click has no sub and only offers "Add new subscription".
+type MenuState = { x: number; y: number; sub: Subscription | null; showName: string };
 
 export default function SubscriptionGraphsPage() {
   const [shows, setShows] = React.useState<Show[] | null>(null);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [subs, setSubs] = React.useState<Record<string, Subscription[] | null>>({});
+  const [allocCores, setAllocCores] = React.useState<Record<string, number>>({});
   const [menu, setMenu] = React.useState<MenuState | null>(null);
+
+  // Allocation core totals (allocationName -> cores) back the bar scaling: each
+  // subscription bar is drawn relative to its allocation's full capacity, like
+  // CueGUI. Allocations are global, so poll them independently of the shows.
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const allocs = await getAllocations();
+        if (cancelled) return;
+        const map: Record<string, number> = {};
+        for (const a of allocs) map[a.name] = a.stats?.cores ?? 0;
+        setAllocCores(map);
+      } catch {
+        // Non-fatal: bars fall back to size/burst scaling without alloc totals.
+      }
+    };
+    load();
+    const interval = setInterval(load, REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load the active-show list for the dropdown, then restore any previously
   // selected shows that are still active.
@@ -178,7 +211,17 @@ export default function SubscriptionGraphsPage() {
 
   function onSubContextMenu(e: React.MouseEvent, sub: Subscription) {
     e.preventDefault();
-    setMenu({ x: e.clientX, y: e.clientY, sub });
+    // Stop the show-section handler from also firing and overwriting with a
+    // show-level (sub-less) menu.
+    e.stopPropagation();
+    setMenu({ x: e.clientX, y: e.clientY, sub, showName: sub.showName });
+  }
+
+  // Right-clicking a show's area (including an empty "no subscriptions" show)
+  // opens a menu offering only "Add new subscription", matching CueGUI.
+  function onShowContextMenu(e: React.MouseEvent, showName: string) {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, sub: null, showName });
   }
 
   function dispatch(name: string, detail: object) {
@@ -223,6 +266,26 @@ export default function SubscriptionGraphsPage() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Legend (CueGUI uses the same color coding). */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "#87cfeb" }} />
+            Allocation
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "#c8c837" }} />
+            In use
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3.5 w-[3px]" style={{ backgroundColor: "#58a3d1" }} />
+            Size
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3.5 w-[3px]" style={{ backgroundColor: "#e03434" }} />
+            Burst
+          </span>
+        </div>
       </div>
 
       {selectedSorted.length === 0 ? (
@@ -235,7 +298,9 @@ export default function SubscriptionGraphsPage() {
             key={name}
             showName={name}
             subscriptions={subs[name] ?? null}
+            allocCores={allocCores}
             onSubContextMenu={onSubContextMenu}
+            onShowContextMenu={onShowContextMenu}
           />
         ))
       )}
@@ -248,30 +313,36 @@ export default function SubscriptionGraphsPage() {
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
-            onClick={() => dispatch(OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT, { subscription: menu.sub })}
-          >
-            Edit Subscription Size...
-          </button>
-          <button
-            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
-            onClick={() => dispatch(OPEN_EDIT_SUBSCRIPTION_BURST_EVENT, { subscription: menu.sub })}
-          >
-            Edit Subscription Burst...
-          </button>
-          <div className="my-1 h-px bg-border" />
-          <button
-            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
-            onClick={() => dispatch(OPEN_DELETE_SUBSCRIPTION_EVENT, { subscription: menu.sub })}
-          >
-            Delete Subscription
-          </button>
-          <div className="my-1 h-px bg-border" />
+          {/* Edit/Delete only apply to an actual subscription row; an empty
+              show's right-click offers just "Add new subscription". */}
+          {menu.sub ? (
+            <>
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+                onClick={() => dispatch(OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT, { subscription: menu.sub })}
+              >
+                Edit Subscription Size...
+              </button>
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+                onClick={() => dispatch(OPEN_EDIT_SUBSCRIPTION_BURST_EVENT, { subscription: menu.sub })}
+              >
+                Edit Subscription Burst...
+              </button>
+              <div className="my-1 h-px bg-border" />
+              <button
+                className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+                onClick={() => dispatch(OPEN_DELETE_SUBSCRIPTION_EVENT, { subscription: menu.sub })}
+              >
+                Delete Subscription
+              </button>
+              <div className="my-1 h-px bg-border" />
+            </>
+          ) : null}
           <button
             className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
             onClick={() => {
-              const show = shows?.find((s) => s.name === menu.sub.showName);
+              const show = shows?.find((s) => s.name === menu.showName);
               if (show) dispatch(OPEN_CREATE_SUBSCRIPTION_EVENT, { show });
               else setMenu(null);
             }}

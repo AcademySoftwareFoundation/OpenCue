@@ -522,7 +522,7 @@ export function SimpleDataTable<TData, TValue>({
               onChange={(e) => setGlobalFilter(e.target.value)}
               placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : isSubscriptionsTable ? "Filter subscriptions..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
               aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : isSubscriptionsTable ? "Filter subscriptions" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
-              className="h-8 w-44 pl-7 pr-7 text-xs"
+              className="h-8 w-52 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
               <button
