@@ -173,6 +173,16 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
+31. **Subscriptions (CueCommander &rarr; Subscriptions):**
+   - A per-show subscriptions table at `/subscriptions`, the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Pick a show from the dropdown to list its subscriptions, one row per allocation, with columns Alloc, Usage, Size, Burst, and Used. A subscription is a show's reservation against an allocation: **Size** is the guaranteed cores, **Burst** the maximum it may temporarily use.
+   - **Add Subscription** subscribes the show to another allocation (Size + Burst); **Show Properties** opens the same four-tab dialog as the Shows page.
+   - **Row actions** via the right-click menu: **Edit Subscription Size...** (with a billing confirmation), **Edit Subscription Burst...**, and **Delete Subscription**.
+
+32. **Subscription Graphs (CueCommander &rarr; Subscription Graphs):**
+   - A visual view at `/subscription-graphs`, the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window. A **Shows** multi-select (All Shows / Clear / per-show) chooses which shows to graph; each gets one horizontal bar per subscription.
+   - Each bar is scaled to the allocation's total cores and color-coded like CueGUI (legend at the top): sky-blue allocation capacity, yellow-green in-use cores, a blue size marker and a red burst marker. Hovering shows the exact values.
+   - **Row actions** via the right-click menu match the Subscriptions table plus **Add new subscription**; right-clicking a show with no subscriptions offers **Add new subscription** to create the first one.
+
 
 ## CueWeb's user interface
 

@@ -1168,6 +1168,88 @@ rewrites Cuebot's duplicate-key error into a short user-facing message.
 
 ---
 
+## Subscriptions and Subscription Graphs (CueCommander parity)
+
+The `/subscriptions` and `/subscription-graphs` pages replicate the CueGUI
+CueCommander Subscriptions window and Subscription Graphs window. Files involved:
+
+```text
+app/subscriptions/page.tsx                             # show selector + table + header buttons
+app/subscriptions/subscription-columns.tsx             # Alloc/Usage/Size/Burst/Used columns
+app/subscription-graphs/page.tsx                        # Shows multi-select + per-show graph sections
+components/ui/subscription-graph.tsx                    # ShowSubscriptionGraph + per-subscription bar
+components/ui/subscription-dialogs.tsx                  # Edit Size / Edit Burst / Delete dialogs
+components/ui/subscription-action-events.ts            # shared dialog event contract
+app/api/show/getsubscriptions/route.ts                  # /show.ShowInterface/GetSubscriptions
+app/api/subscription/{setsize,setburst,delete}/route.ts # SubscriptionInterface SetSize/SetBurst/Delete
+app/utils/get_utils.ts                                 # Subscription type + getShowSubscriptions
+app/utils/action_utils.ts                              # setSubscriptionSize/Burst, deleteSubscription + row dispatchers
+```
+
+### Units
+
+`size`, `burst`, and `reservedCores` arrive from the gateway as **centcores**
+(cores &times; 100). The table and graph divide by 100 for display; the edit
+dialogs take cores and send `int(value * 100)` back, matching CueGUI. Allocation
+`stats.cores` (from `getAllocations()`) is already in whole cores.
+
+### Subscriptions table
+
+`subscriptions/page.tsx` loads the active shows for the selector (selection
+persisted to `localStorage["cueweb.subscriptions.show"]`) and the selected
+show's subscriptions via `getShowSubscriptions()`. It auto-refreshes every 30s
+and re-fetches on `cueweb:subscriptions-changed` / `cueweb:shows-changed`,
+forwarding an `isCancelled` guard into the event handlers so a fetch that
+resolves after unmount does not `setState`. The table renders through
+`SimpleDataTable` with the `isSubscriptionsTable` flag; Usage is
+`reservedCores / size` as a percent. The header **Show Properties** /
+**Add Subscription** buttons reuse the Shows window dialogs via the
+`cueweb:open-show-properties` / `cueweb:open-create-subscription` events.
+
+### Subscription Graphs
+
+`subscription-graphs/page.tsx` keeps a multi-show selection (All Shows / Clear /
+per-show checkboxes, persisted to
+`localStorage["cueweb.subscription-graphs.shows"]`), polls each selected show's
+subscriptions every 15s, and polls `getAllocations()` to build an
+`allocationName → cores` map. The two changed-event handlers are split: a
+subscription change reloads against the current shows snapshot; a show change
+re-fetches the active-show list, prunes any selected show that no longer exists,
+and reloads against the fresh snapshot so the dropdown and per-show lookups do
+not go stale.
+
+`subscription-graph.tsx` draws each subscription as a row of positioned `div`s
+(not a charting library) scaled to the allocation's total cores, mirroring
+CueGUI's `SubBookingBarDelegate`:
+
+- sky-blue track = allocation capacity (`#87cfeb`, CueGUI `WAITING`),
+- yellow-green fill = in-use/reserved cores (`#c8c837`, CueGUI `RUNNING`),
+- blue marker = size (`#58a3d1`, `PAUSE_ICON_COLOUR`),
+- red marker = burst (`#e03434`, `KILL_ICON_COLOUR`).
+
+The domain is `max(alloc, size, burst, inUse, 1)` so the markers stay on-screen
+even when burst exceeds the allocation. The hover tooltip renders the real usage
+percentage when `size > 0`, `∞` when size is 0 but usage is live, and `—`
+for an empty subscription. The whole show section forwards right-clicks so an
+empty show can still raise **Add new subscription**; subscription bars
+`stopPropagation` so they keep their own (sub-specific) menu.
+
+### Dialogs, events, and routes
+
+`subscription-dialogs.tsx` provides Edit Size / Edit Burst / Delete, opened via
+the `cueweb:open-edit-subscription-size` / `cueweb:open-edit-subscription-burst`
+/ `cueweb:open-delete-subscription` events
+(`subscription-action-events.ts`), with CueGUI's exact prompt text including the
+billing-confirmation step on size edits. The action helpers in `action_utils.ts`
+(`setSubscriptionSize` / `setSubscriptionBurst` / `deleteSubscription`) post to
+the `/api/subscription/*` routes, which validate their bodies and forward to
+`subscription.SubscriptionInterface/{SetSize,SetBurst,Delete}`; reads go through
+`/api/show/getsubscriptions` &rarr; `show.ShowInterface/GetSubscriptions`. Each
+successful mutation fires `cueweb:subscriptions-changed` so the table and graph
+re-fetch.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

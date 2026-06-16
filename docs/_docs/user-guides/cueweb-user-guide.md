@@ -1162,6 +1162,105 @@ Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group
 
 ---
 
+## Subscriptions
+
+The **Subscriptions** page (CueCommander &rarr; Subscriptions in the sidebar or header) shows how much of each allocation a show is allowed to use, and how much it is using right now. It is the CueWeb equivalent of CueGUI's CueCommander Subscriptions window.
+
+A *subscription* is one show's reservation against one allocation. It has a **Size** - the cores the show is guaranteed - and a **Burst** - the extra cores the show may temporarily grab when they are idle. Sizes and bursts are expressed in cores.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Subscriptions entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu.png)
+
+Pick a show from the dropdown at the top left. The table then lists that show's subscriptions, one row per allocation.
+
+![CueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
+
+### Subscription columns
+
+| Column | Description |
+|--------|-------------|
+| Alloc | Allocation the show is subscribed to |
+| Usage | Cores in use as a percentage of the subscription size |
+| Size | Guaranteed cores for this show on this allocation |
+| Burst | Maximum cores the show may temporarily use |
+| Used | Cores currently reserved (running) |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter subscriptions...** box to narrow the table. The table auto-refreshes every 30 seconds.
+
+### Add a subscription
+
+Click **Add Subscription** to subscribe the selected show to another allocation. Pick the **Show** and **Alloc**, set the **Size** and **Burst** (defaults 100 and 110), then click **OK**. A show can have only one subscription per allocation; if one already exists, CueWeb tells you instead of creating a duplicate.
+
+![Create Subscription dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_add_subscription.png)
+
+### Show Properties
+
+The **Show Properties** button opens the same four-tab dialog as on the [Shows page](#show-properties) - Settings, Booking, Statistics, and Raw Show Data - for the selected show.
+
+![Show Properties - Settings tab](/assets/images/cueweb/cueweb_cuecommander_subscriptions_show_properties_settings.png)
+
+### Edit or delete a subscription
+
+Right-click a subscription row to open its actions menu: **Edit Subscription Size...**, **Edit Subscription Burst...**, and **Delete Subscription**.
+
+![Subscription row context menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options.png)
+
+**Edit Subscription Size...** changes the guaranteed cores. Sizes affect billing, so the dialog asks you to confirm and notes that this should normally be changed only by administrators.
+
+![Edit Subscription Size dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_edit_subscription_size.png)
+
+**Edit Subscription Burst...** changes the maximum cores the show may burst to.
+
+![Edit Subscription Burst dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_edit_subscription_burst.png)
+
+**Delete Subscription** removes the show's reservation on that allocation, after a confirmation prompt.
+
+![Delete Subscription confirmation](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_delete_subscriptions.png)
+
+---
+
+## Subscription Graphs
+
+The **Subscription Graphs** page (CueCommander &rarr; Subscription Graphs in the sidebar or header) is a visual companion to the Subscriptions table: it draws each subscription as a horizontal bar so you can see at a glance how much of an allocation a show is using against its size and burst. It is the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window.
+
+![Subscription Graphs entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_menu.png)
+
+### Choosing shows
+
+Use the **Shows** dropdown to choose which shows to graph. Check individual shows, or use **All Shows** / **Clear**. Your selection persists per browser. Each selected show gets its own section with one bar per subscription; a show with no subscriptions says so.
+
+![Shows dropdown](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_show_dropdown.png)
+
+### Reading a bar
+
+Each bar is scaled to the allocation's total core count and uses the same color coding as CueGUI, shown in the legend at the top of the page:
+
+- **Allocation** (sky-blue) - the allocation's total core capacity.
+- **In use** (yellow-green) - the cores the show currently has reserved.
+- **Size** (blue line) - the subscription's guaranteed cores.
+- **Burst** (red line) - the subscription's maximum cores.
+
+![CueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
+
+Hover over a bar to see the exact In use, Size, Burst, Allocation, and Usage values.
+
+![Hovering a subscription bar](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_mouse_over_show_subscription.png)
+
+### Actions
+
+Right-click a bar to open the same actions as the Subscriptions table - **Edit Subscription Size...**, **Edit Subscription Burst...**, **Delete Subscription** - plus **Add new subscription**.
+
+![Subscription bar context menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_menu_options.png)
+
+If a show has no subscriptions yet, right-click anywhere in its section and choose **Add new subscription** to create the first one.
+
+![Add a subscription to a show that has none](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_add_new_subscription_show_without_subscriptions.png)
+
+The page refreshes every 15 seconds.
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
