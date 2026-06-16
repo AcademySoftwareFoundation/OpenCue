@@ -37,12 +37,15 @@ export async function POST(request: NextRequest) {
   if (
     !jsonBody ||
     typeof jsonBody !== 'object' ||
-    !jsonBody.layer ||
+    typeof jsonBody.layer !== 'object' ||
+    jsonBody.layer === null ||
+    typeof jsonBody.layer.id !== 'string' ||
+    jsonBody.layer.id.trim() === '' ||
     typeof jsonBody.cores !== 'number' ||
     !Number.isFinite(jsonBody.cores) ||
     jsonBody.cores < 0
   ) {
-    return NextResponse.json({ error: 'Invalid request body: layer and non-negative numeric cores are required' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request body: layer.id and non-negative numeric cores are required' }, { status: 400 });
   }
 
   const body = JSON.stringify(jsonBody);

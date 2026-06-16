@@ -115,6 +115,8 @@ export default function StuckFramesPage() {
   const [autoRefresh, setAutoRefresh] = React.useState(false);
   const [notify, setNotify] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  // Set when a load fails, so a failed scan isn't rendered as "no stuck frames".
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Client-side removals: "Frame/Job Not Stuck".
   const [hiddenFrames, setHiddenFrames] = React.useState<Set<string>>(new Set());
@@ -150,12 +152,16 @@ export default function StuckFramesPage() {
     try {
       const data = await getStuckFrames();
       if (isCancelled?.()) return null;
+      setLoadError(null);
       setRaw(data);
       setNow(Date.now() / 1000);
       return data;
     } catch (err) {
       if (isCancelled?.()) return null;
       handleError(err, "Could not load stuck frames");
+      // Keep the last good rows on a failed poll, but record the error so a
+      // failed scan with no data shows an error rather than the empty state.
+      setLoadError("Could not load stuck frames.");
       setRaw((prev) => prev ?? []);
       return null;
     } finally {
@@ -314,11 +320,13 @@ export default function StuckFramesPage() {
   function exportLog(frames: StuckFrame[]) {
     // Web adaptation of CueGUI's YAML "stuck_frames_db" file: a JSON download
     // (the browser can't write to a fileshare).
-    const db: Record<string, Record<string, unknown>> = {};
+    // Key by jobId (not jobName) so distinct jobs sharing a name aren't merged
+    // into one bucket; carry jobName for readability.
+    const db: Record<string, { jobName: string; frames: Record<string, unknown> }> = {};
     for (const f of frames) {
       const { runtime, llu, avg } = metricsOf(f, now);
-      const byJob = db[f.jobName] ?? (db[f.jobName] = {});
-      byJob[`${f.number}-${Math.floor(now)}`] = {
+      const byJob = db[f.jobId] ?? (db[f.jobId] = { jobName: f.jobName, frames: {} });
+      byJob.frames[`${f.number}-${Math.floor(now)}`] = {
         layer: f.layerName,
         host: f.lastResource,
         llu,
@@ -393,7 +401,10 @@ export default function StuckFramesPage() {
     if (!coreUp) return;
     const cores = Number(coreUp.cores);
     if (!Number.isFinite(cores) || cores < 0) return;
-    await Promise.all(coreUp.targets.map((t) => setLayerMinCores(t, cores)));
+    // Only close + refresh if every layer update succeeded (each helper toasts
+    // its own failure); otherwise keep the dialog open for retry.
+    const results = await Promise.all(coreUp.targets.map((t) => setLayerMinCores(t, cores)));
+    if (!results.every(Boolean)) return;
     setCoreUp(null);
     await load();
   }
@@ -414,7 +425,7 @@ export default function StuckFramesPage() {
             <Checkbox checked={notify} onCheckedChange={(c) => toggleNotify(!!c)} aria-label="Notification" />
             Notification
           </label>
-          <Button type="button" variant="outline" size="sm" onClick={() => { setHiddenFrames(new Set()); setHiddenJobs(new Set()); setRaw([]); }}>
+          <Button type="button" variant="outline" size="sm" onClick={() => { setHiddenFrames(new Set()); setHiddenJobs(new Set()); setRaw([]); setLoadError(null); }}>
             Clear
           </Button>
           <Button type="button" size="sm" onClick={() => load()} disabled={loading}>
@@ -434,9 +445,13 @@ export default function StuckFramesPage() {
           <Skeleton className="h-8 w-full" />
         </div>
       ) : totalStuck === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No stuck frames detected with the current filters.
-        </p>
+        loadError ? (
+          <p className="text-sm text-destructive">{loadError}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No stuck frames detected with the current filters.
+          </p>
+        )
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">

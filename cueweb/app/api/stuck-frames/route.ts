@@ -90,7 +90,7 @@ async function getRunningFrames(job: any): Promise<any[]> {
         },
       }),
     );
-    const batch: any[] = framesData?.frames?.frames ?? [];
+    const batch: any[] = Array.isArray(framesData?.frames?.frames) ? framesData.frames.frames : [];
     all.push(...batch);
     // A short (or empty/failed) page means we've reached the end.
     if (batch.length < MAX_FRAMES_PER_JOB) break;
@@ -107,7 +107,7 @@ export async function POST(_request: NextRequest) {
     if (jobsData === null) {
       return NextResponse.json({ error: "Failed to list jobs" }, { status: 500 });
     }
-    const jobs: any[] = jobsData?.jobs?.jobs ?? [];
+    const jobs: any[] = Array.isArray(jobsData?.jobs?.jobs) ? jobsData.jobs.jobs : [];
 
     const perJob = await mapWithConcurrency(
       jobs,
@@ -121,7 +121,7 @@ export async function POST(_request: NextRequest) {
           ),
         ]);
 
-        const layers: any[] = layersData?.layers?.layers ?? [];
+        const layers: any[] = Array.isArray(layersData?.layers?.layers) ? layersData.layers.layers : [];
         // layerName -> details for attaching to each frame (service + average
         // frame time for detection; id + minCores for the Core Up action).
         const layerInfo = new Map<
