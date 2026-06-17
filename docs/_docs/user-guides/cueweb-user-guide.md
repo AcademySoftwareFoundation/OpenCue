@@ -1162,6 +1162,64 @@ Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group
 
 ---
 
+## Facility Service Defaults
+
+The **Facility Service Defaults** page (CueCommander &rarr; Services in the sidebar or header) edits the facility-wide service templates - the default resource requirements that apply to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`). It is the CueWeb equivalent of CueGUI's Facility Service Defaults tab.
+
+> **Note:** These are facility-wide defaults. A change here affects every job that uses the service, so the page asks you to confirm before saving. Editing should normally be left to administrators.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Services entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_facility_services_menu.png)
+
+The page has two panes: the list of services on the left, and the edit form for the selected service on the right.
+
+![CueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
+
+### Service fields
+
+| Field | Description |
+|-------|-------------|
+| Name | Service name (at least 3 characters; letters, numbers, and `\| / - _`) |
+| Threadable | Whether frames of this service can use more than one thread |
+| Min Threads / Max Threads | Thread range, where `100` = 1 thread. Min cannot exceed Max when Max is greater than 0 |
+| Min Memory MB | Minimum memory reserved per frame |
+| Min Gpu Memory MB | Minimum GPU memory reserved per frame |
+| Timeout | Maximum run time per frame, in minutes (0 = no timeout) |
+| Timeout LLU | Maximum time without a log update, in minutes (0 = no timeout) |
+| OOM Increase MB | How much to raise the memory reservation when a frame is retried after running out of memory |
+| Tags | The host tags a frame may run on. Pick from the predefined tags, or enable **Custom Tags** to enter your own (space- or comma-separated) |
+
+The numeric fields take non-negative whole numbers.
+
+### Create a service
+
+Click **New**, fill in the form, and click **Save**. CueWeb asks you to confirm the facility-wide change before creating the service.
+
+![New service form](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service.png)
+
+![Facility-wide confirmation](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service_confirmation.png)
+
+A toast confirms the service was created, and it appears in the list.
+
+![Service created notification](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service_notification_service_created.png)
+
+### Edit a service
+
+Select a service from the list, change any field, and click **Save**. The same facility-wide confirmation appears before the change is applied.
+
+### Delete a service
+
+Select a service and click **Del**. Confirm the prompt to remove the facility default service.
+
+![Delete service confirmation](/assets/images/cueweb/cueweb_cuecommander_facility_services_delete_service_confirmation.png)
+
+A toast confirms the deletion.
+
+![Service deleted notification](/assets/images/cueweb/cueweb_cuecommander_facility_services_delete_service_notification_service_deleted.png)
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.

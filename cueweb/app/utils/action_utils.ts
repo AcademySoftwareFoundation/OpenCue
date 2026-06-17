@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Group, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Group, Host, JobComment, Service, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -46,6 +46,29 @@ export async function performAction(endpoint: string, bodyAr: string[], successM
     handleError(error, `Error performing action for: ${endpoint}`);
     return false;
   }
+}
+
+/**************************************/
+// Facility default services (CueGUI ServiceDialog parity)
+/**************************************/
+
+// These call accessActionApi directly (no per-call success toast) so the
+// Facility Service Defaults form can show a single toast after the call
+// resolves. Errors are still surfaced as toasts by accessActionApi. Returns
+// true on success so the form can gate its refresh on it.
+export async function createService(data: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/create", JSON.stringify({ data }));
+  return !!result?.success;
+}
+
+export async function updateService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/update", JSON.stringify({ service }));
+  return !!result?.success;
+}
+
+export async function deleteService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/delete", JSON.stringify({ service }));
+  return !!result?.success;
 }
 
 /**************************************/
