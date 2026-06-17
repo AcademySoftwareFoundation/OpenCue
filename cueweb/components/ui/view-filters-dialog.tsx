@@ -118,6 +118,11 @@ export function ViewFiltersDialog() {
   const [matchers, setMatchers] = React.useState<Matcher[]>([]);
   const [actions, setActions] = React.useState<FilterAction[]>([]);
   const [groups, setGroups] = React.useState<Group[]>([]);
+  // Bumped on every matcher/action reload. The value editors are uncontrolled
+  // (defaultValue, to avoid commit-per-keystroke), so they only rebind to fresh
+  // server state when remounted — keying them by this nonce remounts them after
+  // a refresh or a failed-commit rollback, but not during typing.
+  const [reloadNonce, setReloadNonce] = React.useState(0);
   const [menu, setMenu] = React.useState<{ x: number; y: number; filter: Filter } | null>(null);
   const [confirm, setConfirm] = React.useState<{ title: string; description: string; onConfirm: () => Promise<void> } | null>(null);
 
@@ -126,8 +131,16 @@ export function ViewFiltersDialog() {
     [filters, selectedId],
   );
 
+  // Generation tokens: each loader bumps its ref on entry and drops its result
+  // if a newer call superseded it, so a slow response for a previously-selected
+  // show/filter can't overwrite the current one (out-of-order resolution).
+  const filterReqRef = React.useRef(0);
+  const maReqRef = React.useRef(0);
+
   const loadFilters = React.useCallback(async (showId: string, keepSelection?: string) => {
+    const reqId = ++filterReqRef.current;
     const list = await getShowFilters(showId);
+    if (filterReqRef.current !== reqId) return list; // superseded by a newer load
     list.sort((a, b) => a.order - b.order);
     setFilters(list);
     const next = keepSelection && list.some((f) => f.id === keepSelection) ? keepSelection : list[0]?.id ?? null;
@@ -136,14 +149,17 @@ export function ViewFiltersDialog() {
   }, []);
 
   const loadMatchersActions = React.useCallback(async (filter: Filter | null) => {
+    const reqId = ++maReqRef.current;
     if (!filter) {
       setMatchers([]);
       setActions([]);
       return;
     }
     const [ms, as] = await Promise.all([getFilterMatchers(filter), getFilterActions(filter)]);
+    if (maReqRef.current !== reqId) return; // superseded by a newer load
     setMatchers(ms);
     setActions(as);
+    setReloadNonce((n) => n + 1); // remount uncontrolled value editors to rebind
   }, []);
 
   React.useEffect(() => {
@@ -156,8 +172,15 @@ export function ViewFiltersDialog() {
       setMatchers([]);
       setActions([]);
       setOpen(true);
-      Promise.all([loadFilters(detail.show.id), getShowGroups(detail.show.id)])
-        .then(([, gs]) => setGroups(gs))
+      // loadFilters bumps filterReqRef synchronously before its first await, so
+      // capturing it here ties the concurrent groups load to the same request.
+      const filtersPromise = loadFilters(detail.show.id);
+      const reqId = filterReqRef.current;
+      Promise.all([filtersPromise, getShowGroups(detail.show.id)])
+        .then(([, gs]) => {
+          if (filterReqRef.current !== reqId) return; // superseded by a newer open
+          setGroups(gs);
+        })
         .catch((err) => handleError(err, "Could not load filters"));
     }
     window.addEventListener(OPEN_VIEW_FILTERS_EVENT, handler);
@@ -407,6 +430,7 @@ export function ViewFiltersDialog() {
                         {MATCH_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <Input
+                        key={`${m.id}:${reloadNonce}`}
                         defaultValue={m.input}
                         onBlur={(e) => e.target.value !== m.input && commitMatcher(m, { input: e.target.value })}
                         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
@@ -444,7 +468,7 @@ export function ViewFiltersDialog() {
                   actions.map((a) => (
                     <div key={a.id} className="grid grid-cols-[1.4fr_1.6fr_2rem] items-center gap-2 px-2 py-1 text-xs">
                       <span className="truncate" title={a.type}>{a.type}</span>
-                      <ActionValueEditor action={a} groups={groups} onCommit={(changes) => commitAction(a, changes)} groupName={groupName} />
+                      <ActionValueEditor key={`${a.id}:${reloadNonce}`} action={a} groups={groups} onCommit={(changes) => commitAction(a, changes)} groupName={groupName} />
                       <button type="button" onClick={() => deleteAction(a)} aria-label="Delete action" title="Delete action" className="text-red-500 hover:text-red-400">
                         <X className="h-4 w-4" />
                       </button>

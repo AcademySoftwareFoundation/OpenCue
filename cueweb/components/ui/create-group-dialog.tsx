@@ -92,14 +92,24 @@ export function CreateGroupDialog() {
       // name is already set by CreateSubGroup, so drop it from the changes.
       const changes = computeGroupChanges(state, null);
       delete changes.name;
+      let propsApplied = true;
       if (Object.keys(changes).length > 0) {
         const created = (await getShowGroups(show.id)).find(
           (g) => g.parentId === target.id && g.name === name,
         );
-        if (created) await updateGroup(created, changes);
+        // updateGroup surfaces its own error toast on failure; capture the
+        // result so we don't report a clean success when properties didn't take.
+        if (created) propsApplied = await updateGroup(created, changes);
       }
 
-      toastSuccess(`Created group ${name}`);
+      // The subgroup itself was created, so always refresh the tree and close.
+      // Downgrade the success toast to a warning if the follow-up property
+      // apply failed — the user can finish via Group Properties.
+      if (propsApplied) {
+        toastSuccess(`Created group ${name}`);
+      } else {
+        toastWarning(`Group ${name} was created, but some properties could not be applied.`);
+      }
       window.dispatchEvent(new CustomEvent(GROUPS_CHANGED_EVENT, { detail: { show } }));
       setOpen(false);
     } catch (err) {

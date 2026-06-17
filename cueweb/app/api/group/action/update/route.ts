@@ -69,11 +69,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body: group and changes are required' }, { status: 400 });
   }
 
+  // Reject unknown keys rather than silently dropping them: a no-op that still
+  // reports success would hide a contract regression (e.g. a renamed setter key)
+  // and the user's edit would appear to apply when it did not.
+  const unknownKeys = Object.keys(changes).filter((key) => !(key in SETTERS));
+  if (unknownKeys.length > 0) {
+    return NextResponse.json(
+      { error: `Unknown change keys: ${unknownKeys.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   // Apply each changed field in turn; stop and report the first failure so the
   // dialog can keep the modal open for retry.
   for (const key of Object.keys(changes)) {
     const setter = SETTERS[key];
-    if (!setter) continue;
     const value = changes[key];
     const isName = setter.field === "name" || setter.field === "dept";
     if (isName) {

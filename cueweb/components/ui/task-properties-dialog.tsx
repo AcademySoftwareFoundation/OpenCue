@@ -69,8 +69,16 @@ export function TaskPropertiesDialog() {
     [departments, deptName],
   );
 
+  // Generation tokens: each loader bumps its ref on entry and drops its result
+  // if a newer call superseded it, so a slow response for a previously-selected
+  // show/department can't overwrite the current one (out-of-order resolution).
+  const deptReqRef = React.useRef(0);
+  const taskReqRef = React.useRef(0);
+
   const loadDepartments = React.useCallback(async (showId: string, keepName?: string) => {
+    const reqId = ++deptReqRef.current;
     const list = await getShowDepartments(showId);
+    if (deptReqRef.current !== reqId) return list; // superseded by a newer load
     list.sort((a, b) => a.name.localeCompare(b.name));
     setDepartments(list);
     const next = keepName && list.some((d) => d.name === keepName) ? keepName : list[0]?.name ?? "";
@@ -79,11 +87,14 @@ export function TaskPropertiesDialog() {
   }, []);
 
   const loadTasks = React.useCallback(async (dept: Department | null) => {
+    const reqId = ++taskReqRef.current;
     if (!dept) {
       setTasks([]);
       return;
     }
-    setTasks(await getDepartmentTasks(dept));
+    const result = await getDepartmentTasks(dept);
+    if (taskReqRef.current !== reqId) return; // superseded by a newer load
+    setTasks(result);
   }, []);
 
   React.useEffect(() => {

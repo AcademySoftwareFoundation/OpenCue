@@ -57,11 +57,15 @@ export function GroupPropertiesDialog() {
   const [group, setGroup] = React.useState<Group | null>(null);
   const [state, setState] = React.useState<GroupFormState | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  // Bumped on every open; the async root-group fetch checks it so a slow
+  // response for a previously-opened show can't overwrite a newer one.
+  const reqIdRef = React.useRef(0);
 
   React.useEffect(() => {
     function handler(e: Event) {
       const detail = (e as CustomEvent<OpenGroupPropertiesDetail>).detail;
       if (!detail?.show) return;
+      const reqId = ++reqIdRef.current;
       setShow(detail.show);
       setGroup(null);
       setState(null);
@@ -75,6 +79,7 @@ export function GroupPropertiesDialog() {
       }
       getShowRootGroup(detail.show.id)
         .then((root) => {
+          if (reqIdRef.current !== reqId) return; // superseded by a newer open
           if (!root) {
             handleError(new Error("No root group"), "Could not load group");
             setOpen(false);
@@ -84,6 +89,7 @@ export function GroupPropertiesDialog() {
           setState(initGroupForm(root));
         })
         .catch((err) => {
+          if (reqIdRef.current !== reqId) return; // superseded by a newer open
           handleError(err, "Could not load group");
           setOpen(false);
         });
