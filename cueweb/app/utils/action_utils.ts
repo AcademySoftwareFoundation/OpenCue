@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Group, Host, JobComment, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -1432,6 +1432,49 @@ export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
 // changes at once. Errors are still surfaced as toasts by accessActionApi.
 async function showAction(endpoint: string, body: object): Promise<boolean> {
   const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+// Group mutations (CueGUI Monitor Cue Group Properties / Create Group). Same
+// fire-and-check pattern as showAction; errors surface as toasts via the helper.
+export type GroupChanges = Partial<{
+  name: string;
+  department: string;
+  defaultJobPriority: number;
+  defaultJobMinCores: number;
+  defaultJobMaxCores: number;
+  minCores: number;
+  maxCores: number;
+  defaultJobMinGpus: number;
+  defaultJobMaxGpus: number;
+  minGpus: number;
+  maxGpus: number;
+}>;
+
+export async function updateGroup(group: Group, changes: GroupChanges): Promise<boolean> {
+  if (Object.keys(changes).length === 0) return true;
+  const result = await accessActionApi("/api/group/action/update", [JSON.stringify({ group, changes })]);
+  return !!result?.success;
+}
+
+export async function createSubGroup(parent: Group, name: string): Promise<boolean> {
+  const result = await accessActionApi("/api/group/action/createsubgroup", [JSON.stringify({ group: parent, name })]);
+  return !!result?.success;
+}
+
+// View Filters dialog mutations (CueGUI FilterDialog). One consolidated proxy
+// keyed by `op` (filter / matcher / action RPCs); the dialog re-fetches the
+// affected list after a successful mutation, so only success/failure matters.
+export async function filterMutate(op: string, payload: object): Promise<boolean> {
+  const result = await accessActionApi("/api/filter/mutate", [JSON.stringify({ op, ...payload })]);
+  return !!result?.success;
+}
+
+// Task Properties dialog mutations (CueGUI TasksDialog). One consolidated proxy
+// keyed by `op` (Department / Task RPCs); the dialog re-fetches after a
+// successful mutation, so only success/failure matters.
+export async function taskMutate(op: string, payload: object): Promise<boolean> {
+  const result = await accessActionApi("/api/task/mutate", [JSON.stringify({ op, ...payload })]);
   return !!result?.success;
 }
 

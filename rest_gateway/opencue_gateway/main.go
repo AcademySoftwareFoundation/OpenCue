@@ -265,6 +265,7 @@ func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServer
 		gw.RegisterServiceInterfaceHandlerFromEndpoint,
 		gw.RegisterServiceOverrideInterfaceHandlerFromEndpoint,
 		gw.RegisterTaskInterfaceHandlerFromEndpoint,
+		gw.RegisterDepartmentInterfaceHandlerFromEndpoint,
 	}
 
 	// Register each handler, failing fast if any registration fails

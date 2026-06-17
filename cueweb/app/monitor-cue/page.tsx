@@ -64,6 +64,12 @@ import { ViewDependenciesDialog } from "@/components/ui/view-dependencies-dialog
 import { JobExtraDialogs } from "@/components/ui/job-extra-dialogs";
 import { JobCommentsDialog } from "@/components/ui/job-comments-dialog";
 import { SendToGroupDialog } from "@/components/ui/send-to-group-dialog";
+import { ShowPropertiesDialog } from "@/components/ui/show-properties-dialog";
+import { GroupPropertiesDialog } from "@/components/ui/group-properties-dialog";
+import { CreateGroupDialog } from "@/components/ui/create-group-dialog";
+import { ViewFiltersDialog } from "@/components/ui/view-filters-dialog";
+import { TaskPropertiesDialog } from "@/components/ui/task-properties-dialog";
+import { MonitorCueShowMenu, type ShowMenuState } from "@/components/ui/monitor-cue-show-menu";
 
 const REFRESH_MS = 5000;
 const SELECTED_SHOWS_KEY = "cueweb.monitor-cue.shows";
@@ -190,6 +196,8 @@ export default function MonitorCuePage() {
   const [selectText, setSelectText] = React.useState("");
   const [autoRefresh, setAutoRefresh] = React.useState(true);
   const [killConfirm, setKillConfirm] = React.useState(false);
+  // Right-click menu on a show (group) header row.
+  const [showMenu, setShowMenu] = React.useState<ShowMenuState | null>(null);
 
   const tableRef = React.useRef<HTMLDivElement>(null);
   const { contextMenuState, contextMenuHandleOpen, contextMenuHandleClose, contextMenuRef, contextMenuTargetAreaRef } =
@@ -697,7 +705,15 @@ export default function MonitorCuePage() {
                     const isOpen = !collapsed.has(g.show);
                     return (
                       <React.Fragment key={g.show}>
-                        <tr className="border-b bg-muted/30">
+                        <tr
+                          className="border-b bg-muted/30"
+                          onContextMenu={(e) => {
+                            const show = shows.find((s) => s.name === g.show);
+                            if (!show) return;
+                            e.preventDefault();
+                            setShowMenu({ x: e.clientX, y: e.clientY, show });
+                          }}
+                        >
                           <td className="p-2" />
                           <td className="p-2 font-semibold" colSpan={orderedCols.length}>
                             <button className="flex items-center gap-1" onClick={() => toggleShowCollapse(g.show)}>
@@ -787,6 +803,15 @@ export default function MonitorCuePage() {
       <JobExtraDialogs />
       <JobCommentsDialog />
       <SendToGroupDialog />
+
+      {/* Show (group) right-click menu + the dialogs it opens (CueGUI Monitor
+          Cue show menu parity). */}
+      <MonitorCueShowMenu menu={showMenu} onClose={() => setShowMenu(null)} />
+      <ShowPropertiesDialog />
+      <GroupPropertiesDialog />
+      <CreateGroupDialog />
+      <ViewFiltersDialog />
+      <TaskPropertiesDialog />
 
       <ConfirmDialog
         open={killConfirm}
