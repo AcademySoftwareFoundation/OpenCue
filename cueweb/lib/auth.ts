@@ -16,6 +16,7 @@
 
 
 import { NextAuthOptions } from "next-auth";
+import { extractGroups } from "@/lib/authz";
 import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
@@ -163,6 +164,32 @@ const providers = providerConfigs.map(({ type, provider, envKeys }) => {
 
 export const authOptions: NextAuthOptions = {
     providers,
+    callbacks: {
+        // Resolve the user's groups once, at sign-in (this runs in Node and so
+        // can reach the identity provider), and stamp them on the JWT. The
+        // Edge middleware later reads token.groups to enforce access. The
+        // OIDC `profile` is only present on the initial sign-in; `user` covers
+        // credentials/LDAP providers that attach a `groups` field in authorize.
+        async jwt({ token, profile, user }) {
+            if (profile || user) {
+                const groups = extractGroups(
+                    profile as unknown as Record<string, unknown> | undefined,
+                    user as unknown as Record<string, unknown> | undefined,
+                );
+                if (groups.length > 0) {
+                    token.groups = groups;
+                }
+            }
+            return token;
+        },
+        // Expose the groups on the session so client/server components can
+        // tailor the UI (e.g. hide admin-only controls).
+        async session({ session, token }) {
+            (session as { groups?: string[] }).groups =
+                (token as { groups?: string[] }).groups ?? [];
+            return session;
+        },
+    },
     // Additional NextAuth configurations can be added here
 };
 
