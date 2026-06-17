@@ -68,10 +68,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function ServiceDefaultsForm({
   service,
   onSaved,
+  onPersist,
+  confirm,
 }: {
   // null => creating a new service.
   service: Service | null;
   onSaved: (name: string) => void;
+  // Custom persistence (e.g. show-scoped service overrides). Defaults to the
+  // facility create/update helpers. Receives the built payload + whether it's a
+  // new service; returns true on success.
+  onPersist?: (payload: Service, isNew: boolean) => Promise<boolean>;
+  // Confirmation before saving. Omit for the facility-wide default warning;
+  // pass `null` to save with no confirmation (e.g. show-scoped overrides).
+  confirm?: { title: string; description: string } | null;
 }) {
   const isNew = service === null;
 
@@ -156,6 +165,11 @@ export function ServiceDefaultsForm({
       toastWarning(err);
       return;
     }
+    // `confirm === null` => save immediately (helper still toasts on failure).
+    if (confirm === null) {
+      handleConfirm().catch(() => {});
+      return;
+    }
     setConfirmOpen(true);
   }
 
@@ -175,7 +189,8 @@ export function ServiceDefaultsForm({
       maxGpus: service?.maxGpus ?? 0,
       minMemoryIncrease: Number(oomIncreaseMb) * 1024,
     };
-    const ok = isNew ? await createService(payload) : await updateService(payload);
+    const persist = onPersist ?? ((p: Service, fresh: boolean) => (fresh ? createService(p) : updateService(p)));
+    const ok = await persist(payload, isNew);
     if (!ok) {
       // The service helper already surfaced an error toast; throw so the
       // ConfirmDialog keeps the modal open for retry instead of dismissing as
@@ -263,12 +278,16 @@ export function ServiceDefaultsForm({
       </div>
 
       {/* CueGUI shows a facility-wide confirmation before persisting. The
-          original references an internal team name; genericized here. */}
+          original references an internal team name; genericized here. Callers
+          (show-scoped overrides) can override the text or pass `null` to skip. */}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Modify facility-wide service configuration?"
-        description="You are about to modify a facility-wide service configuration. Are you authorized to change facility-wide service defaults?"
+        title={confirm?.title ?? "Modify facility-wide service configuration?"}
+        description={
+          confirm?.description ??
+          "You are about to modify a facility-wide service configuration. Are you authorized to change facility-wide service defaults?"
+        }
         confirmLabel="Yes"
         cancelLabel="No"
         onConfirm={handleConfirm}

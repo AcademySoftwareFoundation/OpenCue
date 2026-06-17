@@ -25,6 +25,7 @@ import { OPEN_GROUP_PROPERTIES_EVENT } from "@/components/ui/group-properties-di
 import { OPEN_CREATE_GROUP_EVENT } from "@/components/ui/create-group-dialog";
 import { OPEN_VIEW_FILTERS_EVENT } from "@/components/ui/view-filters-dialog";
 import { OPEN_TASK_PROPERTIES_EVENT } from "@/components/ui/task-properties-dialog";
+import { OPEN_SERVICE_PROPERTIES_EVENT } from "@/components/ui/service-properties-dialog";
 
 /**
  * Right-click menu on a Monitor Cue show row (CueGUI CueCommander Monitor Cue
@@ -87,7 +88,7 @@ export function MonitorCueShowMenu({
       onClick={(e) => e.stopPropagation()}
     >
       {item("Show Properties...", () => dispatch(OPEN_SHOW_PROPERTIES_EVENT, { show: menu.show }))}
-      {item("Service Properties...", () => notImplemented("Service Properties"))}
+      {item("Service Properties...", () => dispatch(OPEN_SERVICE_PROPERTIES_EVENT, { show: menu.show }))}
       {item("Group Properties...", () => dispatch(OPEN_GROUP_PROPERTIES_EVENT, { show: menu.show }))}
       {item("Task Properties...", () => dispatch(OPEN_TASK_PROPERTIES_EVENT, { show: menu.show }))}
       {item("View Filters...", () => dispatch(OPEN_VIEW_FILTERS_EVENT, { show: menu.show }))}

@@ -199,6 +199,19 @@ export type Service = {
     minMemoryIncrease: number;        // KB (OOM increase)
 };
 
+// A show-scoped service override (CueGUI Service Properties). Wraps a Service.
+// Update/Delete identify the override by the inner `data.id`.
+export type ServiceOverride = {
+    id: string;
+    data: Service;
+};
+
+// A show's service overrides. RPC: /show.ShowInterface/GetServiceOverrides.
+export async function getShowServiceOverrides(showId: string): Promise<ServiceOverride[]> {
+    const response = await accessGetApi("/api/show/getserviceoverrides", JSON.stringify({ show: { id: showId } }));
+    return Array.isArray(response) ? response : [];
+}
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";

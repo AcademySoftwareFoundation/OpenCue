@@ -20,14 +20,16 @@ import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Row } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, RefreshCw, Search, StickyNote } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Folder, RefreshCw, Search, StickyNote } from "lucide-react";
 import { TbPacman, TbReload, TbPlayerPause, TbPlayerPlay } from "react-icons/tb";
 import { MdOutlineCancel } from "react-icons/md";
 
 import type { Job } from "@/app/jobs/columns";
 import { UNKNOWN_USER } from "@/app/utils/constants";
-import { Show, getActiveShows, getJobs } from "@/app/utils/get_utils";
+import { Group, GroupStats, Show, getActiveShows, getGroupJobs, getShowGroups } from "@/app/utils/get_utils";
+import { buildTreeFromGroups, type TreeNode } from "@/components/group-tree/build-tree";
 import {
+  deleteGroup,
   eatJobsDeadFrames,
   killJobs,
   pauseJobs,
@@ -65,10 +67,11 @@ import { JobExtraDialogs } from "@/components/ui/job-extra-dialogs";
 import { JobCommentsDialog } from "@/components/ui/job-comments-dialog";
 import { SendToGroupDialog } from "@/components/ui/send-to-group-dialog";
 import { ShowPropertiesDialog } from "@/components/ui/show-properties-dialog";
-import { GroupPropertiesDialog } from "@/components/ui/group-properties-dialog";
-import { CreateGroupDialog } from "@/components/ui/create-group-dialog";
+import { GroupPropertiesDialog, OPEN_GROUP_PROPERTIES_EVENT } from "@/components/ui/group-properties-dialog";
+import { CreateGroupDialog, GROUPS_CHANGED_EVENT, OPEN_CREATE_GROUP_EVENT } from "@/components/ui/create-group-dialog";
 import { ViewFiltersDialog } from "@/components/ui/view-filters-dialog";
 import { TaskPropertiesDialog } from "@/components/ui/task-properties-dialog";
+import { ServicePropertiesDialog } from "@/components/ui/service-properties-dialog";
 import { MonitorCueShowMenu, type ShowMenuState } from "@/components/ui/monitor-cue-show-menu";
 
 const REFRESH_MS = 5000;
@@ -97,6 +100,49 @@ function jobRowClass(j: Job): string {
   }
   return "";
 }
+
+// A flattened Monitor Cue tree row: either a group folder or a job, with the
+// indentation depth.
+type TreeRow =
+  | { kind: "group"; group: Group; depth: number; stats: GroupStats }
+  | { kind: "job"; job: Job; depth: number };
+
+// Flatten a group node's *contents* (its direct jobs, then each child folder and
+// that folder's contents) into render rows, honoring the per-folder collapse,
+// the job sort, and the substring filter. The node's own folder row is rendered
+// by the caller (the show header for the root, the folder row for subgroups).
+function flattenGroup(
+  node: TreeNode,
+  depth: number,
+  jobsByGroup: Record<string, Job[]>,
+  collapsedGroups: Set<string>,
+  cmp: (a: Job, b: Job) => number,
+  needle: string,
+): TreeRow[] {
+  const rows: TreeRow[] = [];
+  const jobs = (jobsByGroup[node.group.id] ?? [])
+    .filter((j) => !needle || j.name.toLowerCase().includes(needle))
+    .sort(cmp);
+  for (const j of jobs) rows.push({ kind: "job", job: j, depth });
+  const children = [...node.children].sort((a, b) => a.group.name.localeCompare(b.group.name));
+  for (const child of children) {
+    rows.push({ kind: "group", group: child.group, depth, stats: child.rolledUpStats });
+    if (!collapsedGroups.has(child.group.id)) {
+      rows.push(...flattenGroup(child, depth + 1, jobsByGroup, collapsedGroups, cmp, needle));
+    }
+  }
+  return rows;
+}
+
+// Which Monitor Cue columns a group folder row populates (from its rolled-up
+// GroupStats); other columns are blank on group rows.
+const GROUP_STAT_COL: Record<string, (s: GroupStats) => React.ReactNode> = {
+  run: (s) => s.runningFrames,
+  cores: (s) => s.reservedCores.toFixed(2),
+  gpus: (s) => s.reservedGpus,
+  wait: (s) => s.waitingFrames,
+  depend: (s) => s.dependFrames,
+};
 
 // Unified, ordered, hideable, sortable column model for the Monitor Cue table.
 // `cell` renders the body content; `sort` (when present) makes the header
@@ -190,14 +236,26 @@ export default function MonitorCuePage() {
   const [shows, setShows] = React.useState<Show[]>([]);
   const [selectedShows, setSelectedShows] = React.useState<string[]>([]);
   const [jobs, setJobs] = React.useState<Job[] | null>(null);
+  // Per show: the group tree (show root + nested folders) and each group's
+  // direct jobs, keyed by group id (CueGUI Monitor Cue hierarchy). Jobs are
+  // placed by group id since a job only carries its group *name*, which is not
+  // unique (the root and a subgroup can share the show's name).
+  const [treeByShow, setTreeByShow] = React.useState<
+    Record<string, { tree: TreeNode | null; jobsByGroup: Record<string, Job[]> }>
+  >({});
   const [now, setNow] = React.useState(() => Date.now() / 1000);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
+  // Collapsed group folders (by group id), independent of the per-show collapse.
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
   const [selectText, setSelectText] = React.useState("");
   const [autoRefresh, setAutoRefresh] = React.useState(true);
   const [killConfirm, setKillConfirm] = React.useState(false);
   // Right-click menu on a show (group) header row.
   const [showMenu, setShowMenu] = React.useState<ShowMenuState | null>(null);
+  // Right-click menu on a group folder row.
+  const [groupMenu, setGroupMenu] = React.useState<{ x: number; y: number; show: Show; group: Group } | null>(null);
+  const [deleteGroupTarget, setDeleteGroupTarget] = React.useState<Group | null>(null);
 
   const tableRef = React.useRef<HTMLDivElement>(null);
   const { contextMenuState, contextMenuHandleOpen, contextMenuHandleClose, contextMenuRef, contextMenuTargetAreaRef } =
@@ -294,15 +352,36 @@ export default function MonitorCuePage() {
   }
 
   const load = React.useCallback(
-    async (showNames: string[], isCancelled?: () => boolean) => {
+    async (showNames: string[], showList: Show[], isCancelled?: () => boolean) => {
       if (showNames.length === 0) {
+        setTreeByShow({});
         setJobs(null);
         return;
       }
       try {
-        const data = await getJobs(JSON.stringify({ r: { shows: showNames, include_finished: false } }));
+        const result: Record<string, { tree: TreeNode | null; jobsByGroup: Record<string, Job[]> }> = {};
+        const allJobs: Job[] = [];
+        await Promise.all(
+          showNames.map(async (name) => {
+            const show = showList.find((s) => s.name === name);
+            if (!show) return;
+            const groups = await getShowGroups(show.id);
+            const tree = buildTreeFromGroups(groups);
+            // Load each group's direct jobs (parallel). Empty groups resolve to [].
+            const jobsByGroup: Record<string, Job[]> = {};
+            await Promise.all(
+              groups.map(async (g) => {
+                const js = await getGroupJobs(g.id);
+                jobsByGroup[g.id] = js;
+                allJobs.push(...js);
+              }),
+            );
+            result[name] = { tree, jobsByGroup };
+          }),
+        );
         if (isCancelled?.()) return;
-        setJobs(data);
+        setTreeByShow(result);
+        setJobs(allJobs);
         setNow(Date.now() / 1000);
       } catch (err) {
         if (isCancelled?.()) return;
@@ -316,18 +395,40 @@ export default function MonitorCuePage() {
   React.useEffect(() => {
     let cancelled = false;
     const isCancelled = () => cancelled;
-    load(selectedShows, isCancelled);
-    if (!autoRefresh) return () => { cancelled = true; };
-    const id = setInterval(() => load(selectedShows, isCancelled), REFRESH_MS);
+    load(selectedShows, shows, isCancelled);
+    // A group change (create / delete / properties) anywhere reloads the tree.
+    const onGroupsChanged = () => load(selectedShows, shows, isCancelled);
+    window.addEventListener(GROUPS_CHANGED_EVENT, onGroupsChanged);
+    if (!autoRefresh) {
+      return () => {
+        cancelled = true;
+        window.removeEventListener(GROUPS_CHANGED_EVENT, onGroupsChanged);
+      };
+    }
+    const id = setInterval(() => load(selectedShows, shows, isCancelled), REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
+      window.removeEventListener(GROUPS_CHANGED_EVENT, onGroupsChanged);
     };
-  }, [selectedShows, autoRefresh, load]);
+  }, [selectedShows, shows, autoRefresh, load]);
 
-  // Group jobs by show, sorted; jobs sorted by name within each show.
-  const groups = React.useMemo(() => {
-    if (!jobs) return null;
+  // Close the group folder menu on any outside interaction.
+  React.useEffect(() => {
+    if (!groupMenu) return;
+    const close = () => setGroupMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [groupMenu]);
+
+  // Build the per-show group tree as flattened render rows (folders + jobs).
+  // null until a show is selected (drives the "select a show" empty state).
+  const showTrees = React.useMemo(() => {
+    if (selectedShows.length === 0) return null;
     const sortCol = colByKey.get(sortKey);
     const accessor = (j: Job): number | string =>
       sortCol?.sort ? sortCol.sort(j) : j.name.toLowerCase();
@@ -340,17 +441,18 @@ export default function MonitorCuePage() {
       return sortDir === "asc" ? r : -r;
     };
     const needle = filterText.trim().toLowerCase();
-    const byShow = new Map<string, Job[]>();
-    for (const j of jobs) {
-      if (needle && !j.name.toLowerCase().includes(needle)) continue;
-      const arr = byShow.get(j.show) ?? [];
-      arr.push(j);
-      byShow.set(j.show, arr);
-    }
-    return Array.from(byShow.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([show, js]) => ({ show, jobs: [...js].sort(cmp) }));
-  }, [jobs, sortKey, sortDir, colByKey, filterText]);
+    return [...selectedShows]
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => {
+        const entry = treeByShow[name];
+        const root = entry?.tree ?? null;
+        const rows = root ? flattenGroup(root, 1, entry.jobsByGroup, collapsedGroups, cmp, needle) : [];
+        const jobCount = entry
+          ? Object.values(entry.jobsByGroup).reduce((n, arr) => n + arr.length, 0)
+          : 0;
+        return { show: name, root: root?.group ?? null, rootStats: root?.rolledUpStats ?? null, rows, jobCount };
+      });
+  }, [treeByShow, selectedShows, collapsedGroups, sortKey, sortDir, colByKey, filterText]);
 
   const selectedJobs = React.useMemo(
     () => (jobs ?? []).filter((j) => selected.has(j.id)),
@@ -358,11 +460,16 @@ export default function MonitorCuePage() {
   );
 
   // Anchor for shift-click range selection, and the visible job ids in render
-  // order (skipping collapsed shows) so a range maps to what the user sees.
+  // order (skipping collapsed shows / folders) so a range maps to what's shown.
   const lastSelectedRef = React.useRef<string | null>(null);
   const visibleJobIds = React.useMemo(
-    () => (groups ?? []).flatMap((g) => (collapsed.has(g.show) ? [] : g.jobs.map((j) => j.id))),
-    [groups, collapsed],
+    () =>
+      (showTrees ?? []).flatMap((st) =>
+        collapsed.has(st.show)
+          ? []
+          : st.rows.filter((r): r is Extract<TreeRow, { kind: "job" }> => r.kind === "job").map((r) => r.job.id),
+      ),
+    [showTrees, collapsed],
   );
 
   function selectRange(toId: string) {
@@ -407,6 +514,15 @@ export default function MonitorCuePage() {
     });
   }
 
+  function toggleGroupCollapse(groupId: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }
+
   function toggleShowFilter(name: string, checked: boolean) {
     persistShows(checked ? [...selectedShows, name] : selectedShows.filter((n) => n !== name));
   }
@@ -438,7 +554,7 @@ export default function MonitorCuePage() {
   }
 
   async function refresh() {
-    await load(selectedShows);
+    await load(selectedShows, shows);
   }
   async function doEat() {
     const js = requireSelection();
@@ -587,7 +703,7 @@ export default function MonitorCuePage() {
           variant="outline"
           size="sm"
           className="h-8"
-          onClick={() => setCollapsed(new Set((groups ?? []).map((g) => g.show)))}
+          onClick={() => setCollapsed(new Set((showTrees ?? []).map((st) => st.show)))}
         >
           Collapse All
         </Button>
@@ -632,7 +748,7 @@ export default function MonitorCuePage() {
         </div>
       </div>
 
-      {groups === null ? (
+      {showTrees === null ? (
         <p className="text-sm text-muted-foreground">Select one or more shows from the Shows menu to monitor their jobs.</p>
       ) : (
         <div ref={contextMenuTargetAreaRef}>
@@ -694,67 +810,114 @@ export default function MonitorCuePage() {
                 </tr>
               </thead>
               <tbody>
-                {groups.length === 0 ? (
+                {showTrees.length === 0 ? (
                   <tr>
                     <td colSpan={orderedCols.length + 1} className="p-3 text-sm text-muted-foreground">
                       No jobs for the selected show(s).
                     </td>
                   </tr>
                 ) : (
-                  groups.map((g) => {
-                    const isOpen = !collapsed.has(g.show);
+                  showTrees.map((st) => {
+                    const isOpen = !collapsed.has(st.show);
+                    const showObj = shows.find((s) => s.name === st.show);
                     return (
-                      <React.Fragment key={g.show}>
+                      <React.Fragment key={st.show}>
+                        {/* Show header = the root group; right-click opens the show menu. */}
                         <tr
                           className="border-b bg-muted/30"
                           onContextMenu={(e) => {
-                            const show = shows.find((s) => s.name === g.show);
-                            if (!show) return;
+                            if (!showObj) return;
                             e.preventDefault();
-                            setShowMenu({ x: e.clientX, y: e.clientY, show });
+                            setShowMenu({ x: e.clientX, y: e.clientY, show: showObj });
                           }}
                         >
                           <td className="p-2" />
                           <td className="p-2 font-semibold" colSpan={orderedCols.length}>
-                            <button className="flex items-center gap-1" onClick={() => toggleShowCollapse(g.show)}>
+                            <button className="flex items-center gap-1" onClick={() => toggleShowCollapse(st.show)}>
                               {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                              {g.show}
-                              <span className="ml-2 text-xs font-normal text-muted-foreground">({g.jobs.length})</span>
+                              {st.show}
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">({st.jobCount})</span>
                             </button>
                           </td>
                         </tr>
                         {isOpen
-                          ? g.jobs.map((j) => (
-                              <tr
-                                key={j.id}
-                                className={`cursor-pointer select-none border-b last:border-0 ${jobRowClass(j)}`}
-                                onContextMenu={(e) => contextMenuHandleOpen(e, { original: j } as unknown as Row<Job>)}
-                                onClick={(e) => handleSelect(j.id, e)}
-                              >
-                                <td
-                                  className="p-2 align-middle"
-                                  onClick={(e) => { e.stopPropagation(); handleSelect(j.id, e); }}
+                          ? st.rows.map((r) =>
+                              r.kind === "group" ? (
+                                // Group folder row: stats from rolled-up GroupStats,
+                                // folder name indented; right-click opens the group menu.
+                                <tr
+                                  key={`g-${r.group.id}`}
+                                  className="border-b bg-muted/10"
+                                  onContextMenu={(e) => {
+                                    if (!showObj) return;
+                                    e.preventDefault();
+                                    setGroupMenu({ x: e.clientX, y: e.clientY, show: showObj, group: r.group });
+                                  }}
                                 >
-                                  {/* Visual only; clicks (incl. Shift) are handled by the
-                                      row/cell so range selection works everywhere. */}
-                                  <Checkbox
-                                    checked={selected.has(j.id)}
-                                    className="pointer-events-none"
-                                    aria-label={`Select ${j.name}`}
-                                  />
-                                </td>
-                                {orderedCols.map((c) => {
-                                  const alignClass =
-                                    c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "";
-                                  const widthClass = c.key === "job" ? "max-w-[34rem] truncate pl-4" : c.minW ?? "";
-                                  return (
-                                    <td key={c.key} className={`p-2 ${alignClass} ${widthClass}`} title={c.key === "job" ? j.name : undefined}>
-                                      {c.cell(j, now)}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))
+                                  <td className="p-2" />
+                                  {orderedCols.map((c) => {
+                                    const alignClass =
+                                      c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "";
+                                    if (c.key === "job") {
+                                      const folderOpen = !collapsedGroups.has(r.group.id);
+                                      return (
+                                        <td key={c.key} className="p-2" style={{ paddingLeft: `${r.depth * 1.25 + 0.5}rem` }}>
+                                          <button
+                                            className="flex items-center gap-1 font-medium"
+                                            onClick={() => toggleGroupCollapse(r.group.id)}
+                                          >
+                                            {folderOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                            <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                                            {r.group.name}
+                                          </button>
+                                        </td>
+                                      );
+                                    }
+                                    const stat = GROUP_STAT_COL[c.key];
+                                    return (
+                                      <td key={c.key} className={`p-2 ${alignClass}`}>
+                                        {stat ? stat(r.stats) : ""}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ) : (
+                                <tr
+                                  key={r.job.id}
+                                  className={`cursor-pointer select-none border-b last:border-0 ${jobRowClass(r.job)}`}
+                                  onContextMenu={(e) => contextMenuHandleOpen(e, { original: r.job } as unknown as Row<Job>)}
+                                  onClick={(e) => handleSelect(r.job.id, e)}
+                                >
+                                  <td
+                                    className="p-2 align-middle"
+                                    onClick={(e) => { e.stopPropagation(); handleSelect(r.job.id, e); }}
+                                  >
+                                    <Checkbox
+                                      checked={selected.has(r.job.id)}
+                                      className="pointer-events-none"
+                                      aria-label={`Select ${r.job.name}`}
+                                    />
+                                  </td>
+                                  {orderedCols.map((c) => {
+                                    const alignClass =
+                                      c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "";
+                                    const isJobCol = c.key === "job";
+                                    const widthClass = isJobCol ? "max-w-[34rem] truncate" : c.minW ?? "";
+                                    const style = isJobCol ? { paddingLeft: `${r.depth * 1.25 + 0.5}rem` } : undefined;
+                                    return (
+                                      <td
+                                        key={c.key}
+                                        className={`p-2 ${alignClass} ${widthClass}`}
+                                        style={style}
+                                        title={isJobCol ? r.job.name : undefined}
+                                      >
+                                        {c.cell(r.job, now)}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ),
+                            )
                           : null}
                       </React.Fragment>
                     );
@@ -812,6 +975,65 @@ export default function MonitorCuePage() {
       <CreateGroupDialog />
       <ViewFiltersDialog />
       <TaskPropertiesDialog />
+      <ServicePropertiesDialog />
+
+      {/* Group folder right-click menu (CueGUI Monitor Cue group menu). */}
+      {groupMenu ? (
+        <div
+          className="fixed z-50 min-w-48 rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md"
+          style={{ left: groupMenu.x, top: groupMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent(OPEN_GROUP_PROPERTIES_EVENT, { detail: { show: groupMenu.show, group: groupMenu.group } }),
+              );
+              setGroupMenu(null);
+            }}
+          >
+            Group Properties...
+          </button>
+          <button
+            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent(OPEN_CREATE_GROUP_EVENT, { detail: { show: groupMenu.show, parent: groupMenu.group } }),
+              );
+              setGroupMenu(null);
+            }}
+          >
+            Create Group...
+          </button>
+          <div className="my-1 h-px bg-border" />
+          <button
+            className="block w-full rounded px-2 py-1.5 text-left hover:bg-accent"
+            onClick={() => {
+              setDeleteGroupTarget(groupMenu.group);
+              setGroupMenu(null);
+            }}
+          >
+            Delete Group
+          </button>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={deleteGroupTarget !== null}
+        onOpenChange={(o) => !o && setDeleteGroupTarget(null)}
+        title="Delete group?"
+        description={deleteGroupTarget ? `Delete the group "${deleteGroupTarget.name}"? Its jobs move to the parent group.` : ""}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={async () => {
+          if (deleteGroupTarget && (await deleteGroup(deleteGroupTarget))) {
+            window.dispatchEvent(new CustomEvent(GROUPS_CHANGED_EVENT, { detail: {} }));
+          }
+          setDeleteGroupTarget(null);
+        }}
+      />
 
       <ConfirmDialog
         open={killConfirm}

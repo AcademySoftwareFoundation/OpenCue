@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Show, getShowGroups, getShowRootGroup } from "@/app/utils/get_utils";
+import { Group, Show, getShowGroups, getShowRootGroup } from "@/app/utils/get_utils";
 import { createSubGroup, updateGroup } from "@/app/utils/action_utils";
 import { handleError, toastSuccess, toastWarning } from "@/app/utils/notify_utils";
 import {
@@ -47,11 +47,14 @@ export const OPEN_CREATE_GROUP_EVENT = "cueweb:open-create-group";
 // Fired after a group is created/changed so a tree view can re-fetch.
 export const GROUPS_CHANGED_EVENT = "cueweb:groups-changed";
 
-export type OpenCreateGroupDetail = { show: Show };
+// `parent` is the group the new subgroup is created under (a Monitor Cue
+// folder); omit it to create under the show's root group (the show-row menu).
+export type OpenCreateGroupDetail = { show: Show; parent?: Group };
 
 export function CreateGroupDialog() {
   const [open, setOpen] = React.useState(false);
   const [show, setShow] = React.useState<Show | null>(null);
+  const [parent, setParent] = React.useState<Group | null>(null);
   const [state, setState] = React.useState<GroupFormState>(() => initGroupForm(null));
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -60,6 +63,7 @@ export function CreateGroupDialog() {
       const detail = (e as CustomEvent<OpenCreateGroupDetail>).detail;
       if (!detail?.show) return;
       setShow(detail.show);
+      setParent(detail.parent ?? null);
       setState(initGroupForm(null));
       setOpen(true);
     }
@@ -76,12 +80,12 @@ export function CreateGroupDialog() {
     }
     setSubmitting(true);
     try {
-      const root = await getShowRootGroup(show.id);
-      if (!root) {
-        toastWarning("Could not resolve the show's root group.");
+      const target = parent ?? (await getShowRootGroup(show.id));
+      if (!target) {
+        toastWarning("Could not resolve the parent group.");
         return;
       }
-      const ok = await createSubGroup(root, name);
+      const ok = await createSubGroup(target, name);
       if (!ok) return; // createSubGroup already surfaced an error toast
 
       // Apply the department / toggled defaults to the just-created group. The
@@ -90,7 +94,7 @@ export function CreateGroupDialog() {
       delete changes.name;
       if (Object.keys(changes).length > 0) {
         const created = (await getShowGroups(show.id)).find(
-          (g) => g.parentId === root.id && g.name === name,
+          (g) => g.parentId === target.id && g.name === name,
         );
         if (created) await updateGroup(created, changes);
       }
@@ -112,7 +116,7 @@ export function CreateGroupDialog() {
           <DialogTitle>Create Group</DialogTitle>
           <DialogDescription>
             {show ? (
-              <>Create a new group as a child of <span className="font-mono">{show.name}</span>. Check a row to set its value.</>
+              <>Create a new group as a child of <span className="font-mono">{parent?.name ?? show.name}</span>. Check a row to set its value.</>
             ) : (
               "Create a new group."
             )}

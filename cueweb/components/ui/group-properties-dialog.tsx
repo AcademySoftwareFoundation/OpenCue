@@ -47,7 +47,9 @@ import {
  */
 export const OPEN_GROUP_PROPERTIES_EVENT = "cueweb:open-group-properties";
 
-export type OpenGroupPropertiesDetail = { show: Show };
+// `group` targets a specific group (a folder in Monitor Cue); omit it to edit
+// the show's root group (the show-row menu).
+export type OpenGroupPropertiesDetail = { show: Show; group?: Group };
 
 export function GroupPropertiesDialog() {
   const [open, setOpen] = React.useState(false);
@@ -64,6 +66,13 @@ export function GroupPropertiesDialog() {
       setGroup(null);
       setState(null);
       setOpen(true);
+      // A specific group was passed (a Monitor Cue folder) - edit it directly;
+      // otherwise edit the show's root group.
+      if (detail.group) {
+        setGroup(detail.group);
+        setState(initGroupForm(detail.group));
+        return;
+      }
       getShowRootGroup(detail.show.id)
         .then((root) => {
           if (!root) {
@@ -112,7 +121,7 @@ export function GroupPropertiesDialog() {
           <DialogTitle>Group Properties</DialogTitle>
           <DialogDescription>
             {show ? (
-              <>Edit the root group of <span className="font-mono">{show.name}</span>. Check a row to set its value; leave it unchecked to keep the field unset.</>
+              <>Edit the group <span className="font-mono">{group?.name ?? show.name}</span>. Check a row to set its value; leave it unchecked to keep the field unset.</>
             ) : (
               "Edit group defaults."
             )}

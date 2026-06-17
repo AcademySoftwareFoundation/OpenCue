@@ -71,6 +71,32 @@ export async function deleteService(service: Service): Promise<boolean> {
   return !!result?.success;
 }
 
+// Show-scoped service overrides (CueGUI Service Properties). The override is
+// identified by the inner Service `id`, so update/delete send that Service.
+export async function createServiceOverride(show: Show, service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "show.createserviceoverride", show, service })],
+  );
+  return !!result?.success;
+}
+
+export async function updateServiceOverride(service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "override.update", service })],
+  );
+  return !!result?.success;
+}
+
+export async function deleteServiceOverride(service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "override.delete", service })],
+  );
+  return !!result?.success;
+}
+
 /**************************************/
 // Kill Jobs, Layers, and Frames
 /**************************************/
@@ -1482,6 +1508,11 @@ export async function updateGroup(group: Group, changes: GroupChanges): Promise<
 
 export async function createSubGroup(parent: Group, name: string): Promise<boolean> {
   const result = await accessActionApi("/api/group/action/createsubgroup", [JSON.stringify({ group: parent, name })]);
+  return !!result?.success;
+}
+
+export async function deleteGroup(group: Group): Promise<boolean> {
+  const result = await accessActionApi("/api/group/action/delete", [JSON.stringify({ group })]);
   return !!result?.success;
 }
 
