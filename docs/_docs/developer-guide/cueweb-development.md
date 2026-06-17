@@ -342,6 +342,34 @@ sequenceDiagram
     CueWeb->>User: Show authenticated UI
 </div>
 
+### Authorization (group-based access gate)
+
+On top of authentication, CueWeb has an optional, opt-in authorization layer that restricts access by group membership. Files involved:
+
+```text
+lib/authz.ts                 # pure, Edge-safe policy helpers + group extraction
+middleware.ts                # the enforcement chokepoint (next-auth withAuth)
+lib/auth.ts                  # jwt/session callbacks that resolve + stamp groups
+app/unauthorized/page.tsx    # access-denied page
+```
+
+The design splits **resolution** from **enforcement**, which is what makes it correct and fast:
+
+- **Resolution at sign-in (Node).** The `jwt` callback in `lib/auth.ts` runs once at sign-in, where it can reach the identity provider. `extractGroups()` (`lib/authz.ts`) reads the user's groups from the OIDC `profile` claim named by `CUEWEB_GROUPS_CLAIM` (or from a `groups` field a credentials/LDAP provider attaches in `authorize`) and stamps them on the JWT. The `session` callback also exposes them on the session for UI use. Sites whose token does not carry groups can extend this seam (for example a directory/service lookup) without touching enforcement.
+- **Enforcement in the Edge middleware.** `middleware.ts` runs before any page or proxy route. It can only read the already-issued JWT (Edge has no DB/LDAP access), so it just reads `token.groups` and applies the policy. `lib/authz.ts` is kept dependency-free and Edge-safe for this reason.
+
+Policy helpers in `lib/authz.ts` (all driven by env, all Edge-safe):
+
+| Helper | Purpose |
+|--------|---------|
+| `isAuthzEnabled()` | Master switch (`CUEWEB_AUTHZ_ENABLED`); opt-in, default off |
+| `isUserAllowed(groups)` | App-wide gate vs `CUEWEB_ALLOWED_GROUPS` (empty ⇒ allow) |
+| `isUserAdmin(groups)` | Admin gate vs `CUEWEB_ADMIN_GROUPS` (empty ⇒ allow) |
+| `isAdminPath(pathname)` | Whether a path is a CueCommander admin page or job submission |
+| `getUserGroups(token)` / `extractGroups(profile, user)` | Read groups from the token / resolve at sign-in |
+
+Middleware flow: when the gate is inactive (disabled, or no auth provider) it is a pure pass-through. When active it requires a signed-in user (via `withAuth`'s `authorized` callback), then denies anyone outside `CUEWEB_ALLOWED_GROUPS` and, on admin paths (`ADMIN_PATH_PREFIXES` - the CueCommander pages plus `/cuesubmit` and `/api/job/submit`), anyone outside `CUEWEB_ADMIN_GROUPS`. Page requests redirect to `/unauthorized`; API requests get a `403`. The `config.matcher` excludes `api/auth`, `api/health`, `api/metrics`, `login`, `unauthorized`, and static assets, so auth flows, infra probes, and metrics scraping are never gated. Defaults preserve existing behavior: nothing changes unless `CUEWEB_AUTHZ_ENABLED` is truthy. See [Authorization Variables](../reference/cueweb.md#authorization-variables) for the env knobs.
+
 ---
 
 ## CueSubmit (browser-based job submission)
