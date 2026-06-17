@@ -34,7 +34,7 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@sentry/cli": "^2.31.0",
-    "@sentry/nextjs": "^10.53.1",
+    "@sentry/nextjs": "^10.58.0",
     "@tanstack/react-table": "^8.11.3",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.0",
