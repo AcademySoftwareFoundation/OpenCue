@@ -94,7 +94,7 @@ export function getGroupsClaim(): string {
 /** Normalize a claim value (string, array, or space/comma-delimited string) to a list. */
 function normalizeGroups(raw: unknown): string[] {
   if (Array.isArray(raw)) {
-    return raw.map((g) => String(g)).filter(Boolean);
+    return raw.map((g) => String(g).trim()).filter(Boolean);
   }
   if (typeof raw === "string") {
     return raw.split(/[\s,]+/).filter(Boolean);

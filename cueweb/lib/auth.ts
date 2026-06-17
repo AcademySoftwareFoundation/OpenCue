@@ -172,13 +172,13 @@ export const authOptions: NextAuthOptions = {
         // credentials/LDAP providers that attach a `groups` field in authorize.
         async jwt({ token, profile, user }) {
             if (profile || user) {
-                const groups = extractGroups(
+                // Always set (even to []) so a user whose groups were cleared
+                // doesn't keep stale memberships from a previous token. This
+                // branch only runs at sign-in; later requests leave it intact.
+                token.groups = extractGroups(
                     profile as unknown as Record<string, unknown> | undefined,
                     user as unknown as Record<string, unknown> | undefined,
                 );
-                if (groups.length > 0) {
-                    token.groups = groups;
-                }
             }
             return token;
         },
