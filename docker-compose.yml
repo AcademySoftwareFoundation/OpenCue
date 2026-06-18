@@ -259,9 +259,16 @@ services:
     build:
       context: ./cueweb
       dockerfile: Dockerfile
+      # Expose the repo root as a named build context so the Dockerfile can read
+      # the shared VERSION.in (CueWeb tracks it via OVERRIDE_CUEWEB_VERSION.in).
+      additional_contexts:
+        project_root: .
       args:
         # Build-time environment variables for Next.js
         - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+        # Short Git SHA shown in the "About CueWeb" dialog. Inject in CI with
+        # --build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD).
+        - NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA:-}
         # Empty = client builds same-origin relative URLs, so the app
         # works from any host the user reaches it on (localhost on the
         # dev environment, the LAN IP from another device, etc.). Set to an

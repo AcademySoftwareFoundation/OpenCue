@@ -21,6 +21,13 @@ ENV SENTRYCLI_SKIP_DOWNLOAD=1
 RUN npm ci
 
 COPY *.json /opt/cueweb/
+COPY OVERRIDE_CUEWEB_VERSION.in /opt/cueweb/
+# Repo-root VERSION.in (OpenCue's shared version) read by next.config.js when
+# OVERRIDE_CUEWEB_VERSION.in is set to the "VERSION.in" sentinel. It lives
+# outside this build context, so it is pulled from the `project_root` named
+# build context (defined in docker-compose.yml; for a standalone build pass
+# `--build-context project_root=<repo-root>`).
+COPY --from=project_root VERSION.in /opt/VERSION.in
 COPY next.config.js /opt/cueweb/
 COPY postcss.config.js /opt/cueweb/
 COPY tailwind.config.js /opt/cueweb/
@@ -105,6 +112,11 @@ ENV NEXT_PUBLIC_AUTH_PROVIDER=${NEXT_PUBLIC_AUTH_PROVIDER}
 # overridden at build time. CI can override with a Git SHA or build tag.
 ARG NEXT_PUBLIC_APP_VERSION=
 ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION}
+
+# Build SHA shown in the About CueWeb dialog. CI injects the short Git SHA via
+# --build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD). Empty -> "unknown".
+ARG NEXT_PUBLIC_GIT_SHA=
+ENV NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA}
 
 RUN npm run build
 CMD ["npm", "run", "start"]
