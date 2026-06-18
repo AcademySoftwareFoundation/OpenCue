@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-// The module reads process.env.NEXT_PUBLIC_LOKI_URL at import time via a
-// getter, so we set the env var per-test and re-import with a fresh registry.
-const ORIGINAL_ENV = process.env;
+import {
+  getFrameLogLines,
+  getFrameLogVersions,
+  getLokiUrl,
+  isLokiEnabled,
+} from '@/lib/loki';
 
-function loadLoki(lokiUrl?: string) {
-  jest.resetModules();
-  process.env = { ...ORIGINAL_ENV };
+// The module reads process.env.NEXT_PUBLIC_LOKI_URL at call time (not at
+// import time), so each test just sets the env var before exercising the API.
+const ORIGINAL_LOKI_URL = process.env.NEXT_PUBLIC_LOKI_URL;
+
+function setLokiUrl(lokiUrl?: string) {
   if (lokiUrl === undefined) {
     delete process.env.NEXT_PUBLIC_LOKI_URL;
   } else {
     process.env.NEXT_PUBLIC_LOKI_URL = lokiUrl;
   }
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('@/lib/loki');
 }
 
 afterEach(() => {
-  process.env = ORIGINAL_ENV;
+  setLokiUrl(ORIGINAL_LOKI_URL);
   jest.restoreAllMocks();
 });
 
@@ -48,35 +51,35 @@ function mockFetch(jsonByUrl: (url: string) => unknown, ok = true, status = 200)
 
 describe('isLokiEnabled / getLokiUrl', () => {
   it('reports disabled when the env var is unset', () => {
-    const loki = loadLoki(undefined);
-    expect(loki.isLokiEnabled()).toBe(false);
-    expect(loki.getLokiUrl()).toBe('');
+    setLokiUrl(undefined);
+    expect(isLokiEnabled()).toBe(false);
+    expect(getLokiUrl()).toBe('');
   });
 
   it('reports disabled for a blank/whitespace value', () => {
-    const loki = loadLoki('   ');
-    expect(loki.isLokiEnabled()).toBe(false);
+    setLokiUrl('   ');
+    expect(isLokiEnabled()).toBe(false);
   });
 
   it('reports enabled and strips trailing slashes', () => {
-    const loki = loadLoki('http://loki:3100/');
-    expect(loki.isLokiEnabled()).toBe(true);
-    expect(loki.getLokiUrl()).toBe('http://loki:3100');
+    setLokiUrl('http://loki:3100/');
+    expect(isLokiEnabled()).toBe(true);
+    expect(getLokiUrl()).toBe('http://loki:3100');
   });
 });
 
 describe('getFrameLogVersions', () => {
   it('returns attempts newest-first with human-readable labels', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     const fetchFn = mockFetch(() => ({
       status: 'success',
       data: ['1700000000', '1700009999', '1700005000'],
     }));
 
-    const versions = await loki.getFrameLogVersions('frame-123', 1699999999);
+    const versions = await getFrameLogVersions('frame-123', 1699999999);
 
     // Sorted descending by the unix timestamp.
-    expect(versions.map((v: any) => v.sessionStartTime)).toEqual([
+    expect(versions.map((v) => v.sessionStartTime)).toEqual([
       '1700009999',
       '1700005000',
       '1700000000',
@@ -92,16 +95,16 @@ describe('getFrameLogVersions', () => {
   });
 
   it('returns an empty list when frameId is missing (no fetch)', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     const fetchFn = mockFetch(() => ({ status: 'success', data: [] }));
-    expect(await loki.getFrameLogVersions('')).toEqual([]);
+    expect(await getFrameLogVersions('')).toEqual([]);
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
 
 describe('getFrameLogLines', () => {
   it('concatenates the line values across streams', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     const fetchFn = mockFetch(() => ({
       status: 'success',
       data: {
@@ -118,7 +121,7 @@ describe('getFrameLogLines', () => {
       },
     }));
 
-    const text = await loki.getFrameLogLines('frame-123', '1700000000');
+    const text = await getFrameLogLines('frame-123', '1700000000');
 
     expect(text).toBe('line one\nline two');
     const calledUrl = fetchFn.mock.calls[0][0] as string;
@@ -131,7 +134,7 @@ describe('getFrameLogLines', () => {
   });
 
   it('interleaves multiple streams in chronological order', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     // stdout and stderr arrive as separate streams, out of order relative to
     // each other. Timestamps exceed Number.MAX_SAFE_INTEGER on purpose.
     mockFetch(() => ({
@@ -157,27 +160,27 @@ describe('getFrameLogLines', () => {
       },
     }));
 
-    const text = await loki.getFrameLogLines('frame-123', '1700000000');
+    const text = await getFrameLogLines('frame-123', '1700000000');
     expect(text).toBe('out-1\nerr-2\nout-3\nerr-4');
   });
 
   it('returns an empty string when Loki has no streams', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     mockFetch(() => ({ status: 'success', data: { result: [] } }));
-    expect(await loki.getFrameLogLines('frame-123', '1700000000')).toBe('');
+    expect(await getFrameLogLines('frame-123', '1700000000')).toBe('');
   });
 
   it('throws when the Loki request fails', async () => {
-    const loki = loadLoki('http://loki:3100');
+    setLokiUrl('http://loki:3100');
     mockFetch(() => ({}), false, 502);
-    await expect(
-      loki.getFrameLogLines('frame-123', '1700000000'),
-    ).rejects.toThrow(/Loki request failed \(502\)/);
+    await expect(getFrameLogLines('frame-123', '1700000000')).rejects.toThrow(
+      /Loki request failed \(502\)/,
+    );
   });
 
   it('throws when Loki is not configured', async () => {
-    const loki = loadLoki(undefined);
-    await expect(loki.getFrameLogLines('frame-123')).rejects.toThrow(
+    setLokiUrl(undefined);
+    await expect(getFrameLogLines('frame-123')).rejects.toThrow(
       /not configured/,
     );
   });
