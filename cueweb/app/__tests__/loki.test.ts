@@ -127,7 +127,38 @@ describe('getFrameLogLines', () => {
     expect(decodeURIComponent(calledUrl).replace(/\+/g, ' ')).toContain(
       '{session_start_time="1700000000", frame_id="frame-123"}',
     );
-    expect(calledUrl).toContain('direction=forward');
+    expect(calledUrl).toContain('direction=backward');
+  });
+
+  it('interleaves multiple streams in chronological order', async () => {
+    const loki = loadLoki('http://loki:3100');
+    // stdout and stderr arrive as separate streams, out of order relative to
+    // each other. Timestamps exceed Number.MAX_SAFE_INTEGER on purpose.
+    mockFetch(() => ({
+      status: 'success',
+      data: {
+        resultType: 'streams',
+        result: [
+          {
+            stream: { stream: 'stdout' },
+            values: [
+              ['1700000001000000000', 'out-1'],
+              ['1700000003000000000', 'out-3'],
+            ],
+          },
+          {
+            stream: { stream: 'stderr' },
+            values: [
+              ['1700000002000000000', 'err-2'],
+              ['1700000004000000000', 'err-4'],
+            ],
+          },
+        ],
+      },
+    }));
+
+    const text = await loki.getFrameLogLines('frame-123', '1700000000');
+    expect(text).toBe('out-1\nerr-2\nout-3\nerr-4');
   });
 
   it('returns an empty string when Loki has no streams', async () => {

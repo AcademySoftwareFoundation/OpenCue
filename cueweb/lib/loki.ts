@@ -174,7 +174,10 @@ export async function getFrameLogLines(
 
   const params = new URLSearchParams({
     query: selector,
-    direction: "forward",
+    // Query backward so that when a log exceeds LOKI_QUERY_LIMIT we keep the
+    // most recent lines (the viewer scrolls to the bottom on load) rather than
+    // the oldest. The entries are re-sorted ascending below for display.
+    direction: "backward",
     limit: String(LOKI_QUERY_LIMIT),
   });
   // Prefer the explicit start time, otherwise derive it from the selected
@@ -188,12 +191,18 @@ export async function getFrameLogLines(
     `/loki/api/v1/query_range?${params.toString()}`,
   );
 
+  // Flatten all streams (e.g. stdout/stderr may arrive as separate streams)
+  // and sort by Loki's nanosecond timestamp so lines display in chronological
+  // order regardless of which stream they came from. The timestamps exceed
+  // Number.MAX_SAFE_INTEGER, so compare them as BigInt to avoid precision loss.
   const streams = json.data?.result ?? [];
-  const lines: string[] = [];
-  for (const stream of streams) {
-    for (const [, line] of stream.values ?? []) {
-      lines.push(line);
-    }
-  }
-  return lines.join("\n");
+  const entries = streams.flatMap((stream) =>
+    (stream.values ?? []).map(([ts, line]) => ({ ts, line })),
+  );
+  entries.sort((a, b) => {
+    const at = BigInt(a.ts);
+    const bt = BigInt(b.ts);
+    return at < bt ? -1 : at > bt ? 1 : 0;
+  });
+  return entries.map((e) => e.line).join("\n");
 }
