@@ -173,6 +173,11 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
+31. **Facility Service Defaults (CueCommander &rarr; Services):**
+   - A facility-wide service-defaults editor at `/services`, the CueWeb equivalent of CueGUI's Facility Service Defaults tab. Reached from the CueCommander menu / sidebar entry. It edits the default resource requirements applied to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`).
+   - Two panes: a left list of services (with **New** / **Del**) and a right edit form with Name, Threadable, Min/Max Threads (100 = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined checkboxes or a Custom Tags free-text toggle).
+   - Because these are facility-wide defaults, **Save** asks for a confirmation before creating or updating, and **Del** confirms before removing a service; a toast reports the result.
+
 
 ## CueWeb's user interface
 

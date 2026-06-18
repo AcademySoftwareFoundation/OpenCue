@@ -46,6 +46,11 @@ export type Group = {
     level: number;
     parentId: string;
     groupStats?: GroupStats;
+    // GPU counterparts (job.Group proto).
+    defaultJobMinGpus?: number;
+    defaultJobMaxGpus?: number;
+    minGpus?: number;
+    maxGpus?: number;
 };
 
 // Mirrors the job.GroupStats proto message at proto/src/job.proto.
@@ -184,6 +189,40 @@ export type Allocation = {
         downHosts: number;
     };
 };
+
+// Service shape - mirrors service.Service. This is a facility-wide default
+// service template (Facility Service Defaults page). Cores are stored as
+// cores*100 (the UI calls them "threads", 100 = 1 thread); memory fields are
+// stored in KB and shown as MB (divide by 1024). int64 memory fields can
+// arrive from the gateway as strings, so callers coerce with Number().
+export type Service = {
+    id: string;
+    name: string;
+    threadable: boolean;
+    minCores: number;
+    maxCores: number;
+    minMemory: number | string;       // KB (int64)
+    minGpuMemory: number | string;    // KB (int64)
+    tags: string[];
+    timeout: number;                  // minutes
+    timeoutLlu: number;               // minutes
+    minGpus?: number;
+    maxGpus?: number;
+    minMemoryIncrease: number;        // KB (OOM increase)
+};
+
+// A show-scoped service override (CueGUI Service Properties). Wraps a Service.
+// Update/Delete identify the override by the inner `data.id`.
+export type ServiceOverride = {
+    id: string;
+    data: Service;
+};
+
+// A show's service overrides. RPC: /show.ShowInterface/GetServiceOverrides.
+export async function getShowServiceOverrides(showId: string): Promise<ServiceOverride[]> {
+    const response = await accessGetApi("/api/show/getserviceoverrides", JSON.stringify({ show: { id: showId } }));
+    return Array.isArray(response) ? response : [];
+}
 
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
@@ -365,6 +404,17 @@ export async function getProcsByHosts(hostNames: string[]): Promise<Proc[]> {
     return Array.isArray(response) ? response : [];
 }
 
+// Fetch the facility-wide default services (the Facility Service Defaults
+// page). Mirrors CueGUI's opencue.api.getDefaultServices().
+export async function getDefaultServices(): Promise<Service[]> {
+    const ENDPOINT = "/api/service/getdefaultservices";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load default services from Cuebot.");
+    }
+    return response;
+}
+
 // Fetch all comments for a given job
 export async function getJobComments(job: Job): Promise<JobComment[]> {
     const ENDPOINT = "/api/job/getcomments";
@@ -379,6 +429,111 @@ export async function getShowGroups(showId: string): Promise<Group[]> {
     const body = JSON.stringify({ show: { id: showId } });
     const response = await accessGetApi(ENDPOINT, body);
     return Array.isArray(response) ? response : [];
+}
+
+// The show's root group (level 0 / no parent). Backs the Monitor Cue show
+// menu's Group Properties and Create Group, which act on the root group.
+export async function getShowRootGroup(showId: string): Promise<Group | null> {
+    const groups = await getShowGroups(showId);
+    return groups.find((g) => g.level === 0 || !g.parentId) ?? groups[0] ?? null;
+}
+
+// Department + Task types (CueGUI TasksDialog / "Task Properties").
+export type Department = {
+    id: string;
+    name: string;
+    dept: string;
+    tiTask: string;
+    minCores: number;
+    tiManaged: boolean;
+};
+
+export type Task = {
+    id: string;
+    name: string;
+    shot: string;
+    dept: string;
+    pointId?: string;
+    minCores: number;
+    adjustCores: number;
+};
+
+// A show's departments. RPC: /show.ShowInterface/GetDepartments.
+export async function getShowDepartments(showId: string): Promise<Department[]> {
+    const response = await accessGetApi("/api/show/getdepartments", JSON.stringify({ show: { id: showId } }));
+    return Array.isArray(response) ? response : [];
+}
+
+// A department's tasks. RPC: /department.DepartmentInterface/GetTasks.
+export async function getDepartmentTasks(department: Department): Promise<Task[]> {
+    const response = await accessGetApi("/api/department/gettasks", JSON.stringify({ department }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Dispatcher filter types (CueGUI FilterDialog / "View Filters"). Enums arrive
+// from the gateway as their string names (e.g. "MATCH_ALL", "SHOT", "IS").
+export type Filter = {
+    id: string;
+    name: string;
+    type: string; // FilterType: MATCH_ANY | MATCH_ALL
+    order: number;
+    enabled: boolean;
+};
+
+export type Matcher = {
+    id: string;
+    subject: string; // MatchSubject
+    type: string; // MatchType
+    input: string;
+};
+
+export type FilterAction = {
+    id: string;
+    type: string; // ActionType
+    valueType: string; // ActionValueType
+    groupValue?: string;
+    stringValue?: string;
+    integerValue?: number;
+    floatValue?: number;
+    booleanValue?: boolean;
+};
+
+// A show's dispatcher filters. RPC: /show.ShowInterface/GetFilters.
+export async function getShowFilters(showId: string): Promise<Filter[]> {
+    const response = await accessGetApi("/api/show/getfilters", JSON.stringify({ show: { id: showId } }));
+    return Array.isArray(response) ? response : [];
+}
+
+// A filter's matchers. RPC: /filter.FilterInterface/GetMatchers.
+export async function getFilterMatchers(filter: Filter): Promise<Matcher[]> {
+    const response = await accessGetApi("/api/filter/getmatchers", JSON.stringify({ filter }));
+    return Array.isArray(response) ? response : [];
+}
+
+// A filter's actions. RPC: /filter.FilterInterface/GetActions.
+export async function getFilterActions(filter: Filter): Promise<FilterAction[]> {
+    const response = await accessGetApi("/api/filter/getactions", JSON.stringify({ filter }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Known department names for the Group dialog's Department dropdown (CueGUI
+// getDepartmentNames). RPC: /department.DepartmentInterface/GetDepartmentNames.
+// Populating the dropdown is best-effort: a failure falls back to the current
+// value + "Unknown" silently (no error toast), so the dialog still works.
+export async function getDepartmentNames(): Promise<string[]> {
+    const base = process.env.NEXT_PUBLIC_URL ?? "";
+    try {
+        const response = await fetch(`${base}/api/department/getdepartmentnames`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: JSON.stringify({}),
+        });
+        const res = await response.json();
+        if (!response.ok || res.error) return [];
+        return Array.isArray(res.data) ? res.data : [];
+    } catch {
+        return [];
+    }
 }
 
 // Fetch the direct jobs in a group

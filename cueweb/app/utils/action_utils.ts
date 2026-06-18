@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Proc, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Group, Host, JobComment, Proc, Service, Show } from "./get_utils";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -46,6 +46,55 @@ export async function performAction(endpoint: string, bodyAr: string[], successM
     handleError(error, `Error performing action for: ${endpoint}`);
     return false;
   }
+}
+
+/**************************************/
+// Facility default services (CueGUI ServiceDialog parity)
+/**************************************/
+
+// These call accessActionApi directly (no per-call success toast) so the
+// Facility Service Defaults form can show a single toast after the call
+// resolves. Errors are still surfaced as toasts by accessActionApi. Returns
+// true on success so the form can gate its refresh on it.
+export async function createService(data: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/create", JSON.stringify({ data }));
+  return !!result?.success;
+}
+
+export async function updateService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/update", JSON.stringify({ service }));
+  return !!result?.success;
+}
+
+export async function deleteService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/delete", JSON.stringify({ service }));
+  return !!result?.success;
+}
+
+// Show-scoped service overrides (CueGUI Service Properties). The override is
+// identified by the inner Service `id`, so update/delete send that Service.
+export async function createServiceOverride(show: Show, service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "show.createserviceoverride", show, service })],
+  );
+  return !!result?.success;
+}
+
+export async function updateServiceOverride(service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "override.update", service })],
+  );
+  return !!result?.success;
+}
+
+export async function deleteServiceOverride(service: Service): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/serviceoverride/mutate",
+    [JSON.stringify({ op: "override.delete", service })],
+  );
+  return !!result?.success;
 }
 
 /**************************************/
@@ -1566,6 +1615,54 @@ export async function copyFrameLogPath(job: Job | undefined, row: Row<any>) {
 // changes at once. Errors are still surfaced as toasts by accessActionApi.
 async function showAction(endpoint: string, body: object): Promise<boolean> {
   const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+// Group mutations (CueGUI Monitor Cue Group Properties / Create Group). Same
+// fire-and-check pattern as showAction; errors surface as toasts via the helper.
+export type GroupChanges = Partial<{
+  name: string;
+  department: string;
+  defaultJobPriority: number;
+  defaultJobMinCores: number;
+  defaultJobMaxCores: number;
+  minCores: number;
+  maxCores: number;
+  defaultJobMinGpus: number;
+  defaultJobMaxGpus: number;
+  minGpus: number;
+  maxGpus: number;
+}>;
+
+export async function updateGroup(group: Group, changes: GroupChanges): Promise<boolean> {
+  if (Object.keys(changes).length === 0) return true;
+  const result = await accessActionApi("/api/group/action/update", [JSON.stringify({ group, changes })]);
+  return !!result?.success;
+}
+
+export async function createSubGroup(parent: Group, name: string): Promise<boolean> {
+  const result = await accessActionApi("/api/group/action/createsubgroup", [JSON.stringify({ group: parent, name })]);
+  return !!result?.success;
+}
+
+export async function deleteGroup(group: Group): Promise<boolean> {
+  const result = await accessActionApi("/api/group/action/delete", [JSON.stringify({ group })]);
+  return !!result?.success;
+}
+
+// View Filters dialog mutations (CueGUI FilterDialog). One consolidated proxy
+// keyed by `op` (filter / matcher / action RPCs); the dialog re-fetches the
+// affected list after a successful mutation, so only success/failure matters.
+export async function filterMutate(op: string, payload: object): Promise<boolean> {
+  const result = await accessActionApi("/api/filter/mutate", [JSON.stringify({ op, ...payload })]);
+  return !!result?.success;
+}
+
+// Task Properties dialog mutations (CueGUI TasksDialog). One consolidated proxy
+// keyed by `op` (Department / Task RPCs); the dialog re-fetches after a
+// successful mutation, so only success/failure matters.
+export async function taskMutate(op: string, payload: object): Promise<boolean> {
+  const result = await accessActionApi("/api/task/mutate", [JSON.stringify({ op, ...payload })]);
   return !!result?.success;
 }
 
