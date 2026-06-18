@@ -27,7 +27,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 1. **Persistent global header (every authenticated route):**
    - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark.
-   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug). Routes that are not yet implemented 404 gracefully.
+   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug / About CueWeb). Routes that are not yet implemented 404 gracefully.
    - Theme toggle (light/dark).
    - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` - the `/login` page itself shows either the **CueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
 2. **Collapsible left sidebar (every authenticated route):**
@@ -239,7 +239,15 @@ The **Other** menu provides Attributes, Show Shortcuts, and Notify on Shortcut (
 
 
 **Figure 10: Help menu**
-![Help menu](/assets/images/cueweb/cueweb_help_menu.png)
+![Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+The Help menu also includes **About CueWeb**, which opens a dialog showing the
+CueWeb version and build SHA, the active Cuebot facility, the REST gateway URL
+(masked), the Apache-2.0 license, and credits. A **Copy diagnostics** button
+copies all of these as JSON for bug reports (Figure 10b).
+
+**Figure 10b: About CueWeb dialog**
+![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 A fixed status bar at the bottom of every page shows the gateway connection state, the time since the last refresh, and the application version (Figure 11).
