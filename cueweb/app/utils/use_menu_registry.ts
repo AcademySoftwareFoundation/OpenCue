@@ -21,9 +21,15 @@ import * as React from "react";
 
 import { HELP_ITEMS } from "@/app/utils/help_menu";
 import { NAV_MENUS } from "@/app/utils/menus";
+import {
+  buildSplitUrl,
+  DEFAULT_LEFT,
+  DEFAULT_RIGHT,
+} from "@/app/utils/split_view_utils";
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 
 /**
  * A flat, searchable list of every menu command in CueWeb - used by the
@@ -48,6 +54,7 @@ export function useMenuRegistry(): MenuCommand[] {
   const { toggle: toggleJobInteraction } = useDisableJobInteraction();
   const { facilities, setFacility } = useCuebotFacility();
   const { toggle: toggleAttributes } = useAttributesPanel();
+  const { toggle: toggleImmersive } = useImmersiveMode();
 
   return React.useMemo<MenuCommand[]>(() => {
     const cmds: MenuCommand[] = [];
@@ -91,6 +98,20 @@ export function useMenuRegistry(): MenuCommand[] {
       hint: "toggle panel",
       run: toggleAttributes,
     });
+    cmds.push({
+      id: "other.immersive",
+      group: "Other",
+      label: "Immersive (full-screen)",
+      hint: "toggle",
+      run: toggleImmersive,
+    });
+    cmds.push({
+      id: "other.split-view",
+      group: "Other",
+      label: "Split view",
+      hint: "open",
+      run: () => router.push(buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT)),
+    });
 
     // Help (external links)
     for (const item of HELP_ITEMS) {
@@ -108,7 +129,7 @@ export function useMenuRegistry(): MenuCommand[] {
     }
 
     return cmds;
-  }, [router, toggleJobInteraction, facilities, setFacility, toggleAttributes]);
+  }, [router, toggleJobInteraction, facilities, setFacility, toggleAttributes, toggleImmersive]);
 }
 
 /**

@@ -285,7 +285,7 @@ export default function JobDetailPage() {
                 description="This job does not have any layers yet."
               />
             ) : (
-              <SimpleDataTable data={layers} columns={layerColumns} username={currentUser} />
+              <SimpleDataTable data={layers} columns={layerColumns} username={currentUser} viewsPageKey="layers" />
             )}
           </TabsContent>
 
@@ -306,6 +306,7 @@ export default function JobDetailPage() {
                 isFramesTable={true}
                 username={currentUser}
                 defaultColumnVisibility={{ remain: false }}
+                viewsPageKey="frames"
               />
             )}
           </TabsContent>

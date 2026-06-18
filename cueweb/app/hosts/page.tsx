@@ -111,6 +111,7 @@ export default function HostsPage() {
             username=""
             isHostsTable
             columnVisibilityStorageKey="cueweb.hosts.columnVisibility"
+            viewsPageKey="hosts"
           />
         </>
       )}
