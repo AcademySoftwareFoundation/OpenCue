@@ -37,6 +37,8 @@ import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Propagation;
@@ -84,6 +86,9 @@ public class DispatchSupportService implements DispatchSupport {
     private BookingDao bookingDao;
     private KafkaEventPublisher kafkaEventPublisher;
     private MonitoringEventBuilder monitoringEventBuilder;
+
+    @Autowired
+    private Environment env;
 
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
             new ConcurrentHashMap<String, StrandedCores>();
@@ -516,6 +521,26 @@ public class DispatchSupportService implements DispatchSupport {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void lostProc(VirtualProc proc, String reason, int exitStatus) {
         long numCleared = clearedProcs.incrementAndGet();
+
+        /*
+         * Kill the frame on RQD before releasing it back to a bookable state. Without this, a host
+         * that is merely flapping (transient unreachable/DOWN report, GC pause, dropped report)
+         * keeps rendering the frame while the dispatcher resets it to WAITING and re-books it
+         * elsewhere, silently double-booking the frame onto two hosts. Killing first means a
+         * reachable host stops the frame before it becomes re-bookable; a genuinely dead host times
+         * out (caught below), and release is then safe because no live RQD remains.
+         * EXIT_STATUS_FAILED_KILL is skipped because the caller (JobManagerSupport.kill) already
+         * attempted this exact kill and it threw.
+         */
+        if (proc.frameId != null && exitStatus != Dispatcher.EXIT_STATUS_FAILED_KILL
+                && env.getProperty("dispatcher.kill_running_frame_before_release_enabled",
+                        Boolean.class, true)) {
+            try {
+                rqdClient.killFrame(proc, "kill-before-release: " + reason);
+            } catch (Throwable t) {
+                logger.info("kill-before-release failed for " + proc.getName() + ", " + t);
+            }
+        }
 
         unbookProc(proc, "proc " + proc.getName() + " is #" + numCleared + " cleared: " + reason);
 
