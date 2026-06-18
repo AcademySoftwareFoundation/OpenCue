@@ -11,9 +11,9 @@ project; Committers approve code to be included into the project; and the
 Technical Steering Committee (TSC) provides overall high-level project
 guidance.
 
-* [Contributors](#Contributors)
-* [Committers](#Committers)
-* [Technical Steering Committee](#Technical-Steering-Committee)
+* [Contributors](`#contributors`)
+* [Committers](`#committers`)
+* [Technical Steering Committee](`#technical-steering-committee`)
 
 ## Contributors
 
