@@ -167,7 +167,11 @@ The **Cuetopia** menu opens Monitor Jobs and holds the checkable **View Job Grap
 ![Cuetopia menu with the View Job Graph toggle](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
 
 
-The **Cuebot Facility** menu lets you switch the active facility.
+The **Cuebot Facility** menu lets you switch the active facility. Choosing a
+facility re-routes CueWeb to that facility's Cuebot and reloads the data you are
+viewing, so you only ever see one facility at a time (the same behavior as
+CueGUI's "Cuebot Facility" menu). The active facility is shown as a chip on the
+menu and in the bottom status bar, and your choice is remembered for the session.
 
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
