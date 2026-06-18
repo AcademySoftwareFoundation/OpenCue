@@ -218,8 +218,17 @@ CueGUI's "Cuebot Facility" menu, which connects to a single facility at a time.
 A deployment can point each facility at its own Cuebot/gateway; when only one
 gateway is configured, every facility uses it.
 
+Each facility in the menu shows a small status dot — green when its gateway is
+reachable, red when it is unreachable — refreshed periodically; a facility whose
+gateway is down cannot be selected. The menu also has a **Manage facilities…**
+item that opens an admin screen for editing each facility's gateway URL and
+credentials at runtime, without redeploying (Figure 5b).
+
 **Figure 5: Cuebot Facility menu**
-![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_with_manage_facilities_menu.png)
+
+**Figure 5b: Manage Facilities screen**
+![Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
 
 
 The **CueCommander** menu lists the administration views such as Allocations, Limits, Monitor Cue, Monitor Hosts, Services, Shows, and Subscriptions (Figure 6).

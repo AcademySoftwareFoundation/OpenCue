@@ -107,14 +107,19 @@ cueweb/
 │   │   ├── help_menu.ts                   # Help links + env-var overrides
 │   │   ├── use_disable_job_interaction.ts # Safety flag hook
 │   │   ├── use_cuebot_facility.ts         # Active facility hook
+│   │   ├── use_facility_health.ts         # Per-facility gateway health poll (30s)
+│   │   ├── gateway_server.ts              # Server-only REST gateway proxy + JWT signing
 │   │   ├── use_attributes_panel.ts        # Panel open/closed + dock position
 │   │   ├── use_attribute_selection.ts     # Selected entity for the panel
 │   │   ├── use_menu_registry.ts           # Flat command registry for Help search
 │   │   ├── use_shortcut_notifications.ts  # Toast-on-shortcut opt-out pref
 │   │   ├── layer_progress_utils.ts        # Layer progress segments (mirrors jobs)
 │   │   └── job_progress_utils.ts          # Job progress segments + tooltip rows
+│   ├── settings/         # Admin screens
+│   │   └── facilities/   # Manage Facilities (runtime per-facility config + audit)
 │   └── api/              # API routes (REST gateway proxy + auth)
-│       └── health/       # Gateway reachability probe used by StatusBar
+│       ├── health/       # Gateway reachability probe used by StatusBar
+│       └── facility/health/ # Per-facility gateway health (menu dots)
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
 │   │   ├── app-header.tsx       # Global persistent header (incl. mobile hamburger)
@@ -139,7 +144,9 @@ cueweb/
 │   └── context_menus/    # Right-click context menus (Job / Layer / Frame)
 ├── lib/                  # Utility libraries
 │   ├── auth.ts           # NextAuth configuration (Okta/Google/GitHub/LDAP)
-│   ├── facility.ts       # Cuebot Facility resolver (per-request gateway + JWT)
+│   ├── facility.ts       # Cuebot Facility resolver (per-request gateway + JWT, client-safe)
+│   ├── facility-server.ts # Override-aware facility resolution (server-only)
+│   ├── facility-store.ts # Runtime per-facility override store + audit log (server-only)
 │   ├── utils.ts          # General utilities (incl. cn())
 │   └── metrics-service.ts # Prometheus metrics
 ├── public/               # Static assets
@@ -233,6 +240,21 @@ provider tree.
     request goes through it via `fetchObjectFromRestGateway` (`app/utils/gateway_server.ts`),
     and `/api/health` probes the selected facility's gateway. (`next/headers` is
     imported dynamically there so the module stays out of the client bundle.)
+  - **Per-facility health + runtime config.** `useFacilityHealth`
+    (`app/utils/use_facility_health.ts`) polls `/api/facility/health` every 30s;
+    the header menu draws a green/red dot per facility and disables a facility
+    whose gateway is down. **Manage facilities…** opens `/settings/facilities`
+    (`app/settings/facilities/`), a server-action screen that edits each
+    facility's gateway URL + JWT secret at runtime. Overrides persist to a JSON
+    file (`CUEWEB_FACILITY_STORE`) with an append-only audit log, written by
+    `lib/facility-store.ts`; the override-aware resolution that layers them over
+    the env defaults lives in the server-only `lib/facility-server.ts`
+    (`getRequestFacilityTargetWithOverrides`, `getAllFacilityTargets`,
+    `getFacilityConfigViews`). The server-only gateway helpers were split into
+    `app/utils/gateway_server.ts` precisely so the `node:fs`-backed store never
+    reaches the client bundle (`api_utils.ts` is client-reachable). The settings
+    action is fail-closed when authentication is configured and serializes writes
+    in-process to avoid lost updates.
 - **`useAttributesPanel`** (`app/utils/use_attributes_panel.ts`)
   &mdash; `{ isOpen, position, positions, setOpen, toggle, setPosition }`.
   - Keys: `cueweb.attributes.open` (`bool`) and `cueweb.attributes.position`

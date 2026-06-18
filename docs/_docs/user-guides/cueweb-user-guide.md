@@ -173,7 +173,18 @@ viewing, so you only ever see one facility at a time (the same behavior as
 CueGUI's "Cuebot Facility" menu). The active facility is shown as a chip on the
 menu and in the bottom status bar, and your choice is remembered for the session.
 
-![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+Each facility shows a live status dot — green when its gateway is reachable, red
+when it is down — and a facility that is down can't be selected.
+
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_with_manage_facilities_menu.png)
+
+Choose **Manage facilities…** from the menu to open the admin screen, where you
+can edit each facility's REST gateway URL and JWT secret at runtime — changes
+apply immediately, without a redeploy, and a change-history table records who
+edited what. Leave a facility's gateway URL blank to fall back to the default
+gateway.
+
+![Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
 
 
 The **CueCommander** menu lists the farm-administration pages.
