@@ -37,6 +37,10 @@ interface JwtParams {
   exp: number;
 }
 
+// Abort a gateway request that hasn't responded within this window so a stalled
+// backend can't hold request threads. Generous enough for large list calls.
+const GATEWAY_TIMEOUT_MS = 15000;
+
 // Create the JWT token given the payload parameters. The signing secret
 // defaults to NEXT_JWT_SECRET but can be overridden per facility (the target
 // gateway trusts its own secret).
@@ -53,21 +57,32 @@ export async function fetchObjectFromRestGateway(
   method: string,
   body: string,
 ): Promise<NextResponse> {
-  // Route to the gateway for the facility selected in the request cookie
-  // (Cuebot Facility menu), with any runtime admin override applied. Falls
-  // back to the default/legacy gateway when no per-facility config is present.
-  const { gatewayUrl, jwtSecret } = await getRequestFacilityTargetWithOverrides();
-  const url = `${gatewayUrl}${endpoint}`;
-
-  const jwtParams: JwtParams = {
-    sub: "user-id", // Replace with a user id
-    role: "user-role", // Replace with the user's role
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600, // Expires in 1 hour
-  };
-  const jwtToken = createJwtToken(jwtParams, jwtSecret);
-
+  // Abort a stalled gateway so a hung backend can't pin request threads until
+  // the platform-level timeout. Hoisted above try/catch so the timer is cleared
+  // on every path (success, error, abort) in finally.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
   try {
+    // Route to the gateway for the facility selected in the request cookie
+    // (Cuebot Facility menu), with any runtime admin override applied. Falls
+    // back to the default/legacy gateway when no per-facility config is present.
+    // Resolution + JWT signing live inside the try so any failure here is
+    // returned through this function's error envelope rather than thrown to the
+    // caller (some routes call fetchObjectFromRestGateway directly).
+    const { gatewayUrl, jwtSecret } = await getRequestFacilityTargetWithOverrides();
+    if (!gatewayUrl) {
+      throw new Error("No REST gateway configured for the selected facility");
+    }
+    const url = `${gatewayUrl}${endpoint}`;
+
+    const jwtParams: JwtParams = {
+      sub: "user-id", // Replace with a user id
+      role: "user-role", // Replace with the user's role
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600, // Expires in 1 hour
+    };
+    const jwtToken = createJwtToken(jwtParams, jwtSecret);
+
     const response = await fetch(url, {
       method: method,
       headers: {
@@ -75,6 +90,7 @@ export async function fetchObjectFromRestGateway(
         Authorization: `Bearer ${jwtToken}`,
       },
       body: body,
+      signal: controller.signal,
     });
 
     const responseBody = await response.text();
@@ -87,6 +103,8 @@ export async function fetchObjectFromRestGateway(
     console.error(`Fetch error: ${error}`);
     handleError(error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  } finally {
+    clearTimeout(timer);
   }
 }
 

@@ -85,11 +85,32 @@ export async function readFacilityOverrides(): Promise<FacilityOverrideMap> {
   return map;
 }
 
+// Serialize writes within this process so concurrent saves can't lose updates:
+// the read-modify-write below interleaves at its await points, and Next.js does
+// not serialize Server Action invocations. A single CueWeb instance is one Node
+// process, so chaining each write onto the previous one is sufficient. (A
+// multi-instance deployment sharing the store file would additionally need a
+// cross-process file lock.)
+let writeChain: Promise<unknown> = Promise.resolve();
+
 /**
  * Apply a partial override for one facility and append an audit entry. Passing
  * an empty string for a field clears that override (falls back to env/default).
+ * Serialized so concurrent calls apply one-at-a-time (no lost updates).
  */
 export async function writeFacilityOverride(
+  facility: string,
+  override: FacilityOverride,
+  actor: string,
+): Promise<void> {
+  const run = writeChain.then(() => doWriteFacilityOverride(facility, override, actor));
+  // Keep the chain alive even if this write rejects, so one failure doesn't
+  // break serialization for subsequent writes.
+  writeChain = run.catch(() => undefined);
+  return run;
+}
+
+async function doWriteFacilityOverride(
   facility: string,
   override: FacilityOverride,
   actor: string,

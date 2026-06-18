@@ -34,5 +34,5 @@ export async function POST(request: NextRequest) {
   const responseData = await response.json();
 
   if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status});
-  return NextResponse.json({ data: responseData.data, status: responseData.status});
+  return NextResponse.json({ data: responseData.data, status: response.status});
 }

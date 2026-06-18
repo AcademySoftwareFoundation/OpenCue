@@ -65,18 +65,29 @@ export async function updateFacilityConfig(
     jwtSecret = undefined; // unchanged
   }
 
-  let actor = "unknown";
-  try {
-    const session = await getServerSession(authOptions);
-    actor = session?.user?.email || session?.user?.name || "unknown";
-  } catch {
-    // Auth disabled / unavailable: leave actor as "unknown".
+  // Fail-closed authorization. When authentication is configured, require a
+  // signed-in user before mutating gateway URLs / JWT secrets — a session
+  // lookup failure or missing user rejects the write. When auth is disabled
+  // (the sandbox default), CueWeb is intentionally open and every action is
+  // unauthenticated, so this matches the rest of the app. A deployment that
+  // ships group authorization should additionally restrict /settings/facilities
+  // to CUEWEB_ADMIN_GROUPS (see lib/authz.ts / middleware.ts).
+  const authConfigured = !!(process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? "").trim();
+  let actor = "sandbox (auth disabled)";
+  if (authConfigured) {
+    const session = await getServerSession(authOptions).catch(() => null);
+    if (!session?.user) {
+      return { ok: false, message: "Not authorized — sign in to edit facilities." };
+    }
+    actor = session.user.email || session.user.name || "unknown";
   }
 
   try {
     await writeFacilityOverride(name, { gatewayUrl, jwtSecret }, actor);
   } catch (err) {
-    return { ok: false, message: `Could not save: ${(err as Error).message}` };
+    // Log details server-side
+    console.error("Failed to save facility override", { facility: name, err });
+    return { ok: false, message: "Could not save facility configuration." };
   }
 
   revalidatePath("/settings/facilities");
