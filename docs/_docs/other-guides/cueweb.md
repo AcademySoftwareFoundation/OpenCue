@@ -211,6 +211,12 @@ The **Cuetopia** menu opens the Monitor Jobs view (Figure 4).
 
 
 The **Cuebot Facility** menu lets you choose which facility to connect to (Figure 5).
+Selecting a facility switches the active Cuebot: CueWeb re-fetches all data from
+that facility's gateway, the active facility is shown both on the menu chip and in
+the bottom status bar, and your choice persists for the session. This mirrors
+CueGUI's "Cuebot Facility" menu, which connects to a single facility at a time.
+A deployment can point each facility at its own Cuebot/gateway; when only one
+gateway is configured, every facility uses it.
 
 **Figure 5: Cuebot Facility menu**
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
