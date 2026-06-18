@@ -15,8 +15,10 @@
  */
 
 import { promises as fs } from "fs";
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
+import { authOptions } from "@/lib/auth";
 import { fileExtension, isWebRenderableImage } from "@/app/utils/preview_utils";
 
 // Serves a rendered frame image from the server filesystem for the frame
@@ -48,6 +50,15 @@ function allowedRoots(): string[] {
 }
 
 export async function GET(request: NextRequest) {
+  // Respect auth: this route serves filesystem-backed bytes, so require a
+  // session when authentication is configured (parity with /api/getlog).
+  if ((process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? "").trim().length > 0) {
+    const session = await getServerSession(authOptions).catch(() => null);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+  }
+
   const target = request.nextUrl.searchParams.get("path") ?? "";
 
   if (!target || target.includes("\0")) {

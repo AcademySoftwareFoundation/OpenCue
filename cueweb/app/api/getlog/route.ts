@@ -41,6 +41,17 @@ function downloadName(filePath: string): string {
   return `${safe || "log"}.log`;
 }
 
+// Optional per-site allow-list (colon-separated absolute prefixes), shared with
+// the Stuck Frames "Last Line" route. When set, only files under one of these
+// roots are served; when unset, reads aren't restricted to a root (job log
+// paths are site-specific).
+function allowedLogRoots(): string[] {
+  return (process.env.CUEWEB_LOG_ROOTS ?? "")
+    .split(":")
+    .map((r) => r.trim())
+    .filter(Boolean);
+}
+
 export async function GET(request: NextRequest) {
   // Respect auth: require a session when authentication is configured.
   if ((process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? "").trim().length > 0) {
@@ -50,23 +61,53 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const filePath = request.nextUrl.searchParams.get("path");
-  if (!filePath) {
+  const filePath = request.nextUrl.searchParams.get("path") ?? "";
+  if (!filePath || filePath.includes("\0") || !path.isAbsolute(filePath)) {
     return NextResponse.json({ error: "Query parameter 'path' is required" }, { status: 400 });
   }
 
   try {
-    const stat = await fs.stat(filePath);
+    // Canonicalize via realpath before any read: path.resolve is purely lexical,
+    // but fs follows symlinks, so a `..` or symlinked path could otherwise escape
+    // the allow-list. realpath also requires the file to exist (surfaced as 404).
+    const realPath = await fs.realpath(path.resolve(filePath));
+
+    // When log roots are configured, the canonical target must sit inside one of
+    // them (also canonicalized). Without this a crafted path could read any file
+    // the server process can access.
+    const rawRoots = allowedLogRoots();
+    if (rawRoots.length > 0) {
+      const roots = (
+        await Promise.all(
+          rawRoots.map(async (r) => {
+            try {
+              return await fs.realpath(path.resolve(r));
+            } catch {
+              return null;
+            }
+          }),
+        )
+      ).filter((r): r is string => r !== null);
+      const inAllowedRoot = roots.some((root) => {
+        const rel = path.relative(root, realPath);
+        return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+      });
+      if (!inAllowedRoot) {
+        return NextResponse.json({ error: "Path is outside the allowed log roots" }, { status: 403 });
+      }
+    }
+
+    const stat = await fs.stat(realPath);
     if (!stat.isFile()) {
       return NextResponse.json({ error: "Not a file" }, { status: 400 });
     }
     // Read with fs (no shell) so the path can't be used for command injection.
-    const data = await fs.readFile(filePath);
+    const data = await fs.readFile(realPath);
     return new NextResponse(data, {
       status: 200,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${downloadName(filePath)}"`,
+        "Content-Disposition": `attachment; filename="${downloadName(realPath)}"`,
         "Content-Length": String(stat.size),
         "Cache-Control": "no-store",
       },
