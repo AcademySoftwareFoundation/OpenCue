@@ -238,6 +238,47 @@ export async function getFrames(body: string): Promise<Frame[]> {
     return response ? response : [];
 }
 
+// A running frame plus the job/layer context the Stuck Frames page needs to
+// apply CueGUI's per-service stuck-detection predicate (service + average
+// frame time) and to act on the row (job, log dir, comment flag).
+export type StuckFrame = Frame & {
+    jobId: string;
+    jobName: string;
+    jobLogDir: string;
+    jobHasComment: boolean;
+    service: string;
+    avgFrameSec: number;
+    layerId: string;
+    layerMinCores: number;
+};
+
+// Fetch every RUNNING frame across all unfinished jobs (server-aggregated via
+// /api/stuck-frames), each stamped with its service and average frame time.
+// The Stuck Frames page applies the detection thresholds locally so the
+// filters stay instant.
+export async function getStuckFrames(): Promise<StuckFrame[]> {
+    const ENDPOINT = "/api/stuck-frames";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load stuck frames from Cuebot.");
+    }
+    return response;
+}
+
+// Best-effort fetch of a frame log's last line (the "Last Line" column). Empty
+// when the log filesystem isn't reachable from the web server.
+export async function getStuckFrameLastLine(logPath: string): Promise<string> {
+    if (!logPath) return "";
+    const base = process.env.NEXT_PUBLIC_URL ?? "";
+    try {
+        const resp = await fetch(`${base}/api/stuck-frames/lastline?path=${encodeURIComponent(logPath)}`);
+        const json = await resp.json();
+        return typeof json?.lastLine === "string" ? json.lastLine : "";
+    } catch {
+        return "";
+    }
+}
+
 // Fetch a pending job based on the request body
 export async function getPendingJob(body: string): Promise<Job | null> {
     const ENDPOINT = "/api/job/getjob";

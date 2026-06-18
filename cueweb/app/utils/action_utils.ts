@@ -121,14 +121,14 @@ export async function killLayers(layers: Layer[], username: string, reason: stri
   await performAction(endpoint, bodyAr, `Killed ${layers.length} layer(s)`);
 }
 
-export async function killFrames(frames: Frame[], username: string, reason: string) {
+export async function killFrames(frames: Frame[], username: string, reason: string): Promise<boolean> {
   const endpoint = "/api/frame/action/kill";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame,
     username,
     reason
   }));
-  await performAction(endpoint, bodyAr, `Killed ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Killed ${frames.length} frame(s)`);
 }
 
 
@@ -153,12 +153,12 @@ export async function eatLayersFrames(layers: Layer[]) {
   await performAction(endpoint, bodyAr, `Ate ${layers.length} layer(s)`);
 }
 
-export async function eatFrames(frames: Frame[]) {
+export async function eatFrames(frames: Frame[]): Promise<boolean> {
   const endpoint = "/api/frame/action/eat";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame
   }));
-  await performAction(endpoint, bodyAr, `Ate ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Ate ${frames.length} frame(s)`);
 }
 
   
@@ -204,12 +204,19 @@ export async function retryLayersDeadFrames(layers: Layer[]) {
   }
 }
 
-export async function retryFrames(frames: Frame[]) {
+export async function retryFrames(frames: Frame[]): Promise<boolean> {
   const endpoint = "/api/frame/action/retry";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame
   }));
-  await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
+}
+
+// Set a layer's minimum cores (CueGUI Stuck Frame "Core Up"). cores is a float
+// core count. Returns success so callers can gate a refresh.
+export async function setLayerMinCores(layer: { id: string; name?: string }, cores: number): Promise<boolean> {
+  const endpoint = "/api/layer/action/setmincores";
+  return performAction(endpoint, [JSON.stringify({ layer, cores })], `Set min cores to ${cores}`);
 }
 
 /**************************************/
@@ -309,9 +316,8 @@ export async function fetchLayerDepends(layer: Layer): Promise<any[]> {
 }
 
 // Layer property setters (CueGUI LayerPropertiesDialog). Memory args are KB.
-export async function setLayerMinCores(layer: Layer, cores: number): Promise<boolean> {
-  return performAction("/api/layer/action/setmincores", [JSON.stringify({ layer, cores })], `Set min cores ${cores} on ${layer.name}`);
-}
+// (setLayerMinCores is defined above and accepts both a full Layer and the
+// minimal { id, name? } shape the Stuck Frames "Core Up" action passes.)
 export async function setLayerMinMemory(layer: Layer, memoryKb: number): Promise<boolean> {
   return performAction("/api/layer/action/setminmemory", [JSON.stringify({ layer, memory: memoryKb })], `Set min memory on ${layer.name}`);
 }
