@@ -46,8 +46,14 @@ const GATEWAY_TIMEOUT_MS = 15000;
 // gateway trusts its own secret).
 export function createJwtToken({ sub, role, iat, exp }: JwtParams, secret?: string): string {
   const signingSecret = secret ?? process.env.NEXT_JWT_SECRET;
+  // Fail fast on a missing/blank secret rather than signing with an empty key.
+  // Validate via trim() but sign with the original value (a gateway reading the
+  // same env verbatim would not trim it).
+  if (!signingSecret || signingSecret.trim() === "") {
+    throw new Error("Missing JWT signing secret");
+  }
   const payload = { sub, role, iat, exp };
-  return jwt.sign(payload, signingSecret as string);
+  return jwt.sign(payload, signingSecret);
 }
 
 // Handles the fetching of objects from the gRPC REST gateway including creating

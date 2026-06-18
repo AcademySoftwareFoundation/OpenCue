@@ -59,7 +59,14 @@ function readCookie(): string | null {
   const row = document.cookie
     .split("; ")
     .find((r) => r.startsWith(`${COOKIE_KEY}=`));
-  return row ? decodeURIComponent(row.slice(COOKIE_KEY.length + 1)) : null;
+  if (!row) return null;
+  try {
+    // A malformed value (bad %-escape) would otherwise throw in the mount
+    // effect and stop the hook from syncing/recovering.
+    return decodeURIComponent(row.slice(COOKIE_KEY.length + 1));
+  } catch {
+    return null;
+  }
 }
 
 /** Parse the build-time env var; falls back to the CueGUI defaults. */
