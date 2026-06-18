@@ -113,6 +113,25 @@ describe("use_immersive_mode", () => {
       expect(result.current.immersive).toBe(false);
     });
 
+    it("still toggles in-memory when the localStorage write fails", () => {
+      const spy = jest
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(() => {
+          throw new DOMException("QuotaExceededError");
+        });
+      try {
+        const { result } = renderHook(() => useImmersiveMode());
+        expect(result.current.immersive).toBe(false);
+
+        // Write fails, but the same-tab event carries the value, so the UI
+        // must not revert to false.
+        act(() => result.current.toggle());
+        expect(result.current.immersive).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it("keeps two hook instances in sync within the same tab", () => {
       const a = renderHook(() => useImmersiveMode());
       const b = renderHook(() => useImmersiveMode());

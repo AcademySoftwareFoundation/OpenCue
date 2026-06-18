@@ -68,7 +68,18 @@ export function useImmersiveMode(): {
   React.useEffect(() => {
     setImmersiveState(readImmersiveFromStorage());
 
-    const handler = () => setImmersiveState(readImmersiveFromStorage());
+    // Same-tab sync across the several useImmersiveMode() instances (app-shell,
+    // app-header, shortcuts-overlay): trust the value carried on the event
+    // rather than re-reading storage, so a failed/blocked localStorage write
+    // (private mode, quota) can't immediately revert the toggle.
+    const handler = (event: Event) => {
+      if (event instanceof CustomEvent && typeof event.detail === "boolean") {
+        setImmersiveState(event.detail);
+        return;
+      }
+      setImmersiveState(readImmersiveFromStorage());
+    };
+    // Cross-tab sync: another tab's write is authoritative, so read it back.
     const storageHandler = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setImmersiveState(readImmersiveFromStorage());
     };
@@ -85,13 +96,18 @@ export function useImmersiveMode(): {
     writeToStorage(value);
     setImmersiveState(value);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+      window.dispatchEvent(
+        new CustomEvent<boolean>(CHANGE_EVENT, { detail: value }),
+      );
     }
   }, []);
 
+  // Flip based on the current in-memory state (kept fresh by the listeners
+  // above) instead of re-reading storage, so toggling stays reliable even when
+  // the previous write didn't persist.
   const toggle = React.useCallback(() => {
-    setImmersive(!readImmersiveFromStorage());
-  }, [setImmersive]);
+    setImmersive(!immersive);
+  }, [immersive, setImmersive]);
 
   return { immersive, setImmersive, toggle };
 }

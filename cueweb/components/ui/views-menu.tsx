@@ -39,6 +39,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -376,47 +379,44 @@ export function ViewsMenu({
 
           {views.length > 0 ? <DropdownMenuSeparator /> : null}
 
+          {/* Each saved view is a submenu so Apply / Rename / Delete are
+              first-class, keyboard-navigable menu items (Radix arrow-key focus
+              only reaches menuitems, not buttons nested inside a row). */}
           {views.map((view) => (
-            <DropdownMenuItem
-              key={view.name}
-              onSelect={() => handleApply(view)}
-              className="flex items-center gap-2"
-            >
-              <span className="flex w-4 shrink-0 justify-center">
-                {activeName === view.name ? (
-                  <Check className="h-4 w-4" aria-hidden="true" />
-                ) : null}
-              </span>
-              <span className="flex-1 truncate">{view.name}</span>
-              <span className="inline-flex shrink-0 items-center gap-0.5">
-                <button
-                  type="button"
-                  aria-label={`Rename ${view.name}`}
-                  title="Rename"
-                  onClick={(e) => {
+            <DropdownMenuSub key={view.name}>
+              <DropdownMenuSubTrigger className="gap-2">
+                <span className="flex w-4 shrink-0 justify-center">
+                  {activeName === view.name ? (
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                  ) : null}
+                </span>
+                <span className="flex-1 truncate">{view.name}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onSelect={() => handleApply(view)}>
+                  <Eye className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                  Apply
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    // Mirror the "Save as…" item: keep the menu open while the
+                    // rename dialog takes focus.
                     e.preventDefault();
-                    e.stopPropagation();
                     openRenameDialog(view.name);
                   }}
-                  className="rounded p-0.5 text-foreground/70 hover:bg-foreground/10 hover:text-foreground"
                 >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Delete ${view.name}`}
-                  title="Delete"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDelete(view.name);
-                  }}
-                  className="rounded p-0.5 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+                  <Pencil className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                  Rename&hellip;
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => handleDelete(view.name)}
+                  className="text-destructive focus:text-destructive"
                 >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </span>
-            </DropdownMenuItem>
+                  <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           ))}
 
           <DropdownMenuSeparator />
