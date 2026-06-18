@@ -64,6 +64,9 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
   // attributes panel to the parent job (so the panel always reflects the
   // most-relevant selection).
   const [selectedLayer, setSelectedLayer] = React.useState<Layer | null>(null);
+  // Frame row clicked into the Attributes panel (single-click). Double-click
+  // still opens the log viewer; this only drives the panel + row highlight.
+  const [selectedFrame, setSelectedFrame] = React.useState<Frame | null>(null);
 
   // Dependency graph panel visibility. The shared hook persists in
   // localStorage AND broadcasts a CustomEvent so the Cuetopia > View
@@ -119,6 +122,34 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
     const stillPresent = layers.some((l) => l.id === selectedLayer.id);
     if (!stillPresent) setSelectedLayer(null);
   }, [layers, selectedLayer]);
+
+  // Frame-click handler: load the frame into the Attributes panel and highlight
+  // the row. Idempotent (re-selecting the same frame is a no-op), so a
+  // double-click - which fires two single-clicks before opening the log viewer -
+  // doesn't flicker the panel. Switching to a different layer/job re-selects
+  // that entity via the effects above / the layer-click handler.
+  const handleFrameClick = React.useCallback((frame: Frame) => {
+    setSelectedFrame(frame);
+    setAttributeSelection({
+      type: "frame",
+      id: frame.id,
+      name: frame.name,
+      data: frame as unknown as Record<string, unknown>,
+    });
+  }, []);
+
+  // Clear the frame highlight when the job or the filtered layer changes (the
+  // visible frame set changes underneath it).
+  React.useEffect(() => {
+    setSelectedFrame(null);
+  }, [job?.id, selectedLayer?.id]);
+
+  // Drop the highlight if the selected frame is no longer present after a poll.
+  React.useEffect(() => {
+    if (!selectedFrame) return;
+    const stillPresent = frames.some((fr) => fr.id === selectedFrame.id);
+    if (!stillPresent) setSelectedFrame(null);
+  }, [frames, selectedFrame]);
 
   // The layer menu's "View Layer" (and the frame menu's "Filter Selected
   // Layers") dispatch `cueweb:view-layer`. Apply the same filter the
@@ -323,6 +354,10 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
                   username={username}
                   job={job}
                   isFramesTable
+                  // Single-click loads the frame into the Attributes panel
+                  // (double-click still opens the log viewer).
+                  onRowClick={(row) => handleFrameClick(row as Frame)}
+                  selectedRowId={selectedFrame?.id ?? null}
                   columnVisibilityStorageKey="cueweb.frames.columnVisibility"
                   // Hide the Remain column (needs the ETA predictor that's only
                   // in CueGUI). Last Line stays visible for CueGUI parity even
