@@ -132,6 +132,39 @@ impl RedisAccounting {
         Ok(result == 1)
     }
 
+    /// Applies `ops` as plain `HSET`s in a single pipeline, with no `acct:seq` CAS guard.
+    ///
+    /// Used by the limit reseed. Unlike the booked-counter recompute (which overwrites the
+    /// `int_cores`/`int_gpus` fields the hot path also increments, and so must CAS against
+    /// `acct:seq` to avoid clobbering a concurrent booking), limit fields (`burst`, `size`,
+    /// `int_max_cores`, `int_max_gpus`, `int_min_*`, `int_priority`) are written ONLY here -
+    /// the hot-path booking Lua never mutates them. They therefore cannot race a booking, so
+    /// the CAS guard is unnecessary and, worse, lets a wave of force-rollbacks bumping
+    /// `acct:seq` (e.g. flaky RQD launches) starve the reseed into skipping its cycle - which
+    /// leaves a freshly-managed show's subscription `burst` unseeded (== 0 == "reject all" in
+    /// the booking Lua). An unconditional write always lands.
+    ///
+    /// Does not bump `acct:seq` (`HSET` only), so it never disturbs a concurrent
+    /// `reseed_cas`. Per-field `HSET` is not all-or-nothing, but limit fields are mutually
+    /// independent and the next cycle (or the synchronous seed on managed-flip) completes any
+    /// partial write.
+    pub async fn reseed_unconditional(&self, ops: &[ReseedOp]) -> Result<(), AccountingError> {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        let mut conn = self.conn.clone();
+        let mut pipe = redis::pipe();
+        for op in ops {
+            pipe.cmd("HSET")
+                .arg(op.key.as_str())
+                .arg(op.field)
+                .arg(op.value)
+                .ignore();
+        }
+        let _: () = pipe.query_async(&mut conn).await?;
+        Ok(())
+    }
+
     /// Reads the current `acct:seq` value (defaults to 0 if missing).
     pub async fn get_seq(&self) -> Result<i64, AccountingError> {
         let mut conn = self.conn.clone();
@@ -164,10 +197,7 @@ impl RedisAccounting {
     /// the `lua.rs` unit invariant; Redis accounting counters are never stored
     /// in centicores). Returns 0 when the key/field is missing. Used by the E-PVM placement
     /// snapshot in `MatchingService::process_layer` (design Branch 2a).
-    pub async fn read_job_cores_in_use(
-        &self,
-        job_id: uuid::Uuid,
-    ) -> Result<i64, AccountingError> {
+    pub async fn read_job_cores_in_use(&self, job_id: uuid::Uuid) -> Result<i64, AccountingError> {
         let mut conn = self.conn.clone();
         let key = format!("acct:job:{}", job_id);
         let v: Option<i64> = conn.hget(&key, "int_cores").await?;

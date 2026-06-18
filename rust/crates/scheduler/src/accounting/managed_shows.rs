@@ -20,6 +20,8 @@ use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::accounting::dao::AccountingDao;
+use crate::accounting::limit_reseed;
+use crate::accounting::redis_client::RedisAccounting;
 use crate::config::CONFIG;
 
 /// In-process cache of show ids where `b_scheduler_managed = true`. Refreshed by a
@@ -55,7 +57,7 @@ impl ManagedShowsCache {
     /// tests that recreate the service), this needs a `CancellationToken` or a
     /// stored handle.
     // TODO: cancellation handle when multi-init/graceful-shutdown lands (design §5).
-    pub fn start_refresh_loop(self: &Arc<Self>, dao: Arc<AccountingDao>) {
+    pub fn start_refresh_loop(self: &Arc<Self>, dao: Arc<AccountingDao>, redis: RedisAccounting) {
         let inner = self.inner.clone();
         tokio::spawn(async move {
             let mut interval = time::interval(CONFIG.accounting.managed_shows_ttl);
@@ -67,6 +69,42 @@ impl ManagedShowsCache {
                     match dao.query_managed_show_ids().await {
                         Ok(ids) => {
                             let new_set: HashSet<Uuid> = ids.into_iter().collect();
+
+                            // Shows that became scheduler-managed since the last refresh.
+                            // Their accounting limits (notably subscription `burst`) may
+                            // not be in Redis yet - bootstrap only seeded shows managed at
+                            // startup, and the periodic limit reseed runs on a slow cadence.
+                            // Publishing them into the cache now would flip the booking hot
+                            // path to enforce against an unseeded burst (== 0 == "reject
+                            // all"). So seed limits FIRST, then publish.
+                            let added: Vec<Uuid> = {
+                                let lock = inner.read().unwrap_or_else(|p| p.into_inner());
+                                new_set
+                                    .iter()
+                                    .filter(|id| !lock.contains(*id))
+                                    .copied()
+                                    .collect()
+                            };
+                            if !added.is_empty() {
+                                if let Err(err) = limit_reseed::reseed_limits(&redis, &dao).await {
+                                    // Defer publishing this tick: a managed show that is
+                                    // not yet in the cache dispatches without Redis
+                                    // enforcement (silent over-count, healed by the next
+                                    // recompute) - strictly safer than enforcing against an
+                                    // unseeded burst. Retried on the next tick.
+                                    warn!(
+                                        "Limit seed for newly-managed show(s) {:?} failed; \
+                                         deferring cache publish to next tick: {err}",
+                                        added
+                                    );
+                                    return;
+                                }
+                                debug!(
+                                    "Seeded limits for {} newly-managed show(s) before publishing",
+                                    added.len()
+                                );
+                            }
+
                             let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
                             *lock = new_set;
                             debug!("ManagedShowsCache refreshed: {} shows", lock.len());

@@ -468,7 +468,7 @@ impl RqdDispatcherService {
     async fn dispatch_virtual_proc(
         &self,
         dispatch_id: Uuid,
-        virtual_proc: VirtualProc,
+        mut virtual_proc: VirtualProc,
         host: Host,
         layer: &DispatchLayer,
         allocation_capacity: CoreSize,
@@ -576,7 +576,14 @@ impl RqdDispatcherService {
             .update_database_for_dispatch(&mut proc_transaction, &virtual_proc, host.id)
             .await
         {
-            Ok(resources) => resources,
+            Ok((resources, new_frame_version)) => {
+                // The frame UPDATE bumped int_version V -> V+1. Record it on our local
+                // `virtual_proc` so a later compensation `clear_frame` guards on the row
+                // this dispatch just advanced, not the stale pre-dispatch version (which
+                // would never match, leaving the frame stuck in RUNNING).
+                virtual_proc.frame.version = new_frame_version;
+                resources
+            }
             Err(err) => {
                 let _ = proc_transaction.rollback().await;
                 redis_rollback_on_error().await;
@@ -655,11 +662,13 @@ impl RqdDispatcherService {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
         host_id: Uuid,
-    ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
+    ) -> Result<(UpdatedHostResources, u32), DispatchVirtualProcError> {
         // Update frame state first - this serves as the optimistic concurrency guard.
         // The WHERE clause (str_state = 'WAITING' AND int_version = ...) ensures only
-        // one dispatcher can claim a given frame.
-        self.frame_dao
+        // one dispatcher can claim a given frame. Returns the post-update version so the
+        // caller can keep `virtual_proc.frame.version` in sync for compensation.
+        let new_frame_version = self
+            .frame_dao
             .update_frame_started(transaction, virtual_proc)
             .await
             .map_err(|err| match err {
@@ -722,7 +731,7 @@ impl RqdDispatcherService {
                 }
             })?;
 
-        Ok(updated_resources)
+        Ok((updated_resources, new_frame_version))
     }
 
     async fn launch_on_rqd(
