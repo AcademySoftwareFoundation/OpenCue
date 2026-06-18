@@ -112,9 +112,9 @@ remainder of the term. The leadership roles are:
 
 * **Chief Architect**: This position makes all the final calls on design and
   technical decisions, and is responsible for avoiding "design by committee"
-  pitfalls.
+  pitfalls. In the absence of an architect, the chair position acts as an architect.
 
-The chair role is assumed to rotate annually (though there are no term
+The chair role is assumed to rotate periodically (though there are no term
 limits, so the TSC may reelect an existing chair). The chief architect
 position should be a source of stability and coherent design vision, so the
 TSC is encouraged to choose an architect who can serve for many years and
