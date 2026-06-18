@@ -44,6 +44,14 @@ export async function fetchObjectFromRestGateway(
     // (Cuebot Facility menu). Falls back to the default/legacy gateway when
     // no per-facility config is present.
     const { gatewayUrl, jwtSecret } = await getRequestFacilityTarget();
+    if (!gatewayUrl) {
+      // Misconfigured facility (no gateway URL and no default): fail with a
+      // clear, diagnosable error instead of a generic fetch failure.
+      return NextResponse.json(
+        { error: "No REST gateway configured for the selected facility" },
+        { status: 503 },
+      );
+    }
     const url = `${gatewayUrl}${endpoint}`;
 
     const jwtParams: JwtParams = {
@@ -82,8 +90,14 @@ export async function fetchObjectFromRestGateway(
 // gateway trusts its own secret).
 export function createJwtToken({ sub, role, iat, exp }: JwtParams, secret?: string): string {
     const signingSecret = secret ?? process.env.NEXT_JWT_SECRET;
+    // Fail fast on a missing/blank secret rather than signing with an empty key.
+    // Validate via trim() but sign with the original value (a gateway reading the
+    // same env verbatim would not trim it).
+    if (!signingSecret || signingSecret.trim() === "") {
+      throw new Error("Missing JWT signing secret");
+    }
     const payload = { sub, role, iat, exp };
-    return jwt.sign(payload, signingSecret as string);
+    return jwt.sign(payload, signingSecret);
   }
   
 
