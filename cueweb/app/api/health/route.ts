@@ -16,8 +16,8 @@
 
 import { NextResponse } from "next/server";
 
-import { createJwtToken } from "@/app/utils/api_utils";
-import { getRequestFacilityTarget } from "@/lib/facility";
+import { createJwtToken } from "@/app/utils/gateway_server";
+import { getRequestFacilityTargetWithOverrides } from "@/lib/facility-server";
 
 interface JwtParams {
   sub: string;
@@ -52,7 +52,7 @@ interface HealthBody {
 export async function GET(): Promise<NextResponse<HealthBody>> {
   // Probe the gateway for the facility selected in the request cookie, so the
   // status bar reflects the facility the rest of the app is talking to.
-  const { gatewayUrl: gateway, jwtSecret } = await getRequestFacilityTarget();
+  const { gatewayUrl: gateway, jwtSecret } = await getRequestFacilityTargetWithOverrides();
   const checkedAt = new Date().toISOString();
 
   if (!gateway) {

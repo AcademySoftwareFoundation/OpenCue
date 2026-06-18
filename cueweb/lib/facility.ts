@@ -27,15 +27,16 @@
  * (see `FACILITY_COOKIE`); every gateway-bound API route resolves the target
  * for the current request via `getRequestFacilityTarget()`.
  *
- * Configuration (all server-side, optional):
- *   NEXT_PUBLIC_CUEBOT_FACILITIES   comma-separated facility names (the menu).
- *   CUEBOT_<NAME>_REST_GATEWAY_URL  gateway base URL for that facility.
- *   CUEBOT_<NAME>_JWT_SECRET        JWT secret for that facility's gateway.
+ * Configuration (all server-side, optional). Resolution layers, highest first:
+ *   1. Runtime override store (lib/facility-store.ts) — edited at runtime from
+ *      the /settings/facilities admin screen, no redeploy required.
+ *   2. Env vars: CUEBOT_<NAME>_REST_GATEWAY_URL / CUEBOT_<NAME>_JWT_SECRET.
+ *   3. Legacy single-gateway vars NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET.
+ *   NEXT_PUBLIC_CUEBOT_FACILITIES lists the facility names (the menu).
  *
- * When a facility has no explicit *_REST_GATEWAY_URL / *_JWT_SECRET, it falls
- * back to the legacy single-gateway vars (NEXT_PUBLIC_OPENCUE_ENDPOINT /
- * NEXT_JWT_SECRET), so the default deployment keeps working with zero new
- * config and only the `local` facility wired up.
+ * When a facility has no override and no explicit *_REST_GATEWAY_URL /
+ * *_JWT_SECRET, it falls back to the legacy vars, so the default deployment
+ * keeps working with zero new config and only the `local` facility wired up.
  *
  * NOTE: `getRequestFacilityTarget()` reads `next/headers` and only runs
  * server-side. It uses a *dynamic* import so this module stays free of a
@@ -74,7 +75,7 @@ export function getConfiguredFacilities(): string[] {
 }
 
 /** "dev" -> "CUEBOT_DEV_REST_GATEWAY_URL". Non-alphanumerics become "_". */
-function envKey(facility: string, suffix: string): string {
+export function envKey(facility: string, suffix: string): string {
   const norm = facility.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   return `CUEBOT_${norm}_${suffix}`;
 }
@@ -104,7 +105,8 @@ export function resolveFacilityTarget(name: string | undefined): FacilityTarget 
 /**
  * Resolve the facility target for the current request, reading the selection
  * from the request cookie and validating it against the configured list.
- * Safe to call outside a request scope (returns the default target).
+ * Env-only (no runtime overrides); the override-aware variant lives in the
+ * server-only `lib/facility-server.ts`. Safe to call outside a request scope.
  */
 export async function getRequestFacilityTarget(): Promise<FacilityTarget> {
   let selected: string | undefined;
@@ -117,4 +119,19 @@ export async function getRequestFacilityTarget(): Promise<FacilityTarget> {
     // Not in a request scope (e.g. build-time): use the default.
   }
   return resolveFacilityTarget(selected);
+}
+
+/** Secret-free view of a facility's effective config, for the settings screen. */
+export interface FacilityConfigView {
+  name: string;
+  /** Effective gateway URL (override > env > legacy default). */
+  gatewayUrl: string;
+  /** Where the effective gateway URL came from. */
+  source: "override" | "env" | "default" | "unset";
+  /** Whether a runtime override is set for this facility. */
+  hasOverride: boolean;
+  /** Whether a JWT secret is configured (the value is never exposed). */
+  hasJwtSecret: boolean;
+  /** Whether the JWT secret specifically comes from a runtime override. */
+  secretFromOverride: boolean;
 }
