@@ -228,10 +228,22 @@ Next is the process to install and use the CueWeb system.
         SENTRY_PROJECT = sentryproject
         ```
 
+    - Loki log backend (optional)
+        - NEXT_PUBLIC_LOKI_URL
+            - When set, the frame log viewer queries a [Grafana Loki](https://grafana.com/oss/loki/) server for a frame's logs (by `frame_id`) instead of reading the on-disk `.rqlog` file. This mirrors CueGUI's `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`) and requires RQD to be configured to ship frame logs to Loki.
+            - Set it to the base URL of your Loki HTTP API, e.g. `http://your-loki-host:3100` (no trailing path; CueWeb appends `/loki/api/v1/...`). The viewer lists each frame attempt as a selectable "log version" (Loki's `session_start_time` label), newest first.
+            - **If `NEXT_PUBLIC_LOKI_URL` is not set, CueWeb falls back to the default file-based log viewer.** No other configuration is required to keep the existing behavior.
+            - Because this is a `NEXT_PUBLIC_*` variable it is read in the browser, so the Loki server must be reachable from clients and must permit cross-origin (CORS) requests from the CueWeb origin.
+
 Example of `.env` file (`cueweb/.env.example`):
 
 ```env
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://your-rest-gateway-url.com
+
+# Optional: Loki log backend. When set, the frame log viewer queries Loki by
+# frame id instead of reading the on-disk .rqlog file. Leave unset to use the
+# default file-based log viewer.
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 
 # Sentry values
 SENTRY_ENVIRONMENT='development'
