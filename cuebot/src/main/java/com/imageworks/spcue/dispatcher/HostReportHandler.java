@@ -1002,8 +1002,8 @@ public class HostReportHandler {
      *
      * - If resource_id maps to no proc at all, it is either a deleted-proc zombie or a freshly
      * booked proc whose row is not yet visible to this (possibly different) Cuebot. The grace
-     * period applies only here, to shield the legitimate book first-report propagation window;
-     * past the grace period the frame is killed. Orphaned procs themselves are reclaimed by
+     * period applies only here, to shield the legitimate book first-report propagation window; past
+     * the grace period the frame is killed. Orphaned procs themselves are reclaimed by
      * MaintenanceManagerSupport (which now kills RQD before releasing), not by this method.
      *
      * @param report
@@ -1036,8 +1036,15 @@ public class HostReportHandler {
                 proc = hostManager.getVirtualProc(runningFrame.getResourceId());
                 msg = "Virtual proc " + proc.getProcId() + " is assigned to " + proc.getFrameId()
                         + " not " + runningFrame.getFrameId();
-            } catch (Exception e) {
+            } catch (EmptyResultDataAccessException e) {
+                // resource_id maps to no proc row.
                 msg = "Virtual proc did not exist.";
+            } catch (Exception e) {
+                // Transient lookup failure: do not treat it as a missing proc, which (past grace)
+                // would trigger a false kill. Skip this frame and re-verify on the next report.
+                logger.warn("Failed to verify proc " + runningFrame.getResourceId() + " on host "
+                        + report.getHost().getName() + ", skipping verification this report: " + e);
+                continue;
             }
 
             if (proc != null) {
@@ -1084,7 +1091,17 @@ public class HostReportHandler {
     private void killUnverifiedRunningFrame(RunningFrameInfo runningFrame, HostReport report,
             long runtimeSeconds, String errorLabel, String msg) {
         // A frameCompleteReport might have been delivered before this report was processed.
-        FrameDetail frameLatestVersion = jobManager.getFrameDetail(runningFrame.getFrameId());
+        FrameDetail frameLatestVersion;
+        try {
+            frameLatestVersion = jobManager.getFrameDetail(runningFrame.getFrameId());
+        } catch (EmptyResultDataAccessException e) {
+            // The frame no longer exists in the DB (e.g. the job was removed); nothing to verify or
+            // kill. Don't let a single stale frame abort processing of the rest of the report.
+            logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
+                    + " on host " + report.getHost().getName() + " reported frame "
+                    + runningFrame.getFrameId() + " which no longer exists in the DB.");
+            return;
+        }
         if (frameLatestVersion.state != FrameState.RUNNING) {
             logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
                     + " on host " + report.getHost().getName() + " has already Completed "

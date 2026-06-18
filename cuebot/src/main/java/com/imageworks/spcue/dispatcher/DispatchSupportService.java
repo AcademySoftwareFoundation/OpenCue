@@ -537,8 +537,8 @@ public class DispatchSupportService implements DispatchSupport {
                         Boolean.class, true)) {
             try {
                 rqdClient.killFrame(proc, "kill-before-release: " + reason);
-            } catch (Throwable t) {
-                logger.info("kill-before-release failed for " + proc.getName() + ", " + t);
+            } catch (Exception e) {
+                logger.info("kill-before-release failed for " + proc.getName() + ", " + e);
             }
         }
 
