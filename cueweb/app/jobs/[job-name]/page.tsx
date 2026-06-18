@@ -34,6 +34,7 @@ import {
   secondsToHumanAge,
 } from "@/app/utils/layers_frames_utils";
 import { handleError } from "@/app/utils/notify_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -89,6 +90,9 @@ export default function JobDetailPage() {
   // context menu dispatches `cueweb:view-layer`; we switch to the Frames tab
   // and narrow the frame list to that layer's name until the user clears it.
   const [layerFilter, setLayerFilter] = React.useState<string | null>(null);
+  // Rows clicked into the Attributes panel (CueGUI parity).
+  const [selectedLayerId, setSelectedLayerId] = React.useState<string | null>(null);
+  const [selectedFrameId, setSelectedFrameId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -149,6 +153,19 @@ export default function JobDetailPage() {
       cancelled = true;
     };
   }, [jobIdParam, jobName]);
+
+  // Load the job into the Attributes panel (CueGUI parity). A layer/frame row
+  // click below overrides it with the more specific entity.
+  React.useEffect(() => {
+    if (job) {
+      setAttributeSelection({
+        type: "job",
+        id: job.id,
+        name: job.name,
+        data: job as unknown as Record<string, unknown>,
+      });
+    }
+  }, [job]);
 
   // Lazy-load each tab's data: only fetch when its tab is first opened, then
   // refresh on a 5s interval while it stays the active tab.
@@ -317,7 +334,22 @@ export default function JobDetailPage() {
               />
             ) : (
               <>
-                <SimpleDataTable data={layers} columns={layerColumns} username={currentUser} />
+                <SimpleDataTable
+                  data={layers}
+                  columns={layerColumns}
+                  username={currentUser}
+                  onRowClick={(row) => {
+                    const layer = row as Layer;
+                    setSelectedLayerId(layer.id);
+                    setAttributeSelection({
+                      type: "layer",
+                      id: layer.id,
+                      name: layer.name,
+                      data: layer as unknown as Record<string, unknown>,
+                    });
+                  }}
+                  selectedRowId={selectedLayerId}
+                />
                 <LayerExtraDialogs job={job} />
                 {/* One wizard instance for this page; the layer menu's
                     "Dependency Wizard..." bridges its event to this. */}
@@ -363,6 +395,19 @@ export default function JobDetailPage() {
                   isFramesTable={true}
                   username={currentUser}
                   defaultColumnVisibility={{ remain: false }}
+                  // Single-click loads the frame into the Attributes panel
+                  // (double-click still opens the log viewer).
+                  onRowClick={(row) => {
+                    const frame = row as Frame;
+                    setSelectedFrameId(frame.id);
+                    setAttributeSelection({
+                      type: "frame",
+                      id: frame.id,
+                      name: frame.name,
+                      data: frame as unknown as Record<string, unknown>,
+                    });
+                  }}
+                  selectedRowId={selectedFrameId}
                 />
                 <FrameExtraDialogs job={job} />
                 <FramePreviewPanel job={job} />

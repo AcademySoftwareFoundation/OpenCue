@@ -27,6 +27,7 @@ import { MdOutlineCancel } from "react-icons/md";
 import type { Job } from "@/app/jobs/columns";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { Group, GroupStats, Show, getActiveShows, getGroupJobs, getShowGroups } from "@/app/utils/get_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { buildTreeFromGroups, type TreeNode } from "@/components/group-tree/build-tree";
 import {
   deleteGroup,
@@ -894,7 +895,16 @@ export default function MonitorCuePage() {
                                   key={r.job.id}
                                   className={`cursor-pointer select-none border-b last:border-0 ${jobRowClass(r.job)}`}
                                   onContextMenu={(e) => contextMenuHandleOpen(e, { original: r.job } as unknown as Row<Job>)}
-                                  onClick={(e) => handleSelect(r.job.id, e)}
+                                  onClick={(e) => {
+                                    handleSelect(r.job.id, e);
+                                    // Load the job into the Attributes panel (CueGUI parity).
+                                    setAttributeSelection({
+                                      type: "job",
+                                      id: r.job.id,
+                                      name: r.job.name,
+                                      data: r.job as unknown as Record<string, unknown>,
+                                    });
+                                  }}
                                 >
                                   <td
                                     className="p-2 align-middle"

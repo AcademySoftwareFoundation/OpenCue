@@ -21,6 +21,7 @@ import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Host, getHosts } from "@/app/utils/get_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { hostColumns, hostRowClassName } from "@/app/hosts/columns";
 import { SimpleDataTable } from "@/components/ui/simple-data-table";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,8 @@ function HostsPageInner() {
   const searchParams = useSearchParams();
 
   const [hosts, setHosts] = React.useState<Host[] | null>(null);
+  // Host row clicked into the Attributes panel (CueGUI parity).
+  const [selectedHostId, setSelectedHostId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = React.useState(true);
 
@@ -261,6 +264,18 @@ function HostsPageInner() {
             isHostsTable
             getRowClassName={hostRowClassName}
             columnVisibilityStorageKey="cueweb.hosts.columnVisibility"
+            // Click a host row to load it into the Attributes panel.
+            onRowClick={(host) => {
+              const h = host as Host;
+              setSelectedHostId(h.id);
+              setAttributeSelection({
+                type: "host",
+                id: h.id,
+                name: h.name,
+                data: h as unknown as Record<string, unknown>,
+              });
+            }}
+            selectedRowId={selectedHostId}
           />
         </>
       )}
