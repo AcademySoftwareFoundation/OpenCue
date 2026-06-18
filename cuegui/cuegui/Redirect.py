@@ -189,6 +189,8 @@ class GroupFilter(QtWidgets.QPushButton):
 
     def __populate_menu(self):
         self.__menu.clear()
+        if not self.__show:
+            return
         for group in self.__show.getGroups():
             if opencue.id(group) in self.__actions:
                 self.__menu.addAction(self.__actions[opencue.id(group)])
@@ -212,9 +214,10 @@ class RedirectControls(QtWidgets.QWidget):
     """
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
-        self.__current_show = opencue.api.findShow(os.getenv("SHOW", "pipe"))
+        self.__current_show = self.__getDefaultShow()
 
-        self.__show_combo = ShowCombo(self.__current_show.data.name, self)
+        show_name = self.__current_show.data.name if self.__current_show else ""
+        self.__show_combo = ShowCombo(show_name, self)
         self.__job_box = JobBox(self)
         self.__alloc_filter = AllocFilter(self)
 
@@ -299,6 +302,31 @@ class RedirectControls(QtWidgets.QWidget):
         self.__show_combo.currentIndexChanged.connect(self.showChanged)
         # pylint: enable=no-member
 
+    @staticmethod
+    def __getDefaultShow():
+        """Returns the show to select by default.
+
+        Tries the show named by the SHOW environment variable (falling back to
+        "pipe"), and if that show does not exist, falls back to the first active
+        show alphabetically. Returns None when there are no active shows, so the
+        widget can still build instead of leaving a blank page.
+
+        @return: The default show, or None if no active shows exist
+        @rtype: L{opencue.wrappers.show.Show} or None
+        """
+        show_name = os.getenv("SHOW", "pipe")
+        try:
+            return opencue.api.findShow(show_name)
+        except opencue.exception.CueException:
+            logger.warning(
+                "Default show '%s' not found, falling back to first active show", show_name)
+            shows = opencue.api.getActiveShows()
+            if shows:
+                shows.sort(key=lambda x: x.data.name)
+                return shows[0]
+            logger.warning("No active shows found")
+            return None
+
     def _cfg(self):
         '''
         Loads (if necessary) and returns the config values.
@@ -314,8 +342,14 @@ class RedirectControls(QtWidgets.QWidget):
     def showChanged(self, show_index):
         """Load a new show."""
         del show_index
-        show = self.__show_combo.currentText()
-        self.__current_show = opencue.api.findShow(str(show))
+        show = str(self.__show_combo.currentText())
+        if not show:
+            return
+        try:
+            self.__current_show = opencue.api.findShow(show)
+        except opencue.exception.CueException:
+            logger.warning("Unable to load show '%s'", show)
+            return
         self.__include_group_btn.showChanged(self.__current_show)
 
     def detect(self, name=None):
