@@ -36,6 +36,7 @@ from qtpy import QtGui
 from qtpy import QtCore
 from qtpy import QtWidgets
 
+import opencue.exception
 import opencue.wrappers.frame
 
 import cuegui.AbstractDockWidget
@@ -159,8 +160,9 @@ class StuckFrameControls(QtWidgets.QWidget):
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.__current_show = opencue.api.findShow(os.getenv("SHOW", "pipe"))
-        self.__show_combo = ShowCombo(self.__current_show.data.name, self)
+        self.__current_show = self.__resolveInitialShow()
+        initial_show_name = self.__current_show.data.name if self.__current_show else ""
+        self.__show_combo = ShowCombo(initial_show_name, self)
         self.__show_label = QtWidgets.QLabel("Show:", self)
         self.__show_label.setToolTip("The show you want to find stuck frames for.")
 
@@ -280,6 +282,32 @@ class StuckFrameControls(QtWidgets.QWidget):
                      QtCore.SIGNAL("clicked()"),
                      self.hideButtonRequest)
 
+    @staticmethod
+    def __resolveInitialShow():
+        """Returns a sensible default show to start with.
+
+        Uses the SHOW environment variable when it points to an existing show,
+        otherwise falls back to the first active show. Returns None when no
+        show can be resolved so the plugin still renders instead of failing to
+        load with a blank page."""
+        show_name = os.getenv("SHOW", "")
+        if show_name:
+            try:
+                return opencue.api.findShow(show_name)
+            except opencue.exception.CueException:
+                logger.warning(
+                    "Configured SHOW '%s' was not found; falling back to an active show.",
+                    show_name)
+        try:
+            shows = opencue.api.getActiveShows()
+        except opencue.exception.CueException:
+            shows = []
+        if shows:
+            shows.sort(key=lambda s: s.data.name)
+            return shows[0]
+        logger.warning("No active shows were found; the Stuck Frame show selector will be empty.")
+        return None
+
     def addFilter(self):
         """Adds new filter."""
         newFilter = StuckFrameBar(self)
@@ -288,7 +316,13 @@ class StuckFrameControls(QtWidgets.QWidget):
 
     def showChanged(self, show):
         """Sets current show the one provided."""
-        self.__current_show = opencue.api.findShow(str(show))
+        show = str(show).strip()
+        if not show:
+            return
+        try:
+            self.__current_show = opencue.api.findShow(show)
+        except opencue.exception.CueException:
+            logger.warning("Unable to find show '%s'.", show)
 
     def getFilterBar(self):
         """Returns filter bar."""
