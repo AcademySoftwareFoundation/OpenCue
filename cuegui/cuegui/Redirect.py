@@ -785,6 +785,11 @@ class RedirectWidget(QtWidgets.QWidget):
 
     def update(self):
         """ Update the model """
+        show = self.__controls.getShow()
+        if not show:
+            self.__warn("No active show is available to search.")
+            return
+
         self.__model.clear()
         self.__model.setHorizontalHeaderLabels(RedirectWidget.HEADERS)
 
@@ -795,7 +800,6 @@ class RedirectWidget(QtWidgets.QWidget):
         groupFilter = self.__controls.getIncludedGroups()
         jobRegexFilter = self.__controls.getJobNameExcludeRegex()
 
-        show = self.__controls.getShow()
         alloc = self.__controls.getAllocFilter()
         procs = opencue.api.getProcs(show=[str(show.data.name)], alloc=alloc.getSelected())
 
