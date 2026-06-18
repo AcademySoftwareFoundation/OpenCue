@@ -20,6 +20,7 @@ CueWeb System
       - [Example: Adding Gitlab authentication](#example-adding-gitlab-authentication)
       - [Custom Login Page](#custom-login-page)
 - [Features](#features)
+  - [Plugins](#plugins)
   - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Below are some screenshots of the interface](#below-are-some-screenshots-of-the-interface)
 - [Troubleshooting](#troubleshooting)
@@ -380,6 +381,38 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
 - **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay; the same overlay is also reachable from **Other ▸ Show Shortcuts** in the header or the sidebar. An optional **Notify on Shortcut** toggle (also under Other) fires a toast naming the shortcut that just triggered. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
+
+Go back to [Contents](#contents).
+
+## Plugins
+
+CueWeb has a small plugin system, the browser counterpart of the CueGUI plugins under `cuegui/cuegui/cueguiplugin/`. A plugin is a **manifest** (metadata) plus a **lazily-loaded React component** that mounts on its own route under `/plugins/<name>`.
+
+**How plugins are discovered**
+
+Discovery is an explicit, statically-imported registry rather than filesystem scanning (Next.js bundles routes at build time, so dynamic directory scanning is not available in the browser):
+
+1. Each plugin lives in `cueweb/app/plugins/<name>/` and exports a `PluginModule` from its `manifest.ts` — the manifest (`name`, `title`, `version`, `route`, optional `description`) plus a `load` thunk that does `() => import("./<component>")`. Keeping `load` a static `import()` lets the bundler split the plugin into its own chunk, fetched only when its route is visited.
+2. `cueweb/lib/plugins.ts` imports every plugin manifest and lists them in `PLUGIN_REGISTRY`. This array **is** the discovery mechanism — `getPlugins()` and `getPlugin(name)` read from it.
+3. The dynamic route `cueweb/app/plugins/[plugin-name]/page.tsx` resolves the manifest by `name` (404s via `notFound()` if unknown) and renders the component through a client host that uses `next/dynamic({ ssr: false })`. `generateStaticParams()` pre-renders one page per registered plugin.
+4. `cueweb/app/plugins/page.tsx` lists every registered plugin, and the sidebar/header **Plugins** menu links to each route.
+
+**Adding a plugin**
+
+1. Create `cueweb/app/plugins/<name>/<name>.tsx` — a default-exported React component accepting `PluginComponentProps` (it receives its own `manifest`).
+2. Add `cueweb/app/plugins/<name>/manifest.ts` exporting a `PluginModule` whose `load` is `() => import("./<name>")`.
+3. Register it in `PLUGIN_REGISTRY` in `cueweb/lib/plugins.ts` (and, optionally, add a link to the **Plugins** group in `cueweb/components/ui/app-sidebar.tsx`).
+
+See `cueweb/app/plugins/README.md` for the full contract.
+
+**Plugin settings** — any plugin can call `registerSetting({ key, label, kind, default })` (from `cueweb/lib/plugins.ts`) to contribute entries to the shared settings dialog (`cueweb/components/ui/settings-dialog.tsx`). Values persist to `localStorage` under `cueweb.plugin-settings.<key>`, so they survive a reload; read them reactively with the `usePluginSetting` hook.
+
+**Bundled sample plugins**
+
+| Plugin | Route | What it shows |
+|--------|-------|---------------|
+| **Hello OpenCue** | `/plugins/hello` | Minimal example proving the contract; registers greeting/shout/emoji settings. |
+| **Cue Progress Bar** | `/plugins/cue-progress-bar` | CueWeb port of the CueGUI `cueprogbar` sample — enter a job name to render a live, color-coded frame-state bar with done/total/running labels and pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. |
 
 Go back to [Contents](#contents).
 

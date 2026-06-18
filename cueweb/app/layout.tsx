@@ -25,6 +25,7 @@ import { AttributesPanel } from "@/components/ui/attributes-panel";
 import { MobileNavSheet } from "@/components/ui/mobile-nav-sheet";
 import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
 import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
+import { PluginSettingsDialog } from "@/components/ui/settings-dialog";
 import { StatusBar } from "@/components/ui/status-bar";
 import { ToastHost } from "@/components/ui/toast-host";
 
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <StatusBar />
             <KeyboardShortcuts />
             <MobileNavSheet />
+            <PluginSettingsDialog />
             <ToastHost />
           </AppSessionProvider>
         </ThemeProvider>
