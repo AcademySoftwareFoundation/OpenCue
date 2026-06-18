@@ -318,6 +318,10 @@ services:
       - NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
       - NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
       - NEXT_PUBLIC_PREVIEW_URL=
+      # Allow-list for the frame-preview file server. The route fails closed when
+      # unset, so scope it to the mounted render dir (matches the read-only
+      # /tmp/rqd/logs volume above). Colon-separated for multiple roots.
+      - CUEWEB_PREVIEW_ROOTS=/tmp/rqd/logs
       - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production

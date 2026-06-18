@@ -819,6 +819,14 @@ def cmd_blender(args, common: CommonOpts) -> int:
     """
     num_jobs = args.num_jobs
     nframes = args.frame_count
+    # Fail fast on non-positive values: a frame_count < 1 yields an invalid
+    # range (e.g. "1-0") and num_jobs < 1 silently submits nothing.
+    if num_jobs < 1:
+        _print("  ! --num-jobs must be >= 1")
+        return 1
+    if nframes < 1:
+        _print("  ! --frame-count must be >= 1")
+        return 1
     blender_bin = args.blender or discover_blender()
     output_root = args.output_root
 
@@ -874,7 +882,7 @@ def cmd_blender(args, common: CommonOpts) -> int:
             # Poll for visibility rather than a one-shot lookup: _find_job can
             # race Cuebot right after launch and would skip registerOutputPath.
             job = _wait_for_jobs([short_name])[0]
-            layer = next(l for l in job.getLayers() if l.name() == "beauty")
+            layer = next(layer_obj for layer_obj in job.getLayers() if layer_obj.name() == "beauty")
             layer.registerOutputPath(output_spec)
 
             _print("  + %s  (output: %s)" % (job.name(), output_spec))

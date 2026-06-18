@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { promises as fs } from "fs";
+import { createReadStream, promises as fs } from "fs";
 import path from "path";
+import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -101,9 +102,11 @@ export async function GET(request: NextRequest) {
     if (!stat.isFile()) {
       return NextResponse.json({ error: "Not a file" }, { status: 400 });
     }
-    // Read with fs (no shell) so the path can't be used for command injection.
-    const data = await fs.readFile(realPath);
-    return new NextResponse(data, {
+    // Stream the file (no shell, so the path can't be used for command
+    // injection) instead of buffering it into memory: render logs can be very
+    // large, and fs.readFile would hold the whole file per concurrent download.
+    const stream = Readable.toWeb(createReadStream(realPath)) as ReadableStream<Uint8Array>;
+    return new NextResponse(stream, {
       status: 200,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",

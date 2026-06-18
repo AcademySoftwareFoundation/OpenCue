@@ -27,8 +27,10 @@ import { fileExtension, isWebRenderableImage } from "@/app/utils/preview_utils";
 // A browser can't read filesystem paths, so this route streams the bytes (the
 // CueWeb container must have the render output mounted/readable). EXR-like
 // formats return 415 so the panel shows its "not supported in browser"
-// fallback. Path traversal is blocked and, when CUEWEB_PREVIEW_ROOTS is set
-// (colon-separated absolute prefixes), reads are restricted to those roots.
+// fallback. Path traversal is blocked and reads are restricted to the
+// CUEWEB_PREVIEW_ROOTS allow-list (colon-separated absolute prefixes); the
+// route fails closed (403) when that env var is unset, so it never serves an
+// arbitrary path. The sandbox configures it in docker-compose.yml.
 
 const MIME: Record<string, string> = {
   png: "image/png",
@@ -87,30 +89,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Could not read image" }, { status: 500 });
   }
 
-  // When preview roots are configured, the canonical target must sit inside one
-  // of them (also canonicalized). Roots are an optional per-site allow-list;
-  // when unset, reads are not restricted to a root (render output paths are
-  // site-specific). A root that can't be resolved is treated as non-matching.
+  // Fail closed: serving an arbitrary absolute path (even an auth'd one) would
+  // expose any web-renderable image on the server filesystem. Require an
+  // explicit CUEWEB_PREVIEW_ROOTS allow-list; without it the route serves
+  // nothing. The sandbox sets it to the mounted render dir (docker-compose.yml).
   const rawRoots = allowedRoots();
-  if (rawRoots.length > 0) {
-    const roots = (
-      await Promise.all(
-        rawRoots.map(async (r) => {
-          try {
-            return await fs.realpath(path.resolve(r));
-          } catch {
-            return null;
-          }
-        }),
-      )
-    ).filter((r): r is string => r !== null);
-    const inAllowedRoot = roots.some((root) => {
-      const rel = path.relative(root, realTarget);
-      return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
-    });
-    if (!inAllowedRoot) {
-      return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
-    }
+  if (rawRoots.length === 0) {
+    return NextResponse.json({ error: "Preview roots are not configured" }, { status: 403 });
+  }
+  // The canonical target must sit inside one of the configured roots (also
+  // canonicalized). A root that can't be resolved is treated as non-matching.
+  const roots = (
+    await Promise.all(
+      rawRoots.map(async (r) => {
+        try {
+          return await fs.realpath(path.resolve(r));
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((r): r is string => r !== null);
+  const inAllowedRoot = roots.some((root) => {
+    const rel = path.relative(root, realTarget);
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  });
+  if (!inAllowedRoot) {
+    return NextResponse.json({ error: "Path is outside the allowed preview roots" }, { status: 403 });
   }
 
   const ext = fileExtension(realTarget);

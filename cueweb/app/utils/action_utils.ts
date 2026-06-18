@@ -571,9 +571,13 @@ export async function addRenderPartition(
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     });
-    const res = await resp.json();
-    if (res?.error) {
-      toastWarning(res.error);
+    // This route returns { data } on success and { error } with a non-2xx
+    // status on failure (it does not emit a `success` flag), so treat any
+    // non-OK response - or one carrying an error - as failure rather than
+    // assuming success from the absence of an `error` field.
+    const res = await resp.json().catch(() => ({}));
+    if (!resp.ok || res?.error) {
+      toastWarning(res?.error ?? `Use Local Cores failed (${resp.status})`);
       return false;
     }
     toastSuccess(`Added local cores to ${job.name}`);
