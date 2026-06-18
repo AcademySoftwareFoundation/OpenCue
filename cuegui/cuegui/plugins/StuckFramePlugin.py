@@ -318,11 +318,13 @@ class StuckFrameControls(QtWidgets.QWidget):
         """Sets current show the one provided."""
         show = str(show).strip()
         if not show:
+            self.__current_show = None
             return
         try:
             self.__current_show = opencue.api.findShow(show)
         except opencue.exception.CueException:
             logger.warning("Unable to find show '%s'.", show)
+            self.__current_show = None
 
     def getFilterBar(self):
         """Returns filter bar."""
