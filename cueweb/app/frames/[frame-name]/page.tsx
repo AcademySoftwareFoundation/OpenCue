@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import Editor, { Monaco } from "@monaco-editor/react";
-import { ChevronDown, FileX } from "lucide-react";
+import { ChevronDown, Download, FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -56,6 +56,27 @@ function jobNameFromLogPath(logPath: string): string {
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;
 
+// One entry in the log-version dropdown: the rqlog file name plus the size and
+// last-modified time returned by /api/getlogversions.
+interface LogVersion {
+  name: string;
+  size: number;
+  mtime: number;
+}
+
+/** Format a byte count as MB (the dropdown's size column). */
+function formatLogSize(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  if (mb > 0 && mb < 0.01) return "< 0.01 MB";
+  return `${mb.toFixed(2)} MB`;
+}
+
+/** Format an epoch-ms mtime for the dropdown's timestamp column. */
+function formatLogMtime(mtime: number): string {
+  if (!mtime) return "—";
+  return new Date(mtime).toLocaleString();
+}
+
 export default function FramePage() {
   const searchParams = useSearchParams();
   const routeParams = useParams<{ "frame-name": string }>();
@@ -75,7 +96,7 @@ export default function FramePage() {
 
   const [curLogVersion, setCurLogVersion] = useState(path.basename(logDirPath));
   const [curLogPath, setCurLogPath] = useState(logDirPath)
-  const [logVersions, setLogVersions] = useState<string[]>([]);
+  const [logVersions, setLogVersions] = useState<LogVersion[]>([]);
 
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [numberOfLinesLoaded, setNumberOfLinesLoaded] = useState(LOG_CHUNK_SIZE);
@@ -551,10 +572,11 @@ export default function FramePage() {
       {/* Some white space between table and logs div */}
       <div className="mb-12" />
       
-      {/* Dropdown to select different log versions */}
+      {/* Dropdown to select different log versions + raw-log download */}
       <div className="my-4">
         <h3>Log versions</h3>
-        <FormControl 
+        <div className="flex items-center gap-2">
+        <FormControl
           size="small"
           sx={{
             backgroundColor: theme => theme.palette.background.default,
@@ -566,14 +588,49 @@ export default function FramePage() {
             value={curLogVersion}
             label="log version"
             onChange={handleVersionChange}
+            // Keep the closed control compact (just the file name); the rich
+            // name/timestamp/size rows only appear in the open dropdown.
+            renderValue={(val) => String(val)}
+            sx={{ minWidth: 340 }}
+            MenuProps={{ PaperProps: { sx: { minWidth: 420 } } }}
           >
-            {logVersions.map((version) => (
-              <MenuItem key={version} value={version}>
-                {version}
-              </MenuItem>
-            ))}
+            {logVersions.map((version) => {
+              // logVersions is newest-first (sorted by mtime in the API), so the
+              // first entry is the most recent -> gets the "Latest" badge.
+              const isLatest = version.name === logVersions[0]?.name;
+              return (
+                <MenuItem key={version.name} value={version.name}>
+                  <span className="flex w-full items-center gap-3">
+                    <span className="flex-1 truncate font-mono text-xs">{version.name}</span>
+                    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                      {formatLogMtime(version.mtime)}
+                    </span>
+                    <span className="w-20 shrink-0 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatLogSize(version.size)}
+                    </span>
+                    {isLatest && (
+                      <span className="shrink-0 rounded bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                        Latest
+                      </span>
+                    )}
+                  </span>
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
+          {/* Download the currently-selected log version as a .log attachment. */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/api/getlog?path=${encodeURIComponent(curLogPath)}`}
+              download
+              title="Download the raw log file"
+            >
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+              Download
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Logs for Frame */}

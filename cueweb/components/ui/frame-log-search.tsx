@@ -20,7 +20,11 @@ import * as React from "react";
 
 import debounce from "lodash/debounce";
 import type { editor } from "monaco-editor";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Search, X } from "lucide-react";
+
+// Fixed pattern for the "Next error" jumper: a case-insensitive regex matching
+// the common log failure markers.
+const ERROR_PATTERN = "error|exception|traceback";
 
 // Search box for the frame log viewer. The log lives in a Monaco editor,
 // so this drives Monaco's findMatches + decorations rather than wrapping text
@@ -126,6 +130,24 @@ export function FrameLogSearch({ editorRef, contentVersion }: FrameLogSearchProp
     [index, applyDecorations],
   );
 
+  // "Next error" jumper. Reuses the same matches/decorations/counter pipeline as
+  // the text search by driving a fixed case-insensitive error regex. The first
+  // press activates it (and reveals the first match); subsequent presses cycle
+  // through the matches via the same `go()` used by the next/prev buttons.
+  const inErrorMode = query === ERROR_PATTERN && useRegex && !caseSensitive;
+  const jumpToNextError = React.useCallback(() => {
+    if (inErrorMode) {
+      go(1);
+      return;
+    }
+    setIndex(0);
+    setCaseSensitive(false);
+    setUseRegex(true);
+    setQuery(ERROR_PATTERN);
+    // Bypass the debounce for the fixed query so the jump is immediate.
+    setDebouncedQuery(ERROR_PATTERN);
+  }, [inErrorMode, go]);
+
   const onChange = (v: string) => {
     setQuery(v);
     debounceQuery(v);
@@ -205,6 +227,18 @@ export function FrameLogSearch({ editorRef, contentVersion }: FrameLogSearchProp
         className={`${toggleBtn} font-mono ${useRegex ? "border-blue-500 bg-blue-700 text-white" : "border-gray-500 text-gray-300 hover:bg-gray-800"}`}
       >
         .*
+      </button>
+
+      <button
+        type="button"
+        aria-pressed={inErrorMode}
+        title="Jump to next error (error / exception / traceback)"
+        aria-label="Jump to next error"
+        onClick={jumpToNextError}
+        className={`${toggleBtn} flex items-center gap-1 ${inErrorMode ? "border-amber-500 bg-amber-700 text-white" : "border-gray-500 text-gray-300 hover:bg-gray-800"}`}
+      >
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+        Next error
       </button>
     </div>
   );
