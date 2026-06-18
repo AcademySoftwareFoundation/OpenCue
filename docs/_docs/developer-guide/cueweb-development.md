@@ -230,7 +230,7 @@ provider tree.
     reads the cookie and resolves the facility to a REST gateway URL + JWT secret
     from `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling
     back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. Every proxied
-    request goes through it via `fetchObjectFromRestGateway` (`app/utils/api_utils.ts`),
+    request goes through it via `fetchObjectFromRestGateway` (`app/utils/gateway_server.ts`),
     and `/api/health` probes the selected facility's gateway. (`next/headers` is
     imported dynamically there so the module stays out of the client bundle.)
 - **`useAttributesPanel`** (`app/utils/use_attributes_panel.ts`)
