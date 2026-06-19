@@ -443,6 +443,7 @@ impl MatchingService {
                             updated_host,
                             updated_layer,
                         }) => {
+                            metrics::increment_checkout_outcome("booked");
                             // Track cores actually consumed so the next iteration's
                             // LayerProfile sees the local picture of usage. The same
                             // delta applies to the (show, alloc) subscription burst
@@ -479,6 +480,7 @@ impl MatchingService {
                             }
                         }
                         Err(err) => {
+                            metrics::increment_checkout_outcome("dispatch_error");
                             // On error, we lost the layer since it was moved to DispatchLayerMessage
                             // This means we can't continue with this layer
                             Self::log_dispatch_error_with_info(
@@ -504,6 +506,7 @@ impl MatchingService {
 
                     match err {
                         crate::host_cache::HostCacheError::NoCandidateAvailable => {
+                            metrics::increment_checkout_outcome("no_match");
                             debug!(
                                 "No host candidate available for layer {}. {:?}",
                                 current_layer_version.as_ref().unwrap(),

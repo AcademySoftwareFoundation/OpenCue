@@ -13,8 +13,9 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_counter, register_counter_vec, register_histogram, Counter, CounterVec, Encoder,
-    Histogram, TextEncoder,
+    register_counter, register_counter_vec, register_gauge, register_gauge_vec,
+    register_histogram, register_histogram_vec, Counter, CounterVec, Encoder, Gauge, GaugeVec,
+    Histogram, HistogramVec, TextEncoder,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -87,12 +88,88 @@ lazy_static! {
     .expect("Failed to register job_query_duration_seconds histogram");
 
     // Cluster feed metrics from cluster.rs
-    pub static ref CLUSTER_ROUND_TRIP_SECONDS: Histogram = register_histogram!(
+    //
+    // Labeled by `cluster_type` (alloc / manual / hostname / hardware) so the
+    // round-trip tail can be attributed to a tag class. A large fan-out of
+    // chunked manual-tag clusters lengthens the round-robin lap and shows up
+    // here as a worse tail on the `manual` series than on `alloc`. The label is
+    // bounded to the four `TagType` variants — never per-tag, which would blow
+    // up cardinality on farms with thousands of tags.
+    pub static ref CLUSTER_ROUND_TRIP_SECONDS: HistogramVec = register_histogram_vec!(
         "scheduler_cluster_round_trip_seconds",
-        "Time between successive emissions of the same active (non-sleeping) cluster",
+        "Time between successive emissions of the same active (non-sleeping) cluster, by cluster type",
+        &["cluster_type"],
         vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
     )
     .expect("Failed to register cluster_round_trip_seconds histogram");
+
+    // Size of the live cluster set, by tag class, sampled once per round-robin
+    // lap by the feed producer. This is the fan-out magnitude: with
+    // `manual_tags_chunk_size = N` and T manual tags, the `manual` series is
+    // ~T/N. A large value here is the prime suspect for slow per-cluster
+    // revisits (each cluster only gets a turn once per full lap).
+    pub static ref CLUSTERS_TOTAL: GaugeVec = register_gauge_vec!(
+        "scheduler_clusters_total",
+        "Number of clusters in the live feed set, by cluster type",
+        &["cluster_type"]
+    )
+    .expect("Failed to register clusters_total gauge");
+
+    // Clusters currently sleeping (skipped this lap), sampled once per lap.
+    // Sleeping clusters are invisible to dispatch until their backoff expires
+    // (`cluster_empty_sleep` / `cluster_saturated_sleep`). A high value relative
+    // to CLUSTERS_TOTAL means most of the set is backed off at any instant.
+    pub static ref CLUSTERS_SLEEPING: Gauge = register_gauge!(
+        "scheduler_clusters_sleeping",
+        "Number of clusters currently sleeping (skipped each lap)"
+    )
+    .expect("Failed to register clusters_sleeping gauge");
+
+    // Frames booked in a single cluster pass (one emission off the feed),
+    // labeled by `cluster_type`. If this pins at the per-pass ceiling
+    // (`max_jobs_per_cluster_pass` x `dispatch_frames_per_layer_limit`) while a
+    // backlog persists, throughput-per-turn x infrequent-turns explains a
+    // growing queue: the farm has capacity but each cluster only drains a
+    // bounded slice per visit.
+    pub static ref FRAMES_DISPATCHED_PER_PASS: HistogramVec = register_histogram_vec!(
+        "scheduler_frames_dispatched_per_pass",
+        "Frames dispatched in a single cluster pass, by cluster type",
+        &["cluster_type"],
+        vec![0.0, 1.0, 5.0, 10.0, 20.0, 50.0, 100.0, 250.0, 500.0]
+    )
+    .expect("Failed to register frames_dispatched_per_pass histogram");
+
+    // Why each cluster pass ended, labeled by `reason`:
+    //   booked       - placed at least one frame
+    //   saturated    - jobs were pending but nothing fit (farm full or gated)
+    //   no_jobs      - the job query returned nothing eligible
+    //   query_error  - the job query failed (pass backed off and will retry)
+    // `saturated` dominating while hosts sit idle points at matching/tagging,
+    // not capacity. `no_jobs` dominating means the cluster set is mostly empty
+    // churn and the round-robin lap is paying for clusters with no work.
+    pub static ref PASS_TERMINATED_REASON_TOTAL: CounterVec = register_counter_vec!(
+        "scheduler_pass_terminated_reason_total",
+        "Cluster passes by terminal reason",
+        &["reason"]
+    )
+    .expect("Failed to register pass_terminated_reason_total counter");
+
+    // Outcome of each host-checkout attempt in the matcher loop, labeled by
+    // `outcome`:
+    //   booked          - a host was checked out and the frame dispatched
+    //   no_match        - check_out returned NoCandidateAvailable
+    //   dispatch_error  - host checked out but the dispatch transaction failed
+    // The reported "hosts available but not booked" symptom shows up as a high
+    // `no_match` rate; cross-reference with CLUSTERS_TOTAL / round-trip to tell
+    // a genuine no-fit from a starved cluster that simply isn't getting visited.
+    // A finer no_match breakdown (reserved / cas_lost / gate_rejected) lives
+    // inside host_cache and is deferred to a later tier.
+    pub static ref CHECKOUT_OUTCOME_TOTAL: CounterVec = register_counter_vec!(
+        "scheduler_checkout_outcome_total",
+        "Host checkout attempts by outcome",
+        &["outcome"]
+    )
+    .expect("Failed to register checkout_outcome_total counter");
 
     // E-PVM placement metrics from host_cache/cache.rs. Observed only on the
     // Epvm path (Saturation always scores 0.0). Buckets are dimensionless W3
@@ -255,10 +332,51 @@ pub fn observe_job_query_duration(duration: Duration) {
     JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
 }
 
-/// Helper function to observe cluster round-trip duration
+/// Helper function to observe cluster round-trip duration, labeled by cluster type.
 #[inline]
-pub fn observe_cluster_round_trip(duration: Duration) {
-    CLUSTER_ROUND_TRIP_SECONDS.observe(duration.as_secs_f64());
+pub fn observe_cluster_round_trip(cluster_type: &str, duration: Duration) {
+    CLUSTER_ROUND_TRIP_SECONDS
+        .with_label_values(&[cluster_type])
+        .observe(duration.as_secs_f64());
+}
+
+/// Sets the live cluster-set size for a given cluster type. Sampled once per
+/// round-robin lap by the feed producer.
+#[inline]
+pub fn set_clusters_total(cluster_type: &str, count: i64) {
+    CLUSTERS_TOTAL
+        .with_label_values(&[cluster_type])
+        .set(count as f64);
+}
+
+/// Sets the number of clusters currently sleeping. Sampled once per lap.
+#[inline]
+pub fn set_clusters_sleeping(count: i64) {
+    CLUSTERS_SLEEPING.set(count as f64);
+}
+
+/// Records the number of frames booked in a single cluster pass.
+#[inline]
+pub fn observe_frames_dispatched_per_pass(cluster_type: &str, frames: usize) {
+    FRAMES_DISPATCHED_PER_PASS
+        .with_label_values(&[cluster_type])
+        .observe(frames as f64);
+}
+
+/// Records the terminal reason for a cluster pass
+/// (`booked` / `saturated` / `no_jobs` / `query_error`).
+#[inline]
+pub fn increment_pass_terminated_reason(reason: &str) {
+    PASS_TERMINATED_REASON_TOTAL
+        .with_label_values(&[reason])
+        .inc();
+}
+
+/// Records the outcome of a single host-checkout attempt
+/// (`booked` / `no_match` / `dispatch_error`).
+#[inline]
+pub fn increment_checkout_outcome(outcome: &str) {
+    CHECKOUT_OUTCOME_TOTAL.with_label_values(&[outcome]).inc();
 }
 
 /// Records the E-PVM score of the host returned by `check_out_best`.

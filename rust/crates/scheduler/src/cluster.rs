@@ -33,7 +33,7 @@ use crate::{
     cluster_key::{Tag, TagType},
     config::CONFIG,
     dao::{helpers::parse_uuid, ClusterDao},
-    metrics::observe_cluster_round_trip,
+    metrics,
 };
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
@@ -71,6 +71,20 @@ impl Cluster {
             facility_id,
             show_id,
             tags: tags.into_iter().collect(),
+        }
+    }
+
+    /// Bounded metric label for the cluster's tag class. Clusters are built from
+    /// a single `TagType` (alloc clusters are one-tag; manual/hostname/hardware
+    /// clusters chunk tags of one type), so the first tag determines the class.
+    /// Returns a `&'static str` to keep Prometheus label cardinality at four.
+    pub fn cluster_type(&self) -> &'static str {
+        match self.tags.iter().next().map(|t| &t.ttype) {
+            Some(TagType::Alloc) => "alloc",
+            Some(TagType::Manual) => "manual",
+            Some(TagType::HostName) => "hostname",
+            Some(TagType::Hardware) => "hardware",
+            None => "unknown",
         }
     }
 }
@@ -629,11 +643,16 @@ impl ClusterFeed {
                             return ControlFlow::Break(());
                         }
                         let now = Instant::now();
+                        // Capture the type before `item` is moved into the map.
+                        let cluster_type = item.cluster_type();
                         let mut last_sent_lock = last_sent_map_producer
                             .lock()
                             .unwrap_or_else(|p| p.into_inner());
                         if let Some(prev) = last_sent_lock.insert(item, now) {
-                            observe_cluster_round_trip(now.duration_since(prev));
+                            metrics::observe_cluster_round_trip(
+                                cluster_type,
+                                now.duration_since(prev),
+                            );
                         }
                     } else if !completed_round {
                         // Skipped a sleeping cluster mid-round; yield so we don't starve the runtime.
@@ -650,6 +669,25 @@ impl ClusterFeed {
                                 sleep_map.lock().unwrap_or_else(|p| p.into_inner());
                             sleep_map_lock.len()
                         };
+
+                        // Sample fan-out gauges once per lap (cheap relative to a
+                        // full round-robin pass). CLUSTERS_TOTAL by type is the
+                        // primary fan-out signal; CLUSTERS_SLEEPING shows how much
+                        // of the set is backed off at any instant.
+                        {
+                            let mut by_type: HashMap<&'static str, i64> = HashMap::new();
+                            {
+                                let clusters =
+                                    feed.read().unwrap_or_else(|p| p.into_inner());
+                                for c in clusters.iter() {
+                                    *by_type.entry(c.cluster_type()).or_default() += 1;
+                                }
+                            }
+                            for (cluster_type, count) in by_type {
+                                metrics::set_clusters_total(cluster_type, count);
+                            }
+                            metrics::set_clusters_sleeping(sleeping_count as i64);
+                        }
                         if sleeping_count >= cluster_size {
                             // Ensure this doesn't loop forever when there's a limit configured
                             all_sleeping_rounds += 1;
