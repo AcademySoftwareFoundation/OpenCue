@@ -199,6 +199,21 @@ export async function setLayerMinCores(layer: { id: string; name?: string }, cor
 }
 
 /**************************************/
+// Redirect (CueGUI Redirect)
+/**************************************/
+
+// Redirect a host's procs to a target job. Returns success so the Redirect
+// page can mark the row done / surface per-host errors. No success toast here -
+// the page reports an aggregate result across the selected hosts.
+export async function redirectHostToJob(host: unknown, procNames: string[], jobId: string): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/host/action/redirecttojob",
+    JSON.stringify({ host, proc_names: procNames, job_id: jobId }),
+  );
+  return !!result?.success;
+}
+
+/**************************************/
 // Unbook
 /**************************************/
 

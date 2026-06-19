@@ -174,6 +174,14 @@ directly with XML. *CueSubmit* uses PyOutline to construct its job submissions.
 A queue is a render farm that processes a large number of render *jobs*
 according to defined priorities.
 
+## Redirect
+
+An administrative action that reassigns the *cores* of busy *procs* to a target
+*job* that needs them. The *frames* currently running on those procs are killed
+so the freed cores can be booked onto the target job - a way to give a
+high-priority job capacity quickly. CueGUI's CueCommander Redirect plugin and
+CueWeb's Redirect page expose it.
+
 ## RQD (Python)
 
 The render queue daemon that runs on all rendering hosts. RQD registers hosts
