@@ -194,6 +194,31 @@ export type Service = {
     minMemoryIncrease: number;        // KB (OOM increase)
 };
 
+// Subscription shape - mirrors subscription.Subscription. A subscription is a
+// show's reservation against one allocation. size/burst/reservedCores arrive
+// from the gateway as int32 centcores (cores * 100); the Subscriptions table
+// divides by 100 for display, matching CueGUI's SubscriptionsWidget.
+export type Subscription = {
+    id: string;
+    name: string;
+    showName: string;
+    facility: string;
+    allocationName: string;
+    size: number;
+    burst: number;
+    reservedCores: number;
+    reservedGpus: number;
+};
+
+// Limit shape - mirrors limit.Limit. maxValue / currentRunning arrive from the
+// gateway in camelCase.
+export type Limit = {
+    id: string;
+    name: string;
+    maxValue: number;
+    currentRunning: number;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -373,6 +398,21 @@ export async function getDefaultServices(): Promise<Service[]> {
         throw new Error("Failed to load default services from Cuebot.");
     }
     return response;
+}
+
+// Fetch the subscriptions belonging to a single show (the per-show
+// Subscriptions table). Mirrors CueGUI's show.getSubscriptions().
+export async function getShowSubscriptions(show: Show): Promise<Subscription[]> {
+    const ENDPOINT = "/api/show/getsubscriptions";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ show }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every limit known to Cuebot (for the Limits page).
+export async function getLimits(): Promise<Limit[]> {
+    const ENDPOINT = "/api/limit/getall";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
 }
 
 // Fetch all comments for a given job

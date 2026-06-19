@@ -178,6 +178,22 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Two panes: a left list of services (with **New** / **Del**) and a right edit form with Name, Threadable, Min/Max Threads (100 = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined checkboxes or a Custom Tags free-text toggle).
    - Because these are facility-wide defaults, **Save** asks for a confirmation before creating or updating, and **Del** confirms before removing a service; a toast reports the result.
 
+32. **Subscriptions (CueCommander &rarr; Subscriptions):**
+   - A per-show subscriptions table at `/subscriptions`, the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Pick a show from the dropdown to list its subscriptions, one row per allocation, with columns Alloc, Usage, Size, Burst, and Used. A subscription is a show's reservation against an allocation: **Size** is the guaranteed cores, **Burst** the maximum it may temporarily use.
+   - **Add Subscription** subscribes the show to another allocation (Size + Burst); **Show Properties** opens the same four-tab dialog as the Shows page.
+   - **Row actions** via the right-click menu: **Edit Subscription Size...** (with a billing confirmation), **Edit Subscription Burst...**, and **Delete Subscription**.
+
+33. **Subscription Graphs (CueCommander &rarr; Subscription Graphs):**
+   - A visual view at `/subscription-graphs`, the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window. A **Shows** multi-select (All Shows / Clear / per-show) chooses which shows to graph; each gets one horizontal bar per subscription.
+   - Each bar is scaled to the allocation's total cores and color-coded like CueGUI (legend at the top): sky-blue allocation capacity, yellow-green in-use cores, a blue size marker and a red burst marker. Hovering shows the exact values.
+   - **Row actions** via the right-click menu match the Subscriptions table plus **Add new subscription**; right-clicking a show with no subscriptions offers **Add new subscription** to create the first one.
+
+34. **Limits (CueCommander &rarr; Limits):**
+   - A limits table at `/limits`, the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from the CueCommander menu / sidebar entry.
+   - Columns: Limit Name, Max Value, Current Running. Auto-refreshes every 30 seconds, with a **Refresh** button for an immediate reload.
+   - **Add Limit** dialog creates a new limit (max value starts at 0).
+   - **Limit actions** via the row's right-click menu: **Edit Max Value** (validates a non-negative integer), **Rename**, and **Delete Limit** (with a confirmation).
+
 
 ## CueWeb's user interface
 
