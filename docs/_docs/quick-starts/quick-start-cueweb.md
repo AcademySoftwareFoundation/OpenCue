@@ -277,6 +277,15 @@ Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung -
 - Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
 - Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
 
+### Switch Cuebot facilities
+
+If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. CueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
+
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+- Pick a facility from the menu; CueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
+- The list of facilities comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`). To point a facility at its own gateway, set the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` (e.g. `CUEBOT_DEV_REST_GATEWAY_URL`); a facility with no override falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The single-facility sandbox works with just `local`.
+
 
 ---
 

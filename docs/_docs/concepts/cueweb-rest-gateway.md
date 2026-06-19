@@ -134,6 +134,28 @@ sequenceDiagram
 
 ---
 
+## Cuebot facilities (multi-facility routing)
+
+A **facility** in OpenCue labels and separates farm resources - typically by physical location. Each facility is served by its own **Cuebot** (and, for CueWeb, its own REST Gateway). CueWeb mirrors CueGUI's *Cuebot Facility* concept: you work in **one facility at a time**, and a menu lets you switch between them.
+
+### What "switching a facility" means
+
+Switching the active facility re-points CueWeb at that facility's Cuebot and reloads the current view. You never see two facilities mixed together - the jobs, hosts, shows, and everything else you see belong to the selected facility. The active facility is shown as a chip on the menu and in the bottom status bar, and the selection is remembered for the session.
+
+### How routing works
+
+Because the browser only talks to CueWeb's own `/api` routes, facility routing is resolved **server-side, per request**:
+
+- The client sends the active facility with each API call; a server-side resolver picks the matching gateway URL and JWT secret for that facility, signs the request, and forwards it to that facility's gateway &rarr; Cuebot.
+- The facility list comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`).
+- Each facility may define a server-only `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` pair. A facility with no override falls back to the default `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`, so a single-facility deployment needs no extra configuration.
+
+### Why this design
+
+Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility CueWeb (secrets live in the Node server, never in the client bundle) while letting one CueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
+
+---
+
 ## Deployment Patterns
 
 ### Standalone Deployment
