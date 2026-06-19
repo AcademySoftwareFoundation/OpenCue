@@ -1203,8 +1203,13 @@ derives `runtime = now - startTime`, `llu = now - lluTime` (RUNNING only) and
 for a frame (a service row whose `service` matches, else the catch-all at index
 0). `isExcluded` runs the filter's comma-separated `regex` keywords against the
 job/layer name. `isStuck` mirrors CueGUI: `llu > minLlu*60` **and**
-`percentStuck*100 > percentStuck` threshold **and** `runtime > avg*avgComp/100`
-**and** `percentStuck < 1.1` **and** `runtime > 500`.
+`percentStuck*100 > filter.percentStuck` threshold **and** `runtime > avg*avgComp/100`
+**and** `percentStuck < 1.1` **and** `runtime > 500`. The `percentStuck < 1.1`
+term is a CueGUI-parity sanity bound, not a maximum-stuck filter: `llu` normally
+cannot exceed `runtime`, so the ratio stays in `[0, 1]`, but a stale log
+timestamp, a reused log path on retry, or clock skew between the log filesystem
+and the server can push it slightly above `1.0` - the bound discards those
+implausible readings rather than flagging them as stuck.
 
 ### Filters
 
