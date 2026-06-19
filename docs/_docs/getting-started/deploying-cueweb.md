@@ -519,6 +519,38 @@ The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy
 
 ---
 
+## Stuck Frames page (log access)
+
+The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with CueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.
+
+**Mount the render log directory into the CueWeb container, read-only.** CueWeb's server reads frame logs from its own filesystem, so the directory where RQD writes logs (the sandbox uses `/tmp/rqd/logs`, matching cuebot's `CUE_FRAME_LOG_DIR`) must be visible to the CueWeb container at the same path:
+
+```yaml
+# docker-compose.yml (cueweb service)
+volumes:
+  - /tmp/rqd/logs:/tmp/rqd/logs:ro
+```
+
+```yaml
+# Kubernetes: mount the shared logs volume into the cueweb pod, e.g.
+volumeMounts:
+  - name: frame-logs
+    mountPath: /net/render/logs
+    readOnly: true
+```
+
+If the log directory is not mounted, the page still lists stuck frames, but the **Last Line** column stays empty and the in-app log actions can't read the file.
+
+**Optionally restrict which roots are readable** with `CUEWEB_LOG_ROOTS` - a colon-separated list of absolute path prefixes. When set, the log-reading routes (`/api/stuck-frames/lastline` and the log download) only serve files under one of those roots; when unset, reads are not restricted to a root. Scope it to the mounted log dir:
+
+```bash
+CUEWEB_LOG_ROOTS=/net/render/logs
+```
+
+**Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
+
+---
+
 ## Reverse Proxy Configuration
 
 ### Nginx Configuration

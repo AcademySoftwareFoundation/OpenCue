@@ -1162,6 +1162,81 @@ Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group
 
 ---
 
+## Stuck Frames
+
+The **Stuck Frames** page (CueCommander &rarr; Stuck Frame in the sidebar or header) helps you find running frames that appear to be hung - frames that keep running but have stopped writing to their log. It is the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Stuck Frame entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_menu.png)
+
+The page scans every running frame across all active jobs and lists the ones that match the current detection filters, grouped under their job.
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+### Stuck Frame columns
+
+| Column | Description |
+|--------|-------------|
+| Name | Layer name (rows are grouped under a job header) |
+| Frame | Frame number |
+| Host | Host the frame is running on |
+| LLU | Time since the **L**ast **L**og **U**pdate - how long the log has been silent |
+| Runtime | How long the frame has been running |
+| % Stuck | LLU as a percentage of runtime - the closer to 100%, the more likely it is hung |
+| Average | The layer's average frame time, for comparison |
+| Last Line | The last line written to the frame's log |
+
+The table auto-refreshes on a timer (toggle **Auto-refresh** off to freeze it), and **Refresh** reloads immediately. **Clear** resets any rows or jobs you have manually hidden.
+
+### Detection filters
+
+The filter bar at the top controls which frames are flagged. A frame is considered stuck only when its log has been silent longer than **Min LLU**, its **% of Run Since LLU** exceeds the threshold, and it has been running long enough relative to its layer average. Your filter settings are saved per browser.
+
+- **% of Run Since LLU** - minimum percentage of the runtime spent with no log activity.
+- **Min LLU** - minimum time (minutes) the log must have been silent.
+- **% Avg Completion** - how far past the layer's average frame time the frame must be.
+- **Total Runtime** - minimum runtime threshold.
+- **Exclude Keywords** - comma-separated terms; frames whose job or layer name matches are skipped.
+- **Enable** - turn a filter row on or off.
+
+Click the **+** button to add a **service-specific** filter. The first row is the catch-all (labelled **All** on its own, or **All Other Types** once service rows exist); each added row targets one render **service** from a dropdown and applies its own thresholds, so long-running services (e.g. Arnold) can use looser limits than quick ones. A frame is matched to the most specific row for its service. Use the **&times;** button to remove a service row.
+
+![Adding a service-specific Stuck Frame filter](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_add_service_filter.png)
+
+### Frame actions
+
+Right-click a frame row to open its actions menu.
+
+![Stuck frame row context menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_layer_menu_options.png)
+
+- **Tail Log / View Log / View Last Log** - open the frame's log.
+- **Retry / Eat / Kill** - the standard frame operations.
+- **Log Stuck Frame** - export the frame's details for a report; **Log and Retry / Log and Eat / Log and Kill** combine the export with an action.
+- **Frame Not Stuck** - hide this frame from the list (it is not really stuck).
+- **Add Job to Excludes** / **Exclude and Remove Job** - add the job's name to the exclude keywords (and optionally drop it from the list now).
+- **Core Up** - raise the minimum cores on the frame's layer (see below).
+- **View Host** - open the host's detail page.
+
+### Job actions
+
+Right-click a job header row for job-level actions.
+
+![Stuck frame job context menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_job_menu_options.png)
+
+- **View Comments** - open the job's comments page.
+- **Job Not Stuck** - hide the whole job from the list.
+- **Add Job to Excludes** / **Exclude and Remove Job** - exclude the job by name.
+- **Core Up** - raise the minimum cores across the job's stuck layers.
+
+### Core Up
+
+**Core Up** opens a dialog to increase the minimum cores reserved for the affected layer(s) - a common remedy when a frame is stuck because it is starved for cores. Enter the new core count and click **Apply**.
+
+![Core Up dialog](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_core_up_popup.png)
+
+---
+
 ## Facility Service Defaults
 
 The **Facility Service Defaults** page (CueCommander &rarr; Services in the sidebar or header) edits the facility-wide service templates - the default resource requirements that apply to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`). It is the CueWeb equivalent of CueGUI's Facility Service Defaults tab.

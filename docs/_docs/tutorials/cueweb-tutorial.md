@@ -390,6 +390,22 @@ The frame right-click menu, and the confirmation toast shown after an action:
 6. Right-click the frame and select "Retry"
 7. Watch the frame change from red to gray (pending)
 
+### Finding and clearing stuck frames
+
+Failed frames turn red, but a *stuck* frame is trickier: it keeps running (gray-green) while no longer making progress - the process is alive but has stopped writing to its log. CueWeb's **Stuck Frames** page finds these for you.
+
+1. Open **CueCommander &rarr; Stuck Frame** from the header or sidebar.
+
+   ![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+2. The page scans every running frame and lists the ones whose log has gone silent relative to their runtime, grouped under their job. Read the **LLU** (time since the last log line), **Runtime**, and **% Stuck** columns to judge each frame - a high **% Stuck** means the log has been quiet for most of the run.
+3. If nothing shows up, loosen the filters at the top - lower **Min LLU** or **% of Run Since LLU**. To tune detection per render type, click **+** to add a service-specific filter row (so e.g. Arnold frames, which legitimately run long, use looser limits than quick ones).
+4. Right-click a frame you believe is hung and pick an action:
+   - **View Log** / **View Last Log** to confirm it has really stalled.
+   - **Retry** to requeue it, **Eat** to mark it done, or **Kill** to stop it.
+   - **Core Up** to raise the layer's minimum cores when a frame is starved for resources.
+5. Use **Frame Not Stuck** (or **Job Not Stuck**) to dismiss a false positive, or **Add Job to Excludes** to stop a known-noisy job from appearing.
+
 ---
 
 ## Advanced Search and Filtering

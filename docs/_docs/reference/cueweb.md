@@ -418,6 +418,21 @@ Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/pag
 | **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
 | **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
 
+### Stuck Frames
+
+A stuck-frame finder at `/stuck-frames` (`cueweb/app/stuck-frames/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window (`StuckFramePlugin`). Reached from **CueCommander &rarr; Stuck Frame** (header dropdown and sidebar).
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | `getStuckFrames()` (`app/utils/get_utils.ts`) &rarr; `/api/stuck-frames` aggregates every RUNNING frame across unfinished jobs server-side, each stamped with its `service`, `avgFrameSec`, `layerId`, and `layerMinCores`. The **Last Line** column is fetched per frame via `getStuckFrameLastLine()` &rarr; `/api/stuck-frames/lastline` (best-effort; empty when the log filesystem isn't mounted). |
+| **Detection** | Applied client-side so the filters stay instant (CueGUI parity). A frame is stuck when `lluTime` age `> minLlu*60` **and** `percentStuck*100 > percentStuck` threshold **and** `runtime > avg*avgComp/100` **and** `percentStuck < 1.1` **and** `runtime > 500`, where `percentStuck = lluAge / runtime`. |
+| **Filters** | Filter row 0 is the catch-all; rows added via **+** target one `service` each and override the catch-all for matching frames (`pickFilter`). `SERVICE_DEFAULTS` seeds `preprocess` / `nuke` / `arnold` thresholds; `makeServiceFilter` falls back to `DEFAULT_FILTER` otherwise. Filters persist to `localStorage["cueweb.stuck-frames.filters"]`. Exclude Keywords are a comma-separated regex list matched against job/layer name. |
+| **Columns** | Name (grouped under a job header), comment marker, Frame, Host, LLU, Runtime, % Stuck, Average, Last Line. |
+| **Frame actions** | Right-click menu: Tail/View/View Last Log (open the log viewer); Retry / Eat / Kill via `retryFrames` / `eatFrames` / `killFrames` (`/api/frame/action/{retry,eat,kill}`); Log Stuck Frame and Log and Retry/Eat/Kill (client-side log export then the action); Frame Not Stuck and Job/Frame exclude (client-side hide + Exclude Keywords); **Core Up** via `setLayerMinCores()` &rarr; `/api/layer/action/setmincores`; View Host. |
+| **Job actions** | Right-click a job header: View Comments, Job Not Stuck, Add Job to Excludes / Exclude and Remove Job (client-side), and **Core Up** applied across the job's stuck layers (one `setLayerMinCores` per layer). |
+
 ### Facility Service Defaults
 
 A facility-wide service-defaults editor at `/services` (`cueweb/app/services/page.tsx` + `components/ui/service-defaults-form.tsx`), the CueWeb equivalent of CueGUI's Facility Service Defaults tab (`ServiceDialog` / `ServiceForm`). Reached from **CueCommander &rarr; Services** (header dropdown and sidebar).
@@ -1260,7 +1275,9 @@ Layout, left to right:
   - Shows (`/shows`) - implemented; shows stats table with Create Show, Show
     Properties, and Create Subscription, plus a per-show group-tree detail page
     at `/shows/[showName]` (see [Shows](#shows)).
-  - Stuck Frame (`/stuck-frames`)
+  - Stuck Frame (`/stuck-frames`) - implemented; stuck-frame finder with
+    per-service detection filters and frame/job actions including Core Up
+    (see [Stuck Frames](#stuck-frames)).
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
 
