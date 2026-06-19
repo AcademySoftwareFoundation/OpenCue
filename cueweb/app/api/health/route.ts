@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 
 import { createJwtToken } from "@/app/utils/api_utils";
+import { getRequestFacilityTarget } from "@/lib/facility";
 
 interface JwtParams {
   sub: string;
@@ -49,7 +50,9 @@ interface HealthBody {
 }
 
 export async function GET(): Promise<NextResponse<HealthBody>> {
-  const gateway = process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT;
+  // Probe the gateway for the facility selected in the request cookie, so the
+  // status bar reflects the facility the rest of the app is talking to.
+  const { gatewayUrl: gateway, jwtSecret } = await getRequestFacilityTarget();
   const checkedAt = new Date().toISOString();
 
   if (!gateway) {
@@ -59,7 +62,7 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
         status: 0,
         latencyMs: 0,
         checkedAt,
-        error: "NEXT_PUBLIC_OPENCUE_ENDPOINT is not configured",
+        error: "No REST gateway configured for the selected facility",
       },
       { status: 200 },
     );
@@ -74,7 +77,7 @@ export async function GET(): Promise<NextResponse<HealthBody>> {
 
   let token: string;
   try {
-    token = createJwtToken(jwtParams);
+    token = createJwtToken(jwtParams, jwtSecret);
   } catch (err) {
     console.error("Health JWT signing failed", err);
     return NextResponse.json(

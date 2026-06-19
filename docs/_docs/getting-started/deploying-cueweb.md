@@ -120,9 +120,18 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Cuebot Facility selector (optional)
 # Comma-separated list of facilities exposed in the header / sidebar
 # "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
-# (The selected value is persisted client-side; per-facility gateway
-# routing is implemented in a separate page-level change.)
+# Switching facility re-routes every REST gateway call server-side to the
+# selected facility's gateway; the choice is carried in a cookie and persists
+# for the session.
 # NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+#
+# Per-facility gateway + JWT secret (optional, server-only). Each facility may
+# target its own REST gateway via CUEBOT_<NAME>_REST_GATEWAY_URL and
+# CUEBOT_<NAME>_JWT_SECRET (NAME uppercased). A facility with no override falls
+# back to NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET, so the default
+# single-gateway deployment needs no extra configuration.
+# CUEBOT_DEV_REST_GATEWAY_URL=https://dev-rest-gateway.company.com
+# CUEBOT_DEV_JWT_SECRET=dev-gateway-jwt-secret
 
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point

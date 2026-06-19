@@ -140,6 +140,7 @@ cueweb/
 │   └── context_menus/    # Right-click context menus (Job / Layer / Frame)
 ├── lib/                  # Utility libraries
 │   ├── auth.ts           # NextAuth configuration (Okta/Google/GitHub/LDAP)
+│   ├── facility.ts       # Cuebot Facility resolver (per-request gateway + JWT)
 │   ├── utils.ts          # General utilities (incl. cn())
 │   └── metrics-service.ts # Prometheus metrics
 ├── public/               # Static assets
@@ -224,6 +225,17 @@ provider tree.
   - Key: `cueweb.facility.selected`. Event: `cueweb:facility-changed`.
   - Available facilities are read from `NEXT_PUBLIC_CUEBOT_FACILITIES`
     (comma-separated); defaults to `local,dev,cloud,external`.
+  - `setFacility` also mirrors the selection into the `cueweb.facility` cookie
+    (so server routes can read it) and reloads the page so every view re-fetches
+    against the newly selected gateway &mdash; mirroring CueGUI, which clears and
+    re-fetches all data on a facility change.
+  - Server-side routing lives in `lib/facility.ts`. `getRequestFacilityTarget()`
+    reads the cookie and resolves the facility to a REST gateway URL + JWT secret
+    from `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling
+    back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. Every proxied
+    request goes through it via `fetchObjectFromRestGateway` (`app/utils/api_utils.ts`),
+    and `/api/health` probes the selected facility's gateway. (`next/headers` is
+    imported dynamically there so the module stays out of the client bundle.)
 - **`useAttributesPanel`** (`app/utils/use_attributes_panel.ts`)
   &mdash; `{ isOpen, position, positions, setOpen, toggle, setPosition }`.
   - Keys: `cueweb.attributes.open` (`bool`) and `cueweb.attributes.position`
