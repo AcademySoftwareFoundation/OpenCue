@@ -90,6 +90,8 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 |----------|-------------|---------|
 | `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar. Falls back to `cueweb/package.json#version` when unset. CI typically passes the Git SHA via `--build-arg`. | (package.json version) |
 | `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
+| `CUEBOT_<NAME>_REST_GATEWAY_URL` | Per-facility REST gateway base URL (server-only; `<NAME>` is the uppercased facility name). Falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT`. | (unset &rarr; default gateway) |
+| `CUEBOT_<NAME>_JWT_SECRET` | Per-facility JWT secret the target gateway trusts (server-only). Falls back to `NEXT_JWT_SECRET`. | (unset &rarr; default secret) |
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
@@ -1257,7 +1259,14 @@ Layout, left to right:
 - **Cuebot Facility** dropdown: one item per configured facility (default
   `local` / `dev` / `cloud` / `external`; overridable via
   `NEXT_PUBLIC_CUEBOT_FACILITIES`). A small chip on the menu trigger
-  shows the currently-active facility.
+  shows the currently-active facility. Selecting a facility writes the choice
+  to the `cueweb.facility` cookie and reloads the page; every server-side API
+  route then resolves that request's gateway via `lib/facility.ts`
+  (`getRequestFacilityTarget`), so all data is fetched from the selected
+  facility's REST gateway. The gateway URL + JWT secret per facility come from
+  `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling back to
+  `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The bottom status bar
+  shows the active facility and pings that facility's gateway.
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
