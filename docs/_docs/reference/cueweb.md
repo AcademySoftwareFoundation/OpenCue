@@ -418,6 +418,39 @@ Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/pag
 | **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
 | **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
 
+### Subscriptions
+
+A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Reached from **CueCommander &rarr; Subscriptions** (header dropdown and sidebar).
+
+![CueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Show selector** | A dropdown of active shows (`getActiveShows()`); the selection persists to `localStorage["cueweb.subscriptions.show"]`. |
+| **Data source** | The selected show's subscriptions load via `getShowSubscriptions()` (`app/utils/get_utils.ts`) &rarr; `/api/show/getsubscriptions` &rarr; `show.ShowInterface/GetSubscriptions`. Auto-refreshes every 30s and re-fetches on `cueweb:subscriptions-changed` / `cueweb:shows-changed`. |
+| **Columns** | Alloc, Usage (`reservedCores / size` as a percent), Size, Burst, Used (`reservedCores`) - `app/subscriptions/subscription-columns.tsx`. `size`/`burst`/`reservedCores` arrive as centcores (cores &times; 100) and are shown divided by 100. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isSubscriptionsTable` flag (subscription-specific filter placeholder + empty-state copy and the `SubscriptionContextMenu`). Column show/hide persists to `localStorage["cueweb.subscriptions.columnVisibility"]`. |
+| **Header buttons** | **Show Properties** and **Add Subscription** reuse the Shows window dialogs via the `cueweb:open-show-properties` / `cueweb:open-create-subscription` events. |
+| **Row actions** | A right-click menu exposes **Edit Subscription Size...**, **Edit Subscription Burst...**, **Delete Subscription** (`components/ui/subscription-dialogs.tsx`, opened via `cueweb:open-edit-subscription-size` / `cueweb:open-edit-subscription-burst` / `cueweb:open-delete-subscription`). |
+
+#### Edit Size / Edit Burst / Delete dialogs
+
+`subscription-dialogs.tsx` mirrors CueGUI's prompt text. Inputs are cores, sent as cores &times; 100 to match Cuebot. Edit Size calls `setSubscriptionSize()` &rarr; `/api/subscription/setsize` &rarr; `subscription.SubscriptionInterface/SetSize` (with the billing-confirmation step); Edit Burst calls `setSubscriptionBurst()` &rarr; `/api/subscription/setburst` &rarr; `.../SetBurst`; Delete calls `deleteSubscription()` &rarr; `/api/subscription/delete` &rarr; `.../Delete`. Each success fires `cueweb:subscriptions-changed`.
+
+### Subscription Graphs
+
+A multi-show graph view at `/subscription-graphs` (`cueweb/app/subscription-graphs/page.tsx` + `components/ui/subscription-graph.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window (`SubscriptionGraphWidget` / `SubBookingBarDelegate`). Reached from **CueCommander &rarr; Subscription Graphs** (header dropdown and sidebar).
+
+![CueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Shows multi-select** | A **Shows** dropdown (All Shows / Clear / per-show checkboxes); the selection persists to `localStorage["cueweb.subscription-graphs.shows"]`. |
+| **Data source** | Per selected show, subscriptions load via `getShowSubscriptions()`; allocation core totals load via `getAllocations()` (`allocationName → stats.cores`). Polls every 15s and re-fetches on `cueweb:subscriptions-changed` (reload subs) / `cueweb:shows-changed` (re-fetch the active-show list, prune deleted shows). |
+| **Bar** | One horizontal bar per subscription, scaled to the allocation's total cores (CueGUI parity): a sky-blue track for the allocation capacity, a yellow-green fill for the in-use (reserved) cores, a blue marker line at the size and a red marker line at the burst. A header legend labels the four colors. |
+| **Tooltip** | Hovering a bar shows In use / Size / Burst / Allocation / Usage; Usage renders the real percentage when size > 0, `∞` when size is 0 but usage is live, and `—` for an empty subscription. |
+| **Row actions** | Right-clicking a bar opens **Edit Subscription Size...** / **Edit Subscription Burst...** / **Delete Subscription** / **Add new subscription** (reusing the subscription dialogs + Create Subscription dialog). Right-clicking a show with no subscriptions offers just **Add new subscription**. |
+
 ### Limits
 
 A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from **CueCommander &rarr; Limits** (header dropdown and sidebar).
