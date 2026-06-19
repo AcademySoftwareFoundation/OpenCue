@@ -1166,6 +1166,333 @@ Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group
 
 ---
 
+## Stuck Frames
+
+The **Stuck Frames** page (CueCommander &rarr; Stuck Frame in the sidebar or header) helps you find running frames that appear to be hung - frames that keep running but have stopped writing to their log. It is the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Stuck Frame entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_menu.png)
+
+The page scans every running frame across all active jobs and lists the ones that match the current detection filters, grouped under their job.
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+### Stuck Frame columns
+
+| Column | Description |
+|--------|-------------|
+| Name | Layer name (rows are grouped under a job header) |
+| Frame | Frame number |
+| Host | Host the frame is running on |
+| LLU | Time since the **L**ast **L**og **U**pdate - how long the log has been silent |
+| Runtime | How long the frame has been running |
+| % Stuck | LLU as a percentage of runtime - the closer to 100%, the more likely it is hung |
+| Average | The layer's average frame time, for comparison |
+| Last Line | The last line written to the frame's log |
+
+The table auto-refreshes on a timer (toggle **Auto-refresh** off to freeze it), and **Refresh** reloads immediately. **Clear** resets any rows or jobs you have manually hidden.
+
+### Detection filters
+
+The filter bar at the top controls which frames are flagged. A frame is considered stuck only when its log has been silent longer than **Min LLU**, its **% of Run Since LLU** exceeds the threshold, and it has been running long enough relative to its layer average. Your filter settings are saved per browser.
+
+- **% of Run Since LLU** - minimum percentage of the runtime spent with no log activity.
+- **Min LLU** - minimum time (minutes) the log must have been silent.
+- **% Avg Completion** - how far past the layer's average frame time the frame must be.
+- **Total Runtime** - minimum runtime threshold.
+- **Exclude Keywords** - comma-separated terms; frames whose job or layer name matches are skipped.
+- **Enable** - turn a filter row on or off.
+
+Click the **+** button to add a **service-specific** filter. The first row is the catch-all (labelled **All** on its own, or **All Other Types** once service rows exist); each added row targets one render **service** from a dropdown and applies its own thresholds, so long-running services (e.g. Arnold) can use looser limits than quick ones. A frame is matched to the most specific row for its service. Use the **&times;** button to remove a service row.
+
+![Adding a service-specific Stuck Frame filter](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_add_service_filter.png)
+
+### Frame actions
+
+Right-click a frame row to open its actions menu.
+
+![Stuck frame row context menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_layer_menu_options.png)
+
+- **Tail Log / View Log / View Last Log** - open the frame's log.
+- **Retry / Eat / Kill** - the standard frame operations.
+- **Log Stuck Frame** - export the frame's details for a report; **Log and Retry / Log and Eat / Log and Kill** combine the export with an action.
+- **Frame Not Stuck** - hide this frame from the list (it is not really stuck).
+- **Add Job to Excludes** / **Exclude and Remove Job** - add the job's name to the exclude keywords (and optionally drop it from the list now).
+- **Core Up** - raise the minimum cores on the frame's layer (see below).
+- **View Host** - open the host's detail page.
+
+### Job actions
+
+Right-click a job header row for job-level actions.
+
+![Stuck frame job context menu](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_job_menu_options.png)
+
+- **View Comments** - open the job's comments page.
+- **Job Not Stuck** - hide the whole job from the list.
+- **Add Job to Excludes** / **Exclude and Remove Job** - exclude the job by name.
+- **Core Up** - raise the minimum cores across the job's stuck layers.
+
+### Core Up
+
+**Core Up** opens a dialog to increase the minimum cores reserved for the affected layer(s) - a common remedy when a frame is stuck because it is starved for cores. Enter the new core count and click **Apply**.
+
+![Core Up dialog](/assets/images/cueweb/cueweb_cuecommander_stuck_frame_core_up_popup.png)
+
+---
+
+## Facility Service Defaults
+
+The **Facility Service Defaults** page (CueCommander &rarr; Services in the sidebar or header) edits the facility-wide service templates - the default resource requirements that apply to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`). It is the CueWeb equivalent of CueGUI's Facility Service Defaults tab.
+
+> **Note:** These are facility-wide defaults. A change here affects every job that uses the service, so the page asks you to confirm before saving. Editing should normally be left to administrators.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Services entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_facility_services_menu.png)
+
+The page has two panes: the list of services on the left, and the edit form for the selected service on the right.
+
+![CueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
+
+### Service fields
+
+| Field | Description |
+|-------|-------------|
+| Name | Service name (at least 3 characters; letters, numbers, and `\| / - _`) |
+| Threadable | Whether frames of this service can use more than one thread |
+| Min Threads / Max Threads | Thread range, where `100` = 1 thread. Min cannot exceed Max when Max is greater than 0 |
+| Min Memory MB | Minimum memory reserved per frame |
+| Min Gpu Memory MB | Minimum GPU memory reserved per frame |
+| Timeout | Maximum run time per frame, in minutes (0 = no timeout) |
+| Timeout LLU | Maximum time without a log update, in minutes (0 = no timeout) |
+| OOM Increase MB | How much to raise the memory reservation when a frame is retried after running out of memory |
+| Tags | The host tags a frame may run on. Pick from the predefined tags, or enable **Custom Tags** to enter your own (space- or comma-separated) |
+
+The numeric fields take non-negative whole numbers.
+
+### Create a service
+
+Click **New**, fill in the form, and click **Save**. CueWeb asks you to confirm the facility-wide change before creating the service.
+
+![New service form](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service.png)
+
+![Facility-wide confirmation](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service_confirmation.png)
+
+A toast confirms the service was created, and it appears in the list.
+
+![Service created notification](/assets/images/cueweb/cueweb_cuecommander_facility_services_new_service_notification_service_created.png)
+
+### Edit a service
+
+Select a service from the list, change any field, and click **Save**. The same facility-wide confirmation appears before the change is applied.
+
+### Delete a service
+
+Select a service and click **Del**. Confirm the prompt to remove the facility default service.
+
+![Delete service confirmation](/assets/images/cueweb/cueweb_cuecommander_facility_services_delete_service_confirmation.png)
+
+A toast confirms the deletion.
+
+![Service deleted notification](/assets/images/cueweb/cueweb_cuecommander_facility_services_delete_service_notification_service_deleted.png)
+
+---
+
+## Subscriptions
+
+The **Subscriptions** page (CueCommander &rarr; Subscriptions in the sidebar or header) shows how much of each allocation a show is allowed to use, and how much it is using right now. It is the CueWeb equivalent of CueGUI's CueCommander Subscriptions window.
+
+A *subscription* is one show's reservation against one allocation. It has a **Size** - the cores the show is guaranteed - and a **Burst** - the extra cores the show may temporarily grab when they are idle. Sizes and bursts are expressed in cores.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Subscriptions entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu.png)
+
+Pick a show from the dropdown at the top left. The table then lists that show's subscriptions, one row per allocation.
+
+![CueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
+
+### Subscription columns
+
+| Column | Description |
+|--------|-------------|
+| Alloc | Allocation the show is subscribed to |
+| Usage | Cores in use as a percentage of the subscription size |
+| Size | Guaranteed cores for this show on this allocation |
+| Burst | Maximum cores the show may temporarily use |
+| Used | Cores currently reserved (running) |
+
+Numeric columns sort by their underlying value. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter subscriptions...** box to narrow the table. The table auto-refreshes every 30 seconds.
+
+### Add a subscription
+
+Click **Add Subscription** to subscribe the selected show to another allocation. Pick the **Show** and **Alloc**, set the **Size** and **Burst** (defaults 100 and 110), then click **OK**. A show can have only one subscription per allocation; if one already exists, CueWeb tells you instead of creating a duplicate.
+
+![Create Subscription dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_add_subscription.png)
+
+### Show Properties
+
+The **Show Properties** button opens the same four-tab dialog as on the [Shows page](#show-properties) - Settings, Booking, Statistics, and Raw Show Data - for the selected show.
+
+![Show Properties - Settings tab](/assets/images/cueweb/cueweb_cuecommander_subscriptions_show_properties_settings.png)
+
+### Edit or delete a subscription
+
+Right-click a subscription row to open its actions menu: **Edit Subscription Size...**, **Edit Subscription Burst...**, and **Delete Subscription**.
+
+![Subscription row context menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options.png)
+
+**Edit Subscription Size...** changes the guaranteed cores. Sizes affect billing, so the dialog asks you to confirm and notes that this should normally be changed only by administrators.
+
+![Edit Subscription Size dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_edit_subscription_size.png)
+
+**Edit Subscription Burst...** changes the maximum cores the show may burst to.
+
+![Edit Subscription Burst dialog](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_edit_subscription_burst.png)
+
+**Delete Subscription** removes the show's reservation on that allocation, after a confirmation prompt.
+
+![Delete Subscription confirmation](/assets/images/cueweb/cueweb_cuecommander_subscriptions_menu_options_delete_subscriptions.png)
+
+---
+
+## Subscription Graphs
+
+The **Subscription Graphs** page (CueCommander &rarr; Subscription Graphs in the sidebar or header) is a visual companion to the Subscriptions table: it draws each subscription as a horizontal bar so you can see at a glance how much of an allocation a show is using against its size and burst. It is the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window.
+
+![Subscription Graphs entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_menu.png)
+
+### Choosing shows
+
+Use the **Shows** dropdown to choose which shows to graph. Check individual shows, or use **All Shows** / **Clear**. Your selection persists per browser. Each selected show gets its own section with one bar per subscription; a show with no subscriptions says so.
+
+![Shows dropdown](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_show_dropdown.png)
+
+### Reading a bar
+
+Each bar is scaled to the allocation's total core count and uses the same color coding as CueGUI, shown in the legend at the top of the page:
+
+- **Allocation** (sky-blue) - the allocation's total core capacity.
+- **In use** (yellow-green) - the cores the show currently has reserved.
+- **Size** (blue line) - the subscription's guaranteed cores.
+- **Burst** (red line) - the subscription's maximum cores.
+
+![CueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
+
+Hover over a bar to see the exact In use, Size, Burst, Allocation, and Usage values.
+
+![Hovering a subscription bar](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_mouse_over_show_subscription.png)
+
+### Actions
+
+Right-click a bar to open the same actions as the Subscriptions table - **Edit Subscription Size...**, **Edit Subscription Burst...**, **Delete Subscription** - plus **Add new subscription**.
+
+![Subscription bar context menu](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_menu_options.png)
+
+If a show has no subscriptions yet, right-click anywhere in its section and choose **Add new subscription** to create the first one.
+
+![Add a subscription to a show that has none](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs_add_new_subscription_show_without_subscriptions.png)
+
+The page refreshes every 15 seconds.
+
+---
+
+## Limits
+
+The **Limits** page (CueCommander &rarr; Limits in the sidebar or header) lists the limits configured in Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Limits window, with an **Add Limit** button and a per-row actions menu.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Limits entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_limits_menu.png)
+
+The page renders a sortable, filterable table with columns **Limit Name**, **Max Value**, and **Current Running**. Use **Refresh** to reload immediately; the table also auto-refreshes every 30 seconds.
+
+![CueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+
+### Add a limit
+
+Click **Add Limit** and enter a name. The new limit is created with a max value of 0; use **Edit Max Value** afterward to set it.
+
+![Add Limit dialog](/assets/images/cueweb/cueweb_cuecommander_limits_add_limit.png)
+
+A toast confirms the limit was created.
+
+![Limit added confirmation](/assets/images/cueweb/cueweb_cuecommander_limits_add_limit_confirmation.png)
+
+### Limit row actions
+
+Right-click a limit row to open its actions menu: **Edit Max Value**, **Delete Limit**, and **Rename**.
+
+![Limit row context menu](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options.png)
+
+**Edit Max Value** opens a dialog to set the limit's max value. The value must be a non-negative integer.
+
+![Edit Max Value dialog](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_edit_max_value.png)
+
+**Rename** opens a dialog to give the limit a new name.
+
+![Rename a Limit dialog](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_rename_a_limit.png)
+
+**Delete Limit** asks you to confirm before removing the limit.
+
+![Delete limit confirmation](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_delete_selected_limit.png)
+
+---
+
+## Redirect
+
+The **Redirect** page (CueCommander &rarr; Redirect in the sidebar or header) is an administrator tool for **moving cores to a job that needs them**. It finds render procs that are currently busy on other work and reassigns ("redirects") them to a target job - the running frames on those procs are killed and the freed cores are booked onto your target. It is the CueWeb equivalent of CueGUI's CueCommander Redirect window.
+
+> **This is a destructive admin action.** Redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Use it deliberately.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Redirect entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_redirect_menu.png)
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+### How it works
+
+1. Set a **Target** job (the job that should receive the cores). Typing a job name auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help it.
+2. Narrow the search with the filters (below).
+3. Click **Search**. CueWeb lists the hosts whose busy procs match - each row shows what would be freed.
+4. Tick the hosts you want (or **Select All**), then click **Redirect**. CueWeb confirms the target is valid, warns about anything risky, kills the selected procs' frames, and books the cores onto the target job.
+
+### Job filters
+
+- **Show** - the show whose running procs are candidates (required).
+- **Include Groups** - limit candidates to procs from specific groups of that show.
+- **Require Services** - only procs running a layer with this service.
+- **Exclude Regex** - skip procs whose job name matches this pattern.
+
+### Resource filters
+
+- **Allocations** - restrict the search to specific allocations.
+- **Minimum Cores** / **Max Cores** - the per-host core range to return.
+- **Minimum Memory** (GB) - minimum idle memory a host must have.
+- **Result Limit** - cap the number of hosts returned.
+- **Proc Hour Cutoff** (PrcHrs) - skip procs that have already burned more than this many proc-hours, so you don't kill near-finished work.
+
+### Results and redirecting
+
+Each result row is a **host**, with columns for Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, and LLU; expand a row to see the individual procs. Select the hosts you want and click **Redirect**.
+
+Before redirecting, CueWeb checks the target job and refuses or warns:
+
+- **Refuses** if the target job no longer exists, has no waiting frames, or has already reached its max cores.
+- **Warns** (asks you to confirm) if the target job is **paused**, or if any selected proc belongs to a **different show** - redirecting it will kill that other show's frame.
+
+![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+On success, a toast confirms how many hosts were redirected to the target job.
+
+![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form.
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.

@@ -182,7 +182,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
 - **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`.
 - **`JobDetailsPage`** (`app/jobs/[job-name]/page.tsx`): Standalone tabbed job-details route reached via the **View Job Details** right-click entry (or the row's `⋮` Actions button). Resolves the job by name through `findJobByName(...)`, polls layers + frames every 5s with cancellation guards, and exposes five tabs - **Overview**, **Layers**, **Frames**, **Comments**, **Dependencies**. The active tab is mirrored to the URL as `?tab=<key>` and read back through `useSearchParams()` + `router.replace(...)` so the page is bookmarkable and browser back/forward walks between tabs. `isTabKey(value)` rejects unknown query values so the URL can never select a missing tab. The Comments tab embeds a read-only preview of `getJobComments(...)` with a link out to the full `/jobs/<jobName>/comments` editor; Dependencies is currently a placeholder. The standard `Breadcrumbs` + `EmptyState` (`FileX` icon, "Job not found") wrappers cover loading and missing-job paths.
-- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, the host detail page's procs table, the Shows table, and the Allocations table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` / `isShowsTable` / `isAllocationsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; `isShowsTable` &rarr; `ShowContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` / `isAllocationsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
+- **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, the host detail page's procs table, the Shows table, the Allocations table, and the Limits table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` / `isShowsTable` / `isAllocationsTable` / `isLimitsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; `isShowsTable` &rarr; `ShowContextMenu`; `isLimitsTable` &rarr; `LimitContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` / `isAllocationsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 - **`FrameViewer`**: Frame log viewer component
@@ -1177,6 +1177,255 @@ The show mutations go through `accessActionApi` (returning a boolean) in
 (`enabled` boolean, `max_cores`/`min_cores` numeric, `allocation_id` non-empty
 string) and propagate the gateway's real HTTP status; `createsubscription`
 rewrites Cuebot's duplicate-key error into a short user-facing message.
+
+---
+
+## Stuck Frames page (CueCommander parity)
+
+The `/stuck-frames` page (`app/stuck-frames/page.tsx`) replicates the CueGUI
+CueCommander Stuck Frame plugin. Unlike the other tables it renders its own
+job-grouped layout (not `SimpleDataTable`), because rows are grouped under a job
+header and the detection runs client-side. Files involved:
+
+```text
+app/api/stuck-frames/route.ts                  # aggregate every RUNNING frame across unfinished jobs
+app/api/stuck-frames/lastline/route.ts         # tail a frame's .rqlog for the "Last Line" column
+app/stuck-frames/page.tsx                       # page + detection helpers (metricsOf/pickFilter/isExcluded/isStuck)
+components/ui/stuck-frame-filters.tsx           # StuckFilter type, DEFAULT_FILTER, SERVICE_DEFAULTS, makeServiceFilter, StuckFrameFilters
+app/utils/get_utils.ts                          # StuckFrame type, getStuckFrames(), getStuckFrameLastLine()
+app/utils/action_utils.ts                       # retryFrames/eatFrames/killFrames, setLayerMinCores (Core Up)
+```
+
+### Data source
+
+`getStuckFrames()` &rarr; `/api/stuck-frames` aggregates every RUNNING frame
+across unfinished jobs server-side, stamping each with its `service`,
+`avgFrameSec`, `layerId`, and `layerMinCores` (the `StuckFrame` type extends
+`Frame`). The page polls it on a timer (Auto-refresh). Per visible frame,
+`getStuckFrameLastLine()` &rarr; `/api/stuck-frames/lastline` fills the **Last
+Line** column; that route canonicalizes the path with `realpath`, enforces the
+optional `CUEWEB_LOG_ROOTS` allow-list, and `tail`s the `.rqlog` via `execFile`
+(no shell) - best-effort, returning an empty line when the log FS isn't mounted.
+
+### Detection (client-side)
+
+The detection lives in `page.tsx` so the filters stay instant. `metricsOf(f)`
+derives `runtime = now - startTime`, `llu = now - lluTime` (RUNNING only) and
+`percentStuck = llu / runtime`. `pickFilter` selects the most specific filter
+for a frame (a service row whose `service` matches, else the catch-all at index
+0). `isExcluded` runs the filter's comma-separated `regex` keywords against the
+job/layer name. `isStuck` mirrors CueGUI: `llu > minLlu*60` **and**
+`percentStuck*100 > filter.percentStuck` threshold **and** `runtime > avg*avgComp/100`
+**and** `percentStuck < 1.1` **and** `runtime > 500`. The `percentStuck < 1.1`
+term is a CueGUI-parity sanity bound, not a maximum-stuck filter: `llu` normally
+cannot exceed `runtime`, so the ratio stays in `[0, 1]`, but a stale log
+timestamp, a reused log path on retry, or clock skew between the log filesystem
+and the server can push it slightly above `1.0` - the bound discards those
+implausible readings rather than flagging them as stuck.
+
+### Filters
+
+`stuck-frame-filters.tsx` owns the `StuckFilter` shape and the
+`StuckFrameFilters` bar. Filter 0 is the catch-all (`service: ""`); the **+**
+button appends a `makeServiceFilter(service)` row for the first
+not-yet-used service from the page-supplied `availableServices`, seeded from
+`SERVICE_DEFAULTS` (`preprocess`/`nuke`/`arnold`) or `DEFAULT_FILTER` otherwise.
+The full filter list persists to `localStorage["cueweb.stuck-frames.filters"]`
+(`FILTERS_KEY`).
+
+### Actions
+
+Frame/job context menus are rendered inline in `page.tsx` (not the shared
+`action-context-menu.tsx`). Retry/Eat/Kill call `retryFrames` / `eatFrames` /
+`killFrames` (`/api/frame/action/{retry,eat,kill}`). **Core Up** opens a small
+dialog and calls `setLayerMinCores()` &rarr; `/api/layer/action/setmincores`
+(one call per target layer; the job variant fans out across the job's stuck
+layers). **Log Stuck Frame** / **Log and Retry/Eat/Kill** run a client-side
+`exportLog(...)` before the action. **Frame/Job Not Stuck** and the **Exclude**
+entries are client-only: the former hide ids in component state (cleared by
+**Clear**), the latter append to the active filter's exclude keywords.
+
+---
+
+## Facility Service Defaults (CueCommander parity)
+
+The `/services` page replicates the CueGUI CueCommander Facility Service Defaults
+tab (`ServiceDialog` / `ServiceForm`). The sidebar/header **Services** item
+already pointed at `/services`. Files involved:
+
+```text
+app/services/page.tsx                                  # two-pane list + form, New/Del, delete confirm
+components/ui/service-defaults-form.tsx                # right-pane edit form (create/update)
+app/api/service/{getdefaultservices,create,update,delete}/route.ts
+app/utils/get_utils.ts                                 # Service type + getDefaultServices
+app/utils/action_utils.ts                              # createService / updateService / deleteService
+```
+
+### Page
+
+`services/page.tsx` loads the facility default services on mount
+(`getDefaultServices()`), sorts them by name, and renders a left list (with
+`New` / `Del`) beside the right-pane `ServiceDefaultsForm`. The form is keyed on
+the selected service name (or `__new__`) so it re-initializes straight from props
+on every selection. `Del` opens a `ConfirmDialog`; its `onConfirm`
+(`deleteService`) throws when the helper returns `false` so the dialog stays open
+for retry rather than dismissing as if the delete had succeeded.
+
+### Form, units, and validation
+
+`service-defaults-form.tsx` mirrors CueGUI's `ServiceForm`:
+
+- **Units:** memory fields are MB in the UI but KB in the proto (×1024);
+  Min/Max Threads are centcores (`100` = 1 thread, shown directly).
+- **Tags:** a predefined two-column checkbox matrix (row-major order
+  `general/desktop`, `playblast/util`, `preprocess/wan`, `cuda/splathw`,
+  `naiad/massive`, matching CueGUI's `CheckBoxSelectionMatrix`) plus a **Custom
+  Tags** toggle that swaps to a free-text, space/comma-separated input.
+- **Validation:** name length/charset; every numeric field a non-negative
+  integer (they back int32 centcores / int64 KB / int32 minute proto fields, and
+  CueGUI uses integer spin boxes, so fractional input is rejected up front);
+  min &le; max threads when max &gt; 0; OOM increase &gt; 0; and the custom-tag
+  charset. A failure raises a warning toast and blocks the save.
+- **Save:** opens a facility-wide `ConfirmDialog`, then calls `createService()`
+  (new) or `updateService()` (existing). Like the delete path, `onConfirm`
+  throws on a `false` result to keep the dialog open for retry.
+
+### Action helpers + routes
+
+`getDefaultServices()` throws on a non-array response (mirroring `getHosts()`)
+so a failed load reaches the page's catch/error state instead of collapsing to an
+empty list. `createService` / `updateService` / `deleteService` go through
+`accessActionApi` (returning a boolean). The `/api/service/*` routes forward to
+`service.ServiceInterface/{GetDefaultServices,CreateService,Update,Delete}`.
+
+---
+
+## Subscriptions and Subscription Graphs (CueCommander parity)
+
+The `/subscriptions` and `/subscription-graphs` pages replicate the CueGUI
+CueCommander Subscriptions window and Subscription Graphs window. Files involved:
+
+```text
+app/subscriptions/page.tsx                             # show selector + table + header buttons
+app/subscriptions/subscription-columns.tsx             # Alloc/Usage/Size/Burst/Used columns
+app/subscription-graphs/page.tsx                        # Shows multi-select + per-show graph sections
+components/ui/subscription-graph.tsx                    # ShowSubscriptionGraph + per-subscription bar
+components/ui/subscription-dialogs.tsx                  # Edit Size / Edit Burst / Delete dialogs
+components/ui/subscription-action-events.ts            # shared dialog event contract
+app/api/show/getsubscriptions/route.ts                  # /show.ShowInterface/GetSubscriptions
+app/api/subscription/{setsize,setburst,delete}/route.ts # SubscriptionInterface SetSize/SetBurst/Delete
+app/utils/get_utils.ts                                 # Subscription type + getShowSubscriptions
+app/utils/action_utils.ts                              # setSubscriptionSize/Burst, deleteSubscription + row dispatchers
+```
+
+### Units
+
+`size`, `burst`, and `reservedCores` arrive from the gateway as **centcores**
+(cores &times; 100). The table and graph divide by 100 for display; the edit
+dialogs take cores and send `int(value * 100)` back, matching CueGUI. Allocation
+`stats.cores` (from `getAllocations()`) is already in whole cores.
+
+### Subscriptions table
+
+`subscriptions/page.tsx` loads the active shows for the selector (selection
+persisted to `localStorage["cueweb.subscriptions.show"]`) and the selected
+show's subscriptions via `getShowSubscriptions()`. It auto-refreshes every 30s
+and re-fetches on `cueweb:subscriptions-changed` / `cueweb:shows-changed`,
+forwarding an `isCancelled` guard into the event handlers so a fetch that
+resolves after unmount does not `setState`. The table renders through
+`SimpleDataTable` with the `isSubscriptionsTable` flag; Usage is
+`reservedCores / size` as a percent. The header **Show Properties** /
+**Add Subscription** buttons reuse the Shows window dialogs via the
+`cueweb:open-show-properties` / `cueweb:open-create-subscription` events.
+
+### Subscription Graphs
+
+`subscription-graphs/page.tsx` keeps a multi-show selection (All Shows / Clear /
+per-show checkboxes, persisted to
+`localStorage["cueweb.subscription-graphs.shows"]`), polls each selected show's
+subscriptions every 15s, and polls `getAllocations()` to build an
+`allocationName → cores` map. The two changed-event handlers are split: a
+subscription change reloads against the current shows snapshot; a show change
+re-fetches the active-show list, prunes any selected show that no longer exists,
+and reloads against the fresh snapshot so the dropdown and per-show lookups do
+not go stale.
+
+`subscription-graph.tsx` draws each subscription as a row of positioned `div`s
+(not a charting library) scaled to the allocation's total cores, mirroring
+CueGUI's `SubBookingBarDelegate`:
+
+- sky-blue track = allocation capacity (`#87cfeb`, CueGUI `WAITING`),
+- yellow-green fill = in-use/reserved cores (`#c8c837`, CueGUI `RUNNING`),
+- blue marker = size (`#58a3d1`, `PAUSE_ICON_COLOUR`),
+- red marker = burst (`#e03434`, `KILL_ICON_COLOUR`).
+
+The domain is `max(alloc, size, burst, inUse, 1)` so the markers stay on-screen
+even when burst exceeds the allocation. The hover tooltip renders the real usage
+percentage when `size > 0`, `∞` when size is 0 but usage is live, and `—`
+for an empty subscription. The whole show section forwards right-clicks so an
+empty show can still raise **Add new subscription**; subscription bars
+`stopPropagation` so they keep their own (sub-specific) menu.
+
+### Dialogs, events, and routes
+
+`subscription-dialogs.tsx` provides Edit Size / Edit Burst / Delete, opened via
+the `cueweb:open-edit-subscription-size` / `cueweb:open-edit-subscription-burst`
+/ `cueweb:open-delete-subscription` events
+(`subscription-action-events.ts`), with CueGUI's exact prompt text including the
+billing-confirmation step on size edits. The action helpers in `action_utils.ts`
+(`setSubscriptionSize` / `setSubscriptionBurst` / `deleteSubscription`) post to
+the `/api/subscription/*` routes, which validate their bodies and forward to
+`subscription.SubscriptionInterface/{SetSize,SetBurst,Delete}`; reads go through
+`/api/show/getsubscriptions` &rarr; `show.ShowInterface/GetSubscriptions`. Each
+successful mutation fires `cueweb:subscriptions-changed` so the table and graph
+re-fetch.
+
+---
+
+## Redirect tool (CueCommander parity)
+
+The `/redirect` page (`app/redirect/page.tsx`) replicates the CueGUI CueCommander
+Redirect plugin: it finds busy procs and reassigns their cores to a target job
+(killing the frames currently on those procs). Files involved:
+
+```text
+app/api/redirect/search/route.ts               # search (GetProcs -> filter -> group by host -> FindHost/GetJobs)
+app/api/host/action/redirecttojob/route.ts     # the redirect action (RedirectToJob)
+app/redirect/page.tsx                            # page: filters, results table, redirect flow
+app/utils/get_utils.ts                          # searchRedirect(), RedirectHost / RedirectProc types
+app/utils/action_utils.ts                        # redirectHostToJob()
+```
+
+### Search
+
+`searchRedirect()` &rarr; `/api/redirect/search` does the heavy lifting
+server-side (CueGUI `Redirect.update()`): it lists the procs for the selected
+show + allocations via `host.ProcInterface/GetProcs`, filters them (target job,
+already-redirected, exclude regex, required service, included groups,
+proc-hour cutoff), groups the survivors by host, then enriches each host with
+its idle cores/memory (`host.HostInterface/FindHost`) and the source job's
+reserved cores / waiting frames (`job.JobInterface/GetJobs`), keeping only hosts
+whose totals satisfy the core/memory/runtime thresholds, up to the Result Limit.
+The exclude-regex pattern length is bounded before compiling to keep the
+worst-case backtracking small (ReDoS guard).
+
+### Target auto-detect
+
+On blur of the **Target** field the page resolves the job and pre-fills Show +
+Minimum Cores / Minimum Memory from the job's layers (CueGUI `detect()`), so the
+search defaults to procs large enough to help the target. Best-effort - failures
+are swallowed so a typo doesn't block the form.
+
+### Redirect flow + validation
+
+`redirectHostToJob(host, procNames, jobId)` (`action_utils.ts`) &rarr;
+`/api/host/action/redirecttojob` &rarr; `host.HostInterface/RedirectToJob`, one
+call per selected host. Before firing, the page re-resolves the target job and
+**rejects** the redirect when the job is gone, has no waiting frames, or has
+reached its max cores; it **soft-warns** (a confirm dialog) when the target is
+paused or any selected proc is cross-show (redirecting it kills another show's
+frame). Per-host failures are counted so a partial failure reports a warning
+rather than unqualified success.
 
 ---
 

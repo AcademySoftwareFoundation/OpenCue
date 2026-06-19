@@ -390,6 +390,22 @@ The frame right-click menu, and the confirmation toast shown after an action:
 6. Right-click the frame and select "Retry"
 7. Watch the frame change from red to gray (pending)
 
+### Finding and clearing stuck frames
+
+Failed frames turn red, but a *stuck* frame is trickier: it keeps running (gray-green) while no longer making progress - the process is alive but has stopped writing to its log. CueWeb's **Stuck Frames** page finds these for you.
+
+1. Open **CueCommander &rarr; Stuck Frame** from the header or sidebar.
+
+   ![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+2. The page scans every running frame and lists the ones whose log has gone silent relative to their runtime, grouped under their job. Read the **LLU** (time since the last log line), **Runtime**, and **% Stuck** columns to judge each frame - a high **% Stuck** means the log has been quiet for most of the run.
+3. If nothing shows up, loosen the filters at the top - lower **Min LLU** or **% of Run Since LLU**. To tune detection per render type, click **+** to add a service-specific filter row (so e.g. Arnold frames, which legitimately run long, use looser limits than quick ones).
+4. Right-click a frame you believe is hung and pick an action:
+   - **View Log** / **View Last Log** to confirm it has really stalled.
+   - **Retry** to requeue it, **Eat** to mark it done, or **Kill** to stop it.
+   - **Core Up** to raise the layer's minimum cores when a frame is starved for resources.
+5. Use **Frame Not Stuck** (or **Job Not Stuck**) to dismiss a false positive, or **Add Job to Excludes** to stop a known-noisy job from appearing.
+
 ---
 
 ## Advanced Search and Filtering
@@ -610,6 +626,31 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 - **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
 - **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
 - **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
+
+---
+
+## Redirecting cores to a job
+
+When a high-priority job is starved for cores, the **Redirect** tool (CueCommander &rarr; Redirect) lets an administrator take cores away from other running work and hand them to that job. **Redirecting kills the frames currently running on the chosen procs**, so it is a deliberate, admin-level action - not an everyday operation.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Open **CueCommander &rarr; Redirect**.
+2. In the **Target** field, type the job that should receive the cores. CueWeb resolves it and auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help.
+3. Tune the filters:
+   - **Job filters** - narrow the candidate procs by Show, Include Groups, Require Services, or an Exclude Regex on the job name.
+   - **Resource filters** - set the Allocations, Minimum / Max Cores, Minimum Memory, Result Limit, and a **Proc Hour Cutoff** so you don't kill procs that are nearly finished.
+4. Click **Search**. CueWeb lists the hosts whose busy procs match; expand a row to see the individual procs (which job/group/service each one is running).
+5. Tick the hosts you want to take cores from (or **Select All**), then click **Redirect**.
+6. CueWeb double-checks the target before acting: it **refuses** if the target job has disappeared, has no waiting frames, or is already at its max cores, and it **asks you to confirm** if the target is paused or if a selected proc belongs to a different show (that show's frame would be killed). On success the freed cores are booked onto your target job.
+
+   ![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+7. A success toast confirms how many hosts were redirected.
+
+   ![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form and start a new search.
 
 ---
 
