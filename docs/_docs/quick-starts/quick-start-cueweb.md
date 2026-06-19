@@ -258,6 +258,15 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 ![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
 
+### Find stuck frames
+
+Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung - frames that keep running but have stopped writing to their log. The page scans every running frame and lists the ones that cross the detection thresholds (Last Log Update vs. runtime), grouped by job.
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+- Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
+- Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
+
 
 ---
 

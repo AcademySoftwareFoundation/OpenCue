@@ -173,6 +173,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
+31. **Stuck Frames (CueCommander &rarr; Stuck Frame):**
+   - A stuck-frame finder at `/stuck-frames`, the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window. Reached from the CueCommander menu / sidebar entry.
+   - Scans every running frame across active jobs and flags the ones that look hung (the log has gone silent relative to runtime), grouped under their job. Columns: Name, Frame, Host, LLU, Runtime, % Stuck, Average, Last Line. Auto-refreshes on a timer, with **Refresh** / **Clear** controls.
+   - **Detection filters** (saved per browser): % of Run Since LLU, Min LLU, % Avg Completion, Total Runtime, and Exclude Keywords. The **+** button adds a per-service filter row (catch-all "All Other Types" plus one row per render service, so e.g. Arnold can use looser thresholds than quicker services).
+   - **Frame actions** via the row's right-click menu: Tail/View/View Last Log, Retry / Eat / Kill, Log Stuck Frame (and Log and Retry / Eat / Kill), Frame Not Stuck, Add Job to Excludes / Exclude and Remove Job, **Core Up** (raise the layer's minimum cores), and View Host.
+   - **Job actions** via the job header's right-click menu: View Comments, Job Not Stuck, Add Job to Excludes / Exclude and Remove Job, and **Core Up** across the job's stuck layers.
+
 
 ## CueWeb's user interface
 

@@ -114,6 +114,13 @@ A machine that is running an instance of *rqd*. This machine will split up into
 A job is a collection of *layers*, which is sent as a *script* to the queue to
 be processed on remote *cores*.
 
+## Last Log Update (LLU)
+
+The time elapsed since a running *frame* last wrote to its log. A large LLU on a
+frame that is still running is the main signal that the frame may be *stuck* -
+the process is alive but no longer making progress. CueWeb's Stuck Frames page
+shows LLU per frame and uses it (relative to runtime) to flag stuck frames.
+
 ## Layers
 
 The sub-jobs in an *outline script* job. Each layer contains a frame range and a
@@ -202,6 +209,15 @@ occasional reruns or for redirecting legacy content to training allocations.
 
 When all the *frames* of the first *job* need to finish before the second job
 can begin.
+
+## Stuck frame
+
+A running *frame* that appears hung: it keeps running but has stopped writing to
+its log, so its *Last Log Update (LLU)* keeps climbing relative to its runtime.
+A stuck frame is not a distinct frame state - it is detected heuristically (LLU
+vs. runtime vs. the *layer*'s average frame time). CueGUI's CueCommander Stuck
+Frame plugin and CueWeb's Stuck Frames page list them so you can retry, eat,
+kill, or *core up* (raise the minimum cores of) the affected layer.
 
 ## Subscription
 

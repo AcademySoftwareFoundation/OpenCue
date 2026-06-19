@@ -1168,6 +1168,68 @@ rewrites Cuebot's duplicate-key error into a short user-facing message.
 
 ---
 
+## Stuck Frames page (CueCommander parity)
+
+The `/stuck-frames` page (`app/stuck-frames/page.tsx`) replicates the CueGUI
+CueCommander Stuck Frame plugin. Unlike the other tables it renders its own
+job-grouped layout (not `SimpleDataTable`), because rows are grouped under a job
+header and the detection runs client-side. Files involved:
+
+```text
+app/api/stuck-frames/route.ts                  # aggregate every RUNNING frame across unfinished jobs
+app/api/stuck-frames/lastline/route.ts         # tail a frame's .rqlog for the "Last Line" column
+app/stuck-frames/page.tsx                       # page + detection helpers (metricsOf/pickFilter/isExcluded/isStuck)
+components/ui/stuck-frame-filters.tsx           # StuckFilter type, DEFAULT_FILTER, SERVICE_DEFAULTS, makeServiceFilter, StuckFrameFilters
+app/utils/get_utils.ts                          # StuckFrame type, getStuckFrames(), getStuckFrameLastLine()
+app/utils/action_utils.ts                       # retryFrames/eatFrames/killFrames, setLayerMinCores (Core Up)
+```
+
+### Data source
+
+`getStuckFrames()` &rarr; `/api/stuck-frames` aggregates every RUNNING frame
+across unfinished jobs server-side, stamping each with its `service`,
+`avgFrameSec`, `layerId`, and `layerMinCores` (the `StuckFrame` type extends
+`Frame`). The page polls it on a timer (Auto-refresh). Per visible frame,
+`getStuckFrameLastLine()` &rarr; `/api/stuck-frames/lastline` fills the **Last
+Line** column; that route canonicalizes the path with `realpath`, enforces the
+optional `CUEWEB_LOG_ROOTS` allow-list, and `tail`s the `.rqlog` via `execFile`
+(no shell) - best-effort, returning an empty line when the log FS isn't mounted.
+
+### Detection (client-side)
+
+The detection lives in `page.tsx` so the filters stay instant. `metricsOf(f)`
+derives `runtime = now - startTime`, `llu = now - lluTime` (RUNNING only) and
+`percentStuck = llu / runtime`. `pickFilter` selects the most specific filter
+for a frame (a service row whose `service` matches, else the catch-all at index
+0). `isExcluded` runs the filter's comma-separated `regex` keywords against the
+job/layer name. `isStuck` mirrors CueGUI: `llu > minLlu*60` **and**
+`percentStuck*100 > percentStuck` threshold **and** `runtime > avg*avgComp/100`
+**and** `percentStuck < 1.1` **and** `runtime > 500`.
+
+### Filters
+
+`stuck-frame-filters.tsx` owns the `StuckFilter` shape and the
+`StuckFrameFilters` bar. Filter 0 is the catch-all (`service: ""`); the **+**
+button appends a `makeServiceFilter(service)` row for the first
+not-yet-used service from the page-supplied `availableServices`, seeded from
+`SERVICE_DEFAULTS` (`preprocess`/`nuke`/`arnold`) or `DEFAULT_FILTER` otherwise.
+The full filter list persists to `localStorage["cueweb.stuck-frames.filters"]`
+(`FILTERS_KEY`).
+
+### Actions
+
+Frame/job context menus are rendered inline in `page.tsx` (not the shared
+`action-context-menu.tsx`). Retry/Eat/Kill call `retryFrames` / `eatFrames` /
+`killFrames` (`/api/frame/action/{retry,eat,kill}`). **Core Up** opens a small
+dialog and calls `setLayerMinCores()` &rarr; `/api/layer/action/setmincores`
+(one call per target layer; the job variant fans out across the job's stuck
+layers). **Log Stuck Frame** / **Log and Retry/Eat/Kill** run a client-side
+`exportLog(...)` before the action. **Frame/Job Not Stuck** and the **Exclude**
+entries are client-only: the former hide ids in component state (cleared by
+**Clear**), the latter append to the active filter's exclude keywords.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode
