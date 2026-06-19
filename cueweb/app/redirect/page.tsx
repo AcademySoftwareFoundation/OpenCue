@@ -276,7 +276,9 @@ export default function RedirectPage() {
     setRedirecting(true);
     try {
       const outcomes = await Promise.all(
-        selected.map((h) => redirectHostToJob(h.host, h.procs.map((p) => p.name), jobId)),
+        // RedirectToJob resolves procs by id (pk_proc), matching pycue's
+        // `proc_names=[proc.data.id ...]` - sending the display name 404s.
+        selected.map((h) => redirectHostToJob(h.host, h.procs.map((p) => p.id), jobId)),
       );
       const okHosts = selected.filter((_, i) => outcomes[i]).map((h) => h.name);
       const failed = selected.length - okHosts.length;

@@ -158,6 +158,7 @@ export async function POST(request: NextRequest) {
       jobCores,
       waitingFrames: waiting,
       procs: hostProcs.map((proc) => ({
+        id: proc.id,
         name: proc.name,
         jobName: proc.jobName,
         groupName: proc.groupName ?? "",

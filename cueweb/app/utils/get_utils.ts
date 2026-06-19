@@ -269,6 +269,10 @@ export async function findJobByName(name: string): Promise<Job | null> {
 // --- Redirect tool (CueGUI Redirect) -------------------------------------
 // A proc on a candidate host, as returned by /api/redirect/search.
 export type RedirectProc = {
+    // Proc UUID (pk_proc). The RedirectToJob RPC resolves procs by id - pycue
+    // sends `[proc.data.id ...]` as proc_names - so the redirect action must
+    // send this, not the display name.
+    id: string;
     name: string;
     jobName: string;
     groupName: string;
