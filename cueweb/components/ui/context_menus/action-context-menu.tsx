@@ -26,6 +26,7 @@ import {
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
   createSubscriptionGivenRow,
+  deleteLimitGivenRow,
   dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
@@ -33,6 +34,7 @@ import {
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
   editHostTagsGivenRow,
+  editLimitMaxValueGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
@@ -45,6 +47,7 @@ import {
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
+  renameLimitGivenRow,
   retryLayerFramesGivenRow,
   setCoresGivenRow,
   setMaxRetriesGivenRow,
@@ -77,6 +80,7 @@ import {
   TbLockOpen,
   TbMessage,
   TbPacman,
+  TbPencil,
   TbPlayerPause,
   TbPlayerPlay,
   TbPlugConnectedX,
@@ -86,6 +90,7 @@ import {
   TbReload,
   TbSettings,
   TbStar,
+  TbTrash,
   TbTag,
 } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
@@ -645,6 +650,54 @@ export const ShowContextMenu: React.FC<ShowContextMenuProps> = ({
       onClick: createSubscriptionGivenRow,
       isActive: true,
       component: <TbPlus className="mr-1" size={14} />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+interface LimitContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+// Context menu for the Limits table (CueGUI LimitsWidget parity): Edit Max
+// Value, Delete Limit, Rename.
+export const LimitContextMenu: React.FC<LimitContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Edit Max Value",
+      onClick: editLimitMaxValueGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-limit-modify"),
+    {
+      label: "Delete Limit",
+      onClick: deleteLimitGivenRow,
+      isActive: true,
+      component: <TbTrash className="mr-1" size={14} color="red" />,
+    },
+    {
+      label: "Rename",
+      onClick: renameLimitGivenRow,
+      isActive: true,
+      component: <TbPencil className="mr-1" size={14} />,
     },
   ];
 

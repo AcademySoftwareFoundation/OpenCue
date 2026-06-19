@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { FrameContextMenu, HostContextMenu, LayerContextMenu, LimitContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
@@ -46,7 +46,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Layers, PieChart, Search, Server, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Gauge, Layers, PieChart, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -79,6 +79,9 @@ interface SimpleDataTableProps<TData, TValue> {
   // Allocations variant (read-only, Allocations page): allocation-specific
   // filter/empty copy and no row context menu.
   isAllocationsTable?: boolean;
+  // Limits variant (Limits page): limit-specific filter/empty copy and the
+  // LimitContextMenu (Edit Max Value, Delete, Rename).
+  isLimitsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -114,6 +117,7 @@ export function SimpleDataTable<TData, TValue>({
   isProcsTable = false,
   isShowsTable = false,
   isAllocationsTable = false,
+  isLimitsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
@@ -515,8 +519,8 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : isLimitsTable ? "Filter limits..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : isLimitsTable ? "Filter limits" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
               className="h-8 w-44 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
@@ -629,6 +633,8 @@ export function SimpleDataTable<TData, TValue>({
                         <Film className="h-6 w-6" aria-hidden="true" />
                       ) : isAllocationsTable ? (
                         <PieChart className="h-6 w-6" aria-hidden="true" />
+                      ) : isLimitsTable ? (
+                        <Gauge className="h-6 w-6" aria-hidden="true" />
                       ) : (
                         <Layers className="h-6 w-6" aria-hidden="true" />
                       )
@@ -642,6 +648,8 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No shows"
                             : isAllocationsTable
                               ? "No allocations"
+                              : isLimitsTable
+                                ? "No limits"
                               : isFramesTable
                                 ? "Layer has no frames"
                               : isFramesLogTable
@@ -657,6 +665,8 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No active shows. Use Create Show to add one."
                             : isAllocationsTable
                               ? "No allocations are configured in Cuebot."
+                              : isLimitsTable
+                                ? "No limits are configured. Use Add Limit to create one."
                               : isFramesTable
                                 ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
                               : isFramesLogTable
@@ -681,11 +691,19 @@ export function SimpleDataTable<TData, TValue>({
       )}
 
       {/* Row context menu. Hosts get Lock/Unlock/Reboot; shows get Show
-          Properties / Create Subscription; frames/frame-logs get the frame
-          menu; the read-only procs and allocations tables get none; everything
-          else (layers) gets the layer menu. */}
+          Properties / Create Subscription; limits get Edit/Delete/Rename;
+          frames/frame-logs get the frame menu; the read-only procs and
+          allocations tables get none; everything else (layers) gets the layer
+          menu. */}
       {(isProcsTable || isAllocationsTable) ? null : isHostsTable ? (
         <HostContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
+      ) : isLimitsTable ? (
+        <LimitContextMenu
           contextMenuState={contextMenuState}
           contextMenuHandleClose={contextMenuHandleClose}
           contextMenuRef={contextMenuRef}
