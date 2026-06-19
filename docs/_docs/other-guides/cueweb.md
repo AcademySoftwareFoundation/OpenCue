@@ -194,6 +194,12 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Add Limit** dialog creates a new limit (max value starts at 0).
    - **Limit actions** via the row's right-click menu: **Edit Max Value** (validates a non-negative integer), **Rename**, and **Delete Limit** (with a confirmation).
 
+35. **Redirect (CueCommander &rarr; Redirect):**
+   - An administrator tool at `/redirect`, the CueWeb equivalent of CueGUI's CueCommander Redirect window. Reached from the CueCommander menu / sidebar entry. It moves cores to a job that needs them by reassigning busy procs to a target job - the frames running on those procs are killed and the freed cores are booked onto the target.
+   - **Target + auto-detect**: typing a target job name auto-fills the Show and minimum cores/memory from the job's layers (CueGUI `detect()`), so the search looks for procs large enough to help.
+   - **Job filters** (Show, Include Groups, Require Services, Exclude Regex) and **resource filters** (Allocations, Minimum/Max Cores, Minimum Memory, Result Limit, Proc Hour Cutoff) scope the search. **Search** lists the matching hosts (Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, LLU), expandable to their individual procs.
+   - **Redirect** the selected hosts (or **Select All**): CueWeb refuses if the target is gone / has no waiting frames / is at max cores, and asks for confirmation when the target is paused or a selected proc belongs to a different show (a cross-show redirect kills that show's frame).
+
 
 ## CueWeb's user interface
 

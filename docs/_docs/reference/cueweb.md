@@ -484,6 +484,20 @@ A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the CueWeb equivalen
 
 The action helpers (`createLimit` / `deleteLimit` / `renameLimit` / `setLimitMaxValue` in `app/utils/action_utils.ts`) key on the limit **name** (the proto requests take `name` / `old_name`, not an id). `setLimitMaxValue` validates a non-negative integer before calling `SetMaxValue`; on success each dialog fires `cueweb:limits-changed`.
 
+### Redirect
+
+An administrator tool at `/redirect` (`cueweb/app/redirect/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Redirect window (`Redirect.update()`). Reached from **CueCommander &rarr; Redirect** (header dropdown and sidebar). It reassigns busy procs to a target job: the running frames on the selected procs are killed and the freed cores are booked onto the target.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Target auto-detect** | Typing a target job name (on blur) resolves the job and pre-fills Show + Minimum Cores / Minimum Memory from its layers (CueGUI `detect()`), so the search targets procs large enough to help. |
+| **Search** | `searchRedirect()` (`app/utils/get_utils.ts`) &rarr; `/api/redirect/search` lists the procs for the chosen show + allocations via `host.ProcInterface/GetProcs`, filters them (target job, already-redirected, exclude regex, required service, included groups, proc-hour cutoff), groups them by host, looks up each host's idle cores/memory (`host.HostInterface/FindHost`) and the source job's reserved cores / waiting frames (`job.JobInterface/GetJobs`), then keeps hosts whose totals satisfy the core/memory/runtime thresholds - up to the Result Limit. The route caps the exclude-regex length before compiling to avoid a ReDoS vector. |
+| **Filters** | Job filters: Show (required), Include Groups (`getShowGroups`), Require Services, Exclude Regex. Resource filters: Allocations (`getAllocations`), Minimum/Max Cores, Minimum Memory (GB &rarr; KB), Result Limit, Proc Hour Cutoff (PrcHrs &rarr; seconds). |
+| **Results** | One row per host (`RedirectHost`): Name, Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, LLU, Log; expandable to the individual `RedirectProc`s. Select rows (or **Select All**). |
+| **Redirect action** | `redirectHostToJob(host, procNames, jobId)` &rarr; `/api/host/action/redirecttojob` &rarr; `host.HostInterface/RedirectToJob` (one call per selected host; unbooks/kills the named procs and books the freed resources to the target). Pre-flight validation **rejects** when the target job is gone, has no waiting frames, or is at max cores, and **soft-warns** (confirm dialog) when the target is paused or a selected proc is cross-show. |
+
 ### Job-finished notifications
 
 | Behavior | Description |
@@ -1240,7 +1254,8 @@ Layout, left to right:
   - Monitor Hosts (`/hosts`) - implemented; host registry with row actions
     (lock/unlock, reboot, edit tags) and a per-host detail page (see
     [Monitor Hosts](#monitor-hosts)).
-  - Redirect (`/redirect`)
+  - Redirect (`/redirect`) - implemented; admin tool that reassigns busy
+    procs' cores to a target job (see [Redirect](#redirect)).
   - Services (`/services`)
   - Shows (`/shows`) - implemented; shows stats table with Create Show, Show
     Properties, and Create Subscription, plus a per-show group-tree detail page

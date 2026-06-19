@@ -613,6 +613,31 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 
 ---
 
+## Redirecting cores to a job
+
+When a high-priority job is starved for cores, the **Redirect** tool (CueCommander &rarr; Redirect) lets an administrator take cores away from other running work and hand them to that job. **Redirecting kills the frames currently running on the chosen procs**, so it is a deliberate, admin-level action - not an everyday operation.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Open **CueCommander &rarr; Redirect**.
+2. In the **Target** field, type the job that should receive the cores. CueWeb resolves it and auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help.
+3. Tune the filters:
+   - **Job filters** - narrow the candidate procs by Show, Include Groups, Require Services, or an Exclude Regex on the job name.
+   - **Resource filters** - set the Allocations, Minimum / Max Cores, Minimum Memory, Result Limit, and a **Proc Hour Cutoff** so you don't kill procs that are nearly finished.
+4. Click **Search**. CueWeb lists the hosts whose busy procs match; expand a row to see the individual procs (which job/group/service each one is running).
+5. Tick the hosts you want to take cores from (or **Select All**), then click **Redirect**.
+6. CueWeb double-checks the target before acting: it **refuses** if the target job has disappeared, has no waiting frames, or is already at its max cores, and it **asks you to confirm** if the target is paused or if a selected proc belongs to a different show (that show's frame would be killed). On success the freed cores are booked onto your target job.
+
+   ![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+7. A success toast confirms how many hosts were redirected.
+
+   ![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form and start a new search.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures

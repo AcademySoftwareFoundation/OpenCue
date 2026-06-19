@@ -258,6 +258,16 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 ![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
 
+### Redirect cores to a job
+
+Open **CueCommander &rarr; Redirect** to hand cores to a job that needs them. The tool finds procs currently busy on other work and reassigns them to a **Target** job - the frames on those procs are killed and the freed cores are booked onto your target, so use it deliberately.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Type the **Target** job name (this auto-fills the Show and minimum cores/memory from its layers).
+2. Adjust the filters (Allocations, Minimum/Max Cores, Minimum Memory, Proc Hour Cutoff) and click **Search**.
+3. Tick the hosts to take from (or **Select All**) and click **Redirect**. CueWeb refuses if the target has no waiting frames or is at max cores, and warns before a paused-target or cross-show redirect.
+
 
 ---
 

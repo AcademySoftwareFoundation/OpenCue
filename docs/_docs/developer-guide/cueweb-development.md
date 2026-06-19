@@ -1303,6 +1303,53 @@ re-fetch.
 
 ---
 
+## Redirect tool (CueCommander parity)
+
+The `/redirect` page (`app/redirect/page.tsx`) replicates the CueGUI CueCommander
+Redirect plugin: it finds busy procs and reassigns their cores to a target job
+(killing the frames currently on those procs). Files involved:
+
+```text
+app/api/redirect/search/route.ts               # search (GetProcs -> filter -> group by host -> FindHost/GetJobs)
+app/api/host/action/redirecttojob/route.ts     # the redirect action (RedirectToJob)
+app/redirect/page.tsx                            # page: filters, results table, redirect flow
+app/utils/get_utils.ts                          # searchRedirect(), RedirectHost / RedirectProc types
+app/utils/action_utils.ts                        # redirectHostToJob()
+```
+
+### Search
+
+`searchRedirect()` &rarr; `/api/redirect/search` does the heavy lifting
+server-side (CueGUI `Redirect.update()`): it lists the procs for the selected
+show + allocations via `host.ProcInterface/GetProcs`, filters them (target job,
+already-redirected, exclude regex, required service, included groups,
+proc-hour cutoff), groups the survivors by host, then enriches each host with
+its idle cores/memory (`host.HostInterface/FindHost`) and the source job's
+reserved cores / waiting frames (`job.JobInterface/GetJobs`), keeping only hosts
+whose totals satisfy the core/memory/runtime thresholds, up to the Result Limit.
+The exclude-regex pattern length is bounded before compiling to keep the
+worst-case backtracking small (ReDoS guard).
+
+### Target auto-detect
+
+On blur of the **Target** field the page resolves the job and pre-fills Show +
+Minimum Cores / Minimum Memory from the job's layers (CueGUI `detect()`), so the
+search defaults to procs large enough to help the target. Best-effort - failures
+are swallowed so a typo doesn't block the form.
+
+### Redirect flow + validation
+
+`redirectHostToJob(host, procNames, jobId)` (`action_utils.ts`) &rarr;
+`/api/host/action/redirecttojob` &rarr; `host.HostInterface/RedirectToJob`, one
+call per selected host. Before firing, the page re-resolves the target job and
+**rejects** the redirect when the job is gone, has no waiting frames, or has
+reached its max cores; it **soft-warns** (a confirm dialog) when the target is
+paused or any selected proc is cross-show (redirecting it kills another show's
+frame). Per-host failures are counted so a partial failure reports a warning
+rather than unqualified success.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

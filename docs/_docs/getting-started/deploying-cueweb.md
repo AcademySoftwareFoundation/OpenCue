@@ -511,6 +511,14 @@ The form auto-saves a draft to `localStorage` on every keystroke and keeps per-f
 
 ---
 
+## Redirect tool
+
+The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with CueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
+
+**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Treat access to CueWeb accordingly - anyone who can reach the UI can issue redirects. If your deployment needs to restrict who can perform farm-wide actions, gate it at the authentication / reverse-proxy layer (CueWeb does not implement per-action role checks).
+
+---
+
 ## Reverse Proxy Configuration
 
 ### Nginx Configuration

@@ -1361,6 +1361,59 @@ Right-click a limit row to open its actions menu: **Edit Max Value**, **Delete L
 
 ---
 
+## Redirect
+
+The **Redirect** page (CueCommander &rarr; Redirect in the sidebar or header) is an administrator tool for **moving cores to a job that needs them**. It finds render procs that are currently busy on other work and reassigns ("redirects") them to a target job - the running frames on those procs are killed and the freed cores are booked onto your target. It is the CueWeb equivalent of CueGUI's CueCommander Redirect window.
+
+> **This is a destructive admin action.** Redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Use it deliberately.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Redirect entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_redirect_menu.png)
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+### How it works
+
+1. Set a **Target** job (the job that should receive the cores). Typing a job name auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help it.
+2. Narrow the search with the filters (below).
+3. Click **Search**. CueWeb lists the hosts whose busy procs match - each row shows what would be freed.
+4. Tick the hosts you want (or **Select All**), then click **Redirect**. CueWeb confirms the target is valid, warns about anything risky, kills the selected procs' frames, and books the cores onto the target job.
+
+### Job filters
+
+- **Show** - the show whose running procs are candidates (required).
+- **Include Groups** - limit candidates to procs from specific groups of that show.
+- **Require Services** - only procs running a layer with this service.
+- **Exclude Regex** - skip procs whose job name matches this pattern.
+
+### Resource filters
+
+- **Allocations** - restrict the search to specific allocations.
+- **Minimum Cores** / **Max Cores** - the per-host core range to return.
+- **Minimum Memory** (GB) - minimum idle memory a host must have.
+- **Result Limit** - cap the number of hosts returned.
+- **Proc Hour Cutoff** (PrcHrs) - skip procs that have already burned more than this many proc-hours, so you don't kill near-finished work.
+
+### Results and redirecting
+
+Each result row is a **host**, with columns for Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, and LLU; expand a row to see the individual procs. Select the hosts you want and click **Redirect**.
+
+Before redirecting, CueWeb checks the target job and refuses or warns:
+
+- **Refuses** if the target job no longer exists, has no waiting frames, or has already reached its max cores.
+- **Warns** (asks you to confirm) if the target job is **paused**, or if any selected proc belongs to a **different show** - redirecting it will kill that other show's frame.
+
+![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+On success, a toast confirms how many hosts were redirected to the target job.
+
+![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form.
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
