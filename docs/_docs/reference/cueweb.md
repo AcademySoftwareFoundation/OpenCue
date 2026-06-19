@@ -418,6 +418,23 @@ Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/pag
 | **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
 | **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
 
+### Facility Service Defaults
+
+A facility-wide service-defaults editor at `/services` (`cueweb/app/services/page.tsx` + `components/ui/service-defaults-form.tsx`), the CueWeb equivalent of CueGUI's Facility Service Defaults tab (`ServiceDialog` / `ServiceForm`). Reached from **CueCommander &rarr; Services** (header dropdown and sidebar).
+
+![CueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Layout** | Two panes: a left list of the facility default services (`New` / `Del`) and a right edit form for the selected service. |
+| **Data source** | Loads via `getDefaultServices()` (`app/utils/get_utils.ts`) &rarr; `/api/service/getdefaultservices` &rarr; `service.ServiceInterface/GetDefaultServices`. `getDefaultServices()` returns an array on success and throws on a non-array response, so a backend outage reaches the page's error state rather than rendering "No services defined". |
+| **Form fields** | Name, Threadable, Min/Max Threads (centcores; `100` = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined two-column checkbox matrix or a Custom Tags free-text toggle). |
+| **Units** | Memory fields are MB in the UI but KB in the proto (&times;1024); threads are stored as cores &times; 100. |
+| **Validation** | Name length/charset, all numeric fields non-negative integers, min &le; max threads when max &gt; 0, OOM increase &gt; 0, and tag charset. Invalid input raises a warning toast and blocks save. |
+| **Save** | Shows a facility-wide confirmation, then calls `createService()` (new) or `updateService()` (existing) &rarr; `/api/service/{create,update}` &rarr; `service.ServiceInterface/{CreateService,Update}`. |
+| **Delete** | `Del` confirms first, then `deleteService()` &rarr; `/api/service/delete` &rarr; `service.ServiceInterface/Delete`. |
+| **Error handling** | The Save/Delete confirm handlers throw when the helper returns `false`, so the `ConfirmDialog` stays open for retry instead of dismissing as if the action succeeded; the helper still surfaces an error toast. |
+
 ### Subscriptions
 
 A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Reached from **CueCommander &rarr; Subscriptions** (header dropdown and sidebar).

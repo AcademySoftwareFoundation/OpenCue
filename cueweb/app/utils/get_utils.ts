@@ -173,6 +173,27 @@ export type Allocation = {
     };
 };
 
+// Service shape - mirrors service.Service. This is a facility-wide default
+// service template (Facility Service Defaults page). Cores are stored as
+// cores*100 (the UI calls them "threads", 100 = 1 thread); memory fields are
+// stored in KB and shown as MB (divide by 1024). int64 memory fields can
+// arrive from the gateway as strings, so callers coerce with Number().
+export type Service = {
+    id: string;
+    name: string;
+    threadable: boolean;
+    minCores: number;
+    maxCores: number;
+    minMemory: number | string;       // KB (int64)
+    minGpuMemory: number | string;    // KB (int64)
+    tags: string[];
+    timeout: number;                  // minutes
+    timeoutLlu: number;               // minutes
+    minGpus?: number;
+    maxGpus?: number;
+    minMemoryIncrease: number;        // KB (OOM increase)
+};
+
 // Subscription shape - mirrors subscription.Subscription. A subscription is a
 // show's reservation against one allocation. size/burst/reservedCores arrive
 // from the gateway as int32 centcores (cores * 100); the Subscriptions table
@@ -366,6 +387,17 @@ export async function getAllocations(): Promise<Allocation[]> {
     const ENDPOINT = "/api/allocation/getall";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
     return Array.isArray(response) ? response : [];
+}
+
+// Fetch the facility-wide default services (the Facility Service Defaults
+// page). Mirrors CueGUI's opencue.api.getDefaultServices().
+export async function getDefaultServices(): Promise<Service[]> {
+    const ENDPOINT = "/api/service/getdefaultservices";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load default services from Cuebot.");
+    }
+    return response;
 }
 
 // Fetch the subscriptions belonging to a single show (the per-show

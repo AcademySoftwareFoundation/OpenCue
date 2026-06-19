@@ -1168,6 +1168,59 @@ rewrites Cuebot's duplicate-key error into a short user-facing message.
 
 ---
 
+## Facility Service Defaults (CueCommander parity)
+
+The `/services` page replicates the CueGUI CueCommander Facility Service Defaults
+tab (`ServiceDialog` / `ServiceForm`). The sidebar/header **Services** item
+already pointed at `/services`. Files involved:
+
+```text
+app/services/page.tsx                                  # two-pane list + form, New/Del, delete confirm
+components/ui/service-defaults-form.tsx                # right-pane edit form (create/update)
+app/api/service/{getdefaultservices,create,update,delete}/route.ts
+app/utils/get_utils.ts                                 # Service type + getDefaultServices
+app/utils/action_utils.ts                              # createService / updateService / deleteService
+```
+
+### Page
+
+`services/page.tsx` loads the facility default services on mount
+(`getDefaultServices()`), sorts them by name, and renders a left list (with
+`New` / `Del`) beside the right-pane `ServiceDefaultsForm`. The form is keyed on
+the selected service name (or `__new__`) so it re-initializes straight from props
+on every selection. `Del` opens a `ConfirmDialog`; its `onConfirm`
+(`deleteService`) throws when the helper returns `false` so the dialog stays open
+for retry rather than dismissing as if the delete had succeeded.
+
+### Form, units, and validation
+
+`service-defaults-form.tsx` mirrors CueGUI's `ServiceForm`:
+
+- **Units:** memory fields are MB in the UI but KB in the proto (×1024);
+  Min/Max Threads are centcores (`100` = 1 thread, shown directly).
+- **Tags:** a predefined two-column checkbox matrix (row-major order
+  `general/desktop`, `playblast/util`, `preprocess/wan`, `cuda/splathw`,
+  `naiad/massive`, matching CueGUI's `CheckBoxSelectionMatrix`) plus a **Custom
+  Tags** toggle that swaps to a free-text, space/comma-separated input.
+- **Validation:** name length/charset; every numeric field a non-negative
+  integer (they back int32 centcores / int64 KB / int32 minute proto fields, and
+  CueGUI uses integer spin boxes, so fractional input is rejected up front);
+  min &le; max threads when max &gt; 0; OOM increase &gt; 0; and the custom-tag
+  charset. A failure raises a warning toast and blocks the save.
+- **Save:** opens a facility-wide `ConfirmDialog`, then calls `createService()`
+  (new) or `updateService()` (existing). Like the delete path, `onConfirm`
+  throws on a `false` result to keep the dialog open for retry.
+
+### Action helpers + routes
+
+`getDefaultServices()` throws on a non-array response (mirroring `getHosts()`)
+so a failed load reaches the page's catch/error state instead of collapsing to an
+empty list. `createService` / `updateService` / `deleteService` go through
+`accessActionApi` (returning a boolean). The `/api/service/*` routes forward to
+`service.ServiceInterface/{GetDefaultServices,CreateService,Update,Delete}`.
+
+---
+
 ## Subscriptions and Subscription Graphs (CueCommander parity)
 
 The `/subscriptions` and `/subscription-graphs` pages replicate the CueGUI
