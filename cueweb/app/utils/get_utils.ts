@@ -189,6 +189,15 @@ export type Subscription = {
     reservedGpus: number;
 };
 
+// Limit shape - mirrors limit.Limit. maxValue / currentRunning arrive from the
+// gateway in camelCase.
+export type Limit = {
+    id: string;
+    name: string;
+    maxValue: number;
+    currentRunning: number;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -364,6 +373,13 @@ export async function getAllocations(): Promise<Allocation[]> {
 export async function getShowSubscriptions(show: Show): Promise<Subscription[]> {
     const ENDPOINT = "/api/show/getsubscriptions";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({ show }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every limit known to Cuebot (for the Limits page).
+export async function getLimits(): Promise<Limit[]> {
+    const ENDPOINT = "/api/limit/getall";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
     return Array.isArray(response) ? response : [];
 }
 

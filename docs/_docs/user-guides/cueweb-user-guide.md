@@ -1261,6 +1261,48 @@ The page refreshes every 15 seconds.
 
 ---
 
+## Limits
+
+The **Limits** page (CueCommander &rarr; Limits in the sidebar or header) lists the limits configured in Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Limits window, with an **Add Limit** button and a per-row actions menu.
+
+Open it from the **CueCommander** menu (or the matching entry in the left sidebar).
+
+![Limits entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_limits_menu.png)
+
+The page renders a sortable, filterable table with columns **Limit Name**, **Max Value**, and **Current Running**. Use **Refresh** to reload immediately; the table also auto-refreshes every 30 seconds.
+
+![CueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+
+### Add a limit
+
+Click **Add Limit** and enter a name. The new limit is created with a max value of 0; use **Edit Max Value** afterward to set it.
+
+![Add Limit dialog](/assets/images/cueweb/cueweb_cuecommander_limits_add_limit.png)
+
+A toast confirms the limit was created.
+
+![Limit added confirmation](/assets/images/cueweb/cueweb_cuecommander_limits_add_limit_confirmation.png)
+
+### Limit row actions
+
+Right-click a limit row to open its actions menu: **Edit Max Value**, **Delete Limit**, and **Rename**.
+
+![Limit row context menu](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options.png)
+
+**Edit Max Value** opens a dialog to set the limit's max value. The value must be a non-negative integer.
+
+![Edit Max Value dialog](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_edit_max_value.png)
+
+**Rename** opens a dialog to give the limit a new name.
+
+![Rename a Limit dialog](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_rename_a_limit.png)
+
+**Delete Limit** asks you to confirm before removing the limit.
+
+![Delete limit confirmation](/assets/images/cueweb/cueweb_cuecommander_limits_menu_options_delete_selected_limit.png)
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.

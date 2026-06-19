@@ -20,7 +20,7 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show, Subscription } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Limit, Show, Subscription } from "./get_utils";
 import {
   OPEN_DELETE_SUBSCRIPTION_EVENT,
   OPEN_EDIT_SUBSCRIPTION_BURST_EVENT,
@@ -1199,6 +1199,34 @@ export async function deleteSubscription(subscription: Subscription): Promise<bo
   return !!result?.success;
 }
 
+/**************************************/
+// Limit actions (CueCommander Limits window parity)
+/**************************************/
+
+// Limit mutations key on the limit name (the proto requests take name /
+// old_name, not an id or object). They call accessActionApi directly so the
+// calling dialog can show a single toast; errors are surfaced by accessActionApi.
+async function limitAction(endpoint: string, body: object): Promise<boolean> {
+  const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+export async function createLimit(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/create", { name, max_value: maxValue });
+}
+
+export async function deleteLimit(name: string): Promise<boolean> {
+  return limitAction("/api/limit/action/delete", { name });
+}
+
+export async function renameLimit(oldName: string, newName: string): Promise<boolean> {
+  return limitAction("/api/limit/action/rename", { old_name: oldName, new_name: newName });
+}
+
+export async function setLimitMaxValue(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/setmaxvalue", { name, max_value: maxValue });
+}
+
 // Context-menu dispatchers: open the page-level subscription dialogs via
 // CustomEvent so the free-function handlers stay free of component state
 // (same pattern as the Shows window).
@@ -1207,6 +1235,17 @@ export function editSubscriptionSizeGivenRow(row: Row<any>) {
   window.dispatchEvent(
     new CustomEvent(OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT, {
       detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+// Context-menu dispatchers: open the page-level dialogs via CustomEvent so the
+// free-function handlers stay free of component state (same pattern as hosts/shows).
+export function editLimitMaxValueGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-edit-max-value", {
+      detail: { limit: row.original as Limit },
     }),
   );
 }
@@ -1220,11 +1259,29 @@ export function editSubscriptionBurstGivenRow(row: Row<any>) {
   );
 }
 
+export function renameLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-rename", {
+      detail: { limit: row.original as Limit },
+    }),
+  );
+}
+
 export function deleteSubscriptionGivenRow(row: Row<any>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent(OPEN_DELETE_SUBSCRIPTION_EVENT, {
       detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+export function deleteLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-delete", {
+      detail: { limit: row.original as Limit },
     }),
   );
 }

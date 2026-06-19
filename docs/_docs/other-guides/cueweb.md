@@ -183,6 +183,12 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Each bar is scaled to the allocation's total cores and color-coded like CueGUI (legend at the top): sky-blue allocation capacity, yellow-green in-use cores, a blue size marker and a red burst marker. Hovering shows the exact values.
    - **Row actions** via the right-click menu match the Subscriptions table plus **Add new subscription**; right-clicking a show with no subscriptions offers **Add new subscription** to create the first one.
 
+33. **Limits (CueCommander &rarr; Limits):**
+   - A limits table at `/limits`, the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from the CueCommander menu / sidebar entry.
+   - Columns: Limit Name, Max Value, Current Running. Auto-refreshes every 30 seconds, with a **Refresh** button for an immediate reload.
+   - **Add Limit** dialog creates a new limit (max value starts at 0).
+   - **Limit actions** via the row's right-click menu: **Edit Max Value** (validates a non-negative integer), **Rename**, and **Delete Limit** (with a confirmation).
+
 
 ## CueWeb's user interface
 
