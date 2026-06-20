@@ -106,6 +106,19 @@ WHERE j.str_state = 'PENDING'
               && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
           AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min <= fr.int_max_cores)
           AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min <= fr.int_max_gpus)
+          -- Job-level core cap, checked against LIVE proc usage. `job_resource.int_cores`
+          -- lags reality (only the ~120s recompute loop writes it), so we sum the proc
+          -- rows directly: `proc` is transactionally accurate (the scheduler inserts on
+          -- booking, Cuebot deletes on frame completion, compensation deletes on a failed
+          -- launch). This excludes jobs already at their cap from the fetch so they don't
+          -- crowd out bookable jobs within the priority LIMIT below — mirroring Cuebot's
+          -- DispatchQuery. `-1` = unlimited. The correlated SUM is an index seek on
+          -- proc(pk_job) over the job's handful of running rows.
+          AND (jr.int_max_cores = -1
+               OR COALESCE(
+                    (SELECT SUM(p.int_cores_reserved) FROM proc p WHERE p.pk_job = j.pk_job),
+                    0
+                  ) + l.int_cores_min <= jr.int_max_cores)
     )
 ORDER BY jr.int_priority DESC
 LIMIT $5
