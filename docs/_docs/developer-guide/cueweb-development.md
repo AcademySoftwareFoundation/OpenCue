@@ -122,6 +122,7 @@ cueweb/
 │   │   ├── mobile-nav-sheet.tsx # Mobile drawer mirroring every sidebar group
 │   │   ├── sheet.tsx            # Side-slide panel primitive (Radix Dialog-based)
 │   │   ├── row-actions-cell.tsx # Per-row "⋮" Actions button (touch equivalent of right-click)
+│   │   ├── about-dialog.tsx     # "About CueWeb" dialog (Help → About)
 │   │   ├── attributes-panel.tsx # Docked Attributes drawer
 │   │   ├── breadcrumbs.tsx      # Detail-view breadcrumb primitive
 │   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
@@ -185,6 +186,8 @@ loads at runtime are copies under `cueweb/public/`.
 - **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, the host detail page's procs table, the Shows table, the Allocations table, and the Limits table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` / `isShowsTable` / `isAllocationsTable` / `isLimitsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; `isShowsTable` &rarr; `ShowContextMenu`; `isLimitsTable` &rarr; `LimitContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` / `isAllocationsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
+
+- **`AboutDialog`** (`components/ui/about-dialog.tsx`): CueGUI parity for Help → About. A `Dialog` mounted once from `app/layout.tsx`, opened via the exported `CUEWEB_OPEN_ABOUT_EVENT` (dispatched by the About CueWeb command in `useMenuRegistry`). Shows the build version (`NEXT_PUBLIC_APP_VERSION`) and SHA (`NEXT_PUBLIC_GIT_SHA`), the active facility (`useCuebotFacility`), the REST gateway URL masked by `maskGatewayUrl()` (scheme + port + first/last host chars, path/userinfo stripped), the Apache-2.0 license link, and credits. **Copy diagnostics** writes the fields (incl. the *masked* gateway) as JSON to the clipboard. The version is resolved at build time in `next.config.js`: `NEXT_PUBLIC_APP_VERSION` env wins, else `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel reads the repo-root `VERSION.in`, supplied to the Docker build via the `project_root` named context; any other value pins an explicit version), else `package.json`.
 - **`FrameViewer`**: Frame log viewer component
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
@@ -246,7 +249,9 @@ provider tree.
 - **`useMenuRegistry`** (`app/utils/use_menu_registry.ts`)
   &mdash; returns a flat `MenuCommand[]` aggregated from every menu in the
   app, plus a `filterMenuCommands(commands, query)` helper used by the
-  Help search box.
+  Help search box. The Help group includes the external links from
+  `help_menu.ts` plus an **About CueWeb** command whose `run()` dispatches
+  `CUEWEB_OPEN_ABOUT_EVENT` to open the About dialog.
 - **`useShortcutNotifications`** (`app/utils/use_shortcut_notifications.ts`)
   &mdash; `{ enabled, setEnabled, toggle }`. Controls whether triggered
   keyboard shortcuts also fire a toast.

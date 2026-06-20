@@ -140,11 +140,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar (optional).
-# Falls back to the `version` field in cueweb/package.json when unset.
-# In CI you typically pass the short Git SHA or a release tag via
-# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
-# NEXT_PUBLIC_APP_VERSION=1.19.1
+# Build version shown in the bottom status bar and the About CueWeb dialog
+# (optional). When unset it is resolved at build time from
+# cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
+# the repo-root VERSION.in (OpenCue's shared version), and any other value pins
+# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# you typically override it with the generated version or a release tag:
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
+# NEXT_PUBLIC_APP_VERSION=1.25
+#
+# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
+# empty renders as "unknown".
+# NEXT_PUBLIC_GIT_SHA=
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. The literal {path} is substituted at
