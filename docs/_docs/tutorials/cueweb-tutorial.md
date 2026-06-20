@@ -672,6 +672,25 @@ If your farm spans more than one **facility** - each with its own Cuebot - CueWe
 
 ---
 
+## Checking the CueWeb version (About CueWeb)
+
+When you file a bug or confirm a deploy, you'll want to know exactly which build you're running. CueWeb makes that a two-second check.
+
+1. Glance at the **bottom status bar** - the build version is shown at the right (e.g. `v1.4.0`).
+2. For the full picture, open the **Help** menu and choose **About CueWeb**.
+
+   ![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+3. The dialog shows the **Version**, the **Build SHA**, and a license link.
+
+   ![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+4. Click **Copy diagnostics** to copy all of those fields as JSON, then paste them straight into a bug report - no retyping.
+
+**Good to know:** the version is decided when the image is built. By default CueWeb tracks OpenCue's shared `VERSION.in`, so its number matches Cuebot and CueGUI; a deployment can override it (via `OVERRIDE_CUEWEB_VERSION.in` or the `NEXT_PUBLIC_APP_VERSION` build-arg), and the Build SHA reads `unknown` unless CI injected `NEXT_PUBLIC_GIT_SHA`. See [Versioning](/docs/concepts/versioning/#how-cueweb-sources-its-version) for the full chain.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures
