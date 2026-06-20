@@ -13,9 +13,9 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_counter, register_counter_vec, register_gauge, register_gauge_vec,
-    register_histogram, register_histogram_vec, Counter, CounterVec, Encoder, Gauge, GaugeVec,
-    Histogram, HistogramVec, TextEncoder,
+    register_counter, register_counter_vec, register_gauge, register_gauge_vec, register_histogram,
+    register_histogram_vec, Counter, CounterVec, Encoder, Gauge, GaugeVec, Histogram, HistogramVec,
+    TextEncoder,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;

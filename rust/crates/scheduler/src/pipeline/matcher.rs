@@ -435,6 +435,10 @@ impl MatchingService {
                         .send(DispatchLayerMessage {
                             layer, // Move ownership here
                             host,
+                            // Live job usage so the dispatcher can clamp each
+                            // frame's reservation to the job's remaining cap.
+                            // Same value fed to the LayerProfile above.
+                            job_cores_in_use: initial_job_cores_in_use + local_job_cores_booked,
                         })
                         .await
                         .expect("Dispatcher actor is unresponsive")
@@ -443,7 +447,6 @@ impl MatchingService {
                             updated_host,
                             updated_layer,
                         }) => {
-                            metrics::increment_checkout_outcome("booked");
                             // Track cores actually consumed so the next iteration's
                             // LayerProfile sees the local picture of usage. The same
                             // delta applies to the (show, alloc) subscription burst
@@ -456,21 +459,46 @@ impl MatchingService {
                             local_job_cores_booked += booked_cores;
                             local_show_cores_booked += booked_cores;
 
+                            // Record the outcome by what actually landed, not merely
+                            // that the dispatch returned Ok. A dispatch can succeed yet
+                            // book zero frames (the job hit its core cap before any frame
+                            // fit, or the host went stale between checkout and dispatch);
+                            // counting those as "booked" hid the real throughput.
+                            metrics::increment_checkout_outcome(if dispatched > 0 {
+                                "booked"
+                            } else {
+                                "no_progress"
+                            });
+
                             self.host_service
                                 .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
 
                             if updated_layer.frames.is_empty() {
-                                // Stop on the first successful attempt
+                                // Layer fully consumed.
                                 debug!("Layer {} fully consumed.", updated_layer,);
                                 // Track how many candidates were needed to fully consume this layer
                                 let candidates_used = initial_attempts - attempts + 1;
                                 metrics::observe_candidates_per_layer(candidates_used);
                                 try_again = false;
+                            } else if dispatched == 0 {
+                                // No-progress guard: this dispatch booked nothing (job at
+                                // its core cap, or a stale host that fit nothing). Retrying
+                                // the same layer on another host this pass would hit the
+                                // same wall, so stop instead of burning the remaining
+                                // host_candidate_attempts_per_layer on empty checkouts. The
+                                // cluster re-queries this job on its next round, so the
+                                // layer is deferred, not abandoned.
+                                debug!(
+                                    "Layer {} made no progress ({} frames left); stopping retries.",
+                                    updated_layer,
+                                    updated_layer.frames.len()
+                                );
+                                try_again = false;
                             } else {
                                 debug!(
-                                    "Layer {} not fully consumed. {} frames left",
+                                    "Layer {} partially consumed. {} frames left",
                                     updated_layer,
                                     updated_layer.frames.len()
                                 );

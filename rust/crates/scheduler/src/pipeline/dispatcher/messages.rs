@@ -32,6 +32,11 @@ use crate::{
 ///
 /// * `layer` - Layer containing frames to dispatch
 /// * `host` - Target host with available resources
+/// * `job_cores_in_use` - Cores already booked for this job (the matcher's live
+///   view: the Redis snapshot taken at the start of the pass plus everything
+///   booked locally so far). Used to clamp each frame's reservation to the job's
+///   remaining `max_cores` so a single (threadable) frame can't reserve more
+///   than the job is allowed and get rejected forever.
 ///
 /// # Returns
 ///
@@ -42,6 +47,7 @@ use crate::{
 pub struct DispatchLayerMessage {
     pub layer: DispatchLayer,
     pub host: Host,
+    pub job_cores_in_use: i32,
 }
 
 /// Response returned after a successful dispatch operation.

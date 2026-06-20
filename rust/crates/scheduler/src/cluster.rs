@@ -682,8 +682,7 @@ impl ClusterFeed {
                         {
                             let mut by_type: HashMap<&'static str, i64> = HashMap::new();
                             {
-                                let clusters =
-                                    feed.read().unwrap_or_else(|p| p.into_inner());
+                                let clusters = feed.read().unwrap_or_else(|p| p.into_inner());
                                 for c in clusters.iter() {
                                     *by_type.entry(c.cluster_type()).or_default() += 1;
                                 }
