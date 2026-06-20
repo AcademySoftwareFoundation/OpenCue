@@ -18,7 +18,14 @@ COPY package*.json ./
 ENV SENTRYCLI_SKIP_DOWNLOAD=1
 # run npm install if npm ci is not working properly because of the package-lock.json
 # RUN npm install
-RUN npm ci
+# Retry on transient registry network errors (ECONNRESET / aborted) instead of
+# failing the build on the first blip. CI runners hit these intermittently.
+RUN npm ci \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=20000 \
+      --fetch-retry-maxtimeout=120000 \
+      --fetch-timeout=600000
 
 COPY *.json /opt/cueweb/
 COPY next.config.js /opt/cueweb/
