@@ -254,6 +254,34 @@ impl MatchingService {
         };
         let mut local_job_cores_booked: i32 = 0;
 
+        // Job-level at-cap pre-check. The job's core cap is enforced
+        // authoritatively by the Lua BOOK_OR_FORCE call in the dispatcher, but a
+        // job sitting at its cap would otherwise be re-checked-out and re-rejected
+        // up to host_candidate_attempts_per_layer times every pass (see the retry
+        // loop below). Skip it cheaply here, reusing the live `initial_job_cores_in_use`
+        // snapshot read above. Unlike the subscription skip below, we do NOT sleep
+        // the cluster: the job cap is per-job and sibling jobs in this cluster may
+        // still be dispatchable. Fail-open: a failed Redis read left
+        // `initial_job_cores_in_use` at 0, so the guard simply won't fire and the
+        // Lua call stays authoritative.
+        if placement::job_at_core_cap(
+            initial_job_cores_in_use,
+            dispatch_layer.cores_min.value(),
+            dispatch_layer.job_max_cores,
+        ) {
+            metrics::increment_job_cap_precheck_skip();
+            debug!(
+                "Skipping layer {} pre-checkout: job over core cap \
+                 (job={}, in_use={}, requested={}, cap={})",
+                dispatch_layer,
+                dispatch_layer.job_id,
+                initial_job_cores_in_use,
+                dispatch_layer.cores_min.value(),
+                dispatch_layer.job_max_cores,
+            );
+            return frames_dispatched;
+        }
+
         // (show, alloc) subscription burst snapshot — Alloc clusters + managed
         // shows only. `Cluster::single_tag` is built once per (facility, show,
         // alloc.str_tag) row and the SQL join `host_tag.str_tag = alloc.str_tag`
