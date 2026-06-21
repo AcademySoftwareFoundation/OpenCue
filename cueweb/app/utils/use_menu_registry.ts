@@ -30,6 +30,7 @@ import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
+import { CUEWEB_OPEN_ABOUT_EVENT } from "@/components/ui/about-dialog";
 
 /**
  * A flat, searchable list of every menu command in CueWeb - used by the
@@ -127,6 +128,19 @@ export function useMenuRegistry(): MenuCommand[] {
         },
       });
     }
+
+    // Help -> About CueWeb (opens the About dialog, not an external link).
+    cmds.push({
+      id: "help.about",
+      group: "Help",
+      label: "About CueWeb",
+      hint: "dialog",
+      run: () => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_ABOUT_EVENT));
+        }
+      },
+    });
 
     return cmds;
   }, [router, toggleJobInteraction, facilities, setFacility, toggleAttributes, toggleImmersive]);

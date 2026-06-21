@@ -312,6 +312,43 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testVerifyRunningProcAfterReassignment() {
+        // Pins the proc-reuse semantics that strict fencing relies on: a proc id is retained when a
+        // host picks up its next frame, so verifyRunningProc must report the proc as owning only
+        // its
+        // *current* frame, not the previous one.
+        DispatchHost host = createHost();
+
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = PK_ALLOC;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame1.id;
+        proc.layerId = frame1.layerId;
+        proc.showId = frame1.showId;
+
+        procDao.insertVirtualProc(proc);
+        assertTrue(procDao.verifyRunningProc(proc.getId(), frame1.getId()));
+        assertFalse(procDao.verifyRunningProc(proc.getId(), frame2.getId()));
+
+        proc.frameId = frame2.id;
+        procDao.updateVirtualProcAssignment(proc);
+
+        // After reuse the proc owns frame2; a stale report referencing frame1 is no longer
+        // verified.
+        assertFalse(procDao.verifyRunningProc(proc.getId(), frame1.getId()));
+        assertTrue(procDao.verifyRunningProc(proc.getId(), frame2.getId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateProcMemoryUsage() {
 
         DispatchHost host = createHost();

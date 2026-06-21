@@ -19,10 +19,15 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
 import { AppSessionProvider } from "@/app/providers/session-provider";
+// AppShell (workspace-layout) owns the header / sidebar / status-bar /
+// read-only-banner chrome. AboutDialog and PluginSettingsDialog are global
+// event-driven dialogs rendered here (not part of AppShell).
 import { AppShell } from "@/components/ui/app-shell";
 import { AttributesPanel } from "@/components/ui/attributes-panel";
 import { MobileNavSheet } from "@/components/ui/mobile-nav-sheet";
 import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
+import { AboutDialog } from "@/components/ui/about-dialog";
+import { PluginSettingsDialog } from "@/components/ui/settings-dialog";
 import { ToastHost } from "@/components/ui/toast-host";
 
 export const metadata: Metadata = {
@@ -43,8 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 while immersed. */}
             <AppShell>{children}</AppShell>
             <AttributesPanel />
+            <AboutDialog />
             <KeyboardShortcuts />
             <MobileNavSheet />
+            <PluginSettingsDialog />
             <ToastHost />
           </AppSessionProvider>
         </ThemeProvider>

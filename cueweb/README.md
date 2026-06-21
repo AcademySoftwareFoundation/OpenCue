@@ -20,6 +20,7 @@ CueWeb System
       - [Example: Adding Gitlab authentication](#example-adding-gitlab-authentication)
       - [Custom Login Page](#custom-login-page)
 - [Features](#features)
+  - [Plugins](#plugins)
   - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Below are some screenshots of the interface](#below-are-some-screenshots-of-the-interface)
 - [Troubleshooting](#troubleshooting)
@@ -43,7 +44,7 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
      - **Cuetopia** → Monitor Jobs.
      - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully until the corresponding pages land.
      - **Other** → **Attributes** (toggles the docked Attributes panel, see below), **Show Shortcuts** (opens the same overlay as pressing `?`), **Notify on Shortcut** (toggles the per-shortcut toast).
-     - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity) plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
+     - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity), an **About CueWeb** dialog showing the build version, Build SHA, active Cuebot facility, masked REST gateway URL, Apache 2.0 license link, OpenCue/ASWF credits, and a **Copy diagnostics** button, plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
    - Theme toggle on the right.
    - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
    - When the user is signed in, the right-side cluster also shows the session's name or email next to the Sign out button.
@@ -68,7 +69,7 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - 24-pixel-tall bar fixed to the bottom of the viewport with three metrics, each with a tooltip:
      1. **Gateway**: dot + `Online`/`Offline` + round-trip latency in milliseconds. Polled every 10 seconds via `/api/health` (a JWT-signed reachability probe against `/show.ShowInterface/GetActiveShows` with a 5-second timeout). When the gateway is unreachable, the bar's surface turns red so the failure is visible at a glance.
      2. **Last refresh**: live relative timestamp ("just now", "12s ago", "3m ago", ...). Updated whenever the jobs table fires a `cueweb:jobs-refreshed` CustomEvent (every 5 seconds while the table is mounted). Re-renders once per second so the relative time stays accurate without waiting for the next event.
-     3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build time - falls back to the `version` field in `package.json` when the env var is unset, and can be overridden in CI by passing `--build-arg NEXT_PUBLIC_APP_VERSION=<sha>` to `docker build`.
+     3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>` (also shown in **Help → About CueWeb** alongside the Build SHA). Resolved once at build time, first hit wins: (1) the `NEXT_PUBLIC_APP_VERSION` env / build-arg (CI injects the OpenCue version or a SHA); (2) `OVERRIDE_CUEWEB_VERSION.in` - its default value `VERSION.in` tracks the repo-root `VERSION.in` (OpenCue's shared version, also read by Cuebot / CueGUI), while any other value is used verbatim as a CueWeb-specific override; (3) the `version` field in `package.json` as a last-resort fallback. The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg and shows `unknown` when unset.
    - Hidden on `/login*`; matches the chrome's translucent surface so it integrates with both light and dark themes.
 - **Mobile-friendly UI:**
    - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and each data table can be swiped horizontally to reach off-screen columns.
@@ -201,6 +202,25 @@ Next is the process to install and use the CueWeb system.
         ```env
         # Authentication Configuration:
         # NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+        ```
+
+    - CueWeb authorization environment variables (optional, group-based access control)
+        - On top of authentication (*who* you are), CueWeb supports optional group-based authorization (*what* you may do), enforced server-side in `cueweb/middleware.ts`.
+        - Group membership is resolved once at sign-in from the identity provider and stamped on the session token (`cueweb/lib/auth.ts`); the middleware then reads it. The policy is entirely environment-driven, so the same image enforces different rules per deployment:
+            - `CUEWEB_AUTHZ_ENABLED` - master switch. **Opt-in: defaults to disabled** (the middleware is a pure pass-through). Set to `true` to enable the gate. This is the seam for the planned OpenCue-wide authentication/authorization layer - a deployment enables CueWeb's gate only if it wants CueWeb to own access control, and leaves it off to defer to that layer.
+            - `CUEWEB_ALLOWED_GROUPS` - comma-separated groups allowed to use CueWeb at all.
+            - `CUEWEB_ADMIN_GROUPS` - comma-separated groups allowed to use the admin pages: the CueCommander administration pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame) and job submission (CueSubmit). Monitoring routes are not gated.
+            - `CUEWEB_GROUPS_CLAIM` - the JWT/OIDC claim that carries the user's groups (default: `groups`).
+        - **Defaults:** the gate is off unless `CUEWEB_AUTHZ_ENABLED=true`. Even when enabled, leaving the group lists empty keeps the original behavior - every signed-in user is allowed and is treated as an admin. Group gating requires an auth provider whose token exposes group memberships (for example an OIDC `groups` claim). When authentication is disabled (`NEXT_PUBLIC_AUTH_PROVIDER` unset), the gate is inactive and all routes are open.
+        - **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get a `403`); a user who is not in `CUEWEB_ADMIN_GROUPS` is blocked from the administration pages the same way.
+        - **Custom group sources:** if your identity provider's token does not carry groups, resolve them at sign-in by extending the `jwt` callback / `extractGroups` seam in `cueweb/lib/auth.ts` (for example a directory or service lookup). The enforcement in `middleware.ts` stays unchanged because it only reads the resolved groups from the token.
+        ```env
+        # Authorization (optional, opt-in). The gate is off unless enabled below.
+        # When enabled, empty group lists = every signed-in user allowed + admin.
+        CUEWEB_AUTHZ_ENABLED=false
+        CUEWEB_ALLOWED_GROUPS=
+        CUEWEB_ADMIN_GROUPS=
+        CUEWEB_GROUPS_CLAIM=groups
         ```
 
     - Sentry environment variables
@@ -379,9 +399,43 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Auto-reloading:** Real-time updates for tables.
 - **Job-finished notifications (two channels):** A per-row **Notify bell** subscribes the browser - a background poller fires a toast (and an optional desktop popup when notification permission is granted) when the job reaches `FINISHED`; subscriptions persist in `localStorage`, sync across tabs, and the notify decision is serialized cross-tab via the Web Locks API so only one tab toasts when several poll the same job. The right-click **Subscribe to Job** menu entry opens a CueGUI-parity dialog that registers an *email* subscriber on Cuebot via the `AddSubscriber` RPC, so Cuebot mails the saved address when the job finishes. The two channels are independent.
 - **Job dependencies (CueGUI parity):** the job right-click menu groups four entries together. **View Dependencies...** opens a themed dialog mirroring CueGUI's `DependDialog` - a Type / Target / Active / OnJob / OnLayer / OnFrame table backed by the `GetDepends` RPC, with a **Refresh** button. **Dependency Wizard...** is a multi-step state machine covering every CueGUI `depend.DependType` (Job-On-Job / Layer / Frame, Frame By Frame for all layers / Hard Depend, Layer-On-Job / Layer / Frame, Frame By Frame, Frame-On-Job / Layer / Frame, Layer on Simulation Frame); every picker (source layers / frames, target jobs / layers / frames) is multi-select and Done fires the full source x target cross-product in one bulk batch. The Hard Depend variant pairs source/target layers by `layer.type` and fans out one `CreateFrameByFrameDependency` per matched pair across every picked target job. **Drop External Dependencies** and **Drop Internal Dependencies** call the `DropDepends` RPC with `target = EXTERNAL` / `INTERNAL` respectively; on success they dispatch `cueweb:refresh-now` and `cueweb:depends-changed` so the Jobs table re-polls and the Group-By Dependent tree cache rebuilds immediately.
+- **Redirect (CueCommander parity):** an admin tool at `/redirect` that moves cores to a job that needs them by reassigning busy procs to a target job (killing the frames on those procs). Job + resource filters (Show, Include Groups, Require Services, Exclude Regex, Allocations, Min/Max Cores, Min Memory, Result Limit, Proc Hour Cutoff) drive a `ProcInterface/GetProcs` search; typing a target job auto-detects its Show and core/memory needs; the redirect (`HostInterface/RedirectToJob`) refuses an invalid/maxed target and warns before a paused-target or cross-show redirect.
+- **Stuck Frames (CueCommander -> Stuck Frame):** a stuck-frame finder at `/stuck-frames`, the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window. Scans every running frame across active jobs and flags the ones whose log has gone silent relative to runtime, grouped under their job, with columns Name / Frame / Host / LLU / Runtime / % Stuck / Average / Last Line and **Auto-refresh** / **Refresh** / **Clear** controls. Detection thresholds run client-side and persist per browser (% of Run Since LLU, Min LLU, % Avg Completion, Total Runtime, Exclude Keywords), with a **+** button to add per-service filter rows so long-running services (e.g. Arnold) can use looser limits than quick ones. Frame right-click actions: Tail / View / View Last Log, Retry / Eat / Kill, Log Stuck Frame (and Log and Retry / Eat / Kill), Frame Not Stuck, Add Job to Excludes / Exclude and Remove Job, **Core Up** (raise the layer's minimum cores), and View Host; job-header actions add View Comments, Job Not Stuck, and Core Up across the job's stuck layers.
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
 - **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay; the same overlay is also reachable from **Other ▸ Show Shortcuts** in the header or the sidebar. An optional **Notify on Shortcut** toggle (also under Other) fires a toast naming the shortcut that just triggered. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
+
+Go back to [Contents](#contents).
+
+## Plugins
+
+CueWeb has a small plugin system, the browser counterpart of the CueGUI plugins under `cuegui/cuegui/cueguiplugin/`. A plugin is a **manifest** (metadata) plus a **lazily-loaded React component** that mounts on its own route under `/plugins/<name>`.
+
+**How plugins are discovered**
+
+Discovery is an explicit, statically-imported registry rather than filesystem scanning (Next.js bundles routes at build time, so dynamic directory scanning is not available in the browser):
+
+1. Each plugin lives in `cueweb/app/plugins/<name>/` and exports a `PluginModule` from its `manifest.ts` — the manifest (`name`, `title`, `version`, `route`, optional `description`) plus a `load` thunk that does `() => import("./<component>")`. Keeping `load` a static `import()` lets the bundler split the plugin into its own chunk, fetched only when its route is visited.
+2. `cueweb/lib/plugins.ts` imports every plugin manifest and lists them in `PLUGIN_REGISTRY`. This array **is** the discovery mechanism — `getPlugins()` and `getPlugin(name)` read from it.
+3. The dynamic route `cueweb/app/plugins/[plugin-name]/page.tsx` resolves the manifest by `name` (404s via `notFound()` if unknown) and renders the component through a client host that uses `next/dynamic({ ssr: false })`. `generateStaticParams()` pre-renders one page per registered plugin.
+4. `cueweb/app/plugins/page.tsx` lists every registered plugin, and the sidebar/header **Plugins** menu links to each route.
+
+**Adding a plugin**
+
+1. Create `cueweb/app/plugins/<name>/<name>.tsx` — a default-exported React component accepting `PluginComponentProps` (it receives its own `manifest`).
+2. Add `cueweb/app/plugins/<name>/manifest.ts` exporting a `PluginModule` whose `load` is `() => import("./<name>")`.
+3. Register it in `PLUGIN_REGISTRY` in `cueweb/lib/plugins.ts` (and, optionally, add a link to the **Plugins** group in `cueweb/components/ui/app-sidebar.tsx`).
+
+See `cueweb/app/plugins/README.md` for the full contract.
+
+**Plugin settings** — any plugin can call `registerSetting({ key, label, kind, default })` (from `cueweb/lib/plugins.ts`) to contribute entries to the shared settings dialog (`cueweb/components/ui/settings-dialog.tsx`). Values persist to `localStorage` under `cueweb.plugin-settings.<key>`, so they survive a reload; read them reactively with the `usePluginSetting` hook.
+
+**Bundled sample plugins**
+
+| Plugin | Route | What it shows |
+|--------|-------|---------------|
+| **Hello OpenCue** | `/plugins/hello` | Minimal example proving the contract; registers greeting/shout/emoji settings. |
+| **Cue Progress Bar** | `/plugins/cue-progress-bar` | CueWeb port of the CueGUI `cueprogbar` sample — enter a job name to render a live, color-coded frame-state bar with done/total/running labels and pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. |
 
 Go back to [Contents](#contents).
 
