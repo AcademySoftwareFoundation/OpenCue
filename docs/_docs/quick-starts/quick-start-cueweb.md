@@ -126,6 +126,23 @@ NEXTAUTH_SECRET=canbeanything
 - Sentry integration is optional and can be disabled
 - `NEXT_PUBLIC_URL` is empty by default so the same image works from `localhost`, a LAN IP, or any reverse-proxy host without rebuilding. Override it only when the UI and API live on different origins.
 
+### Restrict access by group (optional)
+
+By default every signed-in user can use CueWeb. To limit access by **group membership**, opt in with these env vars (all off/empty by default):
+
+```bash
+# Turn the gate on (off by default — leave unset for an open deployment)
+CUEWEB_AUTHZ_ENABLED=true
+# Groups allowed to use CueWeb at all (empty = everyone signed in)
+CUEWEB_ALLOWED_GROUPS=renderwranglers,supervisors
+# Groups allowed on the CueCommander admin pages + job submission (empty = everyone)
+CUEWEB_ADMIN_GROUPS=supervisors
+# The token claim that carries the user's groups (default: groups)
+CUEWEB_GROUPS_CLAIM=groups
+```
+
+The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an **Access denied** page (API routes get `403`), and non-admins are blocked from the admin pages but keep read-only monitoring. It only works when your authentication provider emits the user's groups in the token, so configure your identity provider's groups claim accordingly. For the sandbox (auth disabled) the gate stays inactive - you don't need any of these.
+
 ---
 
 ## Step 3: Install Dependencies and Run CueWeb

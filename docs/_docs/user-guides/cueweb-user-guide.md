@@ -117,6 +117,10 @@ CueWeb supports secure authentication through multiple providers:
 
 **Note**: If authentication is disabled for development, you'll see a "CueWeb Home" button to access the interface directly.
 
+#### Restricted access
+
+Some deployments restrict access by group membership. If your account is not authorized for an area you open, CueWeb shows an **Access denied** page instead. Read-only monitoring is typically available to everyone, while the CueCommander administration pages and job submission may be limited to administrators. If you believe you should have access, contact your OpenCue administrator.
+
 ### First Time Setup
 
 When you first access CueWeb, you'll see the main dashboard:
