@@ -42,6 +42,7 @@ import {
   Lock,
   Monitor,
   PieChart,
+  Puzzle,
   Receipt,
   Send,
   Server,
@@ -72,7 +73,9 @@ import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
+import { getPlugins } from "@/lib/plugins";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -127,7 +130,26 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Submit Job", href: "/cuesubmit", icon: Send },
     ],
   },
+  {
+    // Only "All Plugins" is static; AppSidebar injects the user-enabled plugins
+    // after it at render time (see use_plugin_menu / buildPluginsNavGroup).
+    label: "Plugins",
+    icon: Boxes,
+    items: [{ label: "All Plugins", href: "/plugins", icon: Boxes }],
+  },
 ];
+
+/**
+ * Build the Plugins sidebar group: the static "All Plugins" entry followed by
+ * one entry per user-enabled plugin (see use_plugin_menu).
+ */
+function buildPluginsNavGroup(base: NavGroup, enabled: Set<string>): NavGroup {
+  const pluginItems: NavItem[] = getPlugins()
+    .map((plugin) => plugin.manifest)
+    .filter((manifest) => enabled.has(manifest.name))
+    .map((manifest) => ({ label: manifest.title, href: manifest.route, icon: Puzzle }));
+  return { ...base, items: [...base.items, ...pluginItems] };
+}
 
 const COLLAPSED_KEY = "cueweb.sidebar.collapsed";
 const OPEN_GROUPS_KEY = "cueweb.sidebar.openGroups";
@@ -168,6 +190,17 @@ export function AppSidebar() {
     window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
   }, []);
 
+  // The Plugins group's items are user-configurable (plugins page checkboxes),
+  // so build the rendered group list dynamically from the enabled selection.
+  const { enabled: enabledPlugins } = useEnabledPlugins();
+  const navGroups = React.useMemo<NavGroup[]>(
+    () =>
+      NAV_GROUPS.map((group) =>
+        group.label === "Plugins" ? buildPluginsNavGroup(group, enabledPlugins) : group,
+      ),
+    [enabledPlugins],
+  );
+
   // SSR can't read localStorage, so we start with sensible defaults and
   // reconcile on mount. The initial server-rendered DOM therefore matches
   // the initial client render (no hydration mismatch); we hide the sidebar
@@ -176,6 +209,8 @@ export function AppSidebar() {
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(
     () => Object.fromEntries(NAV_GROUPS.map((g) => [g.label, true])),
   );
+  // NAV_GROUPS labels are stable (the Plugins group always exists), so the
+  // static list is fine for seeding open/closed state.
   const [hydrated, setHydrated] = React.useState<boolean>(false);
 
   React.useEffect(() => {
@@ -202,14 +237,14 @@ export function AppSidebar() {
     if (!hydrated) return;
     setOpenGroups((prev) => {
       let next = prev;
-      for (const group of NAV_GROUPS) {
+      for (const group of navGroups) {
         if (groupContainsActive(pathname, group) && !prev[group.label]) {
           next = { ...next, [group.label]: true };
         }
       }
       return next;
     });
-  }, [pathname, hydrated]);
+  }, [pathname, hydrated, navGroups]);
 
   const toggleCollapsed = React.useCallback(() => {
     setCollapsed((prev) => {
@@ -463,7 +498,7 @@ export function AppSidebar() {
           ? // Icon-only view: flatten every group's items into a single column
             // of icon links. Group labels are dropped (the section dividers
             // below keep them visually separated).
-            NAV_GROUPS.map((group, groupIndex) => (
+            navGroups.map((group, groupIndex) => (
               <ul
                 key={group.label}
                 className={cn(
@@ -519,7 +554,7 @@ export function AppSidebar() {
             ))
           : // Expanded view: render each group as a Radix Collapsible
             // accordion whose open/closed state is persisted.
-            NAV_GROUPS.map((group) => {
+            navGroups.map((group) => {
               const GroupIcon = group.icon;
               const open = openGroups[group.label] ?? true;
               const hasActive = groupContainsActive(pathname, group);

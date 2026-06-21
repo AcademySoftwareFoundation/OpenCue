@@ -1592,6 +1592,23 @@ When `gatewayOnline` is `false`, the response additionally includes an
 
 ---
 
+## Plugins
+
+A minimal plugin system (`cueweb/lib/plugins.ts` + `cueweb/app/plugins/`), the browser equivalent of CueGUI's plugin loader. A plugin is a manifest plus a lazily-loaded React component mounted on its own route.
+
+![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Contract** | `PluginManifest` (`name` = URL-safe id/route segment, `title`, `version`, `route`, optional `description`) and `PluginModule` (manifest + a `load` thunk returning `() => import("./<component>")`, kept a static `import()` so the bundler code-splits each plugin into its own chunk). Components receive `PluginComponentProps` (the resolved manifest). |
+| **Discovery** | `PLUGIN_REGISTRY` in `lib/plugins.ts` is the registry; `getPlugins()` / `getPlugin(name)` read it. |
+| **Routing** | `app/plugins/[plugin-name]/page.tsx` (server) resolves the manifest by name, sets metadata, and `notFound()`s unknown names; `generateStaticParams()` pre-renders one page per plugin. The client `plugin-host.tsx` loads the component with `next/dynamic({ ssr: false })` (Next.js 15 disallows `ssr:false` in server components). `app/plugins/page.tsx` + `plugins-browser.tsx` render the searchable, paginated index. |
+| **Settings** | `registerSetting({ key, label, kind, default, plugin })` with SSR-guarded get/set/reset helpers and a change event; values persist to `localStorage["cueweb.plugin-settings.<key>"]`. `components/ui/settings-dialog.tsx` is a shared, plugin-scoped `PluginSettingsDialog` (mounted once in the layout, opened via `openPluginSettings()`); `usePluginSetting` is a reactive read hook. |
+| **Menu selection** | Checkboxes on `/plugins` choose which plugins appear in the **Plugins** menu (header/sidebar, right of CueSubmit). The set persists to `localStorage["cueweb.plugin-menu.enabled"]`, seeds from each manifest's `defaultEnabled`, and syncs across components/tabs via `use_plugin_menu.ts`. |
+| **Samples** | `hello` (Hello OpenCue) - minimal contract example registering greeting/shout/emoji settings, off by default. `cue-progress-bar` - a port of CueGUI's `cueprogbar`: a live color-coded frame-state bar (done/total/running) with pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval, on by default. |
+
+---
+
 ## Theming
 
 ### Theme Toggle

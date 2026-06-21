@@ -28,7 +28,9 @@ import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
+import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
 import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
+import { getPlugins } from "@/lib/plugins";
 import {
   filterMenuCommands,
   useMenuRegistry,
@@ -274,6 +276,22 @@ export function AppHeader() {
     toggle: toggleShortcutNotifications,
   } = useShortcutNotifications();
 
+  // The Plugins menu lists only the user-enabled plugins (plugins page
+  // checkboxes); inject them after the static "All Plugins" entry.
+  const { enabled: enabledPlugins } = useEnabledPlugins();
+  const navMenus = React.useMemo<NavMenu[]>(
+    () =>
+      NAV_MENUS.map((menu) => {
+        if (menu.label !== "Plugins") return menu;
+        const pluginItems = getPlugins()
+          .map((plugin) => plugin.manifest)
+          .filter((manifest) => enabledPlugins.has(manifest.name))
+          .map((manifest) => ({ label: manifest.title, href: manifest.route }));
+        return { ...menu, items: [...menu.items, ...pluginItems] };
+      }),
+    [enabledPlugins],
+  );
+
   // Trigger the shortcuts overlay programmatically. Used by the
   // "Show Shortcuts" item below so users who never press `?` can still
   // surface the cheat sheet.
@@ -437,7 +455,7 @@ export function AppHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {NAV_MENUS.map((menu) => (
+          {navMenus.map((menu) => (
             <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
           ))}
 

@@ -172,6 +172,18 @@ Keeping the per-facility gateway URLs and secrets **server-only** means the brow
 
 ---
 
+## Plugins (extending CueWeb)
+
+CueWeb is **extensible** through a small plugin system - the browser counterpart of CueGUI's plugin architecture, where each plugin declares metadata and exposes a component the host mounts. The same idea translates cleanly to the web:
+
+- A **plugin** is a *manifest* (its name, title, version, route, and an optional description) plus a *lazily-loaded React component*. Each plugin mounts on its own route under `/plugins/<name>`.
+- Plugins are discovered from a **static registry** in the code rather than scanned at runtime. That registry is the single source of truth, which keeps discovery predictable and lets the bundler **code-split** each plugin into its own chunk that's only fetched when its page is opened - so unused plugins cost nothing.
+- Users curate their own experience: a **Plugins page** lists everything registered, and checkboxes decide which plugins appear in the **Plugins** menu. A plugin can also register its own **settings**. Both the menu selection and the settings live in the browser (`localStorage`) and sync across tabs - they're per-user preferences, not server state.
+
+**Why this design:** keeping discovery static and components lazy means plugins extend the UI without bloating the core bundle or adding server round-trips, and because preferences are client-side, enabling a plugin or changing its settings never touches Cuebot. Two samples ship in-tree - a minimal *Hello OpenCue* and a *Cue Progress Bar* (a port of CueGUI's `cueprogbar`) - which double as templates for new plugins. See the developer guide for the contract and how to add one.
+
+---
+
 ## Deployment Patterns
 
 ### Standalone Deployment

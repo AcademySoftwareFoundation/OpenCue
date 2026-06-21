@@ -316,6 +316,15 @@ The dialog shows the **Version**, the **Build SHA**, and a license link, with a 
 - The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as a CueWeb-specific override; `package.json` is the last-resort fallback.
 - The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI injects `git rev-parse --short HEAD`); it shows `unknown` when not provided.
 
+### Try a plugin
+
+CueWeb ships a small **plugin system** with two sample add-ons. Open the **Plugins** page (the **Plugins** menu sits to the right of CueSubmit in the header) to see the registered plugins.
+
+![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+- Each plugin has a **checkbox** that controls whether it appears in the **Plugins** menu; your choice is saved in your browser. Open a plugin to use it, and use its **Open plugin settings** control to tweak its options (also saved per browser).
+- **Cue Progress Bar** (on by default) draws a live frame-state bar for a job with pause / unpause / kill / retry-dead controls; **Hello OpenCue** (off by default) is a minimal example. Developers can add their own under `cueweb/app/plugins/<name>/`.
+
 
 ---
 
