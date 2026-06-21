@@ -88,8 +88,11 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar. Falls back to `cueweb/package.json#version` when unset. CI typically passes the Git SHA via `--build-arg`. | (package.json version) |
+| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar and the About CueWeb dialog. When unset, resolved from `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel tracks the repo-root `VERSION.in`; any other value pins an explicit version), then `cueweb/package.json#version`. | (resolved from `VERSION.in`) |
+| `NEXT_PUBLIC_GIT_SHA` | Short Git SHA shown in the About CueWeb dialog. Build-time only; CI injects `$(git rev-parse --short HEAD)`. Empty &rarr; "unknown". | (empty) |
 | `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
+| `CUEBOT_<NAME>_REST_GATEWAY_URL` | Per-facility REST gateway base URL (server-only; `<NAME>` is the uppercased facility name). Falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT`. | (unset &rarr; default gateway) |
+| `CUEBOT_<NAME>_JWT_SECRET` | Per-facility JWT secret the target gateway trusts (server-only). Falls back to `NEXT_JWT_SECRET`. | (unset &rarr; default secret) |
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
@@ -1257,7 +1260,14 @@ Layout, left to right:
 - **Cuebot Facility** dropdown: one item per configured facility (default
   `local` / `dev` / `cloud` / `external`; overridable via
   `NEXT_PUBLIC_CUEBOT_FACILITIES`). A small chip on the menu trigger
-  shows the currently-active facility.
+  shows the currently-active facility. Selecting a facility writes the choice
+  to the `cueweb.facility` cookie and reloads the page; every server-side API
+  route then resolves that request's gateway via `lib/facility.ts`
+  (`getRequestFacilityTarget`), so all data is fetched from the selected
+  facility's REST gateway. The gateway URL + JWT secret per facility come from
+  `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling back to
+  `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The bottom status bar
+  shows the active facility and pings that facility's gateway.
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
@@ -1305,6 +1315,11 @@ Layout, left to right:
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md`).
   - Report a Bug - `NEXT_PUBLIC_BUGS_URL`
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md`).
+  - About CueWeb - opens the About dialog (`components/ui/about-dialog.tsx`)
+    showing the version (`NEXT_PUBLIC_APP_VERSION`), build SHA
+    (`NEXT_PUBLIC_GIT_SHA`), active Cuebot facility, masked REST gateway URL,
+    Apache-2.0 license, and credits. A **Copy diagnostics** button copies those
+    fields as JSON (CueGUI parity: Help &rarr; About).
 - **Theme toggle**: Switches between light and dark mode (see
   [Theming](#theming) below).
 - **Sign out**: Always rendered. With a session, `signOut()` clears it and
@@ -1336,7 +1351,10 @@ The header dropdown menus:
 ![CueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-![CueWeb Help menu](/assets/images/cueweb/cueweb_help_menu.png)
+![CueWeb Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+
+![CueWeb About dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 The bottom status bar:
@@ -1528,12 +1546,18 @@ hidden on `/login*`. Three metrics, each with a tooltip:
   mounted). Re-renders once per second so the timestamp stays accurate
   between events.
 - **Version** (right): `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build
-  time in `next.config.js`:
-  1. If `NEXT_PUBLIC_APP_VERSION` is set, that value wins.
-  2. Otherwise it falls back to the `version` field in
-     `cueweb/package.json`.
-  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so
-    CI can pass a Git SHA or build tag via `--build-arg`.
+  time in `next.config.js` (first hit wins):
+  1. The `NEXT_PUBLIC_APP_VERSION` env / `--build-arg` (CI passes the
+     generated OpenCue version or a build tag).
+  2. `cueweb/OVERRIDE_CUEWEB_VERSION.in`: the `VERSION.in` sentinel (default)
+     reads the repo-root `VERSION.in` - OpenCue's shared version, also read by
+     cuebot / cuegui; any other value pins an explicit CueWeb version. In the
+     Docker image the root `VERSION.in` is supplied via a `project_root` named
+     build context (see `docker-compose.yml`).
+  3. The `version` field in `cueweb/package.json` (last-resort fallback).
+  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so CI can
+    override it directly. The About CueWeb dialog shows the same version plus
+    the build SHA (`NEXT_PUBLIC_GIT_SHA`).
 
 ### `GET /api/health`
 

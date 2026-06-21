@@ -277,6 +277,28 @@ Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung -
 - Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
 - Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
 
+### Switch Cuebot facilities
+
+If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. CueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
+
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+- Pick a facility from the menu; CueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
+- The list of facilities comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`). To point a facility at its own gateway, set the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` (e.g. `CUEBOT_DEV_REST_GATEWAY_URL`); a facility with no override falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The single-facility sandbox works with just `local`.
+
+### Check the CueWeb version (About CueWeb)
+
+The build version is always visible at the right of the bottom status bar. For full build details, open **Help &rarr; About CueWeb**.
+
+![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+The dialog shows the **Version**, the **Build SHA**, and a license link, with a **Copy diagnostics** button that copies all fields as JSON (handy for bug reports).
+
+![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as a CueWeb-specific override; `package.json` is the last-resort fallback.
+- The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI injects `git rev-parse --short HEAD`); it shows `unknown` when not provided.
+
 
 ---
 

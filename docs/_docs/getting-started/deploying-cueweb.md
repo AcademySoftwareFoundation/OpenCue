@@ -120,9 +120,18 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Cuebot Facility selector (optional)
 # Comma-separated list of facilities exposed in the header / sidebar
 # "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
-# (The selected value is persisted client-side; per-facility gateway
-# routing is implemented in a separate page-level change.)
+# Switching facility re-routes every REST gateway call server-side to the
+# selected facility's gateway; the choice is carried in a cookie and persists
+# for the session.
 # NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+#
+# Per-facility gateway + JWT secret (optional, server-only). Each facility may
+# target its own REST gateway via CUEBOT_<NAME>_REST_GATEWAY_URL and
+# CUEBOT_<NAME>_JWT_SECRET (NAME uppercased). A facility with no override falls
+# back to NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET, so the default
+# single-gateway deployment needs no extra configuration.
+# CUEBOT_DEV_REST_GATEWAY_URL=https://dev-rest-gateway.company.com
+# CUEBOT_DEV_JWT_SECRET=dev-gateway-jwt-secret
 
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
@@ -131,11 +140,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar (optional).
-# Falls back to the `version` field in cueweb/package.json when unset.
-# In CI you typically pass the short Git SHA or a release tag via
-# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
-# NEXT_PUBLIC_APP_VERSION=1.19.1
+# Build version shown in the bottom status bar and the About CueWeb dialog
+# (optional). When unset it is resolved at build time from
+# cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
+# the repo-root VERSION.in (OpenCue's shared version), and any other value pins
+# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# you typically override it with the generated version or a release tag:
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
+# NEXT_PUBLIC_APP_VERSION=1.25
+#
+# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
+# empty renders as "unknown".
+# NEXT_PUBLIC_GIT_SHA=
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. The literal {path} is substituted at

@@ -137,7 +137,7 @@ The screen is composed of:
     - **Cuetopia** -> Monitor Jobs.
     - **CueCommander** -> Allocations, Limits, Monitor Cue, **Monitor Hosts** (see [Monitor Hosts](#monitor-hosts)), Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. The remaining unimplemented routes 404 gracefully - they are placeholders for upcoming features.
     - **Other** -> *Attributes* (toggles the docked Attributes panel, see below).
-    - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, and Report a Bug.
+    - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, Report a Bug, and About CueWeb.
   - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
   - **Sign out**: Always visible. When you are signed in, it shows your name or email next to the button and clicking it ends the session and returns you to `/login`. When you are not signed in (or when authentication is disabled in the deployment), clicking it just navigates to `/login` - the `/login` page itself shows the **CueWeb Home** button if no auth provider is configured, or the provider buttons otherwise.
 - **Left sidebar** (persistent across every authenticated route):
@@ -167,7 +167,11 @@ The **Cuetopia** menu opens Monitor Jobs and holds the checkable **View Job Grap
 ![Cuetopia menu with the View Job Graph toggle](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
 
 
-The **Cuebot Facility** menu lets you switch the active facility.
+The **Cuebot Facility** menu lets you switch the active facility. Choosing a
+facility re-routes CueWeb to that facility's Cuebot and reloads the data you are
+viewing, so you only ever see one facility at a time (the same behavior as
+CueGUI's "Cuebot Facility" menu). The active facility is shown as a chip on the
+menu and in the bottom status bar, and your choice is remembered for the session.
 
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
@@ -192,9 +196,16 @@ The **Other** menu collects the Attributes panel toggle, the shortcuts overlay, 
 ![Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-The **Help** menu provides a search box that finds commands across every menu, plus links to the online guide and feedback forms.
+The **Help** menu provides a search box that finds commands across every menu, plus links to the online guide and feedback forms, and an **About CueWeb** entry.
 
-![Help menu with search](/assets/images/cueweb/cueweb_help_menu.png)
+![Help menu with search](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+**About CueWeb** opens a dialog with the CueWeb version and build SHA, the active
+Cuebot facility, the REST gateway URL (masked), the Apache-2.0 license, and
+credits. Use **Copy diagnostics** to copy all of these as JSON to paste into a
+bug report.
+
+![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 The bottom status bar shows the gateway connection, the last refresh time, and the build version.

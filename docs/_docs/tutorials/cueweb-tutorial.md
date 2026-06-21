@@ -654,6 +654,43 @@ Use **Clr** to reset the form and start a new search.
 
 ---
 
+## Switching Cuebot facilities
+
+If your farm spans more than one **facility** - each with its own Cuebot - CueWeb lets you move between them from the **Cuebot Facility** menu. You always work in one facility at a time, exactly like CueGUI's Cuebot Facility menu.
+
+1. Look at the **Cuebot Facility** entry in the header (or the sidebar). The chip next to it shows the facility you are currently viewing.
+
+   ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+2. Open the menu and pick a different facility (for example `dev` or `cloud`). CueWeb re-routes to that facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
+3. Confirm the switch: the chip on the menu **and** the facility shown in the bottom status bar update to the new facility. Your choice is remembered for the rest of the session.
+4. Switch back the same way when you are done.
+
+**Setting up extra facilities (admin):** the menu's options come from `NEXT_PUBLIC_CUEBOT_FACILITIES`. To make a facility actually reach a different Cuebot, an administrator sets the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` for it (for example `CUEBOT_DEV_REST_GATEWAY_URL` / `CUEBOT_DEV_JWT_SECRET`). A facility with no override falls back to the default gateway, which is why the single-facility sandbox just works with `local`.
+
+> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities never exposes a gateway credential.
+
+---
+
+## Checking the CueWeb version (About CueWeb)
+
+When you file a bug or confirm a deploy, you'll want to know exactly which build you're running. CueWeb makes that a two-second check.
+
+1. Glance at the **bottom status bar** - the build version is shown at the right (e.g. `v1.4.0`).
+2. For the full picture, open the **Help** menu and choose **About CueWeb**.
+
+   ![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+3. The dialog shows the **Version**, the **Build SHA**, and a license link.
+
+   ![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+4. Click **Copy diagnostics** to copy all of those fields as JSON, then paste them straight into a bug report - no retyping.
+
+**Good to know:** the version is decided when the image is built. By default CueWeb tracks OpenCue's shared `VERSION.in`, so its number matches Cuebot and CueGUI; a deployment can override it (via `OVERRIDE_CUEWEB_VERSION.in` or the `NEXT_PUBLIC_APP_VERSION` build-arg), and the Build SHA reads `unknown` unless CI injected `NEXT_PUBLIC_GIT_SHA`. See [Versioning](/docs/concepts/versioning/#how-cueweb-sources-its-version) for the full chain.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures
