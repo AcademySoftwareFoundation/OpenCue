@@ -207,6 +207,11 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Job filters** (Show, Include Groups, Require Services, Exclude Regex) and **resource filters** (Allocations, Minimum/Max Cores, Minimum Memory, Result Limit, Proc Hour Cutoff) scope the search. **Search** lists the matching hosts (Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, LLU), expandable to their individual procs.
    - **Redirect** the selected hosts (or **Select All**): CueWeb refuses if the target is gone / has no waiting frames / is at max cores, and asks for confirmation when the target is paused or a selected proc belongs to a different show (a cross-show redirect kills that show's frame).
 
+37. **Group-based authorization (optional, opt-in):**
+   - An optional, environment-driven authorization gate enforced server-side in a single middleware chokepoint. **Off by default** - when disabled (or when no auth provider is configured) it is a pure pass-through and every signed-in user is treated as an admin.
+   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the CueCommander administration pages and job submission (CueSubmit). A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`. Read-only monitoring stays available to non-admins.
+   - The user's groups are resolved **once at sign-in** (from the OIDC claim named by `CUEWEB_GROUPS_CLAIM`, default `groups`, or a credentials/LDAP `groups` field) and stamped on the session token; the Edge middleware only reads them, so there is no per-request directory lookup. Requires an identity provider whose token carries group memberships.
+
 ## CueWeb's user interface
 
 Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figure 1), users are welcomed by CueWeb's main dashboard, as shown in Figure 2.  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 

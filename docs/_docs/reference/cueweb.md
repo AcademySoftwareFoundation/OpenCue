@@ -113,6 +113,19 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 **Note:** Set `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) for no authentication.
 
+### Authorization Variables
+
+Optional, opt-in group-based access control enforced server-side in `middleware.ts`. All default to "no restriction", so behavior is unchanged unless you set them.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CUEWEB_AUTHZ_ENABLED` | Master switch for the authorization gate. When off, the middleware is a pure pass-through | unset (off) |
+| `CUEWEB_ALLOWED_GROUPS` | Comma-separated groups allowed to use CueWeb at all (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the CueCommander administration pages and job submission (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_GROUPS_CLAIM` | JWT/OIDC claim that carries the user's group memberships | `groups` |
+
+**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame) and job submission (CueSubmit). Monitoring routes, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
+
 ### OAuth Provider Variables
 
 #### Okta

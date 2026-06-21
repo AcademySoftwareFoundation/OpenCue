@@ -132,6 +132,22 @@ sequenceDiagram
 - **CORS Support**: Configurable cross-origin resource sharing
 - **TLS Support**: Optional HTTPS encryption
 
+### Group-based authorization (optional)
+
+Authentication answers *who you are*; **authorization** answers *what you may do*. CueWeb adds an optional, opt-in authorization layer that restricts access by **group membership**, enforced server-side at a single middleware chokepoint. It is **off by default** - when disabled (or when no auth provider is configured) the middleware is a pure pass-through and every signed-in user is treated as an admin.
+
+The design separates **resolution** from **enforcement**, which is what keeps it both correct and fast:
+
+- **Resolution happens once, at sign-in (in Node).** The NextAuth `jwt` callback reads the user's groups from the identity provider - the OIDC token claim named by `CUEWEB_GROUPS_CLAIM` (default `groups`), or a `groups` field attached by a credentials/LDAP provider - and stamps them onto the signed JWT.
+- **Enforcement happens per request, at the Edge.** The middleware can only read the already-issued JWT (the Edge runtime has no database or LDAP access), so it simply reads the groups off the token and applies the policy - no per-request directory lookup.
+
+Two gates are applied:
+
+- `CUEWEB_ALLOWED_GROUPS` - who may use CueWeb at all. A signed-in user outside this list is sent to an **Access denied** page (`/unauthorized`); API routes get a `403`.
+- `CUEWEB_ADMIN_GROUPS` - who may reach the **CueCommander administration pages** and **job submission** (CueSubmit). Everyone else is blocked from those the same way, but can still use the read-only monitoring views.
+
+Infrastructure routes - the health probe, metrics, the auth flow, the login and unauthorized pages, and static assets - are never gated. **Prerequisite:** the gate only works when your identity provider emits the user's group memberships in the token; if the token carries no groups, the resolution seam can be extended (e.g. a directory lookup) without touching enforcement.
+
 ---
 
 ## Cuebot facilities (multi-facility routing)
