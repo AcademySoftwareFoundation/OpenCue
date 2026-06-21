@@ -20,7 +20,12 @@ import * as React from "react";
 import { Frame } from "../frames/frame-columns";
 import { Layer } from "../layers/layer-columns";
 import { accessActionApi, accessGetApi } from "./api_utils";
-import { getFrameLogDir, getJobForLayer, Host, JobComment, Show } from "./get_utils";
+import { getFrameLogDir, getJobForLayer, Host, JobComment, Limit, Service, Show, Subscription } from "./get_utils";
+import {
+  OPEN_DELETE_SUBSCRIPTION_EVENT,
+  OPEN_EDIT_SUBSCRIPTION_BURST_EVENT,
+  OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT,
+} from "@/components/ui/subscription-action-events";
 import { handleError, toastSuccess, toastWarning } from "./notify_utils";
 
 /**************************************/
@@ -49,6 +54,29 @@ export async function performAction(endpoint: string, bodyAr: string[], successM
 }
 
 /**************************************/
+// Facility default services (CueGUI ServiceDialog parity)
+/**************************************/
+
+// These call accessActionApi directly (no per-call success toast) so the
+// Facility Service Defaults form can show a single toast after the call
+// resolves. Errors are still surfaced as toasts by accessActionApi. Returns
+// true on success so the form can gate its refresh on it.
+export async function createService(data: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/create", JSON.stringify({ data }));
+  return !!result?.success;
+}
+
+export async function updateService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/update", JSON.stringify({ service }));
+  return !!result?.success;
+}
+
+export async function deleteService(service: Service): Promise<boolean> {
+  const result = await accessActionApi("/api/service/delete", JSON.stringify({ service }));
+  return !!result?.success;
+}
+
+/**************************************/
 // Kill Jobs, Layers, and Frames
 /**************************************/
 
@@ -72,14 +100,14 @@ export async function killLayers(layers: Layer[], username: string, reason: stri
   await performAction(endpoint, bodyAr, `Killed ${layers.length} layer(s)`);
 }
 
-export async function killFrames(frames: Frame[], username: string, reason: string) {
+export async function killFrames(frames: Frame[], username: string, reason: string): Promise<boolean> {
   const endpoint = "/api/frame/action/kill";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame,
     username,
     reason
   }));
-  await performAction(endpoint, bodyAr, `Killed ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Killed ${frames.length} frame(s)`);
 }
 
 
@@ -104,12 +132,12 @@ export async function eatLayersFrames(layers: Layer[]) {
   await performAction(endpoint, bodyAr, `Ate ${layers.length} layer(s)`);
 }
 
-export async function eatFrames(frames: Frame[]) {
+export async function eatFrames(frames: Frame[]): Promise<boolean> {
   const endpoint = "/api/frame/action/eat";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame
   }));
-  await performAction(endpoint, bodyAr, `Ate ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Ate ${frames.length} frame(s)`);
 }
 
   
@@ -155,12 +183,34 @@ export async function retryLayersDeadFrames(layers: Layer[]) {
   }
 }
 
-export async function retryFrames(frames: Frame[]) {
+export async function retryFrames(frames: Frame[]): Promise<boolean> {
   const endpoint = "/api/frame/action/retry";
   const bodyAr = frames.map(frame => JSON.stringify({
     frame
   }));
-  await performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
+  return performAction(endpoint, bodyAr, `Retried ${frames.length} frame(s)`);
+}
+
+// Set a layer's minimum cores (CueGUI Stuck Frame "Core Up"). cores is a float
+// core count. Returns success so callers can gate a refresh.
+export async function setLayerMinCores(layer: { id: string; name?: string }, cores: number): Promise<boolean> {
+  const endpoint = "/api/layer/action/setmincores";
+  return performAction(endpoint, [JSON.stringify({ layer, cores })], `Set min cores to ${cores}`);
+}
+
+/**************************************/
+// Redirect (CueGUI Redirect)
+/**************************************/
+
+// Redirect a host's procs to a target job. Returns success so the Redirect
+// page can mark the row done / surface per-host errors. No success toast here -
+// the page reports an aggregate result across the selected hosts.
+export async function redirectHostToJob(host: unknown, procNames: string[], jobId: string): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/host/action/redirecttojob",
+    JSON.stringify({ host, proc_names: procNames, job_id: jobId }),
+  );
+  return !!result?.success;
 }
 
 /**************************************/
@@ -1156,6 +1206,127 @@ export function createSubscriptionGivenRow(row: Row<any>) {
   window.dispatchEvent(
     new CustomEvent("cueweb:open-create-subscription", {
       detail: { show: row.original as Show },
+    }),
+  );
+}
+
+// Subscription mutations (CueGUI SubscriptionActions parity). new_size / burst
+// are passed in centcores (cores * 100); the dialogs convert, matching
+// CueGUI's int(value * 100.0). No per-call success toast - the dialog shows a
+// single toast after the call resolves.
+export async function setSubscriptionSize(
+  subscription: Subscription,
+  newSizeCentcores: number,
+): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/setsize",
+    [JSON.stringify({ subscription, new_size: newSizeCentcores })],
+  );
+  return !!result?.success;
+}
+
+export async function setSubscriptionBurst(
+  subscription: Subscription,
+  burstCentcores: number,
+): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/setburst",
+    [JSON.stringify({ subscription, burst: burstCentcores })],
+  );
+  return !!result?.success;
+}
+
+export async function deleteSubscription(subscription: Subscription): Promise<boolean> {
+  const result = await accessActionApi(
+    "/api/subscription/delete",
+    [JSON.stringify({ subscription })],
+  );
+  return !!result?.success;
+}
+
+/**************************************/
+// Limit actions (CueCommander Limits window parity)
+/**************************************/
+
+// Limit mutations key on the limit name (the proto requests take name /
+// old_name, not an id or object). They call accessActionApi directly so the
+// calling dialog can show a single toast; errors are surfaced by accessActionApi.
+async function limitAction(endpoint: string, body: object): Promise<boolean> {
+  const result = await accessActionApi(endpoint, [JSON.stringify(body)]);
+  return !!result?.success;
+}
+
+export async function createLimit(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/create", { name, max_value: maxValue });
+}
+
+export async function deleteLimit(name: string): Promise<boolean> {
+  return limitAction("/api/limit/action/delete", { name });
+}
+
+export async function renameLimit(oldName: string, newName: string): Promise<boolean> {
+  return limitAction("/api/limit/action/rename", { old_name: oldName, new_name: newName });
+}
+
+export async function setLimitMaxValue(name: string, maxValue: number): Promise<boolean> {
+  return limitAction("/api/limit/action/setmaxvalue", { name, max_value: maxValue });
+}
+
+// Context-menu dispatchers: open the page-level subscription dialogs via
+// CustomEvent so the free-function handlers stay free of component state
+// (same pattern as the Shows window).
+export function editSubscriptionSizeGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_EDIT_SUBSCRIPTION_SIZE_EVENT, {
+      detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+// Context-menu dispatchers: open the page-level dialogs via CustomEvent so the
+// free-function handlers stay free of component state (same pattern as hosts/shows).
+export function editLimitMaxValueGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-edit-max-value", {
+      detail: { limit: row.original as Limit },
+    }),
+  );
+}
+
+export function editSubscriptionBurstGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_EDIT_SUBSCRIPTION_BURST_EVENT, {
+      detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+export function renameLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-rename", {
+      detail: { limit: row.original as Limit },
+    }),
+  );
+}
+
+export function deleteSubscriptionGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(OPEN_DELETE_SUBSCRIPTION_EVENT, {
+      detail: { subscription: row.original as Subscription },
+    }),
+  );
+}
+
+export function deleteLimitGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-limit-delete", {
+      detail: { limit: row.original as Limit },
     }),
   );
 }

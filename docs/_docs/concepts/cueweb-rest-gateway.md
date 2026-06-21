@@ -132,6 +132,44 @@ sequenceDiagram
 - **CORS Support**: Configurable cross-origin resource sharing
 - **TLS Support**: Optional HTTPS encryption
 
+### Group-based authorization (optional)
+
+Authentication answers *who you are*; **authorization** answers *what you may do*. CueWeb adds an optional, opt-in authorization layer that restricts access by **group membership**, enforced server-side at a single middleware chokepoint. It is **off by default** - when disabled (or when no auth provider is configured) the middleware is a pure pass-through and every signed-in user is treated as an admin.
+
+The design separates **resolution** from **enforcement**, which is what keeps it both correct and fast:
+
+- **Resolution happens once, at sign-in (in Node).** The NextAuth `jwt` callback reads the user's groups from the identity provider - the OIDC token claim named by `CUEWEB_GROUPS_CLAIM` (default `groups`), or a `groups` field attached by a credentials/LDAP provider - and stamps them onto the signed JWT.
+- **Enforcement happens per request, at the Edge.** The middleware can only read the already-issued JWT (the Edge runtime has no database or LDAP access), so it simply reads the groups off the token and applies the policy - no per-request directory lookup.
+
+Two gates are applied:
+
+- `CUEWEB_ALLOWED_GROUPS` - who may use CueWeb at all. A signed-in user outside this list is sent to an **Access denied** page (`/unauthorized`); API routes get a `403`.
+- `CUEWEB_ADMIN_GROUPS` - who may reach the **CueCommander administration pages** and **job submission** (CueSubmit). Everyone else is blocked from those the same way, but can still use the read-only monitoring views.
+
+Infrastructure routes - the health probe, metrics, the auth flow, the login and unauthorized pages, and static assets - are never gated. **Prerequisite:** the gate only works when your identity provider emits the user's group memberships in the token; if the token carries no groups, the resolution seam can be extended (e.g. a directory lookup) without touching enforcement.
+
+---
+
+## Cuebot facilities (multi-facility routing)
+
+A **facility** in OpenCue labels and separates farm resources - typically by physical location. Each facility is served by its own **Cuebot** (and, for CueWeb, its own REST Gateway). CueWeb mirrors CueGUI's *Cuebot Facility* concept: you work in **one facility at a time**, and a menu lets you switch between them.
+
+### What "switching a facility" means
+
+Switching the active facility re-points CueWeb at that facility's Cuebot and reloads the current view. You never see two facilities mixed together - the jobs, hosts, shows, and everything else you see belong to the selected facility. The active facility is shown as a chip on the menu and in the bottom status bar, and the selection is remembered for the session.
+
+### How routing works
+
+Because the browser only talks to CueWeb's own `/api` routes, facility routing is resolved **server-side, per request**:
+
+- The client sends the active facility with each API call; a server-side resolver picks the matching gateway URL and JWT secret for that facility, signs the request, and forwards it to that facility's gateway &rarr; Cuebot.
+- The facility list comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`).
+- Each facility may define a server-only `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` pair. A facility with no override falls back to the default `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`, so a single-facility deployment needs no extra configuration.
+
+### Why this design
+
+Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility CueWeb (secrets live in the Node server, never in the client bundle) while letting one CueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
+
 ---
 
 ## Plugins (extending CueWeb)

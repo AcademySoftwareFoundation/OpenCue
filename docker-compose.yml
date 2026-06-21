@@ -259,9 +259,16 @@ services:
     build:
       context: ./cueweb
       dockerfile: Dockerfile
+      # Expose the repo root as a named build context so the Dockerfile can read
+      # the shared VERSION.in (CueWeb tracks it via OVERRIDE_CUEWEB_VERSION.in).
+      additional_contexts:
+        project_root: .
       args:
         # Build-time environment variables for Next.js
         - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+        # Short Git SHA shown in the "About CueWeb" dialog. Inject in CI with
+        # --build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD).
+        - NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA:-}
         # Empty = client builds same-origin relative URLs, so the app
         # works from any host the user reaches it on (localhost on the
         # dev environment, the LAN IP from another device, etc.). Set to an
@@ -293,6 +300,15 @@ services:
     environment:
       # Runtime environment variables
       - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
+      # Cuebot Facility switching (CueGUI "Cuebot Facility" menu parity).
+      # NEXT_PUBLIC_CUEBOT_FACILITIES lists the facilities in the header menu;
+      # defaults to "local,dev,cloud,external". Each facility can target its own
+      # gateway via CUEBOT_<NAME>_REST_GATEWAY_URL + CUEBOT_<NAME>_JWT_SECRET
+      # (server-only); a facility without overrides falls back to
+      # NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET below. Examples:
+      # - NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+      # - CUEBOT_DEV_REST_GATEWAY_URL=http://dev-rest-gateway:8448
+      # - CUEBOT_DEV_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
       # See the build args block above - empty means same-origin relative.
       - NEXT_PUBLIC_URL=
       # See the build args block above. Runtime value is only useful if

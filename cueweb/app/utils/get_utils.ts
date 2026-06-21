@@ -173,6 +173,52 @@ export type Allocation = {
     };
 };
 
+// Service shape - mirrors service.Service. This is a facility-wide default
+// service template (Facility Service Defaults page). Cores are stored as
+// cores*100 (the UI calls them "threads", 100 = 1 thread); memory fields are
+// stored in KB and shown as MB (divide by 1024). int64 memory fields can
+// arrive from the gateway as strings, so callers coerce with Number().
+export type Service = {
+    id: string;
+    name: string;
+    threadable: boolean;
+    minCores: number;
+    maxCores: number;
+    minMemory: number | string;       // KB (int64)
+    minGpuMemory: number | string;    // KB (int64)
+    tags: string[];
+    timeout: number;                  // minutes
+    timeoutLlu: number;               // minutes
+    minGpus?: number;
+    maxGpus?: number;
+    minMemoryIncrease: number;        // KB (OOM increase)
+};
+
+// Subscription shape - mirrors subscription.Subscription. A subscription is a
+// show's reservation against one allocation. size/burst/reservedCores arrive
+// from the gateway as int32 centcores (cores * 100); the Subscriptions table
+// divides by 100 for display, matching CueGUI's SubscriptionsWidget.
+export type Subscription = {
+    id: string;
+    name: string;
+    showName: string;
+    facility: string;
+    allocationName: string;
+    size: number;
+    burst: number;
+    reservedCores: number;
+    reservedGpus: number;
+};
+
+// Limit shape - mirrors limit.Limit. maxValue / currentRunning arrive from the
+// gateway in camelCase.
+export type Limit = {
+    id: string;
+    name: string;
+    maxValue: number;
+    currentRunning: number;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -185,6 +231,47 @@ export async function getFrames(body: string): Promise<Frame[]> {
     const ENDPOINT = "/api/job/getframes";
     const response = await accessGetApi(ENDPOINT, body);
     return response ? response : [];
+}
+
+// A running frame plus the job/layer context the Stuck Frames page needs to
+// apply CueGUI's per-service stuck-detection predicate (service + average
+// frame time) and to act on the row (job, log dir, comment flag).
+export type StuckFrame = Frame & {
+    jobId: string;
+    jobName: string;
+    jobLogDir: string;
+    jobHasComment: boolean;
+    service: string;
+    avgFrameSec: number;
+    layerId: string;
+    layerMinCores: number;
+};
+
+// Fetch every RUNNING frame across all unfinished jobs (server-aggregated via
+// /api/stuck-frames), each stamped with its service and average frame time.
+// The Stuck Frames page applies the detection thresholds locally so the
+// filters stay instant.
+export async function getStuckFrames(): Promise<StuckFrame[]> {
+    const ENDPOINT = "/api/stuck-frames";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load stuck frames from Cuebot.");
+    }
+    return response;
+}
+
+// Best-effort fetch of a frame log's last line (the "Last Line" column). Empty
+// when the log filesystem isn't reachable from the web server.
+export async function getStuckFrameLastLine(logPath: string): Promise<string> {
+    if (!logPath) return "";
+    const base = process.env.NEXT_PUBLIC_URL ?? "";
+    try {
+        const resp = await fetch(`${base}/api/stuck-frames/lastline?path=${encodeURIComponent(logPath)}`);
+        const json = await resp.json();
+        return typeof json?.lastLine === "string" ? json.lastLine : "";
+    } catch {
+        return "";
+    }
 }
 
 // Fetch a pending job based on the request body
@@ -204,6 +291,76 @@ export async function getJobs(body: string): Promise<Job[]> {
     const ENDPOINT = "/api/job/getjobs";
     const response = await accessGetApi(ENDPOINT, body);
     return response ? response : [];
+}
+
+// Resolve a single job by its exact name (Redirect target lookup + safety
+// checks). Returns null when no job matches.
+export async function findJobByName(name: string): Promise<Job | null> {
+    if (!name) return null;
+    const response = await accessGetApi(
+        "/api/job/getjobs",
+        JSON.stringify({ r: { jobs: [name], include_finished: true } }),
+    );
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to look up job from Cuebot.");
+    }
+    return response.length ? response[0] : null;
+}
+
+// --- Redirect tool (CueGUI Redirect) -------------------------------------
+// A proc on a candidate host, as returned by /api/redirect/search.
+export type RedirectProc = {
+    // Proc UUID (pk_proc). The RedirectToJob RPC resolves procs by id - pycue
+    // sends `[proc.data.id ...]` as proc_names - so the redirect action must
+    // send this, not the display name.
+    id: string;
+    name: string;
+    jobName: string;
+    groupName: string;
+    services: string[];
+    reservedCores: number;
+    reservedMemoryKb: number;
+    runtimeSeconds: number;
+    showName: string;
+};
+
+// A candidate host whose procs can be redirected. `host` is the full Host
+// proto object (needed by RedirectToJob). cores/memoryKb/timeSeconds are the
+// accumulated totals (idle + this host's procs).
+export type RedirectHost = {
+    name: string;
+    host: Host;
+    alloc: string;
+    cores: number;
+    memoryKb: number;
+    timeSeconds: number;
+    jobCores: number;
+    waitingFrames: number;
+    procs: RedirectProc[];
+};
+
+export type RedirectSearchParams = {
+    show: string;
+    allocs: string[];
+    targetJob: string;
+    minCores: number;
+    maxCores: number;
+    minMemoryKb: number;
+    limit: number;
+    cutoffSeconds: number;
+    requireService: string;
+    includeGroups: string[];
+    excludeRegex: string;
+};
+
+// Search candidate hosts/procs to redirect (server-aggregated).
+export async function searchRedirect(params: RedirectSearchParams): Promise<RedirectHost[]> {
+    const ENDPOINT = "/api/redirect/search";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify(params));
+    if (!Array.isArray(response)) {
+        throw new Error("Redirect search failed.");
+    }
+    return response;
 }
 
 // Fetch all layers based on the request body
@@ -339,6 +496,32 @@ export async function getActiveShows(): Promise<Show[]> {
 // allocation dropdowns).
 export async function getAllocations(): Promise<Allocation[]> {
     const ENDPOINT = "/api/allocation/getall";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch the facility-wide default services (the Facility Service Defaults
+// page). Mirrors CueGUI's opencue.api.getDefaultServices().
+export async function getDefaultServices(): Promise<Service[]> {
+    const ENDPOINT = "/api/service/getdefaultservices";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to load default services from Cuebot.");
+    }
+    return response;
+}
+
+// Fetch the subscriptions belonging to a single show (the per-show
+// Subscriptions table). Mirrors CueGUI's show.getSubscriptions().
+export async function getShowSubscriptions(show: Show): Promise<Subscription[]> {
+    const ENDPOINT = "/api/show/getsubscriptions";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ show }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every limit known to Cuebot (for the Limits page).
+export async function getLimits(): Promise<Limit[]> {
+    const ENDPOINT = "/api/limit/getall";
     const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
     return Array.isArray(response) ? response : [];
 }

@@ -88,8 +88,11 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar. Falls back to `cueweb/package.json#version` when unset. CI typically passes the Git SHA via `--build-arg`. | (package.json version) |
+| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar and the About CueWeb dialog. When unset, resolved from `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel tracks the repo-root `VERSION.in`; any other value pins an explicit version), then `cueweb/package.json#version`. | (resolved from `VERSION.in`) |
+| `NEXT_PUBLIC_GIT_SHA` | Short Git SHA shown in the About CueWeb dialog. Build-time only; CI injects `$(git rev-parse --short HEAD)`. Empty &rarr; "unknown". | (empty) |
 | `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
+| `CUEBOT_<NAME>_REST_GATEWAY_URL` | Per-facility REST gateway base URL (server-only; `<NAME>` is the uppercased facility name). Falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT`. | (unset &rarr; default gateway) |
+| `CUEBOT_<NAME>_JWT_SECRET` | Per-facility JWT secret the target gateway trusts (server-only). Falls back to `NEXT_JWT_SECRET`. | (unset &rarr; default secret) |
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
@@ -109,6 +112,19 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXTAUTH_SECRET` | NextAuth session secret | `random-secret` |
 
 **Note:** Set `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) for no authentication.
+
+### Authorization Variables
+
+Optional, opt-in group-based access control enforced server-side in `middleware.ts`. All default to "no restriction", so behavior is unchanged unless you set them.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CUEWEB_AUTHZ_ENABLED` | Master switch for the authorization gate. When off, the middleware is a pure pass-through | unset (off) |
+| `CUEWEB_ALLOWED_GROUPS` | Comma-separated groups allowed to use CueWeb at all (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the CueCommander administration pages and job submission (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_GROUPS_CLAIM` | JWT/OIDC claim that carries the user's group memberships | `groups` |
+
+**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame) and job submission (CueSubmit). Monitoring routes, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
 
 ### OAuth Provider Variables
 
@@ -417,6 +433,101 @@ Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/pag
 | **Expand state** | The set of expanded group ids is mirrored to the `?expanded=` query param, so a given view is deep-linkable. |
 | **Reparent** | Dragging a group onto another calls `reparentGroups()` &rarr; `/api/group/action/reparentgroups` &rarr; `job.GroupInterface/ReparentGroups`; dragging a job onto a group calls `reparentJobs()` &rarr; `/api/group/action/reparentjobs` &rarr; `job.GroupInterface/ReparentJobs`. Drop targets are validated client-side (no self/descendant cycles, no same-parent no-ops), and reparents are serialized one at a time and rolled back on a failed RPC. |
 | **Refresh** | The header **Refresh** button remounts the tree to reload groups and jobs. |
+
+### Stuck Frames
+
+A stuck-frame finder at `/stuck-frames` (`cueweb/app/stuck-frames/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window (`StuckFramePlugin`). Reached from **CueCommander &rarr; Stuck Frame** (header dropdown and sidebar).
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | `getStuckFrames()` (`app/utils/get_utils.ts`) &rarr; `/api/stuck-frames` aggregates every RUNNING frame across unfinished jobs server-side, each stamped with its `service`, `avgFrameSec`, `layerId`, and `layerMinCores`. The **Last Line** column is fetched per frame via `getStuckFrameLastLine()` &rarr; `/api/stuck-frames/lastline` (best-effort; empty when the log filesystem isn't mounted). |
+| **Detection** | Applied client-side so the filters stay instant (CueGUI parity). A frame is stuck when `lluTime` age `> minLlu*60` **and** `percentStuck*100 > percentStuck` threshold **and** `runtime > avg*avgComp/100` **and** `percentStuck < 1.1` **and** `runtime > 500`, where `percentStuck = lluAge / runtime`. |
+| **Filters** | Filter row 0 is the catch-all; rows added via **+** target one `service` each and override the catch-all for matching frames (`pickFilter`). `SERVICE_DEFAULTS` seeds `preprocess` / `nuke` / `arnold` thresholds; `makeServiceFilter` falls back to `DEFAULT_FILTER` otherwise. Filters persist to `localStorage["cueweb.stuck-frames.filters"]`. Exclude Keywords are a comma-separated regex list matched against job/layer name. |
+| **Columns** | Name (grouped under a job header), comment marker, Frame, Host, LLU, Runtime, % Stuck, Average, Last Line. |
+| **Frame actions** | Right-click menu: Tail/View/View Last Log (open the log viewer); Retry / Eat / Kill via `retryFrames` / `eatFrames` / `killFrames` (`/api/frame/action/{retry,eat,kill}`); Log Stuck Frame and Log and Retry/Eat/Kill (client-side log export then the action); Frame Not Stuck and Job/Frame exclude (client-side hide + Exclude Keywords); **Core Up** via `setLayerMinCores()` &rarr; `/api/layer/action/setmincores`; View Host. |
+| **Job actions** | Right-click a job header: View Comments, Job Not Stuck, Add Job to Excludes / Exclude and Remove Job (client-side), and **Core Up** applied across the job's stuck layers (one `setLayerMinCores` per layer). |
+
+### Facility Service Defaults
+
+A facility-wide service-defaults editor at `/services` (`cueweb/app/services/page.tsx` + `components/ui/service-defaults-form.tsx`), the CueWeb equivalent of CueGUI's Facility Service Defaults tab (`ServiceDialog` / `ServiceForm`). Reached from **CueCommander &rarr; Services** (header dropdown and sidebar).
+
+![CueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Layout** | Two panes: a left list of the facility default services (`New` / `Del`) and a right edit form for the selected service. |
+| **Data source** | Loads via `getDefaultServices()` (`app/utils/get_utils.ts`) &rarr; `/api/service/getdefaultservices` &rarr; `service.ServiceInterface/GetDefaultServices`. `getDefaultServices()` returns an array on success and throws on a non-array response, so a backend outage reaches the page's error state rather than rendering "No services defined". |
+| **Form fields** | Name, Threadable, Min/Max Threads (centcores; `100` = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined two-column checkbox matrix or a Custom Tags free-text toggle). |
+| **Units** | Memory fields are MB in the UI but KB in the proto (&times;1024); threads are stored as cores &times; 100. |
+| **Validation** | Name length/charset, all numeric fields non-negative integers, min &le; max threads when max &gt; 0, OOM increase &gt; 0, and tag charset. Invalid input raises a warning toast and blocks save. |
+| **Save** | Shows a facility-wide confirmation, then calls `createService()` (new) or `updateService()` (existing) &rarr; `/api/service/{create,update}` &rarr; `service.ServiceInterface/{CreateService,Update}`. |
+| **Delete** | `Del` confirms first, then `deleteService()` &rarr; `/api/service/delete` &rarr; `service.ServiceInterface/Delete`. |
+| **Error handling** | The Save/Delete confirm handlers throw when the helper returns `false`, so the `ConfirmDialog` stays open for retry instead of dismissing as if the action succeeded; the helper still surfaces an error toast. |
+
+### Subscriptions
+
+A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Reached from **CueCommander &rarr; Subscriptions** (header dropdown and sidebar).
+
+![CueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Show selector** | A dropdown of active shows (`getActiveShows()`); the selection persists to `localStorage["cueweb.subscriptions.show"]`. |
+| **Data source** | The selected show's subscriptions load via `getShowSubscriptions()` (`app/utils/get_utils.ts`) &rarr; `/api/show/getsubscriptions` &rarr; `show.ShowInterface/GetSubscriptions`. Auto-refreshes every 30s and re-fetches on `cueweb:subscriptions-changed` / `cueweb:shows-changed`. |
+| **Columns** | Alloc, Usage (`reservedCores / size` as a percent), Size, Burst, Used (`reservedCores`) - `app/subscriptions/subscription-columns.tsx`. `size`/`burst`/`reservedCores` arrive as centcores (cores &times; 100) and are shown divided by 100. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isSubscriptionsTable` flag (subscription-specific filter placeholder + empty-state copy and the `SubscriptionContextMenu`). Column show/hide persists to `localStorage["cueweb.subscriptions.columnVisibility"]`. |
+| **Header buttons** | **Show Properties** and **Add Subscription** reuse the Shows window dialogs via the `cueweb:open-show-properties` / `cueweb:open-create-subscription` events. |
+| **Row actions** | A right-click menu exposes **Edit Subscription Size...**, **Edit Subscription Burst...**, **Delete Subscription** (`components/ui/subscription-dialogs.tsx`, opened via `cueweb:open-edit-subscription-size` / `cueweb:open-edit-subscription-burst` / `cueweb:open-delete-subscription`). |
+
+#### Edit Size / Edit Burst / Delete dialogs
+
+`subscription-dialogs.tsx` mirrors CueGUI's prompt text. Inputs are cores, sent as cores &times; 100 to match Cuebot. Edit Size calls `setSubscriptionSize()` &rarr; `/api/subscription/setsize` &rarr; `subscription.SubscriptionInterface/SetSize` (with the billing-confirmation step); Edit Burst calls `setSubscriptionBurst()` &rarr; `/api/subscription/setburst` &rarr; `.../SetBurst`; Delete calls `deleteSubscription()` &rarr; `/api/subscription/delete` &rarr; `.../Delete`. Each success fires `cueweb:subscriptions-changed`.
+
+### Subscription Graphs
+
+A multi-show graph view at `/subscription-graphs` (`cueweb/app/subscription-graphs/page.tsx` + `components/ui/subscription-graph.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window (`SubscriptionGraphWidget` / `SubBookingBarDelegate`). Reached from **CueCommander &rarr; Subscription Graphs** (header dropdown and sidebar).
+
+![CueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Shows multi-select** | A **Shows** dropdown (All Shows / Clear / per-show checkboxes); the selection persists to `localStorage["cueweb.subscription-graphs.shows"]`. |
+| **Data source** | Per selected show, subscriptions load via `getShowSubscriptions()`; allocation core totals load via `getAllocations()` (`allocationName → stats.cores`). Polls every 15s and re-fetches on `cueweb:subscriptions-changed` (reload subs) / `cueweb:shows-changed` (re-fetch the active-show list, prune deleted shows). |
+| **Bar** | One horizontal bar per subscription, scaled to the allocation's total cores (CueGUI parity): a sky-blue track for the allocation capacity, a yellow-green fill for the in-use (reserved) cores, a blue marker line at the size and a red marker line at the burst. A header legend labels the four colors. |
+| **Tooltip** | Hovering a bar shows In use / Size / Burst / Allocation / Usage; Usage renders the real percentage when size > 0, `∞` when size is 0 but usage is live, and `—` for an empty subscription. |
+| **Row actions** | Right-clicking a bar opens **Edit Subscription Size...** / **Edit Subscription Burst...** / **Delete Subscription** / **Add new subscription** (reusing the subscription dialogs + Create Subscription dialog). Right-clicking a show with no subscriptions offers just **Add new subscription**. |
+
+### Limits
+
+A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from **CueCommander &rarr; Limits** (header dropdown and sidebar).
+
+![CueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Data source** | Loads via `getLimits()` (`app/utils/get_utils.ts`) &rarr; `/api/limit/getall` &rarr; `limit.LimitInterface/GetAll`. Unlike the host/show `GetAll` responses (which wrap a `*Seq`), `LimitGetAllResponse` nests a single level (`{ limits: [...] }`), so the route unwraps one level. Auto-refreshes every 30s and re-fetches on the `cueweb:limits-changed` event. |
+| **Columns** | Limit Name, Max Value, Current Running (`app/limits/limit-columns.tsx`). Numeric columns sort by their underlying value. |
+| **Table** | Rendered by the shared `SimpleDataTable` with the `isLimitsTable` flag - limit-specific filter/empty-state copy and the `LimitContextMenu`. Column show/hide persists to `localStorage["cueweb.limits.columnVisibility"]`. |
+| **Add Limit** | The header **Add Limit** button opens `limit-add-dialog.tsx`; on OK it calls `createLimit(name, 0)` &rarr; `/api/limit/action/create` &rarr; `limit.LimitInterface/Create`. |
+| **Row actions** | A right-click `LimitContextMenu` exposes **Edit Max Value**, **Delete Limit**, and **Rename**, opened via the `cueweb:open-limit-edit-max-value` / `cueweb:open-limit-delete` / `cueweb:open-limit-rename` events (`components/ui/limit-action-events.ts`). |
+
+The action helpers (`createLimit` / `deleteLimit` / `renameLimit` / `setLimitMaxValue` in `app/utils/action_utils.ts`) key on the limit **name** (the proto requests take `name` / `old_name`, not an id). `setLimitMaxValue` validates a non-negative integer before calling `SetMaxValue`; on success each dialog fires `cueweb:limits-changed`.
+
+### Redirect
+
+An administrator tool at `/redirect` (`cueweb/app/redirect/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Redirect window (`Redirect.update()`). Reached from **CueCommander &rarr; Redirect** (header dropdown and sidebar). It reassigns busy procs to a target job: the running frames on the selected procs are killed and the freed cores are booked onto the target.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Target auto-detect** | Typing a target job name (on blur) resolves the job and pre-fills Show + Minimum Cores / Minimum Memory from its layers (CueGUI `detect()`), so the search targets procs large enough to help. |
+| **Search** | `searchRedirect()` (`app/utils/get_utils.ts`) &rarr; `/api/redirect/search` lists the procs for the chosen show + allocations via `host.ProcInterface/GetProcs`, filters them (target job, already-redirected, exclude regex, required service, included groups, proc-hour cutoff), groups them by host, looks up each host's idle cores/memory (`host.HostInterface/FindHost`) and the source job's reserved cores / waiting frames (`job.JobInterface/GetJobs`), then keeps hosts whose totals satisfy the core/memory/runtime thresholds - up to the Result Limit. The route caps the exclude-regex length before compiling to avoid a ReDoS vector. |
+| **Filters** | Job filters: Show (required), Include Groups (`getShowGroups`), Require Services, Exclude Regex. Resource filters: Allocations (`getAllocations`), Minimum/Max Cores, Minimum Memory (GB &rarr; KB), Result Limit, Proc Hour Cutoff (PrcHrs &rarr; seconds). |
+| **Results** | One row per host (`RedirectHost`): Name, Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, LLU, Log; expandable to the individual `RedirectProc`s. Select rows (or **Select All**). |
+| **Redirect action** | `redirectHostToJob(host, procNames, jobId)` &rarr; `/api/host/action/redirecttojob` &rarr; `host.HostInterface/RedirectToJob` (one call per selected host; unbooks/kills the named procs and books the freed resources to the target). Pre-flight validation **rejects** when the target job is gone, has no waiting frames, or is at max cores, and **soft-warns** (confirm dialog) when the target is paused or a selected proc is cross-show. |
 
 ### Job-finished notifications
 
@@ -1038,6 +1149,8 @@ CueWeb communicates with these REST Gateway endpoints:
 | `frame.FrameInterface/Kill` | Kill frame |
 | `frame.FrameInterface/Eat` | Eat frame |
 | `host.HostInterface/GetHosts` | List hosts for the Monitor Hosts page |
+| `limit.LimitInterface/GetAll` | List limits for the Limits page |
+| `limit.LimitInterface/Create` / `Delete` / `Rename` / `SetMaxValue` | Create / delete / rename a limit, set its max value |
 | `facility.AllocationInterface/GetAll` | List allocations (Allocations page + subscription dropdowns) |
 | `host.HostInterface/FindHost` | Resolve a single host by name for the host detail page |
 | `host.HostInterface/GetProcs` | List the procs running on a host (detail page Procs tab) |
@@ -1069,6 +1182,11 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/host/action/removetags` | `host.HostInterface/RemoveTags` (body `{ host, tags }`) |
 | `POST /api/show/getactiveshows` | `show.ShowInterface/GetActiveShows` (unwraps `{shows:{shows:[...]}}` to a flat array) |
 | `POST /api/allocation/getall` | `facility.AllocationInterface/GetAll` (unwraps `{allocations:{allocations:[...]}}` to a flat array) |
+| `POST /api/limit/getall` | `limit.LimitInterface/GetAll` (unwraps the single-level `{limits:[...]}` to a flat array) |
+| `POST /api/limit/action/create` | `limit.LimitInterface/Create` (body `{ name, max_value }`) |
+| `POST /api/limit/action/delete` | `limit.LimitInterface/Delete` (body `{ name }`) |
+| `POST /api/limit/action/rename` | `limit.LimitInterface/Rename` (body `{ old_name, new_name }`) |
+| `POST /api/limit/action/setmaxvalue` | `limit.LimitInterface/SetMaxValue` (body `{ name, max_value }`, non-negative) |
 | `POST /api/show/action/enablebooking` | `show.ShowInterface/EnableBooking` (body `{ show, enabled }`) |
 | `POST /api/show/action/enabledispatching` | `show.ShowInterface/EnableDispatching` (body `{ show, enabled }`) |
 | `POST /api/show/action/setdefaultmaxcores` | `show.ShowInterface/SetDefaultMaxCores` (body `{ show, max_cores }`) |
@@ -1155,23 +1273,34 @@ Layout, left to right:
 - **Cuebot Facility** dropdown: one item per configured facility (default
   `local` / `dev` / `cloud` / `external`; overridable via
   `NEXT_PUBLIC_CUEBOT_FACILITIES`). A small chip on the menu trigger
-  shows the currently-active facility.
+  shows the currently-active facility. Selecting a facility writes the choice
+  to the `cueweb.facility` cookie and reloads the page; every server-side API
+  route then resolves that request's gateway via `lib/facility.ts`
+  (`getRequestFacilityTarget`), so all data is fetched from the selected
+  facility's REST gateway. The gateway URL + JWT secret per facility come from
+  `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling back to
+  `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The bottom status bar
+  shows the active facility and pings that facility's gateway.
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
   - Allocations (`/allocations`) - implemented; allocations table with
     cores/hosts stats (see [Allocations](#allocations)).
-  - Limits (`/limits`)
+  - Limits (`/limits`) - implemented; limits table with Add Limit and
+    Edit Max Value / Rename / Delete row actions (see [Limits](#limits)).
   - Monitor Cue (`/monitor-cue`)
   - Monitor Hosts (`/hosts`) - implemented; host registry with row actions
     (lock/unlock, reboot, edit tags) and a per-host detail page (see
     [Monitor Hosts](#monitor-hosts)).
-  - Redirect (`/redirect`)
+  - Redirect (`/redirect`) - implemented; admin tool that reassigns busy
+    procs' cores to a target job (see [Redirect](#redirect)).
   - Services (`/services`)
   - Shows (`/shows`) - implemented; shows stats table with Create Show, Show
     Properties, and Create Subscription, plus a per-show group-tree detail page
     at `/shows/[showName]` (see [Shows](#shows)).
-  - Stuck Frame (`/stuck-frames`)
+  - Stuck Frame (`/stuck-frames`) - implemented; stuck-frame finder with
+    per-service detection filters and frame/job actions including Core Up
+    (see [Stuck Frames](#stuck-frames)).
   - Subscription Graphs (`/subscription-graphs`)
   - Subscriptions (`/subscriptions`)
 
@@ -1199,6 +1328,11 @@ Layout, left to right:
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md`).
   - Report a Bug - `NEXT_PUBLIC_BUGS_URL`
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md`).
+  - About CueWeb - opens the About dialog (`components/ui/about-dialog.tsx`)
+    showing the version (`NEXT_PUBLIC_APP_VERSION`), build SHA
+    (`NEXT_PUBLIC_GIT_SHA`), active Cuebot facility, masked REST gateway URL,
+    Apache-2.0 license, and credits. A **Copy diagnostics** button copies those
+    fields as JSON (CueGUI parity: Help &rarr; About).
 - **Theme toggle**: Switches between light and dark mode (see
   [Theming](#theming) below).
 - **Sign out**: Always rendered. With a session, `signOut()` clears it and
@@ -1230,7 +1364,10 @@ The header dropdown menus:
 ![CueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-![CueWeb Help menu](/assets/images/cueweb/cueweb_help_menu.png)
+![CueWeb Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+
+![CueWeb About dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 The bottom status bar:
@@ -1422,12 +1559,18 @@ hidden on `/login*`. Three metrics, each with a tooltip:
   mounted). Re-renders once per second so the timestamp stays accurate
   between events.
 - **Version** (right): `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build
-  time in `next.config.js`:
-  1. If `NEXT_PUBLIC_APP_VERSION` is set, that value wins.
-  2. Otherwise it falls back to the `version` field in
-     `cueweb/package.json`.
-  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so
-    CI can pass a Git SHA or build tag via `--build-arg`.
+  time in `next.config.js` (first hit wins):
+  1. The `NEXT_PUBLIC_APP_VERSION` env / `--build-arg` (CI passes the
+     generated OpenCue version or a build tag).
+  2. `cueweb/OVERRIDE_CUEWEB_VERSION.in`: the `VERSION.in` sentinel (default)
+     reads the repo-root `VERSION.in` - OpenCue's shared version, also read by
+     cuebot / cuegui; any other value pins an explicit CueWeb version. In the
+     Docker image the root `VERSION.in` is supplied via a `project_root` named
+     build context (see `docker-compose.yml`).
+  3. The `version` field in `cueweb/package.json` (last-resort fallback).
+  - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so CI can
+    override it directly. The About CueWeb dialog shows the same version plus
+    the build SHA (`NEXT_PUBLIC_GIT_SHA`).
 
 ### `GET /api/health`
 
