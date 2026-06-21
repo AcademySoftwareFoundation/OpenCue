@@ -19,6 +19,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
 import { AppSessionProvider } from "@/app/providers/session-provider";
+import { AboutDialog } from "@/components/ui/about-dialog";
 import { AppHeader } from "@/components/ui/app-header";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { AttributesPanel } from "@/components/ui/attributes-panel";
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <AttributesPanel />
             <StatusBar />
+            <AboutDialog />
             <KeyboardShortcuts />
             <MobileNavSheet />
             <ToastHost />

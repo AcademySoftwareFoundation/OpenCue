@@ -390,6 +390,22 @@ The frame right-click menu, and the confirmation toast shown after an action:
 6. Right-click the frame and select "Retry"
 7. Watch the frame change from red to gray (pending)
 
+### Finding and clearing stuck frames
+
+Failed frames turn red, but a *stuck* frame is trickier: it keeps running (gray-green) while no longer making progress - the process is alive but has stopped writing to its log. CueWeb's **Stuck Frames** page finds these for you.
+
+1. Open **CueCommander &rarr; Stuck Frame** from the header or sidebar.
+
+   ![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+2. The page scans every running frame and lists the ones whose log has gone silent relative to their runtime, grouped under their job. Read the **LLU** (time since the last log line), **Runtime**, and **% Stuck** columns to judge each frame - a high **% Stuck** means the log has been quiet for most of the run.
+3. If nothing shows up, loosen the filters at the top - lower **Min LLU** or **% of Run Since LLU**. To tune detection per render type, click **+** to add a service-specific filter row (so e.g. Arnold frames, which legitimately run long, use looser limits than quick ones).
+4. Right-click a frame you believe is hung and pick an action:
+   - **View Log** / **View Last Log** to confirm it has really stalled.
+   - **Retry** to requeue it, **Eat** to mark it done, or **Kill** to stop it.
+   - **Core Up** to raise the layer's minimum cores when a frame is starved for resources.
+5. Use **Frame Not Stuck** (or **Job Not Stuck**) to dismiss a false positive, or **Add Job to Excludes** to stop a known-noisy job from appearing.
+
 ---
 
 ## Advanced Search and Filtering
@@ -610,6 +626,68 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 - **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
 - **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
 - **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
+
+---
+
+## Redirecting cores to a job
+
+When a high-priority job is starved for cores, the **Redirect** tool (CueCommander &rarr; Redirect) lets an administrator take cores away from other running work and hand them to that job. **Redirecting kills the frames currently running on the chosen procs**, so it is a deliberate, admin-level action - not an everyday operation.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Open **CueCommander &rarr; Redirect**.
+2. In the **Target** field, type the job that should receive the cores. CueWeb resolves it and auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help.
+3. Tune the filters:
+   - **Job filters** - narrow the candidate procs by Show, Include Groups, Require Services, or an Exclude Regex on the job name.
+   - **Resource filters** - set the Allocations, Minimum / Max Cores, Minimum Memory, Result Limit, and a **Proc Hour Cutoff** so you don't kill procs that are nearly finished.
+4. Click **Search**. CueWeb lists the hosts whose busy procs match; expand a row to see the individual procs (which job/group/service each one is running).
+5. Tick the hosts you want to take cores from (or **Select All**), then click **Redirect**.
+6. CueWeb double-checks the target before acting: it **refuses** if the target job has disappeared, has no waiting frames, or is already at its max cores, and it **asks you to confirm** if the target is paused or if a selected proc belongs to a different show (that show's frame would be killed). On success the freed cores are booked onto your target job.
+
+   ![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+7. A success toast confirms how many hosts were redirected.
+
+   ![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form and start a new search.
+
+---
+
+## Switching Cuebot facilities
+
+If your farm spans more than one **facility** - each with its own Cuebot - CueWeb lets you move between them from the **Cuebot Facility** menu. You always work in one facility at a time, exactly like CueGUI's Cuebot Facility menu.
+
+1. Look at the **Cuebot Facility** entry in the header (or the sidebar). The chip next to it shows the facility you are currently viewing.
+
+   ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+2. Open the menu and pick a different facility (for example `dev` or `cloud`). CueWeb re-routes to that facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
+3. Confirm the switch: the chip on the menu **and** the facility shown in the bottom status bar update to the new facility. Your choice is remembered for the rest of the session.
+4. Switch back the same way when you are done.
+
+**Setting up extra facilities (admin):** the menu's options come from `NEXT_PUBLIC_CUEBOT_FACILITIES`. To make a facility actually reach a different Cuebot, an administrator sets the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` for it (for example `CUEBOT_DEV_REST_GATEWAY_URL` / `CUEBOT_DEV_JWT_SECRET`). A facility with no override falls back to the default gateway, which is why the single-facility sandbox just works with `local`.
+
+> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities never exposes a gateway credential.
+
+---
+
+## Checking the CueWeb version (About CueWeb)
+
+When you file a bug or confirm a deploy, you'll want to know exactly which build you're running. CueWeb makes that a two-second check.
+
+1. Glance at the **bottom status bar** - the build version is shown at the right (e.g. `v1.4.0`).
+2. For the full picture, open the **Help** menu and choose **About CueWeb**.
+
+   ![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+3. The dialog shows the **Version**, the **Build SHA**, and a license link.
+
+   ![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+4. Click **Copy diagnostics** to copy all of those fields as JSON, then paste them straight into a bug report - no retyping.
+
+**Good to know:** the version is decided when the image is built. By default CueWeb tracks OpenCue's shared `VERSION.in`, so its number matches Cuebot and CueGUI; a deployment can override it (via `OVERRIDE_CUEWEB_VERSION.in` or the `NEXT_PUBLIC_APP_VERSION` build-arg), and the Build SHA reads `unknown` unless CI injected `NEXT_PUBLIC_GIT_SHA`. See [Versioning](/docs/concepts/versioning/#how-cueweb-sources-its-version) for the full chain.
 
 ---
 

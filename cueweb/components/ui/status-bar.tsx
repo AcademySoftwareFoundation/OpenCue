@@ -18,9 +18,10 @@
 
 import { usePathname } from "next/navigation";
 import * as React from "react";
-import { Activity, Clock, Tag } from "lucide-react";
+import { Activity, Clock, Server, Tag } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 
 /**
  * IDE-style fixed status bar mounted at the bottom of every authenticated
@@ -92,6 +93,7 @@ function StatusItem({
 
 export function StatusBar() {
   const pathname = usePathname();
+  const { facility } = useCuebotFacility();
   const [health, setHealth] = React.useState<HealthBody | null>(null);
   const [lastRefresh, setLastRefresh] = React.useState<string | null>(null);
   // Tick once per second so relative timestamps stay fresh without waiting
@@ -216,6 +218,18 @@ export function StatusBar() {
               <span className="text-muted-foreground"> ({health.latencyMs}ms)</span>
             )}
           </span>
+        }
+      />
+
+      <span className="mx-1 h-3 w-px bg-border dark:bg-zinc-700" aria-hidden="true" />
+
+      <StatusItem
+        icon={Server}
+        title={`Active Cuebot facility: ${facility}`}
+        label={
+          <>
+            Facility: <span className="font-medium uppercase">{facility}</span>
+          </>
         }
       />
 
