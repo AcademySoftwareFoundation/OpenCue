@@ -120,9 +120,18 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Cuebot Facility selector (optional)
 # Comma-separated list of facilities exposed in the header / sidebar
 # "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
-# (The selected value is persisted client-side; per-facility gateway
-# routing is implemented in a separate page-level change.)
+# Switching facility re-routes every REST gateway call server-side to the
+# selected facility's gateway; the choice is carried in a cookie and persists
+# for the session.
 # NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+#
+# Per-facility gateway + JWT secret (optional, server-only). Each facility may
+# target its own REST gateway via CUEBOT_<NAME>_REST_GATEWAY_URL and
+# CUEBOT_<NAME>_JWT_SECRET (NAME uppercased). A facility with no override falls
+# back to NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET, so the default
+# single-gateway deployment needs no extra configuration.
+# CUEBOT_DEV_REST_GATEWAY_URL=https://dev-rest-gateway.company.com
+# CUEBOT_DEV_JWT_SECRET=dev-gateway-jwt-secret
 
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
@@ -131,11 +140,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar (optional).
-# Falls back to the `version` field in cueweb/package.json when unset.
-# In CI you typically pass the short Git SHA or a release tag via
-# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
-# NEXT_PUBLIC_APP_VERSION=1.19.1
+# Build version shown in the bottom status bar and the About CueWeb dialog
+# (optional). When unset it is resolved at build time from
+# cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
+# the repo-root VERSION.in (OpenCue's shared version), and any other value pins
+# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# you typically override it with the generated version or a release tag:
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
+# NEXT_PUBLIC_APP_VERSION=1.25
+#
+# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
+# empty renders as "unknown".
+# NEXT_PUBLIC_GIT_SHA=
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. The literal {path} is substituted at
@@ -534,6 +551,46 @@ The `/cuesubmit` route is a TypeScript port of the standalone CueSubmit CLI tool
 **Production deployments**: change Memory to whatever the real services expect, override Facility from the dropdown if your deployment has more than one, and confirm `NEXT_PUBLIC_CUEBOT_FACILITIES` enumerates every facility the user should be able to pick.
 
 The form auto-saves a draft to `localStorage` on every keystroke and keeps per-field autocomplete history (Job Name / Shot / Layer Name) - these are browser-local and don't require any server-side persistence.
+
+---
+
+## Redirect tool
+
+The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with CueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
+
+**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Treat access to CueWeb accordingly - anyone who can reach the UI can issue redirects. If your deployment needs to restrict who can perform farm-wide actions, gate it at the authentication / reverse-proxy layer (CueWeb does not implement per-action role checks).
+
+---
+
+## Stuck Frames page (log access)
+
+The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with CueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.
+
+**Mount the render log directory into the CueWeb container, read-only.** CueWeb's server reads frame logs from its own filesystem, so the directory where RQD writes logs (the sandbox uses `/tmp/rqd/logs`, matching cuebot's `CUE_FRAME_LOG_DIR`) must be visible to the CueWeb container at the same path:
+
+```yaml
+# docker-compose.yml (cueweb service)
+volumes:
+  - /tmp/rqd/logs:/tmp/rqd/logs:ro
+```
+
+```yaml
+# Kubernetes: mount the shared logs volume into the cueweb pod, e.g.
+volumeMounts:
+  - name: frame-logs
+    mountPath: /net/render/logs
+    readOnly: true
+```
+
+If the log directory is not mounted, the page still lists stuck frames, but the **Last Line** column stays empty and the in-app log actions can't read the file.
+
+**Optionally restrict which roots are readable** with `CUEWEB_LOG_ROOTS` - a colon-separated list of absolute path prefixes. When set, the log-reading routes (`/api/stuck-frames/lastline` and the log download) only serve files under one of those roots; when unset, reads are not restricted to a root. Scope it to the mounted log dir:
+
+```bash
+CUEWEB_LOG_ROOTS=/net/render/logs
+```
+
+**Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
 
 ---
 
