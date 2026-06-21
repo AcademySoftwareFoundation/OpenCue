@@ -1162,6 +1162,40 @@ Clicking a show name (or navigating to `/shows/<show>`) opens the show's **group
 
 ---
 
+## Plugins
+
+CueWeb has a small **plugin system** - the browser counterpart of CueGUI's plugins. A plugin is an add-on panel that lives on its own page under `/plugins/<name>` and can be surfaced in a **Plugins** menu next to CueSubmit. Two samples ship in the box, and developers can add their own (see the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system)).
+
+### The Plugins menu and page
+
+The **Plugins** menu (in the header and sidebar, to the right of CueSubmit) lists the plugins you've enabled. Choosing one opens its page.
+
+![Plugins menu](/assets/images/cueweb/cueweb_plugins_menu.png)
+
+To see everything available and choose what appears in the menu, open the **Plugins** page. It's a searchable, paginated index of every registered plugin, each with a checkbox that controls whether it shows up in the Plugins menu. Your selection is saved in your browser and synced across tabs.
+
+![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+### Plugin settings
+
+A plugin can expose its own settings. Open them from the plugin (the **Open plugin settings** control) - the dialog is scoped to that one plugin, and each value persists in your browser and survives reloads.
+
+### Bundled sample plugins
+
+**Hello OpenCue** - a minimal example that proves the plugin contract. It has greeting / shout / emoji settings you can tweak from its settings dialog. It is **off** in the menu by default.
+
+![Hello OpenCue plugin](/assets/images/cueweb/cueweb_plugins_hello_opencue_plugin.png)
+
+![Hello OpenCue plugin settings](/assets/images/cueweb/cueweb_plugins_hello_opencue_plugin_open_plugin_settings.png)
+
+**Cue Progress Bar** - a CueWeb port of CueGUI's `cueprogbar` sample. It draws a live, color-coded frame-state bar for a job (with done / total / running labels) and offers pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. It is **on** in the menu by default.
+
+![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
+
+![Cue Progress Bar plugin settings](/assets/images/cueweb/cueweb_plugins_cue_progress_bar_open_plugin_settigns.png)
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.

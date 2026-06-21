@@ -1168,6 +1168,73 @@ rewrites Cuebot's duplicate-key error into a short user-facing message.
 
 ---
 
+## Plugin system
+
+CueWeb has a minimal plugin architecture - the browser counterpart of the CueGUI
+plugin system (`cuegui/cuegui/Plugins.py`, `cuegui/cuegui/cueguiplugin/loader.py`).
+A plugin is a **manifest** plus a **lazily-loaded React component** that mounts on
+its own route under `/plugins/<name>`. Files involved:
+
+```text
+lib/plugins.ts                       # PluginManifest / PluginModule types + PLUGIN_REGISTRY (getPlugins/getPlugin)
+app/plugins/[plugin-name]/page.tsx   # server: resolve manifest by name, set metadata, notFound() unknown, generateStaticParams
+app/plugins/[plugin-name]/plugin-host.tsx  # client: next/dynamic({ ssr: false }) loader
+app/plugins/page.tsx + plugins-browser.tsx # searchable, paginated index
+app/utils/use_plugin_menu.ts         # enabled-set hook, synced across tabs
+components/ui/settings-dialog.tsx     # shared PluginSettingsDialog + registerSetting/get/set/reset + usePluginSetting
+app/plugins/hello/ , app/plugins/cue-progress-bar/   # sample plugins (manifest.ts + component)
+```
+
+### The contract
+
+- **`PluginManifest`** - `name` (URL-safe id and route segment), `title`,
+  `version`, `route`, optional `description`.
+- **`PluginModule`** - the manifest plus a `load` thunk returning a dynamic
+  `import()` of the component. Keeping `load` a **static** `import()` expression
+  lets the bundler split each plugin into its own chunk, fetched only when its
+  route is visited.
+- Components receive **`PluginComponentProps`** (the resolved manifest).
+
+### How it loads
+
+`PLUGIN_REGISTRY` in `lib/plugins.ts` is the discovery mechanism. The dynamic
+route's server component resolves the manifest by `name` (404 via `notFound()`
+for unknown names) and `generateStaticParams()` pre-renders one page per plugin;
+the actual component is loaded in the client `plugin-host.tsx` with
+`next/dynamic({ ssr: false })` - plugin UIs are client components, and Next.js 15
+disallows `ssr: false` in a server component, so the dynamic import lives in the
+client host.
+
+### Settings persistence
+
+`registerSetting({ key, label, kind, default, plugin })` registers a setting; the
+SSR-guarded `get`/`set`/`reset` helpers persist values to
+`localStorage["cueweb.plugin-settings.<key>"]` and fire a change event.
+`PluginSettingsDialog` (mounted once in the layout) is opened scoped to a single
+plugin via `openPluginSettings()`, and `usePluginSetting` is a reactive read hook.
+jsdom tests cover the persistence round-trip and reload survival.
+
+### Menu selection
+
+The **Plugins** menu is built from a user-chosen enabled set: checkboxes on
+`/plugins` write `localStorage["cueweb.plugin-menu.enabled"]`, seeded from each
+manifest's `defaultEnabled`. `use_plugin_menu.ts` keeps the set in sync across
+components and tabs; the header and sidebar render the menu (to the right of
+CueSubmit) from it.
+
+### Adding a plugin
+
+1. Create `app/plugins/<name>/<name>-plugin.tsx` - a default-exported React
+   component taking `PluginComponentProps`.
+2. Add `app/plugins/<name>/manifest.ts` exporting a `PluginModule` whose `load`
+   is `() => import("./<name>-plugin")`.
+3. Register it in `PLUGIN_REGISTRY` in `lib/plugins.ts`.
+
+See `app/plugins/hello/` for a working example and `app/plugins/README.md` for
+the full contract reference.
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

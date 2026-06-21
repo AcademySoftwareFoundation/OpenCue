@@ -613,6 +613,30 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 
 ---
 
+## Using plugins
+
+CueWeb can be extended with **plugins** - add-on panels that live on their own pages. Two samples ship in the box; here's how to use them.
+
+1. **Open the Plugins page.** The **Plugins** menu sits in the header (and sidebar) to the right of CueSubmit. Open the menu and pick **Plugins** to see every registered plugin.
+
+   ![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+2. **Choose what's in your menu.** Each plugin has a checkbox. Tick the ones you want in the **Plugins** menu and untick the rest - your choice is saved in your browser and follows you across tabs. (Cue Progress Bar is on by default; Hello OpenCue is off.)
+
+   ![Plugins menu](/assets/images/cueweb/cueweb_plugins_menu.png)
+
+3. **Open a plugin and try it.** Pick **Cue Progress Bar** from the menu. Point it at a job and you'll see a live, color-coded frame-state bar with done / total / running counts and pause / unpause / kill / retry-dead controls; it polls Cuebot on an interval you can configure.
+
+   ![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
+
+4. **Adjust its settings.** Use the **Open plugin settings** control to change that plugin's options (for Cue Progress Bar, the poll interval; for Hello OpenCue, the greeting / shout / emoji). The dialog is scoped to that one plugin, and each value persists in your browser.
+
+   ![Cue Progress Bar settings](/assets/images/cueweb/cueweb_plugins_cue_progress_bar_open_plugin_settigns.png)
+
+> Want to build your own? A plugin is just a manifest plus a React component under `cueweb/app/plugins/<name>/`. See the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system).
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures
