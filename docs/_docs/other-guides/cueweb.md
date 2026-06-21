@@ -173,6 +173,11 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
+31. **Group-based authorization (optional, opt-in):**
+   - An optional, environment-driven authorization gate enforced server-side in a single middleware chokepoint. **Off by default** - when disabled (or when no auth provider is configured) it is a pure pass-through and every signed-in user is treated as an admin.
+   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the CueCommander administration pages and job submission (CueSubmit). A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`. Read-only monitoring stays available to non-admins.
+   - The user's groups are resolved **once at sign-in** (from the OIDC claim named by `CUEWEB_GROUPS_CLAIM`, default `groups`, or a credentials/LDAP `groups` field) and stamped on the session token; the Edge middleware only reads them, so there is no per-request directory lookup. Requires an identity provider whose token carries group memberships.
+
 
 ## CueWeb's user interface
 

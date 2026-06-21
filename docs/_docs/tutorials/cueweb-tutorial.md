@@ -613,6 +613,24 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 
 ---
 
+## Access control: restricted areas
+
+Some deployments turn on **group-based authorization**, so what you can reach depends on your group membership. This is optional and off by default; here's what it looks like when it's on.
+
+**As a user:**
+1. Read-only monitoring (Monitor Jobs, job/frame inspection, logs) is typically open to everyone who can sign in.
+2. If you open an area you're not authorized for - often the **CueCommander** administration pages or **job submission** - CueWeb shows an **Access denied** page instead of the content.
+3. If you believe you should have access, contact your OpenCue administrator; access is decided by the groups your account belongs to, not by anything you can change in the UI.
+
+**As an administrator enabling it:**
+1. Set `CUEWEB_AUTHZ_ENABLED=true` to turn the gate on (it's a pure pass-through when unset).
+2. List the groups allowed to use CueWeb at all in `CUEWEB_ALLOWED_GROUPS`, and the groups allowed on the admin pages + CueSubmit in `CUEWEB_ADMIN_GROUPS` (empty means "everyone signed in").
+3. Make sure your identity provider includes the user's groups in the login token, and point `CUEWEB_GROUPS_CLAIM` at the claim that carries them (default `groups`). Groups are read once at sign-in and enforced server-side on every request - users can't bypass it from the browser.
+
+> See [Group-based authorization](/docs/concepts/cueweb-rest-gateway/#group-based-authorization-optional) for the concept and the deployment guide for the full configuration.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures
