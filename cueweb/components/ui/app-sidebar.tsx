@@ -31,12 +31,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Cloud,
+  Columns,
   Film,
   FolderCog,
   Gauge,
   HelpCircle,
   Keyboard,
   Layers3,
+  Maximize,
   LayoutDashboard,
   LayoutGrid,
   Lock,
@@ -73,7 +75,9 @@ import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
+import { buildSplitUrl, DEFAULT_LEFT, DEFAULT_RIGHT } from "@/app/utils/split_view_utils";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { getPlugins } from "@/lib/plugins";
 import { cn } from "@/lib/utils";
@@ -167,6 +171,7 @@ function groupContainsActive(pathname: string | null, group: NavGroup): boolean 
 const FILE_GROUP_LABEL = "File";
 const FACILITY_GROUP_LABEL = "Cuebot Facility";
 const OTHER_GROUP_LABEL = "Other";
+const SPLIT_VIEW_HREF = buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT);
 const HELP_GROUP_LABEL = "Help";
 
 export function AppSidebar() {
@@ -186,6 +191,7 @@ export function AppSidebar() {
     enabled: shortcutNotificationsEnabled,
     toggle: toggleShortcutNotifications,
   } = useShortcutNotifications();
+  const { immersive, toggle: toggleImmersive } = useImmersiveMode();
   const openShortcutsOverlay = React.useCallback(() => {
     window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
   }, []);
@@ -660,6 +666,33 @@ export function AppSidebar() {
             <li>
               <button
                 type="button"
+                onClick={toggleImmersive}
+                aria-pressed={immersive}
+                title={`Other - Immersive (full-screen)${immersive ? " (on)" : ""}`}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  immersive
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                <Maximize className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Immersive (full-screen)</span>
+              </button>
+            </li>
+            <li>
+              <Link
+                href={SPLIT_VIEW_HREF}
+                title="Other - Split view"
+                className="flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              >
+                <Columns className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Split view</span>
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
                 onClick={openShortcutsOverlay}
                 title="Other - Show Shortcuts (?)"
                 className="flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
@@ -725,6 +758,38 @@ export function AppSidebar() {
                       )}
                     </span>
                   </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={toggleImmersive}
+                    aria-pressed={immersive}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                      immersive
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                    )}
+                    title="Hide the header, sidebar and status bar (also F / Cmd-Ctrl+Shift+F)"
+                  >
+                    <Maximize className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Immersive (full-screen)</span>
+                    <span className="ml-2 flex h-4 w-4 items-center justify-center">
+                      {immersive && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <Link
+                    href={SPLIT_VIEW_HREF}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                    title="Open two pages side-by-side in a resizable split workspace"
+                  >
+                    <Columns className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Split view</span>
+                  </Link>
                 </li>
                 <li>
                   <button

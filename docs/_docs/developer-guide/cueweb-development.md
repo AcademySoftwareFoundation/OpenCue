@@ -1321,6 +1321,57 @@ entries are client-only: the former hide ids in component state (cleared by
 
 ---
 
+## Job / Layer / Frame menu parity + frame log viewer
+
+The Cuetopia tables reach CueGUI parity across the Job, Layer and Frame
+right-click menus, backed by event-driven dialogs and REST-gateway routes.
+Files involved:
+
+```text
+components/ui/job-extra-dialogs.tsx     # job: Max Retries, Use Local Cores, Reorder, Stagger, Show Progress Bar, Set Min/Max GPUs
+components/ui/layer-extra-dialogs.tsx   # layer: View Dependencies, Dependency Wizard (LAYER_ON_LAYER), Mark done, Reorder, Stagger, Properties, Eat and Mark done, View Processes
+components/ui/frame-extra-dialogs.tsx   # frame: View Host, View Dependencies, Dependency Wizard (FRAME_ON_FRAME), Drop depends, Mark as waiting, Mark done, Filter Selected Layers, Reorder, Preview All, Eat and Mark done, View Processes
+components/ui/frame-range-selector.tsx  # drag / shift-click a contiguous frame range, then Retry / Eat / Kill it
+components/ui/frame-log-search.tsx      # in-log search bar (highlight, n/total, Enter/Shift+Enter, case + regex)
+components/ui/frame-preview-panel.tsx   # frame preview thumbnail viewer (-> /api/frame/preview)
+app/utils/preview_utils.ts              # fileExtension / isWebRenderableImage helpers
+app/utils/user_colors.ts                # Set User Color palette + per-browser store
+```
+
+New API routes (all proxy through `gateway_server`'s `handleRoute`):
+
+```text
+app/api/frame/action/{getdepends,dropdepends,markaswaiting}/route.ts
+app/api/frame/preview/route.ts                         # filesystem-backed preview bytes (auth + CUEWEB_PREVIEW_ROOTS allow-list)
+app/api/job/action/{addrenderpart,markdoneframes,reorderframes,staggerframes,setmingpus,setmaxgpus}/route.ts
+app/api/layer/action/{getdepends,getoutputpaths,markdone,reorderframes,staggerframes,setmincores,setminmemory,setmingpumemory,settags,setthreadable}/route.ts
+```
+
+### Notes
+
+- **Dependency package fix.** The layer/frame `createdepend*` routes target
+  `job.LayerInterface` / `job.FrameInterface` (not `layer.*` / `frame.*`), so
+  depend creation now succeeds.
+- **Single wizard mount.** `DependencyWizardDialog` is mounted once per page
+  (it previously opened twice on Monitor Jobs) and accepts an `initialType`
+  open option so the layer/frame menus can pre-select `LAYER_ON_LAYER` /
+  `FRAME_ON_FRAME`.
+- **Configurable commands.** **Show Progress Bar** renders
+  `NEXT_PUBLIC_CUEPROGBAR_COMMAND` (`{job}`), and **Preview All** renders
+  `NEXT_PUBLIC_PREVIEW_COMMAND` (`{paths}`/`{job}`/`{layer}`/`{frame}`); each
+  has an optional `*_URL` registered scheme for a launch button. All are
+  build-time `NEXT_PUBLIC_*` args (Dockerfile + docker-compose.yml).
+- **Log viewer.** `page.tsx` adds search (`frame-log-search.tsx`), follow/tail
+  mode (auto-scroll, pause-on-scroll-up, jump-to-bottom; **Tail Log** opens
+  with `?mode=tail`, last 200 lines, ~1s poll), absolute Monaco line numbers,
+  and a per-line copy glyph/context-action (`copyLineText`).
+- **Sandbox.** `sandbox/load_test_jobs.py`'s `blender` subcommand (and the
+  `render_blender_demo.py` wrapper) render a real image sequence and register
+  the layer output path, so the frame preview has actual frames; Blender is
+  auto-discovered across macOS/Windows/Linux.
+
+---
+
 ## Frame log backends (file-based and Loki)
 
 The frame log page (`app/frames/[frame-name]/page.tsx`) supports two backends.

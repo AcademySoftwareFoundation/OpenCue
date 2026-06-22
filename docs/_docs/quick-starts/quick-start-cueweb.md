@@ -125,6 +125,14 @@ NEXTAUTH_SECRET=canbeanything
 # /loki/api/v1/... The query runs in the browser, so Loki must be
 # reachable from clients and allow CORS from the CueWeb origin.
 # NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
+
+# Optional: command shown by the job menu's "Show Progress Bar" ({job} is
+# substituted) and the frame menu's "Preview All" external image viewer
+# ({paths}/{job}/{layer}/{frame} substituted). The *_URL variants are
+# optional registered URL schemes for a one-click launch button.
+# NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+# NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+# NEXT_PUBLIC_PREVIEW_URL=
 ```
 
 **Important Notes:**
@@ -189,7 +197,7 @@ You should see output similar to:
 
 The CueWeb interface includes:
 
-- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
 - **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
 - **Jobs Dashboard**: View and manage rendering jobs, with CueGUI-parity columns (Launched, Eligible, Finished, User Color, ...).
 - **Layers / Frames panels**: Inline below the jobs table. Click a job row to reveal them; click a layer to filter the frames panel; double-click a frame row to open the log viewer.

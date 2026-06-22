@@ -27,7 +27,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 1. **Persistent global header (every authenticated route):**
    - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark.
-   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug / About CueWeb). Routes that are not yet implemented 404 gracefully.
+   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug / About CueWeb). Routes that are not yet implemented 404 gracefully.
    - Theme toggle (light/dark).
    - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` - the `/login` page itself shows either the **CueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
 2. **Collapsible left sidebar (every authenticated route):**
@@ -94,7 +94,8 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
    ![Dependency Wizard - type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
    - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
-   - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items, Filter Selected Layers, Reorder, Preview All, Retry, Eat, Kill, Eat and Mark done, View Processes.
+   - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items (View / Drop / **Dependency Wizard**), **Mark as waiting**, Filter Selected Layers, Reorder, **Preview All** (external image viewer; command configurable via `NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL`), Retry, Eat, Kill, **Mark done** / Eat and Mark done, View Processes. You can also drag (or shift-click) to select a contiguous **frame range** and Retry / Eat / Kill it at once. The job menu's **Show Progress Bar** shows a configurable CueProgBar launch command (`NEXT_PUBLIC_CUEPROGBAR_COMMAND`).
+   - **Frame log viewer** also offers in-log **search** (highlight + match counter, case/regex toggles), **follow/tail** mode (auto-scroll, pause-on-scroll-up, jump-to-bottom; **Tail Log** opens it following by default), absolute **line numbers**, **per-line copy**, raw-log **download**, and a **frame preview thumbnail** panel.
    - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
    - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb surface a friendly placeholder toast. Destructive items are auto-disabled when **Disable Job Interaction** is on.
 
@@ -142,7 +143,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 25. **Mobile-friendly UI:**
    - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and the data tables can be swiped horizontally to reach off-screen columns.
-   - On phones the desktop sidebar is replaced by a hamburger button in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
+   - On phones the desktop sidebar is replaced by a hamburger button in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
    - Every Jobs / Layers / Frames row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens (see item 16), so touch users get the full action set without a right-click event.
    - The keyboard-shortcuts overlay (item 21) is itself touch-friendly: every key badge in the list is tappable, so `/` (focus search), `r` (refresh), and `t` (toggle theme) work on phones without a physical keyboard.
 
