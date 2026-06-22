@@ -987,25 +987,39 @@ Open it from the **CueCommander** menu (or the matching entry in the left sideba
 
 ![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
 
-The page renders a sortable, filterable table of every host. It follows the active theme:
+The page renders the full CueGUI Monitor Hosts column set in a sortable, filterable table of every host:
 
 ![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
 
-![CueWeb Monitor Hosts page in dark mode](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_dark.png)
-
 ### Host columns
 
-| Column | Description |
-|--------|-------------|
-| Name | Host name as reported to Cuebot |
-| State | Hardware state (`UP`, `DOWN`, `REPAIR`, ...) shown as a status badge |
-| Locked | Lock state (`OPEN`, `LOCKED`, `NIMBY_LOCKED`) shown as a status badge |
-| NIMBY | Whether NIMBY is enabled on the host (`Yes` / `No`) |
-| Cores (Idle/Total) | Idle vs total cores. Sorts by the idle ratio |
-| Memory (Idle/Total) | Idle vs total memory, human-readable. Sorts by the idle ratio |
-| Free /mcp | Free temporary (`/mcp`) space, human-readable |
+The table mirrors CueGUI's Monitor Hosts columns, in this order: **Name**, a **Comments** icon column (an amber sticky-note when the host has comments), **Load %**, **Swap**, **Physical**, **GPU Memory**, **Total Memory**, **Idle Memory**, **Temp**, **Temp Free**, **Temp Free %**, **Cores**, **Idle Cores**, **GPUs**, **Idle GPUs**, **GPU Mem**, **GPU Mem Idle**, **Ping**, **Boot Time**, **Hardware** (hardware state), **Locked** (lock state), **ThreadMode**, **OS**, and **Tags**.
 
-Numeric columns sort by their underlying value rather than the formatted text, so memory and core counts sort numerically. Use the **Columns** menu to show or hide columns - your choice persists per browser - and the **Filter hosts...** box to narrow the table by a substring of the host name.
+The **Swap**, **Physical**, **GPU Memory**, and **Temp** columns render as red/green usage bars (green = free, red = used), the same at-a-glance view CueGUI gives. Numeric columns sort by their underlying value rather than the formatted text. Use the **Columns** menu to show, hide, and reorder columns (your choice persists per browser) and the **Views** menu to save named column/sort/filter presets.
+
+Rows are tinted by host condition so problem hosts stand out:
+
+- **Red** - the host's hardware state is anything other than `UP` (for example `DOWN` or `REPAIR`).
+- **Amber** - the host is `REBOOT_WHEN_IDLE` (waiting to reboot once its frames finish).
+- **Yellow** - the host is `UP` but `LOCKED`.
+
+### Filter bar
+
+The toolbar above the table narrows what you see without re-fetching:
+
+- **Filter hosts (name / regex)** - substring or regular-expression match on the host name; **Clr** clears it.
+- **Filter Allocation**, **Filter HardwareState**, **Filter LockState**, **Filter OS** - multi-select dropdowns. Allocation and OS are populated from the hosts currently loaded; HardwareState (`UP`, `DOWN`, `REBOOTING`, `REBOOT_WHEN_IDLE`, `REPAIR`) and LockState (`OPEN`, `LOCKED`, `NIMBY_LOCKED`) are the fixed CueGUI sets. Each dropdown shows a count of how many values are selected and has a **Clear** option.
+- **Auto-refresh** (on by default), **Refresh** (manual), and **Clear** (reset every filter).
+
+![Filter by allocation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_filter_allocation.png)
+
+![Filter by hardware state](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_filter_hardware_state.png)
+
+![Filter by lock state](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_filter_lock_state.png)
+
+![Filter by OS](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_filter_os.png)
+
+The active filters are reflected in the page URL, so a filtered view is bookmarkable and shareable.
 
 ### Refresh
 
@@ -1013,39 +1027,89 @@ The host list auto-refreshes every 30 seconds. A failed refresh keeps the previo
 
 ### Host actions
 
-Right-click a host row to open its actions menu. From here you can lock or unlock the host, reboot it (immediately or when idle), and edit its tags. After an action succeeds the affected row updates immediately, then reconciles on the next refresh.
+Right-click a host row to open its actions menu. After an action succeeds the affected row updates immediately, then reconciles on the next refresh.
 
-![Host actions menu on the Monitor Hosts table](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock.png)
+![Host actions menu on the Monitor Hosts table](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+The menu mirrors CueGUI's Monitor Hosts menu: **Comments…**, **View Procs**, **Lock Host** / **Unlock Host** / **Take Ownership**, **Edit Tags…** / **Rename Tag…** / **Change Allocation…**, **Reboot** / **Reboot when idle** / **Delete Host**, and **Set Repair State** / **Clear Repair State**. Items that don't apply to a host's current state are greyed out (for example **Unlock Host** unless the host is `LOCKED`, **Clear Repair State** unless it is in `REPAIR`).
 
 #### Lock and unlock
 
-Locking a host takes it out of the booking pool so it stops picking up new frames; frames already running keep going. CueWeb asks you to confirm, listing the host(s) affected.
+Locking a host takes it out of the booking pool so it stops picking up new frames; frames already running keep going. CueWeb asks you to confirm, listing the host(s) affected. **Unlock** returns the host to the booking pool; a `NIMBY_LOCKED` host can't be unlocked this way, so **Unlock Host** stays disabled for those.
 
-![Lock host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock_confirmation.png)
+![Lock host confirmation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_lock_host.png)
 
-On success a toast confirms the action and the row's **Locked** badge updates.
+![Unlock host confirmation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_unlock_host.png)
 
-![Host locked confirmation message](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_lock_host_locked_message.png)
+#### Take ownership
 
-**Unlock** returns the host to the booking pool. A host that is `NIMBY_LOCKED` cannot be unlocked this way, so the **Unlock** entry stays disabled for those hosts.
+A host becomes `NIMBY_LOCKED` when its workstation owner is using it (NIMBY - "not in my back yard"). **Take Ownership** reclaims such a host for yourself, the same as CueGUI's Take Ownership action. It is enabled **only** when the host is `NIMBY_LOCKED`; for any other lock state the entry stays greyed out.
 
-![Unlock host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_unlock_confirmation.png)
+![Take Ownership enabled for a NIMBY-locked host](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_take_ownership.png)
+
+Choosing it asks you to confirm; on success the host is owned by the signed-in user.
+
+![Take Ownership confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_take_ownership_confirmation.png)
+
+#### Edit tags, rename tag, change allocation
+
+**Edit Tags…** opens a dialog to add or remove the host's tags. The current tags show as removable chips; start typing to autocomplete from tags that already exist across the host registry, or create a new one.
+
+![Edit host tags dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_edit_tags.png)
+
+**Rename Tag…** renames one of the host's existing tags - pick the tag and type its new name.
+
+![Rename tag dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_rename_tags.png)
+
+**Change Allocation…** moves the host into a different allocation; the dialog lists the allocations configured in Cuebot.
+
+![Change allocation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_change_allocation.png)
 
 #### Reboot and reboot when idle
 
 **Reboot** issues an immediate reboot. Any frames running on the host are killed, so CueWeb asks you to confirm first.
 
-![Reboot host confirmation dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_reboot_confirmation.png)
+![Reboot host confirmation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_reboot_host.png)
 
-**Reboot When Idle** schedules the reboot for when the host finishes its running frames - nothing is killed, so it applies without a confirmation step. Both entries are disabled while the host is already rebooting or already scheduled to reboot when idle.
+**Reboot when idle** schedules the reboot for when the host finishes its running frames - nothing is killed. Both entries are disabled while the host is already rebooting, and **Reboot when idle** is also disabled once it is already scheduled.
 
-![Reboot When Idle entry disabled](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_reboot_when_idle_option_disabled.png)
+![Reboot when idle](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_reboot_host_when_idle.png)
 
-#### Edit tags
+#### Delete host
 
-**Edit Tags** opens a dialog to add or remove the host's tags. The current tags show as removable chips; start typing to autocomplete from tags that already exist across the host registry, or create a new one. **Save** applies your changes.
+**Delete Host** removes the host record from Cuebot. This is an administrator action, so CueWeb confirms first and lists the host(s) to be deleted. (A live host that is still reporting will re-register on its next ping.)
 
-![Edit host tags dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_host_menu_edit_tags_window.png)
+![Delete selected hosts confirmation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_delete_selected_hosts.png)
+
+#### Repair state
+
+**Set Repair State** marks a host as in `REPAIR` so the scheduler stops booking it; **Clear Repair State** returns it to `UP`. The two entries are mutually exclusive - only the applicable one is enabled for a given host.
+
+![Set repair state](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_set_repair_state.png)
+
+![Clear repair state](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_clear_repair_state.png)
+
+#### Comments
+
+**Comments…** opens the host's comments dialog: a list of existing comments (Subject, User, Date) on the left and an editor for adding or editing one on the right (Subject + a markdown Message). You can only delete a comment you authored.
+
+![Host comments dialog](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments.png)
+
+Like CueGUI's Comments dialog, you can save reusable **predefined comments** (macros) and apply them with one click from the **Use a predefined comment…** dropdown. The dropdown also lets you add, edit, and delete macros; they're stored per browser.
+
+![Use a predefined comment](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments_use_predefined_comments_menu.png)
+
+![Add a predefined comment](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments_add_predefined_comment.png)
+
+![Edit a predefined comment](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments_edit_predefined_comment.png)
+
+![Delete a predefined comment](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments_delete_predefined_comment.png)
+
+### Proc monitor panel
+
+The panel below the table shows the procs (running frames) on one or more hosts - the CueWeb equivalent of CueGUI's Monitor Hosts proc view. Populate it by **left-clicking a host row** (which also loads the host into the Attributes panel), by choosing **View Procs** from a host's right-click menu, or by typing host names (space-separated) into the **Procs** box. It auto-refreshes every 30 seconds (toggle with the panel's own **Auto-refresh** / **Refresh**), and **Clr** empties it.
+
+Each proc row shows Name, Cores, Mem Reserved, Mem Used, GPU Used, Age, Unbooked, Frame, and Job. Right-click a proc for **View Job** (opens the job detail page), **Unbook** (release the proc after the current frame), **Kill** (kill the running frame), and **Unbook and Kill**.
 
 ### Host detail page
 

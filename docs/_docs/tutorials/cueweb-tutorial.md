@@ -655,6 +655,46 @@ Use **Clr** to reset the form and start a new search.
 
 ---
 
+## Managing render hosts (Monitor Hosts)
+
+The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts) is the CueWeb version of CueGUI's Monitor Hosts window, with the full column set and host actions.
+
+1. Open **CueCommander &rarr; Monitor Hosts**. The table shows every host, with Swap / Physical / GPU Memory / Temp as red/green usage bars and rows tinted by condition (red = a non-`UP` host, amber = waiting to reboot when idle, yellow = `UP` but locked).
+
+   ![Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+2. **Narrow the list** with the filter bar: type a name or regex, or use the **Filter Allocation / HardwareState / LockState / OS** dropdowns. The active filters appear in the URL, so you can bookmark or share a filtered view.
+
+   ![Filter hosts by hardware state](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_filter_hardware_state.png)
+
+3. **Right-click a host** for its actions.
+
+   ![Host actions menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
+
+   - **Lock Host** takes it out of the booking pool (running frames continue); **Unlock Host** returns it.
+
+     ![Lock host](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_lock_host.png)
+
+   - **Reboot** confirms first because it kills running frames; **Reboot when idle** waits for frames to finish.
+
+     ![Reboot host](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_reboot_host.png)
+
+   - **Take Ownership** (enabled only for a `NIMBY_LOCKED` host) claims the workstation for you after a confirmation.
+
+     ![Take Ownership confirmation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_take_ownership_confirmation.png)
+
+   - **Edit Tags… / Rename Tag… / Change Allocation…** manage the host's tags and allocation; **Set / Clear Repair State** flags a host for maintenance; **Delete Host** removes it (with confirmation).
+
+     ![Change allocation](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_change_allocation.png)
+
+   - **Comments…** opens the host's comments, including reusable predefined-comment macros.
+
+     ![Host comments](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_comments.png)
+
+4. **Inspect running procs**: **left-click a host row** (or choose **View Procs** from its menu, or type host names into the **Procs** box below the table) to load that host's procs. Right-click a proc for **View Job**, **Unbook**, **Kill**, or **Unbook and Kill**.
+
+---
+
 ## Switching Cuebot facilities
 
 If your farm spans more than one **facility** - each with its own Cuebot - CueWeb lets you move between them from the **Cuebot Facility** menu. You always work in one facility at a time, exactly like CueGUI's Cuebot Facility menu.

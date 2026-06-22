@@ -41,7 +41,7 @@ import { HostRebootDialog } from "@/components/ui/host-reboot-dialog";
 import { EditHostTagsDialog } from "@/components/ui/edit-host-tags-dialog";
 import { HostMonitorDialogs } from "@/components/ui/host-monitor-dialogs";
 import { ProcMonitorPanel } from "@/components/ui/proc-monitor-panel";
-import { HOSTS_CHANGED_EVENT, type HostsChangedDetail } from "@/components/ui/host-action-events";
+import { HOSTS_CHANGED_EVENT, type HostsChangedDetail, VIEW_HOST_PROCS_EVENT, type ViewHostProcsDetail } from "@/components/ui/host-action-events";
 
 const REFRESH_MS = 30000;
 const HARDWARE_STATES = ["UP", "DOWN", "REBOOTING", "REBOOT_WHEN_IDLE", "REPAIR"];
@@ -264,7 +264,8 @@ function HostsPageInner() {
             isHostsTable
             getRowClassName={hostRowClassName}
             columnVisibilityStorageKey="cueweb.hosts.columnVisibility"
-            // Click a host row to load it into the Attributes panel.
+            // Click a host row to load it into the Attributes panel and load
+            // its procs into the bottom panel (same as the menu's "View Procs").
             onRowClick={(host) => {
               const h = host as Host;
               setSelectedHostId(h.id);
@@ -274,6 +275,11 @@ function HostsPageInner() {
                 name: h.name,
                 data: h as unknown as Record<string, unknown>,
               });
+              window.dispatchEvent(
+                new CustomEvent<ViewHostProcsDetail>(VIEW_HOST_PROCS_EVENT, {
+                  detail: { hostNames: [h.name] },
+                }),
+              );
             }}
             selectedRowId={selectedHostId}
             viewsPageKey="hosts"

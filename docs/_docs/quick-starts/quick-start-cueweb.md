@@ -302,6 +302,16 @@ Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung -
 - Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
 - Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
 
+### Manage render hosts
+
+Open **CueCommander &rarr; Monitor Hosts** to see every render host with the full CueGUI column set (Load %, Swap / Physical / GPU Memory / Temp usage bars, cores, GPUs, hardware/lock state, OS, tags). Rows are tinted by condition - red for a non-`UP` host, amber for one waiting to reboot when idle, yellow for an `UP` but locked host.
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+- Narrow the list with the **name/regex** box and the **Filter Allocation / HardwareState / LockState / OS** dropdowns (the filters are reflected in the URL, so a view is shareable).
+- Right-click a host for **Comments**, **View Procs**, **Lock / Unlock**, **Edit Tags / Rename Tag / Change Allocation**, **Reboot / Reboot when idle / Delete Host**, and **Set / Clear Repair State**.
+- **Left-click a host row** (or use **View Procs**, or the **Procs** box below the table) to list a host's running procs, then right-click a proc for **View Job / Unbook / Kill / Unbook and Kill**.
+
 ### Switch Cuebot facilities
 
 If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. CueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
