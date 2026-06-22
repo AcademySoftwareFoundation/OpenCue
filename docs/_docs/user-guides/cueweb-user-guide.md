@@ -117,6 +117,10 @@ CueWeb supports secure authentication through multiple providers:
 
 **Note**: If authentication is disabled for development, you'll see a "CueWeb Home" button to access the interface directly.
 
+#### Restricted access
+
+Some deployments restrict access by group membership. If your account is not authorized for an area you open, CueWeb shows an **Access denied** page instead. Read-only monitoring is typically available to everyone, while the CueCommander administration pages and job submission may be limited to administrators. If you believe you should have access, contact your OpenCue administrator.
+
 ### First Time Setup
 
 When you first access CueWeb, you'll see the main dashboard:
@@ -137,7 +141,7 @@ The screen is composed of:
     - **Cuetopia** -> Monitor Jobs.
     - **CueCommander** -> Allocations, Limits, Monitor Cue, **Monitor Hosts** (see [Monitor Hosts](#monitor-hosts)), Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. The remaining unimplemented routes 404 gracefully - they are placeholders for upcoming features.
     - **Other** -> *Attributes* (toggles the docked Attributes panel, see below).
-    - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, and Report a Bug.
+    - **Help** -> a search box that finds commands across **every** menu in CueWeb (CueGUI parity), plus Online User Guide, Make a Suggestion, Report a Bug, and About CueWeb.
   - **Theme toggle**: Switch between light and dark modes (your choice persists across sessions).
   - **Sign out**: Always visible. When you are signed in, it shows your name or email next to the button and clicking it ends the session and returns you to `/login`. When you are not signed in (or when authentication is disabled in the deployment), clicking it just navigates to `/login` - the `/login` page itself shows the **CueWeb Home** button if no auth provider is configured, or the provider buttons otherwise.
 - **Left sidebar** (persistent across every authenticated route):
@@ -207,9 +211,16 @@ The **Other** menu collects the Attributes panel toggle, the shortcuts overlay, 
 ![Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-The **Help** menu provides a search box that finds commands across every menu, plus links to the online guide and feedback forms.
+The **Help** menu provides a search box that finds commands across every menu, plus links to the online guide and feedback forms, and an **About CueWeb** entry.
 
-![Help menu with search](/assets/images/cueweb/cueweb_help_menu.png)
+![Help menu with search](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+**About CueWeb** opens a dialog with the CueWeb version and build SHA, the active
+Cuebot facility, the REST gateway URL (masked), the Apache-2.0 license, and
+credits. Use **Copy diagnostics** to copy all of these as JSON to paste into a
+bug report.
+
+![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 The bottom status bar shows the gateway connection, the last refresh time, and the build version.
@@ -846,6 +857,10 @@ Frames are color-coded by status:
 
    ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
 
+The viewer has two interchangeable backends, and both look and behave the same - the same read-only editor, the same **Log versions** dropdown, and the same loading / empty states:
+
+- **File-based (default):** CueWeb reads the frame's `.rqlog` file from the render-log directory mounted into the server. The **Log versions** dropdown lists the rotated log files on disk, and you can scroll up through very large logs ("Scroll from Top").
+- **Loki (optional):** when your deployment is configured to pull logs from a [Grafana Loki](https://grafana.com/oss/loki/) server (the CueWeb equivalent of CueGUI's Loki log viewer), the viewer queries Loki for the frame's lines instead of reading a file. Here each entry in the **Log versions** dropdown is a separate **frame attempt** (newest first), and a **Refresh** button reloads the selected attempt's lines. You don't choose the backend in the UI - whichever one the deployment is set up for is used automatically. If you ever see "No logs in Loki" for a frame, it either hasn't started yet or its logs weren't shipped to Loki.
 
 ---
 
@@ -1502,6 +1517,94 @@ On success, a toast confirms how many hosts were redirected to the target job.
 
 Use **Clr** to reset the form.
 
+## Plugins
+
+CueWeb has a small **plugin system** - the browser counterpart of CueGUI's plugins. A plugin is an add-on panel that lives on its own page under `/plugins/<name>` and can be surfaced in a **Plugins** menu next to CueSubmit. Two samples ship in the box, and developers can add their own (see the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system)).
+
+### The Plugins menu and page
+
+The **Plugins** menu (in the header and sidebar, to the right of CueSubmit) lists the plugins you've enabled. Choosing one opens its page.
+
+![Plugins menu](/assets/images/cueweb/cueweb_plugins_menu.png)
+
+To see everything available and choose what appears in the menu, open the **Plugins** page. It's a searchable, paginated index of every registered plugin, each with a checkbox that controls whether it shows up in the Plugins menu. Your selection is saved in your browser and synced across tabs.
+
+![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+### Plugin settings
+
+A plugin can expose its own settings. Open them from the plugin (the **Open plugin settings** control) - the dialog is scoped to that one plugin, and each value persists in your browser and survives reloads.
+
+### Bundled sample plugins
+
+**Hello OpenCue** - a minimal example that proves the plugin contract. It has greeting / shout / emoji settings you can tweak from its settings dialog. It is **off** in the menu by default.
+
+![Hello OpenCue plugin](/assets/images/cueweb/cueweb_plugins_hello_opencue_plugin.png)
+
+![Hello OpenCue plugin settings](/assets/images/cueweb/cueweb_plugins_hello_opencue_plugin_open_plugin_settings.png)
+
+**Cue Progress Bar** - a CueWeb port of CueGUI's `cueprogbar` sample. It draws a live, color-coded frame-state bar for a job (with done / total / running labels) and offers pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. It is **on** in the menu by default.
+
+![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
+
+![Cue Progress Bar plugin settings](/assets/images/cueweb/cueweb_plugins_cue_progress_bar_open_plugin_settigns.png)
+
+---
+
+## Workspace layout
+
+Three web-native conveniences let you shape the workspace to the task at hand. All three are personal and saved in your browser, and they sync across your open tabs.
+
+### Saveable view presets
+
+Every major table (Jobs, Hosts, Allocations, Shows, Layers, Frames) has a **Views** dropdown next to its **Columns** dropdown - the web equivalent of CueGUI's *Save Window Settings*. A "view" captures the table's column order and visibility, sort, filters, and page size, so you can set the table up once and recall that exact layout later.
+
+![Views dropdown on a table](/assets/images/cueweb/cueweb_saveable_view_presets.png)
+
+**Save a view.** Arrange the table how you want it - for example, reorder or hide columns - then open **Views &rarr; Save as…** and give the preset a name.
+
+![Changing column positions before saving a view](/assets/images/cueweb/cueweb_saveable_view_presets_change_columns_positions.png)
+
+![Save the current layout as a named view](/assets/images/cueweb/cueweb_saveable_view_presets_save_view.png)
+
+**Apply a view.** Click a preset to apply it; the active one is checked. **Update "&lt;name&gt;"** overwrites the active preset with the current layout.
+
+![Applying a saved view](/assets/images/cueweb/cueweb_saveable_view_presets_apply_view_changes.png)
+
+**Rename or delete a view.** Each preset has inline **Rename** (pencil) and **Delete** (trash) buttons.
+
+![Rename a view](/assets/images/cueweb/cueweb_saveable_view_presets_rename_view.png)
+
+![Delete a view](/assets/images/cueweb/cueweb_saveable_view_presets_delete_view.png)
+
+**Restore the default.** The **Default** entry (pinned at the top) restores the table's documented defaults; it can't be renamed or deleted.
+
+![Restore the default view](/assets/images/cueweb/cueweb_saveable_view_presets_restore_default_view.png)
+
+Presets are saved per page in your browser and update across tabs as you add, rename, or delete them.
+
+### Immersive (full-screen) mode
+
+Immersive mode hides the header, sidebar, and status bar so the active table gets the entire viewport - handy on a wall display or when you want maximum table real estate. Toggle it from **Other &rarr; Immersive (full-screen)**, with the **`F`** key (or **Cmd/Ctrl+Shift+F**), or via Help-menu search.
+
+![Immersive (full-screen) in the Other menu](/assets/images/cueweb/cueweb_full_screen_menu.png)
+
+While immersed, a floating **Exit immersive** button stays on screen so you're never trapped once the chrome is hidden. Your choice persists per browser and syncs across tabs.
+
+![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+### Split view (two pages side-by-side)
+
+Split view opens **two CueWeb pages in one tab**, side by side in resizable panes - the web equivalent of CueGUI's *Add new window*. Open it from **Other &rarr; Split view** (Jobs on the left, Hosts on the right by default).
+
+![Split view in the Other menu](/assets/images/cueweb/cueweb_split_view_menu.png)
+
+- Each pane has its **own page picker** offering Monitor Jobs, all the CueCommander pages (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), CueSubmit, the Plugins index, and the Cue Progress Bar plugin - so you can put any two pages together (e.g. Monitor Jobs next to Monitor Hosts).
+- **Drag the divider** (or nudge it with the arrow keys; Home/End jump) to rebalance the panes; the ratio is remembered. **Swap** flips the panes and **Reset 50/50** re-centers.
+- The workspace lives in the URL (`/split?left=/jobs&right=/hosts/<name>`), so it's **bookmarkable and reload-safe** - navigating inside a pane updates that URL, and reloading restores both panes. On phones the panes stack vertically.
+
+![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
 ---
 
 ## Keyboard Shortcuts
@@ -1515,6 +1618,9 @@ CueWeb registers a small set of global keyboard shortcuts. Single-letter keys ar
 | `/` | Focus the jobs search box | On the jobs page |
 | `r` | Refresh the jobs table | On the jobs page |
 | `t` | Toggle the light / dark theme | Anywhere |
+| `F` (or `Cmd/Ctrl+Shift+F`) | Toggle immersive mode (hide header / sidebar / status bar) | Anywhere |
+
+The single-letter keys are ignored while typing into a text field; the immersive chord `Cmd/Ctrl+Shift+F` is the exception and works even from inside a search box.
 
 ### Opening shortcuts from the menu
 

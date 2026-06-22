@@ -150,11 +150,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar (optional).
-# Falls back to the `version` field in cueweb/package.json when unset.
-# In CI you typically pass the short Git SHA or a release tag via
-# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
-# NEXT_PUBLIC_APP_VERSION=1.19.1
+# Build version shown in the bottom status bar and the About CueWeb dialog
+# (optional). When unset it is resolved at build time from
+# cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
+# the repo-root VERSION.in (OpenCue's shared version), and any other value pins
+# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# you typically override it with the generated version or a release tag:
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
+# NEXT_PUBLIC_APP_VERSION=1.25
+#
+# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
+# empty renders as "unknown".
+# NEXT_PUBLIC_GIT_SHA=
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. The literal {path} is substituted at
@@ -171,6 +179,16 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # the client bundle at build time):
 #   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+
+# Optional Loki log backend. When set, the frame log viewer queries this
+# Grafana Loki server (by frame_id) instead of reading the on-disk .rqlog
+# file, mirroring CueGUI's Loki log viewer. Leave unset to use the default
+# file-based viewer. Base URL only (no trailing path; CueWeb appends
+# /loki/api/v1/...). The query runs in the browser, so Loki must be reachable
+# from clients and allow CORS from the CueWeb origin. Inlined at build time, so
+# pass it as a Docker build arg:
+#   docker build --build-arg NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100 ...
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 
 # Email Artist dialog defaults. The job context menu's
 # "Email Artist..." entry pre-fills From, To, CC, Subject and Body
@@ -507,6 +525,32 @@ For development or internal deployments without authentication:
 
 CueWeb runs unauthenticated in this mode.
 
+### Authorization (group-based access control)
+
+On top of authentication (*who* you are), CueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use CueWeb at all, and limit the CueCommander administration pages and job submission to specific groups.
+
+The gate is **off by default** and all variables are optional, so behavior is unchanged unless you configure it:
+
+```bash
+# Enable the gate (opt-in; default off)
+CUEWEB_AUTHZ_ENABLED=true
+
+# Groups allowed to use CueWeb at all (empty = every signed-in user)
+CUEWEB_ALLOWED_GROUPS=
+
+# Groups allowed on the CueCommander admin pages + CueSubmit (empty = every signed-in user)
+CUEWEB_ADMIN_GROUPS=render-admins,wranglers
+
+# JWT/OIDC claim that carries the user's groups (default: groups)
+CUEWEB_GROUPS_CLAIM=groups
+```
+
+Notes:
+
+- **Requires an auth provider whose token carries group memberships.** Group resolution happens once at sign-in (from the OIDC `groups` claim, or from a `groups` field a credentials/LDAP provider attaches); the middleware reads it from the token. Configure your identity provider to include the user's groups in the claim named by `CUEWEB_GROUPS_CLAIM`. When authentication is disabled, the gate is inactive.
+- **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages and CueSubmit. Read-only monitoring, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated.
+- Leaving a group list empty means "no restriction" for that scope, so you can gate only admin access (set `CUEWEB_ADMIN_GROUPS`, leave `CUEWEB_ALLOWED_GROUPS` empty) while monitoring stays open to all signed-in users.
+
 ---
 
 ## CueSubmit (browser-based job submission)
@@ -567,6 +611,44 @@ CUEWEB_LOG_ROOTS=/net/render/logs
 ```
 
 **Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
+
+## Frame log viewing (file-based or Loki)
+
+The frame log viewer has two backends, selected at deploy time:
+
+- **File-based (default):** CueWeb's server reads the `.rqlog` from its own filesystem, so mount the render-log directory into the container read-only - the **same mount described above** for the Stuck Frames page (`-v /path/to/logs:/tmp/rqd/logs:ro`). No other configuration is needed.
+- **Loki (optional):** if your studio centralizes logs in [Grafana Loki](https://grafana.com/oss/loki/), set `NEXT_PUBLIC_LOKI_URL` to the Loki HTTP API base URL (no trailing path; CueWeb appends `/loki/api/v1/...`). CueWeb then queries Loki for each frame's lines instead of reading a file, mirroring CueGUI's Loki log viewer. RQD must be configured to ship frame logs to Loki tagged with `frame_id` and `session_start_time` labels.
+
+```bash
+# Loki backend: point CueWeb at your Loki HTTP API
+NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
+```
+
+Two deployment notes for the Loki backend:
+
+- **It's a build-time, browser-read variable.** `NEXT_PUBLIC_LOKI_URL` is baked into the client bundle, so set it as a Docker build arg (like the other `NEXT_PUBLIC_*` vars), not only at runtime. The Loki query runs **in the browser**, so the Loki host must be reachable from clients (not just from the CueWeb server) and must allow **CORS** from the CueWeb origin.
+- **The log mount becomes optional.** With Loki configured, log viewing no longer reads from disk, so the render-log volume mount is not required for the viewer. (The Stuck Frames **Last Line** column still tails `.rqlog` files server-side, so keep the mount if you rely on that column.)
+
+When `NEXT_PUBLIC_LOKI_URL` is unset, CueWeb falls back to the file-based viewer with no other change.
+
+## Plugins
+
+CueWeb's plugin system needs **no extra services or configuration**. Plugins are registered in the code (`cueweb/lib/plugins.ts`) and built into the image, so the only way to add or remove a plugin is at **build time** - there is no runtime plugin directory to mount and nothing to deploy alongside CueWeb. The bundled samples (Hello OpenCue, Cue Progress Bar) ship enabled per their manifest defaults.
+
+What a user does at **runtime** - which plugins show in the Plugins menu and each plugin's settings - is stored **client-side** in the browser's `localStorage` (`cueweb.plugin-menu.enabled`, `cueweb.plugin-settings.<key>`). It is per-user and per-browser, so it requires no server-side persistence and is not shared between users. To ship a custom plugin, add it to `app/plugins/<name>/`, register it, and rebuild the image (see the developer guide).
+
+---
+
+## Workspace layout (presets, immersive, split view)
+
+The workspace-layout features - saveable **view presets**, **immersive (full-screen) mode**, and the **split view** - need **no server-side configuration**. Like the rest of CueWeb's personalization, all state is per-user, per-browser `localStorage` (`cueweb.views.<page>`, `cueweb.layout.immersive`, `cueweb.split.ratio`); nothing is persisted on the server and nothing is shared between users.
+
+One deployment detail to be aware of: **split view renders each pane as a same-origin `<iframe>`** of another CueWeb page (`/split?left=…&right=…`). For this to work behind a reverse proxy, the proxy and the app must allow CueWeb to frame **itself**:
+
+- Don't send `X-Frame-Options: DENY`. If you set it, use `SAMEORIGIN`.
+- If you use a Content-Security-Policy, allow same-origin framing, e.g. `frame-ancestors 'self'`.
+
+Because the panes are always same-origin internal paths (`sanitizePanePath` rejects external and protocol-relative URLs), no cross-origin framing is involved.
 
 ---
 

@@ -35,6 +35,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
+import { isLokiEnabled } from "@/lib/loki";
+import LokiLogView from "./loki-log-view";
 
 /**
  * Best-effort extraction of the job name from a frame's log file path.
@@ -61,6 +63,12 @@ export default function FramePage() {
   const frameId = searchParams.get("frameId") || "";
   const logDirPath = searchParams.get("frameLogDir") || "";
   const username = searchParams.get("username") || "";
+
+  // When NEXT_PUBLIC_LOKI_URL is configured, the frame log is served from Loki
+  // (mirroring CueGUI's LokiViewPlugin) instead of being read from the on-disk
+  // .rqlog file. The env var is fixed for the lifetime of the page, so reading
+  // it once at render time is sufficient.
+  const lokiEnabled = isLokiEnabled();
 
   const [curLogVersion, setCurLogVersion] = useState(path.basename(logDirPath));
   const [curLogPath, setCurLogPath] = useState(logDirPath)
@@ -95,6 +103,7 @@ export default function FramePage() {
   }, []);  
 
   useEffect(() => {
+      if (lokiEnabled) return;
       fetchInitialLogs();
   }, [editorMounted, frameObject, curLogVersion]);
   
@@ -292,6 +301,7 @@ export default function FramePage() {
   // Retreives new log versions when the logDirPath changes
   useEffect(() => {
     async function fetchLogVersions() {
+      if (lokiEnabled) return;
       const res = await fetch(`/api/getlogversions?filename=${logDirPath}`);
       const json = await res.json();
       if (res.ok && json.versions) {
@@ -339,7 +349,12 @@ export default function FramePage() {
 
       {/* Some white space between table and logs div */}
       <div className="mb-12" />
-      
+
+      {lokiEnabled ? (
+        // Loki-backed viewer (NEXT_PUBLIC_LOKI_URL is set).
+        <LokiLogView frameId={frameId} startTime={frameObject?.startTime} />
+      ) : (
+        <>
       {/* Dropdown to select different log versions */}
       <div className="my-4">
         <h3>Log versions</h3>
@@ -436,6 +451,8 @@ export default function FramePage() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

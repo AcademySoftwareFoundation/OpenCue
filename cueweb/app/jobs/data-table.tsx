@@ -63,6 +63,7 @@ import SearchDropdown from "@/components/ui/search-dropdown";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ViewsMenu } from "@/components/ui/views-menu";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -1785,6 +1786,12 @@ export function DataTable({ columns, username }: DataTableProps) {
               </button>
             ) : null}
           </div>
+        <ViewsMenu
+          page="jobs"
+          table={table}
+          defaultColumnVisibility={initialColumnVisibility}
+          defaultPageSize={10}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8">

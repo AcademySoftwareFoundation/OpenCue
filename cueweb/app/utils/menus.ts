@@ -60,4 +60,10 @@ export const NAV_MENUS: NavMenu[] = [
     label: "CueSubmit",
     items: [{ label: "Submit Job", href: "/cuesubmit" }],
   },
+  {
+    // Only "All Plugins" is static; the AppHeader injects the user-enabled
+    // plugins after it at render time (see use_plugin_menu).
+    label: "Plugins",
+    items: [{ label: "All Plugins", href: "/plugins" }],
+  },
 ];

@@ -19,13 +19,15 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { JobSubscriptionPoller } from "@/app/providers/job-subscription-poller";
 import { AppSessionProvider } from "@/app/providers/session-provider";
-import { AppHeader } from "@/components/ui/app-header";
-import { AppSidebar } from "@/components/ui/app-sidebar";
+// AppShell (workspace-layout) owns the header / sidebar / status-bar /
+// read-only-banner chrome. AboutDialog and PluginSettingsDialog are global
+// event-driven dialogs rendered here (not part of AppShell).
+import { AppShell } from "@/components/ui/app-shell";
 import { AttributesPanel } from "@/components/ui/attributes-panel";
 import { MobileNavSheet } from "@/components/ui/mobile-nav-sheet";
 import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
-import { ReadOnlyBanner } from "@/components/ui/read-only-banner";
-import { StatusBar } from "@/components/ui/status-bar";
+import { AboutDialog } from "@/components/ui/about-dialog";
+import { PluginSettingsDialog } from "@/components/ui/settings-dialog";
 import { ToastHost } from "@/components/ui/toast-host";
 
 export const metadata: Metadata = {
@@ -39,21 +41,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AppSessionProvider>
-            {/* The sidebar sits in its own full-height column on the left;
-                the AppHeader, ReadOnlyBanner and main content render in the
-                right column so the header never overlaps the sidebar area. */}
-            <div className="flex min-h-screen">
-              <AppSidebar />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <AppHeader />
-                <ReadOnlyBanner />
-                <main className="flex-1 pb-6">{children}</main>
-              </div>
-            </div>
+            {/* AppShell owns the header / sidebar / status-bar chrome so the
+                Immersive (full-screen) toggle can hide it all from one place.
+                The keyboard-shortcut handler, attributes panel, mobile nav and
+                toast host stay mounted here so the `F` shortcut still works
+                while immersed. */}
+            <AppShell>{children}</AppShell>
             <AttributesPanel />
-            <StatusBar />
+            <AboutDialog />
             <KeyboardShortcuts />
             <MobileNavSheet />
+            <PluginSettingsDialog />
             <ToastHost />
           </AppSessionProvider>
         </ThemeProvider>
