@@ -846,6 +846,10 @@ Frames are color-coded by status:
 
    ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
 
+The viewer has two interchangeable backends, and both look and behave the same - the same read-only editor, the same **Log versions** dropdown, and the same loading / empty states:
+
+- **File-based (default):** CueWeb reads the frame's `.rqlog` file from the render-log directory mounted into the server. The **Log versions** dropdown lists the rotated log files on disk, and you can scroll up through very large logs ("Scroll from Top").
+- **Loki (optional):** when your deployment is configured to pull logs from a [Grafana Loki](https://grafana.com/oss/loki/) server (the CueWeb equivalent of CueGUI's Loki log viewer), the viewer queries Loki for the frame's lines instead of reading a file. Here each entry in the **Log versions** dropdown is a separate **frame attempt** (newest first), and a **Refresh** button reloads the selected attempt's lines. You don't choose the backend in the UI - whichever one the deployment is set up for is used automatically. If you ever see "No logs in Loki" for a frame, it either hasn't started yet or its logs weren't shipped to Loki.
 
 ---
 

@@ -118,6 +118,13 @@ NEXTAUTH_SECRET=canbeanything
 # The OpenCue sandbox docker-compose defaults this to
 # vscode://file{path}.
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+
+# Optional: read frame logs from a Grafana Loki server instead of the
+# on-disk .rqlog file (mirrors CueGUI's Loki log viewer). Leave unset to
+# use the default file-based viewer. Base URL only - CueWeb appends
+# /loki/api/v1/... The query runs in the browser, so Loki must be
+# reachable from clients and allow CORS from the CueWeb origin.
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 ```
 
 **Important Notes:**
@@ -125,6 +132,7 @@ NEXTAUTH_SECRET=canbeanything
 - Authentication is disabled by default for local development
 - Sentry integration is optional and can be disabled
 - `NEXT_PUBLIC_URL` is empty by default so the same image works from `localhost`, a LAN IP, or any reverse-proxy host without rebuilding. Override it only when the UI and API live on different origins.
+- `NEXT_PUBLIC_LOKI_URL` is empty by default, so logs are read from the mounted `.rqlog` files. Set it only if your site centralizes frame logs in Loki.
 
 ### Restrict access by group (optional)
 
@@ -258,7 +266,7 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 1. Click on a job to view its layers and frames
 2. **Retry Frames**: Right-click failed frames to retry (or tap the `⋮` Actions button on the left of the row, on phones)
-3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
+3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. By default the viewer reads the rqlog from disk; if your deployment sets `NEXT_PUBLIC_LOKI_URL`, it pulls the same log from a Loki server instead (CueGUI Loki log viewer parity) - the viewer looks identical either way. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
