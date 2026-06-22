@@ -21,10 +21,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, Columns, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, X } from "lucide-react";
+import { Check, ChevronDown, Columns, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, Settings, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
+import { useFacilityHealth } from "@/app/utils/use_facility_health";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
@@ -276,6 +277,7 @@ export function AppHeader() {
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
   const { facility, facilities, setFacility } = useCuebotFacility();
+  const { health: facilityHealth } = useFacilityHealth();
   const {
     isOpen: attributesOpen,
     toggle: toggleAttributes,
@@ -447,21 +449,61 @@ export function AppHeader() {
                 />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[12rem]">
-              {facilities.map((f) => (
-                <DropdownMenuItem
-                  key={f}
-                  onSelect={() => setFacility(f)}
-                  className="cursor-pointer"
-                >
-                  <span className="mr-2 flex h-4 w-4 items-center justify-center">
-                    {f === facility && (
-                      <Check className="h-4 w-4" aria-hidden="true" />
+            <DropdownMenuContent align="start" className="min-w-[13rem]">
+              {facilities.map((f) => {
+                const status = facilityHealth[f];
+                // A facility whose gateway probe failed can't be selected
+                // (except the one already active, which can't be deselected).
+                const unreachable = status?.ok === false;
+                const disabled = unreachable && f !== facility;
+                const dotClass =
+                  status === undefined
+                    ? "bg-muted-foreground"
+                    : status.ok
+                      ? "bg-emerald-500"
+                      : "bg-red-500";
+                const title =
+                  status === undefined
+                    ? `${f}: checking…`
+                    : status.ok
+                      ? `${f}: reachable (${status.latencyMs}ms)`
+                      : `${f}: unreachable${status.error ? ` — ${status.error}` : ""}`;
+                return (
+                  <DropdownMenuItem
+                    key={f}
+                    disabled={disabled}
+                    onSelect={() => {
+                      if (disabled) return;
+                      setFacility(f);
+                    }}
+                    className="cursor-pointer"
+                    title={title}
+                  >
+                    <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                      {f === facility && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={`mr-2 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`}
+                    />
+                    <span className="flex-1">{f}</span>
+                    {unreachable && (
+                      <span className="ml-2 text-[10px] font-medium uppercase text-red-500">
+                        down
+                      </span>
                     )}
-                  </span>
-                  {f}
-                </DropdownMenuItem>
-              ))}
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/settings/facilities" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Manage facilities…
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

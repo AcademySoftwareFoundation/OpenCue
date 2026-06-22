@@ -132,6 +132,16 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # single-gateway deployment needs no extra configuration.
 # CUEBOT_DEV_REST_GATEWAY_URL=https://dev-rest-gateway.company.com
 # CUEBOT_DEV_JWT_SECRET=dev-gateway-jwt-secret
+#
+# The per-facility gateway URL / secret can also be edited at runtime (no
+# redeploy) from the /settings/facilities admin screen ("Manage facilities..."
+# in the Cuebot Facility menu). Those overrides are layered over the env vars
+# above and persisted to CUEWEB_FACILITY_STORE (a JSON file plus a .audit.jsonl
+# log). It defaults to a file in the OS temp dir; point it at a mounted volume
+# to keep overrides across container restarts. Restrict the screen to admins by
+# adding /settings/facilities to CUEWEB_ADMIN_GROUPS where group authorization
+# is enabled.
+# CUEWEB_FACILITY_STORE=/data/cueweb/facilities.json
 
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point

@@ -170,6 +170,15 @@ Because the browser only talks to CueWeb's own `/api` routes, facility routing i
 
 Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility CueWeb (secrets live in the Node server, never in the client bundle) while letting one CueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
 
+### Per-facility health and runtime configuration
+
+Fronting many facilities raises two operational questions: *is each one reachable?* and *can I re-point one without a redeploy?* CueWeb answers both while preserving the server-only credential model.
+
+- **Live health per facility.** A server endpoint probes every configured facility's gateway in parallel and reports only reachability and round-trip latency (never gateway payloads). The Cuebot Facility menu polls it and shows a green/red dot next to each facility; a facility whose gateway is down can't be selected, so you can't switch into a dead facility by accident.
+- **Runtime overrides, layered over the env defaults.** Each facility's gateway URL and JWT secret can be edited at runtime from a **Manage facilities…** admin screen. The effective value is resolved as **override → per-facility env var → legacy default**, so an empty override store reproduces the env-only behavior exactly, and clearing an override falls back to the env/default. Overrides are persisted to a server-side file (`CUEWEB_FACILITY_STORE`) with an append-only audit log; the JWT secret is stored with restrictive permissions and is never logged or returned to a client.
+
+**Why this design:** health and runtime config are both resolved **server-side**, so the browser still only ever knows a facility *name* - the credential model is unchanged. Runtime overrides make a facility's gateway re-pointable by an operator (e.g. failing over to a standby gateway) without rebuilding or restarting the image, and the audit log records who changed what.
+
 ---
 
 ## Plugins (extending CueWeb)

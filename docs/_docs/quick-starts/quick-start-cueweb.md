@@ -309,7 +309,9 @@ If your render farm spans more than one **facility** (each with its own Cuebot),
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
 - Pick a facility from the menu; CueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
+- Each facility shows a **green/red health dot** - green when its REST gateway is reachable, red when it is down (polled every 30s). A facility whose gateway is down is **disabled**, so you can't switch into it.
 - The list of facilities comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`). To point a facility at its own gateway, set the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` (e.g. `CUEBOT_DEV_REST_GATEWAY_URL`); a facility with no override falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The single-facility sandbox works with just `local`.
+- To change a facility's gateway URL or JWT secret **without a redeploy**, choose **Manage facilities…** from the menu. The admin screen edits each facility's connection at runtime (applied immediately, layered over the env defaults) and keeps a change-history log. Persist these overrides across container restarts by pointing `CUEWEB_FACILITY_STORE` at a mounted volume.
 
 ### Check the CueWeb version (About CueWeb)
 

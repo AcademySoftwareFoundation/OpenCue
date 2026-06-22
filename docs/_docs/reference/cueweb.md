@@ -93,6 +93,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
 | `CUEBOT_<NAME>_REST_GATEWAY_URL` | Per-facility REST gateway base URL (server-only; `<NAME>` is the uppercased facility name). Falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT`. | (unset &rarr; default gateway) |
 | `CUEBOT_<NAME>_JWT_SECRET` | Per-facility JWT secret the target gateway trusts (server-only). Falls back to `NEXT_JWT_SECRET`. | (unset &rarr; default secret) |
+| `CUEWEB_FACILITY_STORE` | Path to the JSON file holding runtime per-facility overrides edited from `/settings/facilities` (plus a `.audit.jsonl` log alongside it). Point it at a mounted volume to persist overrides across restarts. | (a file in the OS temp dir) |
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
@@ -1343,9 +1344,13 @@ Layout, left to right:
   route then resolves that request's gateway via `lib/facility.ts`
   (`getRequestFacilityTarget`), so all data is fetched from the selected
   facility's REST gateway. The gateway URL + JWT secret per facility come from
-  `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling back to
-  `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The bottom status bar
-  shows the active facility and pings that facility's gateway.
+  `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET` (or a runtime
+  override, below), falling back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` /
+  `NEXT_JWT_SECRET`. The bottom status bar shows the active facility and pings
+  that facility's gateway. Each menu item also carries a green/red health dot
+  (polled from `/api/facility/health` every 30s); a facility whose gateway is
+  down is disabled. A **Manage facilities…** item links to `/settings/facilities`
+  (see [Per-facility health and runtime config](#per-facility-health-and-runtime-config)).
 - **Cuetopia** dropdown:
   - Monitor Jobs (`/`)
 - **CueCommander** dropdown (mirrors the CueGUI Views/Plugins menu):
@@ -1654,6 +1659,46 @@ render the offline state without surfacing a network-tab error):
 
 When `gatewayOnline` is `false`, the response additionally includes an
 `error` field with a short human-readable hint.
+
+### `GET /api/facility/health`
+
+Probes **every** configured facility's REST gateway in parallel and returns a
+per-facility status array. The Cuebot Facility menu polls this every 30s to draw
+each facility's green/red dot and to disable a facility whose gateway is down.
+
+```json
+{
+  "facilities": [
+    { "name": "local", "ok": true, "latencyMs": 8 },
+    { "name": "dev", "ok": false, "latencyMs": 5005, "error": "Gateway probe failed" }
+  ],
+  "checkedAt": "2026-06-18T00:18:31.661Z"
+}
+```
+
+![CueWeb per-facility health endpoint](/assets/images/cueweb/cueweb_cuebot_facility_health_endpoint.png)
+
+### Per-facility health and runtime config
+
+The **Manage facilities…** item in the Cuebot Facility menu opens
+`/settings/facilities` (`app/settings/facilities/page.tsx`), an admin screen for
+editing each facility's REST gateway URL and JWT secret **at runtime, without a
+redeploy**.
+
+![CueWeb Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
+
+| Behavior | Description |
+|----------|-------------|
+| **Resolution order** | Per facility, the effective gateway URL + secret are resolved override &rarr; env (`CUEBOT_<NAME>_*`) &rarr; legacy default (`NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`). An empty override store reproduces the env-only behavior exactly. |
+| **Override store** | Edits are persisted to a JSON file at `CUEWEB_FACILITY_STORE` (defaults to the OS temp dir) by a `"use server"` action; a short in-process cache makes the change take effect within a few seconds. Point the var at a mounted volume to persist across restarts. The JWT secret is written `0600` and never returned to the client. |
+| **Audit log** | Every change appends an entry (`{ at, actor, facility, changes }`) to a `.audit.jsonl` file next to the store; the secret value is never recorded. The screen shows a change-history table. |
+| **Concurrency** | Writes are serialized through an in-process queue so concurrent saves can't lose updates (single Node process). |
+| **Authorization** | Fail-closed when authentication is configured (a signed-in user is required); open when auth is disabled (the sandbox default), matching the rest of CueWeb. A deployment that ships group authorization should additionally restrict `/settings/facilities` to `CUEWEB_ADMIN_GROUPS`. |
+
+The override-aware resolution lives in the server-only `lib/facility-server.ts`
+(layered over the client-safe `lib/facility.ts`) and the filesystem store in
+`lib/facility-store.ts`; the gateway proxy helpers live in the server-only
+`app/utils/gateway_server.ts`.
 
 ---
 
