@@ -663,13 +663,25 @@ If your farm spans more than one **facility** - each with its own Cuebot - CueWe
 
    ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
-2. Open the menu and pick a different facility (for example `dev` or `cloud`). CueWeb re-routes to that facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
+2. Open the menu and pick a different facility (for example `dev` or `cloud`). Each facility has a **status dot** next to it: green means its gateway is reachable, red means it is down (CueWeb re-checks every 30 seconds). A facility whose dot is red is **disabled** - you can't switch into a facility CueWeb can't reach. CueWeb re-routes to the chosen facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
 3. Confirm the switch: the chip on the menu **and** the facility shown in the bottom status bar update to the new facility. Your choice is remembered for the rest of the session.
 4. Switch back the same way when you are done.
 
 **Setting up extra facilities (admin):** the menu's options come from `NEXT_PUBLIC_CUEBOT_FACILITIES`. To make a facility actually reach a different Cuebot, an administrator sets the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` for it (for example `CUEBOT_DEV_REST_GATEWAY_URL` / `CUEBOT_DEV_JWT_SECRET`). A facility with no override falls back to the default gateway, which is why the single-facility sandbox just works with `local`.
 
-> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities never exposes a gateway credential.
+**Re-pointing a facility at runtime (admin):** you can also change a facility's gateway URL or JWT secret **without a redeploy**.
+
+1. Choose **Manage facilities…** from the Cuebot Facility menu.
+
+   ![Cuebot Facility menu with Manage facilities](/assets/images/cueweb/cueweb_cuebot_facility_with_manage_facilities_menu.png)
+
+2. On the admin screen, edit a facility's **REST gateway URL** and/or **JWT secret** and save. The change applies immediately and is layered over the environment defaults; leaving the gateway URL blank falls back to that facility's env value (or the default gateway). A **change-history** table records who changed what.
+
+   ![Manage facilities admin screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
+
+3. To keep these runtime edits across container restarts, point `CUEWEB_FACILITY_STORE` at a mounted volume (otherwise they live in the OS temp dir). In a deployment with group authorization, restrict `/settings/facilities` to your admin groups.
+
+> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities, viewing health, or editing config never exposes a gateway credential to the client.
 
 ---
 
