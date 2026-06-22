@@ -51,6 +51,15 @@ import { cn } from "@/lib/utils";
 /** Small copy-to-clipboard icon button used for attribute keys and values. */
 function CopyButton({ text, what }: { text: string; what: string }) {
   const [copied, setCopied] = React.useState(false);
+  // Track the "copied" reset timer so it can be cancelled if the button
+  // unmounts (e.g. the selection changes) before it fires, avoiding a state
+  // update on an unmounted component.
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
   return (
     <button
       type="button"
@@ -61,7 +70,8 @@ function CopyButton({ text, what }: { text: string; what: string }) {
         try {
           await navigator.clipboard.writeText(text);
           setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => setCopied(false), 1200);
         } catch {
           toastWarning("Could not copy to clipboard.");
         }

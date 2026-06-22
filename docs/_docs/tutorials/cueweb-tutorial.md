@@ -66,7 +66,7 @@ The CueWeb interface consists of:
     - **Cuebot Facility** -> switch between the options (e.g.: `local` / `dev` / `cloud` / `external`); the active facility is shown as a chip on the trigger.
     - **Cuetopia** -> Monitor Jobs.
     - **CueCommander** -> Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Routes that are not yet implemented 404 gracefully.
-    - **Other** -> Attributes (toggles the docked Attributes panel), Show Shortcuts (opens the same overlay as `?`), Notify on Shortcut (toggle for the per-shortcut toast).
+    - **Other** -> Attributes (toggles the docked Attributes panel), Immersive (full-screen) (hides the header, sidebar and status bar; also `F` / Cmd-Ctrl+Shift+F), Split view (open two pages side-by-side), Show Shortcuts (opens the same overlay as `?`), Notify on Shortcut (toggle for the per-shortcut toast).
     - **Help** -> a search box that finds commands across every menu, plus Online User Guide, Make a Suggestion, and Report a Bug.
   - Theme toggle and an always-visible **Sign out** button on the right. With an active session, Sign out clears it and returns you to `/login`. Without a session (or when auth is disabled), it simply navigates to `/login`.
 - **Left sidebar (persistent, collapsible):** same six groups as the header, organized as accordion sections. The group containing the active route auto-expands; click **Collapse** at the bottom to shrink the sidebar to an icon rail (your choice persists).
@@ -344,6 +344,7 @@ Frames are the individual rendering tasks within each layer.
    - Or right-click → **View Log** / **Tail Log** for the same in-browser viewer.
    - On touch devices, tap the row's `⋮` Actions button (leftmost cell) → **View Log**.
    - Select log version from the dropdown inside the viewer.
+   - **Search** the log (highlight + match counter, with case and regex toggles; **Enter** / **Shift+Enter** step between matches), turn on **follow/tail** to auto-scroll new lines (it pauses when you scroll up, with a **Jump to bottom** button), read **absolute line numbers**, hover a line to **copy** just that line, or **download** the raw log. Choosing **Tail Log** opens the viewer already following the last ~200 lines.
    - The viewer shows an empty-state message when the frame hasn't started running yet (no log file on disk).
    - The viewer works the same whether your deployment reads logs from disk (the default) or from a Loki server (when `NEXT_PUBLIC_LOKI_URL` is set, mirroring CueGUI's Loki log viewer). With the Loki backend, each entry in the **Log versions** dropdown is a separate **frame attempt** (newest first) and a **Refresh** button reloads the selected attempt. You don't pick the backend - the deployment does.
 
@@ -353,22 +354,26 @@ Frames are the individual rendering tasks within each layer.
    - Tapping it launches the rqlog file directly in your desktop editor via the custom URL scheme - the same approach GitHub's "Open in VSCode" button uses. No need to copy the path and paste it into a terminal.
    - If the editor isn't installed (no app registered for `vscode://`, `subl://`, etc.), CueWeb shows a warning toast after a short timeout pointing you at the alternatives.
 
-3. **Retry Failed Frames**:
+3. **Preview rendered frames** *(optional)*:
+   - The Frame menu's **Preview All** opens the frame's rendered output in an external image viewer; the command it shows (and the optional **Launch** button) come from `NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL` (default `rv {paths}`).
+   - A **frame preview thumbnail** panel also shows web-renderable output inline. To get real frames in the sandbox, render some with the Blender demo: `python sandbox/load_test_jobs.py blender` (or `python sandbox/render_blender_demo.py`), which renders an image sequence and registers the layer's output path.
+
+4. **Retry Failed Frames**:
    - Right-click on red (failed) frames
    - Select "Retry Frame"
    - Monitor the frame as it re-enters the queue
 
-4. **Kill Running Frames**:
+5. **Kill Running Frames**:
    - Right-click on yellow (running) frames
    - Select "Kill Frame"
    - Use when frames are stuck or consuming too many resources
 
-5. **Copy frame metadata**:
+6. **Copy frame metadata**:
    - **Copy Frame Name** copies just the frame name (e.g. `0001-test_layer`).
    - **Copy Log Path** copies the absolute rqlog path so you can paste it into a terminal or another viewer.
    - Both work on plain-HTTP LAN deployments (e.g. accessing CueWeb on your phone via the Mac's LAN IP), not just `localhost`.
 
-6. **Filter by Frame State**:
+7. **Filter by Frame State**:
    - The chips above the frames table — `WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND` — show the count for each state and act as toggles.
    - Click one or more chips to filter; multiple selections are combined with **OR**.
    - The current selection is mirrored to the URL as `?frameStates=...`, so the filtered view can be bookmarked or shared.
@@ -546,7 +551,7 @@ CueWeb is responsive down to phone-sized viewports. Every action available on de
 
 1. **Hamburger nav drawer**:
    - The desktop sidebar is hidden below the `md` breakpoint (768px).
-   - A hamburger button appears on the LEFT of the global header. Tap it to open a side drawer with every group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help.
+   - A hamburger button appears on the LEFT of the global header. Tap it to open a side drawer with every group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut), Help.
    - The drawer auto-closes when you tap a navigation link.
 
 2. **Per-row Actions menu (replaces right-click)**:

@@ -356,8 +356,9 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
                   job={job}
                   isFramesTable
                   // Single-click loads the frame into the Attributes panel
-                  // (double-click still opens the log viewer).
-                  onRowClick={(row) => handleFrameClick(row as Frame)}
+                  // (double-click still opens the log viewer). SimpleDataTable
+                  // passes row.original (a Frame), so the handler takes it directly.
+                  onRowClick={handleFrameClick}
                   selectedRowId={selectedFrame?.id ?? null}
                   columnVisibilityStorageKey="cueweb.frames.columnVisibility"
                   viewsPageKey="frames"

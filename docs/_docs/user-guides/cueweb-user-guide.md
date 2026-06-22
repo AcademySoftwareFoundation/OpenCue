@@ -844,10 +844,22 @@ Frames are color-coded by status:
    - **Retry**: Restart failed frame
    - **Eat**: Mark frame as completed (skip)
    - **Kill**: Stop running frame
+   - **Mark as waiting**: move the frame back to `WAITING` so it is re-dispatched
+   - **Mark done** / **Eat and Mark done**: treat the frame as succeeded (optionally eating it first)
+   - **View Host**: open the detail page for the host running the frame
+   - **View Dependencies** / **Dependency Wizard** / **Drop depends**: inspect and manage the frame's dependencies (the wizard opens with Frame-on-Frame pre-selected)
+   - **Filter Selected Layers**: narrow the frames table to this frame's layer
+   - **Reorder**: open the reorder dialog
+   - **Preview All**: open the frame's rendered output in an external image viewer (see below)
+   - **View Processes**: list the procs running this frame
 
    ![CueWeb with frame context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
 
    ![Pop-up showing successful eat frame message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
+
+You can also **select a contiguous range of frames** (drag, or shift-click two rows) and Retry / Eat / Kill the whole range at once.
+
+**Preview All** opens the frame's rendered images in an external viewer. The command it shows (and the optional one-click **Launch** button) are set by the deployment via `NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL` (defaults to `rv {paths}`). To get real frames to preview in the sandbox, render some with the Blender demo (`python sandbox/load_test_jobs.py blender`).
 
 #### Frame Log Viewer
 
@@ -856,6 +868,14 @@ Frames are color-coded by status:
 3. **Auto-refresh**: Automatically update running frame logs
 
    ![Frame information and logs visualization](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame.png)
+
+The viewer adds CueGUI-style controls for working through large logs:
+
+- **Search**: a search bar highlights matches with an `n / total` counter; **Enter** / **Shift+Enter** jump to the next/previous match, with case-sensitive and regex toggles.
+- **Follow (tail) mode**: auto-scrolls as new lines arrive and pauses when you scroll up, with a **Jump to bottom** button. Choosing **Tail Log** from the frame menu opens the viewer already following (the last ~200 lines, polled about once a second).
+- **Line numbers**: absolute file line numbers stay correct while you page through a long log.
+- **Per-line copy**: hover a line (or use the right-click menu) to copy just that line, with a confirmation toast.
+- **Download**: save the raw log as a `.log` file.
 
 The viewer has two interchangeable backends, and both look and behave the same - the same read-only editor, the same **Log versions** dropdown, and the same loading / empty states:
 
@@ -1759,7 +1779,7 @@ CueWeb works on phone-sized viewports, not just desktops.
 
 ### Hamburger nav drawer
 
-On phones the desktop sidebar is replaced by a **hamburger** button on the LEFT of the global header. Tap it to open a side drawer containing every group: **Dashboard**, **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes / Show Shortcuts / Notify on Shortcut), **Help**. The drawer auto-closes when you tap a navigation link.
+On phones the desktop sidebar is replaced by a **hamburger** button on the LEFT of the global header. Tap it to open a side drawer containing every group: **Dashboard**, **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut), **Help**. The drawer auto-closes when you tap a navigation link.
 
 ### Row actions via a tap
 

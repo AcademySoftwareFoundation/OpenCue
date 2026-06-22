@@ -190,6 +190,20 @@ NEXTAUTH_SECRET=nextauth-production-secret
 #   docker build --build-arg NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100 ...
 # NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 
+# Job menu "Show Progress Bar": the command shown for launching CueGUI's
+# CueProgBar for a job ({job} is substituted). Override with your site
+# launcher. NEXT_PUBLIC_CUEPROGBAR_URL (optional) is a registered URL scheme
+# for a one-click launch button. Build args (inlined into the client bundle).
+# NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+# NEXT_PUBLIC_CUEPROGBAR_URL=
+
+# Frame menu "Preview All": command to open a frame's rendered output in an
+# external image viewer ({paths}/{job}/{layer}/{frame} substituted).
+# NEXT_PUBLIC_PREVIEW_URL (optional) is a registered scheme for a Launch
+# button (e.g. openrv://{paths}). Build args (inlined into the client bundle).
+# NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+# NEXT_PUBLIC_PREVIEW_URL=
+
 # Email Artist dialog defaults. The job context menu's
 # "Email Artist..." entry pre-fills From, To, CC, Subject and Body
 # from the selected job; these two values drive the address format

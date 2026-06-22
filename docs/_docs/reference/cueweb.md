@@ -100,6 +100,10 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
 | `NEXT_PUBLIC_LOKI_URL` | Base URL of a [Grafana Loki](https://grafana.com/oss/loki/) HTTP API (no trailing path; CueWeb appends `/loki/api/v1/...`). When set, the frame log viewer queries Loki by `frame_id` instead of reading the on-disk `.rqlog` file (CueGUI `LokiViewPlugin` parity); when empty, CueWeb uses the default file-based viewer. Read in the browser (`NEXT_PUBLIC_*`), so the Loki host must be reachable from clients and must allow CORS from the CueWeb origin. See [Frame log backends](#frame-log-backends). | (empty) |
+| `NEXT_PUBLIC_CUEPROGBAR_COMMAND` | Command shown in the job menu's **Show Progress Bar** dialog; `{job}` is substituted with the job name. Sites override it with their own launcher (e.g. `spawn launch cueprogbar {job}`). | `python -m cuegui.cueguiplugin.cueprogbar {job}` |
+| `NEXT_PUBLIC_CUEPROGBAR_URL` | Optional registered URL scheme the **Show Progress Bar** dialog's launch button hands off to a local handler. Empty hides the launch button. | (empty) |
+| `NEXT_PUBLIC_PREVIEW_COMMAND` | Command shown/copied by the frame menu's **Preview All** dialog to open rendered output in an external image viewer. Placeholders `{paths}` / `{job}` / `{layer}` / `{frame}` are substituted. | `rv {paths}` |
+| `NEXT_PUBLIC_PREVIEW_URL` | Optional registered URL scheme **Preview All** hands off to a local viewer (e.g. `openrv://{paths}`). Empty hides the launch button (the command is still shown to copy). | (empty) |
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 | `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
@@ -339,6 +343,19 @@ Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/component
 | **Frames panel** | Lists every frame in the job (or the layer-filtered subset). Total count shows `X of Y` when filtered. |
 | **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
 | **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). The viewer serves logs from disk by default, or from Loki when `NEXT_PUBLIC_LOKI_URL` is set - see [Frame log backends](#frame-log-backends). |
+
+### Frame log viewer features
+
+The frame log page (`app/frames/[frame-name]/page.tsx`) wraps the Monaco editor with CueGUI-parity controls:
+
+| Feature | Description |
+|---------|-------------|
+| **Search** | An in-log search bar (`components/ui/frame-log-search.tsx`) highlights matches with an `n / total` counter; **Enter** / **Shift+Enter** step forward/back, with case-sensitive and regex toggles. |
+| **Follow (tail) mode** | Auto-scrolls as new lines arrive, pauses when you scroll up, and offers a **Jump to bottom** control. The frame menu's **Tail Log** opens the viewer in this mode by default (last 200 lines, ~1s poll). |
+| **Line numbers** | Absolute file line numbers (Monaco's `lineNumbers` maps editor line N to the file offset), so numbers stay correct while paging through a large log. |
+| **Per-line copy** | A hover copy glyph (and a context-menu action) copies a single line's text to the clipboard with a confirmation toast (`copyLineText`). |
+| **Download** | Streams the raw `.rqlog` as a `.log` attachment via `/api/getlog`. |
+| **Preview panel** | `components/ui/frame-preview-panel.tsx` shows a thumbnail of the frame's rendered output via `/api/frame/preview` (web-renderable formats only; EXR/TIFF/DPX fall back to a "not supported in browser" notice). |
 
 ### Frame log backends
 
@@ -733,15 +750,18 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **Drop Internal Dependencies** | Drop internal layer-on-layer dependencies via the `DropDepends` RPC with `target = INTERNAL`. |
 | **Set User Color** / **Clear User Color** | Drive the User Color column for this job. *(placeholder)* |
 | **Set Priority...** | Open a themed dialog with a 1-100 slider + number input to adjust the job's dispatch priority. Higher numbers dispatch first; default is 100. After Apply the Jobs table updates the Priority column optimistically (no wait for the 5s poll). Available everywhere the job context menu appears - both **Cuetopia &rarr; Monitor Jobs** (`/`) and **CueCommander &rarr; Monitor Cue** (`/monitor-cue`); the entry is *not* gated by `usePathname()`. See [Set Priority dialog](#set-priority-dialog). |
-| **Set Max Retries** | Edit the per-frame retry budget. |
-| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
+| **Set Max Retries** | Edit the per-frame retry budget (`job-extra-dialogs.tsx` &rarr; `/api/job/action/addrenderpart` / the max-retries route). |
+| **Set Min/Max Cores** / **Set Min/Max GPUs** | Edit the job's core / GPU booking range (`/api/job/action/setmingpus` / `setmaxgpus`, plus the existing core routes). |
+| **Use Local Cores** | Book the user's local workstation cores onto the job (`addrenderpart`). |
+| **Set User Color** | Paint the job's row with one of CueGUI's 15 default swatches or a brighter palette; stored per browser in `localStorage` (`app/utils/user_colors.ts`) and synced across tabs. |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs (`/api/job/action/reorderframes` / `staggerframes`). |
 | **Pause** / **Unpause** | Single toggle entry: shows **Pause** when the job is running and **Unpause** when the job is already paused. The label, icon (`TbPlayerPause` / `TbPlayerPlay`) and dispatched action all flip on the row's `isPaused` flag. The entry is shown disabled (grayed) when the job's `state === "FINISHED"` (a terminal state can't be paused), and when the global *Disable Job Interaction* safety flag is on. Active in all other states (In Progress, Failing, Dependency). |
 | **Auto-Eat On** / **Auto-Eat Off** | Toggle Auto-Eat. |
 | **Retry Dead Frames** | Retry every dead frame. |
 | **Eat Dead Frames** | Mark every dead frame as eaten. |
-| **Unbook** | Unbook running frames. *(placeholder)* |
+| **Unbook** | Unbook running frames (`unbook-dialog.tsx`). |
 | **Kill** | Terminate the job. |
-| **Show Progress Bar** | Surface the stacked progress bar for the job. *(placeholder)* |
+| **Show Progress Bar** | Opens a dialog showing the command to launch CueGUI's CueProgBar for the job. The command is configurable via `NEXT_PUBLIC_CUEPROGBAR_COMMAND` (`{job}` is substituted; default `python -m cuegui.cueguiplugin.cueprogbar {job}`), with an optional registered URL scheme via `NEXT_PUBLIC_CUEPROGBAR_URL`. |
 
 ### Layer Actions
 
@@ -749,9 +769,11 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 |--------|-------------|
 | **View Layer** | Navigate to the layer detail page. |
 | **Copy Layer Name** | Copy the full layer name to the clipboard. |
-| **Drop / View / Wizard dependency items** | Manage layer-level dependencies. *(placeholders)* |
-| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs. *(placeholder)* |
-| **Properties** | Open the layer properties dialog. *(placeholder)* |
+| **View Dependencies** / **Dependency Wizard** / **Drop depends** | Manage layer-level dependencies (`layer-extra-dialogs.tsx`; the wizard opens with `LAYER_ON_LAYER` pre-selected; `/api/layer/action/getdepends`). |
+| **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs (`/api/layer/action/reorderframes` / `staggerframes`). |
+| **Properties** | Edit the layer's min cores / min memory / min GPU memory, threadable flag, and tags (`/api/layer/action/{setmincores,setminmemory,setmingpumemory,setthreadable,settags}`). |
+| **Mark done** / **Eat and Mark done** | Mark the layer's frames done, optionally eating first (`/api/layer/action/markdone`). |
+| **View Processes** | List the procs running the layer's frames in the proc panel. |
 | **Kill** | Kill every frame in the layer. |
 | **Eat** | Eat every frame in the layer. |
 | **Retry** | Retry every frame in the layer. |
@@ -765,16 +787,17 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Log on \<editor\>** | Launches the log file in a desktop editor. Only rendered when `NEXT_PUBLIC_LOG_EDITOR_URL` is set. The menu label is derived from the configured value (`vscode://...` -> "View Log on VSCode", `subl://...` -> "View Log on Sublime Text", `txmt://...` -> "View Log on TextMate", `idea://...` -> "View Log on IntelliJ", unrecognized -> "View Log in external editor"). See [External editor integration](#external-editor-integration) below. |
 | **Copy Log Path** | Copy the absolute log path to the clipboard. |
 | **Copy Frame Name** | Copy the full frame name. |
-| **View Host** | Navigate to the host detail page. *(placeholder)* |
-| **Drop / View dependency items** | Manage frame-level dependencies. *(placeholders)* |
+| **View Host** | Navigate to the host detail page for the host running the frame. |
+| **View Dependencies** / **Dependency Wizard** / **Drop depends** | Manage frame-level dependencies (`frame-extra-dialogs.tsx`; the wizard opens with `FRAME_ON_FRAME` pre-selected; `/api/frame/action/getdepends` / `dropdepends`). |
+| **Mark as waiting** | Move the frame back to `WAITING` so it is re-dispatched (`/api/frame/action/markaswaiting` &rarr; `job.FrameInterface/MarkAsWaiting`). |
 | **Filter Selected Layers** | Narrow the frames table to the frame's layer (same as clicking the layer row). |
-| **Reorder** | Open the reorder dialog. *(placeholder)* |
-| **Preview All** | Sequence-preview integration. *(placeholder)* |
+| **Reorder** | Open the reorder dialog (`/api/frame/action/...`). |
+| **Preview All** | Open the frame's rendered output in an external image viewer. The command is configurable via `NEXT_PUBLIC_PREVIEW_COMMAND` (placeholders `{paths}` / `{job}` / `{layer}` / `{frame}`; default `rv {paths}`); a **Launch** button hands off to `NEXT_PUBLIC_PREVIEW_URL` when a registered URL scheme is configured. Output paths come from `/api/layer/action/getoutputpaths`. |
 | **Retry** | Retry the frame. |
 | **Eat** | Mark the frame as eaten. |
 | **Kill** | Kill the running frame. |
-| **Eat and Mark done** | Eat the frame and treat it as succeeded. *(placeholder)* |
-| **View Processes** | Show RQD processes attached to the frame. *(placeholder)* |
+| **Mark done** / **Eat and Mark done** | Mark the frame done, optionally eating it first (`/api/job/action/markdoneframes`). |
+| **View Processes** | List the procs running this frame in the proc panel. |
 
 ### External editor integration
 
@@ -1486,7 +1509,7 @@ On phone-sized viewports the desktop sidebar is hidden entirely. A **hamburger**
 | Aspect | Description |
 |--------|-------------|
 | **Trigger** | Tap the hamburger button in the global header. |
-| **Groups** | Dashboard, File (Disable Job Interaction), Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), Help. |
+| **Groups** | Dashboard, File (Disable Job Interaction), Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut), Help. |
 | **Scrolling** | The drawer itself scrolls when the menu list is taller than the viewport. |
 | **Auto-close** | Tapping any navigation link closes the drawer automatically. |
 | **Hidden on** | `/login*`. |
