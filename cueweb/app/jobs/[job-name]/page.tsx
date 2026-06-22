@@ -338,6 +338,7 @@ export default function JobDetailPage() {
                   data={layers}
                   columns={layerColumns}
                   username={currentUser}
+                  viewsPageKey="layers"
                   onRowClick={(row) => {
                     const layer = row as Layer;
                     setSelectedLayerId(layer.id);
@@ -395,6 +396,7 @@ export default function JobDetailPage() {
                   isFramesTable={true}
                   username={currentUser}
                   defaultColumnVisibility={{ remain: false }}
+                  viewsPageKey="frames"
                   // Single-click loads the frame into the Attributes panel
                   // (double-click still opens the log viewer).
                   onRowClick={(row) => {

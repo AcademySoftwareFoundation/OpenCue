@@ -73,6 +73,9 @@ def main() -> int:
     parser.add_argument("--show", default=DEFAULT_SHOW)
     parser.add_argument("--shot", default=DEFAULT_SHOT)
     args = parser.parse_args()
+    # 0/negative frames produce an invalid range ("1-0"); reject up front.
+    if args.frames < 1:
+        parser.error("--frames must be >= 1")
 
     blender_bin = args.blender or discover_blender()
     if not blender_bin or not os.path.exists(blender_bin):
@@ -104,7 +107,7 @@ def main() -> int:
     # Poll for visibility rather than a one-shot lookup: _find_job can race
     # Cuebot right after launch and would skip registerOutputPath.
     job = _wait_for_jobs([short_name])[0]
-    layer = next(l for l in job.getLayers() if l.name() == "beauty")
+    layer = next(layer_obj for layer_obj in job.getLayers() if layer_obj.name() == "beauty")
     layer.registerOutputPath(output_spec)
 
     print("-" * 60)
