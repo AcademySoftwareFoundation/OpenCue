@@ -236,6 +236,7 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
             columns={layerColumns}
             username={username}
             columnVisibilityStorageKey="cueweb.layers.columnVisibility"
+            viewsPageKey="layers"
             onRowClick={handleLayerClick}
             selectedRowId={selectedLayer?.id ?? null}
             toolbarLeft={
@@ -290,6 +291,7 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
                 job={job}
                 isFramesTable
                 columnVisibilityStorageKey="cueweb.frames.columnVisibility"
+                viewsPageKey="frames"
                 // Hide the Remain column (needs the ETA predictor that's only
                 // in CueGUI). Last Line stays visible for CueGUI parity even
                 // though the log-tail fetch isn't wired in yet -> it renders

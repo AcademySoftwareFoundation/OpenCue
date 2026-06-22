@@ -115,7 +115,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Subscribe to Job** (right-click menu on a job row): opens a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered on Cuebot via the `AddSubscriber` RPC, so Cuebot **emails** the subscriber when the job finishes. Use this when you want notifications to survive closing the browser, going to a different machine, or to alert a team alias instead of yourself. Independent of the Notify bell; you can use one, the other, or both.
 
 22. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
-   - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
+   - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. The overlay lists `/` (focus jobs search), `r` (refresh table), `t` (toggle theme), and `F` / `Cmd/Ctrl+Shift+F` (toggle immersive - hide header / sidebar / status bar). Single-letter keys are ignored while typing into editable elements, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser - except the immersive chord `Cmd/Ctrl+Shift+F`, which is captured even from inside a search field.
    - The same overlay is reachable from **Other ▸ Show Shortcuts** in both the header and the sidebar.
    - **Notify on Shortcut** (also under Other; default ON) controls whether a toast naming the action fires every time a shortcut triggers (e.g. `Shortcut: r → Refresh table`). Flipping the toggle takes effect on the very next keypress.
 
@@ -217,6 +217,12 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Plugins page** (`/plugins`): a searchable, paginated index of registered plugins. Checkboxes choose which plugins appear in the **Plugins** menu (header + sidebar, to the right of CueSubmit); the selection persists per browser (`cueweb.plugin-menu.enabled`), syncs across tabs, and seeds from each manifest's `defaultEnabled`.
    - **Per-plugin settings**: plugins register settings (`key`, `label`, `kind`, `default`) that persist to `localStorage` (`cueweb.plugin-settings.<key>`); a shared, plugin-scoped settings dialog (mounted once in the layout, opened via an event) edits them.
    - **Bundled samples**: **Hello OpenCue** (minimal contract example with greeting/shout/emoji settings, off by default) and **Cue Progress Bar** (a port of CueGUI's `cueprogbar` - a live color-coded frame-state bar with done/total/running labels and pause / unpause / kill / retry-dead controls, on by default).
+
+39. **Workspace layout (view presets, immersive, split view):**
+   - Three web-native replacements for CueGUI window/layout affordances, all stored client-side (`localStorage`) and synced across tabs.
+   - **Saveable view presets** (CueGUI *Save Window Settings*): a **Views** dropdown on every major table (Jobs, Hosts, Allocations, Shows, Layers, Frames) to **Save as… / Apply / Rename / Delete** named presets capturing column order/visibility, sort, filters, and page size. Persists per page under `cueweb.views.<page>` (active under `cueweb.views.<page>.active`); a built-in **Default** restores documented defaults. Table-agnostic - it operates on the TanStack table instance.
+   - **Immersive (full-screen) mode** (CueGUI *Toggle Full-Screen*): hides the header, sidebar, and status bar so the active table fills the viewport. Toggled with **`F`** / **Cmd/Ctrl+Shift+F**, the **Other** menu, or a floating **Exit immersive** button; persists under `cueweb.layout.immersive`.
+   - **Multi-pane split view** (CueGUI *Add new window*): the `/split?left=…&right=…` route opens two pages side-by-side in resizable, same-origin iframe panes, each with its own URL so the whole workspace is bookmarkable and reload-safe; drag/keyboard divider resize (ratio under `cueweb.split.ratio`), per-pane page picker, Swap, and Reset 50/50. Opened from **Other &rarr; Split view**.
 
 
 ## CueWeb's user interface

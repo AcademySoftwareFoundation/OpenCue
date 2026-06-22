@@ -21,16 +21,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, X } from "lucide-react";
+import { Check, ChevronDown, Columns, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
 import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
 import { getPlugins } from "@/lib/plugins";
+import {
+  buildSplitUrl,
+  DEFAULT_LEFT,
+  DEFAULT_RIGHT,
+} from "@/app/utils/split_view_utils";
 import {
   filterMenuCommands,
   useMenuRegistry,
@@ -52,6 +58,9 @@ import opencueLogoWhite from "../../public/opencue-icon-white.png";
 
 // NAV_MENUS is sourced from `@/app/utils/menus` so the header, sidebar and
 // menu registry share one source of truth.
+
+// Default split workspace: Monitor Jobs (left) + Monitor Hosts (right).
+const SPLIT_VIEW_HREF = buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT);
 
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -275,6 +284,7 @@ export function AppHeader() {
     enabled: shortcutNotificationsEnabled,
     toggle: toggleShortcutNotifications,
   } = useShortcutNotifications();
+  const { immersive, toggle: toggleImmersive } = useImmersiveMode();
 
   // The Plugins menu lists only the user-enabled plugins (plugins page
   // checkboxes); inject them after the static "All Plugins" entry.
@@ -489,6 +499,28 @@ export function AppHeader() {
                   )}
                 </span>
                 Attributes
+              </DropdownMenuItem>
+
+              {/* CueGUI parity: Toggle Full-Screen. Hides the header, sidebar
+                  and status bar so the active table gets the full viewport.
+                  Also bound to `F` / Cmd-Ctrl+Shift+F. */}
+              <DropdownMenuItem
+                onSelect={() => toggleImmersive()}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                  {immersive && <Check className="h-4 w-4" aria-hidden="true" />}
+                </span>
+                Immersive (full-screen)
+              </DropdownMenuItem>
+
+              {/* CueGUI parity: Window ▸ "Add new window" - open two pages
+                  side-by-side in a resizable split workspace. */}
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href={SPLIT_VIEW_HREF}>
+                  <Columns className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Split view
+                </Link>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />

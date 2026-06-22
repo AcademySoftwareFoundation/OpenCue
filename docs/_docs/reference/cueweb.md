@@ -274,6 +274,27 @@ Persistence keys:
 
 Implementation: each table wires TanStack's `state.columnOrder` + `onColumnOrderChange` and reads/writes the matching `localStorage` key. The reorder helper (`moveColumn`) operates on the hideable subset of `columnOrder` so non-hideable columns stay in their original positions.
 
+### Views dropdown (saveable presets)
+
+A web-native replacement for CueGUI's *Save / Revert Window Settings* (`cuegui/cuegui/MainWindow.py`). Every major table renders a **Views** dropdown next to its Columns dropdown, letting users save the current layout as a named preset and re-apply it later.
+
+| Control | Behavior |
+|---------|----------|
+| **Default** | Built-in entry pinned at the top. Selecting it restores the table to its documented defaults (natural column order, default visibility, cleared sort/filters, default page size). Cannot be renamed or deleted. |
+| **`<preset>`** (per row) | Click to apply. A check marks the active preset. Each row carries inline **Rename** (pencil) and **Delete** (trash) buttons. |
+| **Update "`<name>`"** | Shown only when a user preset is active; overwrites it in place with the current layout. |
+| **Save as…** | Opens a dialog to name and save the current layout as a new preset. |
+
+A **View** captures `{ name, columns: { id, visible, order }[], sort: { id, dir }[], filters, pageSize }`. Presets persist per page under `localStorage["cueweb.views.<page>"]` (a `View[]`) with the active preset name under `cueweb.views.<page>.active`. Page keys: `jobs`, `hosts`, `allocations`, `shows`, `layers`, `frames`.
+
+| Behavior | Detail |
+|----------|--------|
+| **Cross-tab sync** | Both storage keys broadcast via the native `storage` event, so a preset saved (or deleted/renamed) in one tab updates the menu in other open tabs without a reload. A remote *active* change updates the label only - it never yanks the layout out from under the user. |
+| **Apply / Default** | Routes through the table's own `setColumnOrder` / `setColumnVisibility` / `setSorting` / `setColumnFilters` / `setPageSize`, so each table's existing per-key persistence keeps working unchanged. |
+| **Validation** | Names are trimmed; empty names, the reserved name `Default`, and duplicates are rejected with an inline error. |
+
+Implementation: `cueweb/components/ui/views-menu.tsx` (`ViewsMenu`). It is table-agnostic - it reads/writes everything through the TanStack `table` instance, which both the Jobs `data-table.tsx` and the shared `SimpleDataTable` expose. `SimpleDataTable` renders it when given a `viewsPageKey` prop. The pure helpers `captureView` / `applyView` / `loadViews` / `saveViews` are unit-tested in `app/__tests__/components/views-menu.test.ts`.
+
 ### Per-table substring filter
 
 Each data table renders a small **Filter jobs / layers / frames...** `<input type="search">` next to its Columns dropdown.
@@ -547,11 +568,39 @@ An administrator tool at `/redirect` (`cueweb/app/redirect/page.tsx`), the CueWe
 | Aspect | Description |
 |--------|-------------|
 | **Component** | `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`, mounted once from `cueweb/app/layout.tsx`. |
-| **Keys** | `?` open overlay; `Esc` close overlay; `/` focus jobs search (`cueweb:focus-search`); `r` refresh jobs table (`cueweb:refresh-now`); `t` toggle light/dark theme. |
-| **Suppression** | Single-letter keys are ignored while typing into `<input>`, `<textarea>`, `<select>`, or any `contenteditable` element. Modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser. |
+| **Keys** | `?` open overlay; `Esc` close overlay; `/` focus jobs search (`cueweb:focus-search`); `r` refresh jobs table (`cueweb:refresh-now`); `t` toggle light/dark theme; `F` (or `Cmd/Ctrl+Shift+F`) toggle immersive/full-screen mode. |
+| **Suppression** | Single-letter keys are ignored while typing into `<input>`, `<textarea>`, `<select>`, or any `contenteditable` element. Modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser — except the explicit immersive chord `Cmd/Ctrl+Shift+F`, which is captured (and works from inside a search field). |
 | **Menu access** | Header **Other ▸ Show Shortcuts** and Sidebar **Other ▸ Show Shortcuts** both dispatch a `cueweb:open-shortcuts` `CustomEvent` on `window` that the overlay listens for. |
 | **Toast on shortcut** | When **Other ▸ Notify on Shortcut** is checked (default ON), every triggered shortcut also fires a small toast naming the action (e.g. `Shortcut: r → Refresh table`). |
 | **Pref storage** | `localStorage["cueweb.shortcutNotifications"]`. Cross-tab sync via the standard `storage` event plus an internal `cueweb:shortcut-notifications-changed` `CustomEvent`. Read imperatively at fire-time so toggling the pref takes effect on the very next keypress. |
+
+### Immersive (full-screen) mode
+
+Web-native equivalent of CueGUI's Toggle Full-Screen (`cuegui/cuegui/MainWindow.py`). Hides the global header, sidebar and status bar so the active table gets the full viewport height for a dense, distraction-free view.
+
+| Aspect | Description |
+|--------|-------------|
+| **Component** | `AppShell` in `cueweb/components/ui/app-shell.tsx` owns the header/sidebar/status-bar chrome and unmounts it when immersive. Mounted from `cueweb/app/layout.tsx`. |
+| **Hook** | `useImmersiveMode()` in `cueweb/app/utils/use_immersive_mode.ts` (`{ immersive, setImmersive, toggle }`). Mirrors `use_disable_job_interaction.ts`. |
+| **Toggles** | `F` or `Cmd/Ctrl+Shift+F`; **Other ▸ Immersive (full-screen)** menu item (also surfaced in Help-menu search via the menu registry); and a floating **Exit immersive** button shown while immersed so mouse-only users aren't trapped once the menu is hidden. |
+| **Kept visible** | The read-only banner (a safety affordance) stays; the keyboard-shortcut handler, attributes panel, mobile nav and toast host stay mounted at the layout root so `F` keeps working while immersed. |
+| **Pref storage** | `localStorage["cueweb.layout.immersive"]` (boolean). SSR-safe hydration after mount; cross-tab sync via the standard `storage` event plus an internal `cueweb:immersive-changed` `CustomEvent`. |
+
+### Multi-pane split workspace
+
+Web-native equivalent of CueGUI's Window ▸ "Add new window" entries (`cuegui/cuegui/MainWindow.py`) - open two CueWeb pages side-by-side in one tab.
+
+| Aspect | Description |
+|--------|-------------|
+| **Route** | `/split?left=/jobs&right=/hosts/server-01` (`cueweb/app/split/page.tsx`). The two pane targets live in the query string, so the whole workspace is URL-addressable and reload-safe. |
+| **Component** | `SplitView` in `cueweb/components/ui/split-view.tsx`; pure helpers in `cueweb/app/utils/split_view_utils.ts`. |
+| **Panes** | Each pane is a same-origin `<iframe>`, so it keeps its own Next.js router context (URL, dynamic route params, searchParams) and reload behavior. Rendering the page components directly would force both panes to share one router context, breaking dynamic routes and searchParam-driven pages. |
+| **Chrome** | Hidden inside panes: `AppShell` detects `window.self !== window.top` and drops the header/sidebar/status bar so each pane shows only page content (composes with immersive mode). |
+| **URL sync** | Navigating inside a pane (e.g. clicking a host row) fires the iframe `load` handler, which reads the pane's current `pathname+search` and `router.replace`s it into `left`/`right`. The iframe `src` is only re-driven when the desired URL differs from what it already shows, so in-pane navigation isn't clobbered and there's no reload loop. |
+| **Resize** | Drag the divider (pointer events → mouse/touch/pen) or use the keyboard (← / → nudge, Home/End jump). Ratio is clamped to 15–85% and persisted to `localStorage["cueweb.split.ratio"]`. Iframes get `pointer-events:none` while dragging so move events keep reaching the window. |
+| **Controls** | Per-pane page picker - Monitor Jobs, the CueCommander pages (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), CueSubmit, the plugins index, and the Cue Progress Bar plugin - plus **Swap** panes, **Reset 50/50**, and an open-in-new-tab link per pane. On phones (`max-width: 767px`) the panes stack vertically without a draggable divider. |
+| **Safety** | `sanitizePanePath` only accepts internal absolute paths and rejects external/protocol-relative URLs and the `/split` route itself (no recursive embedding). |
+| **Entry points** | **Other ▸ Split view** in the header (default: Jobs left, Hosts right) and the Help-menu search via the menu registry (`other.split-view`). |
 
 ### Job States
 

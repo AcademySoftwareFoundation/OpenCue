@@ -95,6 +95,8 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.
 - **Job management dashboard:**
   - Customizable table views: hide/show columns AND reorder them left/right inside each table's **Columns** dropdown, with a pinned **Reset to Default** button that restores both visibility and order. Both states persist in `localStorage` per table (Jobs: `columnVisibility` / `columnOrder`; Layers: `cueweb.layers.columnVisibility` / `cueweb.layers.columnOrder`; Frames: `cueweb.frames.columnVisibility` / `cueweb.frames.columnOrder`).
+  - Saveable view presets (web-native replacement for CueGUI's *Save Window Settings*): each major table has a **Views** dropdown to **Save as…**, **Apply**, **Rename**, and **Delete** named presets capturing column order/visibility, sort, filters, and page size. Presets persist per page under `localStorage["cueweb.views.<page>"]` (e.g. `cueweb.views.jobs`, `cueweb.views.hosts`, `cueweb.views.frames`) with the active preset name under `cueweb.views.<page>.active`, and broadcast across tabs via the `storage` event. A built-in **Default** entry can't be renamed or deleted; selecting it restores the table to its documented defaults.
+  - Multi-pane split workspace (web-native replacement for CueGUI's Window ▸ *Add new window*): **Other ▸ Split view** opens two pages side-by-side at `/split?left=/jobs&right=/hosts/server-01`. Drag the divider to resize (position persists under `localStorage["cueweb.split.ratio"]`); each pane is an independent same-origin view with its own URL (encoded in the page URL, so a reload restores both panes); a per-pane page picker, **Swap**, and **open-in-new-tab** round it out. Navigating inside a pane (e.g. clicking a host) updates that pane's URL in place.
   - CueGUI-parity Jobs columns: Name, **Comments** (sortable sticky-note column - sort to pull jobs with comments to the top), State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync), Progress, Notify.
   - CueGUI-parity Layers columns: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, Progress (stacked animated bar with the same per-state palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
   - CueGUI-parity Frames columns: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
@@ -439,7 +441,7 @@ Go back to [Contents](#contents).
 
 ## Keyboard shortcuts
 
-CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload).
+CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload) — the one exception is the explicit immersive chord `Cmd/Ctrl+Shift+F`, which is captured so it works even from inside a search field.
 
 | Key | Action | Where it works |
 |-----|--------|----------------|
@@ -448,6 +450,7 @@ CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/
 | `/` | Focus the jobs search box | On the jobs page (`/`) |
 | `r` | Refresh the jobs table | On the jobs page (`/`) |
 | `t` | Toggle the light / dark theme | Anywhere |
+| `F` (or `Cmd/Ctrl+Shift+F`) | Toggle immersive (full-screen) mode — hides the header, sidebar and status bar; persists across reloads under `localStorage["cueweb.layout.immersive"]` and syncs across tabs | Anywhere |
 
 The same overlay is also reachable from the menu, for users who prefer mouse navigation:
 
