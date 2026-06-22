@@ -188,7 +188,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 
 - **`AboutDialog`** (`components/ui/about-dialog.tsx`): CueGUI parity for Help → About. A `Dialog` mounted once from `app/layout.tsx`, opened via the exported `CUEWEB_OPEN_ABOUT_EVENT` (dispatched by the About CueWeb command in `useMenuRegistry`). Shows the build version (`NEXT_PUBLIC_APP_VERSION`) and SHA (`NEXT_PUBLIC_GIT_SHA`), the active facility (`useCuebotFacility`), the REST gateway URL masked by `maskGatewayUrl()` (scheme + port + first/last host chars, path/userinfo stripped), the Apache-2.0 license link, and credits. **Copy diagnostics** writes the fields (incl. the *masked* gateway) as JSON to the clipboard. The version is resolved at build time in `next.config.js`: `NEXT_PUBLIC_APP_VERSION` env wins, else `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel reads the repo-root `VERSION.in`, supplied to the Docker build via the `project_root` named context; any other value pins an explicit version), else `package.json`.
-- **`FrameViewer`**: Frame log viewer component
+- **`FrameViewer`**: Frame log viewer component. The frame log page (`app/frames/[frame-name]/page.tsx`) branches on `isLokiEnabled()`: by default it reads the on-disk `.rqlog` inline; when `NEXT_PUBLIC_LOKI_URL` is set it renders `LokiLogView` (`app/frames/[frame-name]/loki-log-view.tsx`) instead, which reuses the same Monaco editor, **Log versions** dropdown, and empty/loading states. See [Frame log backends](#frame-log-backends-file-based-and-loki).
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
 - **`JobSubscriptionPoller`** (`app/providers/job-subscription-poller.tsx`): App-wide client provider (mounted in `app/layout.tsx`) that polls subscribed jobs every 15s. When a job reaches `FINISHED`, `fireCompletionNotice(entry)` runs inside a `navigator.locks.request("cueweb:notify-<jobId>", ...)` block: it fires an in-app `toastSuccess(...)` (always) and a desktop `new Notification(...)` popup (when `Notification.permission === "granted"` at fire-time). The lock serializes the re-read + fire + mark sequence across same-origin tabs so only one tab toasts when several poll the same job. An `inFlight` ref guards against overlapping ticks, and jobs that no longer exist in Cuebot are removed from the store on the next poll.
@@ -1277,6 +1277,70 @@ layers). **Log Stuck Frame** / **Log and Retry/Eat/Kill** run a client-side
 `exportLog(...)` before the action. **Frame/Job Not Stuck** and the **Exclude**
 entries are client-only: the former hide ids in component state (cleared by
 **Clear**), the latter append to the active filter's exclude keywords.
+
+---
+
+## Frame log backends (file-based and Loki)
+
+The frame log page (`app/frames/[frame-name]/page.tsx`) supports two backends.
+By default it reads the `.rqlog` from the render-log directory mounted into the
+CueWeb server; when `NEXT_PUBLIC_LOKI_URL` is set it pulls the log from a
+[Grafana Loki](https://grafana.com/oss/loki/) server instead, mirroring CueGUI's
+`LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). Files involved:
+
+```text
+lib/loki.ts                                # read-only Loki HTTP API client
+app/frames/[frame-name]/page.tsx           # branches on isLokiEnabled()
+app/frames/[frame-name]/loki-log-view.tsx  # LokiLogView (Loki-backed viewer)
+app/__tests__/loki.test.ts                 # lib/loki.ts unit tests
+```
+
+### Selecting the backend
+
+The choice is made once, at render time, from the build-time env var: `page.tsx`
+calls `isLokiEnabled()` (true when `NEXT_PUBLIC_LOKI_URL` is non-empty). When
+true it renders `<LokiLogView frameId=... startTime=... />` in place of the
+inline file-based viewer and skips the file-based effects (`fetchInitialLogs`,
+`fetchLogVersions`) entirely. There is no UI toggle - a deployment is either
+file-based or Loki-backed. Both viewers share the same read-only Monaco editor,
+**Log versions** dropdown, and empty/loading/missing states, so they are
+visually identical.
+
+### `lib/loki.ts`
+
+A thin, read-only client for the Loki HTTP API (no writes, no auth headers,
+`cache: "no-store"` so a running frame's log is never stale):
+
+- `getLokiUrl()` - the configured base URL with trailing slashes trimmed, or `""`.
+- `isLokiEnabled()` - whether `getLokiUrl()` is non-empty.
+- `getFrameLogVersions(frameId, startTime?)` - reads the distinct
+  `session_start_time` label values for `{frame_id="..."}` via
+  `/loki/api/v1/label/session_start_time/values`, sorted newest-first; each is
+  one **frame attempt** ("log version" in the UI). `startTime` (job/frame start,
+  unix seconds) is scaled to nanoseconds to bound the label query.
+- `getFrameLogLines(frameId, sessionStartTime?, startTime?)` - runs a
+  **backward** `query_range` (`limit` 5000) so that when a log exceeds the
+  per-query cap the most recent lines are kept, then flattens all streams
+  (stdout/stderr may arrive separately) and re-sorts ascending by Loki's
+  nanosecond timestamp - compared as `BigInt` because the values exceed
+  `Number.MAX_SAFE_INTEGER` - before joining with `\n`.
+
+### `LokiLogView`
+
+Two effects: one fetches the attempt list and defaults to the newest
+(`missing` when Loki has no streams for the frame), the second loads the
+selected attempt's lines once Monaco has mounted (`empty` when the attempt
+produced no lines). The editor stays mounted across loading/empty states and
+the notices render as an overlay, so the editor ref is never invalidated
+mid-fetch. A **Refresh** button bumps a `refreshKey` to re-run the line fetch
+for the current attempt.
+
+### Deployment note
+
+Because `NEXT_PUBLIC_LOKI_URL` is a `NEXT_PUBLIC_*` var, the fetches run in the
+browser: the Loki host must be reachable from clients and must allow CORS from
+the CueWeb origin. RQD must be configured to ship frame logs to Loki tagged with
+`frame_id` and `session_start_time` labels.
 
 ---
 

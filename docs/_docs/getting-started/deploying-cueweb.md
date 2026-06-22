@@ -170,6 +170,16 @@ NEXTAUTH_SECRET=nextauth-production-secret
 #   docker build --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='vscode://file{path}' ...
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
 
+# Optional Loki log backend. When set, the frame log viewer queries this
+# Grafana Loki server (by frame_id) instead of reading the on-disk .rqlog
+# file, mirroring CueGUI's Loki log viewer. Leave unset to use the default
+# file-based viewer. Base URL only (no trailing path; CueWeb appends
+# /loki/api/v1/...). The query runs in the browser, so Loki must be reachable
+# from clients and allow CORS from the CueWeb origin. Inlined at build time, so
+# pass it as a Docker build arg:
+#   docker build --build-arg NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100 ...
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
+
 # Email Artist dialog defaults. The job context menu's
 # "Email Artist..." entry pre-fills From, To, CC, Subject and Body
 # from the selected job; these two values drive the address format
@@ -591,6 +601,25 @@ CUEWEB_LOG_ROOTS=/net/render/logs
 ```
 
 **Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
+
+## Frame log viewing (file-based or Loki)
+
+The frame log viewer has two backends, selected at deploy time:
+
+- **File-based (default):** CueWeb's server reads the `.rqlog` from its own filesystem, so mount the render-log directory into the container read-only - the **same mount described above** for the Stuck Frames page (`-v /path/to/logs:/tmp/rqd/logs:ro`). No other configuration is needed.
+- **Loki (optional):** if your studio centralizes logs in [Grafana Loki](https://grafana.com/oss/loki/), set `NEXT_PUBLIC_LOKI_URL` to the Loki HTTP API base URL (no trailing path; CueWeb appends `/loki/api/v1/...`). CueWeb then queries Loki for each frame's lines instead of reading a file, mirroring CueGUI's Loki log viewer. RQD must be configured to ship frame logs to Loki tagged with `frame_id` and `session_start_time` labels.
+
+```bash
+# Loki backend: point CueWeb at your Loki HTTP API
+NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
+```
+
+Two deployment notes for the Loki backend:
+
+- **It's a build-time, browser-read variable.** `NEXT_PUBLIC_LOKI_URL` is baked into the client bundle, so set it as a Docker build arg (like the other `NEXT_PUBLIC_*` vars), not only at runtime. The Loki query runs **in the browser**, so the Loki host must be reachable from clients (not just from the CueWeb server) and must allow **CORS** from the CueWeb origin.
+- **The log mount becomes optional.** With Loki configured, log viewing no longer reads from disk, so the render-log volume mount is not required for the viewer. (The Stuck Frames **Last Line** column still tails `.rqlog` files server-side, so keep the mount if you rely on that column.)
+
+When `NEXT_PUBLIC_LOKI_URL` is unset, CueWeb falls back to the file-based viewer with no other change.
 
 ## Plugins
 

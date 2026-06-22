@@ -196,6 +196,17 @@ CueGUI is a desktop app, so it shapes the workspace with *windows*: saving windo
 
 ---
 
+## Frame logs (file-based and Loki)
+
+A frame's log can be read two ways, and CueWeb supports both behind the same viewer:
+
+- **File-based (default):** RQD writes each frame's output to a `.rqlog` file on a shared filesystem. CueWeb's server reads that file (so the render-log directory must be mounted into the CueWeb container). This is the zero-extra-infrastructure default.
+- **Loki (optional):** in studios that already centralize logs, RQD ships frame output to a [Grafana Loki](https://grafana.com/oss/loki/) server tagged with `frame_id` and `session_start_time` labels. Setting `NEXT_PUBLIC_LOKI_URL` makes CueWeb query Loki for a frame's lines instead of reading a file - the same model as CueGUI's Loki log viewer. There's no shared log mount to manage, logs survive the worker, and each frame **attempt** is a selectable version.
+
+**Why this design:** the backend is a single deployment-time switch (`NEXT_PUBLIC_LOKI_URL` set or not), not a UI choice, and the viewer is identical either way - so a site adopts centralized logging without changing how artists view logs. Because the var is browser-readable (`NEXT_PUBLIC_*`), the Loki query goes straight from the browser to Loki, which must therefore be reachable from clients and allow CORS from the CueWeb origin.
+
+---
+
 ## Deployment Patterns
 
 ### Standalone Deployment

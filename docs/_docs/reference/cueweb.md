@@ -98,6 +98,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
 | `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
+| `NEXT_PUBLIC_LOKI_URL` | Base URL of a [Grafana Loki](https://grafana.com/oss/loki/) HTTP API (no trailing path; CueWeb appends `/loki/api/v1/...`). When set, the frame log viewer queries Loki by `frame_id` instead of reading the on-disk `.rqlog` file (CueGUI `LokiViewPlugin` parity); when empty, CueWeb uses the default file-based viewer. Read in the browser (`NEXT_PUBLIC_*`), so the Loki host must be reachable from clients and must allow CORS from the CueWeb origin. See [Frame log backends](#frame-log-backends). | (empty) |
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 | `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
@@ -336,7 +337,20 @@ Clicking a row in the Jobs table populates `JobDetailsInline` (`cueweb/component
 | **Layer-click** | Toggles a frames-table filter to that layer (`frame.layerName === layer.name`) and pushes the layer's attributes into the docked Attributes panel. Clicking the same layer again clears the filter and re-selects the job in Attributes. |
 | **Frames panel** | Lists every frame in the job (or the layer-filtered subset). Total count shows `X of Y` when filtered. |
 | **Refresh** | Both panels poll every 5 seconds, with cancellation guards so a stale response cannot overwrite a fresh selection. |
-| **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). |
+| **Log viewer** | Double-clicking any frame row opens the log viewer (`/frames/<frameName>?frameId=...&frameLogDir=...`). The viewer serves logs from disk by default, or from Loki when `NEXT_PUBLIC_LOKI_URL` is set - see [Frame log backends](#frame-log-backends). |
+
+### Frame log backends
+
+The frame log page (`app/frames/[frame-name]/page.tsx`) has two interchangeable backends, selected once at render time by whether `NEXT_PUBLIC_LOKI_URL` is set (`isLokiEnabled()` in `lib/loki.ts`). Both render into the same read-only Monaco editor with the same **Log versions** dropdown and empty/loading states, so they are visually identical.
+
+| | File-based (default) | Loki (`NEXT_PUBLIC_LOKI_URL` set) |
+|---|---|---|
+| **Source** | Reads the `.rqlog` file from the render-log directory mounted into the CueWeb server, via `/api/getlines`, `/api/countlines`, `/api/getlogversions`. | Queries the Loki HTTP API directly from the browser via `lib/loki.ts`. Mirrors CueGUI's `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). |
+| **Log versions dropdown** | Rotated log files found on disk for the frame. | Distinct `session_start_time` Loki label values (one per **frame attempt**), newest first, from `getFrameLogVersions()`. |
+| **Line loading** | Paginated/infinite scroll with "Scroll from Top" for very large logs. | `getFrameLogLines()` runs a backward `query_range` (so the most recent lines survive the 5000-line per-query cap), re-sorts ascending across streams, and scrolls to the bottom. A **Refresh** button re-fetches the selected attempt. |
+| **Empty/missing copy** | "Log file not found" / "No log output yet". | "No logs in Loki" / "No log output yet". |
+
+`lib/loki.ts` is a thin, read-only client (no writes, no auth headers): `getLokiUrl()` trims the configured base URL, `isLokiEnabled()` reports whether it is set, `getFrameLogVersions(frameId, startTime?)` reads the `session_start_time` label values, and `getFrameLogLines(frameId, sessionStartTime?, startTime?)` fetches and orders the lines. Loki timestamps are unix nanoseconds (compared with `BigInt` to avoid precision loss); frame/job times are unix seconds and are scaled up to bound queries.
 
 ### Job dependency graph panel
 
@@ -1295,12 +1309,14 @@ Default Dockerfile exposes:
 |------|---------|
 | 3000 | CueWeb HTTP |
 
-Required volume mounts for log viewing:
+Required volume mounts for log viewing (file-based backend):
 
 ```bash
 # Mount frame log directory
 -v /path/to/logs:/tmp/rqd/logs:ro
 ```
+
+When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are pulled from Loki over HTTP from the browser, so this volume mount is not required for log viewing - see [Frame log backends](#frame-log-backends).
 
 ---
 

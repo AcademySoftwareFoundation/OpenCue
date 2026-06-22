@@ -345,6 +345,7 @@ Frames are the individual rendering tasks within each layer.
    - On touch devices, tap the row's `⋮` Actions button (leftmost cell) → **View Log**.
    - Select log version from the dropdown inside the viewer.
    - The viewer shows an empty-state message when the frame hasn't started running yet (no log file on disk).
+   - The viewer works the same whether your deployment reads logs from disk (the default) or from a Loki server (when `NEXT_PUBLIC_LOKI_URL` is set, mirroring CueGUI's Loki log viewer). With the Loki backend, each entry in the **Log versions** dropdown is a separate **frame attempt** (newest first) and a **Refresh** button reloads the selected attempt. You don't pick the backend - the deployment does.
 
 2. **Open Logs in an External Editor** *(optional)*:
    - If the deployment has `NEXT_PUBLIC_LOG_EDITOR_URL` configured, the Frame right-click menu also offers **View Log on \<editor\>** below **View Log**.

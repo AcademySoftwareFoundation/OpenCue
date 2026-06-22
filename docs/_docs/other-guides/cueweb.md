@@ -224,6 +224,10 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Immersive (full-screen) mode** (CueGUI *Toggle Full-Screen*): hides the header, sidebar, and status bar so the active table fills the viewport. Toggled with **`F`** / **Cmd/Ctrl+Shift+F**, the **Other** menu, or a floating **Exit immersive** button; persists under `cueweb.layout.immersive`.
    - **Multi-pane split view** (CueGUI *Add new window*): the `/split?left=…&right=…` route opens two pages side-by-side in resizable, same-origin iframe panes, each with its own URL so the whole workspace is bookmarkable and reload-safe; drag/keyboard divider resize (ratio under `cueweb.split.ratio`), per-pane page picker, Swap, and Reset 50/50. Opened from **Other &rarr; Split view**.
 
+40. **Optional Loki log backend (CueGUI Loki log viewer parity):**
+   - The frame log viewer has two interchangeable backends. By default it reads the on-disk `.rqlog` file; when `NEXT_PUBLIC_LOKI_URL` points at a [Grafana Loki](https://grafana.com/oss/loki/) server it queries Loki for the frame's lines instead (the CueWeb counterpart of CueGUI's `LokiViewPlugin`), falling back to the file-based viewer when unset.
+   - Both backends share the same read-only editor, **Log versions** dropdown, and empty/loading states. With Loki, each "log version" is a separate **frame attempt** (`session_start_time`), newest first, with a **Refresh** button. The backend is chosen by the deployment, not in the UI.
+
 
 ## CueWeb's user interface
 
