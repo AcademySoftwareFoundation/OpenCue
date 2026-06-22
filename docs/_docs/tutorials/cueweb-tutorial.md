@@ -390,6 +390,22 @@ The frame right-click menu, and the confirmation toast shown after an action:
 6. Right-click the frame and select "Retry"
 7. Watch the frame change from red to gray (pending)
 
+### Finding and clearing stuck frames
+
+Failed frames turn red, but a *stuck* frame is trickier: it keeps running (gray-green) while no longer making progress - the process is alive but has stopped writing to its log. CueWeb's **Stuck Frames** page finds these for you.
+
+1. Open **CueCommander &rarr; Stuck Frame** from the header or sidebar.
+
+   ![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+2. The page scans every running frame and lists the ones whose log has gone silent relative to their runtime, grouped under their job. Read the **LLU** (time since the last log line), **Runtime**, and **% Stuck** columns to judge each frame - a high **% Stuck** means the log has been quiet for most of the run.
+3. If nothing shows up, loosen the filters at the top - lower **Min LLU** or **% of Run Since LLU**. To tune detection per render type, click **+** to add a service-specific filter row (so e.g. Arnold frames, which legitimately run long, use looser limits than quick ones).
+4. Right-click a frame you believe is hung and pick an action:
+   - **View Log** / **View Last Log** to confirm it has really stalled.
+   - **Retry** to requeue it, **Eat** to mark it done, or **Kill** to stop it.
+   - **Core Up** to raise the layer's minimum cores when a frame is starved for resources.
+5. Use **Frame Not Stuck** (or **Job Not Stuck**) to dismiss a false positive, or **Add Job to Excludes** to stop a known-noisy job from appearing.
+
 ---
 
 ## Advanced Search and Filtering
@@ -610,6 +626,150 @@ The CueWeb panel always preserves the inputs you typed even when you flip betwee
 - **Auto-saved draft**: the form's full state is saved on every keystroke. Refresh the tab - the layers you had configured are still there. The draft is cleared on Cancel, on Reset (after a confirm dialog), and after a successful submit.
 - **Reset**: the Reset button between Cancel and Submit clears every field after a themed confirmation dialog. Autocomplete history is **not** wiped.
 - **View in Monitor Jobs**: from the detail page that opens after submit, click **View in Monitor Jobs** in the header to deep-link to Cuetopia with the new job auto-loaded.
+
+---
+
+## Redirecting cores to a job
+
+When a high-priority job is starved for cores, the **Redirect** tool (CueCommander &rarr; Redirect) lets an administrator take cores away from other running work and hand them to that job. **Redirecting kills the frames currently running on the chosen procs**, so it is a deliberate, admin-level action - not an everyday operation.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Open **CueCommander &rarr; Redirect**.
+2. In the **Target** field, type the job that should receive the cores. CueWeb resolves it and auto-fills the **Show** and the Minimum Cores / Minimum Memory from that job's layers, so the search looks for procs big enough to help.
+3. Tune the filters:
+   - **Job filters** - narrow the candidate procs by Show, Include Groups, Require Services, or an Exclude Regex on the job name.
+   - **Resource filters** - set the Allocations, Minimum / Max Cores, Minimum Memory, Result Limit, and a **Proc Hour Cutoff** so you don't kill procs that are nearly finished.
+4. Click **Search**. CueWeb lists the hosts whose busy procs match; expand a row to see the individual procs (which job/group/service each one is running).
+5. Tick the hosts you want to take cores from (or **Select All**), then click **Redirect**.
+6. CueWeb double-checks the target before acting: it **refuses** if the target job has disappeared, has no waiting frames, or is already at its max cores, and it **asks you to confirm** if the target is paused or if a selected proc belongs to a different show (that show's frame would be killed). On success the freed cores are booked onto your target job.
+
+   ![Confirm Redirect dialog](/assets/images/cueweb/cueweb_cuecommander_redirect_confirm_redirect.png)
+
+7. A success toast confirms how many hosts were redirected.
+
+   ![Redirect success confirmation message](/assets/images/cueweb/cueweb_cuecommander_redirect_confirmation_message.png)
+
+Use **Clr** to reset the form and start a new search.
+
+---
+
+## Switching Cuebot facilities
+
+If your farm spans more than one **facility** - each with its own Cuebot - CueWeb lets you move between them from the **Cuebot Facility** menu. You always work in one facility at a time, exactly like CueGUI's Cuebot Facility menu.
+
+1. Look at the **Cuebot Facility** entry in the header (or the sidebar). The chip next to it shows the facility you are currently viewing.
+
+   ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+2. Open the menu and pick a different facility (for example `dev` or `cloud`). CueWeb re-routes to that facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
+3. Confirm the switch: the chip on the menu **and** the facility shown in the bottom status bar update to the new facility. Your choice is remembered for the rest of the session.
+4. Switch back the same way when you are done.
+
+**Setting up extra facilities (admin):** the menu's options come from `NEXT_PUBLIC_CUEBOT_FACILITIES`. To make a facility actually reach a different Cuebot, an administrator sets the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` for it (for example `CUEBOT_DEV_REST_GATEWAY_URL` / `CUEBOT_DEV_JWT_SECRET`). A facility with no override falls back to the default gateway, which is why the single-facility sandbox just works with `local`.
+
+> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities never exposes a gateway credential.
+
+---
+
+## Checking the CueWeb version (About CueWeb)
+
+When you file a bug or confirm a deploy, you'll want to know exactly which build you're running. CueWeb makes that a two-second check.
+
+1. Glance at the **bottom status bar** - the build version is shown at the right (e.g. `v1.4.0`).
+2. For the full picture, open the **Help** menu and choose **About CueWeb**.
+
+   ![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+3. The dialog shows the **Version**, the **Build SHA**, and a license link.
+
+   ![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+4. Click **Copy diagnostics** to copy all of those fields as JSON, then paste them straight into a bug report - no retyping.
+
+**Good to know:** the version is decided when the image is built. By default CueWeb tracks OpenCue's shared `VERSION.in`, so its number matches Cuebot and CueGUI; a deployment can override it (via `OVERRIDE_CUEWEB_VERSION.in` or the `NEXT_PUBLIC_APP_VERSION` build-arg), and the Build SHA reads `unknown` unless CI injected `NEXT_PUBLIC_GIT_SHA`. See [Versioning](/docs/concepts/versioning/#how-cueweb-sources-its-version) for the full chain.
+
+---
+
+## Access control: restricted areas
+
+Some deployments turn on **group-based authorization**, so what you can reach depends on your group membership. This is optional and off by default; here's what it looks like when it's on.
+
+**As a user:**
+1. Read-only monitoring (Monitor Jobs, job/frame inspection, logs) is typically open to everyone who can sign in.
+2. If you open an area you're not authorized for - often the **CueCommander** administration pages or **job submission** - CueWeb shows an **Access denied** page instead of the content.
+3. If you believe you should have access, contact your OpenCue administrator; access is decided by the groups your account belongs to, not by anything you can change in the UI.
+
+**As an administrator enabling it:**
+1. Set `CUEWEB_AUTHZ_ENABLED=true` to turn the gate on (it's a pure pass-through when unset).
+2. List the groups allowed to use CueWeb at all in `CUEWEB_ALLOWED_GROUPS`, and the groups allowed on the admin pages + CueSubmit in `CUEWEB_ADMIN_GROUPS` (empty means "everyone signed in").
+3. Make sure your identity provider includes the user's groups in the login token, and point `CUEWEB_GROUPS_CLAIM` at the claim that carries them (default `groups`). Groups are read once at sign-in and enforced server-side on every request - users can't bypass it from the browser.
+
+> See [Group-based authorization](/docs/concepts/cueweb-rest-gateway/#group-based-authorization-optional) for the concept and the deployment guide for the full configuration.
+
+## Using plugins
+
+CueWeb can be extended with **plugins** - add-on panels that live on their own pages. Two samples ship in the box; here's how to use them.
+
+1. **Open the Plugins page.** The **Plugins** menu sits in the header (and sidebar) to the right of CueSubmit. Open the menu and pick **Plugins** to see every registered plugin.
+
+   ![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+2. **Choose what's in your menu.** Each plugin has a checkbox. Tick the ones you want in the **Plugins** menu and untick the rest - your choice is saved in your browser and follows you across tabs. (Cue Progress Bar is on by default; Hello OpenCue is off.)
+
+   ![Plugins menu](/assets/images/cueweb/cueweb_plugins_menu.png)
+
+3. **Open a plugin and try it.** Pick **Cue Progress Bar** from the menu. Point it at a job and you'll see a live, color-coded frame-state bar with done / total / running counts and pause / unpause / kill / retry-dead controls; it polls Cuebot on an interval you can configure.
+
+   ![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
+
+4. **Adjust its settings.** Use the **Open plugin settings** control to change that plugin's options (for Cue Progress Bar, the poll interval; for Hello OpenCue, the greeting / shout / emoji). The dialog is scoped to that one plugin, and each value persists in your browser.
+
+   ![Cue Progress Bar settings](/assets/images/cueweb/cueweb_plugins_cue_progress_bar_open_plugin_settigns.png)
+
+> Want to build your own? A plugin is just a manifest plus a React component under `cueweb/app/plugins/<name>/`. See the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system).
+
+---
+
+## Customizing your workspace
+
+CueWeb gives you three ways to tailor the workspace - and all three remember your choice in the browser. Let's try each.
+
+### Save and reuse a view preset
+
+1. Go to **Monitor Jobs**. Set the table up the way you like - reorder or hide a few columns, sort by a column, apply a filter, change the page size.
+
+   ![Changing column positions](/assets/images/cueweb/cueweb_saveable_view_presets_change_columns_positions.png)
+
+2. Open the **Views** dropdown (next to **Columns**) and choose **Save as…**. Give the preset a name (for example `Triage`) and save.
+
+   ![Save the layout as a named view](/assets/images/cueweb/cueweb_saveable_view_presets_save_view.png)
+
+3. Change the table around, then reopen **Views** and click **Triage** - the saved layout snaps back. The **Default** entry always restores the original layout.
+
+   ![Applying a saved view](/assets/images/cueweb/cueweb_saveable_view_presets_apply_view_changes.png)
+
+4. Use the inline **Rename** / **Delete** buttons to manage presets, or **Update "Triage"** to overwrite it with the current layout. Presets are per page and follow you across tabs.
+
+   ![Rename a view](/assets/images/cueweb/cueweb_saveable_view_presets_rename_view.png)
+
+### Go full-screen (immersive mode)
+
+1. Press **`F`** (or open **Other &rarr; Immersive (full-screen)**). The header, sidebar, and status bar disappear, and the table takes the whole screen.
+
+   ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+2. Press **`F`** again, or click the floating **Exit immersive** button, to bring the chrome back. The mode is remembered, so a new tab opens immersed too until you turn it off.
+
+### Work in a split view
+
+1. Open **Other &rarr; Split view**. CueWeb shows two pages side-by-side - Jobs on the left, Hosts on the right by default.
+
+   ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
+2. Use each pane's **page picker** to choose what it shows (for example, put Monitor Jobs on the left and a specific host's detail page on the right).
+3. **Drag the divider** to rebalance the panes (or nudge it with the arrow keys); use **Swap** to flip them and **Reset 50/50** to re-center.
+4. Notice the address bar: `/split?left=…&right=…`. The whole workspace is in the URL, so you can bookmark or share it, and a reload restores both panes exactly.
 
 ---
 

@@ -120,9 +120,18 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Cuebot Facility selector (optional)
 # Comma-separated list of facilities exposed in the header / sidebar
 # "Cuebot Facility" menu. Defaults to local,dev,cloud,external if unset.
-# (The selected value is persisted client-side; per-facility gateway
-# routing is implemented in a separate page-level change.)
+# Switching facility re-routes every REST gateway call server-side to the
+# selected facility's gateway; the choice is carried in a cookie and persists
+# for the session.
 # NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+#
+# Per-facility gateway + JWT secret (optional, server-only). Each facility may
+# target its own REST gateway via CUEBOT_<NAME>_REST_GATEWAY_URL and
+# CUEBOT_<NAME>_JWT_SECRET (NAME uppercased). A facility with no override falls
+# back to NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET, so the default
+# single-gateway deployment needs no extra configuration.
+# CUEBOT_DEV_REST_GATEWAY_URL=https://dev-rest-gateway.company.com
+# CUEBOT_DEV_JWT_SECRET=dev-gateway-jwt-secret
 
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
@@ -131,11 +140,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar (optional).
-# Falls back to the `version` field in cueweb/package.json when unset.
-# In CI you typically pass the short Git SHA or a release tag via
-# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(git rev-parse --short HEAD)`.
-# NEXT_PUBLIC_APP_VERSION=1.19.1
+# Build version shown in the bottom status bar and the About CueWeb dialog
+# (optional). When unset it is resolved at build time from
+# cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
+# the repo-root VERSION.in (OpenCue's shared version), and any other value pins
+# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# you typically override it with the generated version or a release tag:
+# `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
+# NEXT_PUBLIC_APP_VERSION=1.25
+#
+# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
+# empty renders as "unknown".
+# NEXT_PUBLIC_GIT_SHA=
 
 # Optional deep-link template for the Frame context menu's
 # "View Log on <editor>" item. The literal {path} is substituted at
@@ -488,6 +505,32 @@ For development or internal deployments without authentication:
 
 CueWeb runs unauthenticated in this mode.
 
+### Authorization (group-based access control)
+
+On top of authentication (*who* you are), CueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use CueWeb at all, and limit the CueCommander administration pages and job submission to specific groups.
+
+The gate is **off by default** and all variables are optional, so behavior is unchanged unless you configure it:
+
+```bash
+# Enable the gate (opt-in; default off)
+CUEWEB_AUTHZ_ENABLED=true
+
+# Groups allowed to use CueWeb at all (empty = every signed-in user)
+CUEWEB_ALLOWED_GROUPS=
+
+# Groups allowed on the CueCommander admin pages + CueSubmit (empty = every signed-in user)
+CUEWEB_ADMIN_GROUPS=render-admins,wranglers
+
+# JWT/OIDC claim that carries the user's groups (default: groups)
+CUEWEB_GROUPS_CLAIM=groups
+```
+
+Notes:
+
+- **Requires an auth provider whose token carries group memberships.** Group resolution happens once at sign-in (from the OIDC `groups` claim, or from a `groups` field a credentials/LDAP provider attaches); the middleware reads it from the token. Configure your identity provider to include the user's groups in the claim named by `CUEWEB_GROUPS_CLAIM`. When authentication is disabled, the gate is inactive.
+- **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages and CueSubmit. Read-only monitoring, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated.
+- Leaving a group list empty means "no restriction" for that scope, so you can gate only admin access (set `CUEWEB_ADMIN_GROUPS`, leave `CUEWEB_ALLOWED_GROUPS` empty) while monitoring stays open to all signed-in users.
+
 ---
 
 ## CueSubmit (browser-based job submission)
@@ -508,6 +551,65 @@ The `/cuesubmit` route is a TypeScript port of the standalone CueSubmit CLI tool
 **Production deployments**: change Memory to whatever the real services expect, override Facility from the dropdown if your deployment has more than one, and confirm `NEXT_PUBLIC_CUEBOT_FACILITIES` enumerates every facility the user should be able to pick.
 
 The form auto-saves a draft to `localStorage` on every keystroke and keeps per-field autocomplete history (Job Name / Shot / Layer Name) - these are browser-local and don't require any server-side persistence.
+
+---
+
+## Redirect tool
+
+The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with CueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
+
+**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Treat access to CueWeb accordingly - anyone who can reach the UI can issue redirects. If your deployment needs to restrict who can perform farm-wide actions, gate it at the authentication / reverse-proxy layer (CueWeb does not implement per-action role checks).
+
+---
+
+## Stuck Frames page (log access)
+
+The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with CueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.
+
+**Mount the render log directory into the CueWeb container, read-only.** CueWeb's server reads frame logs from its own filesystem, so the directory where RQD writes logs (the sandbox uses `/tmp/rqd/logs`, matching cuebot's `CUE_FRAME_LOG_DIR`) must be visible to the CueWeb container at the same path:
+
+```yaml
+# docker-compose.yml (cueweb service)
+volumes:
+  - /tmp/rqd/logs:/tmp/rqd/logs:ro
+```
+
+```yaml
+# Kubernetes: mount the shared logs volume into the cueweb pod, e.g.
+volumeMounts:
+  - name: frame-logs
+    mountPath: /net/render/logs
+    readOnly: true
+```
+
+If the log directory is not mounted, the page still lists stuck frames, but the **Last Line** column stays empty and the in-app log actions can't read the file.
+
+**Optionally restrict which roots are readable** with `CUEWEB_LOG_ROOTS` - a colon-separated list of absolute path prefixes. When set, the log-reading routes (`/api/stuck-frames/lastline` and the log download) only serve files under one of those roots; when unset, reads are not restricted to a root. Scope it to the mounted log dir:
+
+```bash
+CUEWEB_LOG_ROOTS=/net/render/logs
+```
+
+**Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
+
+## Plugins
+
+CueWeb's plugin system needs **no extra services or configuration**. Plugins are registered in the code (`cueweb/lib/plugins.ts`) and built into the image, so the only way to add or remove a plugin is at **build time** - there is no runtime plugin directory to mount and nothing to deploy alongside CueWeb. The bundled samples (Hello OpenCue, Cue Progress Bar) ship enabled per their manifest defaults.
+
+What a user does at **runtime** - which plugins show in the Plugins menu and each plugin's settings - is stored **client-side** in the browser's `localStorage` (`cueweb.plugin-menu.enabled`, `cueweb.plugin-settings.<key>`). It is per-user and per-browser, so it requires no server-side persistence and is not shared between users. To ship a custom plugin, add it to `app/plugins/<name>/`, register it, and rebuild the image (see the developer guide).
+
+---
+
+## Workspace layout (presets, immersive, split view)
+
+The workspace-layout features - saveable **view presets**, **immersive (full-screen) mode**, and the **split view** - need **no server-side configuration**. Like the rest of CueWeb's personalization, all state is per-user, per-browser `localStorage` (`cueweb.views.<page>`, `cueweb.layout.immersive`, `cueweb.split.ratio`); nothing is persisted on the server and nothing is shared between users.
+
+One deployment detail to be aware of: **split view renders each pane as a same-origin `<iframe>`** of another CueWeb page (`/split?left=…&right=…`). For this to work behind a reverse proxy, the proxy and the app must allow CueWeb to frame **itself**:
+
+- Don't send `X-Frame-Options: DENY`. If you set it, use `SAMEORIGIN`.
+- If you use a Content-Security-Policy, allow same-origin framing, e.g. `frame-ancestors 'self'`.
+
+Because the panes are always same-origin internal paths (`sanitizePanePath` rejects external and protocol-relative URLs), no cross-origin framing is involved.
 
 ---
 
