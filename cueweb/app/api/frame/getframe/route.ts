@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Endpoint to get a frame given its unique ID
@@ -35,5 +35,5 @@ export async function POST(request: NextRequest) {
   const responseData = await response.json();
   
   if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status});
-  return NextResponse.json({ data: responseData.data.frame, status: responseData.status});
+  return NextResponse.json({ data: responseData.data.frame, status: response.status});
 }

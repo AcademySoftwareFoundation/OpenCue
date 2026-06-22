@@ -65,7 +65,17 @@ export function readUserColors(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(USER_COLORS_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    if (!raw) return {};
+    // Validate the stored shape: tampered/legacy data could be null, an array,
+    // or hold non-string values, which would break callers expecting a plain
+    // Record<string, string>. Keep only string-valued entries.
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        ([, value]) => typeof value === "string",
+      ),
+    ) as Record<string, string>;
   } catch {
     return {};
   }

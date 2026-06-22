@@ -293,6 +293,7 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
             columns={layerColumns}
             username={username}
             columnVisibilityStorageKey="cueweb.layers.columnVisibility"
+            viewsPageKey="layers"
             onRowClick={handleLayerClick}
             selectedRowId={selectedLayer?.id ?? null}
             toolbarLeft={
@@ -355,10 +356,12 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
                   job={job}
                   isFramesTable
                   // Single-click loads the frame into the Attributes panel
-                  // (double-click still opens the log viewer).
-                  onRowClick={(row) => handleFrameClick(row as Frame)}
+                  // (double-click still opens the log viewer). SimpleDataTable
+                  // passes row.original (a Frame), so the handler takes it directly.
+                  onRowClick={handleFrameClick}
                   selectedRowId={selectedFrame?.id ?? null}
                   columnVisibilityStorageKey="cueweb.frames.columnVisibility"
+                  viewsPageKey="frames"
                   // Hide the Remain column (needs the ETA predictor that's only
                   // in CueGUI). Last Line stays visible for CueGUI parity even
                   // though the log-tail fetch isn't wired in yet -> it renders

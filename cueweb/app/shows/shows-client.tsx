@@ -85,6 +85,7 @@ export default function ShowsClient() {
           username=""
           isShowsTable
           columnVisibilityStorageKey="cueweb.shows.columnVisibility"
+          viewsPageKey="shows"
         />
       )}
 

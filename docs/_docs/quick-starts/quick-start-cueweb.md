@@ -118,6 +118,21 @@ NEXTAUTH_SECRET=canbeanything
 # The OpenCue sandbox docker-compose defaults this to
 # vscode://file{path}.
 # NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+
+# Optional: read frame logs from a Grafana Loki server instead of the
+# on-disk .rqlog file (mirrors CueGUI's Loki log viewer). Leave unset to
+# use the default file-based viewer. Base URL only - CueWeb appends
+# /loki/api/v1/... The query runs in the browser, so Loki must be
+# reachable from clients and allow CORS from the CueWeb origin.
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
+
+# Optional: command shown by the job menu's "Show Progress Bar" ({job} is
+# substituted) and the frame menu's "Preview All" external image viewer
+# ({paths}/{job}/{layer}/{frame} substituted). The *_URL variants are
+# optional registered URL schemes for a one-click launch button.
+# NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+# NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+# NEXT_PUBLIC_PREVIEW_URL=
 ```
 
 **Important Notes:**
@@ -125,6 +140,24 @@ NEXTAUTH_SECRET=canbeanything
 - Authentication is disabled by default for local development
 - Sentry integration is optional and can be disabled
 - `NEXT_PUBLIC_URL` is empty by default so the same image works from `localhost`, a LAN IP, or any reverse-proxy host without rebuilding. Override it only when the UI and API live on different origins.
+- `NEXT_PUBLIC_LOKI_URL` is empty by default, so logs are read from the mounted `.rqlog` files. Set it only if your site centralizes frame logs in Loki.
+
+### Restrict access by group (optional)
+
+By default every signed-in user can use CueWeb. To limit access by **group membership**, opt in with these env vars (all off/empty by default):
+
+```bash
+# Turn the gate on (off by default — leave unset for an open deployment)
+CUEWEB_AUTHZ_ENABLED=true
+# Groups allowed to use CueWeb at all (empty = everyone signed in)
+CUEWEB_ALLOWED_GROUPS=renderwranglers,supervisors
+# Groups allowed on the CueCommander admin pages + job submission (empty = everyone)
+CUEWEB_ADMIN_GROUPS=supervisors
+# The token claim that carries the user's groups (default: groups)
+CUEWEB_GROUPS_CLAIM=groups
+```
+
+The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an **Access denied** page (API routes get `403`), and non-admins are blocked from the admin pages but keep read-only monitoring. It only works when your authentication provider emits the user's groups in the token, so configure your identity provider's groups claim accordingly. For the sandbox (auth disabled) the gate stays inactive - you don't need any of these.
 
 ---
 
@@ -164,7 +197,7 @@ You should see output similar to:
 
 The CueWeb interface includes:
 
-- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
 - **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
 - **Jobs Dashboard**: View and manage rendering jobs, with CueGUI-parity columns (Launched, Eligible, Finished, User Color, ...).
 - **Layers / Frames panels**: Inline below the jobs table. Click a job row to reveal them; click a layer to filter the frames panel; double-click a frame row to open the log viewer.
@@ -241,7 +274,7 @@ The job right-click menu, and the tabbed Job Details page it can open:
 
 1. Click on a job to view its layers and frames
 2. **Retry Frames**: Right-click failed frames to retry (or tap the `⋮` Actions button on the left of the row, on phones)
-3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
+3. **View Logs**: Double-click a frame row to open the in-browser log viewer. Right-click → **View Log** does the same. By default the viewer reads the rqlog from disk; if your deployment sets `NEXT_PUBLIC_LOKI_URL`, it pulls the same log from a Loki server instead (CueGUI Loki log viewer parity) - the viewer looks identical either way. The sandbox deploy also ships a **View Log on VSCode** item that launches the rqlog directly in VSCode via the `vscode://file{path}` URL scheme (set `NEXT_PUBLIC_LOG_EDITOR_URL` at build time to target a different editor like Sublime / TextMate / IntelliJ, or to an empty string to hide the menu item).
 4. **Frame States**: Monitor frame progress with color-coded status
 5. **Frame State Filter Chips**: Use the chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) — each shows a live count and toggles a filter. Multiple selections combine with OR and persist in the URL via `?frameStates=...`.
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
@@ -257,6 +290,83 @@ The job right-click menu, and the tabbed Job Details page it can open:
 - **Dropdown Suggestions**: Shows matching jobs as you type
 
 ![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+
+### Redirect cores to a job
+
+Open **CueCommander &rarr; Redirect** to hand cores to a job that needs them. The tool finds procs currently busy on other work and reassigns them to a **Target** job - the frames on those procs are killed and the freed cores are booked onto your target, so use it deliberately.
+
+![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+
+1. Type the **Target** job name (this auto-fills the Show and minimum cores/memory from its layers).
+2. Adjust the filters (Allocations, Minimum/Max Cores, Minimum Memory, Proc Hour Cutoff) and click **Search**.
+3. Tick the hosts to take from (or **Select All**) and click **Redirect**. CueWeb refuses if the target has no waiting frames or is at max cores, and warns before a paused-target or cross-show redirect.
+
+### Find stuck frames
+
+Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung - frames that keep running but have stopped writing to their log. The page scans every running frame and lists the ones that cross the detection thresholds (Last Log Update vs. runtime), grouped by job.
+
+![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+
+- Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
+- Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
+
+### Manage render hosts
+
+Open **CueCommander &rarr; Monitor Hosts** to see every render host with the full CueGUI column set (Load %, Swap / Physical / GPU Memory / Temp usage bars, cores, GPUs, hardware/lock state, OS, tags). Rows are tinted by condition - red for a non-`UP` host, amber for one waiting to reboot when idle, yellow for an `UP` but locked host.
+
+![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+
+- Narrow the list with the **name/regex** box and the **Filter Allocation / HardwareState / LockState / OS** dropdowns (the filters are reflected in the URL, so a view is shareable).
+- Right-click a host for **Comments**, **View Procs**, **Lock / Unlock**, **Edit Tags / Rename Tag / Change Allocation**, **Reboot / Reboot when idle / Delete Host**, and **Set / Clear Repair State**.
+- **Left-click a host row** (or use **View Procs**, or the **Procs** box below the table) to list a host's running procs, then right-click a proc for **View Job / Unbook / Kill / Unbook and Kill**.
+
+### Switch Cuebot facilities
+
+If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. CueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
+
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+
+- Pick a facility from the menu; CueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
+- Each facility shows a **green/red health dot** - green when its REST gateway is reachable, red when it is down (polled every 30s). A facility whose gateway is down is **disabled**, so you can't switch into it.
+- The list of facilities comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`). To point a facility at its own gateway, set the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` (e.g. `CUEBOT_DEV_REST_GATEWAY_URL`); a facility with no override falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The single-facility sandbox works with just `local`.
+- To change a facility's gateway URL or JWT secret **without a redeploy**, choose **Manage facilities…** from the menu. The admin screen edits each facility's connection at runtime (applied immediately, layered over the env defaults) and keeps a change-history log. Persist these overrides across container restarts by pointing `CUEWEB_FACILITY_STORE` at a mounted volume.
+
+### Check the CueWeb version (About CueWeb)
+
+The build version is always visible at the right of the bottom status bar. For full build details, open **Help &rarr; About CueWeb**.
+
+![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+
+The dialog shows the **Version**, the **Build SHA**, and a license link, with a **Copy diagnostics** button that copies all fields as JSON (handy for bug reports).
+
+![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+
+- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as a CueWeb-specific override; `package.json` is the last-resort fallback.
+- The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI injects `git rev-parse --short HEAD`); it shows `unknown` when not provided.
+
+### Try a plugin
+
+CueWeb ships a small **plugin system** with two sample add-ons. Open the **Plugins** page (the **Plugins** menu sits to the right of CueSubmit in the header) to see the registered plugins.
+
+![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+- Each plugin has a **checkbox** that controls whether it appears in the **Plugins** menu; your choice is saved in your browser. Open a plugin to use it, and use its **Open plugin settings** control to tweak its options (also saved per browser).
+- **Cue Progress Bar** (on by default) draws a live frame-state bar for a job with pause / unpause / kill / retry-dead controls; **Hello OpenCue** (off by default) is a minimal example. Developers can add their own under `cueweb/app/plugins/<name>/`.
+
+### Customize your workspace
+
+Three quick ways to shape the workspace (all saved in your browser):
+
+- **Save a view preset:** set up a table's columns, sort, filters, and page size, then use the **Views** dropdown (next to **Columns**) &rarr; **Save as…** to recall that exact layout later. The built-in **Default** restores the original layout.
+
+  ![Views dropdown with saved presets](/assets/images/cueweb/cueweb_saveable_view_presets.png)
+- **Go full-screen:** press **`F`** (or use **Other &rarr; Immersive (full-screen)**) to hide the header, sidebar, and status bar so a table fills the screen. A floating **Exit immersive** button brings the chrome back.
+
+  ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+- **Split the view:** open **Other &rarr; Split view** to see two pages side-by-side in resizable panes (e.g. Monitor Jobs next to a host). The layout lives in the URL (`/split?left=…&right=…`), so it's bookmarkable and reload-safe.
+
+  ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
 
 
 ---

@@ -224,6 +224,31 @@ export async function getShowServiceOverrides(showId: string): Promise<ServiceOv
     return Array.isArray(response) ? response : [];
 }
 
+// Subscription shape - mirrors subscription.Subscription. A subscription is a
+// show's reservation against one allocation. size/burst/reservedCores arrive
+// from the gateway as int32 centcores (cores * 100); the Subscriptions table
+// divides by 100 for display, matching CueGUI's SubscriptionsWidget.
+export type Subscription = {
+    id: string;
+    name: string;
+    showName: string;
+    facility: string;
+    allocationName: string;
+    size: number;
+    burst: number;
+    reservedCores: number;
+    reservedGpus: number;
+};
+
+// Limit shape - mirrors limit.Limit. maxValue / currentRunning arrive from the
+// gateway in camelCase.
+export type Limit = {
+    id: string;
+    name: string;
+    maxValue: number;
+    currentRunning: number;
+};
+
 // Fetch a single frame based on the request body
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
@@ -296,6 +321,76 @@ export async function getJobs(body: string): Promise<Job[]> {
     const ENDPOINT = "/api/job/getjobs";
     const response = await accessGetApi(ENDPOINT, body);
     return response ? response : [];
+}
+
+// Resolve a single job by its exact name (Redirect target lookup + safety
+// checks). Returns null when no job matches.
+export async function findJobByName(name: string): Promise<Job | null> {
+    if (!name) return null;
+    const response = await accessGetApi(
+        "/api/job/getjobs",
+        JSON.stringify({ r: { jobs: [name], include_finished: true } }),
+    );
+    if (!Array.isArray(response)) {
+        throw new Error("Failed to look up job from Cuebot.");
+    }
+    return response.length ? response[0] : null;
+}
+
+// --- Redirect tool (CueGUI Redirect) -------------------------------------
+// A proc on a candidate host, as returned by /api/redirect/search.
+export type RedirectProc = {
+    // Proc UUID (pk_proc). The RedirectToJob RPC resolves procs by id - pycue
+    // sends `[proc.data.id ...]` as proc_names - so the redirect action must
+    // send this, not the display name.
+    id: string;
+    name: string;
+    jobName: string;
+    groupName: string;
+    services: string[];
+    reservedCores: number;
+    reservedMemoryKb: number;
+    runtimeSeconds: number;
+    showName: string;
+};
+
+// A candidate host whose procs can be redirected. `host` is the full Host
+// proto object (needed by RedirectToJob). cores/memoryKb/timeSeconds are the
+// accumulated totals (idle + this host's procs).
+export type RedirectHost = {
+    name: string;
+    host: Host;
+    alloc: string;
+    cores: number;
+    memoryKb: number;
+    timeSeconds: number;
+    jobCores: number;
+    waitingFrames: number;
+    procs: RedirectProc[];
+};
+
+export type RedirectSearchParams = {
+    show: string;
+    allocs: string[];
+    targetJob: string;
+    minCores: number;
+    maxCores: number;
+    minMemoryKb: number;
+    limit: number;
+    cutoffSeconds: number;
+    requireService: string;
+    includeGroups: string[];
+    excludeRegex: string;
+};
+
+// Search candidate hosts/procs to redirect (server-aggregated).
+export async function searchRedirect(params: RedirectSearchParams): Promise<RedirectHost[]> {
+    const ENDPOINT = "/api/redirect/search";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify(params));
+    if (!Array.isArray(response)) {
+        throw new Error("Redirect search failed.");
+    }
+    return response;
 }
 
 // Fetch all layers based on the request body
@@ -454,6 +549,21 @@ export async function getDefaultServices(): Promise<Service[]> {
         throw new Error("Failed to load default services from Cuebot.");
     }
     return response;
+}
+
+// Fetch the subscriptions belonging to a single show (the per-show
+// Subscriptions table). Mirrors CueGUI's show.getSubscriptions().
+export async function getShowSubscriptions(show: Show): Promise<Subscription[]> {
+    const ENDPOINT = "/api/show/getsubscriptions";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({ show }));
+    return Array.isArray(response) ? response : [];
+}
+
+// Fetch every limit known to Cuebot (for the Limits page).
+export async function getLimits(): Promise<Limit[]> {
+    const ENDPOINT = "/api/limit/getall";
+    const response = await accessGetApi(ENDPOINT, JSON.stringify({}));
+    return Array.isArray(response) ? response : [];
 }
 
 // Fetch all comments for a given job

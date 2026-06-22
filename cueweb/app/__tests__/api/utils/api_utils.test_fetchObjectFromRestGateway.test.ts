@@ -15,7 +15,7 @@
  */
 
 import { loadClientEnvVars, loadServerEnvVars } from '@/app/utils/config';
-import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/api_utils';
+import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/gateway_server';
 import jwt from "jsonwebtoken";
 
 // Mock loadClientEnvVars and createJwtToken to return two predefined environment variables
@@ -25,8 +25,8 @@ jest.mock('@/app/utils/config', () => ({
   loadClientEnvVars: jest.fn(),
   loadServerEnvVars: jest.fn(),
 }));
-jest.mock('@/app/utils/api_utils', () => ({
-  ...jest.requireActual('@/app/utils/api_utils'), // Keep the original implementation for other functions
+jest.mock('@/app/utils/gateway_server', () => ({
+  ...jest.requireActual('@/app/utils/gateway_server'), // Keep the original implementation for other functions
   createJwtToken: jest.fn(), // Mock the createJwtToken function
 }));
 jest.mock('jsonwebtoken', () => ({
