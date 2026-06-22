@@ -999,6 +999,36 @@ When the job reaches `FINISHED`, Cuebot sends the configured notification email 
 
 ---
 
+## Monitor Cue
+
+The **Monitor Cue** page (CueCommander &rarr; Monitor Cue in the sidebar or header) is the CueWeb equivalent of CueGUI's CueCommander Monitor Cue window. Unlike Monitor Jobs (which searches across shows), Monitor Cue shows **every job for the shows you pick**, grouped under their show and groups.
+
+### Choose shows
+
+The page starts empty. Open the **Shows** menu and pick one or more shows (**All Shows** selects every active show, **Clear** deselects all). Your selection is remembered per browser, and the job tree loads the chosen shows' groups and jobs.
+
+### Job columns
+
+The table mirrors CueGUI's Monitor Cue columns: a **Comment** icon (amber sticky-note when the job has comments), an **Auto-eat** icon (yellow when auto-eat is on), **Job** (name, indented by its place in the group tree), **Run**, **Cores**, **Gpus**, **Wait**, **Depend**, **Total**, **Booking** (a booking bar, see below), **Min**, **Max**, **Min G**, **Max G**, **Pri**, **ETA** (reserved, like CueGUI), **MaxRss**, **MaxGpuMem**, **Age**, **Readable Age**, and **Progress** (the stacked frame-state bar).
+
+- Click a column header to **sort** (ascending/descending, with an arrow indicator).
+- The **Columns** dropdown (top-right) shows/hides and reorders columns with a **Reset to Default**; the **Filter jobs...** box next to it narrows the visible rows by substring without re-fetching. Both persist per browser.
+- The **Booking** column draws CueGUI's booking bar: a running (yellow) / waiting (sky-blue) bar with a **cyan** marker at the job's minimum cores and a **red** marker at its maximum cores.
+
+Rows are tinted by condition (CueGUI parity): **blue** = paused, **red** = has dead frames, **yellow** = high peak memory, **green** = nothing running but frames waiting, **purple** = all remaining frames are on a dependency.
+
+### Toolbar and selection
+
+- **Eat** / **Retry** (dead frames), **Pause** / **Unpause**, and **Kill** act on the selected jobs (Kill asks for confirmation). The buttons carry the same icons as Monitor Jobs.
+- **Refresh** reloads now; **Auto-refresh** (on by default) polls every 5 seconds. **Expand All** / **Collapse All** open or fold the show/group tree.
+- **Select:** type a name or **regex** to live-select matching jobs as you type; **Clr** clears the selection. A select-all header checkbox toggles every visible job, and **Shift+click** selects a contiguous range of rows.
+
+### Job actions
+
+Right-click a job for the same menu as Monitor Jobs, plus Monitor-Cue-only entries: **View Job** (jump to Monitor Jobs for that job), **Send To Group...** (reparent the job into another group of its show), the resource/priority setters (**Set Min/Max Cores**, **Set Minimum/Maximum Cores**, **Set Minimum/Maximum Gpus**, **Set Priority**), **Use Local Cores**, **Unbook Frames...**, and **Set User Color** / **Clear User Color**. Auto-eat is a single state-aware toggle (**Enable auto eating** / **Disable auto eating**).
+
+---
+
 ## Monitor Hosts
 
 The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts in the sidebar or header, or the **View hosts** link on the dashboard hosts widget) lists the render hosts registered with Cuebot. It is the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin, and mirrors the jobs table interactions (sortable columns, substring filter, column show/hide, pagination).

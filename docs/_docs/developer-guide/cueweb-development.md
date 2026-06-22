@@ -1091,6 +1091,63 @@ The confirm dialog lists the affected job names; destructive actions use the des
 
 ---
 
+## Monitor Cue page (CueCommander parity)
+
+The `/monitor-cue` page (`app/monitor-cue/page.tsx`) replicates CueGUI's
+CueCommander Monitor Cue window: a show-grouped job tree with a CueGUI-parity
+column set, booking bar, and right-click menu. Files involved:
+
+```text
+app/monitor-cue/page.tsx               # page: Shows select, tree load, toolbar, selection, row coloring, mounted dialogs
+components/ui/monitor-cue-show-menu.tsx # Shows multi-select (All Shows / Clear / per-show)
+components/ui/job-booking-bar.tsx       # Booking column (CueGUI JobBookingBarDelegate parity)
+components/ui/send-to-group-dialog.tsx  # Send To Group… (reparentJobs)
+components/ui/context_menus/action-context-menu.tsx  # JobContextMenu (Monitor-Cue-only entries gated by pathname)
+app/utils/action_utils.ts              # reparentJobs (+ the shared job action helpers)
+app/utils/get_utils.ts                 # getActiveShows/getShowGroups/getGroupJobs
+```
+
+### Data + tree
+
+On mount the page loads `getActiveShows()`, then for each selected show
+`getShowGroups()` (`/api/show/getgroups`) and per group `getGroupJobs()`
+(`/api/group/getjobs`), assembled by `buildTreeFromGroups`. Jobs are keyed by
+group id (a job carries only its group *name*, not unique within a show). It
+auto-refreshes every 5s (`REFRESH_MS`), guarded by a monotonic
+`loadRequestIdRef` so a slow earlier load can't overwrite a newer one, and also
+reloads on `GROUPS_CHANGED_EVENT`.
+
+### Table
+
+Column visibility/order persist to `localStorage["cueweb.monitor-cue.columnOrder"]`
+and `["cueweb.monitor-cue.columnHidden"]`; the selected shows to
+`["cueweb.monitor-cue.shows"]`. `JobContextMenu` receives the table storage
+names `cueweb.monitor-cue.jobs` / `.jobsUnfiltered`. Row tint comes from
+`jobRowClass()` (paused/dead/maxRss/depend/waiting). The **Booking** column
+(`JobBookingBar`) computes cores-per-frame as `reserved/running` (default 6) and
+places cyan (min) / red (max) markers over a running/waiting bar.
+
+### Context-menu gating
+
+`JobContextMenu` shows Monitor-Cue-only items when `pathname === "/monitor-cue"`:
+View Job, **Send To Group…**, the resource/priority setters (Set Min/Max Cores,
+Set Minimum/Maximum Cores, Set Minimum/Maximum Gpus, then Set Priority - CueGUI
+order), Use Local Cores, **Unbook Frames…** (renamed from "Unbook…"), and Set /
+Clear User Color. Auto-eat is a single state-aware toggle (Enable / Disable auto
+eating). **Send To Group** (`send-to-group-dialog.tsx`) reparents via
+`reparentJobs()` &rarr; `/api/group/reparentjobs` &rarr;
+`group.GroupInterface/ReparentJobs`, then fires `cueweb:refresh-now`.
+`JobExtraDialogs`, `JobCommentsDialog`, and `SendToGroupDialog` are all mounted
+on the page so every menu action resolves.
+
+### No-auth kill fix
+
+The kill username falls back to `UNKNOWN_USER` (`"unknown"`,
+`app/utils/constants.ts`) when there is no session, so the username-required
+kill RPC validates in no-auth (sandbox) mode.
+
+---
+
 ## Host management actions (CueCommander parity)
 
 The Monitor Hosts table (`app/hosts/page.tsx`) and the host detail page
