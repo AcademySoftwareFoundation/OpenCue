@@ -66,11 +66,20 @@ import { cn } from "@/lib/utils";
  *  back into the URL. */
 const SPLIT_TARGETS: { label: string; href: string }[] = [
   { label: "Monitor Jobs", href: "/" },
-  { label: "Monitor Hosts", href: "/hosts" },
+  // CueCommander pages, in sidebar order.
   { label: "Allocations", href: "/allocations" },
+  { label: "Limits", href: "/limits" },
+  { label: "Monitor Cue", href: "/monitor-cue" },
+  { label: "Monitor Hosts", href: "/hosts" },
+  { label: "Redirect", href: "/redirect" },
+  { label: "Services", href: "/services" },
   { label: "Shows", href: "/shows" },
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Stuck Frame", href: "/stuck-frames" },
+  { label: "Subscription Graphs", href: "/subscription-graphs" },
+  { label: "Subscriptions", href: "/subscriptions" },
   { label: "CueSubmit", href: "/cuesubmit" },
+  { label: "All plugins", href: "/plugins" },
+  { label: "CueProgress bar plugin", href: "/plugins/cue-progress-bar" },
 ];
 
 /** Best-effort friendly label for a pane URL (matches the longest known

@@ -731,6 +731,48 @@ CueWeb can be extended with **plugins** - add-on panels that live on their own p
 
 ---
 
+## Customizing your workspace
+
+CueWeb gives you three ways to tailor the workspace - and all three remember your choice in the browser. Let's try each.
+
+### Save and reuse a view preset
+
+1. Go to **Monitor Jobs**. Set the table up the way you like - reorder or hide a few columns, sort by a column, apply a filter, change the page size.
+
+   ![Changing column positions](/assets/images/cueweb/cueweb_saveable_view_presets_change_columns_positions.png)
+
+2. Open the **Views** dropdown (next to **Columns**) and choose **Save as…**. Give the preset a name (for example `Triage`) and save.
+
+   ![Save the layout as a named view](/assets/images/cueweb/cueweb_saveable_view_presets_save_view.png)
+
+3. Change the table around, then reopen **Views** and click **Triage** - the saved layout snaps back. The **Default** entry always restores the original layout.
+
+   ![Applying a saved view](/assets/images/cueweb/cueweb_saveable_view_presets_apply_view_changes.png)
+
+4. Use the inline **Rename** / **Delete** buttons to manage presets, or **Update "Triage"** to overwrite it with the current layout. Presets are per page and follow you across tabs.
+
+   ![Rename a view](/assets/images/cueweb/cueweb_saveable_view_presets_rename_view.png)
+
+### Go full-screen (immersive mode)
+
+1. Press **`F`** (or open **Other &rarr; Immersive (full-screen)**). The header, sidebar, and status bar disappear, and the table takes the whole screen.
+
+   ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+2. Press **`F`** again, or click the floating **Exit immersive** button, to bring the chrome back. The mode is remembered, so a new tab opens immersed too until you turn it off.
+
+### Work in a split view
+
+1. Open **Other &rarr; Split view**. CueWeb shows two pages side-by-side - Jobs on the left, Hosts on the right by default.
+
+   ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
+2. Use each pane's **page picker** to choose what it shows (for example, put Monitor Jobs on the left and a specific host's detail page on the right).
+3. **Drag the divider** to rebalance the panes (or nudge it with the arrow keys); use **Swap** to flip them and **Reset 50/50** to re-center.
+4. Notice the address bar: `/split?left=…&right=…`. The whole workspace is in the URL, so you can bookmark or share it, and a reload restores both panes exactly.
+
+---
+
 ## Troubleshooting Common Issues
 
 ### Frame Failures

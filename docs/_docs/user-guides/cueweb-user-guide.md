@@ -1536,6 +1536,62 @@ A plugin can expose its own settings. Open them from the plugin (the **Open plug
 
 ---
 
+## Workspace layout
+
+Three web-native conveniences let you shape the workspace to the task at hand. All three are personal and saved in your browser, and they sync across your open tabs.
+
+### Saveable view presets
+
+Every major table (Jobs, Hosts, Allocations, Shows, Layers, Frames) has a **Views** dropdown next to its **Columns** dropdown - the web equivalent of CueGUI's *Save Window Settings*. A "view" captures the table's column order and visibility, sort, filters, and page size, so you can set the table up once and recall that exact layout later.
+
+![Views dropdown on a table](/assets/images/cueweb/cueweb_saveable_view_presets.png)
+
+**Save a view.** Arrange the table how you want it - for example, reorder or hide columns - then open **Views &rarr; Save as…** and give the preset a name.
+
+![Changing column positions before saving a view](/assets/images/cueweb/cueweb_saveable_view_presets_change_columns_positions.png)
+
+![Save the current layout as a named view](/assets/images/cueweb/cueweb_saveable_view_presets_save_view.png)
+
+**Apply a view.** Click a preset to apply it; the active one is checked. **Update "&lt;name&gt;"** overwrites the active preset with the current layout.
+
+![Applying a saved view](/assets/images/cueweb/cueweb_saveable_view_presets_apply_view_changes.png)
+
+**Rename or delete a view.** Each preset has inline **Rename** (pencil) and **Delete** (trash) buttons.
+
+![Rename a view](/assets/images/cueweb/cueweb_saveable_view_presets_rename_view.png)
+
+![Delete a view](/assets/images/cueweb/cueweb_saveable_view_presets_delete_view.png)
+
+**Restore the default.** The **Default** entry (pinned at the top) restores the table's documented defaults; it can't be renamed or deleted.
+
+![Restore the default view](/assets/images/cueweb/cueweb_saveable_view_presets_restore_default_view.png)
+
+Presets are saved per page in your browser and update across tabs as you add, rename, or delete them.
+
+### Immersive (full-screen) mode
+
+Immersive mode hides the header, sidebar, and status bar so the active table gets the entire viewport - handy on a wall display or when you want maximum table real estate. Toggle it from **Other &rarr; Immersive (full-screen)**, with the **`F`** key (or **Cmd/Ctrl+Shift+F**), or via Help-menu search.
+
+![Immersive (full-screen) in the Other menu](/assets/images/cueweb/cueweb_full_screen_menu.png)
+
+While immersed, a floating **Exit immersive** button stays on screen so you're never trapped once the chrome is hidden. Your choice persists per browser and syncs across tabs.
+
+![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+### Split view (two pages side-by-side)
+
+Split view opens **two CueWeb pages in one tab**, side by side in resizable panes - the web equivalent of CueGUI's *Add new window*. Open it from **Other &rarr; Split view** (Jobs on the left, Hosts on the right by default).
+
+![Split view in the Other menu](/assets/images/cueweb/cueweb_split_view_menu.png)
+
+- Each pane has its **own page picker** offering Monitor Jobs, all the CueCommander pages (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), CueSubmit, the Plugins index, and the Cue Progress Bar plugin - so you can put any two pages together (e.g. Monitor Jobs next to Monitor Hosts).
+- **Drag the divider** (or nudge it with the arrow keys; Home/End jump) to rebalance the panes; the ratio is remembered. **Swap** flips the panes and **Reset 50/50** re-centers.
+- The workspace lives in the URL (`/split?left=/jobs&right=/hosts/<name>`), so it's **bookmarkable and reload-safe** - navigating inside a pane updates that URL, and reloading restores both panes. On phones the panes stack vertically.
+
+![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
+---
+
 ## Keyboard Shortcuts
 
 CueWeb registers a small set of global keyboard shortcuts. Single-letter keys are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R.
@@ -1547,6 +1603,9 @@ CueWeb registers a small set of global keyboard shortcuts. Single-letter keys ar
 | `/` | Focus the jobs search box | On the jobs page |
 | `r` | Refresh the jobs table | On the jobs page |
 | `t` | Toggle the light / dark theme | Anywhere |
+| `F` (or `Cmd/Ctrl+Shift+F`) | Toggle immersive mode (hide header / sidebar / status bar) | Anywhere |
+
+The single-letter keys are ignored while typing into a text field; the immersive chord `Cmd/Ctrl+Shift+F` is the exception and works even from inside a search box.
 
 ### Opening shortcuts from the menu
 

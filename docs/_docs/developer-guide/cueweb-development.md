@@ -1527,6 +1527,66 @@ the full contract reference.
 
 ---
 
+## Workspace layout (view presets, immersive, split view)
+
+Three web-native replacements for CueGUI window/layout affordances, all built on
+the existing `localStorage` + cross-tab `storage`-event conventions (the same
+pattern as `use_disable_job_interaction.ts`). Files involved:
+
+```text
+components/ui/views-menu.tsx          # the Views dropdown + captureView/applyView/loadViews/saveViews helpers
+app/utils/use_immersive_mode.ts       # useImmersiveMode() hook
+components/ui/app-shell.tsx           # owns header/sidebar/status-bar chrome; drops it when immersive or inside a split pane
+app/split/page.tsx                    # the /split route (Suspense around useSearchParams)
+components/ui/split-view.tsx          # SplitView component
+app/utils/split_view_utils.ts         # pure helpers (sanitizePanePath, ratio clamp, ...)
+```
+
+### Saveable view presets
+
+`ViewsMenu` is **table-agnostic**: it reads and writes everything through the
+TanStack `table` instance (`setColumnOrder` / `setColumnVisibility` /
+`setSorting` / `setColumnFilters` / `setPageSize`), which both the Jobs
+`data-table.tsx` and the shared `SimpleDataTable` expose, so each table's
+existing per-key persistence keeps working unchanged. `SimpleDataTable` renders
+the menu when given a `viewsPageKey` prop. A **View** captures
+`{ name, columns: { id, visible, order }[], sort, filters, pageSize }` and
+persists per page under `localStorage["cueweb.views.<page>"]`, with the active
+preset name under `cueweb.views.<page>.active`; both broadcast via the `storage`
+event for cross-tab sync. The reserved name `Default` and duplicates are
+rejected. Pure helpers are unit-tested.
+
+### Immersive (full-screen) mode
+
+`useImmersiveMode()` (`{ immersive, setImmersive, toggle }`) mirrors
+`use_disable_job_interaction.ts` - persisted to
+`localStorage["cueweb.layout.immersive"]`, SSR-safe hydration after mount,
+cross-tab sync via the `storage` event plus an internal
+`cueweb:immersive-changed` CustomEvent. `AppShell` (mounted in `app/layout.tsx`)
+owns the chrome and unmounts it when immersive; the keyboard handler, attributes
+panel, mobile nav and toast host stay at the layout root so `F` keeps working.
+Toggled via `F` / `Cmd/Ctrl+Shift+F`, the **Other** menu, the menu registry
+(Help search), and a floating **Exit immersive** button.
+
+### Multi-pane split view
+
+`/split?left=/jobs&right=/hosts/server-01` keeps both pane targets in the query
+string, so the workspace is URL-addressable and reload-safe. Each pane is a
+**same-origin `<iframe>`** so it keeps its own Next.js router context (rendering
+the page components directly would force both panes to share one router,
+breaking dynamic routes and searchParam-driven pages). `AppShell` detects
+`window.self !== window.top` and hides its chrome inside panes (composes with
+immersive). In-pane navigation fires the iframe `load` handler, which
+`router.replace`s the pane's `pathname+search` back into `left`/`right`; the
+`src` is only re-driven when it differs from what the iframe already shows, so
+there's no reload loop. The divider resize clamps to 15-85% and persists to
+`localStorage["cueweb.split.ratio"]`. `sanitizePanePath` accepts only internal
+absolute paths (rejecting external/protocol-relative URLs and `/split` itself,
+to prevent recursive embedding). Entry points: **Other ▸ Split view** and the
+menu registry (`other.split-view`).
+
+---
+
 ## Development Workflow
 
 ### Running in Development Mode

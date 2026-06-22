@@ -600,6 +600,19 @@ What a user does at **runtime** - which plugins show in the Plugins menu and eac
 
 ---
 
+## Workspace layout (presets, immersive, split view)
+
+The workspace-layout features - saveable **view presets**, **immersive (full-screen) mode**, and the **split view** - need **no server-side configuration**. Like the rest of CueWeb's personalization, all state is per-user, per-browser `localStorage` (`cueweb.views.<page>`, `cueweb.layout.immersive`, `cueweb.split.ratio`); nothing is persisted on the server and nothing is shared between users.
+
+One deployment detail to be aware of: **split view renders each pane as a same-origin `<iframe>`** of another CueWeb page (`/split?left=…&right=…`). For this to work behind a reverse proxy, the proxy and the app must allow CueWeb to frame **itself**:
+
+- Don't send `X-Frame-Options: DENY`. If you set it, use `SAMEORIGIN`.
+- If you use a Content-Security-Policy, allow same-origin framing, e.g. `frame-ancestors 'self'`.
+
+Because the panes are always same-origin internal paths (`sanitizePanePath` rejects external and protocol-relative URLs), no cross-origin framing is involved.
+
+---
+
 ## Reverse Proxy Configuration
 
 ### Nginx Configuration

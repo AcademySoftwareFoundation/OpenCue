@@ -325,6 +325,21 @@ CueWeb ships a small **plugin system** with two sample add-ons. Open the **Plugi
 - Each plugin has a **checkbox** that controls whether it appears in the **Plugins** menu; your choice is saved in your browser. Open a plugin to use it, and use its **Open plugin settings** control to tweak its options (also saved per browser).
 - **Cue Progress Bar** (on by default) draws a live frame-state bar for a job with pause / unpause / kill / retry-dead controls; **Hello OpenCue** (off by default) is a minimal example. Developers can add their own under `cueweb/app/plugins/<name>/`.
 
+### Customize your workspace
+
+Three quick ways to shape the workspace (all saved in your browser):
+
+- **Save a view preset:** set up a table's columns, sort, filters, and page size, then use the **Views** dropdown (next to **Columns**) &rarr; **Save as…** to recall that exact layout later. The built-in **Default** restores the original layout.
+
+  ![Views dropdown with saved presets](/assets/images/cueweb/cueweb_saveable_view_presets.png)
+- **Go full-screen:** press **`F`** (or use **Other &rarr; Immersive (full-screen)**) to hide the header, sidebar, and status bar so a table fills the screen. A floating **Exit immersive** button brings the chrome back.
+
+  ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+- **Split the view:** open **Other &rarr; Split view** to see two pages side-by-side in resizable panes (e.g. Monitor Jobs next to a host). The layout lives in the URL (`/split?left=…&right=…`), so it's bookmarkable and reload-safe.
+
+  ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
 
 ---
 

@@ -184,6 +184,18 @@ CueWeb is **extensible** through a small plugin system - the browser counterpart
 
 ---
 
+## Workspace layout (web-native windows)
+
+CueGUI is a desktop app, so it shapes the workspace with *windows*: saving window settings, toggling full-screen, and opening additional windows. CueWeb is a single browser tab, so it offers the same affordances in web-native form, and treats them all the same way - as **personal, client-side preferences** (browser `localStorage`, synced across tabs via the `storage` event), never server state:
+
+- **View presets** replace CueGUI's *Save Window Settings*: a named snapshot of a table's column order/visibility, sort, filters, and page size. They're built on top of each table's existing per-column persistence and operate purely through the table component's own API, which is why they work uniformly across every table without per-table code.
+- **Immersive (full-screen) mode** replaces *Toggle Full-Screen*: the app shell drops the header, sidebar, and status bar so the active view fills the viewport.
+- **Split view** replaces *Add new window*: two pages share one tab as side-by-side panes. Each pane is a same-origin `<iframe>` so it keeps its **own** router context (URL, dynamic params), and the two pane targets live in the page's query string - so a split workspace is itself just a URL, making it bookmarkable, shareable, and reload-safe.
+
+**Why this design:** modeling these as URL- and `localStorage`-addressable state (rather than server-side window managers) keeps them stateless on the backend, shareable as links, and consistent with how the rest of CueWeb persists per-user preferences - enabling any of them never touches Cuebot.
+
+---
+
 ## Deployment Patterns
 
 ### Standalone Deployment
