@@ -727,8 +727,6 @@ The **Job Dependency Graph** is a read-only, interactive node graph of a job's d
 
 ![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
 
-![View Job Graph entry in the Cuetopia menu (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu_dark.png)
-
 **Where it appears.** With the toggle on, click any job row in **Monitor Jobs**. The graph mounts as a third panel stacked under the inline **Layers** and **Frames** panels. The panel header names the focus job and has a close (**&times;**) button; you can also collapse or expand it from the **Dependency Graph** button above the Layers panel.
 
 ![Monitor Jobs with the dependency graph panel open below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
@@ -736,19 +734,27 @@ The **Job Dependency Graph** is a read-only, interactive node graph of a job's d
 **Reading the graph.**
 
 - Each box is a node. A small kind label (**JOB**, **LAYER**, or **FRAME**) and a color-coded left border tell you what the node represents; layer and frame nodes also show their parent job below the name.
+- The focus job is shown with its **layers** hanging off it (CueGUI Job-Graph parity), so a job that has no cross-job dependencies still shows its structure rather than an empty panel.
 - The job you opened the panel for - the *focus* node - is highlighted with a ring.
 - Long names are truncated; hover any node to see its full name in a tooltip.
-- Edges flow from upstream (top) to the jobs that wait on them (bottom).
-- **Click a node** to open that job's tabbed detail page.
+- Edges flow from upstream (top) to the jobs/layers that wait on them (bottom).
 - Use the zoom / fit / lock controls in the corner to pan and zoom; the view fits the whole tree on first render.
 
-![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+![The Job Dependency Graph showing the focus job and its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
 
-The graph is theme-aware: it follows the light/dark toggle without re-fetching the dependency tree.
+**Open a job.** **Double-click** a node to open that job's tabbed detail page. A single click just selects the node, so you won't navigate away by accident.
 
-![The dependency graph panel in dark mode](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only_dark.png)
+**Layer actions (right-click a layer node).** Right-clicking a layer node opens the same action menu as the Layers table (CueGUI Job-Graph node menu parity):
 
-If the selected job has no dependencies, the panel shows **No dependencies found for this job.** The graph is read-only - to create or remove depends, use the [dependency context-menu actions](#managing-job-dependencies).
+- **Auto Layout Nodes** - re-runs the automatic layout and refits the view.
+- **Dependencies** - **View Dependencies…**, **Dependency Wizard…**, **Mark done**.
+- **Reorder Frames…**, **Stagger Frames…**.
+- **Properties…** - edit the layer's cores / memory / GPU memory / threadable / tags.
+- **Kill**, **Eat**, **Retry**, **Retry Dead Frames**.
+
+![Right-click menu on a layer node in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
+
+The graph is theme-aware: it follows the light/dark toggle without re-fetching the dependency tree. To create or remove cross-job depends, use the [dependency context-menu actions](#managing-job-dependencies).
 
 ### Layer Operations
 

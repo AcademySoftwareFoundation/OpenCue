@@ -267,9 +267,13 @@ When you want to *see* a render chain rather than read a table of depends, turn 
 
    ![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
 
-3. **Read and navigate the graph.** Each node carries a kind label (JOB / LAYER / FRAME) and a color-coded left border; the job you opened the panel for is ringed. Hover a node to see its full name, and click a node to open that job's detail page. Use the corner controls to pan, zoom, and fit. Collapse or close the panel from the **Dependency Graph** button above Layers or the panel's **&times;** button. A job with no depends shows **No dependencies found for this job.**
+3. **Read the graph.** The focus job is shown with its **layers**, so even a job with no cross-job dependencies still renders its structure. Each node carries a kind label (JOB / LAYER / FRAME) and a color-coded left border; the job you opened the panel for is ringed. Hover a node to see its full name. Use the corner controls to pan, zoom, and fit. Collapse or close the panel from the **Dependency Graph** button above Layers or the panel's **&times;** button.
 
-   ![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+   ![The Job Dependency Graph showing the focus job and its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
+
+4. **Navigate and act.** **Double-click** a node to open that job's detail page (a single click only selects it). **Right-click a layer node** for the same actions as the Layers table - **Auto Layout Nodes**; **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done); **Reorder Frames…**; **Stagger Frames…**; **Properties…**; **Kill / Eat / Retry / Retry Dead Frames**.
+
+   ![Right-click layer-node menu in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
 
 ---
 
