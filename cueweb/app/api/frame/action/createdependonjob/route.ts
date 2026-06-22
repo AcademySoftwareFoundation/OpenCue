@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 // FrameInterface.CreateDependencyOnJob. Used by the Frame On Job
 // dependency wizard flow.
 export async function POST(request: NextRequest) {
-  const endpoint = "/frame.FrameInterface/CreateDependencyOnJob";
+  const endpoint = "/job.FrameInterface/CreateDependencyOnJob";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

@@ -121,3 +121,33 @@
   --toastify-text-color-dark: hsl(var(--foreground));
   --toastify-toast-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
+
+/* Frame log viewer search highlight (Monaco inline decorations). Monaco
+   renders into the document, so these global classes apply to match ranges. */
+.cueweb-log-match {
+  background-color: rgba(250, 204, 21, 0.35); /* amber-400 @ 35% */
+  border-radius: 2px;
+}
+.cueweb-log-match-current {
+  background-color: rgba(249, 115, 22, 0.75); /* orange-500 @ 75% */
+  border-radius: 2px;
+}
+
+/* Per-line copy affordance in the frame log viewer's glyph margin. The icon
+   is hidden until its margin row is hovered, then click-to-copy that line. */
+.cueweb-copy-line-glyph {
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+.cueweb-copy-line-glyph::before {
+  content: "\29C9"; /* ⧉ copy-ish glyph */
+  font-size: 12px;
+  color: #9aa0a6;
+}
+.monaco-editor .margin-view-overlays > div:hover .cueweb-copy-line-glyph {
+  opacity: 1;
+}
+.cueweb-copy-line-glyph:hover::before {
+  color: #ffffff;
+}

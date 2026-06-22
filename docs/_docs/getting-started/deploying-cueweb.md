@@ -582,6 +582,14 @@ The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy
 
 ---
 
+## Monitor Hosts (host & proc management)
+
+The `/hosts` route (CueCommander &rarr; Monitor Hosts) and its bottom proc panel need **no extra services or env vars** - all host and proc operations go through the same REST gateway + cuebot path as the rest of the app (`HostInterface` for lock/unlock, reboot, tags, allocation, hardware/repair state, comments, and delete; `ProcInterface` for the proc list, unbook, and kill).
+
+Several of these are **destructive administrative actions** (Reboot kills running frames, Delete Host removes the record, Kill/Unbook stop procs). As with the Redirect tool, CueWeb does not implement per-action role checks, so if you need to limit who can perform them, gate access at the authentication / reverse-proxy layer or with the optional [group-based authorization](#authorization-group-based-access-control) admin gate (`/hosts` is one of the CueCommander admin pages). Predefined host-comment macros are stored per browser in `localStorage`, so they need no server-side storage.
+
+---
+
 ## Stuck Frames page (log access)
 
 The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with CueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.

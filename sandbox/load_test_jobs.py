@@ -96,8 +96,13 @@ Examples
 """
 
 import argparse
+import glob
+import os
+import platform
 import random
 import shlex
+import shutil
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -120,6 +125,61 @@ except ImportError:  # opencue may not be importable in --dry-run-only setups
 DEFAULT_SHOW = "testing"
 DEFAULT_SHOT = "testshot"
 DEFAULT_PREFIX = "load_test"
+
+# Blender preview-render defaults (see the `blender` subcommand). The render
+# output is written into the shared RQD logs dir so the CueWeb container (which
+# mounts it read-only) can serve the images to the frame preview panel.
+DEFAULT_OUTPUT_ROOT = "/tmp/rqd/logs"
+DEFAULT_BLENDER_FRAMES = 4
+
+
+def discover_blender() -> Optional[str]:
+    """Locate the Blender executable across macOS, Windows and Linux.
+
+    Order: $BLENDER env var, then PATH (`blender` / `blender.exe`), then the
+    usual per-platform install locations (newest version first). Returns None
+    when nothing is found, so callers can print a clear hint.
+    """
+    env = os.environ.get("BLENDER")
+    if env and os.path.exists(env):
+        return env
+
+    on_path = shutil.which("blender") or shutil.which("blender.exe")
+    if on_path:
+        return on_path
+
+    system = platform.system()
+    candidates: List[str] = []
+    if system == "Darwin":
+        for root in ("/Applications", os.path.expanduser("~/Applications")):
+            candidates += sorted(
+                glob.glob(os.path.join(root, "Blender*.app/Contents/MacOS/Blender")),
+                reverse=True)
+    elif system == "Windows":
+        for base in (os.environ.get("ProgramFiles", r"C:\Program Files"),
+                     os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                     os.environ.get("LOCALAPPDATA", "")):
+            if base:
+                candidates += sorted(
+                    glob.glob(os.path.join(base, "Blender Foundation", "Blender*", "blender.exe")),
+                    reverse=True)
+        candidates += sorted(
+            glob.glob(r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"),
+            reverse=True)
+    else:  # Linux (CentOS, Rocky, Ubuntu, etc.) and other Unix
+        candidates += [
+            "/usr/bin/blender", "/usr/local/bin/blender", "/bin/blender",
+            "/snap/bin/blender",  # snap
+            "/var/lib/flatpak/exports/bin/org.blender.Blender",  # flatpak (system)
+            os.path.expanduser("~/.local/share/flatpak/exports/bin/org.blender.Blender"),
+        ]
+        for root in ("/opt", os.path.expanduser("~")):
+            candidates += sorted(glob.glob(os.path.join(root, "blender*", "blender")), reverse=True)
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return None
 DEFAULT_BATCH_SIZE = 10
 DEFAULT_BATCH_PAUSE_SEC = 1.0
 DEFAULT_NUM_JOBS = 100
@@ -702,6 +762,145 @@ def cmd_mixed(args, common: CommonOpts) -> int:
 
 
 # --------------------------------------------------------------------------
+# Subcommand: blender (render a real image sequence for the CueWeb preview)
+# --------------------------------------------------------------------------
+
+# Blender scene script: rotate the factory-startup cube over the frame range
+# and render each frame with the fast, headless-safe Workbench engine.
+_BLENDER_SCRIPT = r"""
+import bpy, math, sys
+argv = sys.argv[sys.argv.index("--") + 1:]
+outbase, nframes = argv[0], int(argv[1])
+sc = bpy.context.scene
+try:
+    sc.render.engine = 'BLENDER_WORKBENCH'
+except Exception:
+    pass
+sc.render.image_settings.file_format = 'PNG'
+sc.render.resolution_x = 320
+sc.render.resolution_y = 240
+sc.render.resolution_percentage = 100
+sc.frame_start = 1
+sc.frame_end = nframes
+cube = bpy.data.objects.get('Cube')
+if cube:
+    for f in range(1, nframes + 1):
+        cube.rotation_euler = (math.radians(15 * (f - 1)), 0, math.radians(30 * (f - 1)))
+        cube.keyframe_insert(data_path='rotation_euler', frame=f)
+sc.render.filepath = outbase   # Blender appends <####>.png
+bpy.ops.render.render(animation=True)
+"""
+
+
+def _blender_render(blender_bin: str, render_dir: str, nframes: int) -> str:
+    """Render `nframes` PNGs (beauty.0001.png ...) into render_dir using the
+    host Blender. Returns the OpenCue/CueWeb output spec (with a #### token)."""
+    script_path = os.path.join(render_dir, "render_cube.py")
+    with open(script_path, "w", encoding="utf-8") as fp:
+        fp.write(_BLENDER_SCRIPT)
+    out_base = os.path.join(render_dir, "beauty.")
+    _print("  rendering %d frame(s) with Blender -> %sXXXX.png" % (nframes, out_base))
+    subprocess.run(
+        [blender_bin, "-b", "-P", script_path, "--", out_base, str(nframes)],
+        check=True,
+    )
+    return os.path.join(render_dir, "beauty.####.png")
+
+
+def cmd_blender(args, common: CommonOpts) -> int:
+    """Render a short Blender sequence per job and register it as the layer's
+    output path so the CueWeb frame preview thumbnail viewer has real images.
+
+    The sandbox RQD runs in a minimal Linux container (no Blender), so the host
+    Blender renders the frames straight into the shared RQD logs dir; the
+    submitted job's frames are trivial markers. Jobs are launched paused so the
+    (instant) marker frames don't finish and drop out of Monitor Jobs before
+    you can open them - the rendered images exist regardless of frame state.
+    """
+    num_jobs = args.num_jobs
+    nframes = args.frame_count
+    # Fail fast on non-positive values: a frame_count < 1 yields an invalid
+    # range (e.g. "1-0") and num_jobs < 1 silently submits nothing.
+    if num_jobs < 1:
+        _print("  ! --num-jobs must be >= 1")
+        return 1
+    if nframes < 1:
+        _print("  ! --frame-count must be >= 1")
+        return 1
+    blender_bin = args.blender or discover_blender()
+    output_root = args.output_root
+
+    _print("Submitting %d Blender preview job(s), %d frame(s) each%s"
+           % (num_jobs, nframes, " [DRY]" if common.dry_run else ""))
+    _print("-" * 60)
+
+    if not common.dry_run:
+        if opencue is None:
+            _print("  ! opencue.api not available; cannot register output paths.")
+            return 1
+        if not blender_bin or not os.path.exists(blender_bin):
+            _print("  ! Blender not found. Install it, add it to PATH, set the "
+                   "BLENDER env var, or pass --blender PATH.")
+            _print("    macOS:   /Applications/Blender.app/Contents/MacOS/Blender")
+            _print("    Windows: C:\\Program Files\\Blender Foundation\\Blender X.Y\\blender.exe")
+            _print("    Linux:   /usr/bin/blender (or snap/flatpak)")
+            return 1
+        _print("  using Blender: %s" % blender_bin)
+        os.makedirs(output_root, exist_ok=True)
+
+    submitted = 0
+    failed = 0
+    for i in range(num_jobs):
+        short_name = common.short("%s_blender_%04d" % (common.prefix, i))
+        stamp = "%d_%04d" % (time.time_ns(), i)
+        render_dir = os.path.join(output_root, "blender_%s" % stamp)
+        output_spec = os.path.join(render_dir, "beauty.####.png")
+
+        if common.dry_run:
+            _print("  [DRY] %s | beauty(range=1-%d) | render -> %s | paused"
+                   % (short_name, nframes, output_spec))
+            common.submitted_names.append(short_name)
+            if common.print_names:
+                _print("  + %s" % short_name)
+            submitted += 1
+            continue
+
+        try:
+            os.makedirs(render_dir, exist_ok=True)
+            _blender_render(blender_bin, render_dir, nframes)
+
+            ol = outline.Outline(short_name, shot=common.shot, show=common.show)
+            ol.add_layer(Shell(
+                "beauty",
+                command=["/bin/echo", "rendered", "frame", "#IFRAME#"],
+                range="1-%d" % nframes,
+            ))
+            # Always paused: the marker frames would otherwise finish instantly
+            # and the job would leave the active list before you can open it.
+            outline.cuerun.launch(ol, pause=True, use_pycuerun=False)
+
+            # Poll for visibility rather than a one-shot lookup: _find_job can
+            # race Cuebot right after launch and would skip registerOutputPath.
+            job = _wait_for_jobs([short_name])[0]
+            layer = next(layer_obj for layer_obj in job.getLayers() if layer_obj.name() == "beauty")
+            layer.registerOutputPath(output_spec)
+
+            _print("  + %s  (output: %s)" % (job.name(), output_spec))
+            common.submitted_names.append(short_name)
+            submitted += 1
+        except Exception as e:  # pylint: disable=broad-except
+            _print("  ! failed to submit %s: %s" % (short_name, e))
+            failed += 1
+        _throttle(i + 1, common)
+
+    _summary("blender", submitted, failed, common)
+    if submitted and not common.dry_run:
+        _print("Open a job in CueWeb -> Frames -> click the Preview (image) "
+               "icon on a frame to see the Blender render.")
+    return 0 if failed == 0 else 1
+
+
+# --------------------------------------------------------------------------
 # CLI plumbing
 # --------------------------------------------------------------------------
 
@@ -876,11 +1075,34 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="random seed for reproducible mixes (default: random)")
     p_mixed.set_defaults(func=cmd_mixed)
 
+    # blender
+    p_blender = subs.add_parser(
+        "blender",
+        parents=[shared],
+        help="Render a real Blender image sequence for the CueWeb frame preview.",
+        description="Render a short rotating-cube sequence with the host Blender "
+                    "into the shared RQD logs dir and register it as the job "
+                    "layer's output path, so the CueWeb frame preview thumbnail "
+                    "viewer shows real rendered frames. Jobs are launched "
+                    "paused so they stay visible in Monitor Jobs.")
+    p_blender.add_argument("-n", "--num-jobs", type=int, default=1,
+                           help="number of render jobs to submit (default: %(default)s)")
+    p_blender.add_argument("--frame-count", type=int, default=DEFAULT_BLENDER_FRAMES,
+                           help="frames to render per job (default: %(default)s)")
+    p_blender.add_argument("--blender", default=None,
+                           help="path to the Blender executable (default: auto-detect "
+                                "via $BLENDER, PATH, then common install locations)")
+    p_blender.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT,
+                           help="shared dir for rendered frames; must be readable "
+                                "by the cueweb container (default: %(default)s)")
+    p_blender.set_defaults(func=cmd_blender)
+
     return parent
 
 
 KNOWN_SUBCOMMANDS = (
     "simple", "wide", "deep", "chain", "fan-out", "fan-in", "diamond", "mixed",
+    "blender",
 )
 
 # Flags that consume the following argv token as their value. Listed here so
@@ -897,6 +1119,8 @@ _VALUE_BEARING_FLAGS = frozenset({
     "--frames-per-layer",
     # chain / fan-out / fan-in / mixed
     "--chain-length", "--dependents", "--blockers", "--total", "--seed",
+    # blender
+    "--frame-count", "--blender", "--output-root",
 })
 
 

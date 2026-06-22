@@ -23,6 +23,7 @@ import { MessageSquare } from "lucide-react";
 
 import type { Frame } from "@/app/frames/frame-columns";
 import { StuckFrame, getStuckFrames, getStuckFrameLastLine } from "@/app/utils/get_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { eatFrames, killFrames, retryFrames, setLayerMinCores } from "@/app/utils/action_utils";
 import { handleError, toastSuccess } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
@@ -503,11 +504,20 @@ export default function StuckFramesPage() {
                     return (
                       <tr
                         key={`${f.jobId}:${f.id}`}
-                        className="cursor-context-menu border-b last:border-0 hover:bg-muted/20"
+                        className="cursor-pointer border-b last:border-0 hover:bg-muted/20"
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setMenu({ kind: "frame", x: e.clientX, y: e.clientY, frame: f });
                         }}
+                        onClick={() =>
+                          // Load the stuck frame into the Attributes panel (CueGUI parity).
+                          setAttributeSelection({
+                            type: "frame",
+                            id: f.id,
+                            name: f.name,
+                            data: f as unknown as Record<string, unknown>,
+                          })
+                        }
                       >
                         <td className="p-2 pl-6 text-muted-foreground">{f.layerName}</td>
                         <td className="p-2" />

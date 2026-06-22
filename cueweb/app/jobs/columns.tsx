@@ -21,6 +21,7 @@ import * as React from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ChevronDown, ChevronRight, MoreHorizontal, StickyNote, X } from "lucide-react";
+import { TbPacman } from "react-icons/tb";
 import { Checkbox } from "@/components/ui/checkbox";
 import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM, secondsToHumanAge } from "@/app/utils/layers_frames_utils";
 import { RowActionsCell } from "@/components/ui/row-actions-cell";
@@ -226,9 +227,8 @@ function UserColorSwatch({ jobId }: { jobId: string }) {
 function JobCommentIndicator({ job }: { job: Job }) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const params = new URLSearchParams({ jobId: job.id });
-    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Open the Comments modal (CueGUI parity) instead of a new tab.
+    window.dispatchEvent(new CustomEvent("cueweb:open-job-comments", { detail: { job } }));
   };
   return (
     <TooltipProvider delayDuration={200}>
@@ -384,6 +384,44 @@ export const columns: ColumnDef<Job>[] = [
     sortingFn: (rowA, rowB) => {
       const a = (rowA.original as Job).hasComment ? 1 : 0;
       const b = (rowB.original as Job).hasComment ? 1 : 0;
+      return a - b;
+    },
+  },
+  {
+    // Auto-eat indicator (CueGUI JobMonitorTree "_Autoeat" column): a pac-man
+    // icon right of the comment column, shown when the job has auto-eating
+    // enabled. Job-only - auto_eat is a job property, so (matching CueGUI)
+    // the layer and frame tables have no equivalent column.
+    id: "autoeat",
+    accessorFn: (row) => (row.autoEat ? 1 : 0),
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-mx-2 h-7 px-1.5 text-xs font-medium"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        title="Sort by auto-eating jobs"
+      >
+        <TbPacman className="h-3.5 w-3.5" aria-hidden="true" />
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-60" />
+        <span className="sr-only">Auto-eat</span>
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const job = row.original as Job;
+      if (!job.autoEat) return null;
+      return (
+        <span
+          title="Auto-eating enabled"
+          className="inline-flex items-center justify-center text-yellow-500"
+        >
+          <TbPacman className="h-4 w-4" aria-hidden="true" />
+        </span>
+      );
+    },
+    sortingFn: (rowA, rowB) => {
+      const a = (rowA.original as Job).autoEat ? 1 : 0;
+      const b = (rowB.original as Job).autoEat ? 1 : 0;
       return a - b;
     },
   },

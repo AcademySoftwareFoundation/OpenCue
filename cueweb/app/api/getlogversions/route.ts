@@ -14,41 +14,59 @@
  * limitations under the License.
  */
 
-import { exec as execCallback } from "child_process";
 import { promises as fs } from "fs";
 import { NextResponse } from "next/server";
 import path from "path";
-import { promisify } from "util";
 
-// Helper function to get all matching files in the folder
-const exec = promisify(execCallback);
+// One log version (the active log + its rotated retries), with the metadata the
+// version dropdown shows: byte size and last-modified time (epoch ms).
+interface LogVersion {
+  name: string;
+  size: number;
+  mtime: number;
+}
 
-async function getLogVersions(filename: string) {
+async function getLogVersions(filename: string): Promise<LogVersion[]> {
   const logDir = path.dirname(filename);
   const basename = path.basename(filename);
 
-  // Try to check the file, if there's an error finding it, return []
+  // Bail out if the base log file isn't readable.
   try {
-    await exec(`wc -l ${path.join(logDir, basename)}`);
+    await fs.stat(path.join(logDir, basename));
   } catch (error) {
     return [];
   }
 
   try {
-    // Read the directory and find matching files that start with the same basename
+    // Find matching files: the base log and its rotated versions (basename.N).
     const files = await fs.readdir(logDir);
-    const matchingFiles = files.filter((file) =>
-      file === basename || file.startsWith(`${basename}.`)
+    const matchingFiles = files.filter(
+      (file) => file === basename || file.startsWith(`${basename}.`),
     );
 
-    // Sort the files: base file first, then by decreasing version number
-    matchingFiles.sort((a, b) => {
-      const versionA = a === basename ? Number.MAX_SAFE_INTEGER : parseInt(a.split('.').pop() || "0", 10);
-      const versionB = b === basename ? Number.MAX_SAFE_INTEGER : parseInt(b.split('.').pop() || "0", 10);
-      return versionB - versionA;
+    // stat each to get size + mtime (tolerate a file vanishing between readdir
+    // and stat, e.g. mid-rotation).
+    const versions = await Promise.all(
+      matchingFiles.map(async (name): Promise<LogVersion> => {
+        try {
+          const stat = await fs.stat(path.join(logDir, name));
+          return { name, size: stat.size, mtime: stat.mtimeMs };
+        } catch {
+          return { name, size: 0, mtime: 0 };
+        }
+      }),
+    );
+
+    // Newest first by modified time; tie-break by version number (base log,
+    // treated as the highest, then decreasing .N) for stable ordering.
+    versions.sort((a, b) => {
+      if (b.mtime !== a.mtime) return b.mtime - a.mtime;
+      const va = a.name === basename ? Number.MAX_SAFE_INTEGER : parseInt(a.name.split(".").pop() || "0", 10);
+      const vb = b.name === basename ? Number.MAX_SAFE_INTEGER : parseInt(b.name.split(".").pop() || "0", 10);
+      return vb - va;
     });
 
-    return matchingFiles;
+    return versions;
   } catch (error) {
     console.error("Error reading directory:", error);
     return [];

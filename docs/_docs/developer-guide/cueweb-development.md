@@ -1098,14 +1098,21 @@ The Monitor Hosts table (`app/hosts/page.tsx`) and the host detail page
 through the REST gateway. Files involved:
 
 ```text
-app/api/host/action/{lock,unlock,reboot,rebootwhenidle,addtags,removetags}/route.ts  # proxy routes
+app/api/host/action/{lock,unlock,takeownership,reboot,rebootwhenidle,addtags,removetags,renametag,setallocation,delete,sethardwarestate,addcomment}/route.ts  # proxy routes
 app/api/host/{findhost,getprocs,getcomments}/route.ts  # detail-page data routes
-app/utils/action_utils.ts                              # lockHosts/unlockHosts/rebootHosts/rebootHostsWhenIdle/addHostTags/removeHostTags + *GivenRow
-app/utils/get_utils.ts                                 # Host/Proc types, findHostByName/getHostProcs/getHostComments
-components/ui/host-action-events.ts                    # shared event names + payload types
+app/api/proc/getprocs/route.ts                         # proc panel data -> host.ProcInterface/GetProcs
+app/api/proc/action/{kill,unbookone}/route.ts          # proc panel actions
+app/hosts/columns.tsx                                  # full column set (Swap/Physical/GPU/Temp bars, Load %, comment icon, ...)
+app/hosts/host_format_utils.ts                         # kbStringToNumber/kbStringToHuman + hostRowClassName (row coloring)
+app/utils/action_utils.ts                              # lock/unlock/reboot/rebootWhenIdle/addTags/removeTags/renameTag/setAllocation/delete/setHardwareState/addComment host helpers + *GivenRow; killProcs/unbookProcs
+app/utils/get_utils.ts                                 # Host/Proc types, findHostByName/getHostProcs/getHostComments/getProcsByHosts
+app/utils/comment_macros.ts                            # predefined-comment (macro) store, localStorage["cueweb-comment-macros"]
+components/ui/host-action-events.ts                    # shared event names + payload types (incl. VIEW_HOST_PROCS_EVENT)
 components/ui/host-lock-dialog.tsx                     # Lock/Unlock confirmation
 components/ui/host-reboot-dialog.tsx                   # immediate-Reboot confirmation
 components/ui/edit-host-tags-dialog.tsx                # tag editor (cmdk autocomplete)
+components/ui/host-monitor-dialogs.tsx                 # Comments (+ macros), Rename Tag, Change Allocation, Delete confirm, Take Ownership
+components/ui/proc-monitor-panel.tsx                   # bottom proc panel (View Procs) + per-proc View Job/Unbook/Kill
 components/ui/context_menus/action-context-menu.tsx    # HostContextMenu
 ```
 
@@ -1139,10 +1146,22 @@ are unaffected.
 
 ### Menu gating
 
-`HostContextMenu` enables entries from the row's state: **Lock** when
-`lockState === "OPEN"`, **Unlock** when `LOCKED` (a `NIMBY_LOCKED` host can't be
-unlocked), **Reboot** unless `REBOOTING`, **Reboot When Idle** unless
-`REBOOTING` / `REBOOT_WHEN_IDLE`. **Edit Tags** is always enabled.
+`HostContextMenu` enables entries from the row's state: **Lock Host** when
+`lockState === "OPEN"`, **Unlock Host** when `LOCKED` (a `NIMBY_LOCKED` host
+can't be unlocked), **Take Ownership** only when `NIMBY_LOCKED` (CueGUI
+`canTakeOwnership` parity) - it opens `HostTakeOwnershipDialog` via
+`OPEN_HOST_TAKE_OWNERSHIP_EVENT` and on confirm calls `takeHostOwnership` &rarr;
+`/api/host/action/takeownership` &rarr; `host.OwnerInterface/TakeOwnership` with
+the signed-in user as owner. **Reboot** unless `REBOOTING`, **Reboot when idle** unless
+`REBOOTING` / `REBOOT_WHEN_IDLE`, **Set Repair State** unless already `REPAIR`,
+**Clear Repair State** only when `REPAIR`. **Comments…**, **View Procs**,
+**Edit Tags…**, **Rename Tag…**, **Change Allocation…**, and **Delete Host**
+are always enabled. Set/Clear Repair State both proxy
+`host.HostInterface/SetHardwareState` (`REPAIR` vs `UP`); the proc panel is
+populated through the `VIEW_HOST_PROCS_EVENT`, dispatched both by the menu's
+**View Procs** (`viewHostProcsGivenRow`) and by the hosts page's `onRowClick`
+(a left-click on a host row loads its procs into `ProcMonitorPanel` alongside
+the Attributes-panel selection).
 
 ### Edit Tags diff
 

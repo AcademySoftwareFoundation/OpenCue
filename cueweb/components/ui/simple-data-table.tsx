@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FrameRangeSelector } from "@/components/ui/frame-range-selector";
 import { FrameContextMenu, HostContextMenu, LayerContextMenu, LimitContextMenu, ShowContextMenu, SubscriptionContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
@@ -109,6 +110,9 @@ interface SimpleDataTableProps<TData, TValue> {
   // Columns dropdown. Typically a section title with a row count, e.g.
   // <span>Layers [Total Count: 3]</span>.
   toolbarLeft?: React.ReactNode;
+  // Optional per-row className derived from the row's data, used by the
+  // Monitor Hosts table to tint rows by hardware/lock state (CueGUI parity).
+  getRowClassName?: (rowData: TData) => string | undefined;
   // When set, a "Views" dropdown (saveable presets: column order/visibility,
   // sort, filters, page size) is rendered next to the Columns dropdown and
   // persisted under cueweb.views.<viewsPageKey>. Use stable per-page keys like
@@ -135,6 +139,7 @@ export function SimpleDataTable<TData, TValue>({
   onRowClick,
   selectedRowId,
   toolbarLeft,
+  getRowClassName,
   viewsPageKey,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -558,6 +563,17 @@ export function SimpleDataTable<TData, TValue>({
           {columnsDropdown}
         </div>
       </div>
+      {/* Visual frame-range selector Only on the frames table (not
+          the single-frame log table). Uses the table's filtered row model so
+          the strip mirrors exactly what's visible (state chips AND the
+          "Filter frames..." text filter); its Retry/Eat/Kill buttons reuse the
+          row context menu's frame actions. */}
+      {isFramesTable && (
+        <FrameRangeSelector
+          frames={table.getFilteredRowModel().rows.map((row) => row.original as Frame)}
+          username={username}
+        />
+      )}
       {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
           on phones instead of forcing the whole page to scroll. */}
       <div className="overflow-x-auto rounded-md border" ref={tableRef}>
@@ -619,7 +635,12 @@ export function SimpleDataTable<TData, TValue>({
                         : undefined
                     }
                     className={
-                      onRowClick || isFrameRowWithJob ? "cursor-pointer" : undefined
+                      [
+                        onRowClick || isFrameRowWithJob ? "cursor-pointer" : "",
+                        getRowClassName?.(row.original as TData) ?? "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined
                     }
                   >
                     {row.getVisibleCells().map((cell) => (
