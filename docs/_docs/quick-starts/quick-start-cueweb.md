@@ -310,6 +310,13 @@ Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung -
 - Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
 - Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
 
+### Monitor the cue
+
+Open **CueCommander &rarr; Monitor Cue** to watch every job for the shows you pick, grouped under their show and groups (the CueWeb version of CueGUI's Monitor Cue window). Choose shows from the **Shows** menu to populate the tree.
+
+- Full CueGUI columns (Run, Cores, Gpus, Wait, Depend, Total, a **Booking** bar with min/max core markers, Min/Max cores & GPUs, Pri, MaxRss, Age, Progress, …); sort by any header, show/hide & reorder via the **Columns** dropdown, and narrow with the **Filter jobs...** box. Rows are tinted by condition (blue = paused, red = dead, green = waiting, purple = all-depend).
+- Select jobs (checkboxes, Shift+click ranges, or the live **Select:** name/regex box) and act on them from the toolbar: **Eat / Retry / Pause / Unpause / Kill**. Right-click a job for the full menu, including **Send To Group...** and the resource/priority setters.
+
 ### Manage render hosts
 
 Open **CueCommander &rarr; Monitor Hosts** to see every render host with the full CueGUI column set (Load %, Swap / Physical / GPU Memory / Temp usage bars, cores, GPUs, hardware/lock state, OS, tags). Rows are tinted by condition - red for a non-`UP` host, amber for one waiting to reboot when idle, yellow for an `UP` but locked host.

@@ -596,6 +596,12 @@ The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy
 
 ---
 
+## Monitor Cue
+
+The `/monitor-cue` route (CueCommander &rarr; Monitor Cue) needs **no extra services or env vars** - it loads shows, groups and jobs through the same REST gateway + cuebot path as the rest of the app and is purely client-side beyond that (the show selection and column layout persist in the browser's `localStorage`). Its job actions (Eat / Retry / Pause / Unpause / **Kill**, Unbook Frames, and **Send To Group** via `GroupInterface/ReparentJobs`) are the same destructive admin actions as Monitor Jobs; gate them at the authentication / reverse-proxy layer or with the optional [group-based authorization](#authorization-group-based-access-control) admin gate (`/monitor-cue` is a CueCommander admin page) if you need to restrict who can run them.
+
+---
+
 ## Monitor Hosts (host & proc management)
 
 The `/hosts` route (CueCommander &rarr; Monitor Hosts) and its bottom proc panel need **no extra services or env vars** - all host and proc operations go through the same REST gateway + cuebot path as the rest of the app (`HostInterface` for lock/unlock, reboot, tags, allocation, hardware/repair state, comments, and delete; `ProcInterface` for the proc list, unbook, and kill).

@@ -660,6 +660,18 @@ Use **Clr** to reset the form and start a new search.
 
 ---
 
+## Monitoring the cue (Monitor Cue)
+
+The **Monitor Cue** page (CueCommander &rarr; Monitor Cue) shows every job for the shows you choose, grouped under their show and groups - the CueWeb version of CueGUI's Monitor Cue window.
+
+1. Open **CueCommander &rarr; Monitor Cue**. The table is empty until you pick shows.
+2. Open the **Shows** menu and select one or more shows (or **All Shows**). The job tree loads, grouped by show and group. Use **Expand All** / **Collapse All** to open or fold the tree.
+3. Read the CueGUI-parity columns - Run / Cores / Gpus / Wait / Depend / Total, the **Booking** bar (running/waiting with cyan min-core and red max-core markers), Min/Max cores and GPUs, Pri, MaxRss, Age, and Progress. Click a header to sort; use the **Columns** dropdown to show/hide and reorder, and **Filter jobs...** to narrow the rows. Row colors flag state at a glance (blue = paused, red = dead, green = waiting, purple = all-depend).
+4. Select jobs - tick checkboxes, **Shift+click** a range, or type a name/regex in the **Select:** box to select matches live - then use the toolbar's **Eat / Retry / Pause / Unpause / Kill** (Kill confirms first). Auto-refresh keeps the view current every 5 seconds.
+5. Right-click a job for the full menu, including **Send To Group...** (move the job into another group of its show) and the resource/priority setters (Set Min/Max Cores, Set Min/Max GPUs, Set Priority).
+
+---
+
 ## Managing render hosts (Monitor Hosts)
 
 The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts) is the CueWeb version of CueGUI's Monitor Hosts window, with the full column set and host actions.

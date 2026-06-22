@@ -397,6 +397,23 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 
+### Monitor Cue
+
+A show-grouped job tree at `/monitor-cue` (`cueweb/app/monitor-cue/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Monitor Cue window. Reached from **CueCommander &rarr; Monitor Cue** (header dropdown and sidebar) - previously a dead sidebar link.
+
+| Behavior | Description |
+|----------|-------------|
+| **Shows multi-select** | A **Shows** dropdown (`monitor-cue-show-menu.tsx`): All Shows / Clear / per-show checkboxes. The selection persists to `localStorage["cueweb.monitor-cue.shows"]`; the table is empty until at least one show is chosen. |
+| **Data source** | `getActiveShows()` on mount, then per selected show `getShowGroups()` (`/api/show/getgroups`) and per group `getGroupJobs()` (`/api/group/getjobs`), assembled into a group tree (`buildTreeFromGroups`). Auto-refreshes every 5s (a monotonic load token discards stale responses) and reloads on `cueweb:groups-changed`. |
+| **Columns** | Comment icon, Auto-eat icon, Job, Run, Cores, Gpus, Wait, Depend, Total, Booking (`job-booking-bar.tsx`), Min, Max, Min G, Max G, Pri, ETA (disabled, CueGUI parity), MaxRss, MaxGpuMem, Age, Readable Age, Progress (`JobProgressBar`). All but Booking / ETA / Progress are sortable (asc/desc with header arrows). |
+| **Columns dropdown + filter** | Top-right Columns dropdown (show/hide + `←`/`→` reorder + Reset to Default) persists to `localStorage["cueweb.monitor-cue.columnOrder"]` / `["cueweb.monitor-cue.columnHidden"]`; a **Filter jobs...** box does a client-side substring filter. |
+| **Booking bar** | `JobBookingBar` mirrors CueGUI's `JobBookingBarDelegate`: a yellow (running) / sky-blue (waiting) bar scaled to running+waiting, with a cyan marker at `minCores/coresPerFrame` and a red marker at `maxCores/coresPerFrame`. |
+| **Row coloring** | `jobRowClass()`: paused &rarr; blue (`bg-blue-950/50`); dead frames &rarr; red (`bg-red-950/50`); `maxRss` over the 5 GB warning level &rarr; yellow (`bg-yellow-900/40`); no running frames with only depends &rarr; purple (`bg-purple-950/50`); no running but waiting frames &rarr; green (`bg-green-950/40`). |
+| **Toolbar** | Eat / Retry (dead frames), Pause / Unpause, Kill (icons; Kill confirms via `ConfirmDialog`, reason `Killed from CueWeb Monitor Cue by <user>`), Refresh + Auto-refresh (5s), Expand All / Collapse All, and a **Select:** name/regex box (live selection) + Clr + select-mine. Select-all header checkbox (with indeterminate state) and Shift+click range selection. |
+| **Row menu** | Reuses `JobContextMenu` with Monitor-Cue-only entries gated by `pathname === "/monitor-cue"`: View Job, **Send To Group...**, Use Local Cores, Set Min/Max Cores, Set Minimum/Maximum Cores, Set Minimum/Maximum Gpus, Set Priority (after the cores/gpus setters), Unbook Frames..., and Set User Color / Clear User Color. Auto-eat is a single toggle (Enable/Disable auto eating). Dialogs `JobExtraDialogs` / `JobCommentsDialog` / `SendToGroupDialog` are mounted on the page so every action works. |
+| **Send To Group** | `send-to-group-dialog.tsx` reparents the job into another group of its show via `reparentJobs()` &rarr; `/api/group/reparentjobs` &rarr; `group.GroupInterface/ReparentJobs`; on success fires `cueweb:refresh-now`. |
+| **No-auth kill fix** | The username falls back to `UNKNOWN_USER` (`"unknown"`) when no session is present, so the username-required kill request validates in no-auth mode. |
+
 ### Monitor Hosts
 
 A host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
