@@ -276,6 +276,7 @@ function HostsPageInner() {
               });
             }}
             selectedRowId={selectedHostId}
+            viewsPageKey="hosts"
           />
         </>
       )}

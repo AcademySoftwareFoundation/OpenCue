@@ -35,6 +35,7 @@ import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ViewsMenu } from "@/components/ui/views-menu";
 import {
   ColumnDef,
   ColumnOrderState,
@@ -112,6 +113,11 @@ interface SimpleDataTableProps<TData, TValue> {
   // Optional per-row className derived from the row's data, used by the
   // Monitor Hosts table to tint rows by hardware/lock state (CueGUI parity).
   getRowClassName?: (rowData: TData) => string | undefined;
+  // When set, a "Views" dropdown (saveable presets: column order/visibility,
+  // sort, filters, page size) is rendered next to the Columns dropdown and
+  // persisted under cueweb.views.<viewsPageKey>. Use stable per-page keys like
+  // "hosts" / "allocations" / "layers". Omit to hide the Views menu.
+  viewsPageKey?: string;
 }
 
 export function SimpleDataTable<TData, TValue>({
@@ -134,6 +140,7 @@ export function SimpleDataTable<TData, TValue>({
   selectedRowId,
   toolbarLeft,
   getRowClassName,
+  viewsPageKey,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -545,6 +552,14 @@ export function SimpleDataTable<TData, TValue>({
               </button>
             ) : null}
           </div>
+          {viewsPageKey ? (
+            <ViewsMenu
+              page={viewsPageKey}
+              table={table}
+              defaultColumnVisibility={defaultColumnVisibility}
+              defaultPageSize={10}
+            />
+          ) : null}
           {columnsDropdown}
         </div>
       </div>

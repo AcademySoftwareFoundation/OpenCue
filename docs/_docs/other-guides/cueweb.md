@@ -115,7 +115,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Subscribe to Job** (right-click menu on a job row): opens a themed dialog mirroring CueGUI's `SubscribeToJobDialog`. The address you save is registered on Cuebot via the `AddSubscriber` RPC, so Cuebot **emails** the subscriber when the job finishes. Use this when you want notifications to survive closing the browser, going to a different machine, or to alert a team alias instead of yourself. Independent of the Notify bell; you can use one, the other, or both.
 
 22. **Keyboard shortcuts overlay (+ menu access + per-shortcut toast):**
-   - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. Single-letter keys (`/`, `r`, `t`) are ignored while typing into editable elements so they don't collide with text input, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser.
+   - Press `?` anywhere to open the cheat-sheet overlay; press `Esc` to close it. The overlay lists `/` (focus jobs search), `r` (refresh table), `t` (toggle theme), and `F` / `Cmd/Ctrl+Shift+F` (toggle immersive - hide header / sidebar / status bar). Single-letter keys are ignored while typing into editable elements, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser - except the immersive chord `Cmd/Ctrl+Shift+F`, which is captured even from inside a search field.
    - The same overlay is reachable from **Other ▸ Show Shortcuts** in both the header and the sidebar.
    - **Notify on Shortcut** (also under Other; default ON) controls whether a toast naming the action fires every time a shortcut triggers (e.g. `Shortcut: r → Refresh table`). Flipping the toggle takes effect on the very next keypress.
 
@@ -212,6 +212,23 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the CueCommander administration pages and job submission (CueSubmit). A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`. Read-only monitoring stays available to non-admins.
    - The user's groups are resolved **once at sign-in** (from the OIDC claim named by `CUEWEB_GROUPS_CLAIM`, default `groups`, or a credentials/LDAP `groups` field) and stamped on the session token; the Edge middleware only reads them, so there is no per-request directory lookup. Requires an identity provider whose token carries group memberships.
 
+38. **Plugin system (extensible add-ons):**
+   - A minimal plugin architecture, the browser counterpart of the CueGUI plugin system. A plugin is a **manifest** (name, title, version, route, optional description) plus a **lazily-loaded React component** that mounts on its own route under `/plugins/<name>`; a static `PLUGIN_REGISTRY` is the discovery mechanism and each plugin is code-split into its own chunk, fetched only when its route is visited.
+   - **Plugins page** (`/plugins`): a searchable, paginated index of registered plugins. Checkboxes choose which plugins appear in the **Plugins** menu (header + sidebar, to the right of CueSubmit); the selection persists per browser (`cueweb.plugin-menu.enabled`), syncs across tabs, and seeds from each manifest's `defaultEnabled`.
+   - **Per-plugin settings**: plugins register settings (`key`, `label`, `kind`, `default`) that persist to `localStorage` (`cueweb.plugin-settings.<key>`); a shared, plugin-scoped settings dialog (mounted once in the layout, opened via an event) edits them.
+   - **Bundled samples**: **Hello OpenCue** (minimal contract example with greeting/shout/emoji settings, off by default) and **Cue Progress Bar** (a port of CueGUI's `cueprogbar` - a live color-coded frame-state bar with done/total/running labels and pause / unpause / kill / retry-dead controls, on by default).
+
+39. **Workspace layout (view presets, immersive, split view):**
+   - Three web-native replacements for CueGUI window/layout affordances, all stored client-side (`localStorage`) and synced across tabs.
+   - **Saveable view presets** (CueGUI *Save Window Settings*): a **Views** dropdown on every major table (Jobs, Hosts, Allocations, Shows, Layers, Frames) to **Save as… / Apply / Rename / Delete** named presets capturing column order/visibility, sort, filters, and page size. Persists per page under `cueweb.views.<page>` (active under `cueweb.views.<page>.active`); a built-in **Default** restores documented defaults. Table-agnostic - it operates on the TanStack table instance.
+   - **Immersive (full-screen) mode** (CueGUI *Toggle Full-Screen*): hides the header, sidebar, and status bar so the active table fills the viewport. Toggled with **`F`** / **Cmd/Ctrl+Shift+F**, the **Other** menu, or a floating **Exit immersive** button; persists under `cueweb.layout.immersive`.
+   - **Multi-pane split view** (CueGUI *Add new window*): the `/split?left=…&right=…` route opens two pages side-by-side in resizable, same-origin iframe panes, each with its own URL so the whole workspace is bookmarkable and reload-safe; drag/keyboard divider resize (ratio under `cueweb.split.ratio`), per-pane page picker, Swap, and Reset 50/50. Opened from **Other &rarr; Split view**.
+
+40. **Optional Loki log backend (CueGUI Loki log viewer parity):**
+   - The frame log viewer has two interchangeable backends. By default it reads the on-disk `.rqlog` file; when `NEXT_PUBLIC_LOKI_URL` points at a [Grafana Loki](https://grafana.com/oss/loki/) server it queries Loki for the frame's lines instead (the CueWeb counterpart of CueGUI's `LokiViewPlugin`), falling back to the file-based viewer when unset.
+   - Both backends share the same read-only editor, **Log versions** dropdown, and empty/loading states. With Loki, each "log version" is a separate **frame attempt** (`session_start_time`), newest first, with a **Refresh** button. The backend is chosen by the deployment, not in the UI.
+
+
 ## CueWeb's user interface
 
 Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figure 1), users are welcomed by CueWeb's main dashboard, as shown in Figure 2.  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
@@ -256,8 +273,17 @@ CueGUI's "Cuebot Facility" menu, which connects to a single facility at a time.
 A deployment can point each facility at its own Cuebot/gateway; when only one
 gateway is configured, every facility uses it.
 
+Each facility in the menu shows a small status dot — green when its gateway is
+reachable, red when it is unreachable — refreshed periodically; a facility whose
+gateway is down cannot be selected. The menu also has a **Manage facilities…**
+item that opens an admin screen for editing each facility's gateway URL and
+credentials at runtime, without redeploying (Figure 5b).
+
 **Figure 5: Cuebot Facility menu**
-![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_with_manage_facilities_menu.png)
+
+**Figure 5b: Manage Facilities screen**
+![Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
 
 
 The **CueCommander** menu lists the administration views such as Allocations, Limits, Monitor Cue, Monitor Hosts, Services, Shows, and Subscriptions (Figure 6).

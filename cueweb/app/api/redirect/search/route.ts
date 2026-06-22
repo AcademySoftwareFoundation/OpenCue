@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { fetchObjectFromRestGateway } from '@/app/utils/api_utils';
+import { fetchObjectFromRestGateway } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Server-side search for the Redirect tool (CueGUI Redirect.update()). Lists

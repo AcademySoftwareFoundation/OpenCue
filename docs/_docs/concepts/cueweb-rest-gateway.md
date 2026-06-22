@@ -170,6 +170,50 @@ Because the browser only talks to CueWeb's own `/api` routes, facility routing i
 
 Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility CueWeb (secrets live in the Node server, never in the client bundle) while letting one CueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
 
+### Per-facility health and runtime configuration
+
+Fronting many facilities raises two operational questions: *is each one reachable?* and *can I re-point one without a redeploy?* CueWeb answers both while preserving the server-only credential model.
+
+- **Live health per facility.** A server endpoint probes every configured facility's gateway in parallel and reports only reachability and round-trip latency (never gateway payloads). The Cuebot Facility menu polls it and shows a green/red dot next to each facility; a facility whose gateway is down can't be selected, so you can't switch into a dead facility by accident.
+- **Runtime overrides, layered over the env defaults.** Each facility's gateway URL and JWT secret can be edited at runtime from a **Manage facilities…** admin screen. The effective value is resolved as **override → per-facility env var → legacy default**, so an empty override store reproduces the env-only behavior exactly, and clearing an override falls back to the env/default. Overrides are persisted to a server-side file (`CUEWEB_FACILITY_STORE`) with an append-only audit log; the JWT secret is stored with restrictive permissions and is never logged or returned to a client.
+
+**Why this design:** health and runtime config are both resolved **server-side**, so the browser still only ever knows a facility *name* - the credential model is unchanged. Runtime overrides make a facility's gateway re-pointable by an operator (e.g. failing over to a standby gateway) without rebuilding or restarting the image, and the audit log records who changed what.
+
+---
+
+## Plugins (extending CueWeb)
+
+CueWeb is **extensible** through a small plugin system - the browser counterpart of CueGUI's plugin architecture, where each plugin declares metadata and exposes a component the host mounts. The same idea translates cleanly to the web:
+
+- A **plugin** is a *manifest* (its name, title, version, route, and an optional description) plus a *lazily-loaded React component*. Each plugin mounts on its own route under `/plugins/<name>`.
+- Plugins are discovered from a **static registry** in the code rather than scanned at runtime. That registry is the single source of truth, which keeps discovery predictable and lets the bundler **code-split** each plugin into its own chunk that's only fetched when its page is opened - so unused plugins cost nothing.
+- Users curate their own experience: a **Plugins page** lists everything registered, and checkboxes decide which plugins appear in the **Plugins** menu. A plugin can also register its own **settings**. Both the menu selection and the settings live in the browser (`localStorage`) and sync across tabs - they're per-user preferences, not server state.
+
+**Why this design:** keeping discovery static and components lazy means plugins extend the UI without bloating the core bundle or adding server round-trips, and because preferences are client-side, enabling a plugin or changing its settings never touches Cuebot. Two samples ship in-tree - a minimal *Hello OpenCue* and a *Cue Progress Bar* (a port of CueGUI's `cueprogbar`) - which double as templates for new plugins. See the developer guide for the contract and how to add one.
+
+---
+
+## Workspace layout (web-native windows)
+
+CueGUI is a desktop app, so it shapes the workspace with *windows*: saving window settings, toggling full-screen, and opening additional windows. CueWeb is a single browser tab, so it offers the same affordances in web-native form, and treats them all the same way - as **personal, client-side preferences** (browser `localStorage`, synced across tabs via the `storage` event), never server state:
+
+- **View presets** replace CueGUI's *Save Window Settings*: a named snapshot of a table's column order/visibility, sort, filters, and page size. They're built on top of each table's existing per-column persistence and operate purely through the table component's own API, which is why they work uniformly across every table without per-table code.
+- **Immersive (full-screen) mode** replaces *Toggle Full-Screen*: the app shell drops the header, sidebar, and status bar so the active view fills the viewport.
+- **Split view** replaces *Add new window*: two pages share one tab as side-by-side panes. Each pane is a same-origin `<iframe>` so it keeps its **own** router context (URL, dynamic params), and the two pane targets live in the page's query string - so a split workspace is itself just a URL, making it bookmarkable, shareable, and reload-safe.
+
+**Why this design:** modeling these as URL- and `localStorage`-addressable state (rather than server-side window managers) keeps them stateless on the backend, shareable as links, and consistent with how the rest of CueWeb persists per-user preferences - enabling any of them never touches Cuebot.
+
+---
+
+## Frame logs (file-based and Loki)
+
+A frame's log can be read two ways, and CueWeb supports both behind the same viewer:
+
+- **File-based (default):** RQD writes each frame's output to a `.rqlog` file on a shared filesystem. CueWeb's server reads that file (so the render-log directory must be mounted into the CueWeb container). This is the zero-extra-infrastructure default.
+- **Loki (optional):** in studios that already centralize logs, RQD ships frame output to a [Grafana Loki](https://grafana.com/oss/loki/) server tagged with `frame_id` and `session_start_time` labels. Setting `NEXT_PUBLIC_LOKI_URL` makes CueWeb query Loki for a frame's lines instead of reading a file - the same model as CueGUI's Loki log viewer. There's no shared log mount to manage, logs survive the worker, and each frame **attempt** is a selectable version.
+
+**Why this design:** the backend is a single deployment-time switch (`NEXT_PUBLIC_LOKI_URL` set or not), not a UI choice, and the viewer is identical either way - so a site adopts centralized logging without changing how artists view logs. Because the var is browser-readable (`NEXT_PUBLIC_*`), the Loki query goes straight from the browser to Loki, which must therefore be reachable from clients and allow CORS from the CueWeb origin.
+
 ---
 
 ## Deployment Patterns

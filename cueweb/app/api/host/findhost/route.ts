@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Resolve a single host by its exact name. Request: { name }. The gateway

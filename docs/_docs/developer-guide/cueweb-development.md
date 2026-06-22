@@ -107,14 +107,19 @@ cueweb/
 │   │   ├── help_menu.ts                   # Help links + env-var overrides
 │   │   ├── use_disable_job_interaction.ts # Safety flag hook
 │   │   ├── use_cuebot_facility.ts         # Active facility hook
+│   │   ├── use_facility_health.ts         # Per-facility gateway health poll (30s)
+│   │   ├── gateway_server.ts              # Server-only REST gateway proxy + JWT signing
 │   │   ├── use_attributes_panel.ts        # Panel open/closed + dock position
 │   │   ├── use_attribute_selection.ts     # Selected entity for the panel
 │   │   ├── use_menu_registry.ts           # Flat command registry for Help search
 │   │   ├── use_shortcut_notifications.ts  # Toast-on-shortcut opt-out pref
 │   │   ├── layer_progress_utils.ts        # Layer progress segments (mirrors jobs)
 │   │   └── job_progress_utils.ts          # Job progress segments + tooltip rows
+│   ├── settings/         # Admin screens
+│   │   └── facilities/   # Manage Facilities (runtime per-facility config + audit)
 │   └── api/              # API routes (REST gateway proxy + auth)
-│       └── health/       # Gateway reachability probe used by StatusBar
+│       ├── health/       # Gateway reachability probe used by StatusBar
+│       └── facility/health/ # Per-facility gateway health (menu dots)
 ├── components/           # Reusable React components
 │   ├── ui/               # Base UI components
 │   │   ├── app-header.tsx       # Global persistent header (incl. mobile hamburger)
@@ -140,7 +145,9 @@ cueweb/
 │   └── context_menus/    # Right-click context menus (Job / Layer / Frame)
 ├── lib/                  # Utility libraries
 │   ├── auth.ts           # NextAuth configuration (Okta/Google/GitHub/LDAP)
-│   ├── facility.ts       # Cuebot Facility resolver (per-request gateway + JWT)
+│   ├── facility.ts       # Cuebot Facility resolver (per-request gateway + JWT, client-safe)
+│   ├── facility-server.ts # Override-aware facility resolution (server-only)
+│   ├── facility-store.ts # Runtime per-facility override store + audit log (server-only)
 │   ├── utils.ts          # General utilities (incl. cn())
 │   └── metrics-service.ts # Prometheus metrics
 ├── public/               # Static assets
@@ -188,7 +195,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 
 - **`AboutDialog`** (`components/ui/about-dialog.tsx`): CueGUI parity for Help → About. A `Dialog` mounted once from `app/layout.tsx`, opened via the exported `CUEWEB_OPEN_ABOUT_EVENT` (dispatched by the About CueWeb command in `useMenuRegistry`). Shows the build version (`NEXT_PUBLIC_APP_VERSION`) and SHA (`NEXT_PUBLIC_GIT_SHA`), the active facility (`useCuebotFacility`), the REST gateway URL masked by `maskGatewayUrl()` (scheme + port + first/last host chars, path/userinfo stripped), the Apache-2.0 license link, and credits. **Copy diagnostics** writes the fields (incl. the *masked* gateway) as JSON to the clipboard. The version is resolved at build time in `next.config.js`: `NEXT_PUBLIC_APP_VERSION` env wins, else `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel reads the repo-root `VERSION.in`, supplied to the Docker build via the `project_root` named context; any other value pins an explicit version), else `package.json`.
-- **`FrameViewer`**: Frame log viewer component
+- **`FrameViewer`**: Frame log viewer component. The frame log page (`app/frames/[frame-name]/page.tsx`) branches on `isLokiEnabled()`: by default it reads the on-disk `.rqlog` inline; when `NEXT_PUBLIC_LOKI_URL` is set it renders `LokiLogView` (`app/frames/[frame-name]/loki-log-view.tsx`) instead, which reuses the same Monaco editor, **Log versions** dropdown, and empty/loading states. See [Frame log backends](#frame-log-backends-file-based-and-loki).
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
 - **`JobSubscriptionPoller`** (`app/providers/job-subscription-poller.tsx`): App-wide client provider (mounted in `app/layout.tsx`) that polls subscribed jobs every 15s. When a job reaches `FINISHED`, `fireCompletionNotice(entry)` runs inside a `navigator.locks.request("cueweb:notify-<jobId>", ...)` block: it fires an in-app `toastSuccess(...)` (always) and a desktop `new Notification(...)` popup (when `Notification.permission === "granted"` at fire-time). The lock serializes the re-read + fire + mark sequence across same-origin tabs so only one tab toasts when several poll the same job. An `inFlight` ref guards against overlapping ticks, and jobs that no longer exist in Cuebot are removed from the store on the next poll.
@@ -233,9 +240,24 @@ provider tree.
     reads the cookie and resolves the facility to a REST gateway URL + JWT secret
     from `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET`, falling
     back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. Every proxied
-    request goes through it via `fetchObjectFromRestGateway` (`app/utils/api_utils.ts`),
+    request goes through it via `fetchObjectFromRestGateway` (`app/utils/gateway_server.ts`),
     and `/api/health` probes the selected facility's gateway. (`next/headers` is
     imported dynamically there so the module stays out of the client bundle.)
+  - **Per-facility health + runtime config.** `useFacilityHealth`
+    (`app/utils/use_facility_health.ts`) polls `/api/facility/health` every 30s;
+    the header menu draws a green/red dot per facility and disables a facility
+    whose gateway is down. **Manage facilities…** opens `/settings/facilities`
+    (`app/settings/facilities/`), a server-action screen that edits each
+    facility's gateway URL + JWT secret at runtime. Overrides persist to a JSON
+    file (`CUEWEB_FACILITY_STORE`) with an append-only audit log, written by
+    `lib/facility-store.ts`; the override-aware resolution that layers them over
+    the env defaults lives in the server-only `lib/facility-server.ts`
+    (`getRequestFacilityTargetWithOverrides`, `getAllFacilityTargets`,
+    `getFacilityConfigViews`). The server-only gateway helpers were split into
+    `app/utils/gateway_server.ts` precisely so the `node:fs`-backed store never
+    reaches the client bundle (`api_utils.ts` is client-reachable). The settings
+    action is fail-closed when authentication is configured and serializes writes
+    in-process to avoid lost updates.
 - **`useAttributesPanel`** (`app/utils/use_attributes_panel.ts`)
   &mdash; `{ isOpen, position, positions, setOpen, toggle, setPosition }`.
   - Keys: `cueweb.attributes.open` (`bool`) and `cueweb.attributes.position`
@@ -1280,6 +1302,70 @@ entries are client-only: the former hide ids in component state (cleared by
 
 ---
 
+## Frame log backends (file-based and Loki)
+
+The frame log page (`app/frames/[frame-name]/page.tsx`) supports two backends.
+By default it reads the `.rqlog` from the render-log directory mounted into the
+CueWeb server; when `NEXT_PUBLIC_LOKI_URL` is set it pulls the log from a
+[Grafana Loki](https://grafana.com/oss/loki/) server instead, mirroring CueGUI's
+`LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). Files involved:
+
+```text
+lib/loki.ts                                # read-only Loki HTTP API client
+app/frames/[frame-name]/page.tsx           # branches on isLokiEnabled()
+app/frames/[frame-name]/loki-log-view.tsx  # LokiLogView (Loki-backed viewer)
+app/__tests__/loki.test.ts                 # lib/loki.ts unit tests
+```
+
+### Selecting the backend
+
+The choice is made once, at render time, from the build-time env var: `page.tsx`
+calls `isLokiEnabled()` (true when `NEXT_PUBLIC_LOKI_URL` is non-empty). When
+true it renders `<LokiLogView frameId=... startTime=... />` in place of the
+inline file-based viewer and skips the file-based effects (`fetchInitialLogs`,
+`fetchLogVersions`) entirely. There is no UI toggle - a deployment is either
+file-based or Loki-backed. Both viewers share the same read-only Monaco editor,
+**Log versions** dropdown, and empty/loading/missing states, so they are
+visually identical.
+
+### `lib/loki.ts`
+
+A thin, read-only client for the Loki HTTP API (no writes, no auth headers,
+`cache: "no-store"` so a running frame's log is never stale):
+
+- `getLokiUrl()` - the configured base URL with trailing slashes trimmed, or `""`.
+- `isLokiEnabled()` - whether `getLokiUrl()` is non-empty.
+- `getFrameLogVersions(frameId, startTime?)` - reads the distinct
+  `session_start_time` label values for `{frame_id="..."}` via
+  `/loki/api/v1/label/session_start_time/values`, sorted newest-first; each is
+  one **frame attempt** ("log version" in the UI). `startTime` (job/frame start,
+  unix seconds) is scaled to nanoseconds to bound the label query.
+- `getFrameLogLines(frameId, sessionStartTime?, startTime?)` - runs a
+  **backward** `query_range` (`limit` 5000) so that when a log exceeds the
+  per-query cap the most recent lines are kept, then flattens all streams
+  (stdout/stderr may arrive separately) and re-sorts ascending by Loki's
+  nanosecond timestamp - compared as `BigInt` because the values exceed
+  `Number.MAX_SAFE_INTEGER` - before joining with `\n`.
+
+### `LokiLogView`
+
+Two effects: one fetches the attempt list and defaults to the newest
+(`missing` when Loki has no streams for the frame), the second loads the
+selected attempt's lines once Monaco has mounted (`empty` when the attempt
+produced no lines). The editor stays mounted across loading/empty states and
+the notices render as an overlay, so the editor ref is never invalidated
+mid-fetch. A **Refresh** button bumps a `refreshKey` to re-run the line fetch
+for the current attempt.
+
+### Deployment note
+
+Because `NEXT_PUBLIC_LOKI_URL` is a `NEXT_PUBLIC_*` var, the fetches run in the
+browser: the Loki host must be reachable from clients and must allow CORS from
+the CueWeb origin. RQD must be configured to ship frame logs to Loki tagged with
+`frame_id` and `session_start_time` labels.
+
+---
+
 ## Facility Service Defaults (CueCommander parity)
 
 The `/services` page replicates the CueGUI CueCommander Facility Service Defaults
@@ -1459,6 +1545,131 @@ reached its max cores; it **soft-warns** (a confirm dialog) when the target is
 paused or any selected proc is cross-show (redirecting it kills another show's
 frame). Per-host failures are counted so a partial failure reports a warning
 rather than unqualified success.
+
+## Plugin system
+
+CueWeb has a minimal plugin architecture - the browser counterpart of the CueGUI
+plugin system (`cuegui/cuegui/Plugins.py`, `cuegui/cuegui/cueguiplugin/loader.py`).
+A plugin is a **manifest** plus a **lazily-loaded React component** that mounts on
+its own route under `/plugins/<name>`. Files involved:
+
+```text
+lib/plugins.ts                       # PluginManifest / PluginModule types + PLUGIN_REGISTRY (getPlugins/getPlugin)
+app/plugins/[plugin-name]/page.tsx   # server: resolve manifest by name, set metadata, notFound() unknown, generateStaticParams
+app/plugins/[plugin-name]/plugin-host.tsx  # client: next/dynamic({ ssr: false }) loader
+app/plugins/page.tsx + plugins-browser.tsx # searchable, paginated index
+app/utils/use_plugin_menu.ts         # enabled-set hook, synced across tabs
+components/ui/settings-dialog.tsx     # shared PluginSettingsDialog + registerSetting/get/set/reset + usePluginSetting
+app/plugins/hello/ , app/plugins/cue-progress-bar/   # sample plugins (manifest.ts + component)
+```
+
+### The contract
+
+- **`PluginManifest`** - `name` (URL-safe id and route segment), `title`,
+  `version`, `route`, optional `description`.
+- **`PluginModule`** - the manifest plus a `load` thunk returning a dynamic
+  `import()` of the component. Keeping `load` a **static** `import()` expression
+  lets the bundler split each plugin into its own chunk, fetched only when its
+  route is visited.
+- Components receive **`PluginComponentProps`** (the resolved manifest).
+
+### How it loads
+
+`PLUGIN_REGISTRY` in `lib/plugins.ts` is the discovery mechanism. The dynamic
+route's server component resolves the manifest by `name` (404 via `notFound()`
+for unknown names) and `generateStaticParams()` pre-renders one page per plugin;
+the actual component is loaded in the client `plugin-host.tsx` with
+`next/dynamic({ ssr: false })` - plugin UIs are client components, and Next.js 15
+disallows `ssr: false` in a server component, so the dynamic import lives in the
+client host.
+
+### Settings persistence
+
+`registerSetting({ key, label, kind, default, plugin })` registers a setting; the
+SSR-guarded `get`/`set`/`reset` helpers persist values to
+`localStorage["cueweb.plugin-settings.<key>"]` and fire a change event.
+`PluginSettingsDialog` (mounted once in the layout) is opened scoped to a single
+plugin via `openPluginSettings()`, and `usePluginSetting` is a reactive read hook.
+jsdom tests cover the persistence round-trip and reload survival.
+
+### Menu selection
+
+The **Plugins** menu is built from a user-chosen enabled set: checkboxes on
+`/plugins` write `localStorage["cueweb.plugin-menu.enabled"]`, seeded from each
+manifest's `defaultEnabled`. `use_plugin_menu.ts` keeps the set in sync across
+components and tabs; the header and sidebar render the menu (to the right of
+CueSubmit) from it.
+
+### Adding a plugin
+
+1. Create `app/plugins/<name>/<name>-plugin.tsx` - a default-exported React
+   component taking `PluginComponentProps`.
+2. Add `app/plugins/<name>/manifest.ts` exporting a `PluginModule` whose `load`
+   is `() => import("./<name>-plugin")`.
+3. Register it in `PLUGIN_REGISTRY` in `lib/plugins.ts`.
+
+See `app/plugins/hello/` for a working example and `app/plugins/README.md` for
+the full contract reference.
+
+---
+
+## Workspace layout (view presets, immersive, split view)
+
+Three web-native replacements for CueGUI window/layout affordances, all built on
+the existing `localStorage` + cross-tab `storage`-event conventions (the same
+pattern as `use_disable_job_interaction.ts`). Files involved:
+
+```text
+components/ui/views-menu.tsx          # the Views dropdown + captureView/applyView/loadViews/saveViews helpers
+app/utils/use_immersive_mode.ts       # useImmersiveMode() hook
+components/ui/app-shell.tsx           # owns header/sidebar/status-bar chrome; drops it when immersive or inside a split pane
+app/split/page.tsx                    # the /split route (Suspense around useSearchParams)
+components/ui/split-view.tsx          # SplitView component
+app/utils/split_view_utils.ts         # pure helpers (sanitizePanePath, ratio clamp, ...)
+```
+
+### Saveable view presets
+
+`ViewsMenu` is **table-agnostic**: it reads and writes everything through the
+TanStack `table` instance (`setColumnOrder` / `setColumnVisibility` /
+`setSorting` / `setColumnFilters` / `setPageSize`), which both the Jobs
+`data-table.tsx` and the shared `SimpleDataTable` expose, so each table's
+existing per-key persistence keeps working unchanged. `SimpleDataTable` renders
+the menu when given a `viewsPageKey` prop. A **View** captures
+`{ name, columns: { id, visible, order }[], sort, filters, pageSize }` and
+persists per page under `localStorage["cueweb.views.<page>"]`, with the active
+preset name under `cueweb.views.<page>.active`; both broadcast via the `storage`
+event for cross-tab sync. The reserved name `Default` and duplicates are
+rejected. Pure helpers are unit-tested.
+
+### Immersive (full-screen) mode
+
+`useImmersiveMode()` (`{ immersive, setImmersive, toggle }`) mirrors
+`use_disable_job_interaction.ts` - persisted to
+`localStorage["cueweb.layout.immersive"]`, SSR-safe hydration after mount,
+cross-tab sync via the `storage` event plus an internal
+`cueweb:immersive-changed` CustomEvent. `AppShell` (mounted in `app/layout.tsx`)
+owns the chrome and unmounts it when immersive; the keyboard handler, attributes
+panel, mobile nav and toast host stay at the layout root so `F` keeps working.
+Toggled via `F` / `Cmd/Ctrl+Shift+F`, the **Other** menu, the menu registry
+(Help search), and a floating **Exit immersive** button.
+
+### Multi-pane split view
+
+`/split?left=/jobs&right=/hosts/server-01` keeps both pane targets in the query
+string, so the workspace is URL-addressable and reload-safe. Each pane is a
+**same-origin `<iframe>`** so it keeps its own Next.js router context (rendering
+the page components directly would force both panes to share one router,
+breaking dynamic routes and searchParam-driven pages). `AppShell` detects
+`window.self !== window.top` and hides its chrome inside panes (composes with
+immersive). In-pane navigation fires the iframe `load` handler, which
+`router.replace`s the pane's `pathname+search` back into `left`/`right`; the
+`src` is only re-driven when it differs from what the iframe already shows, so
+there's no reload loop. The divider resize clamps to 15-85% and persists to
+`localStorage["cueweb.split.ratio"]`. `sanitizePanePath` accepts only internal
+absolute paths (rejecting external/protocol-relative URLs and `/split` itself,
+to prevent recursive embedding). Entry points: **Other ▸ Split view** and the
+menu registry (`other.split-view`).
 
 ---
 

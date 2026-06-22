@@ -345,6 +345,7 @@ Frames are the individual rendering tasks within each layer.
    - On touch devices, tap the row's `⋮` Actions button (leftmost cell) → **View Log**.
    - Select log version from the dropdown inside the viewer.
    - The viewer shows an empty-state message when the frame hasn't started running yet (no log file on disk).
+   - The viewer works the same whether your deployment reads logs from disk (the default) or from a Loki server (when `NEXT_PUBLIC_LOKI_URL` is set, mirroring CueGUI's Loki log viewer). With the Loki backend, each entry in the **Log versions** dropdown is a separate **frame attempt** (newest first) and a **Refresh** button reloads the selected attempt. You don't pick the backend - the deployment does.
 
 2. **Open Logs in an External Editor** *(optional)*:
    - If the deployment has `NEXT_PUBLIC_LOG_EDITOR_URL` configured, the Frame right-click menu also offers **View Log on \<editor\>** below **View Log**.
@@ -662,13 +663,25 @@ If your farm spans more than one **facility** - each with its own Cuebot - CueWe
 
    ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
-2. Open the menu and pick a different facility (for example `dev` or `cloud`). CueWeb re-routes to that facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
+2. Open the menu and pick a different facility (for example `dev` or `cloud`). Each facility has a **status dot** next to it: green means its gateway is reachable, red means it is down (CueWeb re-checks every 30 seconds). A facility whose dot is red is **disabled** - you can't switch into a facility CueWeb can't reach. CueWeb re-routes to the chosen facility's Cuebot and reloads the view you are on, so the jobs, hosts, and shows you now see belong to the facility you chose.
 3. Confirm the switch: the chip on the menu **and** the facility shown in the bottom status bar update to the new facility. Your choice is remembered for the rest of the session.
 4. Switch back the same way when you are done.
 
 **Setting up extra facilities (admin):** the menu's options come from `NEXT_PUBLIC_CUEBOT_FACILITIES`. To make a facility actually reach a different Cuebot, an administrator sets the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` for it (for example `CUEBOT_DEV_REST_GATEWAY_URL` / `CUEBOT_DEV_JWT_SECRET`). A facility with no override falls back to the default gateway, which is why the single-facility sandbox just works with `local`.
 
-> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities never exposes a gateway credential.
+**Re-pointing a facility at runtime (admin):** you can also change a facility's gateway URL or JWT secret **without a redeploy**.
+
+1. Choose **Manage facilities…** from the Cuebot Facility menu.
+
+   ![Cuebot Facility menu with Manage facilities](/assets/images/cueweb/cueweb_cuebot_facility_with_manage_facilities_menu.png)
+
+2. On the admin screen, edit a facility's **REST gateway URL** and/or **JWT secret** and save. The change applies immediately and is layered over the environment defaults; leaving the gateway URL blank falls back to that facility's env value (or the default gateway). A **change-history** table records who changed what.
+
+   ![Manage facilities admin screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
+
+3. To keep these runtime edits across container restarts, point `CUEWEB_FACILITY_STORE` at a mounted volume (otherwise they live in the OS temp dir). In a deployment with group authorization, restrict `/settings/facilities` to your admin groups.
+
+> Because the gateway URLs and secrets are server-side, the browser only ever knows the facility *name* - switching facilities, viewing health, or editing config never exposes a gateway credential to the client.
 
 ---
 
@@ -706,6 +719,70 @@ Some deployments turn on **group-based authorization**, so what you can reach de
 3. Make sure your identity provider includes the user's groups in the login token, and point `CUEWEB_GROUPS_CLAIM` at the claim that carries them (default `groups`). Groups are read once at sign-in and enforced server-side on every request - users can't bypass it from the browser.
 
 > See [Group-based authorization](/docs/concepts/cueweb-rest-gateway/#group-based-authorization-optional) for the concept and the deployment guide for the full configuration.
+
+## Using plugins
+
+CueWeb can be extended with **plugins** - add-on panels that live on their own pages. Two samples ship in the box; here's how to use them.
+
+1. **Open the Plugins page.** The **Plugins** menu sits in the header (and sidebar) to the right of CueSubmit. Open the menu and pick **Plugins** to see every registered plugin.
+
+   ![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+
+2. **Choose what's in your menu.** Each plugin has a checkbox. Tick the ones you want in the **Plugins** menu and untick the rest - your choice is saved in your browser and follows you across tabs. (Cue Progress Bar is on by default; Hello OpenCue is off.)
+
+   ![Plugins menu](/assets/images/cueweb/cueweb_plugins_menu.png)
+
+3. **Open a plugin and try it.** Pick **Cue Progress Bar** from the menu. Point it at a job and you'll see a live, color-coded frame-state bar with done / total / running counts and pause / unpause / kill / retry-dead controls; it polls Cuebot on an interval you can configure.
+
+   ![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
+
+4. **Adjust its settings.** Use the **Open plugin settings** control to change that plugin's options (for Cue Progress Bar, the poll interval; for Hello OpenCue, the greeting / shout / emoji). The dialog is scoped to that one plugin, and each value persists in your browser.
+
+   ![Cue Progress Bar settings](/assets/images/cueweb/cueweb_plugins_cue_progress_bar_open_plugin_settigns.png)
+
+> Want to build your own? A plugin is just a manifest plus a React component under `cueweb/app/plugins/<name>/`. See the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system).
+
+---
+
+## Customizing your workspace
+
+CueWeb gives you three ways to tailor the workspace - and all three remember your choice in the browser. Let's try each.
+
+### Save and reuse a view preset
+
+1. Go to **Monitor Jobs**. Set the table up the way you like - reorder or hide a few columns, sort by a column, apply a filter, change the page size.
+
+   ![Changing column positions](/assets/images/cueweb/cueweb_saveable_view_presets_change_columns_positions.png)
+
+2. Open the **Views** dropdown (next to **Columns**) and choose **Save as…**. Give the preset a name (for example `Triage`) and save.
+
+   ![Save the layout as a named view](/assets/images/cueweb/cueweb_saveable_view_presets_save_view.png)
+
+3. Change the table around, then reopen **Views** and click **Triage** - the saved layout snaps back. The **Default** entry always restores the original layout.
+
+   ![Applying a saved view](/assets/images/cueweb/cueweb_saveable_view_presets_apply_view_changes.png)
+
+4. Use the inline **Rename** / **Delete** buttons to manage presets, or **Update "Triage"** to overwrite it with the current layout. Presets are per page and follow you across tabs.
+
+   ![Rename a view](/assets/images/cueweb/cueweb_saveable_view_presets_rename_view.png)
+
+### Go full-screen (immersive mode)
+
+1. Press **`F`** (or open **Other &rarr; Immersive (full-screen)**). The header, sidebar, and status bar disappear, and the table takes the whole screen.
+
+   ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+
+2. Press **`F`** again, or click the floating **Exit immersive** button, to bring the chrome back. The mode is remembered, so a new tab opens immersed too until you turn it off.
+
+### Work in a split view
+
+1. Open **Other &rarr; Split view**. CueWeb shows two pages side-by-side - Jobs on the left, Hosts on the right by default.
+
+   ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+
+2. Use each pane's **page picker** to choose what it shows (for example, put Monitor Jobs on the left and a specific host's detail page on the right).
+3. **Drag the divider** to rebalance the panes (or nudge it with the arrow keys); use **Swap** to flip them and **Reset 50/50** to re-center.
+4. Notice the address bar: `/split?left=…&right=…`. The whole workspace is in the URL, so you can bookmark or share it, and a reload restores both panes exactly.
 
 ---
 
