@@ -127,6 +127,15 @@ public interface LayerDao {
      */
     void updateLayerMinCores(LayerInterface layer, int val);
 
+
+    /**
+     * update the dispatch order of the layer
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerDispatchOrder(LayerInterface layer, int val);
+
     /**
      * update the number of gpus the layer requires
      *
