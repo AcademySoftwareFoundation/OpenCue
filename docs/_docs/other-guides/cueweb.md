@@ -154,7 +154,8 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 27. **Job dependency graph (Cuetopia &rarr; View Job Graph):**
    - A read-only, interactive node graph of a job's dependency tree, mirroring CueGUI's Monitor-Jobs dependency-graph dock.
    - Toggled from the checkable **Cuetopia &rarr; View Job Graph** entry (header dropdown and sidebar); the choice is persisted and synced across tabs.
-   - When on, selecting a job in Monitor Jobs mounts the graph as a third panel under the inline Layers and Frames panels. It walks the depends in both directions (what the job depends on and what depends on the job), color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, truncates long names with a full-name tooltip, and lets you click a node to open that job's detail page. Pan / zoom / fit controls and a "No dependencies found" empty state are included.
+   - When on, selecting a job in Monitor Jobs mounts the graph as a third panel under the inline Layers and Frames panels. It shows the focus job with its **layers** (so a job with no cross-job dependencies still renders its structure) and walks cross-job depends in both directions, color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, and truncates long names with a full-name tooltip. Pan / zoom / fit controls are included.
+   - **Double-click** a node to open that job's detail page (a single click only selects it). **Right-click a layer node** for the CueGUI Job-Graph layer menu: **Auto Layout Nodes**; **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done); **Reorder Frames…**; **Stagger Frames…**; **Properties…**; **Kill / Eat / Retry / Retry Dead Frames** - the same actions as the Layers table.
 
 28. **Monitor Cue (CueCommander &rarr; Monitor Cue):**
    - A show-grouped job tree at `/monitor-cue`, the CueWeb equivalent of CueGUI's CueCommander Monitor Cue window (previously a dead sidebar link). Pick one or more shows from the **Shows** menu (All Shows / Clear / per-show, persisted) to load every job for those shows, grouped under their show and groups.
@@ -665,7 +666,7 @@ After **Apply**, a toast confirms the new value and the **Priority** column in t
 **Figure 69: Toast confirming the priority change and immediate column update**
 ![Toast confirming the priority change](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_set_priority_confirmation.png)
 
-The checkable **Cuetopia &rarr; View Job Graph** entry (Figure 70) toggles a read-only dependency-graph panel. With it on, selecting a job in Monitor Jobs mounts an interactive node graph of the job's dependency tree as a third panel under the inline Layers and Frames panels (Figure 71). The graph walks the depends in both directions, color-codes nodes by kind (JOB / LAYER / FRAME), rings the focus job, and lets you click a node to open that job's detail page (Figure 72).
+The checkable **Cuetopia &rarr; View Job Graph** entry (Figure 70) toggles a read-only dependency-graph panel. With it on, selecting a job in Monitor Jobs mounts an interactive node graph as a third panel under the inline Layers and Frames panels (Figure 71). The graph shows the focus job with its **layers** (so a job with no cross-job dependencies still renders its structure) and walks cross-job depends in both directions, color-codes nodes by kind (JOB / LAYER / FRAME), and rings the focus job (Figure 72). **Double-click** a node to open that job's detail page; **right-click a layer node** for the CueGUI Job-Graph layer menu (Auto Layout Nodes; Dependencies: View Dependencies… / Dependency Wizard… / Mark done; Reorder Frames…; Stagger Frames…; Properties…; Kill / Eat / Retry / Retry Dead Frames), shown in Figure 73.
 
 **Figure 70: View Job Graph entry in the Cuetopia menu**
 ![View Job Graph entry in the Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_menu.png)
@@ -673,8 +674,11 @@ The checkable **Cuetopia &rarr; View Job Graph** entry (Figure 70) toggles a rea
 **Figure 71: Dependency graph panel below the inline Layers and Frames panels**
 ![Dependency graph panel below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
 
-**Figure 72: The dependency graph panel on its own**
-![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+**Figure 72: The dependency graph panel showing the focus job and its layer**
+![The Job Dependency Graph showing the focus job and its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
+
+**Figure 73: Right-click layer-node menu in the Job Dependency Graph**
+![Right-click layer-node menu in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
 
 
 ## Conclusion

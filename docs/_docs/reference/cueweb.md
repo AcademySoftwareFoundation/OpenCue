@@ -104,6 +104,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_CUEPROGBAR_URL` | Optional registered URL scheme the **Show Progress Bar** dialog's launch button hands off to a local handler. Empty hides the launch button. | (empty) |
 | `NEXT_PUBLIC_PREVIEW_COMMAND` | Command shown/copied by the frame menu's **Preview All** dialog to open rendered output in an external image viewer. Placeholders `{paths}` / `{job}` / `{layer}` / `{frame}` are substituted. | `rv {paths}` |
 | `NEXT_PUBLIC_PREVIEW_URL` | Optional registered URL scheme **Preview All** hands off to a local viewer (e.g. `openrv://{paths}`). Empty hides the launch button (the command is still shown to copy). | (empty) |
+| `NEXT_PUBLIC_USAGE_TRACKING` | Set to `off` to disable the client-side usage beacon behind the `cueweb_page_views_total` / `cueweb_actions_total` Prometheus metrics. `GET /api/metrics` and the server-side API request/latency metrics stay enabled regardless. See [Usage metrics](#usage-metrics-prometheus). | `on` |
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 | `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
@@ -393,20 +394,22 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
 
-![Dependency graph panel below the inline Layers and Frames panels (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_dark.png)
-
 | Behavior | Description |
 |----------|-------------|
 | **Tree walk** | Breadth-first search from the focus job over both directions - `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active depends only) - bounded by `maxDepth` (default 4) and a visited-job set to break cycles. Mirrors CueGUI's `JobMonitorGraph.getRecursiveDependentJobs`. |
 | **Name resolution** | Each BFS hop first resolves a job name to its UUID via `/api/job/getjobs` with an anchored `^name$` regex (Cuebot rejects name-only depend lookups). Resolved IDs are memoized in a `Map`, so a 12-job chain costs ~12 lookups across the whole walk, not 12 per hop. |
 | **Silent fetches** | All BFS requests go through a `silentPost` helper that bypasses `accessGetApi`. Partial failures (jobs in other shows, unmonitored/finished + pruned) return `null` instead of cascading red "Resource not found" toasts. |
+| **Focus-job layers** | `ingestFocusLayers()` fetches the focus job's layers (`/api/job/getlayers`) and adds a **LAYER** node per layer wired to the job node, so a job with no cross-job dependencies still renders its layers (CueGUI `JobMonitorGraph` is a layer graph). Layers that also appear via a depend reuse the same node id, so nothing is duplicated. |
 | **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
-| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. |
-| **Navigation** | Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. |
+| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. Layer nodes also get a structural "contains" edge from the job node. |
+| **Navigation** | **Double-clicking** a node (`onNodeDoubleClick`) calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. A single click only selects the node. |
+| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
 | **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
-| **Empty / loading states** | `Loading dependency graph...` while walking; `No dependencies found for this job.` when only the focus node remains. |
+| **Empty / loading states** | `Loading dependency graph...` while walking; `No layers or dependencies found for this job.` only when there are zero nodes. |
 
-![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+![The Job Dependency Graph: focus job + its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
+
+![Right-click layer-node menu in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
 
 ### Monitor Cue
 
@@ -1439,6 +1442,29 @@ Required volume mounts for log viewing (file-based backend):
 ```
 
 When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are pulled from Loki over HTTP from the browser, so this volume mount is not required for log viewing - see [Frame log backends](#frame-log-backends).
+
+---
+
+## Usage metrics (Prometheus)
+
+`GET /api/metrics` exposes Prometheus usage metrics (plain text; never gated by the authorization gate) so operators can track *who uses what, how often, and how fast* - per user, per page/module, per action - with bounded cardinality.
+
+![CueWeb /api/metrics endpoint output](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
+
+| Metric | Type | Labels | Notes |
+|--------|------|--------|-------|
+| `cueweb_page_views_total` | Counter | `user`, `page` | Page/module views; `page` is from a fixed allow-list (unknown &rarr; `other`). |
+| `cueweb_actions_total` | Counter | `user`, `action` | User actions (`job-kill`, `frame-retry`, `host-lock`, `job-submit`, …), keyed off the action routes. |
+| `cueweb_api_requests_total` | Counter | `endpoint`, `status` | Every gateway-proxy call by short endpoint (`job.getjobs`) and status class (`2xx`/`4xx`/`5xx`). No `user` label. |
+| `cueweb_api_request_duration_seconds` | Histogram | `endpoint` | API latency, for p50/p90/p99 panels. |
+| `cueweb_logins_total` | Counter | `user` | Session starts. |
+| `cueweb_facility_selected_total` | Counter | `user`, `facility` | Cuebot Facility switches. |
+
+- **User label** is resolved server-side from the signed-in NextAuth session (`lib/track-user.ts`), so the client can never spoof it; it falls back to `anonymous` when there is no session. The forgeable `X-User` / `X-Forwarded-User` identity headers are honored **only** when `CUEWEB_TRUST_IDENTITY_HEADER=true` (off by default) - set it only when CueWeb sits behind a trusted reverse proxy / auth gateway that strips inbound copies and injects the authenticated identity. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
+- **Instrumentation**: `app/utils/gateway_server.ts` `handleRoute` records the API request + latency for all routes; the client `UsageTracker` + `accessActionApi` beacon page views and actions to `POST /api/track`. Disable the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
+- **Wiring**: Prometheus scrapes `cueweb:3000/api/metrics` (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions the **CueWeb User Usage** dashboard (`sandbox/config/grafana/dashboards/cueweb-usage.json`) with a `$user` variable.
+
+![CueWeb User Usage Grafana dashboard](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
 
 ---
 

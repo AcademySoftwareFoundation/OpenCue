@@ -188,7 +188,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
 - **`JobsTable`** (`app/jobs/data-table.tsx`): Main jobs dashboard table (no longer renders its own inline header - the global `AppHeader` owns that chrome). Each `TableRow` left-click dispatches `setAttributeSelection(...)` so the Attributes panel updates as the user inspects rows and also surfaces the inline Layers + Frames panel below the grid via `JobDetailsInline`. Destructive toolbar actions (Eat / Retry / Pause / Unpause / Kill) consume `useDisableJobInteraction()` and dim themselves when the safety flag is on. Wires TanStack's `columnVisibility`, `columnOrder`, and `globalFilter` state into the reducer State so each is persisted to `localStorage` (`columnVisibility`, `columnOrder`); the per-table substring filter is purely component-state.
 - **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
-- **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`.
+- **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. It also fetches the focus job's layers (`ingestFocusLayers`) so a job with no cross-job depends still shows its layers. **Double-clicking** a node navigates (`onNodeNavigate(jobName)` or `router.push("/jobs/<jobName>?tab=overview")`); **right-clicking a layer node** opens a menu reusing the Layers-table actions (Auto Layout Nodes, View Dependencies / Dependency Wizard / Mark done, Reorder / Stagger, Properties, Kill / Eat / Retry / Retry Dead Frames).
 - **`JobDetailsPage`** (`app/jobs/[job-name]/page.tsx`): Standalone tabbed job-details route reached via the **View Job Details** right-click entry (or the row's `⋮` Actions button). Resolves the job by name through `findJobByName(...)`, polls layers + frames every 5s with cancellation guards, and exposes five tabs - **Overview**, **Layers**, **Frames**, **Comments**, **Dependencies**. The active tab is mirrored to the URL as `?tab=<key>` and read back through `useSearchParams()` + `router.replace(...)` so the page is bookmarkable and browser back/forward walks between tabs. `isTabKey(value)` rejects unknown query values so the URL can never select a missing tab. The Comments tab embeds a read-only preview of `getJobComments(...)` with a link out to the full `/jobs/<jobName>/comments` editor; Dependencies is currently a placeholder. The standard `Breadcrumbs` + `EmptyState` (`FileX` icon, "Job not found") wrappers cover loading and missing-job paths.
 - **`SimpleDataTable`** (`components/ui/simple-data-table.tsx`): Shared TanStack-table wrapper used by Layers, Frames, the Monitor Hosts table, the host detail page's procs table, the Shows table, the Allocations table, and the Limits table (plus the standalone log-viewer / per-job detail page). Owns the per-table substring filter (`globalFilter` + `getFilteredRowModel`), column-visibility persistence (`columnVisibilityStorageKey`), and column-order persistence (a parallel `cueweb.<table>.columnOrder` key derived from the visibility key). Renders the Columns dropdown that holds the `←` / `→` reorder buttons and the **Reset to Default** action. The mutually-exclusive `isFramesTable` / `isFramesLogTable` / `isHostsTable` / `isProcsTable` / `isShowsTable` / `isAllocationsTable` / `isLimitsTable` flags select per-table filter/empty-state copy and which row context menu renders (`isHostsTable` &rarr; `HostContextMenu`; `isShowsTable` &rarr; `ShowContextMenu`; `isLimitsTable` &rarr; `LimitContextMenu`; frames &rarr; `FrameContextMenu`; `isProcsTable` / `isAllocationsTable` &rarr; none, read-only; otherwise `LayerContextMenu`).
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
@@ -1045,9 +1045,27 @@ counterpart to the Group-By Dependent tree - it mirrors CueGUI's
 - **Decoupled effects.** The data fetch is keyed on `[job.id, job.name,
   maxDepth]` so flipping the theme doesn't re-walk the tree; the
   crosshair-cursor SVG is memoized on `resolvedTheme` and scoped to the
-  instance via a `data-graph-id` attribute. Node clicks call
-  `onNodeNavigate(jobName)` when supplied, else
-  `router.push("/jobs/<jobName>?tab=overview")`.
+  instance via a `data-graph-id` attribute. Node **double**-clicks
+  (`onNodeDoubleClick`) call `onNodeNavigate(jobName)` when supplied, else
+  `router.push("/jobs/<jobName>?tab=overview")`; a single click only selects.
+- **Focus-job layers.** `ingestFocusLayers(focus, nodes, edges)` fetches the
+  focus job's layers (`/api/job/getlayers`) and adds a LAYER node per layer
+  wired to the job node with a "contains" edge, so a job with no cross-job
+  dependencies still renders its structure (CueGUI's `JobMonitorGraph` is a
+  layer graph). Layers already created by a depend reuse the same node id; the
+  full `Layer` object is stored in the node's `data.layer`. The empty state
+  now only shows when there are zero nodes.
+- **Node context menu.** `onNodeContextMenu` opens a cursor-positioned
+  `NodeContextMenu` for layer nodes that reuses the Layers-table action
+  handlers (`viewLayerDependenciesGivenRow`, `layerDependencyWizardGivenRow`,
+  `markdoneLayerGivenRow`, `reorderLayerFramesGivenRow`,
+  `staggerLayerFramesGivenRow`, `layerPropertiesGivenRow`, `killLayerGivenRow`,
+  `eatLayerFramesGivenRow`, `retryLayerFramesGivenRow`,
+  `retryLayerDeadFramesGivenRow`) via a `{ original: layer }` shim - those
+  helpers only read `row.original`. Plus an **Auto Layout Nodes** item that
+  re-runs `layoutNodes` and `fitView`. The layer dialogs + `DependencyWizardDialog`
+  are already mounted by the host (`data-table.tsx` for the inline panel, the
+  job page for `/jobs/[name]`), so the dispatched events resolve in both.
 
 ---
 
@@ -2460,6 +2478,64 @@ export function Button({ className, variant, size, ...props }: ButtonProps) {
   );
 }
 ```
+
+---
+
+## Usage metrics (Prometheus + Grafana)
+
+CueWeb exposes per-user usage metrics at `GET /api/metrics` (Prometheus text)
+so operators can see *who uses what, how often, and how fast*. Bounded
+cardinality is the design constraint: `page` / `action` label values come from
+fixed allow-lists, and the API counters carry no `user` label. Files involved:
+
+```text
+lib/metrics-service.ts            # prom-client singleton Registry + metric set + helpers + ALLOWED_PAGES/ALLOWED_ACTIONS
+lib/track-user.ts                 # extractUser(req): session -> X-User/X-Forwarded-User -> "anonymous"
+app/api/metrics/route.ts          # GET /api/metrics (registry.metrics())
+app/api/track/route.ts            # POST /api/track client beacon (resolves user server-side)
+app/utils/usage_tracking.ts       # client beacons: trackPage/trackAction/trackActionEndpoint/trackFacility/trackLogin
+components/ui/usage-tracker.tsx    # mounted in layout; emits a page-view beacon on route change
+app/utils/gateway_server.ts       # handleRoute records cueweb_api_requests_total + cueweb_api_request_duration_seconds
+app/utils/api_utils.ts            # accessActionApi calls trackActionEndpoint (per-user action tracking)
+```
+
+### Metric set
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `cueweb_page_views_total` | Counter | `user`, `page` |
+| `cueweb_actions_total` | Counter | `user`, `action` |
+| `cueweb_api_requests_total` | Counter | `endpoint`, `status` |
+| `cueweb_api_request_duration_seconds` | Histogram | `endpoint` |
+| `cueweb_logins_total` | Counter | `user` |
+| `cueweb_facility_selected_total` | Counter | `user`, `facility` |
+
+### How it flows
+
+- **Page views**: `UsageTracker` (mounted once in `app/layout.tsx`) maps the
+  pathname to a coarse page name (`pageNameForPath`) and `POST`s `/api/track`
+  `{kind:"page",name}` on route change (deduped per pathname). `navigator.sendBeacon`
+  survives navigation.
+- **Actions**: the shared client dispatcher `accessActionApi(endpoint, …)` calls
+  `trackActionEndpoint(endpoint)`, which derives an action key
+  (`/api/job/action/kill` → `job-kill`) and beacons it. Since `performAction`
+  routes through `accessActionApi`, every job/layer/frame/host/proc action is
+  covered from one place.
+- **API requests + latency**: `handleRoute` (the single server-side gateway
+  proxy used by ~119 routes) times each call and records the short endpoint
+  (`/job.JobInterface/GetJobs` → `job.getjobs`) + status class. No `user` label
+  keeps it small; failures never affect the response.
+- **User resolution**: the client never sends the `user`. `/api/track` resolves
+  it server-side via `extractUser()` (NextAuth session → identity header →
+  `anonymous`), so it can't be spoofed.
+
+### Wiring + dashboard
+
+Prometheus scrapes `cueweb:3000/api/metrics`
+(`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions
+`sandbox/config/grafana/dashboards/cueweb-usage.json` ("CueWeb User Usage", with
+a `$user` variable). Use a fixed `[5m]` rate window for the latency percentile
+panels. Opt out of the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
 
 ---
 

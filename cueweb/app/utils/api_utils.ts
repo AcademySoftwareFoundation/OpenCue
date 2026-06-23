@@ -15,6 +15,7 @@
  */
 
 import { handleError } from "./notify_utils";
+import { trackActionEndpoint } from "./usage_tracking";
 
 /************************************************************/
 // Client-safe API helpers (same-origin calls to this app's own /api routes).
@@ -28,6 +29,8 @@ import { handleError } from "./notify_utils";
 // Helper function to access a post API with a success or failure returned and handle any errors.
 // Actions follow this format: post to the API and see if the action was successful
 export async function accessActionApi(endpoint: string, body: string | string[]): Promise<{ success?: boolean; error?: string }> {
+    // Usage metric: record the user action (best-effort, fire-and-forget).
+    trackActionEndpoint(endpoint);
     // Default to a same-origin relative URL when NEXT_PUBLIC_URL is empty
     // or unset. The API routes are mounted by this same Next.js app, so
     // the browser can reach them at whatever origin the page loaded from

@@ -885,19 +885,67 @@ curl https://cueweb.company.com/api/health
 curl https://cueweb.company.com/api/health/detailed
 ```
 
-### Prometheus Metrics
+### Prometheus Metrics (user usage)
 
-Enable metrics collection:
+CueWeb exposes Prometheus usage metrics at **`GET /api/metrics`** (plain text,
+never gated by the authorization gate). They answer *who uses what, how often,
+and how fast* - per user, per page/module, per action - with bounded
+cardinality. No setup beyond pointing Prometheus at the endpoint.
 
-```javascript
-// next.config.js
-module.exports = {
-  experimental: {
-    instrumentationHook: true,
-  },
-  // Other config...
-}
+The `/api/metrics` endpoint returns the metrics in Prometheus text format:
+
+![CueWeb /api/metrics endpoint - page view and action counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
+
+![CueWeb /api/metrics endpoint - per-endpoint API request counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint2.png)
+
+![CueWeb /api/metrics endpoint - API request duration histogram](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint3.png)
+
+**1. Scrape CueWeb from Prometheus.** Add a job to your Prometheus config (the
+sandbox already does this in `sandbox/config/prometheus-monitoring.yml`):
+
+```yaml
+  - job_name: 'cueweb'
+    static_configs:
+      - targets: ['cueweb:3000']
+    metrics_path: /api/metrics
 ```
+
+Once scraped, the `cueweb_*` series are queryable in Prometheus:
+
+![Querying a cueweb usage metric in Prometheus](/assets/images/cueweb/cueweb_user_usage_metrics_prometheus_query.png)
+
+**2. Import the Grafana dashboard.** The sandbox auto-provisions
+`sandbox/config/grafana/dashboards/cueweb-usage.json` ("CueWeb User Usage"):
+overview stats, page/module views, actions, per-endpoint API latency
+(p50/p90/p99), and Top-N users, all filterable by a `$user` template variable.
+
+![CueWeb User Usage Grafana dashboard - overview and pages/modules](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
+
+![CueWeb User Usage Grafana dashboard - actions and API latency](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts2.png)
+
+![CueWeb User Usage Grafana dashboard - per-user panels](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts3.png)
+
+**Metrics exposed:**
+
+| Metric | Labels | Meaning |
+|--------|--------|---------|
+| `cueweb_page_views_total` | `user`, `page` | Page/module views (Monitor Jobs, Monitor Cue, Monitor Hosts, View Job Graph, CueSubmit, Plugins, …). |
+| `cueweb_actions_total` | `user`, `action` | User actions (`job-kill`, `frame-retry`, `host-lock`, `job-submit`, …). |
+| `cueweb_api_requests_total` | `endpoint`, `status` | Gateway-proxy API calls by short endpoint and status class (`2xx`/`4xx`/`5xx`). |
+| `cueweb_api_request_duration_seconds` | `endpoint` | API latency histogram (for p50/p90/p99). |
+| `cueweb_logins_total` | `user` | Session starts. |
+| `cueweb_facility_selected_total` | `user`, `facility` | Cuebot Facility switches. |
+
+The `user` label is resolved **server-side** in this order: the signed-in
+NextAuth session (authoritative, non-spoofable) &rarr; the `X-User` /
+`X-Forwarded-User` identity headers **only when `CUEWEB_TRUST_IDENTITY_HEADER=true`**
+(off by default; enable it only behind a trusted reverse proxy / auth gateway
+that strips inbound copies and injects the identity) &rarr; `anonymous`. So with
+authentication disabled and no trusted proxy, every event is attributed to
+`anonymous` and a client cannot forge another user. Only the username and coarse
+page/action names are recorded - no job names, search text, or file paths.
+Disable the client beacon at build time with `NEXT_PUBLIC_USAGE_TRACKING=off`
+(the `/api/metrics` endpoint stays).
 
 ### Sentry Integration
 
