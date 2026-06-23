@@ -30,16 +30,30 @@ function localPart(value: string): string {
   return value.includes("@") ? value.split("@")[0] : value;
 }
 
+// The X-User / X-Forwarded-User identity headers are forgeable by any client,
+// so they are only honored when the operator explicitly opts in - i.e. the
+// deployment sits behind a trusted reverse proxy / auth gateway that strips
+// inbound copies and injects the authenticated identity. Off by default; the
+// authenticated NextAuth session is always preferred and is non-forgeable.
+const TRUST_IDENTITY_HEADER =
+  (process.env.CUEWEB_TRUST_IDENTITY_HEADER ?? "").toLowerCase() === "true";
+
 export async function extractUser(request: NextRequest): Promise<string> {
+  // Authoritative source: the signed-in session (cannot be spoofed).
   try {
     const session = await getServerSession(authOptions).catch(() => null);
     const fromSession = session?.user?.name || session?.user?.email;
     if (fromSession) return localPart(fromSession).trim() || ANONYMOUS_USER;
   } catch {
-    // Fall through to headers / anonymous.
+    // Fall through to the (opt-in) proxy header / anonymous.
   }
-  const header =
-    request.headers.get("X-User") || request.headers.get("X-Forwarded-User");
-  if (header) return localPart(header).trim() || ANONYMOUS_USER;
+
+  // Only trust the proxy-injected identity header when explicitly enabled.
+  if (TRUST_IDENTITY_HEADER) {
+    const header =
+      request.headers.get("X-User") || request.headers.get("X-Forwarded-User");
+    if (header) return localPart(header).trim() || ANONYMOUS_USER;
+  }
+
   return ANONYMOUS_USER;
 }

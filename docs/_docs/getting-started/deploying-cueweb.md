@@ -892,11 +892,16 @@ overview stats, page/module views, actions, per-endpoint API latency
 | `cueweb_logins_total` | `user` | Session starts. |
 | `cueweb_facility_selected_total` | `user`, `facility` | Cuebot Facility switches. |
 
-The `user` label is resolved **server-side** from the signed-in session (so it
-can't be spoofed by the client); with authentication disabled it is
-`anonymous`. Only the username and coarse page/action names are recorded - no
-job names, search text, or file paths. Disable the client beacon at build time
-with `NEXT_PUBLIC_USAGE_TRACKING=off` (the `/api/metrics` endpoint stays).
+The `user` label is resolved **server-side** in this order: the signed-in
+NextAuth session (authoritative, non-spoofable) &rarr; the `X-User` /
+`X-Forwarded-User` identity headers **only when `CUEWEB_TRUST_IDENTITY_HEADER=true`**
+(off by default; enable it only behind a trusted reverse proxy / auth gateway
+that strips inbound copies and injects the identity) &rarr; `anonymous`. So with
+authentication disabled and no trusted proxy, every event is attributed to
+`anonymous` and a client cannot forge another user. Only the username and coarse
+page/action names are recorded - no job names, search text, or file paths.
+Disable the client beacon at build time with `NEXT_PUBLIC_USAGE_TRACKING=off`
+(the `/api/metrics` endpoint stays).
 
 ### Sentry Integration
 

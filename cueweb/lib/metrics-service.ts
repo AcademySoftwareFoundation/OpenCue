@@ -23,6 +23,8 @@
 // counters carry no user label). Mirrors the asset-search approach.
 import { Counter, Histogram, Registry } from "prom-client";
 
+import { getConfiguredFacilities } from "@/lib/facility";
+
 // Sentinel user when the caller is unauthenticated (auth disabled / no session).
 export const ANONYMOUS_USER = "anonymous";
 
@@ -178,7 +180,12 @@ class MetricsService {
   }
 
   public recordFacility(user: string, facility: string): void {
-    this.facilitySelected.inc({ user, facility });
+    // Bound the facility label to the deployment's configured facilities
+    // (NEXT_PUBLIC_CUEBOT_FACILITIES); anything else -> "other" so a hostile
+    // /api/track beacon can't create unbounded series.
+    const configured = getConfiguredFacilities();
+    const bounded = configured.includes(facility) ? facility : "other";
+    this.facilitySelected.inc({ user, facility: bounded });
   }
 
   // --- Back-compat generic counter API (used by /api/increment) -------------

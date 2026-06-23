@@ -1380,7 +1380,7 @@ When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are
 | `cueweb_logins_total` | Counter | `user` | Session starts. |
 | `cueweb_facility_selected_total` | Counter | `user`, `facility` | Cuebot Facility switches. |
 
-- **User label** is resolved server-side from the signed-in session (`lib/track-user.ts`: NextAuth session &rarr; `X-User`/`X-Forwarded-User` header &rarr; `anonymous`), so the client can never spoof it. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
+- **User label** is resolved server-side from the signed-in NextAuth session (`lib/track-user.ts`), so the client can never spoof it; it falls back to `anonymous` when there is no session. The forgeable `X-User` / `X-Forwarded-User` identity headers are honored **only** when `CUEWEB_TRUST_IDENTITY_HEADER=true` (off by default) - set it only when CueWeb sits behind a trusted reverse proxy / auth gateway that strips inbound copies and injects the authenticated identity. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
 - **Instrumentation**: `app/utils/gateway_server.ts` `handleRoute` records the API request + latency for all routes; the client `UsageTracker` + `accessActionApi` beacon page views and actions to `POST /api/track`. Disable the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
 - **Wiring**: Prometheus scrapes `cueweb:3000/api/metrics` (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions the **CueWeb User Usage** dashboard (`sandbox/config/grafana/dashboards/cueweb-usage.json`) with a `$user` variable.
 
