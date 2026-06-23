@@ -288,12 +288,18 @@ export function AppHeader() {
   } = useShortcutNotifications();
   const { immersive, toggle: toggleImmersive } = useImmersiveMode();
 
+  // Admin-only menus (Admin > CueWeb Audit) are hidden from non-admins. The
+  // session callback (lib/auth.ts) sets `isAdmin` to the effective decision —
+  // true for everyone when no group-based authorization is configured — so we
+  // default to true when it is absent (no auth / still loading).
+  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? true;
+
   // The Plugins menu lists only the user-enabled plugins (plugins page
   // checkboxes); inject them after the static "All Plugins" entry.
   const { enabled: enabledPlugins } = useEnabledPlugins();
   const navMenus = React.useMemo<NavMenu[]>(
     () =>
-      NAV_MENUS.map((menu) => {
+      NAV_MENUS.filter((menu) => !menu.adminOnly || isAdmin).map((menu) => {
         if (menu.label !== "Plugins") return menu;
         const pluginItems = getPlugins()
           .map((plugin) => plugin.manifest)
@@ -301,7 +307,7 @@ export function AppHeader() {
           .map((manifest) => ({ label: manifest.title, href: manifest.route }));
         return { ...menu, items: [...menu.items, ...pluginItems] };
       }),
-    [enabledPlugins],
+    [enabledPlugins, isAdmin],
   );
 
   // Trigger the shortcuts overlay programmatically. Used by the

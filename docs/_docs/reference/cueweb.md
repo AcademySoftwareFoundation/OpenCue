@@ -130,7 +130,18 @@ Optional, opt-in group-based access control enforced server-side in `middleware.
 | `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the CueCommander administration pages and job submission (empty ⇒ every signed-in user) | empty |
 | `CUEWEB_GROUPS_CLAIM` | JWT/OIDC claim that carries the user's group memberships | `groups` |
 
-**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame) and job submission (CueSubmit). Monitoring routes, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
+**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame, CueWeb Audit) and job submission (CueSubmit). Monitoring routes, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
+
+### Audit Variables
+
+Configuration for the [CueWeb Audit](#cueweb-audit) trail, an append-only JSONL log of every state-changing action performed through CueWeb. Both default to a working out-of-the-box configuration, so no setup is required to start auditing.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CUEWEB_AUDIT_STORE` | Path to the append-only JSONL audit trail (one JSON record per line, newest appended last, `0600` file mode). Point it at a mounted volume to persist the trail across restarts. | (a `cueweb-audit.jsonl` file in the OS temp dir) |
+| `CUEWEB_AUDIT_MAX_RECORDS` | Maximum number of records retained; the oldest lines are dropped on write once the cap is reached. Set to `0` for no cap. | `50000` |
+
+**Access gating:** the CueWeb Audit page (`/admin/*`) and its read API (`/api/admin/*`) are gated by the [Authorization Variables](#authorization-variables) `CUEWEB_AUTHZ_ENABLED` and `CUEWEB_ADMIN_GROUPS`, exactly like the CueCommander admin pages. When the gate is inactive (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` configured) the page is visible to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can see the menu entry or reach the page/API.
 
 ### OAuth Provider Variables
 
@@ -701,6 +712,73 @@ CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `
 | **Edit / delete authorization** | Server-side ownership enforcement in Cuebot is authoritative. The client adds a convenience gate that enables the editor/delete only when `comment.user === currentUser` (the session-derived identity); the URL is never used as an auth signal. |
 | **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
 | **Indicator icon** | The Jobs table has a dedicated **Comments** column (right after Name) showing a sticky-note icon when `Job.hasComment` is true. The column is sortable so users can pull jobs-with-comments to the top. Updated on the regular jobs-table polling cycle. |
+
+### CueWeb Audit
+
+An admin-only audit trail at `/admin/audit` (`cueweb/app/admin/audit/page.tsx` + `audit-table.tsx`) that records **who** performed **which** action, **when**, against **which** target, and with **what outcome**. Every state-changing action proxied through CueWeb is captured at a single gateway chokepoint (`handleRoute` in `cueweb/app/utils/gateway_server.ts`); read-only queries (`Get*` / `Find*` / `List*`) are skipped. Reached from **Admin &rarr; CueWeb Audit** (header dropdown and sidebar), which is hidden from non-admins. Access is gated by [`CUEWEB_AUTHZ_ENABLED` / `CUEWEB_ADMIN_GROUPS`](#authorization-variables); the trail is configured with the [Audit Variables](#audit-variables).
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+The table renders these columns, in default order:
+
+| Column | Description |
+|--------|-------------|
+| **When** | The record's ISO-8601 timestamp (`at`), the moment the action completed. |
+| **Actor** | The signed-in user's email/name (`actor`), or `anonymous` when no session is present. |
+| **Category** | The entity class the action targeted (`category`), e.g. `job`, `frame`, `host`, `show`, `auth`. |
+| **Action** | Human-friendly action label (`action`), e.g. `Kill Frames`. |
+| **Target** | Best-effort entity id the action applied to (`target`), e.g. `job:comp_v2`. |
+| **Facility** | The Cuebot facility the request was routed to (`facility`). |
+| **Result** | Outcome badge (`result`): `success` or `error`. |
+
+Clicking a row expands it to reveal the sanitized request parameters (`details`, with secrets dropped), the error message (when `result` is `error`), and the underlying endpoint (`endpoint`) plus HTTP method (`method`).
+
+Controls in the toolbar:
+
+| Control | Behavior |
+|---------|----------|
+| **Search** | Free-text search across the trail (matches actor, action, target, endpoint, …). |
+| **Actor filter** | Restrict to a single actor (options sourced from the `facets.actors` returned by the API). |
+| **Category filter** | Restrict to a single category (options sourced from `facets.categories`). |
+| **Result filter** | Restrict to `success` or `error`. |
+| **From / To** | A datetime window (`since` / `until`) bounding the records shown. |
+| **Clear** | Reset all filters and the time window. |
+| **Auto-refresh** | Toggle periodic re-fetching of the trail. |
+| **Refresh** | Re-fetch the trail on demand. |
+| **CSV export** | Download the current (filtered) result set as a CSV file. |
+
+Pagination matches the Jobs table: **First / Prev / Next / Last** buttons with a **Page X of N** indicator and a rows-per-page selector (default `10`; options `5, 10, 15, 20, 25, 50, 100, 200, …, 10000`).
+
+#### Audit record schema
+
+Each audit record is a single JSON line in the trail (`cueweb/lib/audit-store.ts`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `at` | string | ISO-8601 timestamp - **when** the action completed. |
+| `actor` | string | User email/name, or `anonymous` - **who** performed it. |
+| `category` | string | Entity class - `job` \| `frame` \| `layer` \| `host` \| `show` \| `allocation` \| `limit` \| `subscription` \| `service` \| `filter` \| `auth` \| … |
+| `action` | string | Human-friendly action label - **what** was done, e.g. `Kill Frames`. |
+| `target` | string | Best-effort entity id - **on what**, e.g. `job:comp_v2`. |
+| `facility` | string | The Cuebot facility the request was routed to. |
+| `result` | string | Outcome - `success` \| `error`. |
+| `error` | string \| null | Error message when `result` is `error`; otherwise `null`. |
+| `details` | object | Sanitized request parameters (secrets dropped). |
+| `endpoint` | string | Underlying gRPC/REST method, e.g. `/job.JobInterface/KillFrames`. |
+| `method` | string | HTTP method, e.g. `POST`. |
+
+Authentication events (`Sign in` / `Sign out`) are captured separately via the NextAuth `events` in `cueweb/lib/auth.ts` and written to the same store under the `auth` category.
+
+#### Audit API
+
+The CueWeb Audit page reads the trail through one admin-gated route.
+
+| Aspect | Description |
+|--------|-------------|
+| **Endpoint** | `GET /api/admin/audit` (`cueweb/app/api/admin/audit/route.ts`). Admin-gated by the middleware and re-checked in the route. |
+| **Filter params** | `actor`, `category`, `result`, `since`, `until`, `search`. |
+| **Pagination params** | `limit`, `offset`. |
+| **Response** | `{ records, total, facets: { actors, categories } }` - `records` is the matching page (newest first), `total` the unpaginated match count, and `facets` the distinct actor/category values used to populate the filter dropdowns. |
 
 ---
 

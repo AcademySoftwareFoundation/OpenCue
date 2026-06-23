@@ -1631,6 +1631,83 @@ On success, a toast confirms how many hosts were redirected to the target job.
 
 Use **Clr** to reset the form.
 
+---
+
+## CueWeb Audit
+
+The **CueWeb Audit** page records every state-changing action performed through CueWeb, giving administrators a searchable trail of who did what, when, and with what result. It is an admin/monitoring tool with no CueGUI equivalent - it audits the CueWeb application itself.
+
+Open it from **Admin &rarr; CueWeb Audit**, available from both the top menu and the left sidebar.
+
+![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+
+The page loads the most recent records and presents them in a sortable, filterable table.
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+### Who can see it
+
+The Audit page is admin-gated. When no group authorization is configured for the deployment (`CUEWEB_AUTHZ_ENABLED` off), the page is visible to everyone. Once group authorization is enabled, only members of the groups listed in `CUEWEB_ADMIN_GROUPS` can open it; anyone else sees the standard **Access denied** page.
+
+### What gets recorded
+
+The trail captures every **state-changing action** taken through CueWeb, including:
+
+- **Job / layer / frame actions**: kill, pause, resume, eat, retry, mark-done, mark-as-waiting, and similar.
+- **Setters**: set priority, set min/max cores, set max retries, auto-eat on/off, and the like.
+- **Comments**: adding, editing, and deleting job and host comments.
+- **Job submission** through CueSubmit.
+- **Host actions**: lock/unlock, take ownership, reboot, delete, repair state, edit tags, change allocation.
+- **Admin edits**: show, allocation, limit, subscription, and service (facility service default) create/edit/delete.
+- **Authentication**: sign in and sign out.
+
+Read-only views (loading the jobs table, opening a log, browsing hosts) are **not** recorded. The trail captures actions done **through CueWeb only** - changes made with CueGUI, `cueman`, or the `pycue` API do not appear here.
+
+### Audit columns
+
+The table shows one row per recorded action:
+
+| Column | Description |
+|--------|-------------|
+| **When** | Timestamp of the action |
+| **Actor** | The signed-in user's email or name, or `anonymous` when authentication is disabled |
+| **Category** | The kind of entity acted on (`job`, `frame`, `layer`, `host`, `show`, ... or `auth` for sign in / sign out) |
+| **Action** | A human-friendly description of what was done (e.g. *Kill job*, *Set priority*) |
+| **Target** | The entity acted on (e.g. `job:comp_v2`) |
+| **Facility** | The Cuebot facility the action was sent to |
+| **Result** | `success` or `error` |
+
+Click a row to expand its **sanitized details** - the parameters that were sent, the error message (for failed actions), and the underlying REST endpoint and method. Sensitive values are stripped before they are stored.
+
+### Filtering
+
+The filter bar narrows the records without leaving the page:
+
+- **Free-text search** - matches the actor, action, and target.
+- **Actor** dropdown - limit to one user.
+- **Category** dropdown - limit to one category (job, host, auth, etc.).
+- **Result** - show only **success** or only **error** rows.
+- **From / To** - a time window; leave either side blank for an open-ended range.
+- **Clear** - reset every filter back to the default view.
+
+The page does a server-side initial load, then the table re-fetches from `/api/admin/audit` whenever you change a filter.
+
+### Pagination
+
+The table paginates the matching records with **First / Prev / Next / Last** controls and a **Page X of N** indicator. A rows-per-page selector controls how many records show at once (default **10**, matching the Jobs table).
+
+### Refresh and export
+
+- **Auto-refresh** toggle - keep the view current as new actions are recorded.
+- **Refresh** - reload the current view immediately.
+- **Export CSV** - download the records in the current (filtered) view as a CSV file.
+
+### Where the trail is stored
+
+The audit trail persists to a JSONL file on the server, configured by the `CUEWEB_AUDIT_STORE` environment variable (defaults to the OS temporary directory; mount a volume to that path to keep the trail across restarts). The file is size-bounded by `CUEWEB_AUDIT_MAX_RECORDS` (default `50000`; set it to `0` to remove the cap). These are deployment-time settings - see the [CueWeb Developer Guide](/docs/developer-guide/cueweb-development) for the operational details.
+
+---
+
 ## Plugins
 
 CueWeb has a small **plugin system** - the browser counterpart of CueGUI's plugins. A plugin is an add-on panel that lives on its own page under `/plugins/<name>` and can be surfaced in a **Plugins** menu next to CueSubmit. Two samples ship in the box, and developers can add their own (see the [developer guide](/docs/developer-guide/cueweb-development/#plugin-system)).

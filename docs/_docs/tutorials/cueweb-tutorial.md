@@ -777,6 +777,46 @@ Some deployments turn on **group-based authorization**, so what you can reach de
 
 > See [Group-based authorization](/docs/concepts/cueweb-rest-gateway/#group-based-authorization-optional) for the concept and the deployment guide for the full configuration.
 
+---
+
+## Reviewing the audit trail (CueWeb Audit)
+
+CueWeb keeps an **audit trail** of the actions people take through it - who did what, when, to which target, and whether it worked. The **CueWeb Audit** page lets you read that trail, filter it, and export it. Let's walk through it.
+
+1. **Do something auditable first** so there's a fresh entry to look at. Jump back to [Pause and Resume Practice](#pause-and-resume-practice) and pause a job, or use [Adjusting Priority](#adjusting-priority) to set a job's priority. Either action is recorded the moment it succeeds.
+
+2. **Open the audit page.** From the top header (or the left sidebar) open the **Admin** menu and choose **CueWeb Audit**.
+
+   ![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+
+3. **Read the table.** Each row is one recorded action, newest first, so the pause or priority change you just made sits at the top.
+
+   ![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+   The columns are:
+   - **When** - the timestamp of the action.
+   - **Actor** - the signed-in user who performed it (or `anonymous` when auth is off).
+   - **Category** - the kind of entity acted on (e.g. `job`, `frame`, `host`, `show`, `auth`).
+   - **Action** - the human-friendly action (e.g. **Pause Job**, **Set Priority**, **Sign in**).
+   - **Target** - the entity that was acted on (e.g. `job:comp_v2`).
+   - **Facility** - the Cuebot facility the action was routed to.
+   - **Result** - **success** or **error**.
+
+4. **Expand a row for details.** Click any row to unfold its sanitized details - the action's parameters, the error message (if it failed), and the underlying endpoint that was called. Secrets are stripped out, so the details are safe to read and share. Click the row again to collapse it.
+
+5. **Practice filtering.** Narrow the trail with the controls above the table:
+   - Pick a **Category** (for example `job`) or an **Actor** to focus on one kind of action or one person.
+   - Use the **Result** filter to show only **error** rows when you're chasing a failure.
+   - Set a **From** / **To** time window to look at a specific period.
+   - Type in the **free-text search** box to match across actors, targets, and actions.
+   - Click **Clear** to drop every filter and return to the full trail.
+
+6. **Page through the results.** Use **First / Prev / Next / Last** to move between pages, and change the **rows-per-page** control (default 10) when you want to see more at once.
+
+7. **Watch it live, then export.** Toggle **auto-refresh** to have the page pull new entries on an interval - handy while you're actively making changes. When you want a copy, click **Export to CSV** to download exactly the rows currently in view (filters included).
+
+> **What gets recorded:** CueWeb Audit captures state-changing actions performed *through CueWeb* - kill / pause / resume / eat / retry, priority and core changes, comments, job submit, host actions (lock, reboot, allocation, tags, delete, redirect), and show / allocation / limit / subscription edits - plus **Sign in** and **Sign out**. Read-only views (opening Monitor Jobs, viewing logs, browsing details) are **not** recorded, and actions taken from CueGUI, `cueman`, or `pycue` are not captured. Access to the page is **admin-gated**: when no group-based authorization is configured it's visible to everyone, otherwise only members of your admin groups can reach it (see [Access control: restricted areas](#access-control-restricted-areas)).
+
 ## Using plugins
 
 CueWeb can be extended with **plugins** - add-on panels that live on their own pages. Two samples ship in the box; here's how to use them.

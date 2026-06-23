@@ -150,6 +150,32 @@ Infrastructure routes - the health probe, metrics, the auth flow, the login and 
 
 ---
 
+## CueWeb Audit (web action audit)
+
+CueWeb keeps a **web audit trail**: an append-only record of who did which state-changing action, when, against which target, and with what outcome - for actions performed through CueWeb. It answers the operational question *"who killed that job?"* (or paused it, retried that frame, rebooted that host, changed a show) by recording each mutating action as a single timestamped entry. The trail is surfaced in an admin-only **Admin &rarr; CueWeb Audit** page (reachable from both the top menu and the left sidebar).
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+### Where events are captured
+
+The architectural insight is that CueWeb proxies **every** mutating action through a **single chokepoint** - the server-side gateway request handler that signs and forwards each call to the facility's REST Gateway &rarr; Cuebot. Because all writes already funnel through that one place, instrumenting it once captures every mutating route with **no per-route changes**. It is also the only place where the three things an audit entry needs are available together: the **signed-in user identity**, the **selected facility**, and the **gRPC endpoint** being called. Read-only calls (`Get*` / `Find*` / `List*`) are skipped, so the trail stays focused on actions that change state. Sign in and sign out are captured separately, via the authentication layer's events, since they don't flow through the gateway.
+
+Each record carries: the timestamp (`at`), the `actor`, a `category` (job, frame, layer, host, show, ..., or `auth`), the `action`, the `target`, the `facility`, the `result` (success or error) plus any `error` message, sanitized `details` (request parameters with secrets dropped), and the `endpoint` and `method`.
+
+### How it's stored
+
+The trail is an **append-only JSONL file** - one JSON record per line - mirroring an existing CueWeb pattern (the per-facility override store). No database is introduced, so CueWeb stays **stateless** on the backend. The file path is configurable (`CUEWEB_AUDIT_STORE`), and its size is bounded (`CUEWEB_AUDIT_MAX_RECORDS`): once the cap is reached the oldest records are dropped. Because the default location is the OS temp directory, persisting the trail across restarts means pointing it at a mounted volume.
+
+### Who can see it
+
+Access reuses the same optional group-authorization gate described above. When no group authorization is configured (`CUEWEB_AUTHZ_ENABLED` off), the audit page is shown to everyone - consistent with CueWeb's "everyone is an admin" default. When authorization is active, only members of the admin groups (`CUEWEB_ADMIN_GROUPS`) can reach it.
+
+### Scope and limitation
+
+This is a **CueWeb audit**, not a farm-wide audit: it records only actions taken **through CueWeb**. Actions performed from CueGUI, `cueman`, or `pycue` go straight to Cuebot and are not seen here. Capturing every client's actions would require an audit layer in the backend (Cuebot / gateway); the CueWeb trail is the pragmatic, no-new-infrastructure step that covers the web interface today.
+
+---
+
 ## Cuebot facilities (multi-facility routing)
 
 A **facility** in OpenCue labels and separates farm resources - typically by physical location. Each facility is served by its own **Cuebot** (and, for CueWeb, its own REST Gateway). CueWeb mirrors CueGUI's *Cuebot Facility* concept: you work in **one facility at a time**, and a menu lets you switch between them.
@@ -345,6 +371,10 @@ NEXT_JWT_SECRET=your-secret-key                     # JWT signing secret
 NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google        # OAuth providers
 NEXTAUTH_URL=http://localhost:3000                  # Auth callback URL
 NEXTAUTH_SECRET=random-secret                       # NextAuth secret
+
+# Web audit (optional)
+CUEWEB_AUDIT_STORE=/data/cueweb-audit.jsonl         # Path to the JSONL audit trail (default: OS temp dir; mount a volume to persist)
+CUEWEB_AUDIT_MAX_RECORDS=50000                      # Max records retained, oldest dropped (default 50000; 0 = no cap)
 
 # Third-party integrations (optional)
 SENTRY_DSN=your-sentry-dsn                          # Error tracking

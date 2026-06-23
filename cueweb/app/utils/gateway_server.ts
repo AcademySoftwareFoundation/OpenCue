@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 
 import { handleError } from "./notify_utils";
 import { getRequestFacilityTargetWithOverrides } from "@/lib/facility-server";
+import { auditGatewayCall } from "@/lib/audit";
 
 interface JwtParams {
   sub: string;
@@ -129,9 +130,16 @@ export async function handleRoute(
       throw new Error(responseData.error);
     }
 
+    // Record the action in the CueWeb Audit trail. Reads are filtered out
+    // inside auditGatewayCall; this is the single chokepoint every mutating
+    // CueWeb action funnels through. Awaited so the entry is durably written
+    // before we respond, but it can never throw (best-effort).
+    await auditGatewayCall(endpoint, method, body, true);
+
     return NextResponse.json({ data: responseData.data }, { status: response.status });
   } catch (error) {
     handleError(error);
+    await auditGatewayCall(endpoint, method, body, false, (error as Error).message);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

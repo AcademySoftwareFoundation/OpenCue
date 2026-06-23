@@ -133,6 +133,14 @@ NEXTAUTH_SECRET=canbeanything
 # NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
 # NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
 # NEXT_PUBLIC_PREVIEW_URL=
+
+# Optional: tune the CueWeb Audit trail (see "Review the audit trail" in
+# Step 5). CUEWEB_AUDIT_STORE is the path to the append-only JSONL log
+# (default: cueweb-audit.jsonl in the OS temp dir) - point it at a mounted
+# volume to persist across restarts. CUEWEB_AUDIT_MAX_RECORDS caps how many
+# records are retained, dropping the oldest on write (default 50000; 0 = no cap).
+# CUEWEB_AUDIT_STORE=/var/lib/cueweb/cueweb-audit.jsonl
+# CUEWEB_AUDIT_MAX_RECORDS=50000
 ```
 
 **Important Notes:**
@@ -375,6 +383,18 @@ Three quick ways to shape the workspace (all saved in your browser):
 
   ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
 
+### Review the audit trail
+
+Open **Admin &rarr; CueWeb Audit** (in the top header or the left sidebar) to see who changed what. CueWeb records every **state-changing** action - who did it, the action, the timestamp, the target entity, the Cuebot facility, and whether it succeeded or errored - plus sign in / sign out. Read-only views are not recorded.
+
+![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+- Filter by actor, category, or result, set a From/To time window, or type in the free-text search; expand a row to see sanitized details.
+- Page through results (First / Prev / Next / Last, "Page X of N", with a rows-per-page selector that defaults to 10), flip on **auto-refresh**, and use **Export CSV** to download the current view.
+- Access follows the same group gate as the rest of CueWeb: with no group authorization configured (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` set) the page is open to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can reach it. See **Restrict access by group** in Step 2.
+- The trail lives at `CUEWEB_AUDIT_STORE` and is bounded by `CUEWEB_AUDIT_MAX_RECORDS` (both shown in Step 2).
 
 ---
 

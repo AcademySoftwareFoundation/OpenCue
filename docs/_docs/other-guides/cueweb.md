@@ -334,6 +334,43 @@ A fixed status bar at the bottom of every page shows the gateway connection stat
 ![Bottom status bar indicators](/assets/images/cueweb/cueweb_status_indicators.png)
 
 
+### CueWeb Audit
+
+CueWeb keeps a built-in audit trail of everything that changes state, surfaced
+under **Admin -> CueWeb Audit** and reachable from both the top menu and the
+left sidebar (Figure 11a). Every record captures who performed an action, when
+it happened, which target it acted on, the Cuebot facility it ran against, and
+whether it succeeded or failed - alongside sign in and sign out events.
+Read-only browsing (opening tables, viewing logs, paging through results) is not
+recorded; only the actions that actually mutate state are.
+
+Because every mutating action in CueWeb is proxied through a single gateway
+chokepoint, the audit captures all of those actions uniformly - no individual
+button or context-menu entry has to opt in. It records actions taken **through
+CueWeb specifically**, so changes made from CueGUI, `cueman`, or `pycue` do not
+appear here; this is a record of what was done in the web interface.
+
+The audit is presented as a filterable, paginated table (Figure 11b). A search
+box and actor / category / result filters narrow the rows, a time-window control
+restricts the range, each row expands to show its full details, and the current
+view can be exported to CSV. Each record carries a timestamp, actor, category,
+action, target, facility, result, any error, sanitized details, and the endpoint
+and HTTP method that were called. Records are written to an append-only JSONL
+store configured by `CUEWEB_AUDIT_STORE` (mount a volume there to persist the
+trail) and bounded in size by `CUEWEB_AUDIT_MAX_RECORDS`.
+
+Access to the audit page is admin-gated and reuses CueWeb's optional
+group-authorization (see item 38). When no group authorization is configured the
+page is visible to everyone; otherwise it is restricted to the groups listed in
+`CUEWEB_ADMIN_GROUPS`.
+
+**Figure 11a: Admin -> CueWeb Audit menu**
+![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+
+**Figure 11b: CueWeb Audit page**
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+
 ### Dashboard page
 
 The Dashboard page provides an at-a-glance overview, reachable from its own entry in the navigation (Figures 12 and 13).

@@ -28,6 +28,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Check, Columns, Keyboard, LayoutDashboard } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -55,6 +56,9 @@ function isActive(pathname: string | null, href: string): boolean {
 
 export function MobileNavSheet() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  // Admin-only menus are hidden from non-admins; default to true when absent.
+  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? true;
   const [open, setOpen] = React.useState(false);
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
@@ -127,8 +131,8 @@ export function MobileNavSheet() {
             ))}
           </Group>
 
-          {/* Cuetopia / CueCommander - the NAV_MENUS groups */}
-          {NAV_MENUS.map((menu) => (
+          {/* Cuetopia / CueCommander / Admin - the NAV_MENUS groups */}
+          {NAV_MENUS.filter((menu) => !menu.adminOnly || isAdmin).map((menu) => (
             <Group key={menu.label} label={menu.label}>
               {menu.items.map((item) => (
                 <MobileLink

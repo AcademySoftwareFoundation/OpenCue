@@ -411,6 +411,119 @@ Middleware flow: when the gate is inactive (disabled, or no auth provider) it is
 
 ---
 
+## CueWeb Audit (web action audit trail)
+
+CueWeb records **who** did **what**, **when**, against **which** target, and with **what outcome**, and surfaces the trail in an admin-only screen (**Admin &rarr; CueWeb Audit**). The whole feature is built on top of two pieces that already exist in the codebase - the single gateway chokepoint (`handleRoute`) and the group-based authorization layer (see [Authorization](#authorization-group-based-access-gate)) - so it adds **no** new infrastructure (no database, no ORM) and requires **no** changes to the ~120 individual route files.
+
+### File layout
+
+```
+cueweb/
+├── lib/audit.ts                              # Capture layer: classify endpoint, extract target,
+│                                             #   resolve actor (NextAuth) + facility (cookie), sanitize
+├── lib/audit-store.ts                        # Append-only JSONL store + filtered/paginated read + facets
+├── app/api/admin/audit/route.ts              # Admin-gated read API (filters + pagination + facets)
+├── app/admin/audit/page.tsx                  # Admin-gated server page (access check + SSR initial data)
+├── app/admin/audit/audit-table.tsx          # Client table (filters, pagination, auto-refresh, CSV export)
+├── app/utils/gateway_server.ts              # MODIFIED: handleRoute() calls auditGatewayCall() (the hook)
+├── lib/auth.ts                               # MODIFIED: NextAuth signIn/signOut events + session.isAdmin
+├── lib/authz.ts                              # MODIFIED: /admin + /api/admin paths; isGateActive/isEffectiveAdmin
+├── app/__tests__/lib/audit-store.test.ts    # Store + query unit tests
+└── app/__tests__/lib/authz-admin.test.ts    # Effective-admin gating unit tests
+```
+
+The store deliberately mirrors the JSONL pattern already proven by `lib/facility-store.ts`, so CueWeb stays stateless and the feature is just a file to operate.
+
+### Where events are captured (the chokepoint)
+
+Every state-changing CueWeb action is proxied to the OpenCue REST gateway through exactly one function - `handleRoute()` in `app/utils/gateway_server.ts` (used by ~120 routes). After each proxied call it invokes `auditGatewayCall(endpoint, method, body, ok, error)` from `lib/audit.ts`. Instrumenting that single function captures all ~40 mutating action routes (`/api/job/action/*`, `/api/host/action/*`, show/allocation/limit/subscription edits, job submit, ...) **with zero changes to the route files**, because `handleRoute` is the one place where the signed-in user (NextAuth `getServerSession`), the selected facility (the `cueweb.facility` cookie), and the gRPC endpoint are all available together.
+
+```
+            Next.js Route Handler (e.g. app/api/job/action/kill/route.ts)
+                          │  handleRoute("POST", "/job.JobInterface/Kill", body, true)
+                          ▼
+      ┌──────────  gateway_server.ts :: handleRoute  ──────────┐
+      │  1. fetchObjectFromRestGateway() -> REST gateway -> Cuebot │
+      │  2. auditGatewayCall(endpoint, method, body, ok, error) ◄─ HOOK │
+      └────────────────────────────────────────────────────────┘
+                          ▼
+                lib/audit.ts :: auditGatewayCall  ->  lib/audit-store.ts :: recordAudit (append JSONL)
+```
+
+### Capture layer (`lib/audit.ts`)
+
+`auditGatewayCall` never throws - a logging failure must never break the action it is recording. It:
+
+- **Skips reads.** Endpoints classified as queries (`Get*` / `Find*` / `List*` / ...) are dropped, so only mutations land in the trail.
+- **Classifies the endpoint** into a `category` (`job` / `frame` / `layer` / `host` / `show` / ...) and a human-friendly `action` ("Kill Frames").
+- **Extracts a best-effort target** (e.g. `job:comp_v2`) from the request body.
+- **Resolves the actor** via `getServerSession(authOptions)` (falling back to `anonymous`) and the **facility** from the request cookie via `getRequestFacilityTarget`.
+- **Sanitizes params** before recording (drops secrets) into the `details` field.
+
+### The store (`lib/audit-store.ts`)
+
+Append-only JSONL, one JSON record per line, newest appended last:
+
+- **Configurable path** via `CUEWEB_AUDIT_STORE` (default `<os tmp>/cueweb-audit.jsonl`; point it at a mounted volume to survive restarts).
+- **`0o600` file mode** and **in-process write serialization** (a promise chain) so concurrent appends never interleave.
+- **Size-bounded** via `CUEWEB_AUDIT_MAX_RECORDS` (default `50000`; `0` = unbounded; oldest lines dropped on write).
+- Exposes `recordAudit(record)` (write), `readAudit(query)` (filtered + paginated read), and `readAuditFacets()` (the distinct actors / categories used to populate the filter dropdowns).
+
+### The read path
+
+`GET /api/admin/audit` (`app/api/admin/audit/route.ts`, admin-gated) accepts filters (`actor`, `category`, `result`, `since`, `until`, `search`) plus pagination (`limit`, `offset`) and returns `{ records, total, facets: { actors, categories } }`. The page `app/admin/audit/page.tsx` is an admin-gated server component that does the access check and renders SSR initial data into the client table `app/admin/audit/audit-table.tsx`, which provides the filter controls, page-based pagination, auto-refresh, expandable per-row details, and CSV export.
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+### Auth events (`lib/auth.ts`)
+
+Sign in / sign out are not gateway calls, so they are captured separately via the NextAuth `events: { signIn, signOut }` callbacks in `lib/auth.ts`, which write straight to the store (best-effort - a logging failure must never block sign-in). To avoid a require cycle (`lib/audit` imports `authOptions` from `lib/auth`), `lib/auth.ts` imports `recordAudit` directly from `lib/audit-store` rather than from `lib/audit`.
+
+### Access gating (`lib/authz.ts`)
+
+The feature plugs into the existing authorization layer rather than inventing a parallel mechanism:
+
+- `/admin` and `/api/admin` are added to `ADMIN_PATH_PREFIXES`, so the middleware gates them behind `CUEWEB_ADMIN_GROUPS` exactly like the CueCommander admin pages.
+- `isGateActive()` and `isEffectiveAdmin(groups)` are the shared decision: **everyone is admin when the gate is inactive** - no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` configured - so the page is shown to everyone in those cases; when the gate is active it defers to group membership.
+- The `session` callback in `lib/auth.ts` stamps `session.isAdmin = isEffectiveAdmin(groups)` so `app-header.tsx`, `app-sidebar.tsx`, and `mobile-nav-sheet.tsx` can hide the admin-only menu from non-admins. The server still enforces - the page and API route re-check `isEffectiveAdmin` independently of the UI.
+
+### Record schema
+
+Each JSONL line is one record:
+
+| Field | Meaning |
+|-------|---------|
+| `at` | ISO-8601 timestamp (when) |
+| `actor` | User email/name, or `anonymous` (who) |
+| `category` | `job` / `frame` / `layer` / `host` / `show` / ... / `auth` |
+| `action` | Human-friendly action label, e.g. "Kill Frames" (what) |
+| `target` | Best-effort entity id, e.g. `job:comp_v2` (on what) |
+| `facility` | Cuebot facility the request was routed to |
+| `result` | `success` or `error` (outcome) |
+| `error` | Message when `result === "error"`, else `null` |
+| `details` | Sanitized request params (secrets dropped) |
+| `endpoint` | Underlying gRPC/REST method, e.g. `/job.JobInterface/KillFrames` |
+| `method` | HTTP method of the proxied call |
+
+### Where to extend
+
+- **Capture a new action.** No route change is needed - adjust the classifier in `lib/audit.ts` (the read-skip predicate, the category/action mapping, or the target extractor).
+- **Swap the storage backend (future).** The page and API are structured so the storage behind `readAudit()` can be replaced - for example a Cuebot `audit_log` table (Flyway migration) plus a query RPC, with the REST gateway forwarding the JWT subject as gRPC metadata. The CueWeb Audit page could then read from that API instead of (or in addition to) the JSONL file.
+
+**Limitations.** This captures **CueWeb actions only** - actions performed from CueGUI, `cueman`, or `pycue` are not seen. The store is single-process; multiple CueWeb replicas sharing one file would want a cross-process lock or a shared store (the same caveat as `facility-store.ts`).
+
+### Tests
+
+```bash
+cd cueweb
+npx jest app/__tests__/lib/audit-store.test.ts app/__tests__/lib/authz-admin.test.ts
+```
+
+- `app/__tests__/lib/audit-store.test.ts` - record/read round-trip, newest-first ordering, actor/category/result/time/search filters, pagination, and facets.
+- `app/__tests__/lib/authz-admin.test.ts` - `isAdminPath` for the new `/admin` + `/api/admin` paths, plus the full `isEffectiveAdmin` / `isGateActive` truth table (the "show to everyone when no group authorization is configured" requirement).
+
+---
+
 ## CueSubmit (browser-based job submission)
 
 CueWeb implements a TypeScript port of the standalone CueSubmit CLI tool under `/cuesubmit`. The form layout mirrors the dialog one-for-one; everything that ran inside `cuesubmit.ui.Submit` now lives in React components, and everything that ran inside `cuesubmit.Submission` + `outline.backend.cue.serialize` now lives in `app/cuesubmit/lib/*.ts`.
