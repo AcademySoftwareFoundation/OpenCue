@@ -48,7 +48,12 @@ export async function GET(request: NextRequest) {
 
   const sp = request.nextUrl.searchParams;
   const num = (key: string): number | undefined => {
-    const v = Number(sp.get(key));
+    // Return undefined for a missing/blank param so readAudit applies its own
+    // defaults. Number(null) and Number("") are both 0, which would otherwise
+    // override the default limit (200) and clamp it down to 1.
+    const raw = sp.get(key);
+    if (raw === null || raw.trim() === "") return undefined;
+    const v = Number(raw);
     return Number.isFinite(v) ? v : undefined;
   };
   const str = (key: string): string | undefined => {

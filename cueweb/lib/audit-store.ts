@@ -94,7 +94,12 @@ const STORE_PATH =
 
 /** Hard cap on retained records (0 disables the cap). */
 function maxRecords(): number {
-  const raw = Number(process.env.CUEWEB_AUDIT_MAX_RECORDS);
+  // Treat unset or blank/whitespace as "use the default": Number("") and
+  // Number("   ") are both 0, which would otherwise silently disable retention
+  // (0 = no cap) instead of applying the documented 50000 default.
+  const configured = process.env.CUEWEB_AUDIT_MAX_RECORDS?.trim();
+  if (!configured) return 50000;
+  const raw = Number(configured);
   if (!Number.isFinite(raw) || raw < 0) return 50000;
   return Math.floor(raw);
 }
@@ -121,17 +126,42 @@ export function recordAudit(record: AuditRecord): Promise<void> {
   });
 }
 
+// Record count in the file, learned lazily on the first write then kept in sync
+// as we append/trim, so the hot path doesn't re-read the whole log every write.
+// null = not yet known (re-derived from disk on the next write).
+let lineCount: number | null = null;
+// Hysteresis margin: once the log grows TRIM_SLACK lines past the cap we rewrite
+// it back down to the cap, so the expensive read+rewrite runs about once per
+// TRIM_SLACK appends instead of on every append once the cap is reached. The
+// file may therefore hold up to cap + TRIM_SLACK records between trims.
+const TRIM_SLACK = 1000;
+
 async function doRecordAudit(record: AuditRecord): Promise<void> {
   await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
   await fs.appendFile(STORE_PATH, JSON.stringify(record) + "\n", { mode: 0o600 });
+  if (lineCount !== null) lineCount += 1;
   await trimIfNeeded();
 }
 
-// Drop the oldest lines once the file exceeds the cap. Cheap rewrite: the file
-// is bounded (default 50k lines) so reading it fully on overflow is fine.
+// Drop the oldest lines once the file grows past cap + TRIM_SLACK. Writes are
+// serialized (see writeChain), so the in-memory lineCount stays consistent. The
+// file is bounded, so the occasional full read+rewrite is fine; amortizing it
+// over TRIM_SLACK appends keeps it off the per-request hot path.
 async function trimIfNeeded(): Promise<void> {
   const cap = maxRecords();
   if (cap === 0) return;
+  // Lazily learn the current line count once per process; cheap path afterwards.
+  if (lineCount === null) {
+    try {
+      const raw = await fs.readFile(STORE_PATH, "utf8");
+      lineCount = raw.split("\n").filter((l) => l.trim().length > 0).length;
+    } catch {
+      lineCount = 0;
+      return;
+    }
+  }
+  // Common case: within the cap (+ slack), nothing to do, no file read.
+  if (lineCount <= cap + TRIM_SLACK) return;
   let lines: string[];
   try {
     const raw = await fs.readFile(STORE_PATH, "utf8");
@@ -139,9 +169,13 @@ async function trimIfNeeded(): Promise<void> {
   } catch {
     return;
   }
-  if (lines.length <= cap) return;
+  if (lines.length <= cap) {
+    lineCount = lines.length;
+    return;
+  }
   const kept = lines.slice(lines.length - cap);
   await fs.writeFile(STORE_PATH, kept.join("\n") + "\n", { mode: 0o600 });
+  lineCount = kept.length;
 }
 
 /** Filters accepted by {@link readAudit}. All optional; combined with AND. */
@@ -171,12 +205,11 @@ export interface AuditPage {
   total: number;
 }
 
-/** Read the audit trail, newest first, applying the given filters. */
-export async function readAudit(query: AuditQuery = {}): Promise<AuditPage> {
-  let all: AuditRecord[];
+/** Read and parse every record in the trail (oldest first). [] on any error. */
+async function readAllRecords(): Promise<AuditRecord[]> {
   try {
     const raw = await fs.readFile(STORE_PATH, "utf8");
-    all = raw
+    return raw
       .split("\n")
       .filter((l) => l.trim().length > 0)
       .map((l) => {
@@ -188,9 +221,13 @@ export async function readAudit(query: AuditQuery = {}): Promise<AuditPage> {
       })
       .filter((e): e is AuditRecord => e !== null);
   } catch {
-    return { records: [], total: 0 };
+    return [];
   }
+}
 
+/** Read the audit trail, newest first, applying the given filters. */
+export async function readAudit(query: AuditQuery = {}): Promise<AuditPage> {
+  const all = await readAllRecords();
   // Newest first.
   all.reverse();
 
@@ -225,7 +262,9 @@ export async function readAuditFacets(): Promise<{
   actors: string[];
   categories: string[];
 }> {
-  const { records } = await readAudit({ limit: 5000 });
+  // Build facets from the whole retained trail, not a capped page, so dropdowns
+  // include actors/categories that appear only in older records.
+  const records = await readAllRecords();
   const actors = new Set<string>();
   const categories = new Set<string>();
   for (const r of records) {

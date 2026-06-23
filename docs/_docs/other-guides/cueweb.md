@@ -340,7 +340,7 @@ CueWeb keeps a built-in audit trail of everything that changes state, surfaced
 under **Admin -> CueWeb Audit** and reachable from both the top menu and the
 left sidebar (Figure 11a). Every record captures who performed an action, when
 it happened, which target it acted on, the Cuebot facility it ran against, and
-whether it succeeded or failed - alongside sign in and sign out events.
+whether it succeeded or failed - alongside sign-in and sign-out events.
 Read-only browsing (opening tables, viewing logs, paging through results) is not
 recorded; only the actions that actually mutate state are.
 

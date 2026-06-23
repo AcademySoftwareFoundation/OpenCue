@@ -273,7 +273,7 @@ function HelpDropdownMenu() {
 
 export function AppHeader() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
   const { facility, facilities, setFacility } = useCuebotFacility();
@@ -289,10 +289,15 @@ export function AppHeader() {
   const { immersive, toggle: toggleImmersive } = useImmersiveMode();
 
   // Admin-only menus (Admin > CueWeb Audit) are hidden from non-admins. The
-  // session callback (lib/auth.ts) sets `isAdmin` to the effective decision —
-  // true for everyone when no group-based authorization is configured — so we
-  // default to true when it is absent (no auth / still loading).
-  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? true;
+  // session callback (lib/auth.ts) sets `isAdmin` to the effective decision,
+  // true for everyone when no group-based authorization is configured. While
+  // the session is still loading we don't know yet, so hide admin-only menus to
+  // avoid flashing them to a non-admin; once resolved, an absent isAdmin (no
+  // auth provider / no group authorization) means everyone is admin.
+  const isAdmin =
+    sessionStatus === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
 
   // The Plugins menu lists only the user-enabled plugins (plugins page
   // checkboxes); inject them after the static "All Plugins" entry.

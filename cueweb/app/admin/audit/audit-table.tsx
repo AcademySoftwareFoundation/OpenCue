@@ -43,10 +43,11 @@ interface Props {
 }
 
 // Selectable page sizes for the paginated table. Mirrors Monitor Jobs
-// (app/jobs/data-table.tsx) so the rows-per-page choices match across CueWeb.
+// (app/jobs/data-table.tsx), minus 10000: readAudit() in lib/audit-store.ts
+// hard-caps a single read at 5000, so a larger page would silently hide rows
+// (the client would compute too few pages while the server returns only 5000).
 const PAGE_SIZE_OPTIONS = [
   5, 10, 15, 20, 25, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000,
-  10000,
 ];
 // Default to 10, the same first-visit page size Monitor Jobs uses.
 const DEFAULT_PAGE_SIZE = 10;
@@ -119,7 +120,15 @@ function toCsv(records: AuditRecord[]): string {
   ];
   const esc = (v: unknown) => {
     const s = v === undefined || v === null ? "" : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    // Neutralize spreadsheet formula injection (CWE-1236): a cell beginning
+    // with = + - @ (or a leading tab/CR that some apps strip) can execute as a
+    // formula in Excel/Sheets. Prefix with a single quote so it's treated as
+    // literal text. Audit values (actor/target/action/error) are attacker-
+    // influenced, so this runs before CSV quoting.
+    const neutralized = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    return /[",\n]/.test(neutralized)
+      ? `"${neutralized.replace(/"/g, '""')}"`
+      : neutralized;
   };
   const rows = records.map((r) =>
     [r.at, r.actor, r.category, r.action, r.target, r.facility, r.result, r.error, r.endpoint]

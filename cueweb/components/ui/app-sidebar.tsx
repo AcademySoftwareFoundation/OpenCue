@@ -210,10 +210,15 @@ export function AppSidebar() {
   }, []);
 
   // Admin-only groups (Admin -> CueWeb Audit) are hidden from non-admins. The
-  // session callback sets `isAdmin` to the effective decision; default to true
-  // when absent (no auth / still loading) so the entry shows by default.
-  const { data: session } = useSession();
-  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? true;
+  // session callback sets `isAdmin` to the effective decision. While the session
+  // is loading we hide admin-only groups to avoid flashing them to a non-admin;
+  // once resolved, an absent isAdmin (no auth / no group authorization) means
+  // everyone is admin, so default to true.
+  const { data: session, status } = useSession();
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
 
   // The Plugins group's items are user-configurable (plugins page checkboxes),
   // so build the rendered group list dynamically from the enabled selection.

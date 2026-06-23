@@ -91,8 +91,12 @@ const TARGET_KEYS = [
 // Method-name prefixes that denote a read; calls matching these are not audited.
 const READ_PREFIXES = ["get", "find", "lookup", "is", "status", "list", "query"];
 
-// Keys never copied into the sanitized `details` snapshot.
-const SECRET_KEY = /(pass|secret|token|credential|authorization)/i;
+// Keys never copied into the sanitized `details` snapshot. Matched as a
+// substring against each field name, so it covers e.g. apiKey, x-access-key,
+// private_key, sessionId. Over-redaction is intentional: a leaked secret in the
+// trail is far worse than a dropped field.
+const SECRET_KEY =
+  /(pass|secret|token|credential|authorization|api[-_]?key|access[-_]?key|private[-_]?key|cookie|session|jwt)/i;
 
 const MAX_DETAILS_CHARS = 1500;
 

@@ -56,9 +56,15 @@ function isActive(pathname: string | null, href: string): boolean {
 
 export function MobileNavSheet() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  // Admin-only menus are hidden from non-admins; default to true when absent.
-  const isAdmin = (session as { isAdmin?: boolean } | null)?.isAdmin ?? true;
+  const { data: session, status } = useSession();
+  // Admin-only menus are hidden from non-admins. While the session is loading we
+  // can't know yet, so hide them to avoid a flash before it resolves; once
+  // resolved, an absent isAdmin (no auth / no group authorization) means
+  // everyone is admin, so default to true.
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
   const [open, setOpen] = React.useState(false);
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
