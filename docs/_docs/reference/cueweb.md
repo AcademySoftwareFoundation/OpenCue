@@ -104,6 +104,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_CUEPROGBAR_URL` | Optional registered URL scheme the **Show Progress Bar** dialog's launch button hands off to a local handler. Empty hides the launch button. | (empty) |
 | `NEXT_PUBLIC_PREVIEW_COMMAND` | Command shown/copied by the frame menu's **Preview All** dialog to open rendered output in an external image viewer. Placeholders `{paths}` / `{job}` / `{layer}` / `{frame}` are substituted. | `rv {paths}` |
 | `NEXT_PUBLIC_PREVIEW_URL` | Optional registered URL scheme **Preview All** hands off to a local viewer (e.g. `openrv://{paths}`). Empty hides the launch button (the command is still shown to copy). | (empty) |
+| `NEXT_PUBLIC_USAGE_TRACKING` | Set to `off` to disable the client-side usage beacon behind the `cueweb_page_views_total` / `cueweb_actions_total` Prometheus metrics. `GET /api/metrics` and the server-side API request/latency metrics stay enabled regardless. See [Usage metrics](#usage-metrics-prometheus). | `on` |
 | `NEXT_PUBLIC_EMAIL_DOMAIN` | Email domain used to derive the **Email Artist...** dialog defaults: `<user>@<domain>` for **To**, `<show>-<suffix>@<domain>` for **From** and **CC**. See [Email Artist dialog](#email-artist-dialog). | `your.domain.com` |
 | `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` | Per-show support alias suffix used in the **Email Artist...** dialog's From / CC defaults (`<show>-<suffix>@<domain>`). Matches CueGUI's "production support team" alias convention. | `pst` |
 | `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` | Per-show support alias suffix used in the **Request Cores...** dialog's CC default (`<show>-<suffix>@<domain>`). Distinct from the Email Artist `pst` alias because CueGUI's `RequestCoresDialog` traditionally targets a different team queue. | `support` |
@@ -1363,6 +1364,29 @@ Required volume mounts for log viewing (file-based backend):
 ```
 
 When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are pulled from Loki over HTTP from the browser, so this volume mount is not required for log viewing - see [Frame log backends](#frame-log-backends).
+
+---
+
+## Usage metrics (Prometheus)
+
+`GET /api/metrics` exposes Prometheus usage metrics (plain text; never gated by the authorization gate) so operators can track *who uses what, how often, and how fast* - per user, per page/module, per action - with bounded cardinality.
+
+![CueWeb /api/metrics endpoint output](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
+
+| Metric | Type | Labels | Notes |
+|--------|------|--------|-------|
+| `cueweb_page_views_total` | Counter | `user`, `page` | Page/module views; `page` is from a fixed allow-list (unknown &rarr; `other`). |
+| `cueweb_actions_total` | Counter | `user`, `action` | User actions (`job-kill`, `frame-retry`, `host-lock`, `job-submit`, …), keyed off the action routes. |
+| `cueweb_api_requests_total` | Counter | `endpoint`, `status` | Every gateway-proxy call by short endpoint (`job.getjobs`) and status class (`2xx`/`4xx`/`5xx`). No `user` label. |
+| `cueweb_api_request_duration_seconds` | Histogram | `endpoint` | API latency, for p50/p90/p99 panels. |
+| `cueweb_logins_total` | Counter | `user` | Session starts. |
+| `cueweb_facility_selected_total` | Counter | `user`, `facility` | Cuebot Facility switches. |
+
+- **User label** is resolved server-side from the signed-in NextAuth session (`lib/track-user.ts`), so the client can never spoof it; it falls back to `anonymous` when there is no session. The forgeable `X-User` / `X-Forwarded-User` identity headers are honored **only** when `CUEWEB_TRUST_IDENTITY_HEADER=true` (off by default) - set it only when CueWeb sits behind a trusted reverse proxy / auth gateway that strips inbound copies and injects the authenticated identity. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
+- **Instrumentation**: `app/utils/gateway_server.ts` `handleRoute` records the API request + latency for all routes; the client `UsageTracker` + `accessActionApi` beacon page views and actions to `POST /api/track`. Disable the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
+- **Wiring**: Prometheus scrapes `cueweb:3000/api/metrics` (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions the **CueWeb User Usage** dashboard (`sandbox/config/grafana/dashboards/cueweb-usage.json`) with a `$user` variable.
+
+![CueWeb User Usage Grafana dashboard](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
 
 ---
 
