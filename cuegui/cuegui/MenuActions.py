@@ -2264,7 +2264,7 @@ class TaskActions(AbstractActions):
     def clearAdjustment(self, rpcObjects=None):
         tasks = self._getSelected(rpcObjects)
         for task in tasks:
-            task.clearAdjustment()
+            task.clearAdjustments()
         self._update()
 
     delete_info = ["Delete Task", None, "configure"]
