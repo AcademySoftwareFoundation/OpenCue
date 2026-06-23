@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import * as React from "react";
 import {
   Activity,
@@ -46,9 +47,11 @@ import {
   PieChart,
   Puzzle,
   Receipt,
+  ScrollText,
   Send,
   Server,
   Share2,
+  ShieldCheck,
   Upload,
   Wrench,
   type LucideIcon,
@@ -92,6 +95,8 @@ type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
+  /** Admin-only group (see menus.ts NavMenu.adminOnly). */
+  adminOnly?: boolean;
 };
 
 /**
@@ -140,6 +145,14 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Plugins",
     icon: Boxes,
     items: [{ label: "All Plugins", href: "/plugins", icon: Boxes }],
+  },
+  {
+    // Admin-only. The CueWeb Audit web system (who did what, when). Hidden from
+    // non-admins; visible to everyone when no group-based authorization is set.
+    label: "Admin",
+    icon: ShieldCheck,
+    adminOnly: true,
+    items: [{ label: "CueWeb Audit", href: "/admin/audit", icon: ScrollText }],
   },
 ];
 
@@ -196,15 +209,26 @@ export function AppSidebar() {
     window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
   }, []);
 
+  // Admin-only groups (Admin -> CueWeb Audit) are hidden from non-admins. The
+  // session callback sets `isAdmin` to the effective decision. While the session
+  // is loading we hide admin-only groups to avoid flashing them to a non-admin;
+  // once resolved, an absent isAdmin (no auth / no group authorization) means
+  // everyone is admin, so default to true.
+  const { data: session, status } = useSession();
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
+
   // The Plugins group's items are user-configurable (plugins page checkboxes),
   // so build the rendered group list dynamically from the enabled selection.
   const { enabled: enabledPlugins } = useEnabledPlugins();
   const navGroups = React.useMemo<NavGroup[]>(
     () =>
-      NAV_GROUPS.map((group) =>
+      NAV_GROUPS.filter((group) => !group.adminOnly || isAdmin).map((group) =>
         group.label === "Plugins" ? buildPluginsNavGroup(group, enabledPlugins) : group,
       ),
-    [enabledPlugins],
+    [enabledPlugins, isAdmin],
   );
 
   // SSR can't read localStorage, so we start with sensible defaults and

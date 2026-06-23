@@ -143,6 +143,19 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # is enabled.
 # CUEWEB_FACILITY_STORE=/data/cueweb/facilities.json
 
+# CueWeb Audit trail (optional)
+# Path to the append-only JSONL file where CueWeb records state-changing
+# actions and sign in / sign out events (who, what, when, target, facility,
+# outcome) for the admin-only Admin -> CueWeb Audit page. It defaults to a
+# file in the OS temp dir (cueweb-audit.jsonl); point it at a mounted volume
+# to keep the trail across container restarts. The file is written 0600 with
+# in-process write serialization.
+# CUEWEB_AUDIT_STORE=/data/cueweb/audit.jsonl
+#
+# Maximum number of records retained in the trail; the oldest are dropped on
+# write once the cap is reached. Defaults to 50000; set to 0 for no cap.
+# CUEWEB_AUDIT_MAX_RECORDS=50000
+
 # Help menu URLs (optional)
 # Defaults mirror CueGUI's cuegui.yaml exactly. Override these to point
 # internal docs / suggestions / bug trackers at your own systems.
@@ -564,6 +577,37 @@ Notes:
 - **Requires an auth provider whose token carries group memberships.** Group resolution happens once at sign-in (from the OIDC `groups` claim, or from a `groups` field a credentials/LDAP provider attaches); the middleware reads it from the token. Configure your identity provider to include the user's groups in the claim named by `CUEWEB_GROUPS_CLAIM`. When authentication is disabled, the gate is inactive.
 - **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages and CueSubmit. Read-only monitoring, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated.
 - Leaving a group list empty means "no restriction" for that scope, so you can gate only admin access (set `CUEWEB_ADMIN_GROUPS`, leave `CUEWEB_ALLOWED_GROUPS` empty) while monitoring stays open to all signed-in users.
+
+---
+
+## CueWeb Audit trail
+
+CueWeb records an audit trail of every state-changing action taken through the UI (job/layer/frame/host/group/proc operations such as Kill, Eat, Retry, Pause, Redirect, host lock/reboot, facility-override edits, and so on) plus each **sign in** and **sign out**. Each record captures **who** (the signed-in user), **what** (the action), **when** (timestamp), the **target** it acted on, the **facility** it ran against, and the **outcome** (success or failure). The trail is browsable on the admin-only **Admin -> CueWeb Audit** page (reachable from both the top menu and the left sidebar).
+
+![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+
+### Audit trail persistence
+
+The trail is an **append-only JSONL file** named by `CUEWEB_AUDIT_STORE`. Like `CUEWEB_FACILITY_STORE`, it **defaults to a file in the OS temp dir** (`cueweb-audit.jsonl`), so the trail is **lost when the container is recreated** unless you point `CUEWEB_AUDIT_STORE` at a mounted volume:
+
+```yaml
+# docker-compose.yml (cueweb service)
+volumes:
+  - cueweb-audit:/data/cueweb
+environment:
+  - CUEWEB_AUDIT_STORE=/data/cueweb/audit.jsonl
+
+volumes:
+  cueweb-audit:
+```
+
+The file is written with mode `0600`.
+
+**Size bounding.** `CUEWEB_AUDIT_MAX_RECORDS` caps how many records the trail retains; once the cap is reached, the **oldest records are dropped** on each new write. It defaults to `50000`; set it to `0` for an unbounded trail (in which case you are responsible for rotating or archiving the file yourself).
+
+**Access control.** The CueWeb Audit page is admin-gated through the same [group-based authorization](#authorization-group-based-access-control) mechanism as the other admin pages - enable the gate with `CUEWEB_AUTHZ_ENABLED=true` and list the allowed groups in `CUEWEB_ADMIN_GROUPS`. With no group authorization configured (the gate off, or `CUEWEB_ADMIN_GROUPS` empty), the page is **visible to everyone** who can reach CueWeb, so configure the admin gate if the trail should be restricted.
+
+**Multi-instance caveat.** The single-file store assumes a **single CueWeb instance**: concurrent appends are kept from interleaving by **in-process** write serialization only. If you run multiple replicas (for example the `replicas: 3` deployment above) all pointed at the same file, that in-process lock does not span processes - you would need a shared store with a cross-process lock, or a separate `CUEWEB_AUDIT_STORE` per replica, to avoid corrupting the trail.
 
 ---
 

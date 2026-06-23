@@ -63,6 +63,13 @@ export const ADMIN_PATH_PREFIXES = [
   // Guard the submit API too, so the restriction can't be bypassed by POSTing
   // directly past the CueSubmit UI.
   "/api/job/submit",
+  // CueWeb Audit (Admin -> CueWeb Audit): the audit page and its read API are
+  // admin-only. With no CUEWEB_ADMIN_GROUPS configured (or the gate off),
+  // isUserAdmin/isEffectiveAdmin return true for everyone, so the page stays
+  // visible to all — the requested "show to everyone when no group-based
+  // authorization is available" behavior.
+  "/admin",
+  "/api/admin",
 ];
 
 /** Parse a comma-separated env list into a normalized (lowercased) set of names. */
@@ -119,7 +126,7 @@ export function extractGroups(
 }
 
 /** Read the groups previously stamped on the NextAuth token. */
-export function getUserGroups(token: { groups?: unknown } | null | undefined): string[] {
+export function getUserGroups(token: Record<string, unknown> | null | undefined): string[] {
   return normalizeGroups(token?.groups);
 }
 
@@ -145,4 +152,26 @@ export function isAdminPath(pathname: string): boolean {
   return ADMIN_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+/**
+ * Whether the authorization gate actually enforces anything: an auth provider
+ * must be configured AND the gate switched on. When inactive, every signed-in
+ * (or anonymous) user is treated as allowed and admin — matching middleware.ts.
+ */
+export function isGateActive(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_AUTH_PROVIDER) && isAuthzEnabled();
+}
+
+/**
+ * Effective admin decision for UI/route gating: when the gate is inactive
+ * (no auth provider, or CUEWEB_AUTHZ_ENABLED off, or no CUEWEB_ADMIN_GROUPS
+ * configured) this is true for everyone, so admin-only screens like CueWeb
+ * Audit remain visible to all. When the gate is active it defers to the user's
+ * group membership. This is the single source of truth shared by the session
+ * callback (lib/auth.ts), the audit page, and the audit API route.
+ */
+export function isEffectiveAdmin(userGroups: string[]): boolean {
+  if (!isGateActive()) return true;
+  return isUserAdmin(userGroups);
 }

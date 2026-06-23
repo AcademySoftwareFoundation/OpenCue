@@ -34,6 +34,12 @@ export type NavItem = {
 export type NavMenu = {
   label: string;
   items: NavItem[];
+  /**
+   * When true, the menu is only shown to admins (effective-admin: visible to
+   * everyone when no group-based authorization is configured). The AppHeader,
+   * AppSidebar and menu registry filter these out for non-admin sessions.
+   */
+  adminOnly?: boolean;
 };
 
 export const NAV_MENUS: NavMenu[] = [
@@ -65,5 +71,13 @@ export const NAV_MENUS: NavMenu[] = [
     // plugins after it at render time (see use_plugin_menu).
     label: "Plugins",
     items: [{ label: "All Plugins", href: "/plugins" }],
+  },
+  {
+    // Admin-only. The CueWeb Audit web system (who did what, when). Gated by
+    // CUEWEB_ADMIN_GROUPS via middleware + lib/authz; visible to everyone when
+    // no group-based authorization is configured.
+    label: "Admin",
+    adminOnly: true,
+    items: [{ label: "CueWeb Audit", href: "/admin/audit" }],
   },
 ];

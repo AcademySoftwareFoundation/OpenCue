@@ -16,7 +16,10 @@
 
 
 import { NextAuthOptions } from "next-auth";
-import { extractGroups } from "@/lib/authz";
+import { extractGroups, getUserGroups, isEffectiveAdmin } from "@/lib/authz";
+// Import the store directly (not lib/audit) to avoid a require cycle: lib/audit
+// imports authOptions from here for getServerSession.
+import { recordAudit } from "@/lib/audit-store";
 import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
@@ -183,13 +186,42 @@ export const authOptions: NextAuthOptions = {
             return token;
         },
         // Expose the groups on the session so client/server components can
-        // tailor the UI (e.g. hide admin-only controls).
+        // tailor the UI (e.g. hide admin-only controls). `isAdmin` is the
+        // effective decision (true for everyone when the authz gate is
+        // inactive) so the AppHeader/AppSidebar can show or hide the Admin ->
+        // CueWeb Audit entry without re-deriving the policy.
         async session({ session, token }) {
-            (session as { groups?: string[] }).groups =
-                (token as { groups?: string[] }).groups ?? [];
+            const groups = getUserGroups(token as { groups?: unknown });
+            (session as { groups?: string[] }).groups = groups;
+            (session as { isAdmin?: boolean }).isAdmin = isEffectiveAdmin(groups);
             return session;
         },
     },
-    // Additional NextAuth configurations can be added here
+    // Audit authentication events into the CueWeb Audit trail (Admin -> CueWeb
+    // Audit). Best-effort: a logging failure must never block sign-in/out.
+    events: {
+        async signIn({ user }) {
+            await recordAudit({
+                at: new Date().toISOString(),
+                actor: user?.email || user?.name || "anonymous",
+                category: "auth",
+                action: "Sign in",
+                result: "success",
+            }).catch(() => undefined);
+        },
+        async signOut({ token }) {
+            const actor =
+                (token as { email?: string; name?: string })?.email ||
+                (token as { name?: string })?.name ||
+                "anonymous";
+            await recordAudit({
+                at: new Date().toISOString(),
+                actor,
+                category: "auth",
+                action: "Sign out",
+                result: "success",
+            }).catch(() => undefined);
+        },
+    },
 };
 

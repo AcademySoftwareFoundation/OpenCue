@@ -17,6 +17,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import * as React from "react";
 
 import { HELP_ITEMS } from "@/app/utils/help_menu";
@@ -52,6 +53,15 @@ export interface MenuCommand {
 
 export function useMenuRegistry(): MenuCommand[] {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  // While the session is still loading we don't yet know admin status, so hide
+  // admin-only commands to avoid flashing them to a non-admin before it
+  // resolves. Once resolved, an absent isAdmin (no auth provider / no group
+  // authorization) means everyone is admin, so default to true.
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
   const { toggle: toggleJobInteraction } = useDisableJobInteraction();
   const { facilities, setFacility } = useCuebotFacility();
   const { toggle: toggleAttributes } = useAttributesPanel();
@@ -79,8 +89,10 @@ export function useMenuRegistry(): MenuCommand[] {
       });
     }
 
-    // Cuetopia / CueCommander (route destinations)
+    // Cuetopia / CueCommander / Admin (route destinations). Admin-only menus
+    // are excluded from the search palette for non-admins.
     for (const menu of NAV_MENUS) {
+      if (menu.adminOnly && !isAdmin) continue;
       for (const item of menu.items) {
         cmds.push({
           id: `${menu.label.toLowerCase()}${item.href}`,
@@ -143,7 +155,7 @@ export function useMenuRegistry(): MenuCommand[] {
     });
 
     return cmds;
-  }, [router, toggleJobInteraction, facilities, setFacility, toggleAttributes, toggleImmersive]);
+  }, [router, isAdmin, toggleJobInteraction, facilities, setFacility, toggleAttributes, toggleImmersive]);
 }
 
 /**
