@@ -29,11 +29,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FrameContextMenu, HostContextMenu, LayerContextMenu, ShowContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { FrameRangeSelector } from "@/components/ui/frame-range-selector";
+import { FrameContextMenu, HostContextMenu, LayerContextMenu, LimitContextMenu, ShowContextMenu, SubscriptionContextMenu } from "@/components/ui/context_menus/action-context-menu";
 import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ViewsMenu } from "@/components/ui/views-menu";
 import {
   ColumnDef,
   ColumnOrderState,
@@ -46,7 +48,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Layers, PieChart, Search, Server, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Cpu, Film, Gauge, Layers, PieChart, Receipt, Search, Server, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Job } from "../../app/jobs/columns";
@@ -79,6 +81,13 @@ interface SimpleDataTableProps<TData, TValue> {
   // Allocations variant (read-only, Allocations page): allocation-specific
   // filter/empty copy and no row context menu.
   isAllocationsTable?: boolean;
+  // Subscriptions variant (Subscriptions page): subscription-specific
+  // filter/empty copy and the SubscriptionContextMenu (Edit Size / Edit
+  // Burst / Delete).
+  isSubscriptionsTable?: boolean;
+  // Limits variant (Limits page): limit-specific filter/empty copy and the
+  // LimitContextMenu (Edit Max Value, Delete, Rename).
+  isLimitsTable?: boolean;
   username: string;
   // When set, column visibility for this table persists to localStorage
   // under the given key. Use stable keys like "cueweb.layers.columnVisibility"
@@ -101,6 +110,14 @@ interface SimpleDataTableProps<TData, TValue> {
   // Columns dropdown. Typically a section title with a row count, e.g.
   // <span>Layers [Total Count: 3]</span>.
   toolbarLeft?: React.ReactNode;
+  // Optional per-row className derived from the row's data, used by the
+  // Monitor Hosts table to tint rows by hardware/lock state (CueGUI parity).
+  getRowClassName?: (rowData: TData) => string | undefined;
+  // When set, a "Views" dropdown (saveable presets: column order/visibility,
+  // sort, filters, page size) is rendered next to the Columns dropdown and
+  // persisted under cueweb.views.<viewsPageKey>. Use stable per-page keys like
+  // "hosts" / "allocations" / "layers". Omit to hide the Views menu.
+  viewsPageKey?: string;
 }
 
 export function SimpleDataTable<TData, TValue>({
@@ -114,12 +131,16 @@ export function SimpleDataTable<TData, TValue>({
   isProcsTable = false,
   isShowsTable = false,
   isAllocationsTable = false,
+  isSubscriptionsTable = false,
+  isLimitsTable = false,
   username,
   columnVisibilityStorageKey,
   defaultColumnVisibility,
   onRowClick,
   selectedRowId,
   toolbarLeft,
+  getRowClassName,
+  viewsPageKey,
 }: SimpleDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -515,9 +536,9 @@ export function SimpleDataTable<TData, TValue>({
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
-              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
-              className="h-8 w-44 pl-7 pr-7 text-xs"
+              placeholder={isHostsTable ? "Filter hosts..." : isProcsTable ? "Filter procs..." : isShowsTable ? "Filter shows..." : isAllocationsTable ? "Filter allocations..." : isSubscriptionsTable ? "Filter subscriptions..." : isLimitsTable ? "Filter limits..." : (isFramesTable || isFramesLogTable) ? "Filter frames..." : "Filter layers..."}
+              aria-label={isHostsTable ? "Filter hosts" : isProcsTable ? "Filter procs" : isShowsTable ? "Filter shows" : isAllocationsTable ? "Filter allocations" : isSubscriptionsTable ? "Filter subscriptions" : isLimitsTable ? "Filter limits" : (isFramesTable || isFramesLogTable) ? "Filter frames" : "Filter layers"}
+              className="h-8 w-52 pl-7 pr-7 text-xs"
             />
             {globalFilter ? (
               <button
@@ -531,9 +552,28 @@ export function SimpleDataTable<TData, TValue>({
               </button>
             ) : null}
           </div>
+          {viewsPageKey ? (
+            <ViewsMenu
+              page={viewsPageKey}
+              table={table}
+              defaultColumnVisibility={defaultColumnVisibility}
+              defaultPageSize={10}
+            />
+          ) : null}
           {columnsDropdown}
         </div>
       </div>
+      {/* Visual frame-range selector Only on the frames table (not
+          the single-frame log table). Uses the table's filtered row model so
+          the strip mirrors exactly what's visible (state chips AND the
+          "Filter frames..." text filter); its Retry/Eat/Kill buttons reuse the
+          row context menu's frame actions. */}
+      {isFramesTable && (
+        <FrameRangeSelector
+          frames={table.getFilteredRowModel().rows.map((row) => row.original as Frame)}
+          username={username}
+        />
+      )}
       {/* overflow-x-auto so the wide Layers / Frames grids stay swipeable
           on phones instead of forcing the whole page to scroll. */}
       <div className="overflow-x-auto rounded-md border" ref={tableRef}>
@@ -595,7 +635,12 @@ export function SimpleDataTable<TData, TValue>({
                         : undefined
                     }
                     className={
-                      onRowClick || isFrameRowWithJob ? "cursor-pointer" : undefined
+                      [
+                        onRowClick || isFrameRowWithJob ? "cursor-pointer" : "",
+                        getRowClassName?.(row.original as TData) ?? "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined
                     }
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -629,6 +674,10 @@ export function SimpleDataTable<TData, TValue>({
                         <Film className="h-6 w-6" aria-hidden="true" />
                       ) : isAllocationsTable ? (
                         <PieChart className="h-6 w-6" aria-hidden="true" />
+                      ) : isSubscriptionsTable ? (
+                        <Receipt className="h-6 w-6" aria-hidden="true" />
+                      ) : isLimitsTable ? (
+                        <Gauge className="h-6 w-6" aria-hidden="true" />
                       ) : (
                         <Layers className="h-6 w-6" aria-hidden="true" />
                       )
@@ -642,6 +691,10 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No shows"
                             : isAllocationsTable
                               ? "No allocations"
+                              : isSubscriptionsTable
+                                ? "No subscriptions"
+                              : isLimitsTable
+                                ? "No limits"
                               : isFramesTable
                                 ? "Layer has no frames"
                               : isFramesLogTable
@@ -657,6 +710,10 @@ export function SimpleDataTable<TData, TValue>({
                             ? "No active shows. Use Create Show to add one."
                             : isAllocationsTable
                               ? "No allocations are configured in Cuebot."
+                              : isSubscriptionsTable
+                                ? "This show has no subscriptions. Use Add Subscription to create one."
+                              : isLimitsTable
+                                ? "No limits are configured. Use Add Limit to create one."
                               : isFramesTable
                                 ? "No frames matched the current filter. Clear the frame-state chips above to see every frame."
                               : isFramesLogTable
@@ -681,9 +738,10 @@ export function SimpleDataTable<TData, TValue>({
       )}
 
       {/* Row context menu. Hosts get Lock/Unlock/Reboot; shows get Show
-          Properties / Create Subscription; frames/frame-logs get the frame
-          menu; the read-only procs and allocations tables get none; everything
-          else (layers) gets the layer menu. */}
+          Properties / Create Subscription; limits get Edit/Delete/Rename;
+          frames/frame-logs get the frame menu; the read-only procs and
+          allocations tables get none; everything else (layers) gets the layer
+          menu. */}
       {(isProcsTable || isAllocationsTable) ? null : isHostsTable ? (
         <HostContextMenu
           contextMenuState={contextMenuState}
@@ -691,8 +749,22 @@ export function SimpleDataTable<TData, TValue>({
           contextMenuRef={contextMenuRef}
           contextMenuTargetAreaRef={contextMenuTargetAreaRef}
         />
+      ) : isLimitsTable ? (
+        <LimitContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
       ) : isShowsTable ? (
         <ShowContextMenu
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+        />
+      ) : isSubscriptionsTable ? (
+        <SubscriptionContextMenu
           contextMenuState={contextMenuState}
           contextMenuHandleClose={contextMenuHandleClose}
           contextMenuRef={contextMenuRef}

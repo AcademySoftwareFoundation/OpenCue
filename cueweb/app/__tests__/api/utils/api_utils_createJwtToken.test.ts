@@ -15,7 +15,7 @@
  */
 
 import { loadServerEnvVars } from '@/app/utils/config';
-import { createJwtToken } from '@/app/utils/api_utils';
+import { createJwtToken } from '@/app/utils/gateway_server';
 
 interface JwtParams {
   sub: string;

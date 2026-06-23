@@ -94,6 +94,7 @@ export default function AllocationsPage() {
             username=""
             isAllocationsTable
             columnVisibilityStorageKey="cueweb.allocations.columnVisibility"
+            viewsPageKey="allocations"
           />
         </>
       )}

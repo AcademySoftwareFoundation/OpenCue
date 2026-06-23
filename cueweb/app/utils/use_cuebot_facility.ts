@@ -29,14 +29,45 @@ import * as React from "react";
  * across components via a CustomEvent (same tab) + the browser `storage`
  * event (cross-tab).
  *
- * NOTE: this hook persists and broadcasts the selection. Actually routing
- * REST-gateway calls per-facility is a separate task. Until that lands, the value is informational.
+ * The selection is ALSO written to a cookie (`cueweb.facility`) so server-side
+ * API routes can resolve the per-facility REST gateway for each request (see
+ * `lib/facility.ts`). Selecting a facility reloads the page so every view
+ * re-fetches against the newly selected gateway — mirroring CueGUI, which
+ * clears and re-fetches all data on a facility switch.
  */
 
 export const STORAGE_KEY = "cueweb.facility.selected";
 const CHANGE_EVENT = "cueweb:facility-changed";
+// Cookie read server-side by lib/facility.ts (FACILITY_COOKIE). Keep in sync.
+const COOKIE_KEY = "cueweb.facility";
 
 const DEFAULT_FACILITIES = ["local", "dev", "cloud", "external"] as const;
+
+/** Mirror the selection into a cookie the server reads on every request. */
+function writeCookie(value: string): void {
+  if (typeof document === "undefined") return;
+  // Not HttpOnly: the client sets it for instant routing, and the server
+  // re-validates the value against the configured facility list, so a tampered
+  // cookie can only ever select another already-configured facility.
+  const oneYear = 60 * 60 * 24 * 365;
+  document.cookie = `${COOKIE_KEY}=${encodeURIComponent(value)}; path=/; max-age=${oneYear}; samesite=lax`;
+}
+
+/** Read the facility cookie (returns null when absent). */
+function readCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const row = document.cookie
+    .split("; ")
+    .find((r) => r.startsWith(`${COOKIE_KEY}=`));
+  if (!row) return null;
+  try {
+    // A malformed value (bad %-escape) would otherwise throw in the mount
+    // effect and stop the hook from syncing/recovering.
+    return decodeURIComponent(row.slice(COOKIE_KEY.length + 1));
+  } catch {
+    return null;
+  }
+}
 
 /** Parse the build-time env var; falls back to the CueGUI defaults. */
 function readFacilitiesFromEnv(): string[] {
@@ -84,7 +115,11 @@ export function useCuebotFacility(): {
   );
 
   React.useEffect(() => {
-    setFacilityState(readSelected(facilities));
+    const current = readSelected(facilities);
+    setFacilityState(current);
+    // Propagate a pre-existing localStorage selection (set before the cookie
+    // existed) to the cookie so server routes pick it up without a reselect.
+    if (readCookie() !== current) writeCookie(current);
 
     const customHandler = () => setFacilityState(readSelected(facilities));
     const storageHandler = (e: StorageEvent) => {
@@ -102,10 +137,16 @@ export function useCuebotFacility(): {
   const setFacility = React.useCallback(
     (next: string) => {
       if (!facilities.includes(next)) return;
+      const previous = readSelected(facilities);
       writeSelected(next);
+      writeCookie(next);
       setFacilityState(next);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+        // Re-fetch everything against the newly selected gateway. CueGUI clears
+        // and reloads all data on a facility switch; a full reload is the
+        // simplest equivalent and guarantees no stale cross-facility data.
+        if (next !== previous) window.location.reload();
       }
     },
     [facilities],

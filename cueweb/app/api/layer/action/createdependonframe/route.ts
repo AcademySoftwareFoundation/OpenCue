@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Mirrors Layer.createDependencyOnFrame (pycue) ->
 // LayerInterface.CreateDependencyOnFrame. Used by the Layer On Frame
 // dependency wizard flow.
 export async function POST(request: NextRequest) {
-  const endpoint = "/layer.LayerInterface/CreateDependencyOnFrame";
+  const endpoint = "/job.LayerInterface/CreateDependencyOnFrame";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

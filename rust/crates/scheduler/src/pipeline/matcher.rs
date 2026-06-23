@@ -475,6 +475,7 @@ impl MatchingService {
                             updated_host,
                             updated_layer,
                         }) => {
+                            metrics::increment_checkout_outcome("booked");
                             // Track cores actually consumed so the next iteration's
                             // LayerProfile sees the local picture of usage. The same
                             // delta applies to the (show, alloc) subscription burst

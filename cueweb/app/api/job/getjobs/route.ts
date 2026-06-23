@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // The API endpoint queried returns a double nested dictionary with the following structure:
@@ -44,5 +44,5 @@ export async function POST(request: NextRequest) {
   const responseData = await response.json();
   
   if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status});
-  return NextResponse.json({ data: responseData.data.jobs.jobs, status: responseData.status});
+  return NextResponse.json({ data: responseData.data.jobs.jobs, status: response.status});
 }

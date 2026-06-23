@@ -17,14 +17,15 @@
  */
 
 
-import { getFrame } from "@/app/utils/get_utils";
-import { handleError } from "@/app/utils/notify_utils";
+import { getFrame, getJobsForRegex } from "@/app/utils/get_utils";
+import type { Job } from "@/app/jobs/columns";
+import { handleError, toastSuccess } from "@/app/utils/notify_utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import Editor, { Monaco } from "@monaco-editor/react";
-import { FileX } from "lucide-react";
+import { ChevronDown, Download, FileX } from "lucide-react";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -33,8 +34,13 @@ import { useParams, useSearchParams } from "next/navigation";
 import * as path from "path";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
+import { FrameExtraDialogs } from "../../../components/ui/frame-extra-dialogs";
+import { FramePreviewPanel } from "../../../components/ui/frame-preview-panel";
+import { FrameLogSearch } from "../../../components/ui/frame-log-search";
 import { Frame, frameColumns } from "../frame-columns";
 import { SelectChangeEvent } from "@mui/material/Select";
+import { isLokiEnabled } from "@/lib/loki";
+import LokiLogView from "./loki-log-view";
 
 /**
  * Best-effort extraction of the job name from a frame's log file path.
@@ -52,25 +58,90 @@ function jobNameFromLogPath(logPath: string): string {
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;
 
+// One entry in the log-version dropdown: the rqlog file name plus the size and
+// last-modified time returned by /api/getlogversions.
+interface LogVersion {
+  name: string;
+  size: number;
+  mtime: number;
+}
+
+/** Format a byte count as MB (the dropdown's size column). */
+function formatLogSize(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  if (mb > 0 && mb < 0.01) return "< 0.01 MB";
+  return `${mb.toFixed(2)} MB`;
+}
+
+/** Format an epoch-ms mtime for the dropdown's timestamp column. */
+function formatLogMtime(mtime: number): string {
+  if (!mtime) return "—";
+  return new Date(mtime).toLocaleString();
+}
+
 export default function FramePage() {
   const searchParams = useSearchParams();
   const routeParams = useParams<{ "frame-name": string }>();
   const [frameObject, setFrame] = React.useState<Frame | null>(null);
+  // Parent job, resolved from the log path's job-name prefix so the frame
+  // preview panel and the job-scoped frame actions work on this page too.
+  const [job, setJob] = React.useState<Job | null>(null);
   const [totalNumLogLines, setTotalNumLogLines] = useState(-1);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const frameId = searchParams.get("frameId") || "";
   const logDirPath = searchParams.get("frameLogDir") || "";
   const username = searchParams.get("username") || "";
+  // Live-tail mode (opened via the frame menu's "Tail Log"): load only the
+  // most recent lines, follow by default, and poll faster.
+  const tailMode = searchParams.get("mode") === "tail";
+  const TAIL_INITIAL_LINES = 200;
+
+  // When NEXT_PUBLIC_LOKI_URL is configured, the frame log is served from Loki
+  // (mirroring CueGUI's LokiViewPlugin) instead of being read from the on-disk
+  // .rqlog file. The env var is fixed for the lifetime of the page, so reading
+  // it once at render time is sufficient.
+  const lokiEnabled = isLokiEnabled();
 
   const [curLogVersion, setCurLogVersion] = useState(path.basename(logDirPath));
   const [curLogPath, setCurLogPath] = useState(logDirPath)
-  const [logVersions, setLogVersions] = useState<string[]>([]);
+  const [logVersions, setLogVersions] = useState<LogVersion[]>([]);
 
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [numberOfLinesLoaded, setNumberOfLinesLoaded] = useState(LOG_CHUNK_SIZE);
   const [fetchingLogs, setFetchingLogs] = useState(false);
   const [scrollTrigger, setScrollTrigger] = useState(false);
   const [editorMounted, setEditorMounted] = useState(false);
+  // Bumped on every editor content change (initial fill, infinite-scroll
+  // loads, version switch) so the log search can re-run as lines stream in.
+  const [logContentVersion, setLogContentVersion] = useState(0);
+  // "Follow" tail mode: auto-scroll to the bottom as new lines arrive. Pauses
+  // when the user scrolls up; the Jump-to-bottom button re-enables it.
+  const [followMode, setFollowMode] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const followRef = useRef(false);
+  // Timestamp of the last programmatic scroll / content replace, so the scroll
+  // listener can tell a setValue-induced scroll reset from a real user scroll.
+  const programmaticScrollRef = useRef(0);
+  useEffect(() => { followRef.current = followMode; }, [followMode]);
+  // Monaco namespace (for Range/MouseTargetType), the absolute line-number
+  // offset, and the per-line copy-glyph decoration ids.
+  const monacoRef = useRef<Monaco | null>(null);
+  const logDisplayStartRef = useRef(1);
+  const copyGlyphDecorationsRef = useRef<string[]>([]);
+  // Shared guard so the follow-mode poll and the scroll-triggered loader can't
+  // both append newer logs at once (which would duplicate a range / drift the
+  // line counters).
+  const appendInFlightRef = useRef(false);
+
+  // Copy a single log line to the clipboard with a confirmation toast.
+  const copyLineText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toastSuccess("Line copied");
+    } catch (error) {
+      handleError(error, "Could not copy line");
+    }
+  };
   // Status of the log file currently selected in the version dropdown.
   // `loading` (initial), `ready` (we have lines), `empty` (the log file
   // exists but is empty), or `missing` (the log file could not be found).
@@ -80,6 +151,8 @@ export default function FramePage() {
   // To track log line display
   const [logDisplayStart, setLogDisplayStart] = useState(-1);
   const [logDisplayEnd, setLogDisplayEnd] = useState(-1);
+  // Keep the absolute line-number offset in a ref for Monaco's lineNumbers fn.
+  useEffect(() => { logDisplayStartRef.current = logDisplayStart > 0 ? logDisplayStart : 1; }, [logDisplayStart]);
   const defaultMessage =
     "Please wait while the logs are loading. \
     Important: Loading files with more than 1 million lines may take additional time.";
@@ -95,6 +168,7 @@ export default function FramePage() {
   }, []);  
 
   useEffect(() => {
+      if (lokiEnabled) return;
       fetchInitialLogs();
   }, [editorMounted, frameObject, curLogVersion]);
   
@@ -114,7 +188,9 @@ export default function FramePage() {
 
       setLogStatus("ready");
       setTotalNumLogLines(totalLines);
-      let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
+      // Tail mode loads the last ~200 lines; normal view loads one chunk.
+      const initialLines = tailMode ? TAIL_INITIAL_LINES : LOG_CHUNK_SIZE;
+      let startline = totalLines < initialLines ? 1 : totalLines - initialLines + 1;
       let endline = totalLines;
       let newLogs = await fetchPaginatedLogs(startline, endline);
       setNumberOfLinesLoaded(endline - startline + 1);
@@ -147,12 +223,55 @@ export default function FramePage() {
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editor.updateOptions({
       theme: "vs-dark",
-      lineNumbers: "off",
+      // Absolute file line numbers: Monaco line N maps to file line
+      // (logDisplayStart + N - 1) since only a window of the log is loaded.
+      lineNumbers: (n: number) => String(logDisplayStartRef.current + n - 1),
+      glyphMargin: true,
       readOnly: true,
+    });
+    monacoRef.current = monaco;
+
+    // Right-click / keyboard "Copy Line" (copies the line under the cursor).
+    editor.addAction({
+      id: "cueweb-copy-frame-log-line",
+      label: "Copy Line",
+      contextMenuGroupId: "9_cutcopypaste",
+      contextMenuOrder: 1.5,
+      run: (ed) => {
+        const pos = ed.getPosition();
+        const model = ed.getModel();
+        if (pos && model) copyLineText(model.getLineContent(pos.lineNumber));
+      },
+    });
+
+    // Click the hover copy glyph (or a line number) to copy that line.
+    editor.onMouseDown((e) => {
+      const t = e.target;
+      if (
+        (t.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+          t.type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS) &&
+        t.position
+      ) {
+        const model = editor.getModel();
+        if (model) copyLineText(model.getLineContent(t.position.lineNumber));
+      }
     });
 
     editorRef.current = editor;
-    editorRef.current.onDidScrollChange(() => setScrollTrigger((prev) => !prev));
+    editorRef.current.onDidScrollChange(() => {
+      const ed = editorRef.current;
+      if (ed) {
+        // Distance (px) from the very bottom of the scrollable log.
+        const dist = ed.getScrollHeight() - ed.getScrollTop() - ed.getLayoutInfo().height;
+        const near = dist <= 50;
+        setAtBottom(near);
+        // Pause follow only on a genuine user scroll-up - not the scroll reset
+        // setValue causes, nor our own auto-scroll-to-bottom.
+        const programmatic = Date.now() - programmaticScrollRef.current < 300;
+        if (!near && !programmatic && followRef.current) setFollowMode(false);
+      }
+      setScrollTrigger((prev) => !prev);
+    });
     setEditorMounted(true);
   };
 
@@ -163,9 +282,21 @@ export default function FramePage() {
     }
   };
 
+  // Hard scroll to the very bottom (used by follow mode + Jump to bottom).
+  const scrollToVeryBottom = () => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    programmaticScrollRef.current = Date.now();
+    ed.setScrollTop(ed.getScrollHeight());
+  };
+
   function updateTextInEditor(text: string) {
     if (editorRef.current !== null) {
+      // setValue resets the scroll position; mark it programmatic so the
+      // scroll listener doesn't mistake it for a user scroll-up.
+      programmaticScrollRef.current = Date.now();
       editorRef.current?.setValue(text);
+      setLogContentVersion((v) => v + 1);
     }
   }
 
@@ -237,28 +368,36 @@ export default function FramePage() {
   };
 
   const loadNewerLogMessages = async () => {
-    // check if total number of lines has grown aka there are new logs
-    const newLogLineCount = await getLogLineCount();
-    // return early if the num of lines in logfile has not changed
-    // and we are displaying the end of the log already
-    if (newLogLineCount == totalNumLogLines && logDisplayEnd == totalNumLogLines) return;
+    // Serialize against the scroll-trigger loader and other poll ticks: an
+    // overlapping append would re-fetch the same range and drift the counters.
+    if (appendInFlightRef.current) return;
+    appendInFlightRef.current = true;
+    try {
+      // check if total number of lines has grown aka there are new logs
+      const newLogLineCount = await getLogLineCount();
+      // return early if the num of lines in logfile has not changed
+      // and we are displaying the end of the log already
+      if (newLogLineCount == totalNumLogLines && logDisplayEnd == totalNumLogLines) return;
 
-    // calculate new end line
-    // get the number of new lines that have been added to the log and
-    // get whichever is smaller - the difference or LOG_CHUNK_SIZE
-    const newLinesCount = Math.min(newLogLineCount - logDisplayEnd, LOG_CHUNK_SIZE);
-    let endLine = logDisplayEnd + newLinesCount;
-    // update text in editor
-    let newLogLines = await fetchPaginatedLogs(logDisplayEnd + 1, endLine);
-    let prevLogs = editorRef.current?.getValue();
-    updateTextInEditor(prevLogs + newLogLines);
+      // calculate new end line
+      // get the number of new lines that have been added to the log and
+      // get whichever is smaller - the difference or LOG_CHUNK_SIZE
+      const newLinesCount = Math.min(newLogLineCount - logDisplayEnd, LOG_CHUNK_SIZE);
+      let endLine = logDisplayEnd + newLinesCount;
+      // update text in editor
+      let newLogLines = await fetchPaginatedLogs(logDisplayEnd + 1, endLine);
+      let prevLogs = editorRef.current?.getValue();
+      updateTextInEditor(prevLogs + newLogLines);
 
-    // update the number of log lines loaded in window
-    setNumberOfLinesLoaded(numberOfLinesLoaded + newLinesCount);
-    // update the number of lines in log file
-    setTotalNumLogLines(newLogLineCount);
-    // update the new end line
-    setLogDisplayEnd(endLine);
+      // update the number of log lines loaded in window
+      setNumberOfLinesLoaded(numberOfLinesLoaded + newLinesCount);
+      // update the number of lines in log file
+      setTotalNumLogLines(newLogLineCount);
+      // update the new end line
+      setLogDisplayEnd(endLine);
+    } finally {
+      appendInFlightRef.current = false;
+    }
   };
 
   // helper function to access next js endpoint for retrieving log lines
@@ -282,6 +421,80 @@ export default function FramePage() {
     return totLines;
   };
 
+  // Follow tail mode: while on, poll for newer lines, append them, and stick to
+  // the bottom. Re-subscribes when the relevant log state changes so the
+  // appended-from closure stays fresh.
+  useEffect(() => {
+    if (!followMode || logStatus !== "ready") return;
+    let cancelled = false;
+    // Serialize ticks: a slow fetch must not overlap with the next interval
+    // and append the same chunk twice from stale logDisplayEnd state.
+    let inFlight = false;
+    const tick = async () => {
+      if (cancelled || !editorRef.current || inFlight) return;
+      inFlight = true;
+      try {
+        await loadNewerLogMessages();
+        if (!cancelled) scrollToVeryBottom();
+      } finally {
+        inFlight = false;
+      }
+    };
+    tick();
+    // Tail mode polls every 1s; otherwise a gentler 1.5s.
+    const id = setInterval(tick, tailMode ? 1000 : 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followMode, logStatus, logDisplayEnd, totalNumLogLines, numberOfLinesLoaded, curLogPath, tailMode]);
+
+  // Start following automatically in tail mode or for a running frame
+  // (still pausable by scrolling up).
+  useEffect(() => {
+    if (tailMode || frameObject?.state === "RUNNING") {
+      setFollowMode(true);
+      setAtBottom(true);
+    }
+  }, [tailMode, frameObject?.state]);
+
+  // Maintain a hover copy-glyph on each line. Decorate only the visible lines
+  // (re-applied on scroll) rather than every loaded line, so the cost is
+  // bounded by the viewport instead of O(total loaded lines) on each content
+  // update - important for large / live-tailing logs.
+  useEffect(() => {
+    const ed = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco) return;
+
+    const applyVisibleGlyphs = () => {
+      const model = ed.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      const decos = [];
+      for (const range of ed.getVisibleRanges()) {
+        const start = Math.max(1, range.startLineNumber);
+        const end = Math.min(lineCount, range.endLineNumber);
+        for (let i = start; i <= end; i++) {
+          decos.push({
+            range: new monaco.Range(i, 1, i, 1),
+            options: {
+              glyphMarginClassName: "cueweb-copy-line-glyph",
+              glyphMarginHoverMessage: { value: "Copy line" },
+            },
+          });
+        }
+      }
+      copyGlyphDecorationsRef.current = ed.deltaDecorations(copyGlyphDecorationsRef.current, decos);
+    };
+
+    applyVisibleGlyphs();
+    // Re-decorate as new lines scroll into view.
+    const scrollDisposable = ed.onDidScrollChange(applyVisibleGlyphs);
+    return () => scrollDisposable.dispose();
+  }, [logContentVersion, editorMounted]);
+
   // Handles updates when a different log version is selected
   const handleVersionChange = (e: SelectChangeEvent<string>) => {
     setCurLogVersion(e.target.value);
@@ -292,6 +505,7 @@ export default function FramePage() {
   // Retreives new log versions when the logDirPath changes
   useEffect(() => {
     async function fetchLogVersions() {
+      if (lokiEnabled) return;
       const res = await fetch(`/api/getlogversions?filename=${logDirPath}`);
       const json = await res.json();
       if (res.ok && json.versions) {
@@ -301,6 +515,29 @@ export default function FramePage() {
       }
     }
     fetchLogVersions();
+  }, [logDirPath]);
+
+  // Resolve the parent job from the log path's job-name prefix so the frame
+  // preview panel (and job-scoped frame actions) have job context here.
+  useEffect(() => {
+    const name = jobNameFromLogPath(logDirPath);
+    if (!name) {
+      setJob(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const escaped = name.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const matches = await getJobsForRegex(`^${escaped}$`, true);
+        if (!cancelled) setJob(matches.length ? matches[0] : null);
+      } catch {
+        if (!cancelled) setJob(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [logDirPath]);
 
   const frameNameFromRoute = decodeURIComponent(routeParams?.["frame-name"] ?? "");
@@ -332,6 +569,11 @@ export default function FramePage() {
         <>
           <span>{frameObject.name}</span>
           <SimpleDataTable data={[frameObject]} columns={frameColumns} showPagination={false} isFramesLogTable={true} username={username}></SimpleDataTable>
+          {/* Frame right-click dialogs + preview panel. The parent job is
+              resolved from the log path's job-name prefix, so job-scoped
+              actions and the frame preview work here too. */}
+          <FrameExtraDialogs job={job ?? undefined} />
+          <FramePreviewPanel job={job ?? undefined} />
         </>
       ) : (
         <div />
@@ -339,11 +581,17 @@ export default function FramePage() {
 
       {/* Some white space between table and logs div */}
       <div className="mb-12" />
-      
-      {/* Dropdown to select different log versions */}
+
+      {lokiEnabled ? (
+        // Loki-backed viewer (NEXT_PUBLIC_LOKI_URL is set).
+        <LokiLogView frameId={frameId} startTime={frameObject?.startTime} />
+      ) : (
+        <>
+      {/* Dropdown to select different log versions + raw-log download */}
       <div className="my-4">
         <h3>Log versions</h3>
-        <FormControl 
+        <div className="flex items-center gap-2">
+        <FormControl
           size="small"
           sx={{
             backgroundColor: theme => theme.palette.background.default,
@@ -355,19 +603,54 @@ export default function FramePage() {
             value={curLogVersion}
             label="log version"
             onChange={handleVersionChange}
+            // Keep the closed control compact (just the file name); the rich
+            // name/timestamp/size rows only appear in the open dropdown.
+            renderValue={(val) => String(val)}
+            sx={{ minWidth: 340 }}
+            MenuProps={{ PaperProps: { sx: { minWidth: 420 } } }}
           >
-            {logVersions.map((version) => (
-              <MenuItem key={version} value={version}>
-                {version}
-              </MenuItem>
-            ))}
+            {logVersions.map((version) => {
+              // logVersions is newest-first (sorted by mtime in the API), so the
+              // first entry is the most recent -> gets the "Latest" badge.
+              const isLatest = version.name === logVersions[0]?.name;
+              return (
+                <MenuItem key={version.name} value={version.name}>
+                  <span className="flex w-full items-center gap-3">
+                    <span className="flex-1 truncate font-mono text-xs">{version.name}</span>
+                    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                      {formatLogMtime(version.mtime)}
+                    </span>
+                    <span className="w-20 shrink-0 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatLogSize(version.size)}
+                    </span>
+                    {isLatest && (
+                      <span className="shrink-0 rounded bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                        Latest
+                      </span>
+                    )}
+                  </span>
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
+          {/* Download the currently-selected log version as a .log attachment. */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/api/getlog?path=${encodeURIComponent(curLogPath)}`}
+              download
+              title="Download the raw log file"
+            >
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+              Download
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Logs for Frame */}
-      <div className="my-2 mt-1 pt-1 overflow-hidden w-full rounded-xl border border-gray-400 bg-black">
-        <div className="space-x-3">
+      <div className="relative my-2 mt-1 pt-1 overflow-hidden w-full rounded-xl border border-gray-400 bg-black">
+        <div className="flex items-center space-x-3">
           <Button
             size="xs"
             className="ml-4 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800"
@@ -375,10 +658,33 @@ export default function FramePage() {
           >
             Scroll from Top
           </Button>
+          <Button
+            size="xs"
+            aria-pressed={followMode}
+            title="Auto-scroll to the bottom as new lines arrive"
+            className={`text-xs font-medium ${
+              followMode
+                ? "bg-green-700 text-white hover:bg-green-800"
+                : "bg-gray-700 text-white hover:bg-gray-600"
+            }`}
+            onClick={() => {
+              const next = !followMode;
+              setFollowMode(next);
+              if (next) {
+                setAtBottom(true);
+                scrollToVeryBottom();
+              }
+            }}
+          >
+            {followMode ? "Following" : "Follow"}
+          </Button>
           <span className="text-white ml-4">
             {totalNumLogLines && totalNumLogLines != -1 ? totalNumLogLines.toLocaleString() + " lines of logs" : ""}
           </span>
         </div>
+        {logStatus !== "missing" && logStatus !== "empty" ? (
+          <FrameLogSearch editorRef={editorRef} contentVersion={logContentVersion} />
+        ) : null}
         <div className="mt-1">
           {logStatus === "missing" || logStatus === "empty" ? (
             <div
@@ -435,7 +741,26 @@ export default function FramePage() {
             />
           )}
         </div>
+
+        {/* Floating jump-to-bottom: shown when scrolled up off the tail.
+            Clicking it re-enables follow. */}
+        {logStatus === "ready" && !atBottom ? (
+          <button
+            type="button"
+            onClick={() => {
+              scrollToVeryBottom();
+              setAtBottom(true);
+              setFollowMode(true);
+            }}
+            className="absolute bottom-4 right-6 z-10 inline-flex items-center gap-1 rounded-full border border-gray-500 bg-gray-800/90 px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:bg-gray-700"
+          >
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            Jump to bottom
+          </button>
+        ) : null}
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -19,8 +19,10 @@
 import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   Layers3,
   PanelBottom,
   PanelLeft,
@@ -43,7 +45,47 @@ import {
   useAttributesPanel,
 } from "@/app/utils/use_attributes_panel";
 import { useAttributeSelection } from "@/app/utils/use_attribute_selection";
+import { toastWarning } from "@/app/utils/notify_utils";
 import { cn } from "@/lib/utils";
+
+/** Small copy-to-clipboard icon button used for attribute keys and values. */
+function CopyButton({ text, what }: { text: string; what: string }) {
+  const [copied, setCopied] = React.useState(false);
+  // Track the "copied" reset timer so it can be cancelled if the button
+  // unmounts (e.g. the selection changes) before it fires, avoiding a state
+  // update on an unmounted component.
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+  return (
+    <button
+      type="button"
+      aria-label={`Copy ${what}`}
+      title={`Copy ${what}`}
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => setCopied(false), 1200);
+        } catch {
+          toastWarning("Could not copy to clipboard.");
+        }
+      }}
+      className="shrink-0 rounded p-0.5 text-muted-foreground opacity-60 transition hover:bg-foreground/10 hover:text-foreground hover:opacity-100"
+    >
+      {copied ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Copy className="h-3 w-3" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Tree node - render any JSON-like value as a key/value row, with children
@@ -128,19 +170,23 @@ function AttributeRow({
 
   if (!matchesFilter(label, value, query)) return null;
 
+  const scalar = formatScalar(value);
   return (
     <div
       style={{ paddingLeft: depth * 12 + 18 }}
       className="grid grid-cols-[minmax(0,140px)_1fr] gap-3 px-2 py-1 text-xs"
     >
-      <div className="truncate font-mono text-foreground/70" title={label}>
-        {label}
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="truncate font-mono text-foreground/70" title={label}>
+          {label}
+        </span>
+        <CopyButton text={label} what="key" />
       </div>
-      <div
-        className="break-all font-mono text-foreground"
-        title={formatScalar(value)}
-      >
-        {formatScalar(value)}
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="min-w-0 break-all font-mono text-foreground" title={scalar}>
+          {scalar}
+        </span>
+        <CopyButton text={scalar} what="value" />
       </div>
     </div>
   );

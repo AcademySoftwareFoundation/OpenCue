@@ -28,6 +28,7 @@ import {
   getHostProcs,
 } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
+import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { EditHostTagsDialog } from "@/components/ui/edit-host-tags-dialog";
@@ -140,6 +141,19 @@ export default function HostDetailPage() {
   React.useEffect(() => {
     loadHost();
   }, [loadHost]);
+
+  // Load the host into the Attributes panel (CueGUI parity: selecting a host
+  // shows its attributes). Refreshes as the host data is re-fetched.
+  React.useEffect(() => {
+    if (host) {
+      setAttributeSelection({
+        type: "host",
+        id: host.id,
+        name: host.name,
+        data: host as unknown as Record<string, unknown>,
+      });
+    }
+  }, [host]);
 
   // Tag edits (and other host actions) fire cueweb:hosts-changed. Patch the
   // affected fields immediately so the Tags tab updates without a flash, then

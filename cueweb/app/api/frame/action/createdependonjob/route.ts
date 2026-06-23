@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Mirrors Frame.createDependencyOnJob (pycue) ->
 // FrameInterface.CreateDependencyOnJob. Used by the Frame On Job
 // dependency wizard flow.
 export async function POST(request: NextRequest) {
-  const endpoint = "/frame.FrameInterface/CreateDependencyOnJob";
+  const endpoint = "/job.FrameInterface/CreateDependencyOnJob";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });

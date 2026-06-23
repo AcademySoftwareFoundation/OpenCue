@@ -315,8 +315,8 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.layers().addAction(depend_menu, "markdone")
         menu.addMenu(depend_menu)
 
+        menu.addSeparator()
         if len(__selectedObjects) == 1:
-            menu.addSeparator()
             try:
                 if int(self.app.settings.value("DisableDeeding", 0)) == 0:
                     if len({layer.data.range for layer in __selectedObjects}) == 1:

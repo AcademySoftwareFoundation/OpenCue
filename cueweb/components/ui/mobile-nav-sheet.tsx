@@ -28,7 +28,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, Keyboard, LayoutDashboard } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Check, Columns, Keyboard, LayoutDashboard } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NAV_MENUS } from "@/app/utils/menus";
@@ -37,11 +38,15 @@ import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
+import { buildSplitUrl, DEFAULT_LEFT, DEFAULT_RIGHT } from "@/app/utils/split_view_utils";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
 import { cn } from "@/lib/utils";
 
 /** Dispatched by the hamburger button in AppHeader. */
 export const CUEWEB_OPEN_MOBILE_NAV_EVENT = "cueweb:open-mobile-nav";
+
+const SPLIT_VIEW_HREF = buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT);
 
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -51,6 +56,15 @@ function isActive(pathname: string | null, href: string): boolean {
 
 export function MobileNavSheet() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  // Admin-only menus are hidden from non-admins. While the session is loading we
+  // can't know yet, so hide them to avoid a flash before it resolves; once
+  // resolved, an absent isAdmin (no auth / no group authorization) means
+  // everyone is admin, so default to true.
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
   const [open, setOpen] = React.useState(false);
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
@@ -58,6 +72,7 @@ export function MobileNavSheet() {
   const { isOpen: attributesOpen, toggle: toggleAttributes } = useAttributesPanel();
   const { enabled: shortcutNotificationsEnabled, toggle: toggleShortcutNotifications } =
     useShortcutNotifications();
+  const { immersive, toggle: toggleImmersive } = useImmersiveMode();
 
   React.useEffect(() => {
     const handler = () => setOpen(true);
@@ -122,8 +137,8 @@ export function MobileNavSheet() {
             ))}
           </Group>
 
-          {/* Cuetopia / CueCommander - the NAV_MENUS groups */}
-          {NAV_MENUS.map((menu) => (
+          {/* Cuetopia / CueCommander / Admin - the NAV_MENUS groups */}
+          {NAV_MENUS.filter((menu) => !menu.adminOnly || isAdmin).map((menu) => (
             <Group key={menu.label} label={menu.label}>
               {menu.items.map((item) => (
                 <MobileLink
@@ -143,6 +158,18 @@ export function MobileNavSheet() {
               label="Attributes"
               checked={attributesOpen}
               onToggle={toggleAttributes}
+            />
+            <MobileToggle
+              label="Immersive (full-screen)"
+              checked={immersive}
+              onToggle={toggleImmersive}
+            />
+            <MobileLink
+              href={SPLIT_VIEW_HREF}
+              label="Split view"
+              icon={<Columns className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              active={isActive(pathname, "/split")}
+              onSelect={close}
             />
             <MobileAction
               label="Show Shortcuts"
