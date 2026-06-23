@@ -12,3 +12,10 @@ scrape_configs:
     static_configs:
       - targets:
           - 'db-exporter:9187'
+
+  # CueWeb usage metrics (per-user page views / actions / API latency).
+  - job_name: cueweb
+    metrics_path: /api/metrics
+    static_configs:
+      - targets:
+          - 'cueweb:3000'

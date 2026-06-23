@@ -110,8 +110,8 @@ interface ToolbarProps {
 
 /**
  * Single icon button with a shortcut-aware tooltip. The shortcut string is
- * surfaced visually now; the keys themselves are wired up by A12 (keyboard
- * shortcuts overlay).
+ * surfaced visually now; the keys themselves are wired up by the keyboard
+ * shortcuts overlay.
  */
 interface ToolbarButtonProps {
   children: React.ReactNode;

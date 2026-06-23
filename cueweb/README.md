@@ -20,6 +20,7 @@ CueWeb System
       - [Example: Adding Gitlab authentication](#example-adding-gitlab-authentication)
       - [Custom Login Page](#custom-login-page)
 - [Features](#features)
+  - [Plugins](#plugins)
   - [Keyboard shortcuts](#keyboard-shortcuts)
     - [Below are some screenshots of the interface](#below-are-some-screenshots-of-the-interface)
 - [Troubleshooting](#troubleshooting)
@@ -39,11 +40,11 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - OpenCue logo (theme-aware: `opencue-icon-black.png` in light mode, `opencue-icon-white.png` in dark mode) followed by the **CueWeb** wordmark.
    - Six dropdown menus that mirror the CueGUI menu bar:
      - **File** → Disable Job Interaction (read-only safety toggle, see below).
-     - **Cuebot Facility** → `local` · `dev` · `cloud` · `external` (overridable via `NEXT_PUBLIC_CUEBOT_FACILITIES`). The active facility is shown as a small chip on the menu trigger.
+     - **Cuebot Facility** → `local` · `dev` · `cloud` · `external` (overridable via `NEXT_PUBLIC_CUEBOT_FACILITIES`). The active facility is shown as a small chip on the menu trigger. Each facility may target its own gateway via the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` / `CUEBOT_<NAME>_JWT_SECRET` (falling back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`). The menu polls `/api/facility/health` every 30s to show a green/red dot per facility and disables selecting one whose gateway is down. **Manage facilities…** opens an admin screen (`/settings/facilities`) to edit each facility's gateway URL / JWT secret at runtime — applied without a redeploy, layered over the env defaults, with a change-history log; persist these overrides by pointing `CUEWEB_FACILITY_STORE` at a mounted volume.
      - **Cuetopia** → Monitor Jobs.
      - **CueCommander** → Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions. Unimplemented routes 404 gracefully until the corresponding pages land.
-     - **Other** → **Attributes** (toggles the docked Attributes panel, see below), **Show Shortcuts** (opens the same overlay as pressing `?`), **Notify on Shortcut** (toggles the per-shortcut toast).
-     - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity) plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
+     - **Other** → **Attributes** (toggles the docked Attributes panel, see below), **Immersive (full-screen)** (hides the header, sidebar and status bar so the active table fills the viewport; also bound to `F` / Cmd-Ctrl+Shift+F), **Split view** (open two pages side-by-side in a resizable split workspace), **Show Shortcuts** (opens the same overlay as pressing `?`), **Notify on Shortcut** (toggles the per-shortcut toast).
+     - **Help** → search box that searches *every* menu command in CueWeb (CueGUI parity), an **About CueWeb** dialog showing the build version, Build SHA, active Cuebot facility, masked REST gateway URL, Apache 2.0 license link, OpenCue/ASWF credits, and a **Copy diagnostics** button, plus links to the Online User Guide, Make a Suggestion, and Report a Bug (URLs overridable via `NEXT_PUBLIC_DOCS_URL` / `NEXT_PUBLIC_SUGGESTIONS_URL` / `NEXT_PUBLIC_BUGS_URL`).
    - Theme toggle on the right.
    - An always-visible **Sign out** button on the right. With an active session, `signOut()` clears it and redirects to `/login`; without a session it just navigates to `/login`. The `/login` page itself handles both auth configurations — empty `NEXT_PUBLIC_AUTH_PROVIDER` renders the **CueWeb Home** button, while a populated value renders the provider buttons.
    - When the user is signed in, the right-side cluster also shows the session's name or email next to the Sign out button.
@@ -68,11 +69,11 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - 24-pixel-tall bar fixed to the bottom of the viewport with three metrics, each with a tooltip:
      1. **Gateway**: dot + `Online`/`Offline` + round-trip latency in milliseconds. Polled every 10 seconds via `/api/health` (a JWT-signed reachability probe against `/show.ShowInterface/GetActiveShows` with a 5-second timeout). When the gateway is unreachable, the bar's surface turns red so the failure is visible at a glance.
      2. **Last refresh**: live relative timestamp ("just now", "12s ago", "3m ago", ...). Updated whenever the jobs table fires a `cueweb:jobs-refreshed` CustomEvent (every 5 seconds while the table is mounted). Re-renders once per second so the relative time stays accurate without waiting for the next event.
-     3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>`. Resolved at build time - falls back to the `version` field in `package.json` when the env var is unset, and can be overridden in CI by passing `--build-arg NEXT_PUBLIC_APP_VERSION=<sha>` to `docker build`.
+     3. **Version**: `v<NEXT_PUBLIC_APP_VERSION>` (also shown in **Help → About CueWeb** alongside the Build SHA). Resolved once at build time, first hit wins: (1) the `NEXT_PUBLIC_APP_VERSION` env / build-arg (CI injects the OpenCue version or a SHA); (2) `OVERRIDE_CUEWEB_VERSION.in` - its default value `VERSION.in` tracks the repo-root `VERSION.in` (OpenCue's shared version, also read by Cuebot / CueGUI), while any other value is used verbatim as a CueWeb-specific override; (3) the `version` field in `package.json` as a last-resort fallback. The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg and shows `unknown` when unset.
    - Hidden on `/login*`; matches the chrome's translucent surface so it integrates with both light and dark themes.
 - **Mobile-friendly UI:**
    - Every authenticated route works on phone-sized viewports. The Jobs page stacks its filter / toolbar / table vertically on small screens instead of forcing a wide layout, and each data table can be swiped horizontally to reach off-screen columns.
-   - On phones the desktop sidebar is replaced by a **hamburger** menu in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
+   - On phones the desktop sidebar is replaced by a **hamburger** menu in the global header. Tapping it opens a side drawer mirroring every sidebar group: Dashboard, File, Cuebot Facility, Cuetopia, CueCommander, Other (Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut), and Help. The drawer is scrollable and auto-closes when you tap a navigation link.
    - Every Jobs / Layers / Frames row has a small `⋮` Actions button as its leftmost cell, so touch users get the full right-click menu via a tap.
    - The keyboard-shortcuts overlay (Other ▸ Show Shortcuts or `?`) is itself touch-friendly: every key badge in the list is tappable, so users on phones can trigger `/`, `r`, and `t` from inside the dialog instead of needing a physical keyboard.
 - **LAN access (CueWeb usable from phones / tablets):**
@@ -94,6 +95,8 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
    - The header and login page share the same OpenCue + CueWeb branding via the `CueWebIcon` component.
 - **Job management dashboard:**
   - Customizable table views: hide/show columns AND reorder them left/right inside each table's **Columns** dropdown, with a pinned **Reset to Default** button that restores both visibility and order. Both states persist in `localStorage` per table (Jobs: `columnVisibility` / `columnOrder`; Layers: `cueweb.layers.columnVisibility` / `cueweb.layers.columnOrder`; Frames: `cueweb.frames.columnVisibility` / `cueweb.frames.columnOrder`).
+  - Saveable view presets (web-native replacement for CueGUI's *Save Window Settings*): each major table has a **Views** dropdown to **Save as…**, **Apply**, **Rename**, and **Delete** named presets capturing column order/visibility, sort, filters, and page size. Presets persist per page under `localStorage["cueweb.views.<page>"]` (e.g. `cueweb.views.jobs`, `cueweb.views.hosts`, `cueweb.views.frames`) with the active preset name under `cueweb.views.<page>.active`, and broadcast across tabs via the `storage` event. A built-in **Default** entry can't be renamed or deleted; selecting it restores the table to its documented defaults.
+  - Multi-pane split workspace (web-native replacement for CueGUI's Window ▸ *Add new window*): **Other ▸ Split view** opens two pages side-by-side at `/split?left=/jobs&right=/hosts/server-01`. Drag the divider to resize (position persists under `localStorage["cueweb.split.ratio"]`); each pane is an independent same-origin view with its own URL (encoded in the page URL, so a reload restores both panes); a per-pane page picker, **Swap**, and **open-in-new-tab** round it out. Navigating inside a pane (e.g. clicking a host) updates that pane's URL in place.
   - CueGUI-parity Jobs columns: Name, **Comments** (sortable sticky-note column - sort to pull jobs with comments to the top), State, Done / Total, Running, Dead, Eaten, Wait, MaxRss, Age, Readable Age, **Launched**, **Eligible**, **Finished**, **User Color** (per-job color swatch persisted to `localStorage["cueweb.userColors"]` with cross-tab sync), Progress, Notify.
   - CueGUI-parity Layers columns: Dispatch Order, Name, Services, Limits, Range, Cores, Memory, Gpus, Gpu Memory, MaxRss, Total, Done, Run, Depend, Wait, Eaten, Dead, Avg, Tags, Progress (stacked animated bar with the same per-state palette as the Jobs progress bar), Timeout, Timeout LLU, **Eligible**.
   - CueGUI-parity Frames columns: Order, Frame, Layer, Status, Cores, GPUs, Host, Retries, CheckP, Runtime, **LLU** (only populated for `RUNNING` frames, matching CueGUI), **Memory (RSS)**, **Memory (PSS)**, GPU Memory, **Remain** (placeholder until the ETA predictor is wired in), Start Time, Stop Time, **Eligible Time**, **Submission Time**, **Last Line** (placeholder until the per-frame log-tail fetch is wired in).
@@ -104,6 +107,7 @@ CueWeb replicates the core functionality of CueGUI (Cuetopia and Cuecommander) i
   - Frame navigation with hyperlinks to logs and data pages.
   - Stacked job progress bar with a hover tooltip showing per-state frame counts and percentages (succeeded / running / waiting / depend / dead). The Layers table reuses the same `<ProgressBar/>` renderer with `getLayerProgressSegments` so per-layer progress matches the per-job style.
   - Frame state filter chips above the frames table (`WAITING`, `RUNNING`, `SUCCEEDED`, `DEAD`, `EATEN`, `DEPEND`) with per-state counts, OR-combined selection, and selection mirrored to the `frameStates` URL query parameter for bookmarkable/shareable filtered views.
+  - Visual **frame range selector** above the frames table (CueGUI `FrameRangeSelection.py` parity): a horizontal strip with one state-colored cell per frame in ascending frame order. Click-drag selects a contiguous range, shift-click extends the selection from the anchor, and the selected subset feeds straight into the same **Retry** / **Eat** / **Kill** frame actions as the right-click menu (with a confirm step; Kill is destructive). The strip reflects the active frame-state filter and survives the 5s auto-refresh.
   - CueGUI-parity right-click menus on every row, following the CueGUI Monitor Jobs and Monitor Job Details menu structure. Menus scroll instead of overflowing on small viewports; items not yet implemented surface a friendly placeholder toast.
   - Mobile-friendly equivalent of right-click: every Jobs / Layers / Frames row has a small `⋮` button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens, so touch users get the full action set without a right-click event.
   - Wired copy actions: **Copy Job Name** (Job menu); **Copy Layer Name** (Layer menu); **Copy Frame Name** + **Copy Log Path** (Frame menu). Each pushes the value to the clipboard with a confirmation toast. Works whether CueWeb is served from `localhost` or from a LAN IP over plain HTTP.
@@ -201,6 +205,25 @@ Next is the process to install and use the CueWeb system.
         # NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
         ```
 
+    - CueWeb authorization environment variables (optional, group-based access control)
+        - On top of authentication (*who* you are), CueWeb supports optional group-based authorization (*what* you may do), enforced server-side in `cueweb/middleware.ts`.
+        - Group membership is resolved once at sign-in from the identity provider and stamped on the session token (`cueweb/lib/auth.ts`); the middleware then reads it. The policy is entirely environment-driven, so the same image enforces different rules per deployment:
+            - `CUEWEB_AUTHZ_ENABLED` - master switch. **Opt-in: defaults to disabled** (the middleware is a pure pass-through). Set to `true` to enable the gate. This is the seam for the planned OpenCue-wide authentication/authorization layer - a deployment enables CueWeb's gate only if it wants CueWeb to own access control, and leaves it off to defer to that layer.
+            - `CUEWEB_ALLOWED_GROUPS` - comma-separated groups allowed to use CueWeb at all.
+            - `CUEWEB_ADMIN_GROUPS` - comma-separated groups allowed to use the admin pages: the CueCommander administration pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame) and job submission (CueSubmit). Monitoring routes are not gated.
+            - `CUEWEB_GROUPS_CLAIM` - the JWT/OIDC claim that carries the user's groups (default: `groups`).
+        - **Defaults:** the gate is off unless `CUEWEB_AUTHZ_ENABLED=true`. Even when enabled, leaving the group lists empty keeps the original behavior - every signed-in user is allowed and is treated as an admin. Group gating requires an auth provider whose token exposes group memberships (for example an OIDC `groups` claim). When authentication is disabled (`NEXT_PUBLIC_AUTH_PROVIDER` unset), the gate is inactive and all routes are open.
+        - **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get a `403`); a user who is not in `CUEWEB_ADMIN_GROUPS` is blocked from the administration pages the same way.
+        - **Custom group sources:** if your identity provider's token does not carry groups, resolve them at sign-in by extending the `jwt` callback / `extractGroups` seam in `cueweb/lib/auth.ts` (for example a directory or service lookup). The enforcement in `middleware.ts` stays unchanged because it only reads the resolved groups from the token.
+        ```env
+        # Authorization (optional, opt-in). The gate is off unless enabled below.
+        # When enabled, empty group lists = every signed-in user allowed + admin.
+        CUEWEB_AUTHZ_ENABLED=false
+        CUEWEB_ALLOWED_GROUPS=
+        CUEWEB_ADMIN_GROUPS=
+        CUEWEB_GROUPS_CLAIM=groups
+        ```
+
     - Sentry environment variables
         - If you use [Sentry](https://sentry.io/) system to monitor the CueWeb application, the following environment variables should be set:
             - SENTRY_ENVIRONMENT
@@ -228,10 +251,22 @@ Next is the process to install and use the CueWeb system.
         SENTRY_PROJECT = sentryproject
         ```
 
+    - Loki log backend (optional)
+        - NEXT_PUBLIC_LOKI_URL
+            - When set, the frame log viewer queries a [Grafana Loki](https://grafana.com/oss/loki/) server for a frame's logs (by `frame_id`) instead of reading the on-disk `.rqlog` file. This mirrors CueGUI's `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`) and requires RQD to be configured to ship frame logs to Loki.
+            - Set it to the base URL of your Loki HTTP API, e.g. `http://your-loki-host:3100` (no trailing path; CueWeb appends `/loki/api/v1/...`). The viewer lists each frame attempt as a selectable "log version" (Loki's `session_start_time` label), newest first.
+            - **If `NEXT_PUBLIC_LOKI_URL` is not set, CueWeb falls back to the default file-based log viewer.** No other configuration is required to keep the existing behavior.
+            - Because this is a `NEXT_PUBLIC_*` variable it is read in the browser, so the Loki server must be reachable from clients and must permit cross-origin (CORS) requests from the CueWeb origin.
+
 Example of `.env` file (`cueweb/.env.example`):
 
 ```env
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://your-rest-gateway-url.com
+
+# Optional: Loki log backend. When set, the frame log viewer queries Loki by
+# frame id instead of reading the on-disk .rqlog file. Leave unset to use the
+# default file-based log viewer.
+# NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 
 # Sentry values
 SENTRY_ENVIRONMENT='development'
@@ -369,6 +404,8 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Search:** Advanced search with regex support, dropdown suggestions, and optimized loading.
 - **Dark mode:** Toggle between light and dark themes.
 - **Actions:** Job, layer, and frame actions (pause, retry, kill, eat, and others) through CueGUI-parity right-click context menus. Includes **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Set Priority...** (themed 1-100 slider + number input dialog with optimistic in-row update; available on both Cuetopia Monitor Jobs and CueCommander Monitor Cue), Copy Job / Layer / Frame Name, Copy Log Path, View Log + Tail Log, and an optional **View Log on <editor>** item that launches the rqlog in VSCode / Sublime / TextMate / IntelliJ via a custom URL scheme (configured at build time, default is VSCode).
+- **Full Job/Layer/Frame menu parity:** the menus also cover **Set User Color** (15 CueGUI swatches + a bright palette, stored per browser), **Set Min/Max Cores** & **Set Min/Max GPUs**, **Max Retries**, **Use Local Cores**, **Reorder** / **Stagger**, **Auto-Eat**, and **Show Progress Bar** on jobs; **View Layer**, **Properties** (min cores/memory/GPU-memory, threadable, tags), **Mark done** / **Eat and Mark done**, **View Processes**, and dependency items (View / Drop / **Dependency Wizard**) on layers; and **View Host**, **Mark as waiting**, **Filter Selected Layers**, **Preview All**, **Reorder**, dependency items, plus a drag/shift-click **frame range selector** (Retry / Eat / Kill a contiguous range) on frames. **Show Progress Bar** shows a configurable launch command (`NEXT_PUBLIC_CUEPROGBAR_COMMAND` / `NEXT_PUBLIC_CUEPROGBAR_URL`); **Preview All** opens rendered output in an external viewer (`NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL`, default `rv {paths}`).
+- **Frame log viewer enhancements:** in-log search (highlight + `n/total` counter, Enter / Shift+Enter, case + regex toggles), follow/tail mode (auto-scroll, pause-on-scroll-up, jump-to-bottom; **Tail Log** opens it by default at the last 200 lines with a ~1s poll), absolute line numbers, per-line copy (hover glyph / context menu, with a toast), raw-log download, and a **frame preview thumbnail** panel (`/api/frame/preview`, web-renderable formats only).
 - **CueSubmit (browser job submission):** dedicated `/cuesubmit` route reachable from the **CueSubmit** top-level dropdown in the header, the matching **CueSubmit > Submit Job** group in the left sidebar, and the mobile nav drawer. Mirrors the standalone CueSubmit CLI tool with Job Info / Layer Info / per-type panels for Shell / Maya / Nuke / Blender, a live read-only Final command preview that updates per-keystroke, and a multi-layer Submission Details table with add / remove / reorder controls. Browser-only conveniences: per-field autocomplete history (Job Name / Shot / Layer Name), draft auto-save so refreshes don't wipe a multi-layer setup, themed `?` help popovers for frame-spec patterns and cuebot tokens, themed Radix Reset-confirm dialog, and a **View in Monitor Jobs** deep-link button on the resulting job detail page. Sandbox-tuned defaults (Memory `256m`, Facility `local`, stable non-zero per-user UID) so a `sleep 5` test job runs end-to-end out of the box.
 - **Email Artist:** right-click a job and pick **Email Artist...** to open a themed dialog mirroring CueGUI's Email dialog (From / To / CC / BCC / Subject / Body), pre-filled from the job (artist as **To**, `<show>-<suffix>@<domain>` as **From** / **CC**, `cuemail: please check <jobName>` as **Subject**) and editable. Send hands the result to the user's default mail client via a `mailto:` URL. Configure the placeholders at build time with `NEXT_PUBLIC_EMAIL_DOMAIN` (default `your.domain.com`) and `NEXT_PUBLIC_EMAIL_SUPPORT_SUFFIX` (default `pst`).
 - **Request Cores:** right-click a job and pick **Request Cores...** to open a themed email composer mirroring CueGUI's `RequestCoresDialog`, pre-filled with **From** (your signed-in session), **CC** (`<show>-support@<domain>`), and **Subject** (`Requesting Cores for <jobName>`); the body is auto-populated with a fixed-width table of the job's still-active layers (Layer Name / Minimum Memory / Min Cores), followed by editable **Date/Time by which completion is needed** and **Additional notes** sections. Send hands the result to your default mail client via a `mailto:` URL. Configure the support-team alias at build time with `NEXT_PUBLIC_EMAIL_REQUEST_CORES_SUFFIX` (default `support`).
@@ -377,15 +414,51 @@ The current CueWeb system offers a robust set of features designed to enhance us
 - **Auto-reloading:** Real-time updates for tables.
 - **Job-finished notifications (two channels):** A per-row **Notify bell** subscribes the browser - a background poller fires a toast (and an optional desktop popup when notification permission is granted) when the job reaches `FINISHED`; subscriptions persist in `localStorage`, sync across tabs, and the notify decision is serialized cross-tab via the Web Locks API so only one tab toasts when several poll the same job. The right-click **Subscribe to Job** menu entry opens a CueGUI-parity dialog that registers an *email* subscriber on Cuebot via the `AddSubscriber` RPC, so Cuebot mails the saved address when the job finishes. The two channels are independent.
 - **Job dependencies (CueGUI parity):** the job right-click menu groups four entries together. **View Dependencies...** opens a themed dialog mirroring CueGUI's `DependDialog` - a Type / Target / Active / OnJob / OnLayer / OnFrame table backed by the `GetDepends` RPC, with a **Refresh** button. **Dependency Wizard...** is a multi-step state machine covering every CueGUI `depend.DependType` (Job-On-Job / Layer / Frame, Frame By Frame for all layers / Hard Depend, Layer-On-Job / Layer / Frame, Frame By Frame, Frame-On-Job / Layer / Frame, Layer on Simulation Frame); every picker (source layers / frames, target jobs / layers / frames) is multi-select and Done fires the full source x target cross-product in one bulk batch. The Hard Depend variant pairs source/target layers by `layer.type` and fans out one `CreateFrameByFrameDependency` per matched pair across every picked target job. **Drop External Dependencies** and **Drop Internal Dependencies** call the `DropDepends` RPC with `target = EXTERNAL` / `INTERNAL` respectively; on success they dispatch `cueweb:refresh-now` and `cueweb:depends-changed` so the Jobs table re-polls and the Group-By Dependent tree cache rebuilds immediately.
+- **Monitor Cue (CueCommander parity):** a show-grouped job tree at `/monitor-cue`, the CueWeb equivalent of CueGUI's Monitor Cue window (previously a dead sidebar link). A **Shows** multi-select (All Shows / Clear / per-show, persisted) drives the tree, loaded via `getActiveShows` → `getShowGroups` → `getGroupJobs` and auto-refreshed every 5s. Full CueGUI column set (Comment + Auto-eat icons, Job, Run, Cores, Gpus, Wait, Depend, Total, **Booking** bar with cyan min / red max core markers via `job-booking-bar.tsx`, Min, Max, Min G, Max G, Pri, ETA, MaxRss, MaxGpuMem, Age, Readable Age, Progress) with sortable headers, a show/hide + reorder Columns dropdown and a Filter box (persisted), and CueGUI row tint (`jobRowClass`: blue=paused, red=dead, yellow=high maxRss, green=waiting, purple=all-depend). Toolbar Eat / Retry / Pause / Unpause / Kill (confirm), Refresh + Auto-refresh, Expand/Collapse All, a live name/regex **Select:** box, select-all + Shift+click range selection. Reuses `JobContextMenu` with Monitor-Cue-only entries (View Job, **Send To Group…** via `reparentJobs` → `group.GroupInterface/ReparentJobs`, the resource/priority setters, Use Local Cores, Unbook Frames…, Set/Clear User Color) and a single Enable/Disable auto-eating toggle; the kill username falls back to `UNKNOWN_USER` so it works in no-auth mode.
+- **Monitor Hosts (CueCommander parity):** a host registry at `/hosts`, the CueWeb equivalent of CueGUI's Monitor Hosts window, with the full column set - Name, a Comments icon, Load %, Swap / Physical / GPU Memory / Temp red-green usage bars, Total/Idle Memory, Temp Free (%), Cores / Idle Cores, GPUs / Idle GPUs, GPU Mem / Idle, Ping, Boot Time, Hardware, Locked, ThreadMode, OS, Tags - and rows tinted by condition (`hostRowClassName`: red for non-`UP`, amber for `REBOOT_WHEN_IDLE`, yellow for `UP` + `LOCKED`). A filter bar adds a name/regex box plus Allocation / HardwareState / LockState / OS multi-selects (mirrored to the URL) and Auto-refresh / Refresh / Clear. The row right-click menu mirrors CueGUI: **Comments…** (with reusable predefined-comment macros, stored in `localStorage["cueweb-comment-macros"]`), **View Procs**, **Lock / Unlock / Take Ownership** (Take Ownership enabled only for a `NIMBY_LOCKED` host - confirms, then claims it for the signed-in user via `OwnerInterface/TakeOwnership`), **Edit Tags… / Rename Tag… / Change Allocation…**, **Reboot / Reboot when idle / Delete Host**, and **Set / Clear Repair State**, each routed through `HostInterface` (`Lock`, `Unlock`, `Reboot`, `RebootWhenIdle`, `AddTags`/`RemoveTags`, `RenameTag`, `SetAllocation`, `SetHardwareState`, `AddComment`, `Delete`). A bottom **proc monitor panel** lists procs for selected hosts (`ProcInterface/GetProcs`) - populated by a left-click on a host row, the menu's **View Procs**, or typing host names - with per-proc View Job / Unbook / Kill / Unbook and Kill.
+- **Redirect (CueCommander parity):** an admin tool at `/redirect` that moves cores to a job that needs them by reassigning busy procs to a target job (killing the frames on those procs). Job + resource filters (Show, Include Groups, Require Services, Exclude Regex, Allocations, Min/Max Cores, Min Memory, Result Limit, Proc Hour Cutoff) drive a `ProcInterface/GetProcs` search; typing a target job auto-detects its Show and core/memory needs; the redirect (`HostInterface/RedirectToJob`) refuses an invalid/maxed target and warns before a paused-target or cross-show redirect.
+- **Stuck Frames (CueCommander -> Stuck Frame):** a stuck-frame finder at `/stuck-frames`, the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window. Scans every running frame across active jobs and flags the ones whose log has gone silent relative to runtime, grouped under their job, with columns Name / Frame / Host / LLU / Runtime / % Stuck / Average / Last Line and **Auto-refresh** / **Refresh** / **Clear** controls. Detection thresholds run client-side and persist per browser (% of Run Since LLU, Min LLU, % Avg Completion, Total Runtime, Exclude Keywords), with a **+** button to add per-service filter rows so long-running services (e.g. Arnold) can use looser limits than quick ones. Frame right-click actions: Tail / View / View Last Log, Retry / Eat / Kill, Log Stuck Frame (and Log and Retry / Eat / Kill), Frame Not Stuck, Add Job to Excludes / Exclude and Remove Job, **Core Up** (raise the layer's minimum cores), and View Host; job-header actions add View Comments, Job Not Stuck, and Core Up across the job's stuck layers.
 - **Logs:** View current and previous logs via dropdown.
 - **Security:** Use JWT-based authorization and secure headers.
 - **Keyboard shortcuts:** Press `?` anywhere in the app to open a cheat-sheet overlay; the same overlay is also reachable from **Other ▸ Show Shortcuts** in the header or the sidebar. An optional **Notify on Shortcut** toggle (also under Other) fires a toast naming the shortcut that just triggered. See [Keyboard shortcuts](#keyboard-shortcuts) below for the full list.
 
 Go back to [Contents](#contents).
 
+## Plugins
+
+CueWeb has a small plugin system, the browser counterpart of the CueGUI plugins under `cuegui/cuegui/cueguiplugin/`. A plugin is a **manifest** (metadata) plus a **lazily-loaded React component** that mounts on its own route under `/plugins/<name>`.
+
+**How plugins are discovered**
+
+Discovery is an explicit, statically-imported registry rather than filesystem scanning (Next.js bundles routes at build time, so dynamic directory scanning is not available in the browser):
+
+1. Each plugin lives in `cueweb/app/plugins/<name>/` and exports a `PluginModule` from its `manifest.ts` — the manifest (`name`, `title`, `version`, `route`, optional `description`) plus a `load` thunk that does `() => import("./<component>")`. Keeping `load` a static `import()` lets the bundler split the plugin into its own chunk, fetched only when its route is visited.
+2. `cueweb/lib/plugins.ts` imports every plugin manifest and lists them in `PLUGIN_REGISTRY`. This array **is** the discovery mechanism — `getPlugins()` and `getPlugin(name)` read from it.
+3. The dynamic route `cueweb/app/plugins/[plugin-name]/page.tsx` resolves the manifest by `name` (404s via `notFound()` if unknown) and renders the component through a client host that uses `next/dynamic({ ssr: false })`. `generateStaticParams()` pre-renders one page per registered plugin.
+4. `cueweb/app/plugins/page.tsx` lists every registered plugin, and the sidebar/header **Plugins** menu links to each route.
+
+**Adding a plugin**
+
+1. Create `cueweb/app/plugins/<name>/<name>.tsx` — a default-exported React component accepting `PluginComponentProps` (it receives its own `manifest`).
+2. Add `cueweb/app/plugins/<name>/manifest.ts` exporting a `PluginModule` whose `load` is `() => import("./<name>")`.
+3. Register it in `PLUGIN_REGISTRY` in `cueweb/lib/plugins.ts` (and, optionally, add a link to the **Plugins** group in `cueweb/components/ui/app-sidebar.tsx`).
+
+See `cueweb/app/plugins/README.md` for the full contract.
+
+**Plugin settings** — any plugin can call `registerSetting({ key, label, kind, default })` (from `cueweb/lib/plugins.ts`) to contribute entries to the shared settings dialog (`cueweb/components/ui/settings-dialog.tsx`). Values persist to `localStorage` under `cueweb.plugin-settings.<key>`, so they survive a reload; read them reactively with the `usePluginSetting` hook.
+
+**Bundled sample plugins**
+
+| Plugin | Route | What it shows |
+|--------|-------|---------------|
+| **Hello OpenCue** | `/plugins/hello` | Minimal example proving the contract; registers greeting/shout/emoji settings. |
+| **Cue Progress Bar** | `/plugins/cue-progress-bar` | CueWeb port of the CueGUI `cueprogbar` sample — enter a job name to render a live, color-coded frame-state bar with done/total/running labels and pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. |
+
+Go back to [Contents](#contents).
+
 ## Keyboard shortcuts
 
-CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload).
+CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/app/layout.tsx` via `KeyboardShortcuts` in `cueweb/components/ui/shortcuts-overlay.tsx`). Single-letter shortcuts are ignored while typing into a text field, and modifier-key combos (Ctrl / Cmd / Alt) are passed through to the browser, so they will not collide with native shortcuts such as Ctrl+R (full page reload) — the one exception is the explicit immersive chord `Cmd/Ctrl+Shift+F`, which is captured so it works even from inside a search field.
 
 | Key | Action | Where it works |
 |-----|--------|----------------|
@@ -394,6 +467,7 @@ CueWeb registers a small set of global keyboard shortcuts (mounted from `cueweb/
 | `/` | Focus the jobs search box | On the jobs page (`/`) |
 | `r` | Refresh the jobs table | On the jobs page (`/`) |
 | `t` | Toggle the light / dark theme | Anywhere |
+| `F` (or `Cmd/Ctrl+Shift+F`) | Toggle immersive (full-screen) mode — hides the header, sidebar and status bar; persists across reloads under `localStorage["cueweb.layout.immersive"]` and syncs across tabs | Anywhere |
 
 The same overlay is also reachable from the menu, for users who prefer mouse navigation:
 

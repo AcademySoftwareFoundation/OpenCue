@@ -41,6 +41,43 @@ export type OpenHostTagsDetail = {
   hosts: Host[];
 };
 
+// Opens the host comments dialog (HostCommentsDialog).
+export const OPEN_HOST_COMMENTS_EVENT = "cueweb:open-host-comments";
+export type OpenHostCommentsDetail = {
+  hosts: Host[];
+};
+
+// Opens the rename-tag dialog (HostRenameTagDialog).
+export const OPEN_HOST_RENAME_TAG_EVENT = "cueweb:open-host-rename-tag";
+export type OpenHostRenameTagDetail = {
+  hosts: Host[];
+};
+
+// Opens the change-allocation dialog (HostChangeAllocationDialog).
+export const OPEN_HOST_ALLOCATION_EVENT = "cueweb:open-host-allocation";
+export type OpenHostAllocationDetail = {
+  hosts: Host[];
+};
+
+// Opens the delete-host confirmation dialog (HostDeleteDialog).
+export const OPEN_HOST_DELETE_EVENT = "cueweb:open-host-delete";
+export type OpenHostDeleteDetail = {
+  hosts: Host[];
+};
+
+// Opens the take-ownership confirmation dialog (HostTakeOwnershipDialog).
+export const OPEN_HOST_TAKE_OWNERSHIP_EVENT = "cueweb:open-host-take-ownership";
+export type OpenHostTakeOwnershipDetail = {
+  hosts: Host[];
+};
+
+// Drives the bottom Proc monitor panel ("View Procs"): the host panel asks
+// the proc panel to load procs for these host names.
+export const VIEW_HOST_PROCS_EVENT = "cueweb:view-host-procs";
+export type ViewHostProcsDetail = {
+  hostNames: string[];
+};
+
 // Fired after a host action so the open hosts table can update the
 // affected rows immediately (optimistic) instead of waiting for the 30s
 // poll. The page applies `patch` to every row whose id is in hostIds,
@@ -48,5 +85,5 @@ export type OpenHostTagsDetail = {
 export const HOSTS_CHANGED_EVENT = "cueweb:hosts-changed";
 export type HostsChangedDetail = {
   hostIds: string[];
-  patch: Partial<Pick<Host, "lockState" | "state" | "tags">>;
+  patch: Partial<Pick<Host, "lockState" | "state" | "tags" | "allocName">>;
 };

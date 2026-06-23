@@ -21,14 +21,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import * as React from "react";
-import { Check, ChevronDown, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, X } from "lucide-react";
+import { Check, ChevronDown, Columns, Keyboard, LayoutDashboard, Layers3, LogOut, Menu, Search, Settings, X } from "lucide-react";
 
 import { useAttributesPanel } from "@/app/utils/use_attributes_panel";
 import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
+import { useFacilityHealth } from "@/app/utils/use_facility_health";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
+import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
 import { NAV_MENUS, type NavMenu } from "@/app/utils/menus";
+import { getPlugins } from "@/lib/plugins";
+import {
+  buildSplitUrl,
+  DEFAULT_LEFT,
+  DEFAULT_RIGHT,
+} from "@/app/utils/split_view_utils";
 import {
   filterMenuCommands,
   useMenuRegistry,
@@ -50,6 +59,9 @@ import opencueLogoWhite from "../../public/opencue-icon-white.png";
 
 // NAV_MENUS is sourced from `@/app/utils/menus` so the header, sidebar and
 // menu registry share one source of truth.
+
+// Default split workspace: Monitor Jobs (left) + Monitor Hosts (right).
+const SPLIT_VIEW_HREF = buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT);
 
 function isActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -261,10 +273,11 @@ function HelpDropdownMenu() {
 
 export function AppHeader() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { disabled: jobInteractionDisabled, toggle: toggleJobInteraction } =
     useDisableJobInteraction();
   const { facility, facilities, setFacility } = useCuebotFacility();
+  const { health: facilityHealth } = useFacilityHealth();
   const {
     isOpen: attributesOpen,
     toggle: toggleAttributes,
@@ -273,6 +286,34 @@ export function AppHeader() {
     enabled: shortcutNotificationsEnabled,
     toggle: toggleShortcutNotifications,
   } = useShortcutNotifications();
+  const { immersive, toggle: toggleImmersive } = useImmersiveMode();
+
+  // Admin-only menus (Admin > CueWeb Audit) are hidden from non-admins. The
+  // session callback (lib/auth.ts) sets `isAdmin` to the effective decision,
+  // true for everyone when no group-based authorization is configured. While
+  // the session is still loading we don't know yet, so hide admin-only menus to
+  // avoid flashing them to a non-admin; once resolved, an absent isAdmin (no
+  // auth provider / no group authorization) means everyone is admin.
+  const isAdmin =
+    sessionStatus === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
+
+  // The Plugins menu lists only the user-enabled plugins (plugins page
+  // checkboxes); inject them after the static "All Plugins" entry.
+  const { enabled: enabledPlugins } = useEnabledPlugins();
+  const navMenus = React.useMemo<NavMenu[]>(
+    () =>
+      NAV_MENUS.filter((menu) => !menu.adminOnly || isAdmin).map((menu) => {
+        if (menu.label !== "Plugins") return menu;
+        const pluginItems = getPlugins()
+          .map((plugin) => plugin.manifest)
+          .filter((manifest) => enabledPlugins.has(manifest.name))
+          .map((manifest) => ({ label: manifest.title, href: manifest.route }));
+        return { ...menu, items: [...menu.items, ...pluginItems] };
+      }),
+    [enabledPlugins, isAdmin],
+  );
 
   // Trigger the shortcuts overlay programmatically. Used by the
   // "Show Shortcuts" item below so users who never press `?` can still
@@ -419,25 +460,65 @@ export function AppHeader() {
                 />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[12rem]">
-              {facilities.map((f) => (
-                <DropdownMenuItem
-                  key={f}
-                  onSelect={() => setFacility(f)}
-                  className="cursor-pointer"
-                >
-                  <span className="mr-2 flex h-4 w-4 items-center justify-center">
-                    {f === facility && (
-                      <Check className="h-4 w-4" aria-hidden="true" />
+            <DropdownMenuContent align="start" className="min-w-[13rem]">
+              {facilities.map((f) => {
+                const status = facilityHealth[f];
+                // A facility whose gateway probe failed can't be selected
+                // (except the one already active, which can't be deselected).
+                const unreachable = status?.ok === false;
+                const disabled = unreachable && f !== facility;
+                const dotClass =
+                  status === undefined
+                    ? "bg-muted-foreground"
+                    : status.ok
+                      ? "bg-emerald-500"
+                      : "bg-red-500";
+                const title =
+                  status === undefined
+                    ? `${f}: checking…`
+                    : status.ok
+                      ? `${f}: reachable (${status.latencyMs}ms)`
+                      : `${f}: unreachable${status.error ? ` — ${status.error}` : ""}`;
+                return (
+                  <DropdownMenuItem
+                    key={f}
+                    disabled={disabled}
+                    onSelect={() => {
+                      if (disabled) return;
+                      setFacility(f);
+                    }}
+                    className="cursor-pointer"
+                    title={title}
+                  >
+                    <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                      {f === facility && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={`mr-2 inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`}
+                    />
+                    <span className="flex-1">{f}</span>
+                    {unreachable && (
+                      <span className="ml-2 text-[10px] font-medium uppercase text-red-500">
+                        down
+                      </span>
                     )}
-                  </span>
-                  {f}
-                </DropdownMenuItem>
-              ))}
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/settings/facilities" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Manage facilities…
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {NAV_MENUS.map((menu) => (
+          {navMenus.map((menu) => (
             <NavMenuButton key={menu.label} menu={menu} pathname={pathname} />
           ))}
 
@@ -471,6 +552,28 @@ export function AppHeader() {
                   )}
                 </span>
                 Attributes
+              </DropdownMenuItem>
+
+              {/* CueGUI parity: Toggle Full-Screen. Hides the header, sidebar
+                  and status bar so the active table gets the full viewport.
+                  Also bound to `F` / Cmd-Ctrl+Shift+F. */}
+              <DropdownMenuItem
+                onSelect={() => toggleImmersive()}
+                className="cursor-pointer"
+              >
+                <span className="mr-2 flex h-4 w-4 items-center justify-center">
+                  {immersive && <Check className="h-4 w-4" aria-hidden="true" />}
+                </span>
+                Immersive (full-screen)
+              </DropdownMenuItem>
+
+              {/* CueGUI parity: Window ▸ "Add new window" - open two pages
+                  side-by-side in a resizable split workspace. */}
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href={SPLIT_VIEW_HREF}>
+                  <Columns className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Split view
+                </Link>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
