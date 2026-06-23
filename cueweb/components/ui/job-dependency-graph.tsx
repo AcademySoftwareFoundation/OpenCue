@@ -18,6 +18,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Background,
   Controls,
@@ -27,13 +28,38 @@ import {
   NodeProps,
   Position,
   ReactFlow,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import { useTheme } from "next-themes";
+import {
+  TbCheck,
+  TbHelp,
+  TbLayoutGrid,
+  TbLink,
+  TbPacman,
+  TbReload,
+  TbSettings,
+} from "react-icons/tb";
+import { MdOutlineCancel } from "react-icons/md";
 
 import { Job } from "@/app/jobs/columns";
+import { Layer } from "@/app/layers/layer-columns";
 import { Depend } from "@/app/utils/get_utils";
+import { UNKNOWN_USER } from "@/app/utils/constants";
+import {
+  viewLayerDependenciesGivenRow,
+  layerDependencyWizardGivenRow,
+  markdoneLayerGivenRow,
+  reorderLayerFramesGivenRow,
+  staggerLayerFramesGivenRow,
+  layerPropertiesGivenRow,
+  killLayerGivenRow,
+  eatLayerFramesGivenRow,
+  retryLayerFramesGivenRow,
+  retryLayerDeadFramesGivenRow,
+} from "@/app/utils/action_utils";
 
 // Silent POST that intentionally bypasses accessGetApi - the BFS below
 // expects partial failure (some jobs in the tree may have been
@@ -127,6 +153,9 @@ type GraphNodeData = {
   kind: NodeKind;
   jobName?: string;
   isFocus: boolean;
+  // The full Layer object for LAYER nodes that belong to the focus job, so the
+  // right-click menu can run the same actions as the Layers table.
+  layer?: Layer;
 };
 
 // Custom node renderer: monospace, truncates long names, full text in
@@ -262,6 +291,59 @@ function ingestDepend(
   return { erJob: er.jobName, onJob: on.jobName };
 }
 
+// Fetch the focus job's layers and add them as LAYER nodes hanging off the
+// job node. CueGUI's JobMonitorGraph is a *layer* graph (it draws one node per
+// `job.getLayers()`), so the panel should always show the job's layers - even
+// when the job has no cross-job dependencies (otherwise a normal job renders
+// an empty "No dependencies found" panel). Layers that participate in a depend
+// already get a node from the BFS below (same id scheme), so this only fills in
+// the dependency-less layers and wires every layer to the job node.
+async function ingestFocusLayers(
+  focus: Job,
+  nodes: Map<string, Node>,
+  edges: Map<string, Edge>,
+): Promise<void> {
+  // /api/job/getlayers already unwraps to the layers array; keep fallbacks in
+  // case the gateway shape changes.
+  const data = await silentPost("/api/job/getlayers", { job: { id: focus.id } });
+  const layers: any[] = Array.isArray(data)
+    ? data
+    : (data?.layers?.layers ?? data?.layers ?? []);
+  if (!Array.isArray(layers) || layers.length === 0) return;
+
+  const focusJobId = `job:${focus.name}`;
+  for (const layer of layers) {
+    const layerName = layer?.name;
+    if (!layerName) continue;
+    const ep = describeEndpoint(focus.name, layerName, "");
+    const existing = nodes.get(ep.id);
+    if (existing) {
+      // A depend may have created this layer node already; attach the full
+      // Layer so its right-click menu works.
+      (existing.data as GraphNodeData).layer = layer as Layer;
+    } else {
+      nodes.set(ep.id, {
+        id: ep.id,
+        type: "dep",
+        position: { x: 0, y: 0 },
+        data: {
+          label: ep.label,
+          fullName: ep.label,
+          kind: ep.kind,
+          jobName: ep.jobName,
+          isFocus: false,
+          layer: layer as Layer,
+        } satisfies GraphNodeData,
+      } as Node);
+    }
+    // Structural "job contains layer" edge so the layer is never an island.
+    const edgeId = `contains:${focusJobId}__${ep.id}`;
+    if (!edges.has(edgeId)) {
+      edges.set(edgeId, { id: edgeId, source: focusJobId, target: ep.id } as Edge);
+    }
+  }
+}
+
 // Recursively walk the dependency tree starting from `focus`. Follows
 // both directions (what this job depends on AND what depends on this
 // job), bounded by maxDepth and a visited-job set to prevent infinite
@@ -294,6 +376,10 @@ async function walkDependencyTree(
       isFocus: true,
     } satisfies GraphNodeData,
   } as Node);
+
+  // Always show the focus job's layers (CueGUI JobMonitorGraph parity) so a
+  // job with no cross-job dependencies still renders its structure.
+  await ingestFocusLayers(focus, nodeMap, edgeMap);
 
   const visited = new Set<string>([focus.name]);
   let frontier: string[] = [focus.name];
@@ -379,12 +465,14 @@ export function JobDependencyGraph({
     };
   }, [job.id, job.name, maxDepth]);
 
-  const handleNodeClick = useCallback(
+  // Double-click (not single-click) opens the job detail page, mirroring the
+  // Frames table's double-click-to-open behavior. A single click just selects
+  // the node so it doesn't navigate away accidentally.
+  const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       const data = node.data as unknown as GraphNodeData;
       // Prefer parent-supplied navigation; otherwise navigate to the
-      // tabbed job-detail page so the click actually does something
-      // useful (the original component fired a misleading toast).
+      // tabbed job-detail page so the action actually does something useful.
       if (onNodeNavigate) {
         onNodeNavigate(data.jobName ?? data.label);
         return;
@@ -394,6 +482,45 @@ export function JobDependencyGraph({
     },
     [onNodeNavigate, router],
   );
+
+  // --- Right-click node menu (CueGUI JobMonitorGraph node menu parity) -----
+  const { data: session } = useSession();
+  const username =
+    session?.user?.name ?? session?.user?.email?.split("@")[0] ?? UNKNOWN_USER;
+  const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; data: GraphNodeData } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setMenu({
+      x: event.clientX,
+      y: event.clientY,
+      data: node.data as unknown as GraphNodeData,
+    });
+  }, []);
+
+  // Re-run the dagre layout and fit the view (CueGUI "Auto Layout Nodes").
+  const autoLayout = useCallback(() => {
+    setNodes((nds) => layoutNodes(nds, edges));
+    requestAnimationFrame(() => rfInstanceRef.current?.fitView({ duration: 300 }));
+  }, [edges]);
+
+  // Close the menu on any outside click / Escape. Listeners are attached only
+  // while the menu is open so the contextmenu event that opened it can't also
+  // close it.
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+    };
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu, closeMenu]);
 
   // Theme-scoped cursor URL. Memoized per theme + per instance so two
   // graphs on the page don't fight each other and the SVG isn't rebuilt
@@ -414,10 +541,10 @@ export function JobDependencyGraph({
     );
   }
 
-  if (nodes.length <= 1) {
+  if (nodes.length === 0) {
     return (
       <div className="flex h-[200px] w-full items-center justify-center text-muted-foreground">
-        No dependencies found for this job.
+        No layers or dependencies found for this job.
       </div>
     );
   }
@@ -435,12 +562,117 @@ export function JobDependencyGraph({
         nodeTypes={nodeTypes}
         fitView
         colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-        onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeContextMenu={handleNodeContextMenu}
+        onPaneClick={closeMenu}
+        onInit={(inst) => {
+          rfInstanceRef.current = inst;
+        }}
         proOptions={{ hideAttribution: true }}
       >
         <Background />
         <Controls />
       </ReactFlow>
+
+      {menu && (
+        <NodeContextMenu
+          x={menu.x}
+          y={menu.y}
+          data={menu.data}
+          username={username}
+          onAutoLayout={autoLayout}
+          onClose={closeMenu}
+        />
+      )}
+    </div>
+  );
+}
+
+// Cursor-positioned right-click menu for a graph node. For LAYER nodes that
+// carry a Layer object it runs the exact same actions as the Layers table
+// (CueGUI JobMonitorGraph node menu parity); every node also offers
+// "Auto Layout Nodes".
+function NodeContextMenu({
+  x,
+  y,
+  data,
+  username,
+  onAutoLayout,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  data: GraphNodeData;
+  username: string;
+  onAutoLayout: () => void;
+  onClose: () => void;
+}) {
+  const layer = data.layer;
+  // The action helpers only read `row.original`, so a shim row is enough.
+  const row = layer ? ({ original: layer } as any) : null;
+
+  function run(fn: () => void) {
+    fn();
+    onClose();
+  }
+
+  const Item = ({
+    label,
+    icon,
+    onClick,
+    danger,
+  }: {
+    label: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    danger?: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={() => run(onClick)}
+      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
+        danger ? "text-red-500" : ""
+      }`}
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+    </button>
+  );
+  const Sep = () => <div className="my-1 h-px bg-border" />;
+
+  return (
+    <div
+      className="fixed z-50 min-w-[13rem] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <Item
+        label="Auto Layout Nodes"
+        icon={<TbLayoutGrid className="h-3.5 w-3.5" />}
+        onClick={onAutoLayout}
+      />
+      {row && (
+        <>
+          <Sep />
+          <div className="px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            Dependencies
+          </div>
+          <Item label="View Dependencies..." icon={<TbLink className="h-3.5 w-3.5" />} onClick={() => viewLayerDependenciesGivenRow(row)} />
+          <Item label="Dependency Wizard..." icon={<TbHelp className="h-3.5 w-3.5" />} onClick={() => layerDependencyWizardGivenRow(row)} />
+          <Item label="Mark done" icon={<TbCheck className="h-3.5 w-3.5" />} onClick={() => markdoneLayerGivenRow(row)} />
+          <Sep />
+          <Item label="Reorder Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => reorderLayerFramesGivenRow(row)} />
+          <Item label="Stagger Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => staggerLayerFramesGivenRow(row)} />
+          <Sep />
+          <Item label="Properties..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => layerPropertiesGivenRow(row)} />
+          <Sep />
+          <Item label="Kill" icon={<MdOutlineCancel className="h-3.5 w-3.5 text-red-500" />} danger onClick={() => killLayerGivenRow(row, username)} />
+          <Item label="Eat" icon={<TbPacman className="h-3.5 w-3.5 text-orange-500" />} onClick={() => eatLayerFramesGivenRow(row)} />
+          <Item label="Retry" icon={<TbReload className="h-3.5 w-3.5" />} onClick={() => retryLayerFramesGivenRow(row)} />
+          <Item label="Retry Dead Frames" icon={<TbReload className="h-3.5 w-3.5 text-red-500" />} onClick={() => retryLayerDeadFramesGivenRow(row)} />
+        </>
+      )}
     </div>
   );
 }

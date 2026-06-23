@@ -382,20 +382,22 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ![Dependency graph panel below the inline Layers and Frames panels](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph.png)
 
-![Dependency graph panel below the inline Layers and Frames panels (dark mode)](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_dark.png)
-
 | Behavior | Description |
 |----------|-------------|
 | **Tree walk** | Breadth-first search from the focus job over both directions - `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active depends only) - bounded by `maxDepth` (default 4) and a visited-job set to break cycles. Mirrors CueGUI's `JobMonitorGraph.getRecursiveDependentJobs`. |
 | **Name resolution** | Each BFS hop first resolves a job name to its UUID via `/api/job/getjobs` with an anchored `^name$` regex (Cuebot rejects name-only depend lookups). Resolved IDs are memoized in a `Map`, so a 12-job chain costs ~12 lookups across the whole walk, not 12 per hop. |
 | **Silent fetches** | All BFS requests go through a `silentPost` helper that bypasses `accessGetApi`. Partial failures (jobs in other shows, unmonitored/finished + pruned) return `null` instead of cascading red "Resource not found" toasts. |
+| **Focus-job layers** | `ingestFocusLayers()` fetches the focus job's layers (`/api/job/getlayers`) and adds a **LAYER** node per layer wired to the job node, so a job with no cross-job dependencies still renders its layers (CueGUI `JobMonitorGraph` is a layer graph). Layers that also appear via a depend reuse the same node id, so nothing is duplicated. |
 | **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
-| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. |
-| **Navigation** | Clicking a node calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. |
+| **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. Layer nodes also get a structural "contains" edge from the job node. |
+| **Navigation** | **Double-clicking** a node (`onNodeDoubleClick`) calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. A single click only selects the node. |
+| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
 | **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
-| **Empty / loading states** | `Loading dependency graph...` while walking; `No dependencies found for this job.` when only the focus node remains. |
+| **Empty / loading states** | `Loading dependency graph...` while walking; `No layers or dependencies found for this job.` only when there are zero nodes. |
 
-![The dependency graph panel on its own](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+![The Job Dependency Graph: focus job + its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
+
+![Right-click layer-node menu in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
 
 ### Monitor Cue
 
