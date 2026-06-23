@@ -65,18 +65,58 @@ impl DispatchJob {
 }
 
 static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
--- bookable_shows: shows that still have room in at least one subscription.
-WITH bookable_shows AS (
+-- LIVE booked-core CTEs. The job/folder/subscription caps must be gated on CURRENT
+-- usage, but the PG columns job_resource.int_cores / folder_resource.int_cores /
+-- subscription.int_cores are only materialized by the ~120s recompute loop, so they
+-- lag reality. `proc` is the transactionally-accurate source (the scheduler inserts on
+-- booking, Cuebot deletes on frame completion, compensation deletes on a failed launch),
+-- so we sum it directly. Each CTE is scoped to this show ($1) via i_proc_pkshow and
+-- mirrors the recompute aggregation (so the value equals a fresher copy of the PG
+-- column), and joins on indexed pk_host / pk_job. Gating on stale PG would otherwise
+-- (a) over-fetch jobs for caps that are full in Redis -> wasted rejections, and worse
+-- (b) FALSE-EXCLUDE: a frame completes and frees burst live, but the lagged PG column
+-- stays high for up to a cycle, dropping the show/folder/job from the fetch and starving
+-- its (esp. low-priority) jobs until the next recompute.
+WITH job_live AS (
+    -- per-job booked cores (mirrors RECOMPUTE_JOB_RESOURCE_FROM_PROC)
+    SELECT p.pk_job, COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores
+    FROM proc p
+    WHERE p.pk_show = $1
+    GROUP BY p.pk_job
+),
+folder_live AS (
+    -- per-folder booked cores/gpus (mirrors RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
+    SELECT j2.pk_folder,
+           COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores,
+           COALESCE(SUM(p.int_gpus_reserved), 0)::int  AS gpus
+    FROM proc p
+    JOIN job j2 ON j2.pk_job = p.pk_job AND j2.str_state <> 'FINISHED'
+    WHERE p.pk_show = $1
+    GROUP BY j2.pk_folder
+),
+sub_live AS (
+    -- per-alloc booked cores for this show (mirrors RECOMPUTE_SUBSCRIPTION_FROM_PROC:
+    -- proc -> host -> alloc, excluding local/desktop bookings)
+    SELECT h.pk_alloc, COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores
+    FROM proc p
+    JOIN host h ON h.pk_host = p.pk_host
+    WHERE p.pk_show = $1 AND p.b_local = false
+    GROUP BY h.pk_alloc
+),
+-- bookable_shows: shows that still have room in at least one subscription (LIVE).
+bookable_shows AS (
     SELECT DISTINCT w.pk_show, sh.str_name AS show_name
     FROM subscription s
+    -- LEFT JOIN: an alloc with no booked procs has full headroom.
+    LEFT JOIN sub_live sl ON sl.pk_alloc = s.pk_alloc
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
     INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.pk_show = $1
         -- Burst == 0 is used to freeze a subscription.
         AND s.int_burst > 0
-        -- At least one core unit available.
-        AND s.int_burst - s.int_cores >= $2
-        AND s.int_cores < s.int_burst
+        -- At least one core unit available, measured against LIVE usage.
+        AND s.int_burst - COALESCE(sl.cores, 0) >= $2
+        AND COALESCE(sl.cores, 0) < s.int_burst
 )
 SELECT
     j.pk_job,
@@ -87,15 +127,19 @@ INNER JOIN bookable_shows bs ON j.pk_show = bs.pk_show
 INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
 INNER JOIN folder f ON j.pk_folder = f.pk_folder
 INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
+-- LEFT JOIN the live CTEs: no row => 0 booked => full headroom.
+LEFT JOIN job_live jl ON jl.pk_job = j.pk_job
+LEFT JOIN folder_live fl ON fl.pk_folder = f.pk_folder
 WHERE j.str_state = 'PENDING'
     AND j.b_paused = false
     AND j.pk_facility = $4
-    -- Folder must have any room at all; per-layer fit is checked below.
-    AND (fr.int_max_cores = -1 OR fr.int_cores < fr.int_max_cores)
-    AND (fr.int_max_gpus = -1 OR fr.int_gpus < fr.int_max_gpus)
+    -- Folder must have any room at all (LIVE); per-layer fit is checked below.
+    AND (fr.int_max_cores = -1 OR COALESCE(fl.cores, 0) < fr.int_max_cores)
+    AND (fr.int_max_gpus = -1 OR COALESCE(fl.gpus, 0) < fr.int_max_gpus)
     -- The job must have at least one layer that matches the tag set, has waiting
-    -- frames, and fits within the folder cap. EXISTS short-circuits per job and
-    -- avoids the cardinality blowup of joining layer + layer_stat at the outer level.
+    -- frames, and fits within the folder AND job caps (both LIVE). EXISTS short-circuits
+    -- per job and avoids the cardinality blowup of joining layer + layer_stat at the
+    -- outer level.
     AND EXISTS (
         SELECT 1
         FROM layer l
@@ -104,21 +148,9 @@ WHERE j.str_state = 'PENDING'
           AND ls.int_waiting_count > 0
           AND string_to_array(REPLACE($3, ' ', ''), '|')
               && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
-          AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min <= fr.int_max_cores)
-          AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min <= fr.int_max_gpus)
-          -- Job-level core cap, checked against LIVE proc usage. `job_resource.int_cores`
-          -- lags reality (only the ~120s recompute loop writes it), so we sum the proc
-          -- rows directly: `proc` is transactionally accurate (the scheduler inserts on
-          -- booking, Cuebot deletes on frame completion, compensation deletes on a failed
-          -- launch). This excludes jobs already at their cap from the fetch so they don't
-          -- crowd out bookable jobs within the priority LIMIT below — mirroring Cuebot's
-          -- DispatchQuery. `-1` = unlimited. The correlated SUM is an index seek on
-          -- proc(pk_job) over the job's handful of running rows.
-          AND (jr.int_max_cores = -1
-               OR COALESCE(
-                    (SELECT SUM(p.int_cores_reserved) FROM proc p WHERE p.pk_job = j.pk_job),
-                    0
-                  ) + l.int_cores_min <= jr.int_max_cores)
+          AND (fr.int_max_cores = -1 OR COALESCE(fl.cores, 0) + l.int_cores_min <= fr.int_max_cores)
+          AND (fr.int_max_gpus = -1 OR COALESCE(fl.gpus, 0) + l.int_gpus_min <= fr.int_max_gpus)
+          AND (jr.int_max_cores = -1 OR COALESCE(jl.cores, 0) + l.int_cores_min <= jr.int_max_cores)
     )
 ORDER BY jr.int_priority DESC
 LIMIT $5
