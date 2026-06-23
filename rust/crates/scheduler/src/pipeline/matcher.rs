@@ -231,7 +231,6 @@ impl MatchingService {
         // Locally incremented per dispatched frame within the while-loop.
         // Redis read failures degrade to 0, leaving the cap unbounded by live usage
         // but still bounded by `job_max_cores`.
-        let cores_per_frame = dispatch_layer.cores_min.value();
         let initial_job_cores_in_use = match self
             .accounting
             .redis()
@@ -474,19 +473,25 @@ impl MatchingService {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
+                            cores_booked,
                         }) => {
                             metrics::increment_checkout_outcome("booked");
                             // Track cores actually consumed so the next iteration's
                             // LayerProfile sees the local picture of usage. The same
                             // delta applies to the (show, alloc) subscription burst
                             // since every dispatched frame counts against both caps.
+                            // Use the dispatcher's real per-frame reservations
+                            // (`cores_booked`) rather than `dispatched * cores_min`:
+                            // a threadable frame can reserve far more than `cores_min`
+                            // (up to a whole host), so the approximation undercounts
+                            // and lets the matcher keep re-checking-out a job that is
+                            // already at its cap.
                             let dispatched = frames_before_dispatch
                                 .saturating_sub(updated_layer.frames.len())
                                 as i32;
                             frames_dispatched += dispatched as usize;
-                            let booked_cores = dispatched * cores_per_frame;
-                            local_job_cores_booked += booked_cores;
-                            local_show_cores_booked += booked_cores;
+                            local_job_cores_booked += cores_booked;
+                            local_show_cores_booked += cores_booked;
 
                             // Record the outcome by what actually landed, not merely
                             // that the dispatch returned Ok. A dispatch can succeed yet

@@ -106,7 +106,7 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                     .dispatch(&layer, host, job_cores_in_use, &mut transaction)
                     .await
                 {
-                    Ok((updated_host, updated_layer)) => {
+                    Ok((updated_host, updated_layer, cores_booked)) => {
                         // Commit the transaction
                         transaction
                             .commit()
@@ -116,6 +116,7 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
+                            cores_booked,
                         })
                     }
                     Err(e) => {
@@ -188,7 +189,7 @@ impl RqdDispatcherService {
         host: Host,
         job_cores_in_use: i32,
         transaction: &mut Transaction<'_, Postgres>,
-    ) -> Result<(Host, DispatchLayer), DispatchError> {
+    ) -> Result<(Host, DispatchLayer, i32), DispatchError> {
         let host_id = host.id;
         let host_disp = format!("{}", &host);
         let layer_disp = format!("{}", &layer);
@@ -235,7 +236,7 @@ impl RqdDispatcherService {
         layer: &DispatchLayer,
         host: Host,
         job_cores_in_use: i32,
-    ) -> Result<(Host, DispatchLayer), DispatchError> {
+    ) -> Result<(Host, DispatchLayer, i32), DispatchError> {
         // A host should not book frames if its allocation is at or above its limit,
         // but checking the limit before each frame is too costly. The tradeoff is
         // to check the allocation state before entering the frame booking loop,
@@ -268,10 +269,24 @@ impl RqdDispatcherService {
             // means unlimited (matches the Lua's `job_max > 0` guard).
             let job_cores_remaining = if layer.job_max_cores > 0 {
                 let remaining = layer.job_max_cores - (job_cores_in_use + job_cores_booked);
+                // Normalize the frame's request into the canonical positive core
+                // demand on this host before comparing to the remaining budget.
+                // `min_cores <= 0` is a sentinel (0 = whole host, negative =
+                // all-but-N), so a raw `remaining < frame.min_cores.value()`
+                // comparison would slip past the check (e.g. `0 < 0` is false)
+                // when a capped job has `remaining == 0`, then build a host-sized
+                // reservation that the Lua rejects forever. Non-threadable frames
+                // always reserve exactly one core regardless of the sentinel.
+                let frame_min_cores = if frame.threadable {
+                    Self::calculate_cores_requested(frame.min_cores, last_host_version.total_cores)
+                        .value()
+                } else {
+                    1
+                };
                 // If the job can't fit even one minimum-sized frame, it's at its
                 // cap: stop the layer here rather than reserving a sub-minimum
                 // proc or busy-looping on guaranteed Lua rejections.
-                if remaining < frame.min_cores.value() {
+                if remaining < frame_min_cores {
                     debug!(
                         "({dispatch_id}) Job {} at core cap (max={}, in_use={}, booked_here={}); \
                          stopping layer {}",
@@ -497,7 +512,7 @@ impl RqdDispatcherService {
                 }
             }
         }
-        Ok((last_host_version, layer))
+        Ok((last_host_version, layer, job_cores_booked))
     }
 
     /// Dispatches a virtual proc to a host, handling allocation checks, database updates, and RQD communication.

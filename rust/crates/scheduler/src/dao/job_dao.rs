@@ -134,8 +134,8 @@ WHERE j.str_state = 'PENDING'
     AND j.b_paused = false
     AND j.pk_facility = $4
     -- Folder must have any room at all (LIVE); per-layer fit is checked below.
-    AND (fr.int_max_cores = -1 OR COALESCE(fl.cores, 0) < fr.int_max_cores)
-    AND (fr.int_max_gpus = -1 OR COALESCE(fl.gpus, 0) < fr.int_max_gpus)
+    AND (fr.int_max_cores <= 0 OR COALESCE(fl.cores, 0) < fr.int_max_cores)
+    AND (fr.int_max_gpus <= 0 OR COALESCE(fl.gpus, 0) < fr.int_max_gpus)
     -- The job must have at least one layer that matches the tag set, has waiting
     -- frames, and fits within the folder AND job caps (both LIVE). EXISTS short-circuits
     -- per job and avoids the cardinality blowup of joining layer + layer_stat at the
@@ -148,9 +148,9 @@ WHERE j.str_state = 'PENDING'
           AND ls.int_waiting_count > 0
           AND string_to_array(REPLACE($3, ' ', ''), '|')
               && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
-          AND (fr.int_max_cores = -1 OR COALESCE(fl.cores, 0) + l.int_cores_min <= fr.int_max_cores)
-          AND (fr.int_max_gpus = -1 OR COALESCE(fl.gpus, 0) + l.int_gpus_min <= fr.int_max_gpus)
-          AND (jr.int_max_cores = -1 OR COALESCE(jl.cores, 0) + l.int_cores_min <= jr.int_max_cores)
+          AND (fr.int_max_cores <= 0 OR COALESCE(fl.cores, 0) + l.int_cores_min <= fr.int_max_cores)
+          AND (fr.int_max_gpus <= 0 OR COALESCE(fl.gpus, 0) + l.int_gpus_min <= fr.int_max_gpus)
+          AND (jr.int_max_cores <= 0 OR COALESCE(jl.cores, 0) + l.int_cores_min <= jr.int_max_cores)
     )
 ORDER BY jr.int_priority DESC
 LIMIT $5

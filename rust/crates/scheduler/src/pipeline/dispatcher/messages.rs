@@ -60,9 +60,13 @@ pub struct DispatchLayerMessage {
 ///
 /// * `updated_host` - Host with updated idle resource counts after dispatch
 /// * `updated_layer` - Layer with dispatched frames removed from the frames list
-/// * `dispatched_frames` - List of frame names that were successfully dispatched
+/// * `cores_booked` - Actual cores reserved across all frames dispatched in this
+///   call. Reflects real per-frame reservations (threadable frames can reserve
+///   far more than `cores_min`), so the matcher can update its live job/show
+///   usage counters accurately instead of approximating `dispatched * cores_min`.
 #[derive(MessageResponse, Debug)]
 pub struct DispatchResult {
     pub updated_host: Host,
     pub updated_layer: DispatchLayer,
+    pub cores_booked: i32,
 }
