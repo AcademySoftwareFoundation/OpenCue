@@ -29,6 +29,7 @@ import { KeyboardShortcuts } from "@/components/ui/shortcuts-overlay";
 import { AboutDialog } from "@/components/ui/about-dialog";
 import { PluginSettingsDialog } from "@/components/ui/settings-dialog";
 import { ToastHost } from "@/components/ui/toast-host";
+import { UsageTracker } from "@/components/ui/usage-tracker";
 
 export const metadata: Metadata = {
   title: "CueWeb",
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <MobileNavSheet />
             <PluginSettingsDialog />
             <ToastHost />
+            <UsageTracker />
           </AppSessionProvider>
         </ThemeProvider>
         <JobSubscriptionPoller />

@@ -2350,6 +2350,64 @@ export function Button({ className, variant, size, ...props }: ButtonProps) {
 
 ---
 
+## Usage metrics (Prometheus + Grafana)
+
+CueWeb exposes per-user usage metrics at `GET /api/metrics` (Prometheus text)
+so operators can see *who uses what, how often, and how fast*. Bounded
+cardinality is the design constraint: `page` / `action` label values come from
+fixed allow-lists, and the API counters carry no `user` label. Files involved:
+
+```text
+lib/metrics-service.ts            # prom-client singleton Registry + metric set + helpers + ALLOWED_PAGES/ALLOWED_ACTIONS
+lib/track-user.ts                 # extractUser(req): session -> X-User/X-Forwarded-User -> "anonymous"
+app/api/metrics/route.ts          # GET /api/metrics (registry.metrics())
+app/api/track/route.ts            # POST /api/track client beacon (resolves user server-side)
+app/utils/usage_tracking.ts       # client beacons: trackPage/trackAction/trackActionEndpoint/trackFacility/trackLogin
+components/ui/usage-tracker.tsx    # mounted in layout; emits a page-view beacon on route change
+app/utils/gateway_server.ts       # handleRoute records cueweb_api_requests_total + cueweb_api_request_duration_seconds
+app/utils/api_utils.ts            # accessActionApi calls trackActionEndpoint (per-user action tracking)
+```
+
+### Metric set
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `cueweb_page_views_total` | Counter | `user`, `page` |
+| `cueweb_actions_total` | Counter | `user`, `action` |
+| `cueweb_api_requests_total` | Counter | `endpoint`, `status` |
+| `cueweb_api_request_duration_seconds` | Histogram | `endpoint` |
+| `cueweb_logins_total` | Counter | `user` |
+| `cueweb_facility_selected_total` | Counter | `user`, `facility` |
+
+### How it flows
+
+- **Page views**: `UsageTracker` (mounted once in `app/layout.tsx`) maps the
+  pathname to a coarse page name (`pageNameForPath`) and `POST`s `/api/track`
+  `{kind:"page",name}` on route change (deduped per pathname). `navigator.sendBeacon`
+  survives navigation.
+- **Actions**: the shared client dispatcher `accessActionApi(endpoint, …)` calls
+  `trackActionEndpoint(endpoint)`, which derives an action key
+  (`/api/job/action/kill` → `job-kill`) and beacons it. Since `performAction`
+  routes through `accessActionApi`, every job/layer/frame/host/proc action is
+  covered from one place.
+- **API requests + latency**: `handleRoute` (the single server-side gateway
+  proxy used by ~119 routes) times each call and records the short endpoint
+  (`/job.JobInterface/GetJobs` → `job.getjobs`) + status class. No `user` label
+  keeps it small; failures never affect the response.
+- **User resolution**: the client never sends the `user`. `/api/track` resolves
+  it server-side via `extractUser()` (NextAuth session → identity header →
+  `anonymous`), so it can't be spoofed.
+
+### Wiring + dashboard
+
+Prometheus scrapes `cueweb:3000/api/metrics`
+(`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions
+`sandbox/config/grafana/dashboards/cueweb-usage.json` ("CueWeb User Usage", with
+a `$user` variable). Use a fixed `[5m]` rate window for the latency percentile
+panels. Opt out of the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
+
+---
+
 ## Configuration and Deployment
 
 ### Environment Configuration

@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 
 import { handleError } from "./notify_utils";
 import { getRequestFacilityTargetWithOverrides } from "@/lib/facility-server";
+import MetricsService from "@/lib/metrics-service";
 
 interface JwtParams {
   sub: string;
@@ -115,22 +116,53 @@ export async function fetchObjectFromRestGateway(
 }
 
 // Centralized route handler to fetch data and handle errors.
+// Shorten a gRPC endpoint ("/job.JobInterface/GetJobs") to a compact,
+// bounded metric label ("job.getjobs") so the API usage counter stays small.
+function shortEndpoint(endpoint: string): string {
+  const parts = endpoint.replace(/^\//, "").split("/");
+  const iface = (parts[0] ?? "").split(".")[0] || "unknown";
+  const method = (parts[1] ?? "").toLowerCase() || "unknown";
+  return `${iface}.${method}`;
+}
+
 export async function handleRoute(
   method: string,
   endpoint: string,
   body: string,
   log = false,
 ): Promise<NextResponse> {
+  // Usage metrics: time the call and record it per (short endpoint, status
+  // class). Best-effort - metric failures must never affect the response.
+  const startedAt = Date.now();
+  const shortName = shortEndpoint(endpoint);
+  let observed = false;
+  const observe = (status: number) => {
+    if (observed) return;
+    observed = true;
+    try {
+      MetricsService.getInstance().recordApiRequest(
+        shortName,
+        status,
+        (Date.now() - startedAt) / 1000,
+      );
+    } catch {
+      // ignore - metrics must never affect the response
+    }
+  };
+
   try {
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
     const responseData = await response.json();
 
     if (responseData.error) {
+      observe(response.status >= 400 ? response.status : 500);
       throw new Error(responseData.error);
     }
 
+    observe(response.status);
     return NextResponse.json({ data: responseData.data }, { status: response.status });
   } catch (error) {
+    observe(500);
     handleError(error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }

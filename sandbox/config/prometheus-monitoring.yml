@@ -9,6 +9,12 @@ scrape_configs:
       - targets: ['cuebot:8080']
     metrics_path: /metrics
 
+  # CueWeb usage metrics (per-user page views / actions / API latency)
+  - job_name: 'cueweb'
+    static_configs:
+      - targets: ['cueweb:3000']
+    metrics_path: /api/metrics
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
