@@ -584,6 +584,11 @@ impl ClusterFeed {
         let current_index_atomic = self.current_index.clone();
         tokio::spawn(async move {
             let mut all_sleeping_rounds: usize = 0;
+            // Cluster types observed in the previous lap's gauge sample. Used to
+            // zero out gauges for types that have since disappeared (e.g. every
+            // cluster of a type was reloaded away) - otherwise their last value
+            // would linger forever.
+            let mut prev_cluster_types: HashSet<&'static str> = HashSet::new();
 
             loop {
                 let iteration = async {
@@ -683,6 +688,15 @@ impl ClusterFeed {
                                     *by_type.entry(c.cluster_type()).or_default() += 1;
                                 }
                             }
+                            // Zero out types that were present last lap but are
+                            // gone now, so a vanished type doesn't keep reporting
+                            // its stale count.
+                            for stale_type in prev_cluster_types.difference(
+                                &by_type.keys().copied().collect::<HashSet<_>>(),
+                            ) {
+                                metrics::set_clusters_total(stale_type, 0);
+                            }
+                            prev_cluster_types = by_type.keys().copied().collect();
                             for (cluster_type, count) in by_type {
                                 metrics::set_clusters_total(cluster_type, count);
                             }

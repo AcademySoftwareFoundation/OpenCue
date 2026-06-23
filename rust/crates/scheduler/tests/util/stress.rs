@@ -1016,12 +1016,24 @@ pub async fn booking_stats(pool: &Pool<Postgres>, show_id: Uuid) -> BookingStats
 // Cleanup
 // =============================================================================
 
+/// Builds a `LIKE` pattern matching exactly `prefix` followed by anything.
+/// The prefix's own `_` and `%` are LIKE metacharacters, so they are escaped
+/// (backslash is Postgres's default LIKE escape) - otherwise a prefix like
+/// `stress_` would also match `stressX...` and risk deleting unrelated rows.
+fn like_prefix(prefix: &str) -> String {
+    let escaped = prefix
+        .replace('\\', "\\\\")
+        .replace('_', "\\_")
+        .replace('%', "\\%");
+    format!("{escaped}%")
+}
+
 /// Deletes every row created by stress runs whose name starts with `prefix`,
 /// including rows created behind our back by schema triggers (history/stat
 /// tables) and by dispatching (proc, RUNNING frames). Runs with triggers
 /// disabled so the sweep is order-insensitive and doesn't fire history triggers.
 pub async fn clean_up_stress_data(pool: &Pool<Postgres>, prefix: &str) -> Result<(), sqlx::Error> {
-    let like = format!("{prefix}%");
+    let like = like_prefix(prefix);
     let mut tx = pool.begin().await?;
     sqlx::query("SET session_replication_role = 'replica'")
         .execute(&mut *tx)
@@ -1139,7 +1151,7 @@ pub async fn clean_up_stress_data(pool: &Pool<Postgres>, prefix: &str) -> Result
 /// Counts rows still matching the prefix in every named table the suite touches.
 /// Used after cleanup to prove nothing leaked into the shared test database.
 pub async fn residue_counts(pool: &Pool<Postgres>, prefix: &str) -> Vec<(&'static str, i64)> {
-    let like = format!("{prefix}%");
+    let like = like_prefix(prefix);
     let mut residue = Vec::new();
     let named = [
         ("job", "SELECT count(*) FROM job WHERE str_name LIKE $1"),

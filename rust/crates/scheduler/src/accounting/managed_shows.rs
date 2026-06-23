@@ -87,16 +87,29 @@ impl ManagedShowsCache {
                             };
                             if !added.is_empty() {
                                 if let Err(err) = limit_reseed::reseed_limits(&redis, &dao).await {
-                                    // Defer publishing this tick: a managed show that is
-                                    // not yet in the cache dispatches without Redis
-                                    // enforcement (silent over-count, healed by the next
-                                    // recompute) - strictly safer than enforcing against an
-                                    // unseeded burst. Retried on the next tick.
+                                    // Defer publishing only the *additions* this tick: a
+                                    // newly-managed show that is not yet in the cache
+                                    // dispatches without Redis enforcement (silent
+                                    // over-count, healed by the next recompute) - strictly
+                                    // safer than enforcing against an unseeded burst.
+                                    // Retried on the next tick.
+                                    //
+                                    // Removals still apply: a show that is no longer
+                                    // scheduler-managed must drop out of the cache
+                                    // regardless of the reseed outcome, otherwise
+                                    // apply_booking keeps enforcing Redis for it
+                                    // indefinitely (until reseed eventually succeeds).
                                     warn!(
                                         "Limit seed for newly-managed show(s) {:?} failed; \
-                                         deferring cache publish to next tick: {err}",
+                                         deferring their cache publish to next tick: {err}",
                                         added
                                     );
+                                    let added_set: HashSet<Uuid> = added.iter().copied().collect();
+                                    let deferred: HashSet<Uuid> =
+                                        new_set.difference(&added_set).copied().collect();
+                                    let mut lock =
+                                        inner.write().unwrap_or_else(|p| p.into_inner());
+                                    *lock = deferred;
                                     return;
                                 }
                                 debug!(

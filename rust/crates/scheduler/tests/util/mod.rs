@@ -140,12 +140,16 @@ pub async fn get_waiting_frames_count(clause: WaitingFrameClause) -> usize {
                 .expect("Failed to query job stats") as usize
         }
         WaitingFrameClause::All => {
-            sqlx::query_scalar::<_, i32>("SELECT sum(int_waiting_count)::INTEGER FROM job_stat")
-                .fetch_one(&*pool)
-                .await
-                .expect("Failed to query job stats") as usize
+            // SUM over zero rows is NULL, so decode into Option and treat None as 0.
+            sqlx::query_scalar::<_, Option<i32>>(
+                "SELECT sum(int_waiting_count)::INTEGER FROM job_stat",
+            )
+            .fetch_one(&*pool)
+            .await
+            .expect("Failed to query job stats")
+            .unwrap_or(0) as usize
         }
-        WaitingFrameClause::JobPrefix(prefix) => sqlx::query_scalar::<_, i32>(
+        WaitingFrameClause::JobPrefix(prefix) => sqlx::query_scalar::<_, Option<i32>>(
             "SELECT sum(job_stat.int_waiting_count)::INTEGER \
                    FROM job_stat JOIN job ON job.pk_job = job_stat.pk_job \
                    WHERE job.str_name LIKE $1",
@@ -154,6 +158,6 @@ pub async fn get_waiting_frames_count(clause: WaitingFrameClause) -> usize {
         .fetch_one(&*pool)
         .await
         .expect("Failed to query job stats")
-            as usize,
+        .unwrap_or(0) as usize,
     }
 }

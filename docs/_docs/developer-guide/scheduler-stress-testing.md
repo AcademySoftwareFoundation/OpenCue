@@ -12,7 +12,7 @@ description: >
 
 # Scheduler Stress Testing
 
-### Running and interpreting the booking + accounting stress suite
+## Running and interpreting the booking + accounting stress suite
 
 ---
 
@@ -112,7 +112,7 @@ runs reflect the code, not the data.
 
 ### Reading the report
 
-```
+```text
 ================ phase: drain ================
 frames     : 6000 seeded, 5988 dispatched (99.8%), waiting 6000 -> 12
 throughput : 975.1 frames/s over a 6.1s booking window (wall 43.3s)
