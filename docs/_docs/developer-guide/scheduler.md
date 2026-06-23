@@ -998,18 +998,20 @@ cargo build --release -p scheduler
 cargo test -p scheduler
 ```
 
-**Integration tests** (requires database):
+**Smoke tests** (requires a migrated local Postgres, see `docker compose up -d flyway`):
 ```bash
-# Set up test database
-export DATABASE_URL=postgresql://user:pass@localhost/test_db
-
-# Run integration tests
-cargo test -p scheduler --test integration_tests
+cargo test -p scheduler --features smoke-tests --test smoke_tests
 ```
 
-**Stress tests**:
+**Stress tests** (requires a migrated local Postgres plus a Docker daemon for
+the throwaway Redis container; see the
+[Scheduler Stress Testing](/docs/developer-guide/scheduler-stress-testing/)
+guide for tuning, CI behavior, and how to read the report):
 ```bash
-cargo test -p scheduler --test stress_tests --release -- --nocapture
+cargo test -p scheduler --features stress-tests --test stress_tests -- --nocapture
+
+# Release mode for representative benchmark numbers
+cargo test -p scheduler --release --features stress-tests --test stress_tests -- --nocapture
 ```
 
 ### Code Quality
@@ -1128,7 +1130,7 @@ INFO scheduler: Host cache size: 50000 hosts
 **CPU profiling**:
 ```bash
 cargo install samply
-samply record cargo test --test stress_tests --release -- --nocapture
+samply record cargo test -p scheduler --release --features stress-tests --test stress_tests -- --nocapture
 ```
 
 ## API and Extensibility

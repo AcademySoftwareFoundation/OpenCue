@@ -12,8 +12,11 @@
 
 //! Limit-field reseed loop. Every `CONFIG.accounting.limit_reseed_interval`,
 //! reads limit fields from PG (subscription burst/size, folder/job caps, point min/max)
-//! and writes them to Redis under the `acct:seq` CAS guard. `HSET` overwrites only the
-//! specified fields, leaving booked counters (`int_cores`/`int_gpus`) untouched.
+//! and writes them to Redis with unconditional `HSET`s. `HSET` overwrites only the
+//! specified fields, leaving booked counters (`int_cores`/`int_gpus`) untouched, so this
+//! needs no `acct:seq` CAS guard (limit fields are written only here, never by the
+//! booking hot path) - which also stops force-rollback churn from starving the reseed and
+//! leaving a freshly-managed show's subscription `burst` unseeded (== 0 == "reject all").
 
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
@@ -21,12 +24,12 @@ use std::sync::Arc;
 use futures::FutureExt;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use tokio::time;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::accounting::dao::{
-    FolderLimitsRow, JobLimitsRow, PointLimitsRow, SubscriptionLimitsRow,
+    AccountingDao, FolderLimitsRow, JobLimitsRow, PointLimitsRow, SubscriptionLimitsRow,
 };
-use crate::accounting::redis_client::ReseedOp;
+use crate::accounting::redis_client::{RedisAccounting, ReseedOp};
 use crate::accounting::AccountingService;
 use crate::config::CONFIG;
 use crate::models::CoreSize;
@@ -52,64 +55,51 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
     });
 }
 
-/// One CAS-guarded reseed pass: snapshot all four limit tables, flatten to ops, send
-/// in one `RESEED_CAS`. On CAS miss, recompute the snapshot and retry. Used by both
-/// the loop and the bootstrap.
-pub async fn reseed_once(service: &AccountingService) -> Result<()> {
-    let max_retries = CONFIG.accounting.cas_max_retries;
-    for attempt in 0..=max_retries {
-        let seq_before = service.redis().get_seq().await.into_diagnostic()?;
+/// One reseed pass: snapshot all four limit tables, flatten to ops, write them with
+/// unconditional `HSET`s (no `acct:seq` CAS). Shared by the periodic loop, the bootstrap,
+/// and the synchronous seed performed when a show first becomes scheduler-managed
+/// (`ManagedShowsCache`).
+///
+/// No CAS guard because limit fields are written only here and are disjoint from the
+/// booked counters the hot path mutates - so this can never clobber a booking, and a
+/// concurrent booking can never clobber it. The previous CAS-guarded variant could be
+/// starved into skipping by force-rollback churn bumping `acct:seq`; an unconditional
+/// write always lands. See `RedisAccounting::reseed_unconditional`.
+pub async fn reseed_limits(redis: &RedisAccounting, dao: &AccountingDao) -> Result<()> {
+    let (subs, folders, jobs, points) = tokio::try_join!(
+        dao.query_subscription_limits(),
+        dao.query_folder_limits(),
+        dao.query_job_limits(),
+        dao.query_point_limits(),
+    )?;
 
-        let (subs, folders, jobs, points) = tokio::try_join!(
-            service.dao().query_subscription_limits(),
-            service.dao().query_folder_limits(),
-            service.dao().query_job_limits(),
-            service.dao().query_point_limits(),
-        )?;
+    let ops: Vec<ReseedOp> = subscription_ops(&subs)
+        .chain(folder_ops(&folders))
+        .chain(job_ops(&jobs))
+        .chain(point_ops(&points))
+        .collect();
 
-        let ops: Vec<ReseedOp> = subscription_ops(&subs)
-            .chain(folder_ops(&folders))
-            .chain(job_ops(&jobs))
-            .chain(point_ops(&points))
-            .collect();
+    redis
+        .reseed_unconditional(&ops)
+        .await
+        .into_diagnostic()
+        .wrap_err("HSET reseed for limit fields failed")?;
 
-        debug!(
-            "Limit reseed attempt {}/{}: subs={} folders={} jobs={} points={} -> {} ops at seq={}",
-            attempt + 1,
-            max_retries + 1,
-            subs.len(),
-            folders.len(),
-            jobs.len(),
-            points.len(),
-            ops.len(),
-            seq_before
-        );
-
-        let applied = service
-            .redis()
-            .reseed_cas(seq_before, &ops)
-            .await
-            .into_diagnostic()
-            .wrap_err("RESEED_CAS for limits failed")?;
-        if applied {
-            info!(
-                "Limit reseed applied: {} ops, seq={}",
-                ops.len(),
-                seq_before
-            );
-            return Ok(());
-        }
-        warn!(
-            "Limit reseed CAS miss (attempt {}/{}); resnapshot and retry",
-            attempt + 1,
-            max_retries + 1
-        );
-    }
-    warn!(
-        "Limit reseed exhausted {} CAS retries; cycle skipped",
-        max_retries + 1
+    info!(
+        "Limit reseed applied: {} ops (subs={} folders={} jobs={} points={})",
+        ops.len(),
+        subs.len(),
+        folders.len(),
+        jobs.len(),
+        points.len(),
     );
     Ok(())
+}
+
+/// Thin wrapper over [`reseed_limits`] taking the full service. Used by the periodic loop
+/// and the bootstrap.
+pub async fn reseed_once(service: &AccountingService) -> Result<()> {
+    reseed_limits(service.redis(), service.dao()).await
 }
 
 /// Flatten subscription limit rows into per-field `ReseedOp`s (`size`, `burst`).

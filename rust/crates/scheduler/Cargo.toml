@@ -66,6 +66,10 @@ redis = { version = "0.27", features = ["tokio-comp", "script", "connection-mana
 default = []
 smoke-tests = []
 redis-tests = []
+# End-to-end booking + accounting stress/benchmark suite (tests/stress_tests.rs).
+# Requires a migrated local Postgres (docker compose up -d flyway) and Docker for
+# the throwaway Redis container.
+stress-tests = []
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -171,6 +171,7 @@ UPDATE frame SET
 WHERE pk_frame = $6
     AND str_state = 'WAITING'
     AND int_version = $7
+RETURNING int_version
 "#;
 
 /// Resets a frame from RUNNING back to WAITING state during dispatch compensation.
@@ -221,14 +222,22 @@ impl FrameDao {
     ///
     /// # Returns
     ///
-    /// * `Ok(())` - Frame successfully started
-    /// * `Err(miette::Error)` - Database update failed or frame no longer available
+    /// * `Ok(new_version)` - Frame successfully started; the post-update `int_version`
+    ///   (the pre-update value + 1). Compensation needs this so its `clear_frame` guard
+    ///   matches the row this UPDATE just advanced, rather than the stale pre-dispatch
+    ///   version.
+    /// * `Err(FrameDaoError::FrameCouldNotBeUpdated)` - frame no longer available (the
+    ///   optimistic-lock guard on state/version matched no row)
+    /// * `Err(FrameDaoError::DbFailure)` - Database update failed
     pub async fn update_frame_started(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
-    ) -> Result<(), FrameDaoError> {
-        let result = sqlx::query(UPDATE_FRAME_STARTED)
+    ) -> Result<u32, FrameDaoError> {
+        // `RETURNING int_version` yields the post-update version. `fetch_optional` returns
+        // `None` when the optimistic-lock guard (str_state = 'WAITING' AND int_version = $7)
+        // matched no row - i.e. another dispatcher claimed the frame first.
+        let row: Option<(i32,)> = sqlx::query_as(UPDATE_FRAME_STARTED)
             .bind(virtual_proc.host_name.clone())
             .bind(virtual_proc.cores_reserved.value())
             .bind((virtual_proc.memory_reserved.as_u64() / KB) as i32)
@@ -236,14 +245,14 @@ impl FrameDao {
             .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
             .bind(virtual_proc.frame.id.to_string())
             .bind(virtual_proc.frame.version as i32)
-            .execute(&mut **transaction)
+            .fetch_optional(&mut **transaction)
             .await
             .map_err(FrameDaoError::DbFailure)?;
 
-        // Check if the update actually modified a row
-        if result.rows_affected() == 0 {
-            return Err(FrameDaoError::FrameCouldNotBeUpdated);
-        }
+        let new_version = match row {
+            Some((version,)) => version as u32,
+            None => return Err(FrameDaoError::FrameCouldNotBeUpdated),
+        };
 
         // Update retry count for frames that have been previously executed
         let non_retriable_codes = &[
@@ -263,7 +272,7 @@ impl FrameDao {
             .await
             .map_err(FrameDaoError::DbFailure)?;
 
-        Ok(())
+        Ok(new_version)
     }
 
     /// Clears a frame back to WAITING state during dispatch compensation.
