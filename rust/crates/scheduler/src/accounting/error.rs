@@ -41,7 +41,9 @@ pub enum AccountingError {
     /// per design §2.4), but the bootstrap reseed surfaces it as a startup gate so a
     /// scheduler never begins booking against an unseeded Redis. Carries the number of
     /// attempts made (`cas_max_retries + 1`) for diagnostics.
-    #[error("CAS contention exceeded retry budget after {attempts} attempts; reseed cycle skipped")]
+    #[error(
+        "CAS contention exceeded retry budget after {attempts} attempts; reseed cycle skipped"
+    )]
     CasContentionExceeded { attempts: u32 },
 
     #[error("accounting redis error: {0}")]

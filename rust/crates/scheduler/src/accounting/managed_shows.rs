@@ -107,8 +107,7 @@ impl ManagedShowsCache {
                                     let added_set: HashSet<Uuid> = added.iter().copied().collect();
                                     let deferred: HashSet<Uuid> =
                                         new_set.difference(&added_set).copied().collect();
-                                    let mut lock =
-                                        inner.write().unwrap_or_else(|p| p.into_inner());
+                                    let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
                                     *lock = deferred;
                                     return;
                                 }

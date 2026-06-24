@@ -127,6 +127,36 @@ lazy_static! {
     )
     .expect("Failed to register clusters_total gauge");
 
+    // Clusters in the awake set (the scan-gated subset the producer actually
+    // round-robins), sampled once per lap. The gap between CLUSTERS_TOTAL and
+    // CLUSTERS_ACTIVE is the fan-out the awake gate is suppressing: clusters
+    // that exist but have no plausibly-dispatchable work this scan window.
+    pub static ref CLUSTERS_ACTIVE: Gauge = register_gauge!(
+        "scheduler_clusters_active",
+        "Number of clusters in the awake set the producer round-robins each lap"
+    )
+    .expect("Failed to register clusters_active gauge");
+
+    // Number of (facility, show, tag) tuples returned by the most recent awake
+    // scan. Together with the scan duration this sizes the gate's input and
+    // confirms the single-query cost stays flat as cluster fan-out grows.
+    pub static ref ACTIVE_TAGS: Gauge = register_gauge!(
+        "scheduler_active_tags",
+        "Active (facility, show, tag) tuples from the most recent awake scan"
+    )
+    .expect("Failed to register active_tags gauge");
+
+    // Duration of the awake-gate scan query (one round-trip per scan interval,
+    // independent of cluster count). Watch this against JOB_QUERY_DURATION: the
+    // scan replaces N per-cluster no_jobs queries with one, so it should stay
+    // cheap even when CLUSTERS_TOTAL is large.
+    pub static ref ACTIVE_SCAN_DURATION_SECONDS: Histogram = register_histogram!(
+        "scheduler_active_scan_duration_seconds",
+        "Duration of the cluster awake-gate scan query",
+        vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
+    )
+    .expect("Failed to register active_scan_duration_seconds histogram");
+
     // Clusters currently sleeping (skipped this lap), sampled once per lap.
     // Sleeping clusters are invisible to dispatch until their backoff expires
     // (`cluster_empty_sleep` / `cluster_saturated_sleep`). A high value relative
@@ -371,6 +401,24 @@ pub fn set_clusters_total(cluster_type: &str, count: i64) {
 #[inline]
 pub fn set_clusters_sleeping(count: i64) {
     CLUSTERS_SLEEPING.set(count as f64);
+}
+
+/// Sets the size of the awake (scan-gated) cluster set. Sampled once per lap.
+#[inline]
+pub fn set_clusters_active(count: i64) {
+    CLUSTERS_ACTIVE.set(count as f64);
+}
+
+/// Sets the number of active tag tuples from the latest awake scan.
+#[inline]
+pub fn set_active_tags(count: i64) {
+    ACTIVE_TAGS.set(count as f64);
+}
+
+/// Observes the duration of one awake-gate scan query.
+#[inline]
+pub fn observe_active_scan_duration(duration: Duration) {
+    ACTIVE_SCAN_DURATION_SECONDS.observe(duration.as_secs_f64());
 }
 
 /// Records the number of frames booked in a single cluster pass.

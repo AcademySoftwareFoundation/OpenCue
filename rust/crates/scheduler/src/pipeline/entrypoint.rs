@@ -60,6 +60,10 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     // flips (and host-tag/subscription churn) are picked up without a restart.
     // No-op for feeds built from an explicit cluster list (tests).
     cluster_feed.start_reload_loop();
+    // Periodically recompute the awake subset so clusters with no dispatchable
+    // work are skipped instead of re-queried each backoff window. No-op for
+    // explicit-list (test) feeds, which stay fully awake.
+    cluster_feed.start_active_scan_loop();
     let feed_sender = cluster_feed.stream(tx).await;
 
     ReceiverStream::new(cluster_receiver)

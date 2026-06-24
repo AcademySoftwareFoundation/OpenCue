@@ -10,8 +10,8 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-pub(crate) mod cache;
 mod actor;
+pub(crate) mod cache;
 pub mod messages;
 mod store;
 
