@@ -79,7 +79,11 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
     type Result = ResponseActFuture<Self, Result<DispatchResult, DispatchError>>;
 
     fn handle(&mut self, msg: DispatchLayerMessage, _ctx: &mut Self::Context) -> Self::Result {
-        let DispatchLayerMessage { layer, host } = msg;
+        let DispatchLayerMessage {
+            layer,
+            host,
+            job_cores_in_use,
+        } = msg;
 
         let dispatcher = self.clone();
         debug!(
@@ -98,8 +102,11 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                     .await
                     .map_err(DispatchError::DbFailure)?;
 
-                match dispatcher.dispatch(&layer, host, &mut transaction).await {
-                    Ok((updated_host, updated_layer)) => {
+                match dispatcher
+                    .dispatch(&layer, host, job_cores_in_use, &mut transaction)
+                    .await
+                {
+                    Ok((updated_host, updated_layer, cores_booked)) => {
                         // Commit the transaction
                         transaction
                             .commit()
@@ -109,6 +116,7 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
+                            cores_booked,
                         })
                     }
                     Err(e) => {
@@ -179,8 +187,9 @@ impl RqdDispatcherService {
         &self,
         layer: &DispatchLayer,
         host: Host,
+        job_cores_in_use: i32,
         transaction: &mut Transaction<'_, Postgres>,
-    ) -> Result<(Host, DispatchLayer), DispatchError> {
+    ) -> Result<(Host, DispatchLayer, i32), DispatchError> {
         let host_id = host.id;
         let host_disp = format!("{}", &host);
         let layer_disp = format!("{}", &layer);
@@ -198,9 +207,10 @@ impl RqdDispatcherService {
         // The advisory lock is transaction-scoped: it is released automatically
         // when the caller commits or rolls back `transaction`, including when
         // dispatch_inner panics.
-        let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
-            .catch_unwind()
-            .await;
+        let result =
+            std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host, job_cores_in_use))
+                .catch_unwind()
+                .await;
 
         // Handle the result from dispatch_inner
         match result {
@@ -225,7 +235,8 @@ impl RqdDispatcherService {
         &self,
         layer: &DispatchLayer,
         host: Host,
-    ) -> Result<(Host, DispatchLayer), DispatchError> {
+        job_cores_in_use: i32,
+    ) -> Result<(Host, DispatchLayer, i32), DispatchError> {
         // A host should not book frames if its allocation is at or above its limit,
         // but checking the limit before each frame is too costly. The tradeoff is
         // to check the allocation state before entering the frame booking loop,
@@ -240,11 +251,57 @@ impl RqdDispatcherService {
         let mut last_error = None;
         let mut non_retrieable_frames = Vec::new();
 
+        // Cores booked for this job within this dispatch call. Added to the
+        // caller-supplied `job_cores_in_use` so each frame's reservation is
+        // clamped against the job's *remaining* cap, mirroring Cuebot's
+        // VirtualProc.build. Without this, a single threadable frame reserves a
+        // whole fat host (e.g. 32 cores) and the Lua rejects it forever against
+        // a small job cap (e.g. 16), wedging the job at zero booked.
+        let mut job_cores_booked: i32 = 0;
+
         // Use an unique id for all logs on this dispatch
         let dispatch_id = Uuid::new_v4();
 
         for frame in &layer.frames {
             let frame_str = format!("{}", frame);
+
+            // Compute the job's remaining core budget. `job_max_cores <= 0`
+            // means unlimited (matches the Lua's `job_max > 0` guard).
+            let job_cores_remaining = if layer.job_max_cores > 0 {
+                let remaining = layer.job_max_cores - (job_cores_in_use + job_cores_booked);
+                // Normalize the frame's request into the canonical positive core
+                // demand on this host before comparing to the remaining budget.
+                // `min_cores <= 0` is a sentinel (0 = whole host, negative =
+                // all-but-N), so a raw `remaining < frame.min_cores.value()`
+                // comparison would slip past the check (e.g. `0 < 0` is false)
+                // when a capped job has `remaining == 0`, then build a host-sized
+                // reservation that the Lua rejects forever. Non-threadable frames
+                // always reserve exactly one core regardless of the sentinel.
+                let frame_min_cores = if frame.threadable {
+                    Self::calculate_cores_requested(frame.min_cores, last_host_version.total_cores)
+                        .value()
+                } else {
+                    1
+                };
+                // If the job can't fit even one minimum-sized frame, it's at its
+                // cap: stop the layer here rather than reserving a sub-minimum
+                // proc or busy-looping on guaranteed Lua rejections.
+                if remaining < frame_min_cores {
+                    debug!(
+                        "({dispatch_id}) Job {} at core cap (max={}, in_use={}, booked_here={}); \
+                         stopping layer {}",
+                        layer.job_id,
+                        layer.job_max_cores,
+                        job_cores_in_use,
+                        job_cores_booked,
+                        layer
+                    );
+                    break;
+                }
+                Some(CoreSize(remaining))
+            } else {
+                None
+            };
 
             let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
                 frame,
@@ -252,6 +309,7 @@ impl RqdDispatcherService {
                 layer.folder_id,
                 layer.dept_id,
                 CONFIG.queue.memory_stranded_threshold,
+                job_cores_remaining,
             )
             .await
             {
@@ -264,6 +322,11 @@ impl RqdDispatcherService {
                     break;
                 }
             };
+
+            // Capture the actual cores reserved (in cores) before `virtual_proc`
+            // is moved into dispatch_virtual_proc, so a successful booking can be
+            // added to the running job budget.
+            let reserved_cores: CoreSize = virtual_proc.cores_reserved.into();
 
             debug!(
                 "({dispatch_id}) Host {} will have {} cores available after update",
@@ -290,6 +353,7 @@ impl RqdDispatcherService {
                     }
 
                     non_retrieable_frames.push(frame.id);
+                    job_cores_booked += reserved_cores.value();
                     allocation_capacity = new_allocation_capacity;
                     last_host_version = new_host;
                 }
@@ -448,7 +512,7 @@ impl RqdDispatcherService {
                 }
             }
         }
-        Ok((last_host_version, layer))
+        Ok((last_host_version, layer, job_cores_booked))
     }
 
     /// Dispatches a virtual proc to a host, handling allocation checks, database updates, and RQD communication.
@@ -937,6 +1001,7 @@ impl RqdDispatcherService {
         host: &Host,
         frame: &DispatchFrame,
         memory_stranded_threshold: ByteSize,
+        job_cores_remaining: Option<CoreSize>,
     ) -> CoreSize {
         // Don't thread non-threadable layers
         if !frame.threadable {
@@ -945,7 +1010,7 @@ impl RqdDispatcherService {
 
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
-        match (host.thread_mode, frame.threadable) {
+        let cores = match (host.thread_mode, frame.threadable) {
             (ThreadMode::All, true) => {
                 let mut cores = host.idle_cores;
                 if let Some(limit) = frame.layer_cores_limit {
@@ -973,14 +1038,22 @@ impl RqdDispatcherService {
                     Self::calculate_memory_balanced_core_count(host, frame, cores_requested)
                 };
                 // Apply layer_cores_limit cap
-                if let Some(limit) = frame.layer_cores_limit {
-                    if limit.value() > 0 && cores > limit {
-                        return limit;
-                    }
+                match frame.layer_cores_limit {
+                    Some(limit) if limit.value() > 0 && cores > limit => limit,
+                    _ => cores,
                 }
-                cores
             }
             _ => cores_requested,
+        };
+
+        // Clamp the threaded reservation to the job's remaining core cap so a
+        // single frame never reserves more than the job is allowed (which would
+        // be rejected by the Lua job-cap check). `None` means unlimited.
+        // The caller guarantees `remaining >= frame.min_cores`, so this never
+        // shrinks a reservation below the frame's minimum.
+        match job_cores_remaining {
+            Some(remaining) if remaining.value() > 0 && cores > remaining => remaining,
+            _ => cores,
         }
     }
 
@@ -994,11 +1067,16 @@ impl RqdDispatcherService {
         folder_id: Uuid,
         dept_id: Uuid,
         memory_stranded_threshold: ByteSize,
+        job_cores_remaining: Option<CoreSize>,
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
         let mut host = host.clone();
 
-        let cores_reserved =
-            Self::calculate_core_reservation(&host, frame, memory_stranded_threshold);
+        let cores_reserved = Self::calculate_core_reservation(
+            &host,
+            frame,
+            memory_stranded_threshold,
+            job_cores_remaining,
+        );
 
         if cores_reserved.value() <= 0
             || cores_reserved > host.total_cores
@@ -1423,7 +1501,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(6)); // Should return idle_cores
     }
 
@@ -1440,7 +1518,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(1)); // Non-threadable should return cores_requested
     }
 
@@ -1457,7 +1535,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(2)); // Should cap at layer_cores_limit
     }
 
@@ -1473,7 +1551,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(2)); // Should return 2 cores minimum
     }
 
@@ -1487,7 +1565,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(1)); // Non-threadable frames are clamped to 1 core
     }
 
@@ -1501,7 +1579,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         assert_eq!(result, CoreSize(1)); // Already 1 core, no clamping needed
     }
 
@@ -1517,7 +1595,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         // Method shouldn't check for resource availability
         assert_eq!(result, CoreSize(10));
     }
@@ -1534,9 +1612,53 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         // Non-threadable frames are clamped to 1 core
         assert_eq!(result, CoreSize(1));
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_clamped_to_job_cap() {
+        // A threadable frame on a fat host would reserve all idle cores, but the
+        // job's remaining cap must win: 32 idle cores, job allows 16 more -> 16.
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(32);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcherService::calculate_core_reservation(
+            &host,
+            &frame,
+            memory_threshold,
+            Some(CoreSize(16)),
+        );
+        assert_eq!(result, CoreSize(16));
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_job_cap_above_sizing_is_noop() {
+        // When the job's remaining cap exceeds the host-driven sizing, the
+        // reservation is unaffected (6 idle cores, cap room for 100 -> 6).
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(6);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcherService::calculate_core_reservation(
+            &host,
+            &frame,
+            memory_threshold,
+            Some(CoreSize(100)),
+        );
+        assert_eq!(result, CoreSize(6));
     }
 
     #[test]
@@ -1725,6 +1847,7 @@ mod tests {
             Uuid::nil(),
             Uuid::nil(),
             memory_stranded_threshold,
+            None,
         )
         .await;
 
@@ -1767,6 +1890,7 @@ mod tests {
             Uuid::nil(),
             Uuid::nil(),
             memory_stranded_threshold,
+            None,
         )
         .await;
 
@@ -1792,6 +1916,7 @@ mod tests {
             Uuid::nil(),
             Uuid::nil(),
             memory_stranded_threshold,
+            None,
         )
         .await;
 
@@ -1817,6 +1942,7 @@ mod tests {
             Uuid::nil(),
             Uuid::nil(),
             memory_stranded_threshold,
+            None,
         )
         .await;
 
@@ -1988,6 +2114,7 @@ mod tests {
             Uuid::nil(),
             Uuid::nil(),
             memory_threshold,
+            None,
         )
         .await;
         assert!(result.is_err());
@@ -2011,7 +2138,7 @@ mod tests {
         let memory_threshold = ByteSize::mib(500);
 
         let result =
-            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
+            RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold, None);
         // Memory-balanced would give 4 cores (16GB / 4GB-per-core), but layer limit caps at 3
         assert_eq!(result, CoreSize(3));
     }

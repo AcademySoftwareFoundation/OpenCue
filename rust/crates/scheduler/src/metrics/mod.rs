@@ -13,9 +13,9 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_counter, register_counter_vec, register_gauge, register_gauge_vec,
-    register_histogram, register_histogram_vec, Counter, CounterVec, Encoder, Gauge, GaugeVec,
-    Histogram, HistogramVec, TextEncoder,
+    register_counter, register_counter_vec, register_gauge, register_gauge_vec, register_histogram,
+    register_histogram_vec, Counter, CounterVec, Encoder, Gauge, GaugeVec, Histogram, HistogramVec,
+    TextEncoder,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -78,6 +78,18 @@ lazy_static! {
         &["table"]
     )
     .expect("Failed to register accounting_limit_exceeded_total counter");
+
+    // Counts layers skipped by the matcher's job-level at-cap pre-check
+    // (`pipeline/matcher.rs`, `placement::job_at_core_cap`). A job already at its
+    // `job_max_cores` cap would otherwise be re-checked-out and re-rejected up to
+    // `host_candidate_attempts_per_layer` times every pass; the pre-check returns
+    // early instead. Kept distinct from `ACCOUNTING_LIMIT_EXCEEDED_TOTAL{table="job"}`
+    // (Lua-rejection pressure) so this reads cleanly as "wasted attempts avoided".
+    pub static ref JOB_CAP_PRECHECK_SKIP_TOTAL: Counter = register_counter!(
+        "scheduler_job_cap_precheck_skip_total",
+        "Layers skipped pre-checkout because the job is already at its core cap"
+    )
+    .expect("Failed to register job_cap_precheck_skip_total counter");
 
     // Job query metrics from dao/job_dao.rs
     pub static ref JOB_QUERY_DURATION_SECONDS: Histogram = register_histogram!(
@@ -324,6 +336,12 @@ pub fn increment_accounting_limit_exceeded(table: &str) {
     ACCOUNTING_LIMIT_EXCEEDED_TOTAL
         .with_label_values(&[table])
         .inc();
+}
+
+/// Records a layer skipped by the job-level at-cap pre-check.
+#[inline]
+pub fn increment_job_cap_precheck_skip() {
+    JOB_CAP_PRECHECK_SKIP_TOTAL.inc();
 }
 
 /// Helper function to observe job query duration

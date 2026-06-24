@@ -113,6 +113,21 @@ pub fn fits_floor(host: &Host, profile: &LayerProfile) -> bool {
 /// compensation rollback in flight). The matcher's pre-checkout guard usually
 /// catches this; if it slips through, the cap bound clamps to 0 instead of
 /// going negative.
+/// True when the job is already at/over its core cap and cannot fit even one
+/// more `cores_min`-sized frame. `job_max_cores <= 0` is OpenCue's "unlimited"
+/// sentinel (never at cap), matching the Lua `BOOK_OR_FORCE` `job_max > 0` guard
+/// and `core_cap_bound` above.
+///
+/// All arguments are in whole cores (see the unit invariant in `lua.rs` and
+/// `DispatchLayer.job_max_cores`). Used by the matcher's pre-checkout skip so a
+/// job sitting at its cap isn't re-checked-out and re-rejected every pass; the
+/// Lua call remains the authoritative gate, so a stale-low `job_cores_in_use`
+/// (e.g. a failed Redis read defaulting to 0) only causes a missed skip, never
+/// an incorrect one.
+pub fn job_at_core_cap(job_cores_in_use: i32, cores_min: i32, job_max_cores: i32) -> bool {
+    job_max_cores > 0 && job_cores_in_use.saturating_add(cores_min) > job_max_cores
+}
+
 pub fn compute_max_more(host: &Host, profile: &LayerProfile) -> i64 {
     let cores_min = profile.cores_min.value() as i64;
     let mem_min = profile.mem_min.as_u64() as i64;
@@ -297,6 +312,40 @@ mod tests {
         let host = host_with_os(Some("Linux"));
         let profile = profile_with(Some("Windows"), true);
         assert!(!host_matches_layer_os(&host, &profile));
+    }
+
+    #[test]
+    fn job_at_core_cap_unlimited_sentinels_never_at_cap() {
+        // 0 and -1 are the "unlimited" sentinels: never at cap regardless of use.
+        assert!(!job_at_core_cap(1000, 10, 0));
+        assert!(!job_at_core_cap(1000, 10, -1));
+    }
+
+    #[test]
+    fn job_at_core_cap_exactly_at_cap_is_true() {
+        // in_use == cap: no room for even one more cores_min-sized frame.
+        assert!(job_at_core_cap(10, 1, 10));
+    }
+
+    #[test]
+    fn job_at_core_cap_one_frame_of_room_is_false() {
+        // in_use + cores_min == cap: exactly one more frame fits.
+        assert!(!job_at_core_cap(9, 1, 10));
+        assert!(!job_at_core_cap(8, 2, 10));
+    }
+
+    #[test]
+    fn job_at_core_cap_over_cap_is_true() {
+        // Stale snapshot / compensation rollback can leave in_use above cap.
+        assert!(job_at_core_cap(12, 1, 10));
+    }
+
+    #[test]
+    fn job_at_core_cap_zero_cores_min_only_when_over_cap() {
+        // A GPU-only frame (cores_min == 0) is at-cap only if usage already
+        // strictly exceeds the cap; at exactly the cap it can still "fit" (0 cores).
+        assert!(!job_at_core_cap(10, 0, 10));
+        assert!(job_at_core_cap(11, 0, 10));
     }
 
     #[test]

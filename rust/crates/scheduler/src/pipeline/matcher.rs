@@ -231,7 +231,6 @@ impl MatchingService {
         // Locally incremented per dispatched frame within the while-loop.
         // Redis read failures degrade to 0, leaving the cap unbounded by live usage
         // but still bounded by `job_max_cores`.
-        let cores_per_frame = dispatch_layer.cores_min.value();
         let initial_job_cores_in_use = match self
             .accounting
             .redis()
@@ -253,6 +252,34 @@ impl MatchingService {
             }
         };
         let mut local_job_cores_booked: i32 = 0;
+
+        // Job-level at-cap pre-check. The job's core cap is enforced
+        // authoritatively by the Lua BOOK_OR_FORCE call in the dispatcher, but a
+        // job sitting at its cap would otherwise be re-checked-out and re-rejected
+        // up to host_candidate_attempts_per_layer times every pass (see the retry
+        // loop below). Skip it cheaply here, reusing the live `initial_job_cores_in_use`
+        // snapshot read above. Unlike the subscription skip below, we do NOT sleep
+        // the cluster: the job cap is per-job and sibling jobs in this cluster may
+        // still be dispatchable. Fail-open: a failed Redis read left
+        // `initial_job_cores_in_use` at 0, so the guard simply won't fire and the
+        // Lua call stays authoritative.
+        if placement::job_at_core_cap(
+            initial_job_cores_in_use,
+            dispatch_layer.cores_min.value(),
+            dispatch_layer.job_max_cores,
+        ) {
+            metrics::increment_job_cap_precheck_skip();
+            debug!(
+                "Skipping layer {} pre-checkout: job over core cap \
+                 (job={}, in_use={}, requested={}, cap={})",
+                dispatch_layer,
+                dispatch_layer.job_id,
+                initial_job_cores_in_use,
+                dispatch_layer.cores_min.value(),
+                dispatch_layer.job_max_cores,
+            );
+            return frames_dispatched;
+        }
 
         // (show, alloc) subscription burst snapshot — Alloc clusters + managed
         // shows only. `Cluster::single_tag` is built once per (facility, show,
@@ -435,6 +462,10 @@ impl MatchingService {
                         .send(DispatchLayerMessage {
                             layer, // Move ownership here
                             host,
+                            // Live job usage so the dispatcher can clamp each
+                            // frame's reservation to the job's remaining cap.
+                            // Same value fed to the LayerProfile above.
+                            job_cores_in_use: initial_job_cores_in_use + local_job_cores_booked,
                         })
                         .await
                         .expect("Dispatcher actor is unresponsive")
@@ -442,19 +473,36 @@ impl MatchingService {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
+                            cores_booked,
                         }) => {
                             metrics::increment_checkout_outcome("booked");
                             // Track cores actually consumed so the next iteration's
                             // LayerProfile sees the local picture of usage. The same
                             // delta applies to the (show, alloc) subscription burst
                             // since every dispatched frame counts against both caps.
+                            // Use the dispatcher's real per-frame reservations
+                            // (`cores_booked`) rather than `dispatched * cores_min`:
+                            // a threadable frame can reserve far more than `cores_min`
+                            // (up to a whole host), so the approximation undercounts
+                            // and lets the matcher keep re-checking-out a job that is
+                            // already at its cap.
                             let dispatched = frames_before_dispatch
                                 .saturating_sub(updated_layer.frames.len())
                                 as i32;
                             frames_dispatched += dispatched as usize;
-                            let booked_cores = dispatched * cores_per_frame;
-                            local_job_cores_booked += booked_cores;
-                            local_show_cores_booked += booked_cores;
+                            local_job_cores_booked += cores_booked;
+                            local_show_cores_booked += cores_booked;
+
+                            // Record the outcome by what actually landed, not merely
+                            // that the dispatch returned Ok. A dispatch can succeed yet
+                            // book zero frames (the job hit its core cap before any frame
+                            // fit, or the host went stale between checkout and dispatch);
+                            // counting those as "booked" hid the real throughput.
+                            metrics::increment_checkout_outcome(if dispatched > 0 {
+                                "booked"
+                            } else {
+                                "no_progress"
+                            });
 
                             self.host_service
                                 .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
@@ -462,15 +510,29 @@ impl MatchingService {
                                 .expect("Host Cache actor is unresponsive");
 
                             if updated_layer.frames.is_empty() {
-                                // Stop on the first successful attempt
+                                // Layer fully consumed.
                                 debug!("Layer {} fully consumed.", updated_layer,);
                                 // Track how many candidates were needed to fully consume this layer
                                 let candidates_used = initial_attempts - attempts + 1;
                                 metrics::observe_candidates_per_layer(candidates_used);
                                 try_again = false;
+                            } else if dispatched == 0 {
+                                // No-progress guard: this dispatch booked nothing (job at
+                                // its core cap, or a stale host that fit nothing). Retrying
+                                // the same layer on another host this pass would hit the
+                                // same wall, so stop instead of burning the remaining
+                                // host_candidate_attempts_per_layer on empty checkouts. The
+                                // cluster re-queries this job on its next round, so the
+                                // layer is deferred, not abandoned.
+                                debug!(
+                                    "Layer {} made no progress ({} frames left); stopping retries.",
+                                    updated_layer,
+                                    updated_layer.frames.len()
+                                );
+                                try_again = false;
                             } else {
                                 debug!(
-                                    "Layer {} not fully consumed. {} frames left",
+                                    "Layer {} partially consumed. {} frames left",
                                     updated_layer,
                                     updated_layer.frames.len()
                                 );
