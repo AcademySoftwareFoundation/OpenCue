@@ -519,7 +519,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void lostProc(VirtualProc proc, String reason, int exitStatus) {
+    public boolean lostProc(VirtualProc proc, String reason, int exitStatus) {
         /*
          * Kill the frame on RQD before releasing it back to a bookable state. Without this, a host
          * that is merely flapping (transient unreachable/DOWN report, GC pause, dropped report)
@@ -571,7 +571,7 @@ public class DispatchSupportService implements DispatchSupport {
                         + ": kill-before-release could not confirm the frame stopped and the host "
                         + "is not confirmed dead. Leaving frame " + proc.frameId
                         + " RUNNING to avoid double-booking. reason=" + reason);
-                return;
+                return false;
             }
         }
 
@@ -611,6 +611,7 @@ public class DispatchSupportService implements DispatchSupport {
         } else {
             logger.info("Frame ID is NULL, not updating Frame state");
         }
+        return true;
     }
 
     @Override

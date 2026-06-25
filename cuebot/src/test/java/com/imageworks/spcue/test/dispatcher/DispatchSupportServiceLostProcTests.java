@@ -21,6 +21,7 @@ import org.mockito.InOrder;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
@@ -114,6 +115,8 @@ public class DispatchSupportServiceLostProcTests {
         InOrder inOrder = inOrder(rqdClient, procDao);
         inOrder.verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         inOrder.verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
     }
 
     @Test
@@ -139,6 +142,8 @@ public class DispatchSupportServiceLostProcTests {
 
         verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
         verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
     }
 
     @Test
@@ -152,6 +157,24 @@ public class DispatchSupportServiceLostProcTests {
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
+    }
+
+    @Test
+    public void updatesFrameHostDownWhenFrameNotRunningForDownHost() {
+        // Down host whose frame is no longer RUNNING but already DEAD: updateFrameStopped reports
+        // nothing to stop, so the down-host fallback must reset it via updateFrameHostDown.
+        when(frameDao.updateFrameStopped(any(FrameInterface.class), any(FrameState.class),
+                anyInt())).thenReturn(false);
+        FrameDetail deadFrame = new FrameDetail();
+        deadFrame.state = FrameState.DEAD;
+        when(frameDao.getFrameDetail(any(FrameInterface.class))).thenReturn(deadFrame);
+
+        dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST);
+
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameHostDown(any(FrameInterface.class));
     }
 
     @Test
@@ -180,6 +203,8 @@ public class DispatchSupportServiceLostProcTests {
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
     }
 
     @Test
@@ -193,6 +218,8 @@ public class DispatchSupportServiceLostProcTests {
         dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
 
         verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
     }
 
     @Test
@@ -204,5 +231,7 @@ public class DispatchSupportServiceLostProcTests {
 
         verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
         verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
     }
 }

@@ -144,15 +144,17 @@ public class MaintenanceManagerSupport {
         List<VirtualProc> procs = procDao.findOrphanedVirtualProcs(100);
         for (VirtualProc proc : procs) {
             try {
-                dispatchSupport.lostProc(proc, "Removed by maintenance, orphaned",
-                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
-
-                Sentry.configureScope(scope -> {
-                    scope.setExtra("frame_id", proc.getFrameId());
-                    scope.setExtra("host_id", proc.getHostId());
-                    scope.setExtra("name", proc.getName());
-                    Sentry.captureMessage("Manager cleaning orphan procs");
-                });
+                // Only report a cleanup when the proc was actually released; lostProc may defer the
+                // release (leaving the proc intact) to avoid double-booking a flapping host.
+                if (dispatchSupport.lostProc(proc, "Removed by maintenance, orphaned",
+                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN)) {
+                    Sentry.withScope(scope -> {
+                        scope.setExtra("frame_id", proc.getFrameId());
+                        scope.setExtra("host_id", proc.getHostId());
+                        scope.setExtra("name", proc.getName());
+                        Sentry.captureMessage("Manager cleaning orphan procs");
+                    });
+                }
             } catch (Exception e) {
                 logger.info("failed to clear orphaned proc: " + proc.getName() + " " + e);
             }
@@ -174,7 +176,7 @@ public class MaintenanceManagerSupport {
                             + frame.getFrameId() + ") to WAITING; its proc was already gone so RQD "
                             + "could not be killed. If RQD is still rendering it this is a "
                             + "double-booking risk.");
-                    Sentry.configureScope(scope -> {
+                    Sentry.withScope(scope -> {
                         scope.setExtra("frame_id", frame.getFrameId());
                         scope.setExtra("frame_name", frame.getName());
                         Sentry.captureMessage("Maintenance reset orphaned frame with no proc");

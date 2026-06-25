@@ -188,8 +188,10 @@ public interface DispatchSupport {
      * @param proc
      * @param reason
      * @param exitStatus
+     * @return true if the proc was actually released (unbooked and its frame reset); false if the
+     *         release was deferred to avoid double-booking a possibly-still-rendering host
      */
-    void lostProc(VirtualProc proc, String reason, int exitStatus);
+    boolean lostProc(VirtualProc proc, String reason, int exitStatus);
 
     /**
      * Unbooks a proc with no message
