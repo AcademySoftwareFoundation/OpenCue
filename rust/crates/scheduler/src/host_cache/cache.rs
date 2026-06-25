@@ -964,7 +964,10 @@ mod tests {
             .values()
             .flat_map(|by_memory| by_memory.values())
             .any(|hosts| hosts.contains(&dropped_id));
-        assert!(!still_referenced, "pruned host must not linger in any bucket");
+        assert!(
+            !still_referenced,
+            "pruned host must not linger in any bucket"
+        );
         drop(hosts_index);
 
         // A second prune with the same live set is a no-op.

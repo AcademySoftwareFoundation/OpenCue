@@ -137,9 +137,8 @@ pub fn compute_max_more(host: &Host, profile: &LayerProfile) -> i64 {
     // Physical headroom on a single dimension: how many additional `min`-sized
     // chunks remain in the idle pool after the first frame is allocated.
     // `None` means "no demand on this dim" — skipped when taking the minimum.
-    let physical_bound = |idle: i64, min: i64| -> Option<i64> {
-        (min > 0).then(|| (idle - min) / min)
-    };
+    let physical_bound =
+        |idle: i64, min: i64| -> Option<i64> { (min > 0).then(|| (idle - min) / min) };
 
     // Headroom against a core-denominated administrative cap (job_max_cores
     // or show_burst): how many additional frames can be booked before live
