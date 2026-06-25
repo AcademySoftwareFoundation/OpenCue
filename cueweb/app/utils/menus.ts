@@ -49,6 +49,7 @@ export const NAV_MENUS: NavMenu[] = [
   },
   {
     label: "CueCommander",
+    adminOnly: true,
     items: [
       { label: "Allocations", href: "/allocations" },
       { label: "Limits", href: "/limits" },
@@ -64,6 +65,7 @@ export const NAV_MENUS: NavMenu[] = [
   },
   {
     label: "CueSubmit",
+    adminOnly: true,
     items: [{ label: "Submit Job", href: "/cuesubmit" }],
   },
   {
