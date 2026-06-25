@@ -16,9 +16,7 @@ use futures::Stream;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
-
-use crate::{dao::helpers::parse_uuid, pgpool::connection_pool};
+use crate::pgpool::connection_pool;
 
 /// Data Access Object for host operations in the job dispatch system.
 ///
@@ -41,11 +39,19 @@ pub struct ClusterModel {
     pub show_id: String,
     pub facility_id: String,
     pub ttype: String,
+    /// `pk_alloc` UUID (as text) for `'ALLOC'` rows; `NULL` for non-alloc rows.
+    /// Carried through so `Tag::alloc_id` can be populated on the ALLOC arm of
+    /// `cluster.rs::load_clusters`, enabling the matcher's pre-checkout
+    /// subscription burst snapshot.
+    pub alloc_id: Option<String>,
 }
 
+// Only shows flagged `b_scheduler_managed = true` are owned by the scheduler;
+// every cluster query is scoped to those shows. Cuebot owns the rest.
 static QUERY_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     a.str_tag as tag,
+    a.pk_alloc as alloc_id,
     sh.pk_show as show_id,
     a.pk_facility as facility_id,
     'ALLOC' as ttype
@@ -55,11 +61,13 @@ FROM host_tag
     JOIN show sh ON sub.pk_show = sh.pk_show
 WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
 "#;
 
 static QUERY_ALLOC_CLUSTERS_WITH_FACILITY: &str = r#"
 SELECT DISTINCT
     a.str_tag as tag,
+    a.pk_alloc as alloc_id,
     sh.pk_show as show_id,
     a.pk_facility as facility_id,
     'ALLOC' as ttype
@@ -69,38 +77,8 @@ FROM host_tag
     JOIN show sh ON sub.pk_show = sh.pk_show
 WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
     AND a.pk_facility = $1
-"#;
-
-static QUERY_ALLOC_CLUSTERS_WITH_SHOW_NAMES: &str = r#"
-SELECT DISTINCT
-    a.str_tag as tag,
-    sh.pk_show as show_id,
-    a.pk_facility as facility_id,
-    'ALLOC' as ttype
-FROM host_tag
-    JOIN alloc a ON a.str_tag = host_tag.str_tag
-    JOIN subscription sub ON sub.pk_alloc = a.pk_alloc
-    JOIN show sh ON sub.pk_show = sh.pk_show
-WHERE str_tag_type = 'ALLOC'
-    AND sh.str_name = ANY($1)
-    AND sh.b_active = true
-"#;
-
-static QUERY_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES: &str = r#"
-SELECT DISTINCT
-    a.str_tag as tag,
-    sh.pk_show as show_id,
-    a.pk_facility as facility_id,
-    'ALLOC' as ttype
-FROM host_tag
-    JOIN alloc a ON a.str_tag = host_tag.str_tag
-    JOIN subscription sub ON sub.pk_alloc = a.pk_alloc
-    JOIN show sh ON sub.pk_show = sh.pk_show
-WHERE str_tag_type = 'ALLOC'
-    AND sh.b_active = true
-    AND a.pk_facility = $1
-    AND sh.str_name = ANY($2)
 "#;
 
 // As this query is not filtered by show, each show+subscription will
@@ -109,6 +87,7 @@ WHERE str_tag_type = 'ALLOC'
 static QUERY_NON_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     host_tag.str_tag as tag,
+    NULL::text as alloc_id,
     s.pk_show as show_id,
     a.pk_facility as facility_id,
     str_tag_type as ttype
@@ -116,26 +95,16 @@ FROM host_tag
 JOIN host h on h.pk_host = host_tag.pk_host
 JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
+JOIN show sh ON sh.pk_show = s.pk_show
 WHERE str_tag_type <> 'ALLOC'
+    AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
 "#;
 
 static QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY: &str = r#"
 SELECT DISTINCT
     host_tag.str_tag as tag,
-    s.pk_show as show_id,
-    a.pk_facility as facility_id,
-    str_tag_type as ttype
-FROM host_tag
-JOIN host h on h.pk_host = host_tag.pk_host
-JOIN alloc a ON a.pk_alloc = h.pk_alloc
-JOIN subscription s ON a.pk_alloc = s.pk_alloc
-WHERE str_tag_type <> 'ALLOC'
-    AND a.pk_facility = $1
-"#;
-
-static QUERY_NON_ALLOC_CLUSTERS_WITH_SHOW_NAMES: &str = r#"
-SELECT DISTINCT
-    host_tag.str_tag as tag,
+    NULL::text as alloc_id,
     s.pk_show as show_id,
     a.pk_facility as facility_id,
     str_tag_type as ttype
@@ -145,34 +114,14 @@ JOIN alloc a ON a.pk_alloc = h.pk_alloc
 JOIN subscription s ON a.pk_alloc = s.pk_alloc
 JOIN show sh ON sh.pk_show = s.pk_show
 WHERE str_tag_type <> 'ALLOC'
-    AND sh.str_name = ANY($1)
-"#;
-
-static QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES: &str = r#"
-SELECT DISTINCT
-    host_tag.str_tag as tag,
-    s.pk_show as show_id,
-    a.pk_facility as facility_id,
-    str_tag_type as ttype
-FROM host_tag
-JOIN host h on h.pk_host = host_tag.pk_host
-JOIN alloc a ON a.pk_alloc = h.pk_alloc
-JOIN subscription s ON a.pk_alloc = s.pk_alloc
-JOIN show sh ON sh.pk_show = s.pk_show
-WHERE str_tag_type <> 'ALLOC'
+    AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
     AND a.pk_facility = $1
-    AND sh.str_name = ANY($2)
 "#;
 
 static QUERY_FACILITY_ID: &str = r#"
 SELECT pk_facility
 FROM facility
-WHERE str_name = $1
-"#;
-
-static QUERY_SHOW_ID: &str = r#"
-SELECT pk_show
-FROM show
 WHERE str_name = $1
 "#;
 
@@ -192,15 +141,14 @@ impl ClusterDao {
         })
     }
 
-    /// Fetches all allocation-based clusters from the database.
+    /// Fetches all allocation-based clusters for scheduler-managed shows.
     ///
     /// Returns clusters defined by facility, show, and allocation tag combinations.
-    /// Only includes active shows with host tags.
+    /// Only includes active shows where `b_scheduler_managed = true`.
     ///
     /// # Arguments
     ///
     /// * `facility_id` - Optional facility ID to filter clusters to a specific facility
-    /// * `shows_filter` - Optional list of show names to filter clusters
     ///
     /// # Returns
     ///
@@ -208,43 +156,29 @@ impl ClusterDao {
     pub fn fetch_alloc_clusters(
         &self,
         facility_id: Option<String>,
-        shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
-        match (facility_id, shows_filter) {
-            (Some(fid), Some(show_names)) => Box::pin(
-                sqlx::query_as::<_, ClusterModel>(
-                    QUERY_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES,
-                )
-                .bind(fid)
-                .bind(show_names)
-                .fetch(&*self.connection_pool),
-            ),
-            (Some(fid), None) => Box::pin(
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
+        match facility_id {
+            Some(fid) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_ALLOC_CLUSTERS_WITH_FACILITY)
                     .bind(fid)
                     .fetch(&*self.connection_pool),
             ),
-            (None, Some(show_names)) => Box::pin(
-                sqlx::query_as::<_, ClusterModel>(QUERY_ALLOC_CLUSTERS_WITH_SHOW_NAMES)
-                    .bind(show_names)
-                    .fetch(&*self.connection_pool),
-            ),
-            (None, None) => Box::pin(
+            None => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_ALLOC_CLUSTERS)
                     .fetch(&*self.connection_pool),
             ),
         }
     }
 
-    /// Fetches all non-allocation clusters (MANUAL and HOSTNAME tags).
+    /// Fetches all non-allocation clusters (MANUAL, HOSTNAME, HARDWARE tags) for
+    /// scheduler-managed shows.
     ///
-    /// Returns clusters defined by manual or hostname-based tags
-    /// tied to their specific facility/show.
+    /// Returns clusters defined by non-allocation host tags tied to their
+    /// specific facility/show, scoped to shows where `b_scheduler_managed = true`.
     ///
     /// # Arguments
     ///
     /// * `facility_id` - Optional facility ID to filter clusters to a specific facility
-    /// * `shows_filter` - Optional list of show names to filter clusters
     ///
     /// # Returns
     ///
@@ -252,28 +186,14 @@ impl ClusterDao {
     pub fn fetch_non_alloc_clusters(
         &self,
         facility_id: Option<String>,
-        shows_filter: Option<Vec<String>>,
-    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + '_>> {
-        match (facility_id, shows_filter) {
-            (Some(fid), Some(show_names)) => Box::pin(
-                sqlx::query_as::<_, ClusterModel>(
-                    QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY_AND_SHOW_NAMES,
-                )
-                .bind(fid)
-                .bind(show_names)
-                .fetch(&*self.connection_pool),
-            ),
-            (Some(fid), None) => Box::pin(
+    ) -> std::pin::Pin<Box<dyn Stream<Item = Result<ClusterModel, sqlx::Error>> + Send + '_>> {
+        match facility_id {
+            Some(fid) => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_NON_ALLOC_CLUSTERS_WITH_FACILITY)
                     .bind(fid)
                     .fetch(&*self.connection_pool),
             ),
-            (None, Some(show_names)) => Box::pin(
-                sqlx::query_as::<_, ClusterModel>(QUERY_NON_ALLOC_CLUSTERS_WITH_SHOW_NAMES)
-                    .bind(show_names)
-                    .fetch(&*self.connection_pool),
-            ),
-            (None, None) => Box::pin(
+            None => Box::pin(
                 sqlx::query_as::<_, ClusterModel>(QUERY_NON_ALLOC_CLUSTERS)
                     .fetch(&*self.connection_pool),
             ),
@@ -296,23 +216,5 @@ impl ClusterDao {
             .fetch_one(&*self.connection_pool)
             .await?;
         Ok(row.0)
-    }
-
-    /// Looks up a show ID by show name.
-    ///
-    /// # Arguments
-    ///
-    /// * `show_name` - The name of the show
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Uuid)` - The show ID
-    /// * `Err(sqlx::Error)` - If show not found or database error
-    pub async fn get_show_id(&self, show_name: &str) -> Result<Uuid, sqlx::Error> {
-        let row: (String,) = sqlx::query_as(QUERY_SHOW_ID)
-            .bind(show_name)
-            .fetch_one(&*self.connection_pool)
-            .await?;
-        Ok(parse_uuid(&row.0))
     }
 }

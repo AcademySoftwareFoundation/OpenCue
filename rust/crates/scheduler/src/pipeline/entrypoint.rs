@@ -56,6 +56,10 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     info!("Starting scheduler feed");
 
     let (tx, cluster_receiver) = mpsc::channel(16);
+    // Periodically reload the cluster set from the DB so b_scheduler_managed
+    // flips (and host-tag/subscription churn) are picked up without a restart.
+    // No-op for feeds built from an explicit cluster list (tests).
+    cluster_feed.start_reload_loop();
     let feed_sender = cluster_feed.stream(tx).await;
 
     ReceiverStream::new(cluster_receiver)
@@ -66,6 +70,9 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
             let feed_sender = feed_sender.clone();
 
             async move {
+                // Bounded metric label captured before `cluster` is moved into a
+                // FeedMessage::Sleep below.
+                let cluster_type = cluster.cluster_type();
                 let jobs = job_fetcher
                     .query_pending_jobs_by_show_facility_and_tags(
                         cluster.show_id,
@@ -80,6 +87,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         metrics::increment_jobs_queried(jobs.len());
 
                         let processed_jobs = AtomicUsize::new(0);
+                        let dispatched_frames = AtomicUsize::new(0);
                         stream::iter(jobs)
                             .for_each_concurrent(
                                 CONFIG.queue.stream.job_buffer_size,
@@ -88,17 +96,49 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                     metrics::increment_jobs_processed(&job_model.show_name);
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     debug!("Found job: {}", job);
-                                    matcher.process(job).await;
+                                    let dispatched = matcher.process(job, &feed_sender).await;
+                                    dispatched_frames.fetch_add(dispatched, Ordering::Relaxed);
                                 },
                             )
                             .await;
+                        let processed = processed_jobs.load(Ordering::Relaxed);
+                        let dispatched = dispatched_frames.load(Ordering::Relaxed);
+
+                        // Per-pass yield and terminal reason. Together these show
+                        // whether each cluster turn drains a bounded slice while a
+                        // backlog persists (cap-limited) versus genuinely finding
+                        // no work or no fit.
+                        metrics::observe_frames_dispatched_per_pass(cluster_type, dispatched);
+                        let reason = if processed == 0 {
+                            "no_jobs"
+                        } else if dispatched == 0 {
+                            "saturated"
+                        } else {
+                            "booked"
+                        };
+                        metrics::increment_pass_terminated_reason(reason);
+
                         // If no jobs got processed, sleep to prevent hammering the database with
                         // queries with no outcome
-                        if processed_jobs.load(Ordering::Relaxed) == 0 {
+                        if processed == 0 {
                             let _ = feed_sender
                                 .send(FeedMessage::Sleep(
                                     cluster,
                                     CONFIG.queue.cluster_empty_sleep,
+                                ))
+                                .await;
+                        } else if dispatched == 0 {
+                            // Jobs are pending but the whole pass placed nothing —
+                            // typically a saturated farm (no host fits anywhere).
+                            // Without a back-off this cluster would re-query its
+                            // jobs and layers continuously while accomplishing
+                            // nothing. A short sleep keeps booking latency low
+                            // (host state refreshes on a similar cadence) while
+                            // cutting the no-op query load drastically.
+                            let _ = feed_sender
+                                .send(FeedMessage::Sleep(
+                                    cluster,
+                                    CONFIG.queue.cluster_saturated_sleep,
                                 ))
                                 .await;
                         }
@@ -119,8 +159,18 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         }
                     }
                     Err(err) => {
-                        let _ = feed_sender.send(FeedMessage::Stop()).await;
-                        error!("Failed to fetch job: {}", err);
+                        // A failed job query is usually transient (pool pressure,
+                        // network blip, failover). Stopping the whole feed here
+                        // would shut the scheduler down on the first hiccup; back
+                        // this cluster off instead and let the next pass retry.
+                        error!("Failed to fetch jobs for cluster {}: {}", cluster, err);
+                        metrics::increment_pass_terminated_reason("query_error");
+                        let _ = feed_sender
+                            .send(FeedMessage::Sleep(
+                                cluster,
+                                CONFIG.queue.cluster_empty_sleep,
+                            ))
+                            .await;
                     }
                 }
             }

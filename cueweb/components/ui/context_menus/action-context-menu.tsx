@@ -25,25 +25,78 @@ import {
   copyFrameNameGivenRow,
   copyJobNameGivenRow,
   copyLayerNameGivenRow,
+  viewLayerGivenRow,
+  viewLayerDependenciesGivenRow,
+  layerDependencyWizardGivenRow,
+  markdoneLayerGivenRow,
+  reorderLayerFramesGivenRow,
+  staggerLayerFramesGivenRow,
+  layerPropertiesGivenRow,
+  eatAndMarkdoneLayerGivenRow,
+  viewLayerProcessesGivenRow,
+  createSubscriptionGivenRow,
+  deleteLimitGivenRow,
+  deleteSubscriptionGivenRow,
   dependencyWizardGivenRow,
   dropExternalDependsGivenRow,
   dropInternalDependsGivenRow,
+  editSubscriptionBurstGivenRow,
+  editSubscriptionSizeGivenRow,
   eatFrameGivenRow,
+  viewFrameDependenciesGivenRow,
+  frameDependencyWizardGivenRow,
+  dropFrameDependsGivenRow,
+  markFrameAsWaitingGivenRow,
+  markdoneFrameGivenRow,
+  eatAndMarkdoneFrameGivenRow,
+  reorderFrameGivenRow,
+  previewAllGivenRow,
+  viewFrameProcessesGivenRow,
+  filterSelectedLayersGivenRow,
   eatJobsDeadFramesGivenRow,
   eatLayerFramesGivenRow,
+  editHostTagsGivenRow,
+  viewHostCommentsGivenRow,
+  viewHostProcsGivenRow,
+  renameHostTagGivenRow,
+  changeHostAllocationGivenRow,
+  deleteHostGivenRow,
+  setRepairGivenRow,
+  clearRepairGivenRow,
+  takeOwnershipGivenRow,
+  editLimitMaxValueGivenRow,
   emailArtistGivenRow,
   killFrameGivenRow,
   killJobGivenRow,
   killLayerGivenRow,
+  lockHostGivenRow,
   pauseJobGivenRow,
+  rebootHostGivenRow,
+  rebootHostWhenIdleGivenRow,
   requestCoresGivenRow,
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
   retryLayerDeadFramesGivenRow,
+  renameLimitGivenRow,
   retryLayerFramesGivenRow,
+  setCoresGivenRow,
+  setMinCoresGivenRow,
+  setMaxCoresGivenRow,
+  setMinGpusGivenRow,
+  setMaxGpusGivenRow,
   setMaxRetriesGivenRow,
   setPriorityGivenRow,
+  reorderFramesGivenRow,
+  staggerFramesGivenRow,
+  useLocalCoresGivenRow,
+  setUserColorGivenRow,
+  clearUserColorGivenRow,
+  sendToGroupGivenRow,
+  showProgressBarGivenRow,
+  showPropertiesGivenRow,
   subscribeToJobGivenRow,
+  unbookGivenRow,
+  unlockHostGivenRow,
   unmonitorJobGivenRow,
   unpauseJobGivenRow,
   viewDependenciesGivenRow,
@@ -64,14 +117,29 @@ import {
   TbHelp,
   TbLayoutDashboard,
   TbLink,
+  TbLock,
+  TbLockOpen,
   TbMessage,
   TbPacman,
+  TbPencil,
   TbPlayerPause,
   TbPlayerPlay,
   TbPlugConnectedX,
+  TbPlus,
+  TbPower,
+  TbRefresh,
   TbReload,
   TbSettings,
   TbStar,
+  TbTrash,
+  TbTag,
+  TbCheck,
+  TbCpu,
+  TbEye,
+  TbServer,
+  TbFilter,
+  TbPhoto,
+  TbFolder,
 } from "react-icons/tb";
 import { BaseContextMenu } from "./base-context-menu";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
@@ -153,6 +221,13 @@ interface FrameContextMenuProps {
   contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
 }
 
+interface HostContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
 // Context menu for tables that contain jobs
 export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   username,
@@ -213,10 +288,11 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   }
 
   function handleCommentsGivenRow(row: Row<any>) {
-    const job = row.original as Job;
-    const params = new URLSearchParams({ jobId: job.id });
-    const url = `/jobs/${encodeURIComponent(job.name)}/comments?${params.toString()}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Open the Comments modal (CueGUI parity) instead of a new tab.
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("cueweb:open-job-comments", { detail: { job: row.original as Job } }),
+    );
   }
 
   const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
@@ -236,16 +312,25 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
   // disables the entry on FINISHED jobs and when the global safety flag
   // is set, so In Progress / Failing / Dependency all behave correctly.
   const isJobPaused = !!contextMenuState.row?.original.isPaused;
+  // Auto-eat is a single toggle (CueGUI parity): "Enable auto eating" when off,
+  // "Disable auto eating" when on.
+  const isAutoEat = !!contextMenuState.row?.original.autoEat;
 
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.JobActions
   const menuItems: MenuItem[] = [
     // -- Top group: identity + lookup actions ----------------------
-    {
-      label: "Unmonitor",
-      onClick: handleUnmonitorJobGivenRow,
-      isActive: true,
-      component: <TbEyeOff className="mr-1" size={14} />,
-    },
+    // Unmonitor only applies to the Cuetopia Monitor Jobs working set; the
+    // Monitor Cue view shows all of a show's jobs, so it's omitted there.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Unmonitor",
+            onClick: handleUnmonitorJobGivenRow,
+            isActive: true,
+            component: <TbEyeOff className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
     // "View Job" loads the row into Cuetopia's Monitor Jobs table; on
     // Cuetopia itself the user is already viewing it, so the entry is
     // only included when the menu opens on the Monitor Cue page.
@@ -302,12 +387,29 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: true,
       component: <TbMessage className="mr-1" size={14} />,
     },
-    {
-      label: "Use Local Cores...",
-      onClick: notYetImplemented("Use Local Cores"),
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
+    // "Send To Group..." moves the job into another group within its show.
+    // CueGUI exposes it on Monitor Cue (CueCommander) only.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "Send To Group...",
+            onClick: sendToGroupGivenRow,
+            isActive: editable,
+            component: <TbFolder className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
+    // Use Local Cores is a Cuetopia (Monitor Jobs) convenience; omit on Monitor Cue.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Use Local Cores...",
+            onClick: useLocalCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
 
     // Dependencies submenu flattened inline (CueGUI shows it as a
     // submenu; CueWeb has no submenu primitive yet, so it sits as a
@@ -337,30 +439,71 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
 
-    // Set user color submenu flattened to two stub entries; the full
-    // 15-color picker lands when the back-end is wired.
-    {
-      label: "Set User Color...",
-      onClick: notYetImplemented("Set User Color"),
-      isActive: true,
-      component: <TbStar className="mr-1" size={14} />,
-    },
-    {
-      label: "Clear User Color",
-      onClick: notYetImplemented("Clear User Color"),
-      isActive: true,
-      component: <TbStar className="mr-1" size={14} />,
-    },
+    // User color is a Cuetopia (Monitor Jobs) convenience; omit on Monitor Cue.
+    ...(!isOnMonitorCue
+      ? ([
+          {
+            label: "Set User Color...",
+            onClick: setUserColorGivenRow,
+            isActive: true,
+            component: <TbStar className="mr-1" size={14} />,
+          },
+          {
+            label: "Clear User Color",
+            onClick: clearUserColorGivenRow,
+            isActive: true,
+            component: <TbStar className="mr-1" size={14} />,
+          },
+        ] as MenuItem[])
+      : []),
 
     sep("group-frame-controls"),
 
-    // -- Frame-level controls (CueGUI parity).
-    {
-      label: "Set Priority...",
-      onClick: setPriorityGivenRow,
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
+    // -- Resource / priority setters. These live on Monitor Cue (CueCommander)
+    // only; Cuetopia's Monitor Jobs keeps a lighter menu. Order mirrors CueGUI:
+    // cores, gpus, then priority.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            // Combined cores editor (CueWeb convenience).
+            label: "Set Min/Max Cores...",
+            onClick: setCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Minimum Cores...",
+            onClick: setMinCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Maximum Cores...",
+            onClick: setMaxCoresGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Minimum Gpus...",
+            onClick: setMinGpusGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            label: "Set Maximum Gpus...",
+            onClick: setMaxGpusGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+          {
+            // CueGUI places Set Priority after the cores/gpus setters.
+            label: "Set Priority...",
+            onClick: setPriorityGivenRow,
+            isActive: editable,
+            component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       label: "Set Max Retries...",
       onClick: setMaxRetriesGivenRow,
@@ -369,13 +512,13 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     },
     {
       label: "Reorder Frames...",
-      onClick: notYetImplemented("Reorder Frames"),
+      onClick: reorderFramesGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
     {
       label: "Stagger Frames...",
-      onClick: notYetImplemented("Stagger Frames"),
+      onClick: staggerFramesGivenRow,
       isActive: editable,
       component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -398,14 +541,8 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
 
     // -- Eat / Retry / Kill ---------------------------------------
     {
-      label: "Auto-Eat On",
-      onClick: autoEatOnGivenRow,
-      isActive: editable,
-      component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
-    {
-      label: "Auto-Eat Off",
-      onClick: autoEatOffGivenRow,
+      label: isAutoEat ? "Disable auto eating" : "Enable auto eating",
+      onClick: isAutoEat ? autoEatOffGivenRow : autoEatOnGivenRow,
       isActive: editable,
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(editable)} />,
     },
@@ -421,12 +558,17 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
       isActive: destructiveActive,
       component: <TbPacman className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
     },
-    {
-      label: "Unbook",
-      onClick: notYetImplemented("Unbook"),
-      isActive: editable,
-      component: <TbSettings className="mr-1" size={14} color={grayIfDisabled(editable)} />,
-    },
+    // Unbook Frames is a Monitor Cue (CueCommander) action; omit on Cuetopia.
+    ...(isOnMonitorCue
+      ? ([
+          {
+            label: "Unbook Frames...",
+            onClick: unbookGivenRow,
+            isActive: destructiveActive,
+            component: <TbPlugConnectedX className="mr-1" size={14} color={grayIfDisabled(destructiveActive)} />,
+          },
+        ] as MenuItem[])
+      : []),
     {
       label: "Kill",
       onClick: handleKillJobGivenRow,
@@ -443,7 +585,7 @@ export const JobContextMenu: React.FC<JobContextMenuProps> = ({
     // toggle is wired. On CueGUI, this option opens the CueProgBar tool
     {
       label: "Show Progress Bar",
-      onClick: notYetImplemented("Show Progress Bar"),
+      onClick: showProgressBarGivenRow,
       isActive: true,
       component: <TbSettings className="mr-1" size={14} />,
     },
@@ -477,22 +619,22 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
 
   // CueGUI parity: order + grouping mirror cuegui.MenuActions.LayerActions
   const items: MenuItem[] = [
-    { label: "View Layer", onClick: notYetImplemented("View Layer"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "View Layer", onClick: viewLayerGivenRow, isActive: true, component: <TbEye className="mr-1" size={14} /> },
     { label: "Copy Layer Name", onClick: copyLayerNameGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
 
     // Dependencies submenu flattened.
-    { label: "View Dependencies...", onClick: notYetImplemented("View Dependencies"), isActive: true, component: <TbLink className="mr-1" size={14} /> },
-    { label: "Dependency Wizard...", onClick: notYetImplemented("Dependency Wizard"), isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark done", onClick: notYetImplemented("Mark done"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "View Dependencies...", onClick: viewLayerDependenciesGivenRow, isActive: true, component: <TbLink className="mr-1" size={14} /> },
+    { label: "Dependency Wizard...", onClick: layerDependencyWizardGivenRow, isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark done", onClick: markdoneLayerGivenRow, isActive: active, component: <TbCheck className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-reorder"),
 
-    { label: "Reorder Frames...", onClick: notYetImplemented("Reorder Frames"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Stagger Frames...", onClick: notYetImplemented("Stagger Frames"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Reorder Frames...", onClick: reorderLayerFramesGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Stagger Frames...", onClick: staggerLayerFramesGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-properties"),
 
-    { label: "Properties...", onClick: notYetImplemented("Properties"), isActive: true, component: <TbSettings className="mr-1" size={14} /> },
+    { label: "Properties...", onClick: layerPropertiesGivenRow, isActive: true, component: <TbSettings className="mr-1" size={14} /> },
 
     sep("group-actions"),
 
@@ -500,6 +642,285 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
     { label: "Eat", onClick: eatLayerFramesGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
     { label: "Retry", onClick: retryLayerFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
     { label: "Retry Dead Frames", onClick: retryLayerDeadFramesGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "red" : "gray"} /> },
+    { label: "Eat and Mark done", onClick: eatAndMarkdoneLayerGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "View Processes", onClick: viewLayerProcessesGivenRow, isActive: true, component: <TbCpu className="mr-1" size={14} /> },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+// Context menu for the Monitor Hosts table. Currently exposes Lock /
+// Unlock; reboot, tag edit and the other CueCommander host actions
+// land in sibling issues and slot in here as they're built.
+export const HostContextMenu: React.FC<HostContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  // lockState drives which entry is live: a host can be Locked only when
+  // it is currently OPEN, and Unlocked only when it is plainly LOCKED.
+  // NIMBY_LOCKED hosts cannot be unlocked via this RPC (the gateway
+  // rejects it), so both entries are inactive for them.
+  const lockState = contextMenuState.row?.original.lockState as string | undefined;
+  const canLock = lockState === "OPEN";
+  const canUnlock = lockState === "LOCKED";
+  // CueGUI canTakeOwnership: only a NIMBY-locked host can be claimed.
+  const canTakeOwnership = lockState === "NIMBY_LOCKED";
+
+  // Hardware state gates the reboot entries. An immediate reboot is
+  // pointless while the host is already REBOOTING; scheduling a
+  // reboot-when-idle is pointless once it is already REBOOTING or
+  // REBOOT_WHEN_IDLE.
+  const hardwareState = contextMenuState.row?.original.state as string | undefined;
+  const canReboot = hardwareState !== "REBOOTING";
+  const canRebootWhenIdle =
+    hardwareState !== "REBOOTING" && hardwareState !== "REBOOT_WHEN_IDLE";
+
+  // CueGUI parity: a host is at rest in REPAIR when its hardware state is
+  // REPAIR; Clear Repair only makes sense then.
+  const inRepair = hardwareState === "REPAIR";
+
+  const items: MenuItem[] = [
+    {
+      label: "Comments...",
+      onClick: viewHostCommentsGivenRow,
+      isActive: true,
+      component: <TbMessage className="mr-1" size={14} />,
+    },
+    {
+      label: "View Procs",
+      onClick: viewHostProcsGivenRow,
+      isActive: true,
+      component: <TbDots className="mr-1" size={14} />,
+    },
+
+    sep("group-lock"),
+
+    {
+      label: "Lock Host",
+      onClick: lockHostGivenRow,
+      isActive: canLock,
+      component: <TbLock className="mr-1" size={14} color={canLock ? undefined : "gray"} />,
+    },
+    {
+      label: "Unlock Host",
+      onClick: unlockHostGivenRow,
+      isActive: canUnlock,
+      component: <TbLockOpen className="mr-1" size={14} color={canUnlock ? undefined : "gray"} />,
+    },
+    {
+      // CueGUI (canTakeOwnership) only enables this for a NIMBY-locked host.
+      label: "Take Ownership",
+      onClick: takeOwnershipGivenRow,
+      isActive: canTakeOwnership,
+      component: <TbStar className="mr-1" size={14} color={canTakeOwnership ? undefined : "gray"} />,
+    },
+
+    sep("group-tags"),
+
+    {
+      // CueWeb merges CueGUI's Add Tags / Remove Tags into one editor.
+      label: "Edit Tags...",
+      onClick: editHostTagsGivenRow,
+      isActive: true,
+      component: <TbTag className="mr-1" size={14} />,
+    },
+    {
+      label: "Rename Tag...",
+      onClick: renameHostTagGivenRow,
+      isActive: true,
+      component: <TbTag className="mr-1" size={14} />,
+    },
+    {
+      label: "Change Allocation...",
+      onClick: changeHostAllocationGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+
+    sep("group-reboot"),
+
+    {
+      label: "Reboot",
+      onClick: rebootHostGivenRow,
+      isActive: canReboot,
+      component: <TbPower className="mr-1" size={14} color={canReboot ? "red" : "gray"} />,
+    },
+    {
+      label: "Reboot when idle",
+      onClick: rebootHostWhenIdleGivenRow,
+      isActive: canRebootWhenIdle,
+      component: <TbRefresh className="mr-1" size={14} color={canRebootWhenIdle ? undefined : "gray"} />,
+    },
+    {
+      label: "Delete Host",
+      onClick: deleteHostGivenRow,
+      isActive: true,
+      component: <MdOutlineCancel className="mr-1" size={14} color="red" />,
+    },
+
+    sep("group-repair"),
+
+    {
+      label: "Set Repair State",
+      onClick: setRepairGivenRow,
+      isActive: !inRepair,
+      component: <TbSettings className="mr-1" size={14} color={!inRepair ? undefined : "gray"} />,
+    },
+    {
+      label: "Clear Repair State",
+      onClick: clearRepairGivenRow,
+      isActive: inRepair,
+      component: <TbSettings className="mr-1" size={14} color={inRepair ? undefined : "gray"} />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+interface ShowContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+// Context menu for the Shows table (CueGUI ShowsWidget parity): Show
+// Properties and Create Subscription.
+export const ShowContextMenu: React.FC<ShowContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Show Properties",
+      onClick: showPropertiesGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-subscription"),
+    {
+      label: "Create Subscription...",
+      onClick: createSubscriptionGivenRow,
+      isActive: true,
+      component: <TbPlus className="mr-1" size={14} />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+interface SubscriptionContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+interface LimitContextMenuProps {
+  contextMenuState: ContextMenuState;
+  contextMenuHandleClose: () => void;
+  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuTargetAreaRef: React.RefObject<HTMLDivElement>;
+}
+
+// Context menu for the Subscriptions table (CueGUI SubscriptionsWidget
+// parity): Edit Subscription Size, Edit Subscription Burst, and Delete
+// Subscription.
+export const SubscriptionContextMenu: React.FC<SubscriptionContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Edit Subscription Size...",
+      onClick: editSubscriptionSizeGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    {
+      label: "Edit Subscription Burst...",
+      onClick: editSubscriptionBurstGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-delete"),
+    {
+      label: "Delete Subscription",
+      onClick: deleteSubscriptionGivenRow,
+      isActive: true,
+      component: <MdOutlineCancel className="mr-1" size={14} color="red" />,
+    },
+  ];
+
+  return (
+    <BaseContextMenu
+      items={items}
+      contextMenuState={contextMenuState}
+      contextMenuHandleClose={contextMenuHandleClose}
+      contextMenuRef={contextMenuRef}
+      contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+    />
+  );
+};
+
+// Context menu for the Limits table (CueGUI LimitsWidget parity): Edit Max
+// Value, Delete Limit, Rename.
+export const LimitContextMenu: React.FC<LimitContextMenuProps> = ({
+  contextMenuState,
+  contextMenuHandleClose,
+  contextMenuRef,
+  contextMenuTargetAreaRef,
+}) => {
+  const items: MenuItem[] = [
+    {
+      label: "Edit Max Value",
+      onClick: editLimitMaxValueGivenRow,
+      isActive: true,
+      component: <TbSettings className="mr-1" size={14} />,
+    },
+    sep("group-limit-modify"),
+    {
+      label: "Delete Limit",
+      onClick: deleteLimitGivenRow,
+      isActive: true,
+      component: <TbTrash className="mr-1" size={14} color="red" />,
+    },
+    {
+      label: "Rename",
+      onClick: renameLimitGivenRow,
+      isActive: true,
+      component: <TbPencil className="mr-1" size={14} />,
+    },
   ];
 
   return (
@@ -528,6 +949,21 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
     killFrameGivenRow(row, username);
   }
 
+  // CueGUI "View Host": jump to the host running this frame. The host name is
+  // the first segment of last_resource ("<host>/<cores>/<gpus>"). WAITING /
+  // DEPEND frames have no resource yet, so the item is gated on that.
+  function handleViewHost(row: Row<any>) {
+    const frame = row.original as Frame;
+    const host = frame.lastResource ? frame.lastResource.split("/")[0] : "";
+    if (!host) {
+      toastWarning("This frame is not running on a host");
+      return;
+    }
+    router.push(`/hosts/${encodeURIComponent(host)}`);
+  }
+
+  const frameHasHost = !!(contextMenuState.row?.original as Frame | undefined)?.lastResource;
+
   // Bind the parent job into the copy handler since the absolute log
   // path is `<job.logDir>/<job.name>.<frame.name>.rqlog`. The helper
   // surfaces a toast when `job` is undefined, so users get feedback
@@ -539,7 +975,7 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
   // simple-data-table.tsx). The URL shape MUST stay in sync with that
   // handler - if either changes, update both. Requires `job` because
   // the log filename is `<job.name>.<frame.name>.rqlog`.
-  const handleViewLog = (row: Row<any>) => {
+  const openFrameLog = (row: Row<any>, tail: boolean) => {
     if (!job) {
       toastWarning("Frame log unavailable (no parent job context)");
       return;
@@ -550,8 +986,12 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
       frameLogDir: getFrameLogDir(job, frame),
       username,
     });
+    // "Tail Log" opens the viewer in live-tail mode (last lines + follow on).
+    if (tail) params.set("mode", "tail");
     router.push(`/frames/${encodeURIComponent(frame.name)}?${params.toString()}`);
   };
+  const handleViewLog = (row: Row<any>) => openFrameLog(row, false);
+  const handleTailLog = (row: Row<any>) => openFrameLog(row, true);
 
   // External-editor opener: substitutes `{path}` in the configured URL
   // template with the absolute rqlog path and hands the result to the
@@ -631,7 +1071,7 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
     // (tail follows the end of the file vs. opens the static log);
     // CueWeb has one viewer today, so both items navigate there and the
     // viewer is responsible for the follow-vs-static behavior.
-    { label: "Tail Log", onClick: handleViewLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Tail Log", onClick: handleTailLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
     { label: "View Log", onClick: handleViewLog, isActive: true, component: <TbDots className="mr-1" size={14} /> },
     // External-editor item is only rendered when the deployment sets
     // NEXT_PUBLIC_LOG_EDITOR_URL. Leaves the row out entirely when
@@ -647,31 +1087,31 @@ export const FrameContextMenu: React.FC<FrameContextMenuProps> = ({
       : []),
     { label: "Copy Log Path", onClick: handleCopyLogPath, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
     { label: "Copy Frame Name", onClick: copyFrameNameGivenRow, isActive: true, component: <TbCopy className="mr-1" size={14} /> },
-    { label: "View Host", onClick: notYetImplemented("View Host"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "View Host", onClick: handleViewHost, isActive: frameHasHost, component: <TbServer className="mr-1" size={14} color={frameHasHost ? undefined : "gray"} /> },
 
     // Dependencies submenu flattened (see Job menu note above).
-    { label: "View Dependencies...", onClick: notYetImplemented("View Dependencies"), isActive: true, component: <TbLink className="mr-1" size={14} /> },
-    { label: "Dependency Wizard...", onClick: notYetImplemented("Dependency Wizard"), isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Drop depends", onClick: notYetImplemented("Drop depends"), isActive: active, component: <TbPlugConnectedX className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark as waiting", onClick: notYetImplemented("Mark as waiting"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
-    { label: "Mark done", onClick: notYetImplemented("Mark done"), isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "View Dependencies...", onClick: viewFrameDependenciesGivenRow, isActive: true, component: <TbLink className="mr-1" size={14} /> },
+    { label: "Dependency Wizard...", onClick: frameDependencyWizardGivenRow, isActive: active, component: <TbHelp className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Drop depends", onClick: dropFrameDependsGivenRow, isActive: active, component: <TbPlugConnectedX className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark as waiting", onClick: markFrameAsWaitingGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Mark done", onClick: markdoneFrameGivenRow, isActive: active, component: <TbCheck className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-filter"),
 
-    { label: "Filter Selected Layers", onClick: notYetImplemented("Filter Selected Layers"), isActive: true, component: <TbSettings className="mr-1" size={14} /> },
-    { label: "Reorder...", onClick: notYetImplemented("Reorder"), isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
+    { label: "Filter Selected Layers", onClick: filterSelectedLayersGivenRow, isActive: true, component: <TbFilter className="mr-1" size={14} /> },
+    { label: "Reorder...", onClick: reorderFrameGivenRow, isActive: active, component: <TbSettings className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-preview"),
 
-    { label: "Preview All", onClick: notYetImplemented("Preview All"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Preview All", onClick: previewAllGivenRow, isActive: true, component: <TbPhoto className="mr-1" size={14} /> },
 
     sep("group-actions"),
 
     { label: "Retry", onClick: retryFrameGivenRow, isActive: active, component: <TbReload className="mr-1" size={14} color={active ? "black" : "gray"} /> },
     { label: "Eat", onClick: eatFrameGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
     { label: "Kill", onClick: handleKillFrameGivenRow, isActive: active, component: <MdOutlineCancel className="mr-1" size={14} color={active ? "red" : "gray"} /> },
-    { label: "Eat and Mark done", onClick: notYetImplemented("Eat and Mark done"), isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
-    { label: "View Processes", onClick: notYetImplemented("View Processes"), isActive: true, component: <TbDots className="mr-1" size={14} /> },
+    { label: "Eat and Mark done", onClick: eatAndMarkdoneFrameGivenRow, isActive: active, component: <TbPacman className="mr-1" size={14} color={active ? "orange" : "gray"} /> },
+    { label: "View Processes", onClick: viewFrameProcessesGivenRow, isActive: true, component: <TbCpu className="mr-1" size={14} /> },
   ];
 
   return (

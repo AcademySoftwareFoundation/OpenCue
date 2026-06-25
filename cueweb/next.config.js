@@ -19,11 +19,40 @@ const { loadServerEnvVars } = require("./app/utils/config");
 // Verify that all environment variables exist and throws an error if they are not defined
 loadServerEnvVars();
 
-// Read the package.json version once at build time so we can expose it to
-// the client as `process.env.NEXT_PUBLIC_APP_VERSION`. An explicit
-// NEXT_PUBLIC_APP_VERSION env var (e.g. set in the Dockerfile to a Git SHA
-// or CI build number) takes precedence over the package.json value.
-const PKG_VERSION = (() => {
+// Resolve the CueWeb version once at build time and expose it to the client as
+// `process.env.NEXT_PUBLIC_APP_VERSION`. Resolution order (first hit wins):
+//   1. NEXT_PUBLIC_APP_VERSION env / build-arg (CI injects the generated
+//      OpenCue version or a Git SHA) - always takes precedence.
+//   2. cueweb/OVERRIDE_CUEWEB_VERSION.in:
+//        - value "VERSION.in" (the default) -> use the repo-root VERSION.in
+//          (OpenCue's shared source of truth, also read by cuebot / cuegui).
+//        - any other value -> use it verbatim (an explicit per-CueWeb override).
+//   3. package.json `version` (last-resort fallback).
+const fs = require("fs");
+const path = require("path");
+// First non-comment, non-blank line of a file (trimmed); "" if unreadable.
+function firstValueLine(relPath) {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, relPath), "utf8");
+    return (
+      raw
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l.length > 0 && !l.startsWith("#")) || ""
+    );
+  } catch (_) {
+    return "";
+  }
+}
+const RESOLVED_VERSION = (() => {
+  const override = firstValueLine("./OVERRIDE_CUEWEB_VERSION.in");
+  // An explicit override (anything other than the "VERSION.in" sentinel) wins.
+  if (override && override !== "VERSION.in") return override;
+  // Sentinel (or missing override file): track the repo-root VERSION.in. In the
+  // Docker image it is copied to ../VERSION.in via the build's project_root
+  // additional context (see Dockerfile / docker-compose.yml).
+  const rootVersion = firstValueLine("../VERSION.in");
+  if (rootVersion) return rootVersion;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require("./package.json").version || "";
@@ -32,7 +61,11 @@ const PKG_VERSION = (() => {
   }
 })();
 process.env.NEXT_PUBLIC_APP_VERSION =
-  process.env.NEXT_PUBLIC_APP_VERSION || PKG_VERSION;
+  process.env.NEXT_PUBLIC_APP_VERSION || RESOLVED_VERSION;
+
+// Build SHA shown in the About CueWeb dialog. Defaults to empty (the dialog
+// renders "unknown") when CI doesn't inject it.
+process.env.NEXT_PUBLIC_GIT_SHA = process.env.NEXT_PUBLIC_GIT_SHA || "";
 
 const nextConfig = {
   // WebPack is a module bundler for JavaScript applications
@@ -47,9 +80,10 @@ const nextConfig = {
     }
     return config
   },
-  // Whitelist NEXT_PUBLIC_APP_VERSION so it's inlined into the client bundle.
+  // Whitelist build-time vars so they're inlined into the client bundle.
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
+    NEXT_PUBLIC_GIT_SHA: process.env.NEXT_PUBLIC_GIT_SHA,
   },
 };
 

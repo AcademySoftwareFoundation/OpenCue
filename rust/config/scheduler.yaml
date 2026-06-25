@@ -102,6 +102,13 @@ queue:
   # Default: 30s
   # cluster_empty_sleep: 30s
 
+  # Interval between full reloads of the cluster set from the database. The feed
+  # re-runs the cluster query each tick so show.b_scheduler_managed flips (and
+  # host-tag/subscription changes) are picked up without a restart. The live set
+  # is only swapped when it actually changed.
+  # Default: 120s
+  # cluster_reload_interval: 120s
+
   # Chunk size for processing manual tags
   # Default: 50
   # manual_tags_chunk_size: 50
@@ -151,15 +158,103 @@ queue:
   #   # Default: 3
   #   job_buffer_size: 3
 
-  # Host booking strategy configuration
-  # host_booking_strategy:
-  #   # Enable core saturation booking
-  #   # Default: true
-  #   core_saturation: true
+  # ---------------------------------------------------------------------------
+  # Host booking strategy. Two variants:
   #
-  #   # Enable memory saturation booking
-  #   # Default: false
+  # Saturation (default) — legacy first-fit. Saturation flags control B-tree
+  # iteration direction (saturated-first vs spread-first per dimension).
+  # host_booking_strategy:
+  #   type: saturation
+  #   core_saturation: true
   #   memory_saturation: false
+  #
+  # Epvm — E-PVM stranding score; picks the lowest-scoring host among up to
+  # `max_candidates` scanned. Iteration is always saturated-first under Epvm,
+  # independent of the Saturation flags. `weights` express per-dimension
+  # importance ratios (W3 normalization, see scheduler design doc).
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_count_reservation: 2.0
+  #     gpu_mem_reservation: 2.0
+  #
+  # --- gpu_*_reservation (soft-reservation penalty) --------------------------
+  # Applied ONLY when the layer requests no GPUs (gpus_min == 0). Penalizes GPU
+  # hosts to nudge non-GPU work onto non-GPU hosts. The penalty is split into
+  # two independent knobs so operators control the count-vs-memory balance:
+  #
+  #   penalty = gpu_count_reservation * idle_gpus
+  #           + gpu_mem_reservation   * idle_gpu_memory_gb
+  #
+  # Unlike the stranding weights these scale raw capacity (not a normalized
+  # stranding term). A typical default is 2.0/2.0 — strong enough to push GPU
+  # hosts behind non-GPU hosts for non-GPU work, weak enough not to swamp the
+  # cores/mem stranding signal. On hosts with a lot of GPU memory the mem
+  # penalty will tend to dominate; raise `gpu_count_reservation` (or lower
+  # `gpu_mem_reservation`) to rebalance.
+  #
+  # --- Example: equal-weight baseline ----------------------------------------
+  # Cores and memory stranding count equally; GPU dimensions count slightly
+  # more; non-GPU work mildly prefers non-GPU hosts. Matches the defaults.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_count_reservation: 2.0
+  #     gpu_mem_reservation: 2.0
+  #
+  # --- Example: GPU-scarce farm ----------------------------------------------
+  # Protect GPU hosts aggressively for GPU work and make GPU stranding very
+  # expensive (don't waste a GPU on a low-GPU layer). Reservation favors count
+  # heavily since GPUs themselves are the scarce resource.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 1.0
+  #     gpus: 8.0
+  #     gpu_mem: 2.0
+  #     gpu_count_reservation: 10.0
+  #     gpu_mem_reservation: 1.0
+  #
+  # --- Example: memory-tight farm --------------------------------------------
+  # Penalize memory stranding more than cores so jobs with high mem:core
+  # ratios go to high-memory hosts first.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 3.0
+  #     gpus: 2.0
+  #     gpu_mem: 1.0
+  #     gpu_count_reservation: 2.0
+  #     gpu_mem_reservation: 2.0
+  #
+  # --- Example: cores-only (debugging sanity check) --------------------------
+  # Scoring degenerates to "pack cores tightest" — useful for diagnosing
+  # whether other dimensions are responsible for a placement regression.
+  # host_booking_strategy:
+  #   type: epvm
+  #   max_candidates: 500
+  #   weights:
+  #     cores: 1.0
+  #     mem: 0.0
+  #     gpus: 0.0
+  #     gpu_mem: 0.0
+  #     gpu_count_reservation: 0.0
+  #     gpu_mem_reservation: 0.0
+  # ---------------------------------------------------------------------------
 
   # Soft memory limit multiplier for frame memory requirements
   # Used as a threshold to determine if a frame can be dispatched based on available memory
@@ -213,37 +308,18 @@ host_cache:
 # =============================================================================
 # SCHEDULER CONFIGURATION
 # =============================================================================
+# Which shows the scheduler owns is NOT configured here. It is driven entirely by
+# the show.b_scheduler_managed database column (toggle it per show with
+# `cueadmin -scheduler-managed <show> on|off`). The scheduler automatically loads
+# every cluster (allocation, manual, hostname, and hardware host-tags) for shows
+# where b_scheduler_managed = true, and refreshes that set periodically - see
+# queue.cluster_reload_interval - so toggling a show takes effect without a
+# restart.
 scheduler:
-  # Optional facility code to run on (can be overridden with --facility flag)
-  # This optional is a no-op for entire_shows and manual_tags
+  # Optional facility code to run on (can be overridden with --facility flag).
+  # Scopes this instance to one facility's scheduler-managed clusters.
   # Default: None
   # facility: eat
-
-  # List of show names to be fully scheduled (can be overridden with --entire_show flag)
-  # Default: []
-  # entire_shows:
-  #   - show1
-  #   - show2
-
-  # List of allocation tags in show:tag format (can be overridden with --alloc_tags flag)
-  # Default: []
-  # alloc_tags:
-  #   - show: show1
-  #     tag: general
-  #   - show: show2
-  #     tag: priority
-
-  # List of manual tags not associated with an allocation, scoped by show
-  # (can be overridden with --manual_tags flag, eg. show1:tag1,tag2,tag3)
-  # Default: []
-  # manual_tags:
-  #   - show: show1
-  #     tags:
-  #       - tag1
-  #       - tag2
-  #   - show: show2
-  #     tags:
-  #       - tag3
 
   # List of tags to ignore when loading clusters (can be overridden with --ignore_tags flag)
   # These tags will be filtered out from all cluster types (manual, hostname, and alloc)

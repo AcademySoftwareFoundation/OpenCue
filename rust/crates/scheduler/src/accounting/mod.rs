@@ -83,7 +83,9 @@ impl AccountingService {
             .map_err(|e| miette::miette!("Failed to connect to redis: {e}"))?;
         let dao = Arc::new(AccountingDao::new().await?);
         let managed_shows = ManagedShowsCache::populate(&dao).await?;
-        managed_shows.start_refresh_loop(dao.clone());
+        // The refresh loop also seeds limits for shows that become managed after startup,
+        // before publishing them into the cache - so it needs a Redis handle.
+        managed_shows.start_refresh_loop(dao.clone(), redis.clone());
         info!(
             "AccountingService initialized: redis={}:{} managed_shows={}",
             CONFIG.accounting.redis.host,

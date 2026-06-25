@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { handleRoute } from "@/app/utils/api_utils";
+import { handleRoute } from "@/app/utils/gateway_server";
 import { submissionSchema } from "@/app/cuesubmit/lib/schemas";
 import { buildJobSpecXml } from "@/app/cuesubmit/lib/spec_xml";
 

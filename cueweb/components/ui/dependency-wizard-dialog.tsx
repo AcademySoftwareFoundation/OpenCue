@@ -64,6 +64,9 @@ export const OPEN_DEPENDENCY_WIZARD_EVENT = "cueweb:open-dependency-wizard";
 
 export type OpenDependencyWizardDetail = {
   job: Job;
+  // Optional dependency type to preselect (e.g. opening the wizard from a
+  // layer's "Dependency Wizard..." defaults to LAYER_ON_LAYER).
+  initialType?: DependType;
 };
 
 type DependType =
@@ -307,6 +310,7 @@ export function DependencyWizardDialog() {
       if (!detail?.job) return;
       setJob(detail.job);
       resetWizardState();
+      if (detail.initialType) setDependType(detail.initialType);
       setOpen(true);
     }
     window.addEventListener(OPEN_DEPENDENCY_WIZARD_EVENT, handler);
