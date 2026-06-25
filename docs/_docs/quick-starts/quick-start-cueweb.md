@@ -159,13 +159,13 @@ By default every signed-in user can use CueWeb. To limit access by **group membe
 CUEWEB_AUTHZ_ENABLED=true
 # Groups allowed to use CueWeb at all (empty = everyone signed in)
 CUEWEB_ALLOWED_GROUPS=renderwranglers,supervisors
-# Groups allowed on the CueCommander admin pages + job submission (empty = everyone)
+# Groups allowed on the entire CueCommander section + CueSubmit + Manage facilities (empty = everyone)
 CUEWEB_ADMIN_GROUPS=supervisors
 # The token claim that carries the user's groups (default: groups)
 CUEWEB_GROUPS_CLAIM=groups
 ```
 
-The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an **Access denied** page (API routes get `403`), and non-admins are blocked from the admin pages but keep read-only monitoring. It only works when your authentication provider emits the user's groups in the token, so configure your identity provider's groups claim accordingly. For the sandbox (auth disabled) the gate stays inactive - you don't need any of these.
+The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an **Access denied** page (API routes get `403`), and non-admins are blocked from the entire CueCommander section, CueSubmit and Manage facilities… (those menus are hidden) but keep Cuetopia Monitor Jobs and the Dashboard. It only works when your authentication provider emits the user's groups in the token, so configure your identity provider's groups claim accordingly. For the sandbox (auth disabled) the gate stays inactive - you don't need any of these.
 
 ---
 

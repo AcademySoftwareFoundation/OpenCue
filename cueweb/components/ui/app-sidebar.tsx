@@ -119,6 +119,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "CueCommander",
     icon: Monitor,
+    adminOnly: true,
     items: [
       { label: "Allocations", href: "/allocations", icon: PieChart },
       { label: "Limits", href: "/limits", icon: Gauge },
@@ -135,6 +136,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "CueSubmit",
     icon: Upload,
+    adminOnly: true,
     items: [
       { label: "Submit Job", href: "/cuesubmit", icon: Send },
     ],
