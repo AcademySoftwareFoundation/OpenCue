@@ -44,6 +44,21 @@ pub struct JobModel {
     pub show_name: String,
 }
 
+/// One active (facility, show, tag) tuple from [`JobDao::scan_active_tags`].
+///
+/// A tag is "active" for a (facility, show) when at least one PENDING job in
+/// that facility/show has a waiting layer carrying the tag, and the show still
+/// has subscription headroom. Used to gate the cluster feed's awake set: a
+/// cluster is eligible iff one of its tags appears here under its
+/// (facility, show) key. See `cluster::ClusterFeed` and the superset argument
+/// on [`QUERY_ACTIVE_TAGS`].
+#[derive(sqlx::FromRow, Serialize, Deserialize)]
+pub struct ActiveTagModel {
+    pub pk_show: String,
+    pub pk_facility: String,
+    pub tag: String,
+}
+
 impl DispatchJob {
     /// Creates a new DispatchJob from a database model and cluster assignment.
     ///
@@ -156,6 +171,39 @@ ORDER BY jr.int_priority DESC
 LIMIT $5
 "#;
 
+// Awake-gate scan. Returns the set of (facility, show, tag) tuples that *could*
+// yield a dispatchable job, so the cluster feed can keep clusters with no work
+// asleep instead of re-querying them every backoff window.
+//
+// SUPERSET INVARIANT (must never produce a false negative): every (job, layer)
+// the per-cluster query QUERY_PENDING_BY_SHOW_FACILITY_TAG would return must be
+// captured here, otherwise the owning cluster is gated to permanent sleep and
+// its jobs starve. Two rules keep this true:
+//
+// `unnest` splits each layer's pipe-joined str_tags into individual tags; the
+// feed re-applies tag-set overlap on the cluster side, matching the per-cluster
+// `&&` array-overlap semantics.
+static QUERY_ACTIVE_TAGS: &str = r#"
+SELECT DISTINCT
+    j.pk_show,
+    j.pk_facility,
+    unnest(string_to_array(REPLACE(l.str_tags, ' ', ''), '|')) AS tag
+FROM job j
+INNER JOIN show sh ON sh.pk_show = j.pk_show
+INNER JOIN layer l ON l.pk_job = j.pk_job
+INNER JOIN layer_stat ls ON ls.pk_layer = l.pk_layer
+WHERE j.str_state = 'PENDING'
+    AND j.b_paused = false
+    AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
+    AND ls.int_waiting_count > 0
+    AND EXISTS (
+        SELECT 1 FROM subscription s
+        WHERE s.pk_show = j.pk_show AND s.int_burst > 0
+    )
+    AND ($1::text IS NULL OR j.pk_facility = $1)
+"#;
+
 impl JobDao {
     /// Creates a new JobDao from database configuration.
     ///
@@ -228,6 +276,35 @@ impl JobDao {
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());
+        result
+    }
+
+    /// Scans for the set of (facility, show, tag) tuples that currently have
+    /// plausibly-dispatchable work, used to gate the cluster feed's awake set.
+    ///
+    /// This is a strict superset of what `query_pending_jobs_by_show_facility_and_tags`
+    /// would return (see [`QUERY_ACTIVE_TAGS`]): a cluster whose tag is absent
+    /// here is guaranteed to have no dispatchable job and can stay asleep. The
+    /// reverse does not hold — a returned tag may still yield a no_jobs or
+    /// saturated pass once the folder/job caps and live subscription headroom are
+    /// evaluated per-cluster, which is intentionally cheap to absorb.
+    ///
+    /// # Arguments
+    /// * `facility_id` - Optional facility filter; `None` scans every facility.
+    ///
+    /// # Returns
+    /// All active tuples (unordered). One database round-trip regardless of the
+    /// number of clusters.
+    pub async fn scan_active_tags(
+        &self,
+        facility_id: Option<&str>,
+    ) -> Result<Vec<ActiveTagModel>, sqlx::Error> {
+        let start = std::time::Instant::now();
+        let result = sqlx::query_as::<_, ActiveTagModel>(QUERY_ACTIVE_TAGS)
+            .bind(facility_id)
+            .fetch_all(&*self.connection_pool)
+            .await;
+        crate::metrics::observe_active_scan_duration(start.elapsed());
         result
     }
 }

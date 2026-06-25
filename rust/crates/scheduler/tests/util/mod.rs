@@ -81,6 +81,7 @@ pub fn create_test_config() -> Config {
             job_back_off_duration: Duration::from_secs(10),
             cluster_empty_sleep: Duration::from_secs(30),
             cluster_reload_interval: Duration::from_secs(120),
+            active_scan_interval: Duration::from_secs(2),
             cluster_saturated_sleep: Duration::from_secs(1),
             stream: scheduler::config::StreamConfig {
                 cluster_buffer_size: 4,

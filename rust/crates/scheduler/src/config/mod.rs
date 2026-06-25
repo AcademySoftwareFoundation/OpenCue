@@ -146,6 +146,14 @@ pub struct QueueConfig {
     /// The reload only swaps the live set when it actually changed.
     #[serde(with = "humantime_serde")]
     pub cluster_reload_interval: Duration,
+    /// Interval between awake-gate scans. Each scan runs a single query that
+    /// computes which clusters have plausibly-dispatchable work; clusters not in
+    /// that set are skipped by the producer until a later scan re-activates them.
+    /// This bounds idle->dispatch latency: a newly-launched job starts being
+    /// dispatched within at most one scan interval. Smaller = lower wake latency,
+    /// larger = fewer scan queries.
+    #[serde(with = "humantime_serde")]
+    pub active_scan_interval: Duration,
     /// Duration a cluster sleeps after a pass found jobs but dispatched zero
     /// frames (saturated farm: no host candidate fits any pending layer).
     /// Keeps the loop from re-querying jobs and layers continuously while
@@ -183,6 +191,7 @@ impl Default for QueueConfig {
             job_back_off_duration: Duration::from_secs(300),
             cluster_empty_sleep: Duration::from_secs(30),
             cluster_reload_interval: Duration::from_secs(120),
+            active_scan_interval: Duration::from_secs(2),
             cluster_saturated_sleep: Duration::from_secs(5),
             stream: StreamConfig::default(),
             max_jobs_per_cluster_pass: 20,

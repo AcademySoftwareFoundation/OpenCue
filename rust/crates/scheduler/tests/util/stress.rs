@@ -91,6 +91,11 @@ pub fn create_stress_config(redis_port: u16) -> Config {
             job_back_off_duration: Duration::from_secs(2),
             cluster_empty_sleep: Duration::from_secs(2),
             cluster_reload_interval: Duration::from_secs(3600),
+            // Push the awake-rescan past the test horizon like the other
+            // reconciliation loops: build()'s initial scan seeds the awake set
+            // from the fully-seeded farm, and it then stays put for the run so
+            // the benchmark timing isn't perturbed by re-gating.
+            active_scan_interval: Duration::from_secs(3600),
             cluster_saturated_sleep: Duration::from_millis(500),
             stream: StreamConfig {
                 cluster_buffer_size: 4,
