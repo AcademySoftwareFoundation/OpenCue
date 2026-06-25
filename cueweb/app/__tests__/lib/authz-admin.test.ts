@@ -49,6 +49,9 @@ describe("authz admin helpers", () => {
     expect(isAdminPath("/hosts")).toBe(true);
     expect(isAdminPath("/hosts/some-host")).toBe(true);
     expect(isAdminPath("/stuck-frames")).toBe(true);
+    // Job submission (CueSubmit) is admin-only, including its submit API.
+    expect(isAdminPath("/cuesubmit")).toBe(true);
+    expect(isAdminPath("/api/job/submit")).toBe(true);
     // Manage facilities… (per-facility gateway settings) is admin-only.
     expect(isAdminPath("/settings/facilities")).toBe(true);
   });
