@@ -47,12 +47,12 @@ export function JobBookingBar({ job }: { job: Job }) {
 
   const pct = (v: number) => `${Math.max(0, Math.min(1, v / denom)) * 100}%`;
 
-  // Outer box is the full cell height so the min/max markers run top-to-bottom
-  // (as CueGUI draws them across the whole row); the running/waiting bar is a
-  // thin, vertically-centred, horizontally-inset track inside it.
+  // Outer box height matches the text-row height so Monitor Cue job rows are no
+  // taller than the show/group header rows; the min/max markers run top-to-bottom
+  // of it and the running/waiting bar is a thin, vertically-centred, inset track.
   return (
     <div
-      className="relative h-8 w-full min-w-[8rem] px-3"
+      className="relative h-5 w-full min-w-[8rem] px-3"
       title={`Running ${running}, Waiting ${waiting} — cyan = min cores, red = max cores`}
     >
       <div className="relative h-full">
