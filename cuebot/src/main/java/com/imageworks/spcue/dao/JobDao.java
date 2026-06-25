@@ -38,6 +38,15 @@ import com.imageworks.spcue.util.JobLogUtil;
 public interface JobDao {
 
     /**
+     * Returns the number of WAITING frames per show, aggregated from the per-job waiting counters
+     * of all PENDING jobs. Cheap point-in-time backlog gauge source (reads job_stat, not the frame
+     * table) used by the Prometheus collector to expose pending-frame pressure per show.
+     *
+     * @return map of show name to waiting frame count
+     */
+    Map<String, Long> getWaitingFrameCountsByShow();
+
+    /**
      * Updates all jobs in the speficed group to the max cores value.
      *
      * @param g

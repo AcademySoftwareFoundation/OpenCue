@@ -269,6 +269,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         public DispatchFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
             DispatchFrame frame = new DispatchFrame();
             frame.id = rs.getString("pk_frame");
+            frame.dateUpdated = rs.getTimestamp("ts_updated");
             frame.name = rs.getString("frame_name");
             frame.layerId = rs.getString("pk_layer");
             frame.jobId = rs.getString("pk_job");
@@ -321,6 +322,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 + "frame.str_name AS frame_name, "
                 + "frame.str_state AS frame_state, "
                 + "frame.pk_frame, "
+                + "frame.ts_updated, "
                 + "frame.pk_layer, "
                 + "frame.int_retries, "
                 + "frame.int_version, "

@@ -58,9 +58,13 @@ lazy_static! {
     )
     .expect("Failed to register frames_dispatched_total counter");
 
-    pub static ref TIME_TO_BOOK_SECONDS: Histogram = register_histogram!(
+    // Labeled by `show_name` so a scheduler-managed show can be compared
+    // directly against the equivalent Cuebot metric (`cue_frame_time_to_book_seconds`)
+    // for the same show. Show count is bounded (tens), so the label is safe.
+    pub static ref TIME_TO_BOOK_SECONDS: HistogramVec = register_histogram_vec!(
         "scheduler_time_to_book_seconds",
-        "Time from frame updated_at until it got fully dispatched",
+        "Time from frame updated_at until it got fully dispatched, by show",
+        &["show_name"],
         vec![0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0]
     )
     .expect("Failed to register time_to_book_seconds histogram");
@@ -235,6 +239,13 @@ lazy_static! {
         "Times remove_host_best gave up after exhausting its inner retry budget"
     )
     .expect("Failed to register placement_inner_retries_exhausted_total counter");
+    // NOTE: idle / memory-stranded cores are intentionally NOT exposed here.
+    // The scheduler decrements the shared `host.int_cores_idle` /
+    // `host.int_mem_idle` Postgres columns on every booking (see
+    // `dao::host_dao::UPDATE_HOST_RESOURCES`), so Cuebot's existing
+    // `cue_cores_memory_stranded{alloc}` already reflects scheduler-managed
+    // allocations from the single source of truth. A parallel in-memory gauge
+    // would only risk diverging from PG. Compare per-allocation on that metric.
 }
 
 /// Process-wide monotonic count of frames dispatched this session. Mirrors the
@@ -354,10 +365,12 @@ pub fn resource_limit_exceeded_session() -> u64 {
     RESOURCE_LIMIT_EXCEEDED_SESSION.load(Ordering::Relaxed)
 }
 
-/// Helper function to observe time to book
+/// Helper function to observe time to book, labeled by show.
 #[inline]
-pub fn observe_time_to_book(duration: Duration) {
-    TIME_TO_BOOK_SECONDS.observe(duration.as_secs_f64());
+pub fn observe_time_to_book(show_name: &str, duration: Duration) {
+    TIME_TO_BOOK_SECONDS
+        .with_label_values(&[show_name])
+        .observe(duration.as_secs_f64());
 }
 
 /// Helper function to increment accounting limit-exceeded counter

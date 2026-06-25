@@ -1,0 +1,1062 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Side-by-side comparison of the Cuebot dispatcher and the Rust scheduler booking performance. A show lives on exactly one system; pick it via $cuebot_show or $scheduler_show.",
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Goal: Decrease time-to-book for ready frames (Cuebot \u27f5 left | Scheduler \u27f6 right)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Cuebot \u2014 Time to book (s)",
+      "description": "Time a WAITING frame spent before Cuebot booked it. New metric cue_frame_time_to_book_seconds, mirrors the scheduler histogram.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(cue_frame_time_to_book_seconds_bucket{show=~\"$cuebot_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(cue_frame_time_to_book_seconds_bucket{show=~\"$cuebot_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(cue_frame_time_to_book_seconds_bucket{show=~\"$cuebot_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Time to book (s)",
+      "description": "scheduler_time_to_book_seconds, now labeled by show_name.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(scheduler_time_to_book_seconds_bucket{show_name=~\"$scheduler_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(scheduler_time_to_book_seconds_bucket{show_name=~\"$scheduler_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(scheduler_time_to_book_seconds_bucket{show_name=~\"$scheduler_show\"}[$__rate_interval])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Goal: Increase throughput (frames booked / completed per s)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Cuebot \u2014 Frames booked /s",
+      "description": "New cue_frames_booked_total. Counterpart to scheduler_frames_dispatched_total.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(cue_frames_booked_total{show=~\"$cuebot_show\"}[$__rate_interval]))",
+          "legendFormat": "booked/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Frames booked /s",
+      "description": "",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(scheduler_frames_dispatched_total{show_name=~\"$scheduler_show\"}[$__rate_interval]))",
+          "legendFormat": "booked/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Frames completed /s \u2014 common truth (Cuebot-emitted for both systems)",
+      "description": "SUCCEEDED frame completions/s. Same metric, two show sets \u2014 lets you compare realized throughput regardless of which side booked.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(cue_frames_completed_total{state=\"SUCCEEDED\", show=~\"$cuebot_show\"}[$__rate_interval]))",
+          "legendFormat": "Cuebot-dispatched shows",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(cue_frames_completed_total{state=\"SUCCEEDED\", show=~\"$scheduler_show\"}[$__rate_interval]))",
+          "legendFormat": "Scheduler-managed shows",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Goal: Prevent idle cores stranded by memory (shared host-table source, split by allocation)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Cuebot-managed allocs \u2014 Idle vs memory-stranded cores",
+      "description": "Source: cue_cores_* (host table, maintained in Postgres by BOTH systems \u2014 the scheduler decrements host.int_cores_idle/int_mem_idle on every booking). Split by allocation, not by emitter.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_cores_idle{alloc=~\"$cuebot_alloc\"})",
+          "legendFormat": "idle",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_cores_memory_stranded{alloc=~\"$cuebot_alloc\"})",
+          "legendFormat": "memory-stranded",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Scheduler-managed allocs \u2014 Idle vs memory-stranded cores",
+      "description": "Source: cue_cores_* (host table, maintained in Postgres by BOTH systems \u2014 the scheduler decrements host.int_cores_idle/int_mem_idle on every booking). Split by allocation, not by emitter.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_cores_idle{alloc=~\"$scheduler_alloc\"})",
+          "legendFormat": "idle",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_cores_memory_stranded{alloc=~\"$scheduler_alloc\"})",
+          "legendFormat": "memory-stranded",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Memory-stranded share of idle cores (%) \u2014 lower is better",
+      "description": "Fraction of idle cores unbookable due to memory, per allocation set. Source: cue_cores_* (host table, maintained in Postgres by BOTH systems \u2014 the scheduler decrements host.int_cores_idle/int_mem_idle on every booking). Split by allocation, not by emitter.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "100 * sum(cue_cores_memory_stranded{alloc=~\"$cuebot_alloc\"}) / clamp_min(sum(cue_cores_idle{alloc=~\"$cuebot_alloc\"}), 1)",
+          "legendFormat": "Cuebot-managed allocs",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "100 * sum(cue_cores_memory_stranded{alloc=~\"$scheduler_alloc\"}) / clamp_min(sum(cue_cores_idle{alloc=~\"$scheduler_alloc\"}), 1)",
+          "legendFormat": "Scheduler-managed allocs",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Goal: Prevent DB degradation as pending frames grow",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Cuebot \u2014 Booking query latency p95 (ms)",
+      "description": "Per-stage booking SQL latency (cue_booking_durations_histogram).",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(cue_booking_durations_histogram_in_millis_bucket[$__rate_interval])) by (le, stage_desc))",
+          "legendFormat": "{{stage_desc}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Query latency p95 (s)",
+      "description": "scheduler_job_query_duration / active_scan_duration. The awake-scan replaces N per-cluster empty queries with one, so it should stay flat.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(scheduler_job_query_duration_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "job query",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(scheduler_active_scan_duration_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "awake scan",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Pending (WAITING) frame backlog \u2014 shared axis (Cuebot-emitted for both)",
+      "description": "New cue_frames_waiting gauge (job_stat-derived). Read time-to-book and query latency above against this depth: good systems keep latency flat as the backlog climbs.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_frames_waiting{show=~\"$cuebot_show\"})",
+          "legendFormat": "Cuebot-dispatched shows",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_frames_waiting{show=~\"$scheduler_show\"})",
+          "legendFormat": "Scheduler-managed shows",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Goal: Disconnect farm size from booking performance",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Cuebot \u2014 Booking queue depth & host-report rate",
+      "description": "Cuebot booking throughput is coupled to the host-report feedback loop; watch queue depth climb as the farm (host-report rate) grows.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 61
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_booking_waiting_total)",
+          "legendFormat": "booking queue waiting",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(cue_booking_threads_total)",
+          "legendFormat": "booking threads",
+          "refId": "B"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(cue_host_reports_received_total[$__rate_interval]))",
+          "legendFormat": "host reports/s (farm size proxy)",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Cluster fan-out & revisit latency",
+      "description": "Awake-gate decouples fan-out from work: round-trip p95 should stay flat as clusters_total grows. The farm-size independence KPI.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 61
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(scheduler_clusters_total)",
+          "legendFormat": "clusters total",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "scheduler_clusters_active",
+          "legendFormat": "clusters awake",
+          "refId": "B"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "scheduler_clusters_sleeping",
+          "legendFormat": "clusters sleeping",
+          "refId": "C"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(scheduler_cluster_round_trip_seconds_bucket[$__rate_interval])) by (le))",
+          "legendFormat": "round-trip p95 (s)",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Diagnostics: rejection & match pressure",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 69
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Resource-limit-exceeded rejections /s",
+      "description": "Dispatch attempts rejected by the Redis cap check, by table (subscription/folder/job). High rate \u21d2 throughput lost to caps, not capacity.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 70
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(scheduler_accounting_limit_exceeded_total[$__rate_interval])) by (table)",
+          "legendFormat": "{{table}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Scheduler \u2014 Checkout outcome & pass-terminated reason /s",
+      "description": "no_match high while hosts idle \u21d2 matching/tagging problem; saturated dominating \u21d2 farm full or gated.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(scheduler_checkout_outcome_total[$__rate_interval])) by (outcome)",
+          "legendFormat": "checkout: {{outcome}}",
+          "refId": "A"
+        },
+        {
+          "datasource": "prometheus",
+          "expr": "sum(rate(scheduler_pass_terminated_reason_total[$__rate_interval])) by (reason)",
+          "legendFormat": "pass: {{reason}}",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "opencue",
+    "scheduler",
+    "dispatcher",
+    "comparison"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "cuebot_show",
+        "label": "Cuebot show",
+        "type": "query",
+        "datasource": "prometheus",
+        "definition": "label_values(cue_frames_booked_total, show)",
+        "query": {
+          "query": "label_values(cue_frames_booked_total, show)",
+          "refId": "var"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      },
+      {
+        "name": "scheduler_show",
+        "label": "Scheduler show",
+        "type": "query",
+        "datasource": "prometheus",
+        "definition": "label_values(scheduler_frames_dispatched_total, show_name)",
+        "query": {
+          "query": "label_values(scheduler_frames_dispatched_total, show_name)",
+          "refId": "var"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      },
+      {
+        "name": "cuebot_alloc",
+        "label": "Cuebot alloc",
+        "type": "query",
+        "datasource": "prometheus",
+        "definition": "label_values(cue_cores_total, alloc)",
+        "query": {
+          "query": "label_values(cue_cores_total, alloc)",
+          "refId": "var"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      },
+      {
+        "name": "scheduler_alloc",
+        "label": "Scheduler alloc",
+        "type": "query",
+        "datasource": "prometheus",
+        "definition": "label_values(cue_cores_total, alloc)",
+        "query": {
+          "query": "label_values(cue_cores_total, alloc)",
+          "refId": "var"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Dispatcher vs Scheduler \u2014 Booking Comparison",
+  "uid": "sched-vs-dispatcher",
+  "version": 1
+}

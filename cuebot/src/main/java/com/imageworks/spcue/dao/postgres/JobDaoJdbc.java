@@ -58,6 +58,26 @@ import com.imageworks.spcue.util.SqlUtil;
 public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     private static final Pattern LAST_JOB_STRIP_PATTERN = Pattern.compile("_v*([_0-9]*$)");
 
+    // spotless:off
+    private static final String GET_WAITING_FRAME_COUNTS_BY_SHOW =
+            "SELECT "
+            + "job.str_show AS show_name, "
+            + "COALESCE(SUM(job_stat.int_waiting_count), 0) AS waiting_count "
+            + "FROM job "
+            + "INNER JOIN job_stat ON job.pk_job = job_stat.pk_job "
+            + "WHERE job.str_state = 'PENDING' "
+            + "GROUP BY job.str_show";
+    // spotless:on
+
+    @Override
+    public Map<String, Long> getWaitingFrameCountsByShow() {
+        Map<String, Long> counts = new HashMap<String, Long>();
+        getJdbcTemplate().query(GET_WAITING_FRAME_COUNTS_BY_SHOW, rs -> {
+            counts.put(rs.getString("show_name"), rs.getLong("waiting_count"));
+        });
+        return counts;
+    }
+
     /*
      * Maps a row to a DispatchJob object
      */
