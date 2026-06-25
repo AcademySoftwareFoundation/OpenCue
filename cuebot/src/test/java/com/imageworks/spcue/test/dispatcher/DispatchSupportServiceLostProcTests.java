@@ -22,8 +22,10 @@ import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
@@ -56,11 +58,14 @@ public class DispatchSupportServiceLostProcTests {
 
     private static final String KILL_BEFORE_RELEASE_PROPERTY =
             "dispatcher.kill_running_frame_before_release_enabled";
+    private static final String DEFER_RELEASE_PROPERTY =
+            "dispatcher.defer_release_on_failed_kill_enabled";
 
     private DispatchSupportService dispatchSupport;
     private RqdClient rqdClient;
     private ProcDao procDao;
     private FrameDao frameDao;
+    private HostDao hostDao;
     private Environment env;
     private VirtualProc proc;
 
@@ -70,19 +75,26 @@ public class DispatchSupportServiceLostProcTests {
         rqdClient = mock(RqdClient.class);
         procDao = mock(ProcDao.class);
         frameDao = mock(FrameDao.class);
+        hostDao = mock(HostDao.class);
         env = mock(Environment.class);
 
         dispatchSupport.setRqdClient(rqdClient);
         dispatchSupport.setProcDao(procDao);
         dispatchSupport.setFrameDao(frameDao);
+        dispatchSupport.setHostDao(hostDao);
         dispatchSupport.setShowDao(mock(ShowDao.class));
         dispatchSupport.setJobDao(mock(JobDao.class));
         dispatchSupport.setLayerDao(mock(LayerDao.class));
         ReflectionTestUtils.setField(dispatchSupport, "env", env);
 
-        // Kill-before-release enabled by default.
+        // Kill-before-release and defer-release both enabled by default.
         when(env.getProperty(eq(KILL_BEFORE_RELEASE_PROPERTY), eq(Boolean.class), eq(true)))
                 .thenReturn(true);
+        when(env.getProperty(eq(DEFER_RELEASE_PROPERTY), eq(Boolean.class), eq(true)))
+                .thenReturn(true);
+
+        // Default: the host still looks Up in the DB (the dangerous flapping case).
+        when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(true);
 
         proc = new VirtualProc();
         proc.id = "00000000-0000-0000-0000-000000000001";
@@ -107,6 +119,22 @@ public class DispatchSupportServiceLostProcTests {
     @Test
     public void skipsRqdKillForFailedKillExitStatus() {
         // The failed-kill path already attempted this exact kill, so lostProc must not re-issue it.
+        // Since that kill demonstrably failed and the host still looks Up, the release is deferred
+        // to avoid double-booking a possibly-still-rendering host.
+        dispatchSupport.lostProc(proc, "failed kill", Dispatcher.EXIT_STATUS_FAILED_KILL);
+
+        verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void releasesForFailedKillWhenHostConfirmedDownByDb() {
+        // FAILED_KILL but the host is no longer Up in the DB: no live RQD remains, release
+        // proceeds.
+        when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(false);
+
         dispatchSupport.lostProc(proc, "failed kill", Dispatcher.EXIT_STATUS_FAILED_KILL);
 
         verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
@@ -114,14 +142,56 @@ public class DispatchSupportServiceLostProcTests {
     }
 
     @Test
-    public void releasesProcWhenRqdKillThrows() {
-        // A genuinely dead/unreachable host makes the kill throw; release must still proceed.
+    public void releasesProcWhenRqdKillThrowsForDownHost() {
+        // A host reported DOWN is confirmed dead: the kill may throw, but release must still
+        // proceed.
         doThrow(new RuntimeException("host unreachable")).when(rqdClient)
                 .killFrame(any(VirtualProc.class), anyString());
 
         dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST);
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+    }
+
+    @Test
+    public void defersReleaseWhenKillThrowsAndHostStillUp() {
+        // The flapping-host case: the kill throws and the host still looks Up. Releasing now would
+        // re-book the frame onto a second host while this RQD keeps rendering, so we must defer.
+        doThrow(new RuntimeException("transient unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+
+        dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+
+        verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void releasesWhenKillThrowsAndHostNotUp() {
+        // The kill throws but the host is no longer Up: confirmed dead, so release is safe.
+        doThrow(new RuntimeException("host unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+        when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(false);
+
+        dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+
+        verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+    }
+
+    @Test
+    public void releasesWhenDeferDisabledByPropertyEvenIfKillThrows() {
+        // With defer disabled, behavior falls back to the prior always-release semantics.
+        when(env.getProperty(eq(DEFER_RELEASE_PROPERTY), eq(Boolean.class), eq(true)))
+                .thenReturn(false);
+        doThrow(new RuntimeException("transient unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+
+        dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+
         verify(procDao, times(1)).deleteVirtualProc(proc);
     }
 
