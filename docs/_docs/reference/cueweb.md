@@ -128,10 +128,10 @@ Optional, opt-in group-based access control enforced server-side in `middleware.
 |----------|-------------|---------|
 | `CUEWEB_AUTHZ_ENABLED` | Master switch for the authorization gate. When off, the middleware is a pure pass-through | unset (off) |
 | `CUEWEB_ALLOWED_GROUPS` | Comma-separated groups allowed to use CueWeb at all (empty ⇒ every signed-in user) | empty |
-| `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the CueCommander administration pages and job submission (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the entire CueCommander section (all pages), job submission (CueSubmit), and the Manage facilities… screen (empty ⇒ every signed-in user) | empty |
 | `CUEWEB_GROUPS_CLAIM` | JWT/OIDC claim that carries the user's group memberships | `groups` |
 
-**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages (Allocations, Shows, Services, Subscriptions, Subscription Graphs, Limits, Redirect, Stuck Frame, CueWeb Audit) and job submission (CueSubmit). Monitoring routes, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
+**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the entire CueCommander section (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), job submission (CueSubmit), the Manage facilities… screen (`/settings/facilities`), and the CueWeb Audit page - and those menus are hidden from non-admins. Only Cuetopia Monitor Jobs and the Dashboard stay open to non-admins; the health probe (`/api/health`) and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
 
 ### Audit Variables
 
@@ -1840,7 +1840,7 @@ redeploy**.
 | **Override store** | Edits are persisted to a JSON file at `CUEWEB_FACILITY_STORE` (defaults to the OS temp dir) by a `"use server"` action; a short in-process cache makes the change take effect within a few seconds. Point the var at a mounted volume to persist across restarts. The JWT secret is written `0600` and never returned to the client. |
 | **Audit log** | Every change appends an entry (`{ at, actor, facility, changes }`) to a `.audit.jsonl` file next to the store; the secret value is never recorded. The screen shows a change-history table. |
 | **Concurrency** | Writes are serialized through an in-process queue so concurrent saves can't lose updates (single Node process). |
-| **Authorization** | Fail-closed when authentication is configured (a signed-in user is required); open when auth is disabled (the sandbox default), matching the rest of CueWeb. A deployment that ships group authorization should additionally restrict `/settings/facilities` to `CUEWEB_ADMIN_GROUPS`. |
+| **Authorization** | Fail-closed when authentication is configured (a signed-in user is required); open when auth is disabled (the sandbox default), matching the rest of CueWeb. When the group authorization gate is active, `/settings/facilities` is one of the admin paths restricted to `CUEWEB_ADMIN_GROUPS`, and the **Manage facilities…** menu item is hidden from non-admins. |
 
 The override-aware resolution lives in the server-only `lib/facility-server.ts`
 (layered over the client-safe `lib/facility.ts`) and the filesystem store in
