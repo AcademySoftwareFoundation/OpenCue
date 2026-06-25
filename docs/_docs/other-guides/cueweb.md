@@ -218,7 +218,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
 
 38. **Group-based authorization (optional, opt-in):**
    - An optional, environment-driven authorization gate enforced server-side in a single middleware chokepoint. **Off by default** - when disabled (or when no auth provider is configured) it is a pure pass-through and every signed-in user is treated as an admin.
-   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the CueCommander administration pages and job submission (CueSubmit). A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`. Read-only monitoring stays available to non-admins.
+   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the entire CueCommander section (all pages, including Monitor Cue, Monitor Hosts and Stuck Frame), job submission (CueSubmit), and the Manage facilities… screen. A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`, and those menus are hidden from non-admins. Cuetopia Monitor Jobs and the Dashboard stay available to non-admins.
    - The user's groups are resolved **once at sign-in** (from the OIDC claim named by `CUEWEB_GROUPS_CLAIM`, default `groups`, or a credentials/LDAP `groups` field) and stamped on the session token; the Edge middleware only reads them, so there is no per-request directory lookup. Requires an identity provider whose token carries group memberships.
 
 39. **Plugin system (extensible add-ons):**

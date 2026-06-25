@@ -138,9 +138,10 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # in the Cuebot Facility menu). Those overrides are layered over the env vars
 # above and persisted to CUEWEB_FACILITY_STORE (a JSON file plus a .audit.jsonl
 # log). It defaults to a file in the OS temp dir; point it at a mounted volume
-# to keep overrides across container restarts. Restrict the screen to admins by
-# adding /settings/facilities to CUEWEB_ADMIN_GROUPS where group authorization
-# is enabled.
+# to keep overrides across container restarts. When group authorization is
+# enabled, this screen is admin-only - /settings/facilities is one of the
+# CUEWEB_ADMIN_GROUPS-gated paths and the "Manage facilities..." menu item is
+# hidden from non-admins.
 # CUEWEB_FACILITY_STORE=/data/cueweb/facilities.json
 
 # CueWeb Audit trail (optional)
@@ -554,7 +555,7 @@ CueWeb runs unauthenticated in this mode.
 
 ### Authorization (group-based access control)
 
-On top of authentication (*who* you are), CueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use CueWeb at all, and limit the CueCommander administration pages and job submission to specific groups.
+On top of authentication (*who* you are), CueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use CueWeb at all, and limit the entire CueCommander section, job submission (CueSubmit) and the Manage facilities… screen to specific groups.
 
 The gate is **off by default** and all variables are optional, so behavior is unchanged unless you configure it:
 
@@ -565,7 +566,7 @@ CUEWEB_AUTHZ_ENABLED=true
 # Groups allowed to use CueWeb at all (empty = every signed-in user)
 CUEWEB_ALLOWED_GROUPS=
 
-# Groups allowed on the CueCommander admin pages + CueSubmit (empty = every signed-in user)
+# Groups allowed on the entire CueCommander section + CueSubmit + Manage facilities (empty = every signed-in user)
 CUEWEB_ADMIN_GROUPS=render-admins,wranglers
 
 # JWT/OIDC claim that carries the user's groups (default: groups)
@@ -575,8 +576,8 @@ CUEWEB_GROUPS_CLAIM=groups
 Notes:
 
 - **Requires an auth provider whose token carries group memberships.** Group resolution happens once at sign-in (from the OIDC `groups` claim, or from a `groups` field a credentials/LDAP provider attaches); the middleware reads it from the token. Configure your identity provider to include the user's groups in the claim named by `CUEWEB_GROUPS_CLAIM`. When authentication is disabled, the gate is inactive.
-- **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the admin pages and CueSubmit. Read-only monitoring, the health probe (`/api/health`), and metrics (`/api/metrics`) are never gated.
-- Leaving a group list empty means "no restriction" for that scope, so you can gate only admin access (set `CUEWEB_ADMIN_GROUPS`, leave `CUEWEB_ALLOWED_GROUPS` empty) while monitoring stays open to all signed-in users.
+- **Behavior:** a signed-in user who is not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the entire CueCommander section, CueSubmit and the Manage facilities… screen (those menus are hidden from non-admins). Cuetopia Monitor Jobs and the Dashboard stay open; the health probe (`/api/health`) and metrics (`/api/metrics`) are never gated.
+- Leaving a group list empty means "no restriction" for that scope, so you can gate only admin access (set `CUEWEB_ADMIN_GROUPS`, leave `CUEWEB_ALLOWED_GROUPS` empty) while Cuetopia Monitor Jobs and the Dashboard stay open to all signed-in users.
 
 ---
 

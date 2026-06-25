@@ -145,7 +145,7 @@ The design separates **resolution** from **enforcement**, which is what keeps it
 Two gates are applied:
 
 - `CUEWEB_ALLOWED_GROUPS` - who may use CueWeb at all. A signed-in user outside this list is sent to an **Access denied** page (`/unauthorized`); API routes get a `403`.
-- `CUEWEB_ADMIN_GROUPS` - who may reach the **CueCommander administration pages** and **job submission** (CueSubmit). Everyone else is blocked from those the same way, but can still use the read-only monitoring views.
+- `CUEWEB_ADMIN_GROUPS` - who may reach the **entire CueCommander section** (all of its pages, including Monitor Cue, Monitor Hosts and Stuck Frame), **job submission** (CueSubmit), and the **Manage facilities…** screen. On a restricted deployment those menus are hidden from everyone else; non-admins keep Cuetopia **Monitor Jobs** and the Dashboard.
 
 Infrastructure routes - the health probe, metrics, the auth flow, the login and unauthorized pages, and static assets - are never gated. **Prerequisite:** the gate only works when your identity provider emits the user's group memberships in the token; if the token carries no groups, the resolution seam can be extended (e.g. a directory lookup) without touching enforcement.
 

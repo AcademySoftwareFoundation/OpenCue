@@ -47,9 +47,9 @@
 
 // Admin-only pages: the CueCommander administration pages plus job submission
 // (CueSubmit). A request whose path starts with one of these prefixes
-// additionally requires CUEWEB_ADMIN_GROUPS membership. Monitoring-only routes
-// (Monitor Cue, Monitor Hosts) are intentionally not listed, so read-only
-// monitoring stays available to non-admin users.
+// additionally requires CUEWEB_ADMIN_GROUPS membership. The entire CueCommander
+// section is gated, so only the Cuetopia monitoring (Monitor Jobs) stays open
+// to non-admin users.
 export const ADMIN_PATH_PREFIXES = [
   "/allocations",
   "/shows",
@@ -58,8 +58,12 @@ export const ADMIN_PATH_PREFIXES = [
   "/subscription-graphs",
   "/limits",
   "/redirect",
-  "/stuck-frame",
+  "/stuck-frames",
+  "/monitor-cue",
+  "/hosts",
   "/cuesubmit",
+  // Per-facility gateway settings (Cuebot Facility -> Manage facilities…).
+  "/settings/facilities",
   // Guard the submit API too, so the restriction can't be bypassed by POSTing
   // directly past the CueSubmit UI.
   "/api/job/submit",

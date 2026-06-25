@@ -119,7 +119,11 @@ CueWeb supports secure authentication through multiple providers:
 
 #### Restricted access
 
-Some deployments restrict access by group membership. If your account is not authorized for an area you open, CueWeb shows an **Access denied** page instead. Read-only monitoring is typically available to everyone, while the CueCommander administration pages and job submission may be limited to administrators. If you believe you should have access, contact your OpenCue administrator.
+Some deployments restrict access by group membership. If your account is not authorized for an area you open, CueWeb shows an **Access denied** page instead. The entire **CueCommander** section (including Monitor Cue, Monitor Hosts and Stuck Frame), **CueSubmit**, and **Manage facilities…** may be limited to administrators - on a restricted deployment those menus are hidden from non-admins. Cuetopia **Monitor Jobs** and the Dashboard stay available to everyone who can sign in. If you believe you should have access, contact your OpenCue administrator.
+
+A non-admin sees only the unrestricted menus - **Dashboard**, **File**, **Cuebot Facility**, **Cuetopia**, **Plugins**, **Other**, and **Help** (no **CueCommander** or **CueSubmit**):
+
+![CueWeb basic (non-admin) view with CueCommander and CueSubmit hidden](/assets/images/cueweb/cueweb_basic_view_dashboard_facility_cuetopia_plugins_other_help.png)
 
 ### First Time Setup
 
