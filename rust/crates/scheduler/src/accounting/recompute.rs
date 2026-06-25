@@ -70,8 +70,7 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
             last_dispatched = current_dispatched;
 
             let current_limit_exceeded = metrics::resource_limit_exceeded_session();
-            let limit_exceeded_delta =
-                current_limit_exceeded.saturating_sub(last_limit_exceeded);
+            let limit_exceeded_delta = current_limit_exceeded.saturating_sub(last_limit_exceeded);
             last_limit_exceeded = current_limit_exceeded;
 
             info!(
