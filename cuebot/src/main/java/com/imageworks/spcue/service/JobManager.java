@@ -16,6 +16,7 @@
 package com.imageworks.spcue.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.DispatchFrame;
@@ -42,6 +43,14 @@ import com.imageworks.spcue.util.FrameSet;
  * managing the layers, frames, etc within jobs.
  */
 public interface JobManager {
+
+    /**
+     * Returns the number of WAITING frames per show, aggregated across all PENDING jobs. Used by
+     * the Prometheus collector to expose per-show backlog.
+     *
+     * @return map of show name to waiting frame count
+     */
+    Map<String, Long> getWaitingFrameCountsByShow();
 
     /**
      * Pause/unpause a job

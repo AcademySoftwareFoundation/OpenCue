@@ -16,6 +16,7 @@
 package com.imageworks.spcue.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.Sets;
 import org.apache.logging.log4j.Logger;
@@ -84,6 +85,12 @@ public class JobManagerService implements JobManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isJobComplete(JobInterface job) {
         return jobDao.isJobComplete(job);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public Map<String, Long> getWaitingFrameCountsByShow() {
+        return jobDao.getWaitingFrameCountsByShow();
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)

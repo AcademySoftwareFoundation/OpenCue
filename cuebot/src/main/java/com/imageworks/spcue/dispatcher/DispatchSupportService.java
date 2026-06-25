@@ -30,6 +30,7 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
@@ -86,6 +87,7 @@ public class DispatchSupportService implements DispatchSupport {
     private BookingDao bookingDao;
     private KafkaEventPublisher kafkaEventPublisher;
     private MonitoringEventBuilder monitoringEventBuilder;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     @Autowired
     private Environment env;
@@ -237,6 +239,22 @@ public class DispatchSupportService implements DispatchSupport {
 
         // Publish FRAME_STARTED event (WAITING -> RUNNING transition)
         publishFrameStartedEvent(frame, proc, previousState);
+
+        // Booking throughput + time-to-book, per show. Counterpart to the Rust
+        // scheduler's scheduler_frames_dispatched_total / scheduler_time_to_book_seconds
+        // so a Cuebot-dispatched show can be compared against a scheduler-managed
+        // one. frame.dateUpdated holds the WAITING ts_updated captured by the
+        // dispatch query *before* updateFrameStarted reset it above.
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameBooked(frame.show);
+            if (frame.dateUpdated != null) {
+                double secondsWaiting =
+                        (System.currentTimeMillis() - frame.dateUpdated.getTime()) / 1000.0;
+                if (secondsWaiting >= 0) {
+                    prometheusMetrics.recordFrameTimeToBook(secondsWaiting, frame.show);
+                }
+            }
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
@@ -731,6 +749,10 @@ public class DispatchSupportService implements DispatchSupport {
 
     public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
         this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
     }
 
     /**

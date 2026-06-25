@@ -26,6 +26,7 @@ import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.dispatcher.HostReportQueue;
 import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JobManager;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
@@ -169,6 +170,29 @@ public class PrometheusMetricsCollector {
             .name("cue_host_reports_received_total").help("Total number of host reports received")
             .labelNames("env", "cuebot_host", "facility").register();
 
+    // Booking throughput and latency, per show. Counterparts to the Rust
+    // scheduler's scheduler_frames_dispatched_total{show_name} and
+    // scheduler_time_to_book_seconds{show_name}, letting a Cuebot-dispatched show
+    // be compared against a scheduler-managed one. Buckets match the scheduler's
+    // time_to_book histogram so the two are directly overlay-able in Grafana.
+    private static final Counter frameBookedCounter = Counter.build()
+            .name("cue_frames_booked_total").help("Total number of frames booked (dispatched)")
+            .labelNames("env", "cuebot_host", "show").register();
+
+    private static final Histogram frameTimeToBookHistogram =
+            Histogram.build().name("cue_frame_time_to_book_seconds")
+                    .help("Time from a frame becoming WAITING until it was booked, in seconds")
+                    .labelNames("env", "cuebot_host", "show")
+                    .buckets(0.1, 0.5, 1, 5, 10, 30, 60, 120, 300).register();
+
+    // Per-show backlog of WAITING frames, sampled each collection from
+    // job_stat.int_waiting_count. The shared "pending work" axis for both
+    // systems: booking latency/throughput can be read against the depth of the
+    // queue, and DB-degradation watched as this climbs.
+    private static final Gauge framesWaiting = Gauge.build().name("cue_frames_waiting")
+            .help("Number of WAITING frames per show (pending backlog)")
+            .labelNames("env", "cuebot_host", "show").register();
+
     // Memory-stranded cores: idle cores that cannot be booked because their host is out of memory.
     // Reported per allocation.
     private static final Gauge coresTotal =
@@ -184,6 +208,8 @@ public class PrometheusMetricsCollector {
     private static final Logger logger = LogManager.getLogger(PrometheusMetricsCollector.class);
 
     private HostManager hostManager;
+
+    private JobManager jobManager;
 
     private String deployment_environment;
     private String cuebot_host;
@@ -310,6 +336,22 @@ public class PrometheusMetricsCollector {
                     logger.error("Failed to collect memory-stranded core metrics", e);
                 }
             }
+
+            // Per-show WAITING backlog. Wrapped separately so a query failure does
+            // not prevent the other metrics from being collected. Cleared first so
+            // shows that drain to zero (or finish) stop emitting a stale series.
+            if (jobManager != null) {
+                try {
+                    java.util.Map<String, Long> waiting = jobManager.getWaitingFrameCountsByShow();
+                    framesWaiting.clear();
+                    for (java.util.Map.Entry<String, Long> entry : waiting.entrySet()) {
+                        framesWaiting.labels(this.deployment_environment, this.cuebot_host,
+                                entry.getKey()).set(entry.getValue());
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to collect per-show waiting frame metrics", e);
+                }
+            }
         }
     }
 
@@ -427,6 +469,26 @@ public class PrometheusMetricsCollector {
     }
 
     /**
+     * Record a frame being booked (dispatched) for the given show.
+     *
+     * @param show show name
+     */
+    public void recordFrameBooked(String show) {
+        frameBookedCounter.labels(this.deployment_environment, this.cuebot_host, show).inc();
+    }
+
+    /**
+     * Record the time a frame spent WAITING before being booked.
+     *
+     * @param seconds time-to-book in seconds
+     * @param show show name
+     */
+    public void recordFrameTimeToBook(double seconds, String show) {
+        frameTimeToBookHistogram.labels(this.deployment_environment, this.cuebot_host, show)
+                .observe(seconds);
+    }
+
+    /**
      * Record a host report received
      *
      * @param facility facility name
@@ -455,5 +517,9 @@ public class PrometheusMetricsCollector {
 
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
+    }
+
+    public void setJobManager(JobManager jobManager) {
+        this.jobManager = jobManager;
     }
 }

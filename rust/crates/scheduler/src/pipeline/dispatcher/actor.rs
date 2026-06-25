@@ -349,7 +349,7 @@ impl RqdDispatcherService {
 
                     // Track time from frame updated_at to dispatch
                     if let Ok(elapsed) = frame.updated_at.elapsed() {
-                        metrics::observe_time_to_book(elapsed);
+                        metrics::observe_time_to_book(&frame.show_name, elapsed);
                     }
 
                     non_retrieable_frames.push(frame.id);
