@@ -97,7 +97,7 @@ public interface DispatchSupport {
      * A lost proc whose release was deferred because the kill-before-release could not confirm the
      * frame was stopped and the host was not confirmed dead (likely a flapping host). The proc and
      * its RUNNING frame are left intact to avoid double-booking until the host is confirmed DOWN or
-     * the frame completes naturally. See design/frame_double_booking_v2.md.
+     * the frame completes naturally.
      */
     static final AtomicLong deferredReleaseProcs = new AtomicLong(0);
 
