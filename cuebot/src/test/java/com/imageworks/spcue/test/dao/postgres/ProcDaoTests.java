@@ -904,8 +904,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     /**
      * Scheduler-managed show: deleteVirtualProc must <em>not</em> decrement the five PG accounting
      * tables. The Rust scheduler's recompute will rewrite them from SUM(proc) on a 2-min cadence
-     * (PR-C). For PR-B this only asserts the SQL chokepoint behavior; the Redis publish itself is
-     * covered by {@code LettuceAccountingRedisPublisherTests}.
+     * (PR-C). For PR-B this only asserts the SQL chokepoint behavior; the release NOTIFY itself is
+     * covered by {@code AccountingNotifierTests}.
      */
     @Test
     @Transactional

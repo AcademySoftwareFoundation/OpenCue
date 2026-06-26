@@ -21,7 +21,7 @@ The **Distributed Scheduler** (`rust/crates/scheduler/`) is a standalone Rust se
 
 Conceptually, every dispatch is an instance of **multi-dimensional bin packing**: the scheduler must fit a frame (an item with `(cores, memory, gpus)` requirements) into a host (a bin with `(idle_cores, idle_memory, idle_gpus)` capacity). The host cache's B-tree index turns this into an O(log n) lookup, and the [`HostBookingStrategy`](#booking-strategies-bin-packing-heuristics) flags select between classical heuristics (Best-Fit vs. Worst-Fit) on each dimension independently.
 
-Per-show resource accounting (subscription size/burst, folder caps, job/layer caps) is enforced on the hot path through a **Redis-backed accounting layer** shared with Cuebot - see the [Redis Accounting Reference](/docs/developer-guide/redis-accounting/) for the full design.
+Per-show resource accounting (subscription burst, folder caps, job caps) is enforced on the hot path through an **in-memory accounting store** inside the scheduler, kept fresh by a PostgreSQL `LISTEN/NOTIFY` feed from Cuebot - see the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/) for the full design.
 
 This document provides technical details for developers, operators, and contributors working with the scheduler's internals.
 
@@ -47,14 +47,13 @@ The scheduler inverts this model:
 3. **Intelligent matching** → Find hosts for frames (not frames for hosts) a 2D
    bin-packing lookup against the host B-tree
 4. **Atomic accounting** → Enforce per-show / per-folder / per-job limits via a single
-   Redis Lua script on the hot path
+   lock-guarded check-and-increment in an in-memory store on the hot path
 5. **Parallel dispatch** → Execute multiple dispatches concurrently
 
 **Key Insight**: By caching host state in memory and querying jobs (not hosts), the
 scheduler dramatically reduces database load. Moving the accounting hot path off
-Postgres into Redis removes the remaining lock-contention bottleneck and enables
-horizontal scaling across multiple scheduler instances. The host-side placement
-becomes a tunable bin-packing heuristic (see
+Postgres into an in-process store removes the remaining lock-contention bottleneck.
+The host-side placement becomes a tunable bin-packing heuristic (see
 [Booking Strategies](#booking-strategies-bin-packing-heuristics)) rather than a
 hard-coded scan.
 
@@ -599,25 +598,28 @@ database:
 - Prepared statement caching
 - Transaction support
 
-### 6. Redis-Backed Accounting Subsystem
+### 6. In-Memory Accounting Subsystem
 
 **Location**: `src/accounting/`
 
 The accounting subsystem tracks how much of each resource pool (subscription, folder,
-job, layer, department point) is currently booked. Every dispatch decision the
-scheduler makes is gated on these counters if a job is already at its `int_max_cores`,
-the scheduler must not book another frame against it.
+job) is currently booked. Every dispatch decision the scheduler makes is gated on these
+counters if a job is already at its `int_max_cores`, the scheduler must not book another
+frame against it.
 
 Historically these counters lived only in PostgreSQL and were updated transactionally
 by Cuebot on every booking and release. As the Rust scheduler took over dispatch, the
 hot path was hammering the same accounting rows Cuebot's `HostReportHandler` writes to,
 and lock waits on `subscription`, `folder_resource`, and `job_resource` started
-limiting throughput. An earlier in-process cache (a `HashMap<K, V>` inside the
-scheduler) solved contention but cannot be shared across multiple scheduler instances.
+limiting throughput. A short-lived Redis-backed design moved the hot path off PG locks,
+but at a single scheduler instance (N=1) it added cross-process coordination (an
+`acct:seq` compare-and-swap on every reseed) without the multi-instance benefit it was
+built for, and that coordination spawned a class of accounting-drift bugs.
 
-The current design replaces both with a **Redis-backed accounting layer** that Cuebot
-and the Rust scheduler write through on the hot path. PostgreSQL remains the durable
-system of record; Redis is the live operational view.
+The current design replaces both with an **in-memory `Store`** that is the single source
+of truth for booked counters: there is exactly one writer and reader, and the booking
+check-and-increment is atomic under one lock. PostgreSQL remains the durable record (the
+`proc` rows), and Cuebot feeds live releases and cap changes via `LISTEN/NOTIFY`.
 
 #### Per-show ownership
 
@@ -625,11 +627,12 @@ The `show.b_scheduler_managed` boolean (added in migration `V45__show_scheduler_
 selects who owns the accounting write path for a given show:
 
 - `false` (default): **Cuebot-managed**. Cuebot's dispatcher books and releases against
-  PG accounting tables transactionally, exactly as before. Redis is not consulted.
-- `true`: **Scheduler-managed**. The Rust scheduler books against Redis on the hot
-  path; Cuebot's release path only deletes the `proc` row and publishes the release
-  delta to Redis via an `afterCommit` hook. PG accounting tables for this show are
-  refreshed by the scheduler's 2-min recompute loop.
+  PG accounting tables transactionally, exactly as before. The scheduler's store is not
+  consulted.
+- `true`: **Scheduler-managed**. The Rust scheduler books against its in-memory store on
+  the hot path; Cuebot's release path only deletes the `proc` row and emits an
+  `acct_release` notification. PG accounting tables for this show are refreshed by the
+  scheduler's recompute loop (so CueGUI stays current).
 
 The flag replaces the older `dispatcher.exclusion_list` and
 `dispatcher.scheduler_manages_resources` properties in `opencue.properties` (both
@@ -640,73 +643,82 @@ cueadmin -show <name> -setSchedulerManaged true
 cueadmin -show <name> -setSchedulerManaged false
 ```
 
-#### Hot path: atomic booking Lua
+#### Hot path: lock-guarded check-and-increment
 
-A single Lua script runs the per-frame booking against Redis, executing five updates
-atomically:
+The per-frame booking is an in-process atomic operation in `Store::book`, under a single
+lock:
 
 ```text
-1. Read current state of acct:sub / acct:folder / acct:job / acct:layer / acct:point
-2. Check booking would not exceed any limit (size, burst, max_cores, etc.)
-3. If OK: 5 × HINCRBY (int_cores, int_gpus) + INCR acct:seq, return {1}
-4. If over a limit: return structured failure {0, table_name, current, limit}
-5. Then transactionally INSERT proc in Postgres (outside Lua)
+1. If cores > 0: check subscription burst, folder int_max_cores, job int_max_cores
+2. If gpus  > 0: check folder int_max_gpus, job int_max_gpus
+3. If OK: increment the three enforced vertices, record the delta as `pending`, return Applied
+4. If over a limit: return LimitExceeded { table, current, limit }
+5. Then transactionally INSERT proc in Postgres (outside the lock)
 ```
 
-On limit-check failure, the rejection is attributed to the responsible table via
+Only the three enforced vertices are tracked (subscription, folder, job); layer and
+point have no hot-path cap and are not kept in the store. On limit-check failure the
+rejection is attributed to the responsible table via
 `scheduler_accounting_limit_exceeded_total{table=...}` metrics.
 
-If the PG `INSERT proc` fails after the Lua succeeded, the scheduler calls the same
-script in **force mode** with negated deltas to undo the Redis-side change one
-script, two modes, no separate rollback path.
+After the `proc` transaction commits and RQD launches, the dispatcher calls `confirm`
+(drops the `pending` portion, keeps the booked increment). If the INSERT or launch
+fails, it calls `rollback` (undoes both). Exactly one runs per successful booking.
 
-#### Reseed loops
+#### Live feed: PostgreSQL LISTEN/NOTIFY
 
-Three loops keep Redis convergent with PG:
+Cuebot emits two notifications, each `pg_notify` in the **same transaction** as the PG
+write it describes (delivered iff that write commits no partial-failure window):
 
-- **Booked-counter recompute (every 2 min)**: rebuilds `int_cores` / `int_gpus` for
-  every scheduler-managed show from `SUM(proc)`. Dual-writes to PG accounting tables
-  (so CueGUI stays fresh) and to Redis (guarded by an `acct:seq` CAS).
-- **Limit reseed (every 5 min)**: copies limit fields (`size`, `burst`,
-  `int_min_cores`, `int_max_cores`, priorities) from PG to Redis. Catches Cuebot admin
-  operations that don't go through the `afterCommit` hook.
-- **Bootstrap reseed (blocking at startup)**: the booking pipeline does not start
-  until both reseeds have populated Redis end-to-end.
+- `acct_release`: a per-proc release delta on `procDestroyed` for scheduler-managed
+  shows. The scheduler decrements the three vertices.
+- `acct_limit_change`: an enforced cap change (subscription burst, folder/job max
+  cores/gpus) from a cueadmin operation. The scheduler updates the cap in the store.
 
-Each reseed compares-and-swaps against the `acct:seq` monotonic counter to detect
-hot-path mutations between the SQL read and the Redis write, preventing silent loss
-of concurrent bookings.
+The scheduler listens on a dedicated connection and reconnects on drop; anything missed
+during the gap is healed by the backstop loops below.
+
+#### Backstop loops
+
+- **Recompute (every 15 s)**: overwrites the store's booked counters from `SUM(proc)`,
+  carrying each key's in-flight `pending` delta forward so a just-booked frame is never
+  erased (the one way an absolute overwrite could under-count and over-book). Also
+  rewrites the PG accounting tables for CueGUI. **No CAS, no retry** the live store is
+  the primary record.
+- **Limit reseed (every 5 min)**: re-reads the enforced caps from PG into the store
+  the backstop for any missed `acct_limit_change`.
+- **Bootstrap reseed (blocking at startup)**: seeds caps then counters from PG before
+  the pipeline accepts work. The store is the only copy, so this gate is mandatory.
 
 #### Cuebot integration
 
-`ProcDaoJdbc.unbookProc` checks `b_scheduler_managed` on every release. For
-scheduler-managed shows it only `DELETE`s the proc row transactionally; on
-`afterCommit` it publishes the release delta to Redis via
-`LettuceAccountingRedisPublisher`. Publish failures are logged at WARN and swallowed
-the recompute loop heals the missing decrement on the next cycle.
-
-A startup guardrail in Cuebot logs a loud WARN and exposes
-`cuebot_redis_publish_misconfigured` if any show is scheduler-managed but
-`accounting.redis.enabled=false`, since that combination silently over-counts.
+`ProcDaoJdbc.procDestroyed` checks `b_scheduler_managed` on every release. For
+scheduler-managed shows it `DELETE`s the proc row and issues
+`AccountingNotifier.notifyRelease` in the same transaction. A kill-switch property
+`accounting.notify.enabled` (default true) disables the notifications; flag-off degrades
+to recompute-only, which is the **safe** direction (no decrements → counters read high →
+under-book → healed by recompute), so there is no startup guardrail only a WARN and a
+`cuebot_accounting_notify_disabled` metric for ops visibility.
 
 #### Source files
 
 | Path | Purpose |
 |---|---|
-| `accounting/mod.rs` | Module root; orchestrates booking, recompute, limit reseed, bootstrap |
-| `accounting/redis_client.rs` | Redis connection management and Lua script wiring |
-| `accounting/lua.rs` | Booking + force-rollback Lua sources |
-| `accounting/recompute.rs` | 2-min `SUM(proc)` → PG + Redis dual write |
-| `accounting/limit_reseed.rs` | 5-min accounting tables → Redis |
+| `accounting/mod.rs` | Module root; `apply_booking` / `confirm_booking` / `rollback_booking` facade |
+| `accounting/store.rs` | In-memory counters + caps; the locked atomic `book` / `confirm` / `rollback` |
+| `accounting/listener.rs` | `PgListener` on `acct_release` + `acct_limit_change` |
+| `accounting/recompute.rs` | 15 s `SUM(proc)` → PG tables + store overwrite with pending carry-forward |
+| `accounting/limit_reseed.rs` | 5 min caps → store |
 | `accounting/bootstrap.rs` | Blocking startup reseed |
-| `accounting/managed_shows.rs` | Cached lookup of scheduler-managed shows |
+| `accounting/managed_shows.rs` | Cached lookup of scheduler-managed shows + managed-flip seed |
 | `accounting/booking_delta.rs` | Per-booking delta carried through the dispatch pipeline |
-| `accounting/dao.rs` | PG accounting-table queries used by the reseeds |
-| `accounting/error.rs` | Typed errors for the accounting layer |
+| `accounting/dao.rs` | PG queries used by the reseeds |
+| `accounting/error.rs` | `AccountingError::LimitExceeded` |
 
-**For the full design** source-of-truth model, schema, `acct:seq` CAS protocol,
-failure modes, drift bounds, and operator workflow see the
-[Redis Accounting Reference](/docs/developer-guide/redis-accounting/).
+**For the full design** source-of-truth model, the pending carry-forward and the
+straddle-window race it closes, NOTIFY payload shapes, failure modes, the kill-switch,
+and the N=1 assumption see the
+[Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/).
 
 ### 7. Metrics and Observability
 
@@ -886,26 +898,30 @@ for the full mapping from flag values to packing strategies and the workloads ea
 The default (Best-Fit cores, Worst-Fit memory) is the right choice for most render
 farms only flip `memory_saturation` if frame memory estimates are trustworthy.
 
-### Redis Accounting
+### Accounting
 
 ```yaml
 accounting:
-  redis_url: "redis://redis.internal:6379"
-  recompute_interval_seconds: 120
-  limit_reseed_interval_seconds: 300
-  redis_pool_size: 20
+  recompute_interval: 15s
+  limit_reseed_interval: 300s
+  managed_shows_ttl: 30s
 ```
 
-- **`recompute_interval_seconds`** (default 120): how often to rebuild Redis booked
-  counters from `SUM(proc)`. Lower = tighter drift bound on PG accounting tables
-  (which CueGUI reads); higher = less DB load.
-- **`limit_reseed_interval_seconds`** (default 300): how often to copy limit fields
-  (size, burst, caps) from PG to Redis. Lower = faster propagation of Cuebot admin
-  changes; higher = less DB load.
-- **`redis_pool_size`** (default 20): connection pool size for the async Redis client.
+- **`recompute_interval`** (default 15s): how often to overwrite the in-memory booked
+  counters from `SUM(proc)` (carrying in-flight bookings forward) and refresh the PG
+  accounting tables CueGUI reads. This is the primary utilization backstop now that
+  releases arrive live via NOTIFY, so it runs frequently. Lower = tighter convergence;
+  higher = less DB load.
+- **`limit_reseed_interval`** (default 300s): how often to re-read the enforced caps
+  (subscription burst, folder/job max cores/gpus) from PG into the store. The
+  `acct_limit_change` NOTIFY propagates cueadmin changes immediately; this is the
+  backstop for any missed notification.
+- **`managed_shows_ttl`** (default 30s): how often the cache of `b_scheduler_managed`
+  shows is refreshed.
 
-The matching Cuebot side requires `accounting.redis.enabled=true` and the same
-`accounting.redis.host` / `accounting.redis.port` pointing at the same Redis instance.
+The accounting store needs only PostgreSQL no Redis or other external store. The
+matching Cuebot side emits the live feed when `accounting.notify.enabled=true` (default),
+riding the existing PG connection.
 
 ## Distributed Operation
 
@@ -947,14 +963,16 @@ to prevent two instances from owning the same clusters.
 - Database-level conflict resolution
 - Prevents double-booking even if permits overlap
 
-**Shared Accounting (Redis)**:
-- The Redis-backed accounting layer is the foundation that makes N-instance
-  deployment safe: per-show limits are enforced atomically across all schedulers via
-  the booking Lua script, and the `acct:seq` CAS guard serialises reseeds.
-- Single-instance limitation today: the recompute and limit-reseed loops still need
-  leader election before > 1 scheduler can run safely; entry points in
-  `pipeline/entrypoint.rs` carry `// TODO` markers as a pin against rolling this out
-  without addressing it.
+**In-Memory Accounting (N=1)**:
+- The accounting store is in-process and **not shared**, so it assumes a single
+  scheduler instance: exactly one process owns the booked counters, which is what makes
+  the atomic check-and-increment and the absolute recompute correct.
+- This is a deliberate trade for the structural elimination of the accounting-drift bug
+  class. Running more than one scheduler that could book the same show would let two
+  processes enforce against separate copies and jointly over-book a hard cap. Crossing
+  N>1 requires a shared/coordinated counter (or a non-overlapping partitioning scheme)
+  plus leader election for the recompute and limit-reseed loops none of which is in
+  place. See the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/#the-n1-assumption-and-the-revisit-trigger-for-n1).
 
 ### Future Architecture (Planned)
 
@@ -1003,8 +1021,7 @@ cargo test -p scheduler
 cargo test -p scheduler --features smoke-tests --test smoke_tests
 ```
 
-**Stress tests** (requires a migrated local Postgres plus a Docker daemon for
-the throwaway Redis container; see the
+**Stress tests** (requires a migrated local Postgres; see the
 [Scheduler Stress Testing](/docs/developer-guide/scheduler-stress-testing/)
 guide for tuning, CI behavior, and how to read the report):
 ```bash
@@ -1040,7 +1057,7 @@ The scheduler:
 - Communicates with RQD via the same gRPC protocol
 - Produces the same proc/frame state transitions
 - Coexists with Cuebot via the per-show `b_scheduler_managed` flag see the
-  [Redis Accounting Reference](/docs/developer-guide/redis-accounting/) for the
+  [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/) for the
   ownership model
 
 ### Handing a show to the scheduler
@@ -1203,11 +1220,15 @@ metrics::set_custom_gauge("custom_gauge", value);
 - **HostBookingStrategy**: Per-dimension flag controlling which heuristic (Best-Fit or
   Worst-Fit) the host cache uses when scanning the B-tree for a candidate.
 - **Scheduler-managed show**: A show with `b_scheduler_managed = true` dispatch and
-  hot-path accounting are owned by the Rust scheduler via Redis.
+  hot-path accounting are owned by the Rust scheduler via its in-memory store.
 - **Cuebot-managed show**: A show with `b_scheduler_managed = false` legacy
   behaviour; Cuebot dispatches and updates PG accounting transactionally.
-- **`acct:seq`**: Monotonic Redis counter incremented by every mutating accounting
-  Lua script; the CAS guard for reseed loops.
-- **Recompute loop**: 2-min job that rebuilds Redis booked counters from `SUM(proc)`.
-- **Limit reseed**: 5-min job that copies limit fields (size/burst/caps) from PG to
-  Redis.
+- **Pending delta**: the portion of a booked counter still in flight (proc row maybe
+  not yet visible to the recompute snapshot); carried forward across a recompute so the
+  absolute overwrite cannot erase a just-booked frame.
+- **Recompute loop**: 15-second job that overwrites the in-memory booked counters from
+  `SUM(proc) + pending` and refreshes the PG accounting tables for CueGUI.
+- **Limit reseed**: 5-min job that re-reads enforced caps (burst, folder/job max
+  cores/gpus) from PG into the store.
+- **`acct_release` / `acct_limit_change`**: the two PG `LISTEN/NOTIFY` channels Cuebot
+  emits transactionally for releases and cap changes.

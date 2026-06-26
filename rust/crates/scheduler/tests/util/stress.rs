@@ -37,14 +37,13 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
-use redis::aio::ConnectionManager;
-use redis::AsyncCommands;
 use scheduler::{
+    accounting::accounting_service,
     cluster::Cluster,
     cluster_key::{Tag, TagType},
     config::{
         AccountingConfig, Config, DatabaseConfig, HostBookingStrategy, HostCacheConfig,
-        LoggingConfig, QueueConfig, RedisConfig, RqdConfig, SchedulerConfig, StreamConfig,
+        LoggingConfig, QueueConfig, RqdConfig, SchedulerConfig, StreamConfig,
     },
 };
 use sqlx::{Pool, Postgres, QueryBuilder};
@@ -69,13 +68,13 @@ const SEED: u64 = 0x0C0FFEE;
 ///   exits a few seconds after every cluster stops yielding jobs (either because
 ///   the workload drained or because the watchdog paused it).
 /// - `recompute_interval` / `limit_reseed_interval` = 1h: the reconciliation loops
-///   never fire inside the test window, so the final Redis state is the product of
+///   never fire inside the test window, so the final store state is the product of
 ///   the dispatch hot path alone — exactly what the audit wants to verify.
 /// - `host_staleness_threshold` = 1h: seeded hosts never report a fresh `ts_ping`
 ///   (no RQD), so the cache must not evict them mid-run.
-/// - `dry_run_mode` = true: full booking path (Redis Lua + proc insert + host
-///   decrement + frame start) without gRPC calls to RQD.
-pub fn create_stress_config(redis_port: u16) -> Config {
+/// - `dry_run_mode` = true: full booking path (in-memory check+increment + proc insert
+///   + host decrement + frame start) without gRPC calls to RQD.
+pub fn create_stress_config() -> Config {
     Config {
         logging: LoggingConfig {
             level: "info".to_string(),
@@ -136,16 +135,9 @@ pub fn create_stress_config(redis_port: u16) -> Config {
         },
         scheduler: SchedulerConfig::default(),
         accounting: AccountingConfig {
-            redis: RedisConfig {
-                enabled: true,
-                host: "127.0.0.1".to_string(),
-                port: redis_port,
-                pool_size: 20,
-            },
             recompute_interval: Duration::from_secs(3600),
             limit_reseed_interval: Duration::from_secs(3600),
             managed_shows_ttl: Duration::from_secs(5),
-            cas_max_retries: 5,
         },
         sentry_dsn: None,
     }
@@ -748,108 +740,134 @@ pub struct AuditOutcome {
     pub per_sub: Vec<SubUsage>,
 }
 
-async fn redis_hash_i64(redis: &mut ConnectionManager, key: &str, field: &str) -> i64 {
-    let value: Option<i64> = redis.hget(key, field).await.unwrap_or(None);
-    value.unwrap_or(0)
+/// Compare one vertex's expected centicores/gpus against the store's booked `(cores, gpus)`.
+fn cmp_vertex(label: &str, want_centi: i64, want_gpus: i64, got: (i64, i64)) -> Vec<String> {
+    let want_cores = want_centi / CORE_MULT;
+    let mut v = Vec::new();
+    if got.0 != want_cores {
+        v.push(format!(
+            "{label}: store cores={} but SUM(proc) says {want_cores}",
+            got.0
+        ));
+    }
+    if got.1 != want_gpus {
+        v.push(format!(
+            "{label}: store gpus={} but SUM(proc) says {want_gpus}",
+            got.1
+        ));
+    }
+    v
 }
 
-/// Cross-checks the Redis accounting hashes against `SUM(proc)` in Postgres (the
-/// canonical record of bookings, per the redis-accounting design), and validates
-/// the cap + host/frame/stat invariants that booking must preserve:
+/// Cross-checks the in-memory accounting store against `SUM(proc)` in Postgres (the
+/// canonical record of bookings), and validates the cap + host/frame/stat invariants
+/// that booking must preserve:
 ///
-/// 1. Every `acct:{sub,folder,job,layer,point}` hash the show touched holds exactly
-///    `SUM(proc.int_cores_reserved)/100` cores and `SUM(proc.int_gpus_reserved)`
-///    GPUs for its grouping (same 5-dim grouping + unit conversion the recompute
-///    loop uses — but with recompute pushed out of the test window, agreement here
-///    proves the *hot path* (Lua book + force-rollback) kept Redis exact).
-/// 2. Jobs with no bookings have no leaked Redis counters.
+/// 1. Every subscription/folder/job booked counter in the store holds exactly
+///    `SUM(proc.int_cores_reserved)/100` cores and `SUM(proc.int_gpus_reserved)` GPUs for
+///    its grouping. With the recompute loop pushed past the test window, agreement here
+///    proves the *hot path* (book + rollback) kept the store exact on its own. Layer and
+///    point are not tracked (the booking check never reads them).
+/// 2. Jobs with no bookings have no leaked store counters.
 /// 3. Per-(show, alloc) booked cores never exceed the subscription burst.
 /// 4. Per-job booked cores never exceed `job_resource.int_max_cores` (when set).
 /// 5. Host ledger: `int_cores - int_cores_idle == SUM(proc)` per host, never negative.
 /// 6. Frame/proc agreement: one RUNNING frame per proc.
 /// 7. Trigger-maintained `job_stat.int_waiting_count` matches the frame table.
-pub async fn audit_accounting(
-    pool: &Pool<Postgres>,
-    redis: &mut ConnectionManager,
-    farm: &StressFarm,
-) -> AuditOutcome {
+pub async fn audit_accounting(pool: &Pool<Postgres>, farm: &StressFarm) -> AuditOutcome {
     let mut out = AuditOutcome::default();
     let show = farm.show_id.to_string();
+    let show_id = farm.show_id;
     let like = format!("{}%", farm.prefix);
 
-    // --- 1. + 2.: Redis hashes vs SUM(proc), grouped exactly like recompute ---
+    // --- 1. + 2.: store counters vs SUM(proc), grouped by the enforced vertices ---
     #[derive(sqlx::FromRow)]
     struct BookedRow {
-        pk_show: String,
         pk_alloc: String,
         pk_folder: String,
         pk_job: String,
-        pk_layer: String,
-        pk_dept: String,
         cores: i64,
         gpus: i64,
     }
     let rows: Vec<BookedRow> = sqlx::query_as(
-        "SELECT j.pk_show, h.pk_alloc, j.pk_folder, p.pk_job, p.pk_layer, j.pk_dept, \
+        "SELECT h.pk_alloc, j.pk_folder, p.pk_job, \
                 COALESCE(SUM(p.int_cores_reserved), 0)::bigint AS cores, \
                 COALESCE(SUM(p.int_gpus_reserved), 0)::bigint AS gpus \
          FROM proc p \
          JOIN host h ON h.pk_host = p.pk_host \
          JOIN job  j ON j.pk_job = p.pk_job \
          WHERE j.pk_show = $1 AND p.b_local = false \
-         GROUP BY j.pk_show, h.pk_alloc, j.pk_folder, p.pk_job, p.pk_layer, j.pk_dept",
+         GROUP BY h.pk_alloc, j.pk_folder, p.pk_job",
     )
     .bind(&show)
     .fetch_all(pool)
     .await
     .expect("booked snapshot query");
 
-    // Aggregate centicores per Redis key, then convert once - mirrors
-    // accounting::recompute::booked_ops_from_snapshot.
-    let mut expected: HashMap<String, (i64, i64)> = HashMap::new();
-    let mut booked_jobs: HashMap<String, i64> = HashMap::new();
+    // Aggregate centicores per vertex key (mirrors the recompute aggregation).
+    let mut exp_sub: HashMap<(Uuid, Uuid), (i64, i64)> = HashMap::new();
+    let mut exp_folder: HashMap<Uuid, (i64, i64)> = HashMap::new();
+    let mut exp_job: HashMap<Uuid, (i64, i64)> = HashMap::new();
     for r in &rows {
-        for key in [
-            format!("acct:sub:{}:{}", r.pk_show, r.pk_alloc),
-            format!("acct:folder:{}", r.pk_folder),
-            format!("acct:job:{}", r.pk_job),
-            format!("acct:layer:{}", r.pk_layer),
-            format!("acct:point:{}:{}", r.pk_dept, r.pk_show),
-        ] {
-            let e = expected.entry(key).or_insert((0, 0));
-            e.0 += r.cores;
-            e.1 += r.gpus;
-        }
-        *booked_jobs.entry(r.pk_job.clone()).or_insert(0) += r.cores;
+        let alloc = Uuid::parse_str(&r.pk_alloc).expect("alloc uuid");
+        let folder = Uuid::parse_str(&r.pk_folder).expect("folder uuid");
+        let job = Uuid::parse_str(&r.pk_job).expect("job uuid");
+        let s = exp_sub.entry((show_id, alloc)).or_insert((0, 0));
+        s.0 += r.cores;
+        s.1 += r.gpus;
+        let f = exp_folder.entry(folder).or_insert((0, 0));
+        f.0 += r.cores;
+        f.1 += r.gpus;
+        let j = exp_job.entry(job).or_insert((0, 0));
+        j.0 += r.cores;
+        j.1 += r.gpus;
     }
 
-    for (key, (cores_centi, gpus)) in &expected {
-        let want_cores = cores_centi / CORE_MULT;
-        let got_cores = redis_hash_i64(redis, key, "int_cores").await;
-        let got_gpus = redis_hash_i64(redis, key, "int_gpus").await;
-        if got_cores != want_cores {
-            out.violations.push(format!(
-                "{key}: int_cores={got_cores} but SUM(proc) says {want_cores}"
-            ));
-        }
-        if got_gpus != *gpus {
-            out.violations.push(format!(
-                "{key}: int_gpus={got_gpus} but SUM(proc) says {gpus}"
-            ));
-        }
+    // The store is the live accounting state used by the pipeline we just ran.
+    let store = accounting_service()
+        .await
+        .expect("accounting service")
+        .store()
+        .audit_snapshot();
+
+    for (&(s, a), &(c, g)) in &exp_sub {
+        out.violations.extend(cmp_vertex(
+            &format!("sub:{s}:{a}"),
+            c,
+            g,
+            store.sub.get(&(s, a)).copied().unwrap_or((0, 0)),
+        ));
+    }
+    for (&f, &(c, g)) in &exp_folder {
+        out.violations.extend(cmp_vertex(
+            &format!("folder:{f}"),
+            c,
+            g,
+            store.folder.get(&f).copied().unwrap_or((0, 0)),
+        ));
+    }
+    for (&jb, &(c, g)) in &exp_job {
+        out.violations.extend(cmp_vertex(
+            &format!("job:{jb}"),
+            c,
+            g,
+            store.job.get(&jb).copied().unwrap_or((0, 0)),
+        ));
     }
 
+    // 2. Jobs with no procs must not have leaked a non-zero store counter.
     let all_jobs: Vec<String> = sqlx::query_scalar("SELECT pk_job FROM job WHERE pk_show = $1")
         .bind(&show)
         .fetch_all(pool)
         .await
         .expect("job list query");
     for job in &all_jobs {
-        if !booked_jobs.contains_key(job) {
-            let got = redis_hash_i64(redis, &format!("acct:job:{job}"), "int_cores").await;
+        let job_id = Uuid::parse_str(job).expect("job uuid");
+        if !exp_job.contains_key(&job_id) {
+            let got = store.job.get(&job_id).map(|(c, _)| *c).unwrap_or(0);
             if got != 0 {
                 out.violations.push(format!(
-                    "acct:job:{job}: int_cores={got} leaked for a job with no procs"
+                    "job:{job}: store cores={got} leaked for a job with no procs"
                 ));
             }
         }
@@ -871,8 +889,8 @@ pub async fn audit_accounting(
     .await
     .expect("subscription query");
     for sub in &subs {
-        let key = format!("acct:sub:{}:{}", show, sub.pk_alloc);
-        let booked_centi = expected.get(&key).map(|(c, _)| *c).unwrap_or(0);
+        let alloc = Uuid::parse_str(&sub.pk_alloc).expect("alloc uuid");
+        let booked_centi = exp_sub.get(&(show_id, alloc)).map(|(c, _)| *c).unwrap_or(0);
         let booked_cores = booked_centi / CORE_MULT;
         let burst_cores = sub.int_burst / CORE_MULT;
         if booked_cores > burst_cores {
@@ -961,11 +979,7 @@ pub async fn audit_accounting(
     }
 
     out.dispatched_procs = procs;
-    out.booked_cores = expected
-        .iter()
-        .filter(|(k, _)| k.starts_with("acct:sub:"))
-        .map(|(_, (c, _))| c / CORE_MULT)
-        .sum();
+    out.booked_cores = exp_sub.values().map(|(c, _)| c / CORE_MULT).sum();
     out
 }
 

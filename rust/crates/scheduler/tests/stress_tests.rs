@@ -12,7 +12,7 @@
 
 //! Booking + accounting stress suite for the Rust scheduler.
 //!
-//! Runs the full production pipeline (`pipeline::run`: Redis accounting bootstrap →
+//! Runs the full production pipeline (`pipeline::run`: in-memory accounting bootstrap →
 //! cluster feed → job query → host matching → dispatch) against a realistic farm in
 //! two phases inside one process:
 //!
@@ -20,20 +20,18 @@
 //!    throughput (frames/s over the active booking window) and requires ≥90%
 //!    (`STRESS_DRAIN_TARGET`) of frames to dispatch.
 //! 2. **saturation** — demand vastly exceeds tight subscription bursts and per-job
-//!    core caps, so the Redis Lua cap check becomes the binding constraint. Verifies
+//!    core caps, so the in-memory cap check becomes the binding constraint. Verifies
 //!    enforcement (no booking above burst / job max-cores) and that rejections
 //!    actually flowed through the accounting hot path.
 //!
-//! After each phase, an audit cross-checks every Redis `acct:*` hash against
+//! After each phase, an audit cross-checks the in-memory accounting store against
 //! `SUM(proc)` in Postgres plus host/frame/stat invariants — with the recompute and
 //! limit-reseed loops pushed beyond the test horizon, agreement proves the dispatch
-//! hot path (Lua book + force-rollback) kept accounting exact on its own.
+//! hot path (book + rollback) kept accounting exact on its own.
 //!
 //! # Requirements
 //!
 //! - Postgres with migrations applied, from the repo root: `docker compose up -d flyway`
-//! - A Docker daemon (the suite starts a throwaway Redis container via testcontainers;
-//!   all Redis state dies with the container)
 //!
 //! # Running
 //!
@@ -73,15 +71,11 @@ mod stress_suite {
     use std::sync::atomic::Ordering;
     use std::time::{Duration, Instant};
 
-    use redis::aio::ConnectionManager;
-    use redis::AsyncCommands;
     use scheduler::{
         cluster::{self, ClusterFeed},
         config::OVERRIDE_CONFIG,
         host_cache, metrics, pipeline,
     };
-    use testcontainers::runners::AsyncRunner;
-    use testcontainers_modules::redis::Redis as RedisImage;
     use tokio_test::assert_ok;
     use tracing::info;
     use uuid::Uuid;
@@ -119,12 +113,10 @@ mod stress_suite {
         cluster_rounds: usize,
         frames_dispatched: u64,
         limit_exceeded: Vec<(&'static str, u64)>,
-        redis_seq: i64,
     }
 
     impl Counters {
-        async fn take(redis: &mut ConnectionManager) -> Counters {
-            let seq: Option<i64> = redis.get("acct:seq").await.unwrap_or(None);
+        fn take() -> Counters {
             Counters {
                 hosts_attempted: pipeline::HOSTS_ATTEMPTED.load(Ordering::Relaxed),
                 wasted_attempts: pipeline::WASTED_ATTEMPTS.load(Ordering::Relaxed),
@@ -139,7 +131,6 @@ mod stress_suite {
                         (*table, count)
                     })
                     .collect(),
-                redis_seq: seq.unwrap_or(0),
             }
         }
 
@@ -211,8 +202,7 @@ mod stress_suite {
                 .map(|t| format!("{}={}", t, self.after.limit_exceeded_delta(&self.before, t)))
                 .collect();
             println!(
-                "accounting : {} redis lua ops, {} dispatches (metrics), {} booked cores, rejections [{}]",
-                self.after.redis_seq - self.before.redis_seq,
+                "accounting : {} dispatches (metrics), {} booked cores, rejections [{}]",
                 self.after.frames_dispatched - self.before.frames_dispatched,
                 self.audit.booked_cores,
                 rejections.join(" ")
@@ -246,14 +236,13 @@ mod stress_suite {
     async fn run_phase(
         name: &'static str,
         farm: &StressFarm,
-        redis: &mut ConnectionManager,
         stall: Duration,
         hard_timeout: Duration,
     ) -> PhaseResult {
         let pool = assert_ok!(test_connection_pool().await);
         let waiting_before =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(farm.prefix.clone())).await;
-        let before = Counters::take(redis).await;
+        let before = Counters::take();
 
         info!(
             "Starting phase '{}' ({} clusters, {} frames)",
@@ -285,12 +274,12 @@ mod stress_suite {
             None
         };
 
-        let after = Counters::take(redis).await;
+        let after = Counters::take();
         let cache_hit_pct = host_cache::hit_ratio().await;
         let stats = booking_stats(&pool, farm.show_id).await;
         let waiting_after =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(farm.prefix.clone())).await;
-        let audit = audit_accounting(&pool, redis, farm).await;
+        let audit = audit_accounting(&pool, farm).await;
 
         PhaseResult {
             name,
@@ -319,21 +308,9 @@ mod stress_suite {
         let hard_timeout = Duration::from_secs(env_usize("STRESS_TIMEOUT_SECS", 600) as u64);
         let drain_target = env_f64("STRESS_DRAIN_TARGET", 0.9);
 
-        // Throwaway Redis for the accounting hot path; all acct:* state dies with it.
-        let redis_container = RedisImage::default()
-            .start()
-            .await
-            .expect("failed to start Redis testcontainer (is Docker running?)");
-        let redis_port = redis_container
-            .get_host_port_ipv4(6379)
-            .await
-            .expect("redis port");
-        let _ = OVERRIDE_CONFIG.set(create_stress_config(redis_port));
-        let redis_client =
-            redis::Client::open(format!("redis://127.0.0.1:{redis_port}/")).expect("redis client");
-        let mut redis = ConnectionManager::new(redis_client)
-            .await
-            .expect("redis connection");
+        // In-memory accounting: no external store. The hot path (book + rollback) is the
+        // accounting system under test; recompute/limit-reseed are pushed past the horizon.
+        let _ = OVERRIDE_CONFIG.set(create_stress_config());
 
         let pool = assert_ok!(test_connection_pool().await);
 
@@ -392,8 +369,8 @@ mod stress_suite {
         let sat_farm = assert_ok!(seed_farm(&pool, sat_spec).await);
         info!("Seeding took {:?}", seed_started.elapsed());
 
-        let drain = run_phase("drain", &drain_farm, &mut redis, stall, hard_timeout).await;
-        let sat = run_phase("saturation", &sat_farm, &mut redis, stall, hard_timeout).await;
+        let drain = run_phase("drain", &drain_farm, stall, hard_timeout).await;
+        let sat = run_phase("saturation", &sat_farm, stall, hard_timeout).await;
 
         drain.print();
         sat.print();
@@ -435,7 +412,7 @@ mod stress_suite {
         }
         if sat.after.limit_exceeded_delta(&sat.before, "subscription") == 0 {
             failures.push(
-                "saturation phase produced no subscription-cap rejections in the Redis hot path"
+                "saturation phase produced no subscription-cap rejections in the booking hot path"
                     .to_string(),
             );
         }

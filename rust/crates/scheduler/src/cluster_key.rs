@@ -38,7 +38,7 @@ pub struct Tag {
     /// `TagType::Alloc` cluster tag from the database. Populated by
     /// `cluster.rs::load_clusters` on the `"ALLOC"` arm and consumed by
     /// `MatchingService::process_layer` to read the per-(show, alloc)
-    /// subscription burst snapshot from Redis before host checkout.
+    /// subscription burst snapshot from the accounting store before host checkout.
     ///
     /// `None` for non-alloc tags (manual / hostname / hardware) and for
     /// CLI-built tags where the str_tag → pk_alloc mapping isn't resolved

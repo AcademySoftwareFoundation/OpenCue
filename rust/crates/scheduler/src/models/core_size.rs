@@ -73,8 +73,8 @@ impl CoreSize {
     /// Like `from_multiplied` but preserves negative sentinels. Cap fields
     /// (`folder_resource.int_max_cores`, `job_resource.int_max_cores`) use `-1` as the
     /// "unlimited" sentinel; the unguarded division would truncate that to 0. The Lua
-    /// script's `> 0` guard handles either, but preserving `-1` faithfully keeps
-    /// `redis-cli` output meaningful for operators.
+    /// script's `> 0` guard handles either, but preserving `-1` faithfully keeps cap
+    /// output meaningful for operators.
     pub fn from_multiplied_cap(centicores: impl Into<i64>) -> CoreSize {
         let c = centicores.into();
         if c < 0 {
