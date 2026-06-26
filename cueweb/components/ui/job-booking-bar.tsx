@@ -36,7 +36,7 @@ export function JobBookingBar({ job }: { job: Job }) {
   const denom = running + waiting;
 
   if (denom <= 0) {
-    return <div className="h-3.5 w-full rounded-sm bg-muted/20" aria-hidden="true" />;
+    return <div className="h-3 w-full rounded-sm bg-muted/20" aria-hidden="true" />;
   }
 
   // cores_per_frame = reserved / running (CueGUI falls back to 6 when nothing
@@ -52,7 +52,7 @@ export function JobBookingBar({ job }: { job: Job }) {
   // of it and the running/waiting bar is a thin, vertically-centred, inset track.
   return (
     <div
-      className="relative h-5 w-full min-w-[8rem] px-3"
+      className="relative h-4 w-full min-w-[8rem] px-3"
       title={`Running ${running}, Waiting ${waiting} — cyan = min cores, red = max cores`}
     >
       <div className="relative h-full">

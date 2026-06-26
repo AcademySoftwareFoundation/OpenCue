@@ -19,7 +19,10 @@
   /* change the value if you want different thickness */
   height: 12px;
   width: 200px;
-  margin: 20px 0;
+  /* No vertical margin: the bar sits flush inside its table cell so job rows
+     stay as compact as the show/group (parent tree) rows. Spacing is provided
+     by the cell padding. */
+  margin: 0;
 }
 
 .progressVisualPart {
