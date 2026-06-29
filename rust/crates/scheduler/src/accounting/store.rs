@@ -66,8 +66,11 @@ struct Counter {
     /// Booked, proc INSERT not yet confirmed committed. In no snapshot → always carried.
     inflight_cores: i64,
     inflight_gpus: i64,
-    /// Confirmed bookings not yet provably in a recompute snapshot, double-buffered by
-    /// recompute-epoch parity. Index `e % 2` is written by confirms during epoch `e`.
+    /// Bookings that have been confirmed but whose `proc` row may not yet appear in a
+    /// recompute snapshot. Uses two alternating buckets indexed by `e % 2`: confirms
+    /// during epoch `e` write to bucket `e % 2`, so the recompute can identify and
+    /// preserve confirms that raced its snapshot read without clearing ones already
+    /// captured by it.
     settled_cores: [i64; 2],
     settled_gpus: [i64; 2],
 }
@@ -210,11 +213,11 @@ impl Store {
     /// Hot-path booking: atomically check subscription burst and folder/job core/GPU
     /// caps, and on success increment all three vertices and record the delta as in-flight.
     pub fn book(&self, delta: &BookingDelta) -> BookOutcome {
-        let dc = delta.core_delta;
-        let dg = i64::from(delta.gpu_delta);
+        let core_delta = delta.core_delta;
+        let gpu_delta = i64::from(delta.gpu_delta);
         let mut inner = self.lock();
 
-        if dc > 0 {
+        if core_delta > 0 {
             let cur_sub = inner
                 .sub
                 .get(&(delta.show_id, delta.alloc_id))
@@ -225,7 +228,7 @@ impl Store {
                 .copied()
                 .unwrap_or(0);
             // Subscription burst enforces 0 as "reject all".
-            if over_cap(cur_sub, dc, burst, true) {
+            if over_cap(cur_sub, core_delta, burst, true) {
                 return BookOutcome::LimitExceeded {
                     table: "subscription",
                     current: cur_sub,
@@ -234,8 +237,11 @@ impl Store {
             }
 
             let cur_folder = inner.folder.get(&delta.folder_id).map_or(0, |c| c.cores);
-            let folder_max = inner.folder_caps.get(&delta.folder_id).map_or(0, |c| c.max_cores);
-            if over_cap(cur_folder, dc, folder_max, false) {
+            let folder_max = inner
+                .folder_caps
+                .get(&delta.folder_id)
+                .map_or(0, |c| c.max_cores);
+            if over_cap(cur_folder, core_delta, folder_max, false) {
                 return BookOutcome::LimitExceeded {
                     table: "folder",
                     current: cur_folder,
@@ -245,7 +251,7 @@ impl Store {
 
             let cur_job = inner.job.get(&delta.job_id).map_or(0, |c| c.cores);
             let job_max = inner.job_caps.get(&delta.job_id).map_or(0, |c| c.max_cores);
-            if over_cap(cur_job, dc, job_max, false) {
+            if over_cap(cur_job, core_delta, job_max, false) {
                 return BookOutcome::LimitExceeded {
                     table: "job",
                     current: cur_job,
@@ -254,10 +260,13 @@ impl Store {
             }
         }
 
-        if dg > 0 {
+        if gpu_delta > 0 {
             let cur_folder_gpu = inner.folder.get(&delta.folder_id).map_or(0, |c| c.gpus);
-            let folder_gpu_max = inner.folder_caps.get(&delta.folder_id).map_or(0, |c| c.max_gpus);
-            if over_cap(cur_folder_gpu, dg, folder_gpu_max, false) {
+            let folder_gpu_max = inner
+                .folder_caps
+                .get(&delta.folder_id)
+                .map_or(0, |c| c.max_gpus);
+            if over_cap(cur_folder_gpu, gpu_delta, folder_gpu_max, false) {
                 return BookOutcome::LimitExceeded {
                     table: "folder_gpus",
                     current: cur_folder_gpu,
@@ -267,7 +276,7 @@ impl Store {
 
             let cur_job_gpu = inner.job.get(&delta.job_id).map_or(0, |c| c.gpus);
             let job_gpu_max = inner.job_caps.get(&delta.job_id).map_or(0, |c| c.max_gpus);
-            if over_cap(cur_job_gpu, dg, job_gpu_max, false) {
+            if over_cap(cur_job_gpu, gpu_delta, job_gpu_max, false) {
                 return BookOutcome::LimitExceeded {
                     table: "job_gpus",
                     current: cur_job_gpu,
@@ -276,9 +285,21 @@ impl Store {
             }
         }
 
-        inner.sub.entry((delta.show_id, delta.alloc_id)).or_default().add_booking(dc, dg);
-        inner.folder.entry(delta.folder_id).or_default().add_booking(dc, dg);
-        inner.job.entry(delta.job_id).or_default().add_booking(dc, dg);
+        inner
+            .sub
+            .entry((delta.show_id, delta.alloc_id))
+            .or_default()
+            .add_booking(core_delta, gpu_delta);
+        inner
+            .folder
+            .entry(delta.folder_id)
+            .or_default()
+            .add_booking(core_delta, gpu_delta);
+        inner
+            .job
+            .entry(delta.job_id)
+            .or_default()
+            .add_booking(core_delta, gpu_delta);
         BookOutcome::Applied
     }
 
@@ -290,9 +311,21 @@ impl Store {
         let dg = i64::from(delta.gpu_delta);
         let mut inner = self.lock();
         let bucket = (inner.epoch % 2) as usize;
-        inner.sub.entry((delta.show_id, delta.alloc_id)).or_default().settle(dc, dg, bucket);
-        inner.folder.entry(delta.folder_id).or_default().settle(dc, dg, bucket);
-        inner.job.entry(delta.job_id).or_default().settle(dc, dg, bucket);
+        inner
+            .sub
+            .entry((delta.show_id, delta.alloc_id))
+            .or_default()
+            .settle(dc, dg, bucket);
+        inner
+            .folder
+            .entry(delta.folder_id)
+            .or_default()
+            .settle(dc, dg, bucket);
+        inner
+            .job
+            .entry(delta.job_id)
+            .or_default()
+            .settle(dc, dg, bucket);
     }
 
     /// Booking failed before launch: undo the live increment and the in-flight delta.
@@ -300,9 +333,21 @@ impl Store {
         let dc = delta.core_delta;
         let dg = i64::from(delta.gpu_delta);
         let mut inner = self.lock();
-        inner.sub.entry((delta.show_id, delta.alloc_id)).or_default().remove_booking(dc, dg);
-        inner.folder.entry(delta.folder_id).or_default().remove_booking(dc, dg);
-        inner.job.entry(delta.job_id).or_default().remove_booking(dc, dg);
+        inner
+            .sub
+            .entry((delta.show_id, delta.alloc_id))
+            .or_default()
+            .remove_booking(dc, dg);
+        inner
+            .folder
+            .entry(delta.folder_id)
+            .or_default()
+            .remove_booking(dc, dg);
+        inner
+            .job
+            .entry(delta.job_id)
+            .or_default()
+            .remove_booking(dc, dg);
     }
 
     /// Apply a release delta (negative cores/gpus) from the Cuebot `acct_release` NOTIFY.
@@ -455,21 +500,35 @@ impl Store {
                 folder_id,
                 max_cores,
             } => {
-                inner.folder_caps.entry(folder_id).or_insert(MaxCap::unlimited()).max_cores =
-                    max_cores;
+                inner
+                    .folder_caps
+                    .entry(folder_id)
+                    .or_insert(MaxCap::unlimited())
+                    .max_cores = max_cores;
             }
             LimitChange::FolderMaxGpus {
                 folder_id,
                 max_gpus,
             } => {
-                inner.folder_caps.entry(folder_id).or_insert(MaxCap::unlimited()).max_gpus =
-                    max_gpus;
+                inner
+                    .folder_caps
+                    .entry(folder_id)
+                    .or_insert(MaxCap::unlimited())
+                    .max_gpus = max_gpus;
             }
             LimitChange::JobMaxCores { job_id, max_cores } => {
-                inner.job_caps.entry(job_id).or_insert(MaxCap::unlimited()).max_cores = max_cores;
+                inner
+                    .job_caps
+                    .entry(job_id)
+                    .or_insert(MaxCap::unlimited())
+                    .max_cores = max_cores;
             }
             LimitChange::JobMaxGpus { job_id, max_gpus } => {
-                inner.job_caps.entry(job_id).or_insert(MaxCap::unlimited()).max_gpus = max_gpus;
+                inner
+                    .job_caps
+                    .entry(job_id)
+                    .or_insert(MaxCap::unlimited())
+                    .max_gpus = max_gpus;
             }
         }
     }
@@ -484,7 +543,11 @@ impl Store {
     pub fn sub_counters(&self, show_id: Uuid, alloc_id: Uuid) -> (i64, i64) {
         let inner = self.lock();
         let booked = inner.sub.get(&(show_id, alloc_id)).map_or(0, |c| c.cores);
-        let burst = inner.sub_burst.get(&(show_id, alloc_id)).copied().unwrap_or(0);
+        let burst = inner
+            .sub_burst
+            .get(&(show_id, alloc_id))
+            .copied()
+            .unwrap_or(0);
         (booked, burst)
     }
 
@@ -537,7 +600,14 @@ pub struct AuditSnapshot {
 mod tests {
     use super::*;
 
-    fn delta(show: Uuid, alloc: Uuid, folder: Uuid, job: Uuid, cores: i64, gpus: i32) -> BookingDelta {
+    fn delta(
+        show: Uuid,
+        alloc: Uuid,
+        folder: Uuid,
+        job: Uuid,
+        cores: i64,
+        gpus: i32,
+    ) -> BookingDelta {
         BookingDelta {
             show_id: show,
             alloc_id: alloc,
@@ -553,17 +623,32 @@ mod tests {
     }
 
     fn ids() -> (Uuid, Uuid, Uuid, Uuid) {
-        (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4())
+        (
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+        )
     }
 
     #[test]
     fn book_rejects_when_unseeded_burst_is_zero() {
         // Missing burst == 0 == reject all (fail closed before any seed).
         let store = Store::new();
-        let d = delta(Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), 1, 0);
+        let d = delta(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            1,
+            0,
+        );
         assert!(matches!(
             store.book(&d),
-            BookOutcome::LimitExceeded { table: "subscription", .. }
+            BookOutcome::LimitExceeded {
+                table: "subscription",
+                ..
+            }
         ));
     }
 
@@ -574,10 +659,14 @@ mod tests {
         store.set_caps([(show, alloc, 1000)], [(folder, -1, -1)], [(job, 10, -1)]);
         let d = delta(show, alloc, folder, job, 6, 0);
         assert!(applied(store.book(&d))); // 6 <= 10
-        // Second booking of 6 would reach 12 > 10 -> rejected. No partial state.
+                                          // Second booking of 6 would reach 12 > 10 -> rejected. No partial state.
         assert!(matches!(
             store.book(&d),
-            BookOutcome::LimitExceeded { table: "job", current: 6, limit: 10 }
+            BookOutcome::LimitExceeded {
+                table: "job",
+                current: 6,
+                limit: 10
+            }
         ));
         assert_eq!(store.job_cores_in_use(job), 6);
     }
@@ -586,7 +675,11 @@ mod tests {
     fn unlimited_sentinel_never_rejects() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 1_000_000)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps(
+            [(show, alloc, 1_000_000)],
+            [(folder, -1, -1)],
+            [(job, -1, -1)],
+        );
         let d = delta(show, alloc, folder, job, 500, 4);
         assert!(applied(store.book(&d)));
     }
@@ -669,7 +762,11 @@ mod tests {
             job: [(job, (0, 0))].into_iter().collect(),
         };
         store.overwrite_counters(&snap, epoch);
-        assert_eq!(store.job_cores_in_use(job), 8, "booking confirmed after the snapshot read was erased");
+        assert_eq!(
+            store.job_cores_in_use(job),
+            8,
+            "booking confirmed after the snapshot read was erased"
+        );
 
         // The following recompute (proc now visible) reconciles cleanly to the true value.
         let epoch2 = store.begin_recompute();
@@ -759,7 +856,11 @@ mod tests {
         // A 20-core booking would reach 110 > 100 burst -> must reject (not over-book).
         assert!(matches!(
             store.book(&delta(show, alloc, folder, job, 20, 0)),
-            BookOutcome::LimitExceeded { table: "subscription", current: 90, limit: 100 }
+            BookOutcome::LimitExceeded {
+                table: "subscription",
+                current: 90,
+                limit: 100
+            }
         ));
         // A 10-core booking fits exactly at the burst.
         assert!(applied(store.book(&delta(show, alloc, folder, job, 10, 0))));
@@ -772,7 +873,7 @@ mod tests {
         store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, 50, -1)]);
         let d = delta(show, alloc, folder, job, 40, 0);
         assert!(applied(store.book(&d))); // 40 <= 50
-        // Operator lowers the hard cap to 30 live; further bookings must reject.
+                                          // Operator lowers the hard cap to 30 live; further bookings must reject.
         store.apply_limit_change(&LimitChange::JobMaxCores {
             job_id: job,
             max_cores: 30,
