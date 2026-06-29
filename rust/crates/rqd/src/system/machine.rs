@@ -20,6 +20,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytesize::KIB;
+use dashmap::DashMap;
 use itertools::Either;
 use miette::Result;
 use opencue_proto::{
@@ -81,6 +82,13 @@ pub struct MachineMonitor {
     pub system_manager: Mutex<SystemManagerType>,
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
+    /// Frames that have finished locally but whose completion has not yet been acknowledged by
+    /// Cuebot. Entries are retried on every monitor cycle and only removed once Cuebot accepts the
+    /// FrameCompleteReport, guaranteeing at-least-once delivery. Without this, a transient delivery
+    /// failure (network blip, Cuebot GC pause, or an explicit RqdRetryReportException) would silently
+    /// drop the completion and let Cuebot rebook an already-finished frame (double booking).
+    /// Keyed by frame_id.
+    pending_completions: Arc<DashMap<Uuid, Arc<RunningFrame>>>,
     last_host_state: Arc<RwLock<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
@@ -184,6 +192,7 @@ impl MachineMonitor {
             report_client,
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
+            pending_completions: Arc::new(DashMap::new()),
             last_host_state: Arc::new(RwLock::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
@@ -464,7 +473,12 @@ impl MachineMonitor {
             }
         }
 
-        self.handle_finished_frames(finished_frames).await;
+        // Move newly finished frames into the durable pending-completion store (releasing their
+        // cores exactly once), then attempt to deliver every pending completion. Entries survive
+        // delivery failures and are retried on subsequent cycles, so a finished frame's completion
+        // is never lost.
+        self.enqueue_finished_frames(finished_frames).await;
+        self.flush_pending_completions().await;
 
         match self.memory_usage().await {
             Some((memory_usage, total_memory))
@@ -503,7 +517,7 @@ impl MachineMonitor {
         }
 
         // Sanitize dangling reservations
-        // This mechanism is redundant as handle_finished_frames releases resources reserved to
+        // This mechanism is redundant as enqueue_finished_frames releases resources reserved to
         // finished frames. But leaking core reservations would lead to waste of resoures, so
         // having a safety check sounds reasonable even when reduntant.
         {
@@ -520,26 +534,61 @@ impl MachineMonitor {
         Ok(())
     }
 
-    async fn handle_finished_frames(&self, finished_frames: Vec<Arc<RunningFrame>>) {
-        if finished_frames.is_empty() {
+    /// Release the cores held by newly finished frames and move them into the durable
+    /// pending-completion store. Cores are released here, exactly once per frame, because the frame
+    /// is done locally regardless of whether Cuebot has acknowledged the completion yet. The actual
+    /// delivery (and its retries) is handled by [`Self::flush_pending_completions`].
+    async fn enqueue_finished_frames(&self, finished_frames: Vec<Arc<RunningFrame>>) {
+        for frame in finished_frames {
+            if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
+                warn!(
+                    "Failed to release cores reserved by {}: {}",
+                    frame.request.resource_id(),
+                    err
+                );
+            };
+            self.pending_completions.insert(frame.frame_id, frame);
+        }
+    }
+
+    /// Attempt to deliver every pending frame-complete report to Cuebot. An entry is only removed
+    /// from the pending store once Cuebot acknowledges it (Ok response). Any failure — transport
+    /// error, exhausted 5xx retries, or a gRPC application error such as RqdRetryReportException
+    /// (which surfaces here as an `Err`) — leaves the entry in place to be retried on the next
+    /// monitor cycle. This guarantees at-least-once delivery so a completed (including successfully
+    /// rendered) frame is never silently dropped, which would otherwise let Cuebot rebook it onto a
+    /// second host.
+    ///
+    /// Note: delivery is at-least-once, not exactly-once. A report whose response is lost in transit
+    /// is resent and Cuebot receives a duplicate; Cuebot's frame-complete handling is idempotent
+    /// (the stop is gated on the frame still being RUNNING at the reported version) so a duplicate is
+    /// a no-op.
+    async fn flush_pending_completions(&self) {
+        if self.pending_completions.is_empty() {
             return;
         }
 
         // Avoid holding a lock while reporting back to cuebot
-        let host_state_opt = {
-            let host_state_lock = self.last_host_state.read().await;
-            host_state_lock.clone()
-        };
-
-        let host_state = match host_state_opt {
+        let host_state = match self.last_host_state.read().await.clone() {
             Some(state) => state,
             None => {
-                warn!("Invalid state. Could not find host state");
+                warn!(
+                    "Invalid state. Could not find host state, deferring {} pending frame \
+                     completion(s) to the next cycle",
+                    self.pending_completions.len()
+                );
                 return;
             }
         };
 
-        for frame in finished_frames {
+        // Snapshot the pending entries so we don't hold a DashMap iterator across awaits.
+        let pending: Vec<Arc<RunningFrame>> = self
+            .pending_completions
+            .iter()
+            .map(|entry| Arc::clone(entry.value()))
+            .collect();
+
+        for frame in pending {
             let exit_code_and_signal: Option<(u32, u32)> = match frame.get_state_copy() {
                 FrameState::Finished(finished_state) => {
                     let exit_signal = match finished_state.exit_signal {
@@ -557,35 +606,44 @@ impl MachineMonitor {
                 _ => None,
             };
 
-            if let Some((exit_code, exit_signal)) = exit_code_and_signal {
-                let frame_report = frame.clone_into_running_frame_info();
-                info!("Sending frame complete report: {}", frame);
-
-                if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
-                    warn!(
-                        "Failed to release cores reserved by {}: {}",
-                        frame.request.resource_id(),
-                        err
-                    );
-                };
-
-                // Send complete report
-                if let Err(err) = self
-                    .report_client
-                    .send_frame_complete_report(
-                        host_state.clone(),
-                        frame_report,
-                        exit_code,
-                        exit_signal,
-                        0,
-                    )
-                    .await
-                {
+            let (exit_code, exit_signal) = match exit_code_and_signal {
+                Some(values) => values,
+                None => {
+                    // A pending entry should always be in a terminal state. If it isn't, drop it to
+                    // avoid retaining it (and retrying it) forever.
                     error!(
-                        "Failed to send frame_complete_report for {}. {}",
+                        "Pending completion for {} is not in a terminal state, dropping",
+                        frame
+                    );
+                    self.pending_completions.remove(&frame.frame_id);
+                    continue;
+                }
+            };
+
+            let frame_report = frame.clone_into_running_frame_info();
+            info!("Sending frame complete report: {}", frame);
+
+            match self
+                .report_client
+                .send_frame_complete_report(
+                    host_state.clone(),
+                    frame_report,
+                    exit_code,
+                    exit_signal,
+                    0,
+                )
+                .await
+            {
+                Ok(()) => {
+                    self.pending_completions.remove(&frame.frame_id);
+                }
+                Err(err) => {
+                    warn!(
+                        "Failed to send frame_complete_report for {}, will retry on the next \
+                         monitor cycle. {}",
                         frame, err
                     );
-                };
+                }
             }
         }
     }
