@@ -429,6 +429,7 @@
     <property name="departmentManager" ref="departmentManager" />
     <property name="jobManager" ref="jobManager" />
     <property name="dependManager" ref="dependManager" />
+    <property name="rqdClient" ref="rqdClient" />
   </bean>
 
   <bean id="hardwareCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">

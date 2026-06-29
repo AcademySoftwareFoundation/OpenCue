@@ -152,7 +152,23 @@ public class FrameCompleteHandler {
         }
 
         try {
-            final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            final VirtualProc proc;
+            try {
+                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            } catch (EmptyResultDataAccessException e) {
+                /*
+                 * The proc backing this report no longer exists. This happens when the proc was
+                 * removed (unbooked/cleared) while RQD was still finishing the frame, or when a
+                 * delayed/duplicate report arrives after the run already ended. If the frame is
+                 * genuinely orphaned (still RUNNING with no proc), finalize it directly so a
+                 * completed frame -- especially a successful one -- is recorded instead of being
+                 * silently dropped and later rebooked (or, for a success, wrongly reset to WAITING
+                 * by the orphaned-frame reaper and re-rendered). Otherwise the report is stale and
+                 * is ignored.
+                 */
+                finalizeOrphanedFrameComplete(report);
+                return;
+            }
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final FrameDetail frameDetail =
@@ -583,6 +599,138 @@ public class FrameCompleteHandler {
                         + CueExceptionUtil.getStackTrace(ee));
             }
         }
+    }
+
+    /**
+     * Finalize a frame whose backing proc no longer exists.
+     *
+     * Only acts when the frame is genuinely orphaned -- still RUNNING with no proc assigned -- in
+     * which case this report reflects the authoritative end state of the run and must not be lost.
+     * Two guards keep this safe: the "no proc assigned" check ensures we never stop a frame a newer
+     * proc has since picked up, and stopFrame is version-fenced so a concurrent reset/rebook
+     * between our read and our write results in a no-op rather than clobbering the live run.
+     *
+     * @param report
+     */
+    private void finalizeOrphanedFrameComplete(FrameCompleteReport report) {
+        final DispatchFrame frame;
+        final FrameDetail frameDetail;
+        final DispatchJob job;
+        final LayerDetail layer;
+        try {
+            frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+            frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+            job = jobManager.getDispatchJob(frame.getJobId());
+            layer = jobManager.getLayerDetail(frame.getLayerId());
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("Dropping frame complete report for " + report.getFrame().getFrameName()
+                    + "; proc and frame/job/layer no longer exist.");
+            return;
+        }
+
+        if (!frame.state.equals(FrameState.RUNNING)) {
+            logger.info("Ignoring stale frame complete report for " + frame.getName()
+                    + "; frame is no longer RUNNING (" + frame.state + ").");
+            return;
+        }
+
+        /*
+         * If a proc currently owns this frame, a newer run has already picked it up; this report is
+         * from a superseded run and must not stop the live frame.
+         */
+        try {
+            hostManager.findVirtualProc(frame);
+            logger.info("Ignoring superseded frame complete report for " + frame.getName()
+                    + "; frame is now assigned to another proc.");
+            return;
+        } catch (EmptyResultDataAccessException e) {
+            // No proc owns the frame: it is genuinely orphaned, proceed with finalizing it.
+        }
+
+        int exitStatus = report.getExitStatus();
+        if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+            exitStatus = frameDetail.exitStatus;
+        }
+        final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+
+        if (!dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
+                report.getFrame().getMaxRss())) {
+            logger.info("Orphaned frame " + frame.getName()
+                    + " was already finalized by another thread (version changed).");
+            return;
+        }
+
+        logger.info("Finalized orphaned frame " + frame.getName() + " (proc was gone) to state "
+                + newFrameState + ".");
+
+        final String key = job.getJobId() + "_" + report.getFrame().getLayerId() + "_"
+                + report.getFrame().getFrameId();
+        if (dispatcher.isTestMode()) {
+            handleOrphanedPostFrameComplete(report, job, frame, newFrameState);
+        } else {
+            dispatchQueue.execute(new KeyRunnable(key) {
+                @Override
+                public void run() {
+                    try {
+                        handleOrphanedPostFrameComplete(report, job, frame, newFrameState);
+                    } catch (Exception e) {
+                        logger.warn("Exception during handleOrphanedPostFrameComplete "
+                                + CueExceptionUtil.getStackTrace(e));
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Post-completion work for a frame finalized without a proc (see
+     * {@link #finalizeOrphanedFrameComplete}). Covers only the proc-independent steps: usage
+     * counters, dependency satisfaction, layer/job completion and layer optimization. Proc-specific
+     * steps (unbook/rebook, memory growth, and Kafka events that require the proc) are
+     * intentionally skipped -- there is no proc to act on.
+     */
+    private void handleOrphanedPostFrameComplete(FrameCompleteReport report, DispatchJob job,
+            DispatchFrame frame, FrameState newFrameState) {
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
+        }
+
+        dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+
+        boolean isLayerComplete = false;
+        if (newFrameState.equals(FrameState.SUCCEEDED)
+                || (!satisfyDependOnlyOnFrameSuccess && newFrameState.equals(FrameState.EATEN))) {
+            satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
+                    "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")", job.getName(),
+                    job.getJobId());
+
+            isLayerComplete = jobManager.isLayerComplete(frame);
+            if (isLayerComplete) {
+                satisfyDependsWithRetry(
+                        () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
+                        "layer " + frame.getLayerId(), job.getName(), job.getJobId());
+            }
+        }
+
+        if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+            jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                    report.getFrame().getMaxRss(), report.getRunTime());
+        }
+
+        if (newFrameState.equals(FrameState.SUCCEEDED) || newFrameState.equals(FrameState.EATEN)) {
+            if (jobManager.isJobComplete(job)) {
+                job.state = JobState.FINISHED;
+                jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
+            }
+        }
+
+        /*
+         * Note: unlike handlePostFrameCompleteOperations, a memory-failure frame finalized here
+         * does NOT get its layer minimum-memory bumped. That increase is proc-specific (it is based
+         * on proc.memoryReserved + increase) and there is no proc on the orphan path. This is a
+         * rare edge case -- the frame's exitStatus retouch still lets it auto-retry; it simply
+         * retries at the same memory reservation rather than a raised one.
+         */
     }
 
     /**
