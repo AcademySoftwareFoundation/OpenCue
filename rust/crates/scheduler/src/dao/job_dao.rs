@@ -88,7 +88,7 @@ static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
 -- so we sum it directly. Each CTE is scoped to this show ($1) via i_proc_pkshow and
 -- mirrors the recompute aggregation (so the value equals a fresher copy of the PG
 -- column), and joins on indexed pk_host / pk_job. Gating on stale PG would otherwise
--- (a) over-fetch jobs for caps that are full in Redis -> wasted rejections, and worse
+-- (a) over-fetch jobs for caps that are full in the accounting store -> wasted rejections, and worse
 -- (b) FALSE-EXCLUDE: a frame completes and frees burst live, but the lagged PG column
 -- stays high for up to a cycle, dropping the show/folder/job from the fetch and starving
 -- its (esp. low-priority) jobs until the next recompute.

@@ -18,7 +18,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, info};
 
-use crate::accounting::{accounting_service, bootstrap, limit_reseed, recompute};
+use crate::accounting::{accounting_service, bootstrap, limit_reseed, listener, recompute};
 use crate::cluster::{ClusterFeed, FeedMessage};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
@@ -41,14 +41,16 @@ use crate::pipeline::MatchingService;
 /// * `Ok(())` - Scheduler completed successfully
 /// * `Err(miette::Error)` - Fatal error occurred during processing
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
-    // Initialize the Redis-backed accounting service. Bootstrap reseed (limits + booked
-    // counters) must complete before the scheduler accepts work - see design §4.3.
+    // Initialize the in-memory accounting service. The blocking bootstrap seed (caps +
+    // booked counters) must complete before the scheduler accepts work - the store is the
+    // only copy of this state.
     let accounting = accounting_service().await?;
     bootstrap::run_blocking_reseed(&accounting).await?;
-    // TODO: gate behind leader-election when multi-scheduler lands (design §5).
+    // Backstops: recompute reconciles booked counters from proc; limit reseed refreshes
+    // caps. The live NOTIFY listener feeds releases + cap changes between ticks. N=1 only.
     recompute::spawn_loop(accounting.clone());
-    // TODO: gate behind leader-election when multi-scheduler lands (design §5).
     limit_reseed::spawn_loop(accounting.clone());
+    listener::spawn_loop(accounting.store().clone());
 
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);

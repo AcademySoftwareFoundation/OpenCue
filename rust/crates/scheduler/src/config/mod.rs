@@ -49,58 +49,28 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct AccountingConfig {
-    pub redis: RedisConfig,
-    /// Cadence at which booked counters are reseeded from `SUM(proc)` to both
-    /// the PG accounting tables and Redis (under the `acct:seq` CAS guard).
+    /// Cadence at which booked counters are reconciled from `SUM(proc)` into the in-memory
+    /// store (and the PG accounting tables for CueGUI). This is the primary utilization
+    /// backstop for releases now that the live `acct_release` NOTIFY feeds the store
+    /// between ticks, so it runs tighter than the legacy Redis cadence.
     #[serde(with = "humantime_serde")]
     pub recompute_interval: Duration,
-    /// Cadence at which limit fields (subscription burst, folder/job/point caps)
-    /// are reseeded from PG accounting tables to Redis.
+    /// Cadence at which enforced caps (subscription burst, folder/job max cores+gpus) are
+    /// reseeded from PG into the store. Backstop for any missed `acct_limit_change` NOTIFY.
     #[serde(with = "humantime_serde")]
     pub limit_reseed_interval: Duration,
     /// TTL of the in-process `b_scheduler_managed=true` show-id cache.
     #[serde(with = "humantime_serde")]
     pub managed_shows_ttl: Duration,
-    /// Maximum CAS retries per reseed cycle before giving up and waiting for the
-    /// next cycle (per design §2.4).
-    pub cas_max_retries: u32,
 }
 
 impl Default for AccountingConfig {
     fn default() -> Self {
         Self {
-            redis: RedisConfig::default(),
-            recompute_interval: Duration::from_secs(120),
+            recompute_interval: Duration::from_secs(15),
             limit_reseed_interval: Duration::from_secs(300),
             managed_shows_ttl: Duration::from_secs(30),
-            cas_max_retries: 3,
         }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(default)]
-pub struct RedisConfig {
-    pub enabled: bool,
-    pub host: String,
-    pub port: u16,
-    pub pool_size: u32,
-}
-
-impl Default for RedisConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            host: "localhost".to_string(),
-            port: 6379,
-            pool_size: 20,
-        }
-    }
-}
-
-impl RedisConfig {
-    pub fn url(&self) -> String {
-        format!("redis://{}:{}/", self.host, self.port)
     }
 }
 

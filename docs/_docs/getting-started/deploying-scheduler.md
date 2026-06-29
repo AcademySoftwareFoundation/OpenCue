@@ -37,7 +37,7 @@ To plan your installation of the Distributed Scheduler, consider the following:
 - **Memory**: Minimum 2GB RAM per scheduler instance (scales with number of hosts cached)
 - **CPU**: 2-4 cores recommended per instance
 - **Network**: Low-latency connection to the OpenCue database (same requirements as Cuebot)
-- **Database**: PostgreSQL with the same schema as Cuebot (no additional tables required)
+- **Database**: PostgreSQL with the same schema as Cuebot (no additional tables required). This is the **only** datastore the scheduler needs no Redis or other external store. Per-show resource accounting is held in memory and kept fresh by a PostgreSQL `LISTEN/NOTIFY` feed from Cuebot (see the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/))
 
 ## Architecture Overview
 

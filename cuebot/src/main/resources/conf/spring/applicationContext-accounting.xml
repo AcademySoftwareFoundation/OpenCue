@@ -21,15 +21,19 @@
          http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
 
   <!-- ##################################################################################### -->
-  <!-- Redis-backed accounting publishing                                                    -->
-  <!-- See design/SCHED_REDIS_DECISIONS.md for the protocol.                                 -->
+  <!-- Scheduler accounting NOTIFY publishing                                                -->
+  <!-- See docs/_docs/developer-guide/scheduler-accounting.md for the wire contract.         -->
   <!--                                                                                       -->
-  <!-- A single bean whose runtime behavior is gated by accounting.redis.enabled. When       -->
-  <!-- false, initialize() short-circuits before connecting and publishRelease() is a no-op  -->
-  <!-- — which is also how tests avoid dialing Redis.                                        -->
+  <!-- Emits release + enforced cap-change deltas to the standalone Rust scheduler via        -->
+  <!-- Postgres pg_notify, INSIDE the same transaction as the DB write each describes (so a   -->
+  <!-- delta is delivered iff that transaction commits). Runtime behavior is gated by         -->
+  <!-- accounting.notify.enabled; when false every method is a no-op. Shares cueDataSource so  -->
+  <!-- its JdbcTemplate participates in the caller's thread-bound transaction.                -->
   <!-- ##################################################################################### -->
 
-  <bean id="accountingRedisPublisher"
-        class="com.imageworks.spcue.service.LettuceAccountingRedisPublisher"/>
+  <bean id="accountingNotifier"
+        class="com.imageworks.spcue.service.AccountingNotifier">
+    <property name="dataSource" ref="cueDataSource"/>
+  </bean>
 
 </beans>

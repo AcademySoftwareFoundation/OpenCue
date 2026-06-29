@@ -313,7 +313,7 @@ impl ClusterFeed {
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster. Carry pk_alloc
                         // through Tag so the matcher can snapshot the
-                        // (show, alloc) subscription burst from Redis before
+                        // (show, alloc) subscription burst from the accounting store before
                         // host checkout (see `MatchingService::process_layer`).
                         "ALLOC" => {
                             let alloc_id = cluster.alloc_id.as_deref().map(parse_uuid);

@@ -42,10 +42,9 @@ mod active_scan_suite {
     /// (no Redis), so it only needs a migrated database.
     #[actix::test]
     async fn stress_active_scan_is_superset_of_per_cluster_query() {
-        // create_stress_config needs a Redis port for its accounting section,
-        // but this test never books, so the port is never dialed. This binary's
+        // This test never books, so accounting is inert here. This binary's
         // OVERRIDE_CONFIG is private to its own process (see module docs).
-        let _ = OVERRIDE_CONFIG.set(create_stress_config(6379));
+        let _ = OVERRIDE_CONFIG.set(create_stress_config());
 
         let pool = assert_ok!(test_connection_pool().await);
         let prefix = format!("stress_sc_{}", &Uuid::new_v4().to_string()[..6]);

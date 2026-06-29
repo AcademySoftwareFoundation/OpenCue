@@ -68,13 +68,13 @@ lazy_static! {
     // Accounting metrics from accounting/mod.rs + dispatcher/actor.rs
     //
     // Labeled by the table whose cap was hit (subscription / folder / job). Tracks
-    // dispatch attempts that paid for a Redis Lua round-trip only to be rejected by
-    // the Lua cap check. Used to decide whether the pre-CheckOut pre-check
+    // dispatch attempts that reached the accounting check only to be rejected by
+    // it. Used to decide whether the pre-CheckOut pre-check
     // optimization described in `pipeline/matcher.rs::process_layer` is worth
     // implementing.
     pub static ref ACCOUNTING_LIMIT_EXCEEDED_TOTAL: CounterVec = register_counter_vec!(
         "scheduler_accounting_limit_exceeded_total",
-        "Dispatch attempts rejected by the Redis Lua cap check, labeled by table",
+        "Dispatch attempts rejected by the accounting cap check, labeled by table",
         &["table"]
     )
     .expect("Failed to register accounting_limit_exceeded_total counter");

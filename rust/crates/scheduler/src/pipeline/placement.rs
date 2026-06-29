@@ -33,7 +33,7 @@ use crate::{
 ///
 /// `job_max_cores` and `show_burst` use the OpenCue convention of `<= 0` meaning
 /// "unlimited" cap clamps in `compute_max_more` skip those dimensions, matching
-/// the Lua `BOOK_OR_FORCE > 0` guard.
+/// the accounting `> 0` cap guard.
 #[derive(Debug, Clone)]
 pub struct LayerProfile {
     // Floor
@@ -99,7 +99,7 @@ pub fn fits_floor(host: &Host, profile: &LayerProfile) -> bool {
 ///   - a physical `<dim>_min` is 0 — the layer makes no demand on that dim,
 ///     so the dim cannot constrain anything; or
 ///   - a cap is `<= 0` — OpenCue's "unlimited" sentinel (mirrors the Lua
-///     `BOOK_OR_FORCE > 0` guard); or
+///     `> 0` cap guard); or
 ///   - the layer has no core demand (`cores_min == 0`), in which case the
 ///     core-denominated caps have no unit to divide by.
 ///
@@ -115,14 +115,14 @@ pub fn fits_floor(host: &Host, profile: &LayerProfile) -> bool {
 /// going negative.
 /// True when the job is already at/over its core cap and cannot fit even one
 /// more `cores_min`-sized frame. `job_max_cores <= 0` is OpenCue's "unlimited"
-/// sentinel (never at cap), matching the Lua `BOOK_OR_FORCE` `job_max > 0` guard
+/// sentinel (never at cap), matching the accounting `job_max > 0` guard
 /// and `core_cap_bound` above.
 ///
-/// All arguments are in whole cores (see the unit invariant in `lua.rs` and
+/// All arguments are in whole cores (see the unit invariant in `accounting::store` and
 /// `DispatchLayer.job_max_cores`). Used by the matcher's pre-checkout skip so a
 /// job sitting at its cap isn't re-checked-out and re-rejected every pass; the
-/// Lua call remains the authoritative gate, so a stale-low `job_cores_in_use`
-/// (e.g. a failed Redis read defaulting to 0) only causes a missed skip, never
+/// booking call remains the authoritative gate, so a stale-low `job_cores_in_use`
+/// (e.g. an absent store entry defaulting to 0) only causes a missed skip, never
 /// an incorrect one.
 pub fn job_at_core_cap(job_cores_in_use: i32, cores_min: i32, job_max_cores: i32) -> bool {
     job_max_cores > 0 && job_cores_in_use.saturating_add(cores_min) > job_max_cores
