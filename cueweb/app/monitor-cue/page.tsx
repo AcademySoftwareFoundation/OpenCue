@@ -840,8 +840,8 @@ export default function MonitorCuePage() {
                             setShowMenu({ x: e.clientX, y: e.clientY, show: showObj });
                           }}
                         >
-                          <td className="p-2" />
-                          <td className="p-2 font-semibold" colSpan={orderedCols.length}>
+                          <td className="px-2 py-1" />
+                          <td className="px-2 py-1 font-semibold" colSpan={orderedCols.length}>
                             <button className="flex items-center gap-1" onClick={() => toggleShowCollapse(st.show)}>
                               {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                               {st.show}
@@ -863,14 +863,14 @@ export default function MonitorCuePage() {
                                     setGroupMenu({ x: e.clientX, y: e.clientY, show: showObj, group: r.group });
                                   }}
                                 >
-                                  <td className="p-2" />
+                                  <td className="px-2 py-1" />
                                   {orderedCols.map((c) => {
                                     const alignClass =
                                       c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "";
                                     if (c.key === "job") {
                                       const folderOpen = !collapsedGroups.has(r.group.id);
                                       return (
-                                        <td key={c.key} className="p-2" style={{ paddingLeft: `${r.depth * 1.25 + 0.5}rem` }}>
+                                        <td key={c.key} className="px-2 py-1 align-middle" style={{ paddingLeft: `${r.depth * 1.25 + 0.5}rem` }}>
                                           <button
                                             className="flex items-center gap-1 font-medium"
                                             onClick={() => toggleGroupCollapse(r.group.id)}
@@ -884,7 +884,7 @@ export default function MonitorCuePage() {
                                     }
                                     const stat = GROUP_STAT_COL[c.key];
                                     return (
-                                      <td key={c.key} className={`p-2 ${alignClass}`}>
+                                      <td key={c.key} className={`px-2 py-1 align-middle ${alignClass}`}>
                                         {stat ? stat(r.stats) : ""}
                                       </td>
                                     );
@@ -907,7 +907,7 @@ export default function MonitorCuePage() {
                                   }}
                                 >
                                   <td
-                                    className="p-2 align-middle"
+                                    className="px-2 py-1 align-middle"
                                     onClick={(e) => { e.stopPropagation(); handleSelect(r.job.id, e); }}
                                   >
                                     <Checkbox
@@ -925,7 +925,7 @@ export default function MonitorCuePage() {
                                     return (
                                       <td
                                         key={c.key}
-                                        className={`p-2 ${alignClass} ${widthClass}`}
+                                        className={`px-2 py-1 align-middle ${alignClass} ${widthClass}`}
                                         style={style}
                                         title={isJobCol ? r.job.name : undefined}
                                       >

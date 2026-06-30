@@ -508,13 +508,17 @@ export function AppHeader() {
                   </DropdownMenuItem>
                 );
               })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="cursor-pointer">
-                <Link href="/settings/facilities" className="flex items-center">
-                  <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Manage facilities…
-                </Link>
-              </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/settings/facilities" className="flex items-center">
+                      <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Manage facilities…
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

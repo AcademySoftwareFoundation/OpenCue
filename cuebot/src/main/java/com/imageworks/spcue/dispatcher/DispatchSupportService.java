@@ -519,29 +519,65 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void lostProc(VirtualProc proc, String reason, int exitStatus) {
-        long numCleared = clearedProcs.incrementAndGet();
-
+    public boolean lostProc(VirtualProc proc, String reason, int exitStatus) {
         /*
          * Kill the frame on RQD before releasing it back to a bookable state. Without this, a host
          * that is merely flapping (transient unreachable/DOWN report, GC pause, dropped report)
          * keeps rendering the frame while the dispatcher resets it to WAITING and re-books it
-         * elsewhere, silently double-booking the frame onto two hosts. Killing first means a
-         * reachable host stops the frame before it becomes re-bookable; a genuinely dead host times
-         * out (caught below), and release is then safe because no live RQD remains.
-         * EXIT_STATUS_FAILED_KILL is skipped because the caller (JobManagerSupport.kill) already
-         * attempted this exact kill and it threw.
+         * elsewhere, silently double-booking the frame onto two hosts.
          */
-        if (proc.frameId != null && exitStatus != Dispatcher.EXIT_STATUS_FAILED_KILL
-                && env.getProperty("dispatcher.kill_running_frame_before_release_enabled",
-                        Boolean.class, true)) {
+        boolean killBeforeReleaseEnabled = env.getProperty(
+                "dispatcher.kill_running_frame_before_release_enabled", Boolean.class, true);
+
+        /*
+         * Whether the running frame is known to be stopped on RQD after this point.
+         * EXIT_STATUS_FAILED_KILL means the caller (JobManagerSupport.kill) already attempted this
+         * exact kill and it threw, so the frame is NOT known-stopped and we must not re-kill.
+         */
+        boolean frameKilled;
+        if (exitStatus == Dispatcher.EXIT_STATUS_FAILED_KILL) {
+            frameKilled = false;
+        } else if (proc.frameId != null && killBeforeReleaseEnabled) {
             try {
                 rqdClient.killFrame(proc, "kill-before-release: " + reason);
+                frameKilled = true;
             } catch (Exception e) {
                 logger.info("kill-before-release failed for " + proc.getName() + ", " + e);
+                frameKilled = false;
+            }
+        } else {
+            // Feature disabled or no frame to kill: preserve legacy release behavior.
+            frameKilled = true;
+        }
+
+        /*
+         * Flapping and genuinely-dead hosts are indistinguishable at kill time. If the kill could
+         * not confirm the frame is stopped and the host is not confirmed dead, releasing the frame
+         * now would re-book it onto a second host while this RQD keeps rendering. In that case we
+         * DEFER the release: the proc row and RUNNING frame are left intact (preserving the
+         * host<->frame link, which is otherwise lost once the proc is deleted) so the frame is
+         * reclaimed later, once the host is confirmed DOWN (clearDownProcs) or the frame completes
+         * naturally. A genuinely dead host (marked DOWN, or no longer Up) leaves no live RQD, so
+         * release is safe. See design/frame_double_booking_v2.md.
+         */
+        boolean deferReleaseEnabled = env.getProperty(
+                "dispatcher.defer_release_on_failed_kill_enabled", Boolean.class, true);
+        if (deferReleaseEnabled && !frameKilled && proc.frameId != null) {
+            boolean hostConfirmedDead =
+                    exitStatus == Dispatcher.EXIT_STATUS_DOWN_HOST || !hostDao.isHostUp(proc);
+            if (!hostConfirmedDead) {
+                DispatchSupport.deferredReleaseProcs.incrementAndGet();
+                logger.warn("Deferring release of lost proc " + proc.getName()
+                        + ": kill-before-release could not confirm the frame stopped and the host "
+                        + "is not confirmed dead. Leaving frame " + proc.frameId
+                        + " RUNNING to avoid double-booking. reason=" + reason);
+                return false;
             }
         }
 
+        // Count the clear only now that the proc is actually being released; deferrals above
+        // return early and must not inflate this counter.
+        long numCleared = clearedProcs.incrementAndGet();
         unbookProc(proc, "proc " + proc.getName() + " is #" + numCleared + " cleared: " + reason);
 
         if (proc.frameId != null) {
@@ -575,6 +611,7 @@ public class DispatchSupportService implements DispatchSupport {
         } else {
             logger.info("Frame ID is NULL, not updating Frame state");
         }
+        return true;
     }
 
     @Override
