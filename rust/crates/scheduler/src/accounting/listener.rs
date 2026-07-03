@@ -52,6 +52,9 @@ struct ReleasePayload {
     job: Uuid,
     cores: i64,
     gpus: i32,
+    /// Slots released (defaults to 0 for regular procs / older Cuebot payloads).
+    #[serde(default)]
+    slots: i64,
 }
 
 /// Cap change payload on `acct_limit_change`. Values are in cores (`-1` = unlimited),
@@ -63,7 +66,10 @@ enum LimitChangePayload {
     Sub {
         show: Uuid,
         alloc: Uuid,
-        burst: i64,
+        #[serde(default)]
+        burst: Option<i64>,
+        #[serde(default)]
+        max_slots: Option<i64>,
     },
     #[serde(rename = "folder")]
     Folder {
@@ -72,6 +78,8 @@ enum LimitChangePayload {
         max_cores: Option<i64>,
         #[serde(default)]
         max_gpus: Option<i64>,
+        #[serde(default)]
+        max_slots: Option<i64>,
     },
     #[serde(rename = "job")]
     Job {
@@ -80,6 +88,8 @@ enum LimitChangePayload {
         max_cores: Option<i64>,
         #[serde(default)]
         max_gpus: Option<i64>,
+        #[serde(default)]
+        max_slots: Option<i64>,
     },
 }
 
@@ -126,6 +136,7 @@ fn handle_release(store: &Store, payload: &str) {
             job_id: p.job,
             core_delta: p.cores,
             gpu_delta: p.gpus,
+            slot_delta: p.slots,
         }),
         Err(err) => warn!("Dropping malformed acct_release payload ({err}): {payload}"),
     }
@@ -152,15 +163,25 @@ fn limit_changes(p: LimitChangePayload) -> Vec<LimitChange> {
             show,
             alloc,
             burst,
-        } => vec![LimitChange::SubBurst {
-            show_id: show,
-            alloc_id: alloc,
-            burst,
-        }],
+            max_slots,
+        } => burst
+            .map(|b| LimitChange::SubBurst {
+                show_id: show,
+                alloc_id: alloc,
+                burst: b,
+            })
+            .into_iter()
+            .chain(max_slots.map(|s| LimitChange::SubMaxSlots {
+                show_id: show,
+                alloc_id: alloc,
+                max_slots: s,
+            }))
+            .collect(),
         LimitChangePayload::Folder {
             id,
             max_cores,
             max_gpus,
+            max_slots,
         } => max_cores
             .map(|c| LimitChange::FolderMaxCores {
                 folder_id: id,
@@ -171,11 +192,16 @@ fn limit_changes(p: LimitChangePayload) -> Vec<LimitChange> {
                 folder_id: id,
                 max_gpus: g,
             }))
+            .chain(max_slots.map(|s| LimitChange::FolderMaxSlots {
+                folder_id: id,
+                max_slots: s,
+            }))
             .collect(),
         LimitChangePayload::Job {
             id,
             max_cores,
             max_gpus,
+            max_slots,
         } => max_cores
             .map(|c| LimitChange::JobMaxCores {
                 job_id: id,
@@ -185,6 +211,10 @@ fn limit_changes(p: LimitChangePayload) -> Vec<LimitChange> {
             .chain(max_gpus.map(|g| LimitChange::JobMaxGpus {
                 job_id: id,
                 max_gpus: g,
+            }))
+            .chain(max_slots.map(|s| LimitChange::JobMaxSlots {
+                job_id: id,
+                max_slots: s,
             }))
             .collect(),
     }

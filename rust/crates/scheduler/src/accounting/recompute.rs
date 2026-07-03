@@ -144,11 +144,11 @@ pub(crate) fn snapshot_to_counters(
     rows: &[BookedSnapshotRow],
     baseline: &BaselineKeys,
 ) -> CounterSnapshot {
-    let mut sub: HashMap<(Uuid, Uuid), (i64, i64)> = HashMap::new();
-    let mut folder: HashMap<Uuid, (i64, i64)> = HashMap::new();
-    let mut job: HashMap<Uuid, (i64, i64)> = HashMap::new();
+    let mut sub: HashMap<(Uuid, Uuid), (i64, i64, i64)> = HashMap::new();
+    let mut folder: HashMap<Uuid, (i64, i64, i64)> = HashMap::new();
+    let mut job: HashMap<Uuid, (i64, i64, i64)> = HashMap::new();
 
-    // Zero-baseline first: every enumerable key gets a (0, 0) entry so drained keys still
+    // Zero-baseline first: every enumerable key gets a (0, 0, 0) entry so drained keys still
     // reset. Centicore sums are folded on top below, then converted once at the end.
     for &k in &baseline.subs {
         sub.entry(k).or_default();
@@ -160,17 +160,21 @@ pub(crate) fn snapshot_to_counters(
         job.entry(k).or_default();
     }
 
-    // Accumulate centicores; convert to cores after summing so truncation happens once.
+    // Accumulate centicores (cores) / whole counts (gpus, slots); convert cores to whole
+    // cores after summing so truncation happens once. Slots are already whole counts.
     for r in rows {
         let s = sub.entry((r.show_id, r.alloc_id)).or_default();
         s.0 += r.cores;
         s.1 += r.gpus;
+        s.2 += r.slots;
         let f = folder.entry(r.folder_id).or_default();
         f.0 += r.cores;
         f.1 += r.gpus;
+        f.2 += r.slots;
         let j = job.entry(r.job_id).or_default();
         j.0 += r.cores;
         j.1 += r.gpus;
+        j.2 += r.slots;
     }
 
     CounterSnapshot {
@@ -180,10 +184,13 @@ pub(crate) fn snapshot_to_counters(
     }
 }
 
-/// Convert each key's accumulated centicore total to cores (GPUs pass through).
-fn to_cores<K: std::hash::Hash + Eq>(m: HashMap<K, (i64, i64)>) -> HashMap<K, (i64, i64)> {
+/// Convert each key's accumulated centicore total to cores (GPUs and slots pass through as
+/// whole counts).
+fn to_cores<K: std::hash::Hash + Eq>(
+    m: HashMap<K, (i64, i64, i64)>,
+) -> HashMap<K, (i64, i64, i64)> {
     m.into_iter()
-        .map(|(k, (cores, gpus))| (k, (centicores_to_cores(cores), gpus)))
+        .map(|(k, (cores, gpus, slots))| (k, (centicores_to_cores(cores), gpus, slots)))
         .collect()
 }
 
@@ -200,6 +207,7 @@ mod tests {
             job_id: Uuid::nil(),
             cores: 4200,
             gpus: 3,
+            slots: 5,
         }
     }
 
@@ -210,9 +218,9 @@ mod tests {
     #[test]
     fn single_row_converts_centicores_to_cores() {
         let snap = snapshot_to_counters(&[fixture_row()], &empty_baseline());
-        assert_eq!(snap.sub[&(Uuid::nil(), Uuid::nil())], (42, 3));
-        assert_eq!(snap.folder[&Uuid::nil()], (42, 3));
-        assert_eq!(snap.job[&Uuid::nil()], (42, 3));
+        assert_eq!(snap.sub[&(Uuid::nil(), Uuid::nil())], (42, 3, 5));
+        assert_eq!(snap.folder[&Uuid::nil()], (42, 3, 5));
+        assert_eq!(snap.job[&Uuid::nil()], (42, 3, 5));
     }
 
     /// Two jobs in the same folder/sub: the coarse keys SUM across rows (not last-write).
@@ -228,6 +236,7 @@ mod tests {
             job_id: Uuid::new_v4(),
             cores: 1000, // 10 cores
             gpus: 1,
+            slots: 2,
         };
         let row_b = BookedSnapshotRow {
             cores: 2500, // 25 cores
@@ -236,9 +245,9 @@ mod tests {
             ..row_a.clone()
         };
         let snap = snapshot_to_counters(&[row_a, row_b], &empty_baseline());
-        // 3500 centicores summed then /100 -> 35 cores; gpus 3.
-        assert_eq!(snap.sub[&(show, alloc)], (35, 3));
-        assert_eq!(snap.folder[&folder], (35, 3));
+        // 3500 centicores summed then /100 -> 35 cores; gpus 3; slots 2+2=4.
+        assert_eq!(snap.sub[&(show, alloc)], (35, 3, 4));
+        assert_eq!(snap.folder[&folder], (35, 3, 4));
     }
 
     /// A baseline key with no proc row (drained to zero) must reset to 0.
@@ -250,6 +259,6 @@ mod tests {
             ..Default::default()
         };
         let snap = snapshot_to_counters(&[], &baseline);
-        assert_eq!(snap.job[&job], (0, 0));
+        assert_eq!(snap.job[&job], (0, 0, 0));
     }
 }
