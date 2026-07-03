@@ -664,6 +664,7 @@ impl Store {
     }
 
     /// Live booked slots for a job (slot-axis observability). 0 if unseen.
+    #[cfg(test)]
     pub fn job_slots_in_use(&self, job_id: Uuid) -> i64 {
         self.lock().job.get(&job_id).map_or(0, |c| c.slots)
     }
