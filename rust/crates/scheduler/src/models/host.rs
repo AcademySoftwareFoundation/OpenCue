@@ -36,6 +36,20 @@ pub struct Host {
     pub(crate) alloc_id: Uuid,
     pub(crate) alloc_name: String,
     pub(crate) last_updated: DateTime<Utc>,
+    /// Max concurrent frames (slots) this host may run. `Some` marks the host as
+    /// slot-based: it only runs slot-based layers and ignores cores/memory for
+    /// scheduling. `None` is a regular cores/memory host.
+    pub(crate) concurrent_slots_limit: Option<u32>,
+    /// Slots currently reserved on this host. Seeded from `SUM(proc.int_slots_reserved)`
+    /// and incremented in-memory as frames are booked between refreshes.
+    pub(crate) running_slots_count: u32,
+}
+
+impl Host {
+    /// True when the host is slot-based (has a concurrent slots limit configured).
+    pub(crate) fn is_slot_host(&self) -> bool {
+        self.concurrent_slots_limit.is_some()
+    }
 }
 
 impl Host {
@@ -75,6 +89,7 @@ impl Host {
         alloc_available_cores: CoreSize,
         alloc_id: Uuid,
         alloc_name: String,
+        concurrent_slots_limit: Option<u32>,
     ) -> Self {
         Self {
             id,
@@ -91,6 +106,8 @@ impl Host {
             alloc_id,
             alloc_name,
             last_updated: Local::now().with_timezone(&Utc),
+            concurrent_slots_limit,
+            running_slots_count: 0,
         }
     }
 }
