@@ -70,6 +70,11 @@ public class GroupManagerService implements GroupManager {
     }
 
     @Override
+    public void setGroupMaxSlots(GroupInterface g, int slots) {
+        groupDao.updateMaxSlots(g, slots);
+    }
+
+    @Override
     public void setGroupMinCores(GroupInterface g, int coreUnits) {
         groupDao.updateMinCores(g, coreUnits);
     }

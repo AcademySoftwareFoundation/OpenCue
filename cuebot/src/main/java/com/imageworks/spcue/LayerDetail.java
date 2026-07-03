@@ -38,6 +38,8 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public int timeout_llu;
     public int dispatchOrder;
     public int totalFrameCount;
+    // Concurrency slots each frame requires (slot-based scheduling). 0 = not slot-based.
+    public int slotsRequired;
 
     public Set<String> tags = new LinkedHashSet<String>();
     public Set<String> services = new LinkedHashSet<String>();

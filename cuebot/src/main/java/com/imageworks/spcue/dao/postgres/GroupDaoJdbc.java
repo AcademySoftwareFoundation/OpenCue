@@ -216,6 +216,22 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
+    public void updateMaxSlots(GroupInterface group, int value) {
+        // Slots are whole counts: -1 = unlimited, 0 = reject-all, N = cap. Normalize any
+        // negative to the -1 sentinel.
+        if (value < 0) {
+            value = CueUtil.FEATURE_DISABLED;
+        }
+
+        getJdbcTemplate().update("UPDATE folder_resource SET int_max_slots=? WHERE pk_folder=?",
+                value, group.getId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(group.getShowId())) {
+            accountingNotifier.notifyFolderMaxSlots(group.getId(), value);
+        }
+    }
+
+    @Override
     public void updateMinCores(GroupInterface group, int value) {
         if (value < 0) {
             value = 0;

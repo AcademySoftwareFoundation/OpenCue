@@ -90,6 +90,8 @@ public interface AdminManager {
 
     void setSubscriptionBurst(SubscriptionInterface sub, int burst);
 
+    void setSubscriptionMaxSlots(SubscriptionInterface sub, int maxSlots);
+
     void setSubscriptionSize(SubscriptionInterface sub, int size);
 
     SubscriptionEntity getSubscriptionDetail(String id);

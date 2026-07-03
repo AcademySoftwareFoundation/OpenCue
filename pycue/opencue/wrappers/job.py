@@ -145,6 +145,15 @@ class Job(object):
         self.stub.SetMaxCores(job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
                               timeout=Cuebot.Timeout)
 
+    def setMaxSlots(self, maxSlots):
+        """Sets the max concurrent slots for slot-based layers in the job.
+
+        :type  maxSlots: int
+        :param maxSlots: new max slots (-1 unlimited, 0 reject-all, N cap)
+        """
+        self.stub.SetMaxSlots(job_pb2.JobSetMaxSlotsRequest(job=self.data, val=maxSlots),
+                              timeout=Cuebot.Timeout)
+
     def setMinGpus(self, minGpus):
         """Sets the minimum procs value
         :type  minGpus: int

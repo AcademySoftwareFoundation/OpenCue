@@ -246,6 +246,15 @@ public interface HostDao {
     void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
+     * Sets the host's concurrent slots limit. -1 disables slot mode (regular host); >= 0 makes the
+     * host slot-based, running only slot layers up to this many concurrent slots.
+     *
+     * @param host HostInterface
+     * @param limit int
+     */
+    void updateConcurrentSlotsLimit(HostInterface host, int limit);
+
+    /**
      * Update the specified host's hardware information.
      *
      * @param host HostInterface
