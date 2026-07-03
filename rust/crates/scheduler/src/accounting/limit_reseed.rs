@@ -88,20 +88,36 @@ pub async fn reseed_once(service: &AccountingService) -> Result<()> {
     reseed_limits(service.store(), service.dao()).await
 }
 
-/// `(show, alloc, burst_cores)`. Burst is PG centicores → cores; never the `-1` sentinel.
-fn sub_cap(r: &SubscriptionLimitsRow) -> (Uuid, Uuid, i64) {
-    (r.show_id, r.alloc_id, centicores_to_cores(r.burst))
+/// `(show, alloc, burst_cores, max_slots)`. Burst is PG centicores → cores; never the `-1`
+/// sentinel. Slots are whole counts (no centicore conversion); `-1` unlimited passes through.
+fn sub_cap(r: &SubscriptionLimitsRow) -> (Uuid, Uuid, i64, i64) {
+    (
+        r.show_id,
+        r.alloc_id,
+        centicores_to_cores(r.burst),
+        r.max_slots,
+    )
 }
 
-/// `(folder, max_cores, max_gpus)`. Cores preserve the `-1` unlimited sentinel; GPUs pass
-/// through unconverted (their `-1` sentinel survives a verbatim copy).
-fn folder_cap(r: &FolderLimitsRow) -> (Uuid, i64, i64) {
-    (r.folder_id, centicores_to_cores_cap(r.max_cores), r.max_gpus)
+/// `(folder, max_cores, max_gpus, max_slots)`. Cores preserve the `-1` unlimited sentinel;
+/// GPUs and slots pass through unconverted (whole counts; their `-1` sentinel survives).
+fn folder_cap(r: &FolderLimitsRow) -> (Uuid, i64, i64, i64) {
+    (
+        r.folder_id,
+        centicores_to_cores_cap(r.max_cores),
+        r.max_gpus,
+        r.max_slots,
+    )
 }
 
-/// `(job, max_cores, max_gpus)`. Same conventions as [`folder_cap`].
-fn job_cap(r: &JobLimitsRow) -> (Uuid, i64, i64) {
-    (r.job_id, centicores_to_cores_cap(r.max_cores), r.max_gpus)
+/// `(job, max_cores, max_gpus, max_slots)`. Same conventions as [`folder_cap`].
+fn job_cap(r: &JobLimitsRow) -> (Uuid, i64, i64, i64) {
+    (
+        r.job_id,
+        centicores_to_cores_cap(r.max_cores),
+        r.max_gpus,
+        r.max_slots,
+    )
 }
 
 #[cfg(test)]
@@ -114,8 +130,9 @@ mod tests {
             show_id: Uuid::nil(),
             alloc_id: Uuid::nil(),
             burst: 1000,
+            max_slots: -1,
         };
-        assert_eq!(sub_cap(&r), (Uuid::nil(), Uuid::nil(), 10));
+        assert_eq!(sub_cap(&r), (Uuid::nil(), Uuid::nil(), 10, -1));
     }
 
     #[test]
@@ -124,8 +141,9 @@ mod tests {
             folder_id: Uuid::nil(),
             max_cores: -1,
             max_gpus: -1,
+            max_slots: 5,
         };
-        assert_eq!(folder_cap(&r), (Uuid::nil(), -1, -1));
+        assert_eq!(folder_cap(&r), (Uuid::nil(), -1, -1, 5));
     }
 
     #[test]
@@ -134,7 +152,8 @@ mod tests {
             job_id: Uuid::nil(),
             max_cores: 2000,
             max_gpus: 4,
+            max_slots: 0,
         };
-        assert_eq!(job_cap(&r), (Uuid::nil(), 20, 4));
+        assert_eq!(job_cap(&r), (Uuid::nil(), 20, 4, 0));
     }
 }

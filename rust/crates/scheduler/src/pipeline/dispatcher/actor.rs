@@ -523,6 +523,9 @@ impl RqdDispatcherService {
             job_id: virtual_proc.job_id,
             core_delta: i64::from(cores_reserved.value()),
             gpu_delta: virtual_proc.gpus_reserved as i32,
+            // Slot frames reserve 0 cores/gpus; regular frames reserve 0 slots.
+            // The axes are independent, so exactly one of these is non-zero.
+            slot_delta: virtual_proc.slots_required as i64,
         };
 
         // Per-cluster host accounting check - this dispatcher iteration may have already
