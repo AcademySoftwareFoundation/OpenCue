@@ -135,6 +135,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 + "job_resource.int_min_cores, "
                 + "job_resource.int_min_gpus, "
                 + "job_resource.int_max_cores, "
+                + "job_resource.int_max_slots, "
                 + "job_resource.int_max_gpus, "
                 + "job_mem.int_max_rss, "
                 + "job_mem.int_max_pss "

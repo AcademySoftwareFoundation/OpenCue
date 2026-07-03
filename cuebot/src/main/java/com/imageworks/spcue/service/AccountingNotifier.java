@@ -198,8 +198,8 @@ public class AccountingNotifier extends JdbcDaoSupport {
     }
 
     /**
-     * Emit a subscription max-slots cap change. Slots are whole counts (no centicore
-     * conversion); {@code -1} = unlimited, {@code 0} = reject all slot work.
+     * Emit a subscription max-slots cap change. Slots are whole counts (no centicore conversion);
+     * {@code -1} = unlimited, {@code 0} = reject all slot work.
      */
     public void notifySubscriptionMaxSlots(String showId, String allocId, int value) {
         if (!notifyEnabled) {
@@ -226,8 +226,8 @@ public class AccountingNotifier extends JdbcDaoSupport {
         if (!notifyEnabled) {
             return;
         }
-        String payload = String.format("{\"vertex\":\"job\",\"id\":\"%s\",\"max_slots\":%d}", jobId,
-                value);
+        String payload =
+                String.format("{\"vertex\":\"job\",\"id\":\"%s\",\"max_slots\":%d}", jobId, value);
         notify(CHANNEL_LIMIT_CHANGE, payload);
     }
 
