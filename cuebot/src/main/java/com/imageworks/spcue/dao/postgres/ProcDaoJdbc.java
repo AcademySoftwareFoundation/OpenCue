@@ -341,6 +341,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             proc.memoryReserved = rs.getLong("int_mem_reserved");
             proc.memoryMax = rs.getLong("int_mem_max_used");
             proc.gpusReserved = rs.getInt("int_gpus_reserved");
+            proc.slotsReserved = rs.getInt("int_slots_reserved");
             proc.gpuMemoryReserved = rs.getLong("int_gpu_mem_reserved");
             proc.gpuMemoryMax = rs.getLong("int_gpu_mem_max_used");
             proc.virtualMemoryMax = rs.getLong("int_virt_max_used");
@@ -370,6 +371,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "host.pk_alloc, "
                 + "alloc.pk_facility,"
                 + "proc.int_cores_reserved,"
+                + "proc.int_slots_reserved,"
                 + "proc.int_mem_reserved,"
                 + "proc.int_mem_max_used,"
                 + "proc.int_mem_used,"
