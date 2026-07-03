@@ -1352,6 +1352,7 @@ impl RqdDispatcherService {
             attributes: HashMap::new(),
             children: None,
             pid: 0, // Will be set by RQD
+            slots_required: proc.slots_required as i32,
 
             // Deprecated fields
             #[allow(deprecated)]
