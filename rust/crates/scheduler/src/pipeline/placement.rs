@@ -757,6 +757,60 @@ mod scoring_tests {
         assert_eq!(saturation_gate(&h, &l), None);
     }
 
+    // ── Slot-based pairing gate ──────────────────────────────────────────────
+
+    fn slot_host(limit: u32, running: u32) -> Host {
+        let mut h = host(4, 4, 0, 0);
+        h.concurrent_slots_limit = Some(limit);
+        h.running_slots_count = running;
+        h
+    }
+
+    fn slot_layer(slots: u32) -> LayerProfile {
+        let mut l = layer(4, 4, 0, 0);
+        l.slots_required = slots;
+        l
+    }
+
+    #[test]
+    fn slot_host_accepts_slot_layer_within_cap() {
+        // 2 running + 2 requested <= 8 cap.
+        assert_eq!(saturation_gate(&slot_host(8, 2), &slot_layer(2)), Some(0.0));
+    }
+
+    #[test]
+    fn slot_host_rejects_slot_layer_over_cap() {
+        // 7 running + 2 requested > 8 cap.
+        assert_eq!(saturation_gate(&slot_host(8, 7), &slot_layer(2)), None);
+    }
+
+    #[test]
+    fn slot_host_rejects_regular_layer() {
+        // Strict pairing: a slot host never runs a non-slot layer.
+        assert_eq!(saturation_gate(&slot_host(8, 0), &layer(4, 4, 0, 0)), None);
+    }
+
+    #[test]
+    fn regular_host_rejects_slot_layer() {
+        // Strict pairing: a slot layer never runs on a non-slot host.
+        assert_eq!(saturation_gate(&host(4, 4, 0, 0), &slot_layer(1)), None);
+    }
+
+    #[test]
+    fn slot_gate_ignores_core_and_memory_floor() {
+        // Slot host with zero idle cores/memory still accepts a slot layer.
+        let mut h = slot_host(8, 0);
+        h.idle_cores = CoreSize(0);
+        h.idle_memory = ByteSize::gb(0);
+        assert_eq!(saturation_gate(&h, &slot_layer(4)), Some(0.0));
+    }
+
+    #[test]
+    fn epvm_gate_scores_slot_placement_constant() {
+        // Slot placements tie at a constant score (no core stranding to minimize).
+        assert_eq!(epvm_gate(&slot_host(8, 0), &slot_layer(1)), Some(0.0));
+    }
+
     #[test]
     fn epvm_gate_returns_score_when_valid() {
         let h = host(64, 64, 0, 0);
