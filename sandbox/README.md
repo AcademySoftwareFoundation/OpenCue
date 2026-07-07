@@ -271,8 +271,9 @@ python sandbox/load_test_jobs.py
 | `fan-in` | N blockers, one dependent waiting on every blocker. |
 | `diamond` | A blocks B and C; B and C both block D. |
 | `mixed` | Realistic blend: 60% simple, 15% wide, 15% deep, plus a short paused chain. |
+| `blender` | Render a real Blender image sequence and register it as the layer's output path, so the CueWeb frame preview thumbnail viewer shows actual rendered frames. |
 
-Run `python sandbox/load_test_jobs.py <subcommand> --help` for the per-subcommand flags (`--num-jobs`, `--layers-per-job`, `--frames-per-layer`, `--chain-length`, `--dependents`, `--blockers`, `--total`, `--seed`, etc.).
+Run `python sandbox/load_test_jobs.py <subcommand> --help` for the per-subcommand flags (`--num-jobs`, `--layers-per-job`, `--frames-per-layer`, `--chain-length`, `--dependents`, `--blockers`, `--total`, `--seed`, `--frame-count`, `--blender`, etc.).
 
 ### Shared flags
 
@@ -328,6 +329,46 @@ python sandbox/load_test_jobs.py diamond --unique
 # Realistic mixed load: ~50 jobs split 60/15/15/10 across simple/wide/deep/chain.
 python sandbox/load_test_jobs.py mixed --total 50 --unique
 ```
+
+### Blender preview render (CueWeb frame preview)
+
+The `blender` subcommand renders a real image sequence so the CueWeb **frame
+preview thumbnail viewer** has actual rendered frames to display. It renders a
+short rotating-cube sequence with **your host Blender** into the shared RQD logs
+dir (`/tmp/rqd/logs`, which the `cueweb` container mounts read-only), submits a
+paused OpenCue job, and registers the rendered files as the layer's output path.
+
+```bash
+# Render 4 frames + submit one paused job (auto-detects Blender).
+python sandbox/load_test_jobs.py blender
+
+# Render 6 frames, 3 jobs, explicit Blender path.
+python sandbox/load_test_jobs.py blender -n 3 --frame-count 6 \
+  --blender /Applications/Blender.app/Contents/MacOS/Blender
+
+# Single-job convenience wrapper (same result, focused output).
+python sandbox/render_blender_demo.py --frames 4
+```
+
+Then open the job in CueWeb → **Frames** → click the **Preview** (image) icon on
+a frame to see the render in the side panel.
+
+**Why it renders on the host, not in RQD:** the sandbox RQD runs in a minimal
+Linux container with no Blender, so it can't render the frames itself. The host
+Blender writes the PNGs into the shared logs dir instead; the submitted job's
+frames are trivial markers (launched paused so the job stays visible in Monitor
+Jobs). The images are genuine Blender renders regardless of frame state. For
+frames that *actually* run Blender on the farm, use the hybrid host-RQD setup
+(see `Running_Hybrid_RQD_setup_using_sandbox.md`).
+
+**Cross-platform / finding Blender.** Both `load_test_jobs.py blender` and
+`render_blender_demo.py` auto-detect Blender on macOS, Windows and Linux
+(CentOS, Rocky, Ubuntu, …). Resolution order: the `BLENDER` environment
+variable → `blender`/`blender.exe` on `PATH` → common install locations
+(`/Applications/Blender*.app` on macOS, `C:\Program Files\Blender Foundation\...`
+on Windows, `/usr/bin/blender` + snap/flatpak on Linux). Override with
+`--blender PATH` or `export BLENDER=/path/to/blender`. Use `--output-root` if
+your shared render dir differs from `/tmp/rqd/logs` (e.g. on Windows).
 
 ### Recovering from a previous failed run
 

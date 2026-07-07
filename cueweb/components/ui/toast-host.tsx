@@ -31,7 +31,7 @@ import "react-toastify/dist/ReactToastify.css";
  * `handleError`). That indirection lets us swap libraries later without
  * touching every callsite.
  *
- * Defaults (chosen for A13):
+ * Defaults:
  * - position: bottom-right (out of the way of the AppHeader)
  * - autoClose: 5000ms
  * - pauseOnHover: true (user can keep a toast on screen while reading)

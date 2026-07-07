@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Remove one or more tags from a host. Request: { host, tags: string[] }.

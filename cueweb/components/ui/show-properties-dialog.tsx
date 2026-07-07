@@ -140,6 +140,7 @@ export function ShowPropertiesDialog() {
       }
 
       if (tasks.length === 0) {
+        toastWarning("No changes to save.");
         setOpen(false);
         return;
       }

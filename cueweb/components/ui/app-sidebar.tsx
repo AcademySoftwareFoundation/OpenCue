@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import * as React from "react";
 import {
   Activity,
@@ -31,21 +32,26 @@ import {
   ChevronLeft,
   ChevronRight,
   Cloud,
+  Columns,
   Film,
   FolderCog,
   Gauge,
   HelpCircle,
   Keyboard,
   Layers3,
+  Maximize,
   LayoutDashboard,
   LayoutGrid,
   Lock,
   Monitor,
   PieChart,
+  Puzzle,
   Receipt,
+  ScrollText,
   Send,
   Server,
   Share2,
+  ShieldCheck,
   Upload,
   Wrench,
   type LucideIcon,
@@ -72,7 +78,11 @@ import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 import { useShowDependencyGraph } from "@/app/utils/use_show_dependency_graph";
 import { useShortcutNotifications } from "@/app/utils/use_shortcut_notifications";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
+import { useEnabledPlugins } from "@/app/utils/use_plugin_menu";
+import { buildSplitUrl, DEFAULT_LEFT, DEFAULT_RIGHT } from "@/app/utils/split_view_utils";
 import { CUEWEB_OPEN_SHORTCUTS_EVENT } from "@/components/ui/shortcuts-overlay";
+import { getPlugins } from "@/lib/plugins";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -85,6 +95,8 @@ type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
+  /** Admin-only group (see menus.ts NavMenu.adminOnly). */
+  adminOnly?: boolean;
 };
 
 /**
@@ -107,6 +119,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "CueCommander",
     icon: Monitor,
+    adminOnly: true,
     items: [
       { label: "Allocations", href: "/allocations", icon: PieChart },
       { label: "Limits", href: "/limits", icon: Gauge },
@@ -123,11 +136,39 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "CueSubmit",
     icon: Upload,
+    adminOnly: true,
     items: [
       { label: "Submit Job", href: "/cuesubmit", icon: Send },
     ],
   },
+  {
+    // Only "All Plugins" is static; AppSidebar injects the user-enabled plugins
+    // after it at render time (see use_plugin_menu / buildPluginsNavGroup).
+    label: "Plugins",
+    icon: Boxes,
+    items: [{ label: "All Plugins", href: "/plugins", icon: Boxes }],
+  },
+  {
+    // Admin-only. The CueWeb Audit web system (who did what, when). Hidden from
+    // non-admins; visible to everyone when no group-based authorization is set.
+    label: "Admin",
+    icon: ShieldCheck,
+    adminOnly: true,
+    items: [{ label: "CueWeb Audit", href: "/admin/audit", icon: ScrollText }],
+  },
 ];
+
+/**
+ * Build the Plugins sidebar group: the static "All Plugins" entry followed by
+ * one entry per user-enabled plugin (see use_plugin_menu).
+ */
+function buildPluginsNavGroup(base: NavGroup, enabled: Set<string>): NavGroup {
+  const pluginItems: NavItem[] = getPlugins()
+    .map((plugin) => plugin.manifest)
+    .filter((manifest) => enabled.has(manifest.name))
+    .map((manifest) => ({ label: manifest.title, href: manifest.route, icon: Puzzle }));
+  return { ...base, items: [...base.items, ...pluginItems] };
+}
 
 const COLLAPSED_KEY = "cueweb.sidebar.collapsed";
 const OPEN_GROUPS_KEY = "cueweb.sidebar.openGroups";
@@ -145,6 +186,7 @@ function groupContainsActive(pathname: string | null, group: NavGroup): boolean 
 const FILE_GROUP_LABEL = "File";
 const FACILITY_GROUP_LABEL = "Cuebot Facility";
 const OTHER_GROUP_LABEL = "Other";
+const SPLIT_VIEW_HREF = buildSplitUrl(DEFAULT_LEFT, DEFAULT_RIGHT);
 const HELP_GROUP_LABEL = "Help";
 
 export function AppSidebar() {
@@ -164,9 +206,32 @@ export function AppSidebar() {
     enabled: shortcutNotificationsEnabled,
     toggle: toggleShortcutNotifications,
   } = useShortcutNotifications();
+  const { immersive, toggle: toggleImmersive } = useImmersiveMode();
   const openShortcutsOverlay = React.useCallback(() => {
     window.dispatchEvent(new CustomEvent(CUEWEB_OPEN_SHORTCUTS_EVENT));
   }, []);
+
+  // Admin-only groups (Admin -> CueWeb Audit) are hidden from non-admins. The
+  // session callback sets `isAdmin` to the effective decision. While the session
+  // is loading we hide admin-only groups to avoid flashing them to a non-admin;
+  // once resolved, an absent isAdmin (no auth / no group authorization) means
+  // everyone is admin, so default to true.
+  const { data: session, status } = useSession();
+  const isAdmin =
+    status === "loading"
+      ? false
+      : ((session as { isAdmin?: boolean } | null)?.isAdmin ?? true);
+
+  // The Plugins group's items are user-configurable (plugins page checkboxes),
+  // so build the rendered group list dynamically from the enabled selection.
+  const { enabled: enabledPlugins } = useEnabledPlugins();
+  const navGroups = React.useMemo<NavGroup[]>(
+    () =>
+      NAV_GROUPS.filter((group) => !group.adminOnly || isAdmin).map((group) =>
+        group.label === "Plugins" ? buildPluginsNavGroup(group, enabledPlugins) : group,
+      ),
+    [enabledPlugins, isAdmin],
+  );
 
   // SSR can't read localStorage, so we start with sensible defaults and
   // reconcile on mount. The initial server-rendered DOM therefore matches
@@ -176,6 +241,8 @@ export function AppSidebar() {
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(
     () => Object.fromEntries(NAV_GROUPS.map((g) => [g.label, true])),
   );
+  // NAV_GROUPS labels are stable (the Plugins group always exists), so the
+  // static list is fine for seeding open/closed state.
   const [hydrated, setHydrated] = React.useState<boolean>(false);
 
   React.useEffect(() => {
@@ -202,14 +269,14 @@ export function AppSidebar() {
     if (!hydrated) return;
     setOpenGroups((prev) => {
       let next = prev;
-      for (const group of NAV_GROUPS) {
+      for (const group of navGroups) {
         if (groupContainsActive(pathname, group) && !prev[group.label]) {
           next = { ...next, [group.label]: true };
         }
       }
       return next;
     });
-  }, [pathname, hydrated]);
+  }, [pathname, hydrated, navGroups]);
 
   const toggleCollapsed = React.useCallback(() => {
     setCollapsed((prev) => {
@@ -463,7 +530,7 @@ export function AppSidebar() {
           ? // Icon-only view: flatten every group's items into a single column
             // of icon links. Group labels are dropped (the section dividers
             // below keep them visually separated).
-            NAV_GROUPS.map((group, groupIndex) => (
+            navGroups.map((group, groupIndex) => (
               <ul
                 key={group.label}
                 className={cn(
@@ -519,7 +586,7 @@ export function AppSidebar() {
             ))
           : // Expanded view: render each group as a Radix Collapsible
             // accordion whose open/closed state is persisted.
-            NAV_GROUPS.map((group) => {
+            navGroups.map((group) => {
               const GroupIcon = group.icon;
               const open = openGroups[group.label] ?? true;
               const hasActive = groupContainsActive(pathname, group);
@@ -625,6 +692,33 @@ export function AppSidebar() {
             <li>
               <button
                 type="button"
+                onClick={toggleImmersive}
+                aria-pressed={immersive}
+                title={`Other - Immersive (full-screen)${immersive ? " (on)" : ""}`}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  immersive
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                <Maximize className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Immersive (full-screen)</span>
+              </button>
+            </li>
+            <li>
+              <Link
+                href={SPLIT_VIEW_HREF}
+                title="Other - Split view"
+                className="flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              >
+                <Columns className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sr-only">Split view</span>
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
                 onClick={openShortcutsOverlay}
                 title="Other - Show Shortcuts (?)"
                 className="flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
@@ -690,6 +784,38 @@ export function AppSidebar() {
                       )}
                     </span>
                   </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={toggleImmersive}
+                    aria-pressed={immersive}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                      immersive
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                    )}
+                    title="Hide the header, sidebar and status bar (also F / Cmd-Ctrl+Shift+F)"
+                  >
+                    <Maximize className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Immersive (full-screen)</span>
+                    <span className="ml-2 flex h-4 w-4 items-center justify-center">
+                      {immersive && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <Link
+                    href={SPLIT_VIEW_HREF}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                    title="Open two pages side-by-side in a resizable split workspace"
+                  >
+                    <Columns className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex-1 truncate text-left">Split view</span>
+                  </Link>
                 </li>
                 <li>
                   <button

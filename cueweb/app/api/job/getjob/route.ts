@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -34,5 +34,5 @@ export async function POST(request: NextRequest) {
   const responseData = await response.json();
   
   if (!response.ok) return NextResponse.json({ error: responseData.error, status: response.status});
-  return NextResponse.json({ data: responseData.data.job, status: responseData.status});
+  return NextResponse.json({ data: responseData.data.job, status: response.status});
 }

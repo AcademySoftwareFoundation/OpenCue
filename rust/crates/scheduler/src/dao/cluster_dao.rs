@@ -12,11 +12,11 @@
 
 use std::sync::Arc;
 
+use crate::pgpool::connection_pool;
 use futures::Stream;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use crate::pgpool::connection_pool;
 
 /// Data Access Object for host operations in the job dispatch system.
 ///

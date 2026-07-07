@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getShortcutNotificationsEnabled } from "@/app/utils/use_shortcut_notifications";
+import { useImmersiveMode } from "@/app/utils/use_immersive_mode";
 import { toastSuccess } from "@/app/utils/notify_utils";
 
 /**
@@ -52,7 +53,13 @@ export const CUEWEB_OPEN_SHORTCUTS_EVENT = "cueweb:open-shortcuts";
 
 /** Identifies the action a row (and its kbd chip) triggers when clicked.
  * Each maps to a handler built inside `KeyboardShortcuts` below. */
-type ShortcutAction = "show" | "close" | "focusSearch" | "refresh" | "toggleTheme";
+type ShortcutAction =
+  | "show"
+  | "close"
+  | "focusSearch"
+  | "refresh"
+  | "toggleTheme"
+  | "toggleImmersive";
 
 /** Shape of a single row in the shortcuts cheat-sheet. */
 interface ShortcutEntry {
@@ -82,6 +89,12 @@ const SHORTCUTS: ShortcutEntry[] = [
     action: "refresh",
   },
   { keys: ["t"], label: "Toggle light / dark theme", action: "toggleTheme" },
+  {
+    keys: ["F"],
+    label: "Toggle immersive (hide header / sidebar / status bar)",
+    context: "Also Cmd/Ctrl + Shift + F",
+    action: "toggleImmersive",
+  },
 ];
 
 /**
@@ -123,6 +136,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function KeyboardShortcuts() {
   const [open, setOpen] = React.useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+  const { toggle: toggleImmersive } = useImmersiveMode();
 
   // resolvedTheme is more reliable than `theme` when the user is on the
   // "system" preference - it gives us the actual rendered theme so the
@@ -170,11 +184,30 @@ export function KeyboardShortcuts() {
         setTheme(themeRef.current === "dark" ? "light" : "dark");
         notify("Shortcut: t → Toggle theme");
         return;
+      case "toggleImmersive":
+        setOpen(false);
+        toggleImmersive();
+        notify("Shortcut: F → Toggle immersive");
+        return;
     }
-  }, [setTheme, notify]);
+  }, [setTheme, notify, toggleImmersive]);
 
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      // Immersive toggle via the chord Cmd/Ctrl+Shift+F. Handled before the
+      // modifier guard below (and before the editable-target check) because a
+      // chord can't be produced as literal text, so it's safe to fire even
+      // while a search field is focused.
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        (event.key === "f" || event.key === "F")
+      ) {
+        event.preventDefault();
+        runAction("toggleImmersive");
+        return;
+      }
+
       // Never compete with browser / OS shortcuts.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
@@ -188,6 +221,7 @@ export function KeyboardShortcuts() {
         case "/": action = "focusSearch"; break;
         case "r": case "R": action = "refresh"; break;
         case "t": case "T": action = "toggleTheme"; break;
+        case "f": case "F": action = "toggleImmersive"; break;
       }
       if (!action) return;
       event.preventDefault();

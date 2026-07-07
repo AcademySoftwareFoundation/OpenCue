@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleRoute } from '@/app/utils/api_utils';
+import { handleRoute } from '@/app/utils/gateway_server';
 import { NextRequest, NextResponse } from "next/server";
 
 // Mirrors Frame.createDependencyOnFrame (pycue) ->
@@ -22,7 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 // and Layer on Simulation Frame dependency wizard flows. The latter
 // loops this call once per source frame in the source layer.
 export async function POST(request: NextRequest) {
-  const endpoint = "/frame.FrameInterface/CreateDependencyOnFrame";
+  const endpoint = "/job.FrameInterface/CreateDependencyOnFrame";
   const method = request.method;
   if (method !== 'POST') {
     return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
