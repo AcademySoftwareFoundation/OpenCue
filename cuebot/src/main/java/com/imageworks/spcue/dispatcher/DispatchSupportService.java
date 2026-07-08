@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.dispatcher;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -237,6 +238,95 @@ public class DispatchSupportService implements DispatchSupport {
 
         // Publish FRAME_STARTED event (WAITING -> RUNNING transition)
         publishFrameStartedEvent(frame, proc, previousState);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public List<FrameBooking> startFramesAndProcsBatch(List<FrameBooking> bookings) {
+        if (bookings == null || bookings.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 1. CAPACITY GATE (before any frame is marked RUNNING): atomically reserve
+        // each host's aggregated share with a guarded decrement. A host that cannot
+        // currently hold its share returns 0 rows and is left untouched, so we never
+        // overcommit a host -- an unguarded decrement would drive idle negative,
+        // trip the verify_host_resources trigger, and abort this whole batched tick.
+        // Bookings on a host without room are deferred (stay WAITING) and re-planned
+        // next tick against fresh idle counts.
+        List<VirtualProc> demanded = new ArrayList<VirtualProc>(bookings.size());
+        for (FrameBooking b : bookings) {
+            // Apply any per-frame OOM memory bump BEFORE the capacity gate, so the host
+            // reservation and the proc agree on the bumped amount (else the host would be
+            // under-reserved for RAM). Outlier frames climb here without touching the layer.
+            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(b.frame.getFrameId());
+            if (bump > b.proc.memoryReserved) {
+                b.proc.memoryReserved = bump;
+            }
+            demanded.add(b.proc);
+        }
+        Set<String> affordableHosts = procDao.reserveHostResourcesBatch(demanded);
+
+        List<FrameBooking> affordable = new ArrayList<FrameBooking>(bookings.size());
+        for (FrameBooking b : bookings) {
+            if (affordableHosts.contains(b.proc.getHostId())) {
+                affordable.add(b);
+            }
+        }
+        if (affordable.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 2. Version-guarded RUNNING transition for the affordable bookings. The
+        // returned mask tells us which frames we actually won.
+        boolean[] won = frameDao.batchUpdateFramesStarted(affordable);
+
+        List<FrameBooking> winners = new ArrayList<FrameBooking>(affordable.size());
+        List<VirtualProc> winnerProcs = new ArrayList<VirtualProc>(affordable.size());
+        List<VirtualProc> raceLosers = new ArrayList<VirtualProc>();
+        for (int i = 0; i < affordable.size(); i++) {
+            FrameBooking b = affordable.get(i);
+            if (won[i]) {
+                // Stamp the frame linkage onto the proc before the batch insert.
+                // The inline path does this in reserveProc(); the planning path
+                // (CoreUnitDispatcher.planHost) builds the proc but never sets it,
+                // so without this every batch-inserted proc lands with
+                // pk_frame=NULL, backing no frame while holding its host cores
+                // (the frame shows RUNNING but its cores are stranded).
+                b.proc.frameId = b.frame.getFrameId();
+                b.proc.jobId = b.frame.getJobId();
+                b.proc.layerId = b.frame.getLayerId();
+                b.proc.showId = b.frame.getShowId();
+                winners.add(b);
+                winnerProcs.add(b.proc);
+            } else {
+                // Capacity was reserved in step 1 but the frame was lost to the
+                // version race (rare): give that host's reservation back so its
+                // idle count is not leaked.
+                raceLosers.add(b.proc);
+            }
+        }
+
+        // 3. Refund hosts for the rare race-losers (re-increment only -> never
+        // negative, never trips the trigger).
+        if (!raceLosers.isEmpty()) {
+            procDao.refundHostResourcesBatch(raceLosers);
+        }
+
+        if (winnerProcs.isEmpty()) {
+            return winners;
+        }
+
+        // 4. Insert the winner procs. Host idle was already decremented in step 1,
+        // so this only writes the proc rows. The subscription/layer/job/folder/
+        // point counters are batched by the Scheduler from the winners returned here.
+        procDao.batchInsertVirtualProcs(winnerProcs);
+
+        // 5. Publish FRAME_STARTED events (WAITING -> RUNNING).
+        for (FrameBooking b : winners) {
+            publishFrameStartedEvent(b.frame, b.proc, FrameState.WAITING);
+        }
+        return winners;
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)

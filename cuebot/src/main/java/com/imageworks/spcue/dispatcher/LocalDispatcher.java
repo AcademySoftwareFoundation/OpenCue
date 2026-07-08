@@ -245,6 +245,14 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     }
 
     @Override
+    public List<FrameBooking> planHost(DispatchHost host, LayerInterface layer) {
+        // The plan/batch-commit path is used only by the in-process Scheduler
+        // via CoreUnitDispatcher; local dispatch always commits inline.
+        throw new UnsupportedOperationException(
+                "planHost is not supported for local dispatch");
+    }
+
+    @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer) {
 
         /*

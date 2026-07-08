@@ -415,6 +415,20 @@
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
+  <!-- Single-thread Scheduler. Disabled by default (scheduler.enabled).
+       When enabled, HostReportHandler suppresses the legacy per-host
+       BookingQueue enqueue, and the Quartz trigger below drives a single
+       tick that groups hosts by static spec and runs one candidate-layer
+       query per group. Cross-Cuebot exclusion via pg_try_advisory_lock. -->
+  <bean id="scheduler" class="com.imageworks.spcue.dispatcher.Scheduler" depends-on="cueDataSource">
+    <property name="dataSource"  ref="cueDataSource" />
+    <property name="dispatcher"  ref="dispatcher" />
+    <property name="dispatchSupport" ref="dispatchSupport" />
+    <property name="hostManager" ref="hostManager" />
+    <property name="jobManager"  ref="jobManager" />
+    <property name="rqdClient"   ref="rqdClient" />
+  </bean>
+
   <!-- ##################################################################################### -->
   <!-- Timers -->
   <!-- ##################################################################################### -->
@@ -516,6 +530,19 @@
     <property name="repeatInterval" value="60000"/>
     <!-- delay 30 seconds-->
     <property name="startDelay" value="30000" />
+  </bean>
+
+  <bean id="schedulerTickJob" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="scheduler" />
+    <property name="targetMethod" value="runTick" />
+    <!-- Tick is a no-op when scheduler.enabled=false, so it is safe to
+         register the trigger unconditionally. -->
+    <property name="concurrent" value="false" />
+  </bean>
+
+  <bean id="schedulerTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="schedulerTickJob" />
+    <property name="repeatInterval" value="${scheduler.interval_ms:1000}" />
   </bean>
 
   <bean id="reportQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
@@ -642,6 +669,7 @@
         <ref bean="collectPrometheusMetricsTrigger" />
         <ref bean="subscriptionRecalculationTrigger" />
         <ref bean="stuckDependencyRecoveryTrigger" />
+        <ref bean="schedulerTrigger" />
       </list>
     </property>
   </bean>
