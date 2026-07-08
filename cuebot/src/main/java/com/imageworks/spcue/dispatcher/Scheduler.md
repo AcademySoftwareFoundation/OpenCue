@@ -546,8 +546,8 @@ states, per-priority big-job stranding, and a DB-load view (transactions and
 rows fetched per completed frame, busiest tables). That is how the numbers in
 section 5 was produced.
 
-See `cuebot/scheduler-sim/Scheduler-simulator.md`
-for what the simulator does and the full flag reference.
+See `cuebot/scheduler-sim/README.md`
+for what the simulator does, the `--verify` self-test, and the full flag reference.
 
 ## 9. Testing
 
