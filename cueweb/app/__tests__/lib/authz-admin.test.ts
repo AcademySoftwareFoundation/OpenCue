@@ -44,7 +44,16 @@ describe("authz admin helpers", () => {
   it("treats /admin and /api/admin as admin-only paths", () => {
     expect(isAdminPath("/admin/audit")).toBe(true);
     expect(isAdminPath("/api/admin/audit")).toBe(true);
-    expect(isAdminPath("/monitor-cue")).toBe(false);
+    // The whole CueCommander section is gated
+    expect(isAdminPath("/monitor-cue")).toBe(true);
+    expect(isAdminPath("/hosts")).toBe(true);
+    expect(isAdminPath("/hosts/some-host")).toBe(true);
+    expect(isAdminPath("/stuck-frames")).toBe(true);
+    // Job submission (CueSubmit) is admin-only, including its submit API.
+    expect(isAdminPath("/cuesubmit")).toBe(true);
+    expect(isAdminPath("/api/job/submit")).toBe(true);
+    // Manage facilities… (per-facility gateway settings) is admin-only.
+    expect(isAdminPath("/settings/facilities")).toBe(true);
   });
 
   it("gate is inactive without an auth provider", () => {
