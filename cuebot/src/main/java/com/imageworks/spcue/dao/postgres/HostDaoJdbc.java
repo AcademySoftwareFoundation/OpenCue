@@ -666,8 +666,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             hostName = fqdn;
         } else if (useLongNames) {
             hostName = fqdn;
-            Pattern domainPattern = Pattern
-                    .compile(".*(\\.(.*)\\.(co(m|.[a-z]{2})|biz|edu|info|net|org|cn|de|eu|nl|local))$");
+            Pattern domainPattern = Pattern.compile(
+                    ".*(\\.(.*)\\.(co(m|.[a-z]{2})|biz|edu|info|net|org|cn|de|eu|nl|local))$");
             Matcher domainMatcher = domainPattern.matcher(fqdn);
             if (domainMatcher.matches()) {
                 hostName = fqdn.replace(domainMatcher.group(1), "");
