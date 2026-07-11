@@ -51,6 +51,12 @@ class FrameMonitor(QtWidgets.QWidget):
         self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self)
         self.page = self.frameMonitorTree.frameSearch.page
         self.frameSearchLimit = self.frameMonitorTree.frameSearch.limit
+        # Filter Layers menu widgets, populated lazily in _filterLayersUpdate.
+        self._filterLayersSearchBox = None
+        self._filterLayersList = None
+        # Guards against itemChanged firing while the list is populated/synced
+        # programmatically.
+        self._filterLayersUpdating = False
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -280,10 +286,9 @@ class FrameMonitor(QtWidgets.QWidget):
 
         has_filters = False
         # Layer filters live in the embedded, scrollable list widget.
-        layer_list = getattr(self, "_filterLayersList", None)
-        if layer_list:
-            for i in range(layer_list.count()):
-                if layer_list.item(i).checkState() == QtCore.Qt.Checked:
+        if self._filterLayersList:
+            for i in range(self._filterLayersList.count()):
+                if self._filterLayersList.item(i).checkState() == QtCore.Qt.Checked:
                     has_filters = True
                     break
         # Status filters are plain checkable menu actions.
@@ -402,9 +407,6 @@ class FrameMonitor(QtWidgets.QWidget):
 
             self._filterLayersSearchBox = search_box
             self._filterLayersList = layer_list
-            # Guards against itemChanged firing while we populate/sync the list
-            # programmatically.
-            self._filterLayersUpdating = False
 
         if self.frameMonitorTree.getJob():
             try:
@@ -441,12 +443,11 @@ class FrameMonitor(QtWidgets.QWidget):
         """Shows only the layers whose name contains the search text.
         @param text: The text typed into the filter layers search box
         @type  text: str"""
-        layer_list = getattr(self, "_filterLayersList", None)
-        if not layer_list:
+        if not self._filterLayersList:
             return
         text = text.strip().lower()
-        for i in range(layer_list.count()):
-            list_item = layer_list.item(i)
+        for i in range(self._filterLayersList.count()):
+            list_item = self._filterLayersList.item(i)
             list_item.setHidden(text not in str(list_item.text()).lower())
 
     def _filterLayersHandle(self, item):
@@ -463,6 +464,9 @@ class FrameMonitor(QtWidgets.QWidget):
                 layers.append(name)
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
+            # getFrames() reads the page from options; keep it in sync so the
+            # filtered results start on page 1 rather than the current page.
+            self.frameMonitorTree.frameSearch.options['page'] = self.page
         elif name in layers:
             layers.remove(name)
         self.frameMonitorTree.frameSearch.options['layer'] = layers
@@ -514,6 +518,9 @@ class FrameMonitor(QtWidgets.QWidget):
                     list_item.setCheckState(QtCore.Qt.Checked)
                     self.page = 1
                     self.frameMonitorTree.frameSearch.page = self.page
+                    # getFrames() reads the page from options; keep it in sync
+                    # so filtered results start on page 1.
+                    self.frameMonitorTree.frameSearch.options['page'] = self.page
         finally:
             self._filterLayersUpdating = False
         self.frameMonitorTree.frameSearch.options['layer'] = layers
