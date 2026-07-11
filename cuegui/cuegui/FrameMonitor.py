@@ -279,13 +279,19 @@ class FrameMonitor(QtWidgets.QWidget):
             return
 
         has_filters = False
-        for menu in [self._filterLayersButton.menu(),
-                     self._filterStatusButton.menu()]:
-            if menu and not has_filters:
-                for item in menu.actions():
-                    if item.isChecked():
-                        has_filters = True
-                        break
+        # Layer filters live in the embedded, scrollable list widget.
+        layer_list = getattr(self, "_filterLayersList", None)
+        if layer_list:
+            for i in range(layer_list.count()):
+                if layer_list.item(i).checkState() == QtCore.Qt.Checked:
+                    has_filters = True
+                    break
+        # Status filters are plain checkable menu actions.
+        if not has_filters and self._filterStatusButton.menu():
+            for item in self._filterStatusButton.menu().actions():
+                if item.isChecked():
+                    has_filters = True
+                    break
         total_pages = int(math.ceil(total_frames / float(self.frameSearchLimit)))
         page_label_text = 'Page {0}'.format(self.page)
         if has_filters:
@@ -359,13 +365,46 @@ class FrameMonitor(QtWidgets.QWidget):
         """Updates the filter layers menu with the layers in the current job"""
         btn = self._filterLayersButton
         menu = btn.menu()
-        if menu:
-            for action in menu.actions():
-                menu.removeAction(action)
-        else:
+        if not menu:
             menu = QtWidgets.QMenu(self)
             btn.setMenu(menu)
-            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
+
+            # Build a single embedded widget: a search box, a fixed-height
+            # scrollable checkable list, and a Clear button. Using a
+            # QListWidget guarantees vertical scrolling regardless of the
+            # platform's Qt style, instead of the default QMenu behaviour of
+            # wrapping thousands of layers into off-screen columns.
+            container = QtWidgets.QWidget(menu)
+            vlayout = QtWidgets.QVBoxLayout(container)
+            vlayout.setContentsMargins(2, 2, 2, 2)
+            vlayout.setSpacing(2)
+
+            search_box = QtWidgets.QLineEdit(container)
+            search_box.setPlaceholderText("Search layers...")
+            search_box.setClearButtonEnabled(True)
+            search_box.textChanged.connect(self._filterLayersSearch)
+            vlayout.addWidget(search_box)
+
+            layer_list = QtWidgets.QListWidget(container)
+            layer_list.setMinimumWidth(250)
+            layer_list.setMaximumHeight(400)
+            layer_list.itemChanged.connect(self._filterLayersHandle)
+            vlayout.addWidget(layer_list)
+
+            clear_btn = QtWidgets.QPushButton("Clear", container)
+            clear_btn.clicked.connect(self._filterLayersClear)
+            vlayout.addWidget(clear_btn)
+
+            widget_action = QtWidgets.QWidgetAction(menu)
+            widget_action.setDefaultWidget(container)
+            menu.addAction(widget_action)
+            menu.aboutToShow.connect(search_box.setFocus)
+
+            self._filterLayersSearchBox = search_box
+            self._filterLayersList = layer_list
+            # Guards against itemChanged firing while we populate/sync the list
+            # programmatically.
+            self._filterLayersUpdating = False
 
         if self.frameMonitorTree.getJob():
             try:
@@ -384,34 +423,67 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             layers = []
 
-        for item in ["Clear", None ] + sorted(layers):
-            if item:
-                a = QtWidgets.QAction(menu)
-                a.setText(item)
-                if item != "Clear":
-                    a.setCheckable(True)
-                menu.addAction(a)
-            else:
-                menu.addSeparator()
+        # Preserve any active layer filters across the rebuild.
+        checked = set(self.frameMonitorTree.frameSearch.options.get('layer', []))
+        self._filterLayersUpdating = True
+        try:
+            self._filterLayersList.clear()
+            for name in sorted(layers):
+                list_item = QtWidgets.QListWidgetItem(name, self._filterLayersList)
+                list_item.setFlags(list_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                list_item.setCheckState(
+                    QtCore.Qt.Checked if name in checked else QtCore.Qt.Unchecked)
+        finally:
+            self._filterLayersUpdating = False
+        self._filterLayersSearchBox.clear()
 
-    def _filterLayersHandle(self, action):
-        """Called when an option in the filter layers menu is triggered.
+    def _filterLayersSearch(self, text):
+        """Shows only the layers whose name contains the search text.
+        @param text: The text typed into the filter layers search box
+        @type  text: str"""
+        layer_list = getattr(self, "_filterLayersList", None)
+        if not layer_list:
+            return
+        text = text.strip().lower()
+        for i in range(layer_list.count()):
+            list_item = layer_list.item(i)
+            list_item.setHidden(text not in str(list_item.text()).lower())
+
+    def _filterLayersHandle(self, item):
+        """Called when a layer checkbox in the filter layers list is toggled.
         Tells the FrameMonitorTree widget what layers to filter by.
-        @param action: Defines the menu item selected
-        @type  action: QAction"""
+        @param item: The list item whose check state changed
+        @type  item: QListWidgetItem"""
+        if self._filterLayersUpdating:
+            return
         layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
-        if action.text() == "Clear":
-            for item in self._filterLayersButton.menu().actions():
-                if item.isChecked():
-                    layers.remove(item.text())
-                    item.setChecked(False)
-        else:
-            if action.isChecked():
-                layers.append(action.text())
-                self.page = 1
-                self.frameMonitorTree.frameSearch.page = self.page
-            else:
-                layers.remove(action.text())
+        name = str(item.text())
+        if item.checkState() == QtCore.Qt.Checked:
+            if name not in layers:
+                layers.append(name)
+            self.page = 1
+            self.frameMonitorTree.frameSearch.page = self.page
+        elif name in layers:
+            layers.remove(name)
+        self.frameMonitorTree.frameSearch.options['layer'] = layers
+
+        self.frameMonitorTree.updateRequest()
+        self._updatePageButtonState()
+
+    def _filterLayersClear(self):
+        """Unchecks every layer filter."""
+        layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
+        self._filterLayersUpdating = True
+        try:
+            for i in range(self._filterLayersList.count()):
+                list_item = self._filterLayersList.item(i)
+                if list_item.checkState() == QtCore.Qt.Checked:
+                    list_item.setCheckState(QtCore.Qt.Unchecked)
+                    name = str(list_item.text())
+                    if name in layers:
+                        layers.remove(name)
+        finally:
+            self._filterLayersUpdating = False
         self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
@@ -425,17 +497,25 @@ class FrameMonitor(QtWidgets.QWidget):
         @param layer_list: A list of layers to filter by.
         @type  layer_list: list<string>"""
         layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
-        for item in self._filterLayersButton.menu().actions():
-            # If item is checked and not in list: remove
-            if item.isChecked() and not item.text() in layer_list:
-                layers.remove(str(item.text()))
-                item.setChecked(False)
-            # if item is not checked, and item is in list: add
-            elif not item.isChecked() and item.text() in layer_list:
-                layers.append(str(item.text()))
-                item.setChecked(True)
-                self.page = 1
-                self.frameMonitorTree.frameSearch.page = self.page
+        self._filterLayersUpdating = True
+        try:
+            for i in range(self._filterLayersList.count()):
+                list_item = self._filterLayersList.item(i)
+                name = str(list_item.text())
+                is_checked = list_item.checkState() == QtCore.Qt.Checked
+                # If checked and not in list: remove
+                if is_checked and name not in layer_list:
+                    if name in layers:
+                        layers.remove(name)
+                    list_item.setCheckState(QtCore.Qt.Unchecked)
+                # If not checked and in list: add
+                elif not is_checked and name in layer_list:
+                    layers.append(name)
+                    list_item.setCheckState(QtCore.Qt.Checked)
+                    self.page = 1
+                    self.frameMonitorTree.frameSearch.page = self.page
+        finally:
+            self._filterLayersUpdating = False
         self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
