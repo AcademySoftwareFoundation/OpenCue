@@ -205,7 +205,7 @@ You should see output similar to:
 
 The OpenCueWeb interface includes:
 
-- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **OpenCueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **OpenCueWeb Home** button.
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **OpenCueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows an **OpenCueWeb Home** button.
 - **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
 - **Jobs Dashboard**: View and manage rendering jobs, with CueGUI-parity columns (Launched, Eligible, Finished, User Color, ...).
 - **Layers / Frames panels**: Inline below the jobs table. Click a job row to reveal them; click a layer to filter the frames panel; double-click a frame row to open the log viewer.
@@ -356,7 +356,7 @@ The dialog shows the **Version**, the **Build SHA**, and a license link, with a 
 
 ![About OpenCueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
-- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as a OpenCueWeb-specific override; `package.json` is the last-resort fallback.
+- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as an OpenCueWeb-specific override; `package.json` is the last-resort fallback.
 - The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI injects `git rev-parse --short HEAD`); it shows `unknown` when not provided.
 
 ### Try a plugin

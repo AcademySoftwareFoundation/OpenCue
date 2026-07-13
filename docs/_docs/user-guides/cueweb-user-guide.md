@@ -115,7 +115,7 @@ OpenCueWeb supports secure authentication through multiple providers:
 ![OpenCueWeb authentication page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
 
-**Note**: If authentication is disabled for development, you'll see a "OpenCueWeb Home" button to access the interface directly.
+**Note**: If authentication is disabled for development, you'll see an "OpenCueWeb Home" button to access the interface directly.
 
 #### Restricted access
 
@@ -1744,7 +1744,7 @@ A plugin can expose its own settings. Open them from the plugin (the **Open plug
 
 ![Hello OpenCue plugin settings](/assets/images/cueweb/cueweb_plugins_hello_opencue_plugin_open_plugin_settings.png)
 
-**Cue Progress Bar** - a OpenCueWeb port of CueGUI's `cueprogbar` sample. It draws a live, color-coded frame-state bar for a job (with done / total / running labels) and offers pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. It is **on** in the menu by default.
+**Cue Progress Bar** - an OpenCueWeb port of CueGUI's `cueprogbar` sample. It draws a live, color-coded frame-state bar for a job (with done / total / running labels) and offers pause / unpause / kill / retry-dead controls, polling Cuebot on a configurable interval. It is **on** in the menu by default.
 
 ![Cue Progress Bar plugin](/assets/images/cueweb/cueweb_plugins_cue_progress_bar.png)
 

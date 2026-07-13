@@ -99,12 +99,12 @@ graph LR
 
 ### JWT Token System
 
-Both OpenCueWeb and the REST Gateway use JSON Web Tokens (JWT) for secure authentication:
+The OpenCueWeb server and the REST Gateway use JSON Web Tokens (JWT) for secure authentication:
 
 - **Algorithm**: HMAC SHA256 (HS256)
 - **Header Format**: `Authorization: Bearer <token>`
 - **Expiration**: Configurable token lifetime
-- **Secret Sharing**: Same secret used by both OpenCueWeb and REST Gateway
+- **Secret Sharing**: The shared secret is held only by the OpenCueWeb server (which signs each token and forwards requests to the gateway) and the REST Gateway (which verifies it). It must never be exposed to browser or client code — the browser calls OpenCueWeb's own server-side routes, and those routes attach the gateway JWT server-side.
 
 ### Token Lifecycle
 
@@ -165,7 +165,7 @@ Each record carries: the timestamp (`at`), the `actor`, a `category` (job, frame
 
 ### How it's stored
 
-The trail is an **append-only JSONL file** - one JSON record per line - mirroring an existing OpenCueWeb pattern (the per-facility override store). No database is introduced, so OpenCueWeb stays **stateless** on the backend. The file path is configurable (`CUEWEB_AUDIT_STORE`), and its size is bounded (`CUEWEB_AUDIT_MAX_RECORDS`): once the cap is reached the oldest records are dropped. Because the default location is the OS temp directory, persisting the trail across restarts means pointing it at a mounted volume.
+The trail is an **append-only JSONL file** - one JSON record per line - mirroring an existing OpenCueWeb pattern (the per-facility override store). No database is introduced, so OpenCueWeb has **no database dependency** on the backend. The file path is configurable (`CUEWEB_AUDIT_STORE`), and its size is bounded (`CUEWEB_AUDIT_MAX_RECORDS`): once the cap is reached the oldest records are dropped. Because the default location is the OS temp directory, persisting the trail across restarts means pointing it at a mounted volume. The store is file-backed and single-process, so running multiple OpenCueWeb replicas means pointing them at shared storage (and the writes are last-writer-wins without a cross-process lock).
 
 ### Who can see it
 
@@ -173,7 +173,7 @@ Access reuses the same optional group-authorization gate described above. When n
 
 ### Scope and limitation
 
-This is a **OpenCueWeb audit**, not a farm-wide audit: it records only actions taken **through OpenCueWeb**. Actions performed from CueGUI, `cueman`, or `pycue` go straight to Cuebot and are not seen here. Capturing every client's actions would require an audit layer in the backend (Cuebot / gateway); the OpenCueWeb trail is the pragmatic, no-new-infrastructure step that covers the web interface today.
+This is an **OpenCueWeb audit**, not a farm-wide audit: it records only actions taken **through OpenCueWeb**. Actions performed from CueGUI, `cueman`, or `pycue` go straight to Cuebot and are not seen here. Capturing every client's actions would require an audit layer in the backend (Cuebot / gateway); the OpenCueWeb trail is the pragmatic, no-new-infrastructure step that covers the web interface today.
 
 ---
 

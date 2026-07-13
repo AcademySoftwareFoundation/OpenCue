@@ -46,7 +46,7 @@ OpenCueWeb participates in this shared versioning scheme rather than carrying a 
 1. **`NEXT_PUBLIC_APP_VERSION`** (env var / Docker build-arg) - always wins. CI injects the generated OpenCue version or a Git SHA here.
 2. **`cueweb/OVERRIDE_CUEWEB_VERSION.in`** - a small override file:
    - the default value, the sentinel `VERSION.in`, means "use the repo-root `VERSION.in`" - the same shared source of truth Cuebot and CueGUI read, so OpenCueWeb's number tracks the rest of OpenCue automatically;
-   - any other value is used **verbatim**, letting a site pin a OpenCueWeb-specific version when it needs to.
+   - any other value is used **verbatim**, letting a site pin an OpenCueWeb-specific version when it needs to.
 3. **`package.json`** `version` - a last-resort fallback.
 
 Separately, a **build SHA** is shown for provenance: it comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI passes `git rev-parse --short HEAD`) and renders as `unknown` when not supplied.

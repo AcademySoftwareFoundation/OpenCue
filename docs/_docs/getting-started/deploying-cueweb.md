@@ -110,7 +110,7 @@ NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
 # Comma-separated list of providers to enable on the /login page.
-# When empty, /login renders only a "OpenCueWeb Home" button. The global
+# When empty, /login renders only an "OpenCueWeb Home" button. The global
 # header's Sign out button is always rendered regardless of this value;
 # clicking it routes to /login.
 NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
@@ -637,7 +637,7 @@ The form auto-saves a draft to `localStorage` on every keystroke and keeps per-f
 
 The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with OpenCueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
 
-**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Treat access to OpenCueWeb accordingly - anyone who can reach the UI can issue redirects. If your deployment needs to restrict who can perform farm-wide actions, gate it at the authentication / reverse-proxy layer (OpenCueWeb does not implement per-action role checks).
+**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. When the optional group-authorization gate is active (`CUEWEB_AUTHZ_ENABLED`), `/redirect` is covered by the admin gate - like the rest of the CueCommander section, it is restricted to members of `CUEWEB_ADMIN_GROUPS`. When that gate is not configured, OpenCueWeb's "everyone is an admin" default applies and anyone who can reach the UI can issue redirects. The gate is section-level, not per-action, so if you need finer-grained control over who can perform farm-wide actions, additionally gate it at the authentication / reverse-proxy layer.
 
 ---
 

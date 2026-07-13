@@ -81,7 +81,6 @@ OpenCueWeb is a web-based application that provides browser access to OpenCue re
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `NEXT_PUBLIC_OPENCUE_ENDPOINT` | REST Gateway URL | `http://localhost:8448` |
-| `NEXT_PUBLIC_URL` | OpenCueWeb public URL | `http://localhost:3000` |
 | `NEXT_JWT_SECRET` | JWT signing secret (must match REST Gateway) | `your-secret-key` |
 
 ### Optional Build-Time Variables
@@ -135,7 +134,7 @@ Optional, opt-in group-based access control enforced server-side in `middleware.
 
 ### Audit Variables
 
-Configuration for the [OpenCueWeb Audit](#cueweb-audit) trail, an append-only JSONL log of every state-changing action performed through OpenCueWeb. Both default to a working out-of-the-box configuration, so no setup is required to start auditing.
+Configuration for the [OpenCueWeb Audit](#opencueweb-audit) trail, an append-only JSONL log of every state-changing action performed through OpenCueWeb. Both default to a working out-of-the-box configuration, so no setup is required to start auditing.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
