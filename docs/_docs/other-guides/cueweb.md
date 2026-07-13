@@ -1,35 +1,35 @@
 ---
-title: "CueWeb System"
+title: "OpenCueWeb System"
 layout: default
 parent: Other Guides
 nav_order: 57
-linkTitle: "CueWeb system"
+linkTitle: "OpenCueWeb system"
 date: 2025-02-04
 description: >
-   CueWeb system: First web-based release of CueGUI with many features from Cuetopia
+   OpenCueWeb system: First web-based release of CueGUI with many features from Cuetopia
 ---
 
-# CueWeb
+# OpenCueWeb
 
 ### A web-based CueGUI alternative with job filtering, inspection, and interactive controls
 
 ---
 
-This guide provides an introduction to the CueWeb system, the web-based version of CueGUI.
+This guide provides an introduction to the OpenCueWeb system, the web-based version of CueGUI.
 
 ## Introduction
 
-[OpenCue](https://www.opencue.io/) has facilitated efficient management of rendering jobs through its application, CueGUI, which includes Cuetopia and CueCommander. Previously, OpenCue's capabilities were somewhat restricted as it was primarily limited to desktops/workstations running Qt-based applications. Because of that, the CueWeb system was created. CueWeb is a transformative, web-based application that extends access across multiple platforms, ensuring users can manage their rendering tasks from virtually anywhere.
+[OpenCue](https://www.opencue.io/) has facilitated efficient management of rendering jobs through its application, CueGUI, which includes Cuetopia and CueCommander. Previously, OpenCue's capabilities were somewhat restricted as it was primarily limited to desktops/workstations running Qt-based applications. Because of that, the OpenCueWeb system was created. OpenCueWeb is a transformative, web-based application that extends access across multiple platforms, ensuring users can manage their rendering tasks from virtually anywhere.
 
 ## A seamless transition to web accessibility 
 
-CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs/reference/cuegui-app/) (Cuetopia and Cuecommander) in a web-accessible format, enhancing usability while maintaining the familiar interface that users appreciate. This adaptation supports essential operations such as:
+OpenCueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs/reference/cuegui-app/) (Cuetopia and Cuecommander) in a web-accessible format, enhancing usability while maintaining the familiar interface that users appreciate. This adaptation supports essential operations such as:
 
 1. **Persistent global header (every authenticated route):**
-   - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark.
-   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug / About CueWeb). Routes that are not yet implemented 404 gracefully.
+   - OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **OpenCueWeb** wordmark.
+   - Six dropdown menus mirroring the CueGUI menu bar: **File** (Disable Job Interaction), **Cuebot Facility**, **Cuetopia** (Monitor Jobs), **CueCommander** (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), and **Help** (search box across every menu command, plus Online User Guide / Make a Suggestion / Report a Bug / About OpenCueWeb). Routes that are not yet implemented 404 gracefully.
    - Theme toggle (light/dark).
-   - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` - the `/login` page itself shows either the **CueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
+   - Always-visible **Sign out** button that calls NextAuth's `signOut()` and routes to `/login` - the `/login` page itself shows either the **OpenCueWeb Home** button (when `NEXT_PUBLIC_AUTH_PROVIDER` is empty) or the configured provider buttons.
 2. **Collapsible left sidebar (every authenticated route):**
    - Same six groups as the header (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other**, **Help**), organized as accordion sections; the group containing the active route auto-expands.
    - One click on the **Collapse** button shrinks the sidebar to an icon-only rail; overall and per-group state persist across reloads.
@@ -43,13 +43,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Fixed 24-pixel bar at the bottom of every authenticated route.
    - **Gateway** (left): a dot + `Online` / `Offline` + the last round-trip latency, refreshed every few seconds. The whole bar turns red when the gateway is unreachable.
    - **Last refresh** (center): a live "Ns ago" timer that updates whenever the jobs table refreshes.
-   - **Version** (right): the CueWeb build version.
+   - **Version** (right): the OpenCueWeb build version.
 6. **Breadcrumb navigation on detail views:**
    - Above the frame log page and the per-job comments page, a "Home > Jobs > ..." trail lets you click back to the jobs index or any parent in the path.
    - Long segment labels are truncated, with the full text shown in a tooltip on hover.
    - The last segment is the current page; the earlier segments are clickable links back to the index or any parent.
 7. **Secure user authentication:**
-   - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
+   - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the OpenCueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
 8. **Browser-based job submission (CueSubmit CLI parity):**
    - A dedicated `/cuesubmit` route reachable from the **CueSubmit** top-level dropdown in the header, the matching **CueSubmit > Submit Job** group in the left sidebar (and the mobile nav drawer) mirrors the standalone CueSubmit CLI tool with Job Info / Layer Info / per-type option panels for Shell / Maya / Nuke / Blender, a live read-only Final command preview, and a multi-layer Submission Details table with `+ / - / down / up` controls.
    - Browser-only improvements over the CLI: per-keystroke command preview, per-field autocomplete history (Job Name / Shot / Layer Name) saved in your browser, draft auto-save so an accidental refresh doesn't wipe a multi-layer setup, themed `?` help popovers for frame-spec patterns and cuebot tokens, themed confirmation dialogs, and a **Reset** button next to Cancel and Submit.
@@ -84,8 +84,8 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Optimized loading times, along with loading animations for a better user experience.
    - Users can add or remove multiple jobs directly from the search results, with existing jobs highlighted in green.
 16. **Enhanced security using Opencue API:**
-   - CueWeb authorizes its requests to the OpenCue REST API with signed security tokens.
-17. **CueWeb actions and context menu (CueGUI parity):**
+   - OpenCueWeb authorizes its requests to the OpenCue REST API with signed security tokens.
+17. **OpenCueWeb actions and context menu (CueGUI parity):**
    - Right-clicking any row in the Jobs, Layers, or Frames tables opens a context menu that mirrors the CueGUI Monitor Jobs / Monitor Job Details menus.
    - On touch devices, every row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same menu the desktop right-click opens.
    - **Job actions** include: Unmonitor, View Job, **View Job Details** (opens the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies), **Copy Job Name**, Email Artist, Request Cores, Subscribe to Job, Comments, **View Dependencies...** (themed dialog rendering the job's depends), **Dependency Wizard...** (multi-step dialog covering every CueGUI `depend.DependType`, multi-select on every picker, cross-product fan-out on Done), **Drop External / Internal Dependencies** (one click, table auto-refreshes), Set / Clear User Color, **Set Priority...** (themed 1-100 slider + number input), Set Max Retries, Reorder / Stagger Frames, **Pause / Unpause** (single toggle - the label and icon flip with the job's paused state, and the entry is grayed out for Finished jobs), Auto-Eat On / Off, Retry / Eat Dead Frames, Unbook, Kill, Show Progress Bar.
@@ -96,8 +96,8 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, Kill, Eat, Retry, Retry Dead Frames.
    - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items (View / Drop / **Dependency Wizard**), **Mark as waiting**, Filter Selected Layers, Reorder, **Preview All** (external image viewer; command configurable via `NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL`), Retry, Eat, Kill, **Mark done** / Eat and Mark done, View Processes. You can also drag (or shift-click) to select a contiguous **frame range** and Retry / Eat / Kill it at once. The job menu's **Show Progress Bar** shows a configurable CueProgBar launch command (`NEXT_PUBLIC_CUEPROGBAR_COMMAND`).
    - **Frame log viewer** also offers in-log **search** (highlight + match counter, case/regex toggles), **follow/tail** mode (auto-scroll, pause-on-scroll-up, jump-to-bottom; **Tail Log** opens it following by default), absolute **line numbers**, **per-line copy**, raw-log **download**, and a **frame preview thumbnail** panel.
-   - All copy actions work whether CueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
-   - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in CueWeb surface a friendly placeholder toast. Destructive items are auto-disabled when **Disable Job Interaction** is on.
+   - All copy actions work whether OpenCueWeb is reached at `localhost` or at a LAN IP over plain HTTP.
+   - Menus scroll instead of overflowing on small viewports. Items that depend on dialogs / backend integrations not yet implemented in OpenCueWeb surface a friendly placeholder toast. Destructive items are auto-disabled when **Disable Job Interaction** is on.
 
 18. **Auto-reloading of tables:**
    - All tables (jobs, layers, frames) are auto-reloaded at regular intervals to display the latest data.
@@ -138,7 +138,7 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
      - Empty value -> the menu item is hidden entirely.
    - The menu label is derived automatically from the URL. Unrecognized schemes fall back to "View Log in external editor".
    - Web browsers can't read the user's shell `$EDITOR` variable or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses.
-   - If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives.
+   - If the chosen editor isn't installed on the user's machine, OpenCueWeb shows a warning toast after a short delay pointing the user at the alternatives.
    - When the frame hasn't started running yet (WAITING / DEPEND frames have no log file on disk), the menu item shows a friendly warning toast instead of handing a non-existent path to the editor.
 
 25. **Mobile-friendly UI:**
@@ -147,9 +147,9 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - Every Jobs / Layers / Frames row has a small **`⋮` Actions** button as its leftmost cell. Tapping it opens the same context menu the desktop right-click opens (see item 16), so touch users get the full action set without a right-click event.
    - The keyboard-shortcuts overlay (item 21) is itself touch-friendly: every key badge in the list is tappable, so `/` (focus search), `r` (refresh), and `t` (toggle theme) work on phones without a physical keyboard.
 
-26. **LAN access (CueWeb usable from phones / tablets):**
-   - The same image works whether the browser reaches CueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
-   - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path) work even when CueWeb is reached over plain HTTP at a LAN IP, including on iOS Safari.
+26. **LAN access (OpenCueWeb usable from phones / tablets):**
+   - The same image works whether the browser reaches OpenCueWeb at `localhost` on the dev machine or at a LAN IP from another device on the same network - no rebuild needed when you want to test on a phone. The build-time `NEXT_PUBLIC_URL` setting defaults to empty for this reason; only set it to an absolute URL if your deployment serves the API on a different origin than the UI.
+   - Copy actions (Copy Job / Layer / Frame Name, Copy Log Path) work even when OpenCueWeb is reached over plain HTTP at a LAN IP, including on iOS Safari.
 
 27. **Job dependency graph (Cuetopia &rarr; View Job Graph):**
    - A read-only, interactive node graph of a job's dependency tree, mirroring CueGUI's Monitor-Jobs dependency-graph dock.
@@ -158,13 +158,13 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Double-click** a node to open that job's detail page (a single click only selects it). **Right-click a layer node** for the CueGUI Job-Graph layer menu: **Auto Layout Nodes**; **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done); **Reorder Frames…**; **Stagger Frames…**; **Properties…**; **Kill / Eat / Retry / Retry Dead Frames** - the same actions as the Layers table.
 
 28. **Monitor Cue (CueCommander &rarr; Monitor Cue):**
-   - A show-grouped job tree at `/monitor-cue`, the CueWeb equivalent of CueGUI's CueCommander Monitor Cue window (previously a dead sidebar link). Pick one or more shows from the **Shows** menu (All Shows / Clear / per-show, persisted) to load every job for those shows, grouped under their show and groups.
+   - A show-grouped job tree at `/monitor-cue`, the OpenCueWeb equivalent of CueGUI's CueCommander Monitor Cue window (previously a dead sidebar link). Pick one or more shows from the **Shows** menu (All Shows / Clear / per-show, persisted) to load every job for those shows, grouped under their show and groups.
    - **Full CueGUI column set**: Comment + Auto-eat icons, Job, Run, Cores, Gpus, Wait, Depend, Total, **Booking** (a running/waiting bar with cyan min-core and red max-core markers, mirroring CueGUI's booking bar), Min, Max, Min G, Max G, Pri, ETA, MaxRss, MaxGpuMem, Age, Readable Age, and Progress. Columns sort with header arrows; a Columns dropdown (show/hide + reorder) and a **Filter jobs...** box sit at the top-right (persisted). Rows are tinted by condition: blue = paused, red = dead, yellow = high peak memory, green = waiting, purple = all-depend.
    - **Toolbar**: Eat / Retry / Pause / Unpause / Kill (with icons; Kill confirms) on the selected jobs, Refresh + Auto-refresh (5s), Expand / Collapse All, and a **Select:** name/regex box that live-selects matching jobs (plus a select-mine button). A select-all header checkbox and Shift+click range selection pick rows in bulk.
    - **Job menu** reuses the Monitor Jobs right-click menu plus Monitor-Cue-only entries: **View Job**, **Send To Group...** (reparent the job into another group of its show), the resource/priority setters (Set Min/Max Cores, Set Minimum/Maximum Cores, Set Minimum/Maximum Gpus, Set Priority), Use Local Cores, Unbook Frames..., and Set / Clear User Color. Auto-eat is a single **Enable / Disable auto eating** toggle.
 
 29. **Monitor Hosts (CueCommander &rarr; Monitor Hosts) - full CueGUI parity:**
-   - A host registry at `/hosts`, the CueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin. Reached from the CueCommander menu / sidebar entry or the dashboard hosts widget's **View hosts** link.
+   - A host registry at `/hosts`, the OpenCueWeb equivalent of CueGUI's CueCommander Monitor Hosts plugin. Reached from the CueCommander menu / sidebar entry or the dashboard hosts widget's **View hosts** link.
    - **Full CueGUI column set**: Name, a Comments icon column, Load %, Swap, Physical, GPU Memory, Total Memory, Idle Memory, Temp, Temp Free, Temp Free %, Cores, Idle Cores, GPUs, Idle GPUs, GPU Mem, GPU Mem Idle, Ping, Boot Time, Hardware, Locked, ThreadMode, OS, Tags. Swap / Physical / GPU Memory / Temp render as red/green used-vs-free bars. Rows are tinted by condition: red for a non-`UP` hardware state, amber for `REBOOT_WHEN_IDLE`, yellow for an `UP` but `LOCKED` host. Column show/hide/reorder and saveable **Views** presets mirror the other tables.
    - **Filter bar**: name/regex box plus Allocation / HardwareState / LockState / OS multi-selects, with Auto-refresh / Refresh / Clear. Filtering is client-side and the active filters are mirrored in the URL so a filtered view is shareable. Auto-refreshes every 30 seconds.
    - **Host actions** via the row's right-click menu (CueGUI parity): **Comments…** (with reusable predefined-comment macros), **View Procs**, **Lock / Unlock / Take Ownership** (Take Ownership enabled only for a `NIMBY_LOCKED` host, with a confirmation dialog), **Edit Tags… / Rename Tag… / Change Allocation…**, **Reboot** (confirms - running frames are killed) **/ Reboot when idle / Delete Host**, and **Set / Clear Repair State**. Inapplicable items are greyed out by host state; the affected row updates immediately on success.
@@ -172,53 +172,53 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Host detail page**: click a host's name to open a per-host page with Overview, Procs, Comments, and Tags tabs. The Procs tab lists the frames running on the host (auto-refreshing every 15 seconds); clicking a proc opens that frame's log.
 
 30. **Allocations (CueCommander &rarr; Allocations):**
-   - An allocations table at `/allocations`, the CueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from the CueCommander menu / sidebar entry.
+   - An allocations table at `/allocations`, the OpenCueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from the CueCommander menu / sidebar entry.
    - Columns mirror CueGUI: Name, Tag, a cores group (Cores, Idle, Locked, Down, Repair) and a hosts group (Hosts, Locked, Down, Repair). Numeric columns sort by their underlying value; column show/hide and the substring filter mirror the other tables. Auto-refreshes every 30 seconds.
    - Clicking an allocation's name navigates to the hosts list scoped to that allocation (`/hosts?allocation=<name>`).
 
 31. **Shows (CueCommander &rarr; Shows):**
-   - A shows registry at `/shows`, the CueWeb equivalent of CueGUI's CueCommander Shows window. Reached from the CueCommander menu / sidebar entry.
+   - A shows registry at `/shows`, the OpenCueWeb equivalent of CueGUI's CueCommander Shows window. Reached from the CueCommander menu / sidebar entry.
    - Sortable, filterable stats table with columns Show Name, Cores Run, Frames Run, Frames Pending, and Jobs (from `GetActiveShows`), auto-refreshing every 30 seconds. Click a show name to open its detail page.
    - **Create Show** dialog: enter a unique alphanumeric name and optionally subscribe the new show to one or more allocations (checkbox + Size + Burst per allocation).
    - **Show actions** via the row's right-click menu: **Show Properties** (a four-tab dialog - Settings with default max/min cores and comment email, Booking with enable booking / enable dispatch, read-only Statistics, and Raw Show Data) and **Create Subscription...** (subscribe a show to an allocation with Size and Burst).
 
 32. **Stuck Frames (CueCommander &rarr; Stuck Frame):**
-   - A stuck-frame finder at `/stuck-frames`, the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window. Reached from the CueCommander menu / sidebar entry.
+   - A stuck-frame finder at `/stuck-frames`, the OpenCueWeb equivalent of CueGUI's CueCommander Stuck Frame window. Reached from the CueCommander menu / sidebar entry.
    - Scans every running frame across active jobs and flags the ones that look hung (the log has gone silent relative to runtime), grouped under their job. Columns: Name, Frame, Host, LLU, Runtime, % Stuck, Average, Last Line. Auto-refreshes on a timer, with **Refresh** / **Clear** controls.
    - **Detection filters** (saved per browser): % of Run Since LLU, Min LLU, % Avg Completion, Total Runtime, and Exclude Keywords. The **+** button adds a per-service filter row (catch-all "All Other Types" plus one row per render service, so e.g. Arnold can use looser thresholds than quicker services).
    - **Frame actions** via the row's right-click menu: Tail/View/View Last Log, Retry / Eat / Kill, Log Stuck Frame (and Log and Retry / Eat / Kill), Frame Not Stuck, Add Job to Excludes / Exclude and Remove Job, **Core Up** (raise the layer's minimum cores), and View Host.
    - **Job actions** via the job header's right-click menu: View Comments, Job Not Stuck, Add Job to Excludes / Exclude and Remove Job, and **Core Up** across the job's stuck layers.
 
 33. **Facility Service Defaults (CueCommander &rarr; Services):**
-   - A facility-wide service-defaults editor at `/services`, the CueWeb equivalent of CueGUI's Facility Service Defaults tab. Reached from the CueCommander menu / sidebar entry. It edits the default resource requirements applied to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`).
+   - A facility-wide service-defaults editor at `/services`, the OpenCueWeb equivalent of CueGUI's Facility Service Defaults tab. Reached from the CueCommander menu / sidebar entry. It edits the default resource requirements applied to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`).
    - Two panes: a left list of services (with **New** / **Del**) and a right edit form with Name, Threadable, Min/Max Threads (100 = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined checkboxes or a Custom Tags free-text toggle).
    - Because these are facility-wide defaults, **Save** asks for a confirmation before creating or updating, and **Del** confirms before removing a service; a toast reports the result.
 
 34. **Subscriptions (CueCommander &rarr; Subscriptions):**
-   - A per-show subscriptions table at `/subscriptions`, the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Pick a show from the dropdown to list its subscriptions, one row per allocation, with columns Alloc, Usage, Size, Burst, and Used. A subscription is a show's reservation against an allocation: **Size** is the guaranteed cores, **Burst** the maximum it may temporarily use.
+   - A per-show subscriptions table at `/subscriptions`, the OpenCueWeb equivalent of CueGUI's CueCommander Subscriptions window. Pick a show from the dropdown to list its subscriptions, one row per allocation, with columns Alloc, Usage, Size, Burst, and Used. A subscription is a show's reservation against an allocation: **Size** is the guaranteed cores, **Burst** the maximum it may temporarily use.
    - **Add Subscription** subscribes the show to another allocation (Size + Burst); **Show Properties** opens the same four-tab dialog as the Shows page.
    - **Row actions** via the right-click menu: **Edit Subscription Size...** (with a billing confirmation), **Edit Subscription Burst...**, and **Delete Subscription**.
 
 35. **Subscription Graphs (CueCommander &rarr; Subscription Graphs):**
-   - A visual view at `/subscription-graphs`, the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window. A **Shows** multi-select (All Shows / Clear / per-show) chooses which shows to graph; each gets one horizontal bar per subscription.
+   - A visual view at `/subscription-graphs`, the OpenCueWeb equivalent of CueGUI's CueCommander Subscription Graphs window. A **Shows** multi-select (All Shows / Clear / per-show) chooses which shows to graph; each gets one horizontal bar per subscription.
    - Each bar is scaled to the allocation's total cores and color-coded like CueGUI (legend at the top): sky-blue allocation capacity, yellow-green in-use cores, a blue size marker and a red burst marker. Hovering shows the exact values.
    - **Row actions** via the right-click menu match the Subscriptions table plus **Add new subscription**; right-clicking a show with no subscriptions offers **Add new subscription** to create the first one.
 
 36. **Limits (CueCommander &rarr; Limits):**
-   - A limits table at `/limits`, the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from the CueCommander menu / sidebar entry.
+   - A limits table at `/limits`, the OpenCueWeb equivalent of CueGUI's CueCommander Limits window. Reached from the CueCommander menu / sidebar entry.
    - Columns: Limit Name, Max Value, Current Running. Auto-refreshes every 30 seconds, with a **Refresh** button for an immediate reload.
    - **Add Limit** dialog creates a new limit (max value starts at 0).
    - **Limit actions** via the row's right-click menu: **Edit Max Value** (validates a non-negative integer), **Rename**, and **Delete Limit** (with a confirmation).
 
 37. **Redirect (CueCommander &rarr; Redirect):**
-   - An administrator tool at `/redirect`, the CueWeb equivalent of CueGUI's CueCommander Redirect window. Reached from the CueCommander menu / sidebar entry. It moves cores to a job that needs them by reassigning busy procs to a target job - the frames running on those procs are killed and the freed cores are booked onto the target.
+   - An administrator tool at `/redirect`, the OpenCueWeb equivalent of CueGUI's CueCommander Redirect window. Reached from the CueCommander menu / sidebar entry. It moves cores to a job that needs them by reassigning busy procs to a target job - the frames running on those procs are killed and the freed cores are booked onto the target.
    - **Target + auto-detect**: typing a target job name auto-fills the Show and minimum cores/memory from the job's layers (CueGUI `detect()`), so the search looks for procs large enough to help.
    - **Job filters** (Show, Include Groups, Require Services, Exclude Regex) and **resource filters** (Allocations, Minimum/Max Cores, Minimum Memory, Result Limit, Proc Hour Cutoff) scope the search. **Search** lists the matching hosts (Cores, Memory, PrcTime, Group, Service, Job Cores, Waiting Frames, LLU), expandable to their individual procs.
-   - **Redirect** the selected hosts (or **Select All**): CueWeb refuses if the target is gone / has no waiting frames / is at max cores, and asks for confirmation when the target is paused or a selected proc belongs to a different show (a cross-show redirect kills that show's frame).
+   - **Redirect** the selected hosts (or **Select All**): OpenCueWeb refuses if the target is gone / has no waiting frames / is at max cores, and asks for confirmation when the target is paused or a selected proc belongs to a different show (a cross-show redirect kills that show's frame).
 
 38. **Group-based authorization (optional, opt-in):**
    - An optional, environment-driven authorization gate enforced server-side in a single middleware chokepoint. **Off by default** - when disabled (or when no auth provider is configured) it is a pure pass-through and every signed-in user is treated as an admin.
-   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use CueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the entire CueCommander section (all pages, including Monitor Cue, Monitor Hosts and Stuck Frame), job submission (CueSubmit), and the Manage facilities… screen. A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`, and those menus are hidden from non-admins. Cuetopia Monitor Jobs and the Dashboard stay available to non-admins.
+   - **`CUEWEB_ALLOWED_GROUPS`** restricts who may use OpenCueWeb at all; **`CUEWEB_ADMIN_GROUPS`** restricts the entire CueCommander section (all pages, including Monitor Cue, Monitor Hosts and Stuck Frame), job submission (CueSubmit), and the Manage facilities… screen. A blocked user sees an **Access denied** page (`/unauthorized`); API routes return `403`, and those menus are hidden from non-admins. Cuetopia Monitor Jobs and the Dashboard stay available to non-admins.
    - The user's groups are resolved **once at sign-in** (from the OIDC claim named by `CUEWEB_GROUPS_CLAIM`, default `groups`, or a credentials/LDAP `groups` field) and stamped on the session token; the Edge middleware only reads them, so there is no per-request directory lookup. Requires an identity provider whose token carries group memberships.
 
 39. **Plugin system (extensible add-ons):**
@@ -234,38 +234,38 @@ CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs
    - **Multi-pane split view** (CueGUI *Add new window*): the `/split?left=…&right=…` route opens two pages side-by-side in resizable, same-origin iframe panes, each with its own URL so the whole workspace is bookmarkable and reload-safe; drag/keyboard divider resize (ratio under `cueweb.split.ratio`), per-pane page picker, Swap, and Reset 50/50. Opened from **Other &rarr; Split view**.
 
 41. **Optional Loki log backend (CueGUI Loki log viewer parity):**
-   - The frame log viewer has two interchangeable backends. By default it reads the on-disk `.rqlog` file; when `NEXT_PUBLIC_LOKI_URL` points at a [Grafana Loki](https://grafana.com/oss/loki/) server it queries Loki for the frame's lines instead (the CueWeb counterpart of CueGUI's `LokiViewPlugin`), falling back to the file-based viewer when unset.
+   - The frame log viewer has two interchangeable backends. By default it reads the on-disk `.rqlog` file; when `NEXT_PUBLIC_LOKI_URL` points at a [Grafana Loki](https://grafana.com/oss/loki/) server it queries Loki for the frame's lines instead (the OpenCueWeb counterpart of CueGUI's `LokiViewPlugin`), falling back to the file-based viewer when unset.
    - Both backends share the same read-only editor, **Log versions** dropdown, and empty/loading states. With Loki, each "log version" is a separate **frame attempt** (`session_start_time`), newest first, with a **Refresh** button. The backend is chosen by the deployment, not in the UI.
 
 
-## CueWeb's user interface
+## OpenCueWeb's user interface
 
-Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figure 1), users are welcomed by CueWeb's main dashboard, as shown in Figure 2.  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
+Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figure 1), users are welcomed by OpenCueWeb's main dashboard, as shown in Figure 2.  The OpenCueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
 
-**Figure 1: CueWeb authentication page**
-![CueWeb authentication page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+**Figure 1: OpenCueWeb authentication page**
+![OpenCueWeb authentication page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
 
-**Figure 1a: CueWeb LDAP authentication button**
-![CueWeb LDAP authentication button](/assets/images/cueweb/cueweb-ldap-button.png)
+**Figure 1a: OpenCueWeb LDAP authentication button**
+![OpenCueWeb LDAP authentication button](/assets/images/cueweb/cueweb-ldap-button.png)
 
-**Figure 1b: CueWeb LDAP login page**
-![CueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
+**Figure 1b: OpenCueWeb LDAP login page**
+![OpenCueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
 
-**Note:** If the CueWeb login is disabled, the image below displays the initial CueWeb page. This page includes a button labelled "CueWeb Home", which opens the main CueWeb interface. For instructions on how to disable the CueWeb login, refer to the [cueweb/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/README.md) file.
+**Note:** If the OpenCueWeb login is disabled, the image below displays the initial OpenCueWeb page. This page includes a button labelled "OpenCueWeb Home", which opens the main OpenCueWeb interface. For instructions on how to disable the OpenCueWeb login, refer to the [cueweb/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/README.md) file.
 
-![CueWeb home button page](/assets/images/cueweb/cueweb-home-button.png)
+![OpenCueWeb home button page](/assets/images/cueweb/cueweb-home-button.png)
 
-**Figure 2: CueWeb main page**
-![CueWeb main page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+**Figure 2: OpenCueWeb main page**
+![OpenCueWeb main page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
 
 
 ### Navigation and global controls
 
 Every authenticated page shares a global header and a collapsible left sidebar. The sidebar groups the same menus found in the header, with the group for the current page expanded by default (Figure 3).
 
-**Figure 3: CueWeb collapsible left sidebar menu**
-![CueWeb collapsible left sidebar menu](/assets/images/cueweb/cueweb_left_side_menu.png)
+**Figure 3: OpenCueWeb collapsible left sidebar menu**
+![OpenCueWeb collapsible left sidebar menu](/assets/images/cueweb/cueweb_left_side_menu.png)
 
 
 The **Cuetopia** menu opens the Monitor Jobs view (Figure 4).
@@ -275,7 +275,7 @@ The **Cuetopia** menu opens the Monitor Jobs view (Figure 4).
 
 
 The **Cuebot Facility** menu lets you choose which facility to connect to (Figure 5).
-Selecting a facility switches the active Cuebot: CueWeb re-fetches all data from
+Selecting a facility switches the active Cuebot: OpenCueWeb re-fetches all data from
 that facility's gateway, the active facility is shown both on the menu chip and in
 the bottom status bar, and your choice persists for the session. This mirrors
 CueGUI's "Cuebot Facility" menu, which connects to a single facility at a time.
@@ -320,13 +320,13 @@ The **Other** menu provides Attributes, Show Shortcuts, and Notify on Shortcut (
 **Figure 10: Help menu**
 ![Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
 
-The Help menu also includes **About CueWeb**, which opens a dialog showing the
-CueWeb version and build SHA, the active Cuebot facility, the REST gateway URL
+The Help menu also includes **About OpenCueWeb**, which opens a dialog showing the
+OpenCueWeb version and build SHA, the active Cuebot facility, the REST gateway URL
 (masked), the Apache-2.0 license, and credits. A **Copy diagnostics** button
 copies all of these as JSON for bug reports (Figure 10b).
 
-**Figure 10b: About CueWeb dialog**
-![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+**Figure 10b: About OpenCueWeb dialog**
+![About OpenCueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 A fixed status bar at the bottom of every page shows the gateway connection state, the time since the last refresh, and the application version (Figure 11).
@@ -335,20 +335,20 @@ A fixed status bar at the bottom of every page shows the gateway connection stat
 ![Bottom status bar indicators](/assets/images/cueweb/cueweb_status_indicators.png)
 
 
-### CueWeb Audit
+### OpenCueWeb Audit
 
-CueWeb keeps a built-in audit trail of everything that changes state, surfaced
-under **Admin -> CueWeb Audit** and reachable from both the top menu and the
+OpenCueWeb keeps a built-in audit trail of everything that changes state, surfaced
+under **Admin -> OpenCueWeb Audit** and reachable from both the top menu and the
 left sidebar (Figure 11a). Every record captures who performed an action, when
 it happened, which target it acted on, the Cuebot facility it ran against, and
 whether it succeeded or failed - alongside sign-in and sign-out events.
 Read-only browsing (opening tables, viewing logs, paging through results) is not
 recorded; only the actions that actually mutate state are.
 
-Because every mutating action in CueWeb is proxied through a single gateway
+Because every mutating action in OpenCueWeb is proxied through a single gateway
 chokepoint, the audit captures all of those actions uniformly - no individual
 button or context-menu entry has to opt in. It records actions taken **through
-CueWeb specifically**, so changes made from CueGUI, `cueman`, or `pycue` do not
+OpenCueWeb specifically**, so changes made from CueGUI, `cueman`, or `pycue` do not
 appear here; this is a record of what was done in the web interface.
 
 The audit is presented as a filterable, paginated table (Figure 11b). A search
@@ -360,31 +360,31 @@ and HTTP method that were called. Records are written to an append-only JSONL
 store configured by `CUEWEB_AUDIT_STORE` (mount a volume there to persist the
 trail) and bounded in size by `CUEWEB_AUDIT_MAX_RECORDS`.
 
-Access to the audit page is admin-gated and reuses CueWeb's optional
+Access to the audit page is admin-gated and reuses OpenCueWeb's optional
 group-authorization (see item 38). When no group authorization is configured the
 page is visible to everyone; otherwise it is restricted to the groups listed in
 `CUEWEB_ADMIN_GROUPS`.
 
-**Figure 11a: Admin -> CueWeb Audit menu**
-![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+**Figure 11a: Admin -> OpenCueWeb Audit menu**
+![OpenCueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
 
-**Figure 11b: CueWeb Audit page**
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+**Figure 11b: OpenCueWeb Audit page**
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 
 ### Dashboard page
 
 The Dashboard page provides an at-a-glance overview, reachable from its own entry in the navigation (Figures 12 and 13).
 
-**Figure 12: CueWeb Dashboard page**
-![CueWeb Dashboard page](/assets/images/cueweb/cueweb_dashboard.png)
+**Figure 12: OpenCueWeb Dashboard page**
+![OpenCueWeb Dashboard page](/assets/images/cueweb/cueweb_dashboard.png)
 
 
-**Figure 13: CueWeb Dashboard menu**
-![CueWeb Dashboard menu](/assets/images/cueweb/cueweb_dashboard_menu.png)
+**Figure 13: OpenCueWeb Dashboard menu**
+![OpenCueWeb Dashboard menu](/assets/images/cueweb/cueweb_dashboard_menu.png)
 
 
-## CueWeb dashboard (Jobs data table) - Similar to [CueGUI Cuetopia](https://www.opencue.io/docs/user-guides/monitoring-your-jobs/)'s functionalities
+## OpenCueWeb dashboard (Jobs data table) - Similar to [CueGUI Cuetopia](https://www.opencue.io/docs/user-guides/monitoring-your-jobs/)'s functionalities
 
 Here's what you can expect:
 
@@ -508,7 +508,7 @@ To remove a comment, select it and confirm the deletion; a notification confirms
 **Figure 36: Notification confirming the comment was deleted**
 ![Notification confirming the comment was deleted](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_deleted_selected_comment_notification.png)
 
-CueWeb also supports predefined comments (saved macros) that you can reuse, add, edit, and delete (Figures 37 to 44).
+OpenCueWeb also supports predefined comments (saved macros) that you can reuse, add, edit, and delete (Figures 37 to 44).
 
 **Figure 37: Using a predefined comment**
 ![Using a predefined comment](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_comments_page_use_a_predefined_comment.png)
@@ -572,32 +572,32 @@ Selecting **Other -> Show Shortcuts** opens an overlay listing the available key
 ![Keyboard shortcuts overlay](/assets/images/cueweb/cueweb_other_menu_show_shortcuts.png)
 
 
-### CueWeb Actions for Jobs / Layers / Frames
+### OpenCueWeb Actions for Jobs / Layers / Frames
 
-The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type.
+The OpenCueWeb system includes actions like `eat dead frames`, `retry dead frames`, `pause`, `unpause`, and `kill` for selected jobs in the table. Also, the ability to right-click jobs, layers, and frames to get a context menu popup with actions for that object type.
 
 The Pause / Unpause entry in the job context menu is a single toggle: it reads **Pause** when the job is running (In Progress, Failing, Dependency), **Unpause** when the job is already paused, and is shown disabled (grayed) when the job is Finished.
 
 Figure 52 shows the `job` context menu with options to `un-monitor`, `comments`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 53 shows the successful message after selecting `kill` a job.
 
-**Figure 52: CueWeb with job context menu open**
-![CueWeb with job context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
+**Figure 52: OpenCueWeb with job context menu open**
+![OpenCueWeb with job context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
 
 **Figure 53: Pop-up showing a successful message after selecting `kill` a job**
 ![Pop-up showing successful kill job message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open_and_success_notification.png)
 
 Figure 54 shows the `layer` context menu with options to `kill`, `eat`, `retry`, and `retry dead frames` and Figure 55 shows the successful message after selecting `retry` a layer.
 
-**Figure 54: CueWeb with layer context menu open**
-![CueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
+**Figure 54: OpenCueWeb with layer context menu open**
+![OpenCueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
 
 **Figure 55: Pop-up showing a successful message after selecting `retry` a layer**
 ![Pop-up showing successful retry layer message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open_and_success_notification.png)
 
 Finally, Figure 56 shows the `frame` context menu with options to `kill`, `eat`, and `retry` and Figure 57 shows the successful message after selecting `eat` a frame.
 
-**Figure 56: CueWeb with frame context menu open**
-![CueWeb with frame context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
+**Figure 56: OpenCueWeb with frame context menu open**
+![OpenCueWeb with frame context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open.png)
 
 **Figure 57: Pop-up showing a successful message after selecting `eat` a frame**
 ![Pop-up showing successful eat frame message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_frame_context_menu_open_and_success_notification.png)
@@ -683,4 +683,4 @@ The checkable **Cuetopia &rarr; View Job Graph** entry (Figure 70) toggles a rea
 
 ## Conclusion
 
-In conclusion, the CueWeb system marks a significant advancement in rendering job management by providing a powerful, web-based interface that simplifies and enhances user interaction with the OpenCue system. With features like customizable job tables, efficient job filtering, and detailed inspections, along with the ability to view comprehensive logs and switch visual modes, CueWeb ensures that managing rendering jobs is more accessible and adaptable to a variety of user needs.
+In conclusion, the OpenCueWeb system marks a significant advancement in rendering job management by providing a powerful, web-based interface that simplifies and enhances user interaction with the OpenCue system. With features like customizable job tables, efficient job filtering, and detailed inspections, along with the ability to view comprehensive logs and switch visual modes, OpenCueWeb ensures that managing rendering jobs is more accessible and adaptable to a variety of user needs.

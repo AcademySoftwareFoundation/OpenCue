@@ -140,7 +140,7 @@ permalink: /
                         <i class="fa-solid fa-desktop" aria-hidden="true"></i>
                     </div>
                     <div class="walkthrough-item-text">
-                        <h3>Monitoring with CueGUI or CueWeb</h3>
+                        <h3>Monitoring with CueGUI or OpenCueWeb</h3>
                         <p>Navigate Shows, Allocations, Subscriptions, Monitor Host, Services, and Log views.</p>
                     </div>
                 </div>

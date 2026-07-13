@@ -41,7 +41,7 @@ This release brings a large number of new features, enhancements, bug fixes, and
 
 ## User Interface and Usability
 
-- **CueWeb**
+- **OpenCueWeb**
   - Professional-style toolbar with grouped action buttons
     ([#1906](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1906))
   - Enhanced documentation with mermaid diagram support
@@ -80,7 +80,7 @@ This release brings a large number of new features, enhancements, bug fixes, and
 ## Documentation and Ecosystem
 
 - **Documentation Enhancements and Corrections:**
-  - New, comprehensive documentation for CueWeb, REST Gateway, and CueProgBar
+  - New, comprehensive documentation for OpenCueWeb, REST Gateway, and CueProgBar
     ([#1955](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1955)), ([#1940](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1940)), ([#1962](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1962))
   - Improved navigation, release notes, and contributor information
     ([#1937](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1937)), ([#1895](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1895)), ([#1944](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1944)), ([#2030](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2030))

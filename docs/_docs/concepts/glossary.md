@@ -64,7 +64,7 @@ A graphical user interface for configuring and launching rendering jobs.
 Typically runs as a plug-in within 3D software like Maya, Blender, or Nuke,
 allowing artists to submit jobs directly from their creative applications.
 
-## CueWeb
+## OpenCueWeb
 
 A web-based interface that brings CueGUI's core functionality to the browser.
 Offers job management, frame monitoring, real-time updates, and collaborative
@@ -118,7 +118,7 @@ be processed on remote *cores*.
 
 The time elapsed since a running *frame* last wrote to its log. A large LLU on a
 frame that is still running is the main signal that the frame may be *stuck* -
-the process is alive but no longer making progress. CueWeb's Stuck Frames page
+the process is alive but no longer making progress. OpenCueWeb's Stuck Frames page
 shows LLU per frame and uses it (relative to runtime) to flag stuck frames.
 
 ## Layers
@@ -180,7 +180,7 @@ An administrative action that reassigns the *cores* of busy *procs* to a target
 *job* that needs them. The *frames* currently running on those procs are killed
 so the freed cores can be booked onto the target job - a way to give a
 high-priority job capacity quickly. CueGUI's CueCommander Redirect plugin and
-CueWeb's Redirect page expose it.
+OpenCueWeb's Redirect page expose it.
 
 ## RQD (Python)
 
@@ -224,7 +224,7 @@ A running *frame* that appears hung: it keeps running but has stopped writing to
 its log, so its *Last Log Update (LLU)* keeps climbing relative to its runtime.
 A stuck frame is not a distinct frame state - it is detected heuristically (LLU
 vs. runtime vs. the *layer*'s average frame time). CueGUI's CueCommander Stuck
-Frame plugin and CueWeb's Stuck Frames page list them so you can retry, eat,
+Frame plugin and OpenCueWeb's Stuck Frames page list them so you can retry, eat,
 kill, or *core up* (raise the minimum cores of) the affected layer.
 
 ## Subscription
