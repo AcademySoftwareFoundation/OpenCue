@@ -1,29 +1,29 @@
 ---
 layout: default
-title: "July 7, 2026: Announcing CueWeb: The Complete Web-Based OpenCue GUI"
+title: "July 7, 2026: Announcing OpenCueWeb: The Complete Web-Based OpenCue GUI"
 parent: News
 nav_order: 0
 ---
 
-# Announcing CueWeb: The Complete Web-Based OpenCue GUI
+# Announcing OpenCueWeb: The Complete Web-Based OpenCue GUI
 
-### First Full Release: CueWeb Now Replicates All of CueGUI (Cuetopia and CueCommander)
+### First Full Release: OpenCueWeb Now Replicates All of CueGUI (Cuetopia and CueCommander)
 
 #### July 7, 2026
 
 ---
 
-We're excited to announce that **CueWeb**, the browser-based OpenCue GUI, is now **feature-complete and merged to the [OpenCue master branch](https://github.com/AcademySoftwareFoundation/OpenCue)**. CueWeb replicates the complete functionality of **CueGUI**, covering both **Cuetopia** (job, layer, and frame monitoring and management) and **CueCommander** (host, allocation, show, subscription, service, limit, and facility administration), all in the browser with no desktop install required.
+We're excited to announce that **OpenCueWeb**, the browser-based OpenCue GUI, is now **feature-complete and merged to the [OpenCue master branch](https://github.com/AcademySoftwareFoundation/OpenCue)**. OpenCueWeb replicates the complete functionality of **CueGUI**, covering both **Cuetopia** (job, layer, and frame monitoring and management) and **CueCommander** (host, allocation, show, subscription, service, limit, and facility administration), all in the browser with no desktop install required.
 
-![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+![OpenCueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
 
-## Why CueWeb
+## Why OpenCueWeb
 
-CueGUI is a desktop application, but it requires a local install, a graphical environment, and network access to Cuebot. CueWeb removes that friction: artists and administrators can now monitor and manage the render farm from any modern browser, on any platform, behind standard web authentication. This makes OpenCue easier to access for remote workers, easier to deploy for studios, and easier to integrate into existing web-based pipelines.
+CueGUI is a desktop application, but it requires a local install, a graphical environment, and network access to Cuebot. OpenCueWeb removes that friction: artists and administrators can now monitor and manage the render farm from any modern browser, on any platform, behind standard web authentication. This makes OpenCue easier to access for remote workers, easier to deploy for studios, and easier to integrate into existing web-based pipelines.
 
 ## Cuetopia Parity
 
-CueWeb now provides the full set of Cuetopia job-management capabilities:
+OpenCueWeb now provides the full set of Cuetopia job-management capabilities:
 
 - **Job menu actions**: pause / unpause, retry dead frames, eat dead frames, kill, unbook, request cores, set priority, subscribe to job, email artist, and job comments.
 - **Min/max cores** dialog and batch confirmation for multi-job actions.
@@ -31,15 +31,15 @@ CueWeb now provides the full set of Cuetopia job-management capabilities:
 - **CueSubmit in the browser**: a job-submission UI that brings CueSubmit-equivalent functionality to the web.
 - **Frame and layer management**: layer property editing, frame state filter chips, human-readable age columns, per-state progress bars, and an enhanced frame log viewer.
 
-![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+![OpenCueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
 
 Clicking a job reveals its layers and frames inline:
 
-![CueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
+![OpenCueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
 
 The job dependency graph renders below the layers and frames:
 
-![CueWeb job dependency graph](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
+![OpenCueWeb job dependency graph](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 
 ## CueCommander Parity
 
@@ -52,42 +52,42 @@ The administrative side of CueGUI is fully represented as well:
 - **Services** (Facility Service Defaults), **Limits**, and **Allocations** pages.
 - **Stuck Frames** and **Redirect** pages.
 
-![CueWeb CueCommander Monitor Hosts](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+![OpenCueWeb CueCommander Monitor Hosts](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
 
 The Shows page with stats, Show Properties, and subscriptions:
 
-![CueWeb CueCommander Shows](/assets/images/cueweb/cueweb_cuecommander_shows.png)
+![OpenCueWeb CueCommander Shows](/assets/images/cueweb/cueweb_cuecommander_shows.png)
 
 Allocations and Limits pages:
 
-![CueWeb CueCommander Allocations](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+![OpenCueWeb CueCommander Allocations](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
 
-![CueWeb CueCommander Limits](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+![OpenCueWeb CueCommander Limits](/assets/images/cueweb/cueweb_cuecommander_limits.png)
 
 ## Platform Features
 
-Beyond CueGUI parity, CueWeb adds capabilities that a modern web application enables:
+Beyond CueGUI parity, OpenCueWeb adds capabilities that a modern web application enables:
 
 - **Cuebot facility switching** with server-side gateway routing and per-facility connection health.
 - **Authorization**: an optional group-based authorization gate, admin gating for the full CueCommander and CueSubmit, and Okta group memberships.
 - **Extensibility**: a plugin system with a loader, settings, menu selection, and sample plugins.
-- **Observability**: per-user usage metrics (Prometheus) with a Grafana dashboard, and a CueWeb audit trail that tracks who did what, when, and with what outcome.
+- **Observability**: per-user usage metrics (Prometheus) with a Grafana dashboard, and an OpenCueWeb audit trail that tracks who did what, when, and with what outcome.
 - **Workflow**: view presets, immersive mode, and split-view workspaces.
 - **Logs**: an optional Loki backend for frame log viewing.
 
 Switch the active Cuebot facility from the menu, with per-facility health indicators:
 
-![CueWeb Cuebot facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+![OpenCueWeb Cuebot facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
-The CueWeb audit trail tracks who did what, when, and with what outcome:
+The OpenCueWeb audit trail tracks who did what, when, and with what outcome:
 
-![CueWeb audit trail](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb audit trail](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 ## Contributors
 
-CueWeb reached full parity through sustained work, with a burst of collaboration during DevDays 2026:
+OpenCueWeb reached full parity through sustained work, with a burst of collaboration during DevDays 2026:
 
-- [Ramon Figueiredo](https://github.com/ramonfigueiredo): 43 commits, including most of the CueWeb code and all of the CueWeb and REST Gateway documentation. [Full list of PRs](https://github.com/AcademySoftwareFoundation/OpenCue/pulls?q=is%3Apr+is%3Aclosed+label%3Acueweb+author%3Aramonfigueiredo)
+- [Ramon Figueiredo](https://github.com/ramonfigueiredo): 43 commits, including most of the OpenCueWeb code and all of the OpenCueWeb and REST Gateway documentation. [Full list of PRs](https://github.com/AcademySoftwareFoundation/OpenCue/pulls?q=is%3Apr+is%3Aclosed+label%3Acueweb+author%3Aramonfigueiredo)
   - [#2470](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2470): [cueweb] Fix Monitor Cue job row height to match show/group rows
   - [#2468](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2468): [cueweb] Gate full CueCommander and CueSubmit behind admin authorization
   - [#2466](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2466): [rest_gateway] Raise REST gateway gRPC max receive message size above 4MB default
@@ -171,7 +171,7 @@ Thank you to everyone who contributed with code, reviews, testing, and feedback.
 
 ## Get Started
 
-CueWeb is available now on the [OpenCue master branch](https://github.com/AcademySoftwareFoundation/OpenCue). The full documentation set covers CueWeb and the REST Gateway it depends on:
+OpenCueWeb is available now on the [OpenCue master branch](https://github.com/AcademySoftwareFoundation/OpenCue). The full documentation set covers OpenCueWeb and the REST Gateway it depends on:
 
 **Quick starts**
 - [REST Gateway Quick Start](https://docs.opencue.io/docs/quick-starts/quick-start-rest-gateway/)
@@ -206,14 +206,14 @@ CueWeb is available now on the [OpenCue master branch](https://github.com/Academ
 
 ## Community and Support
 
-Have questions or feedback about CueWeb?
+Have questions or feedback about OpenCueWeb?
 
 - **Slack**: Join us in #opencue on [ASWF Slack](https://slack.aswf.io)
 - **GitHub Discussions**: [OpenCue Discussions](https://github.com/AcademySoftwareFoundation/OpenCue/discussions)
 
 ---
 
-CueWeb brings the full power of CueGUI to the browser, making OpenCue more accessible than ever. Try it out and please file issues and feedback.
+OpenCueWeb brings the full power of CueGUI to the browser, making OpenCue more accessible than ever. Try it out and please file issues and feedback.
 
 Happy rendering!
 
