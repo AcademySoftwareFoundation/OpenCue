@@ -999,6 +999,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setHasComment(rs.getBoolean("b_comment"));
         builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
         builder.setConcurrentSlotsLimit(rs.getInt("int_concurrent_slots_limit"));
+        builder.setIdleSlots(rs.getInt("int_slots_idle"));
         builder.setOs(SqlUtil.getString(rs, "str_os"));
 
         String tags = SqlUtil.getString(rs, "str_tags");
@@ -2226,6 +2227,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "host.b_comment,"
                 + "host.int_thread_mode,"
                 + "host.int_concurrent_slots_limit,"
+                + "CASE WHEN host.int_concurrent_slots_limit > 0 THEN "
+                    + "(host.int_concurrent_slots_limit - COALESCE("
+                    + "(SELECT SUM(proc.int_slots_reserved) FROM proc "
+                    + "WHERE proc.pk_host = host.pk_host), 0)) "
+                    + "ELSE -1 END AS int_slots_idle,"
                 + "host_stat.str_os,"
                 + "host_stat.int_mem_total,"
                 + "host_stat.int_mem_free,"

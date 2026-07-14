@@ -1041,9 +1041,19 @@ impl RqdDispatcherService {
 
         // Slot-based hosts ignore cores/memory entirely: a slot frame reserves 0
         // cores and 0 memory and only consumes the host's concurrency slots. The
-        // per-host slot cap was already enforced by the placement gate at
-        // check-out; here we just record the reservation.
+        // placement gate enforced the per-host slot cap at check-out, but several
+        // slot frames booked onto this host in the same dispatch pass accumulate
+        // `running_slots_count`, so re-check the cap here and stop dispatching to
+        // the host once another frame would exceed it.
         if host.is_slot_host() {
+            if let Some(limit) = host.concurrent_slots_limit {
+                if host.running_slots_count + frame.slots_required > limit {
+                    return Err(VirtualProcError::HostResourcesExtinguished(format!(
+                        "slot host {} at capacity ({} + {} > {})",
+                        host.name, host.running_slots_count, frame.slots_required, limit
+                    )));
+                }
+            }
             host.running_slots_count += frame.slots_required;
             host.last_updated = Utc::now();
             return Ok((

@@ -170,7 +170,7 @@ impl ProcDao {
             .bind((virtual_proc.gpu_memory_reserved.0 / KB) as i64)
             .bind(0)
             .bind(virtual_proc.is_local_dispatch)
-            .bind(virtual_proc.slots_required as i64)
+            .bind(virtual_proc.slots_required as i32)
             .execute(&mut **transaction)
             .await
             .map_err(|err| ProcDaoError::DbFailure {
