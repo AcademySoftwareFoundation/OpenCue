@@ -318,8 +318,9 @@ impl FrameManager {
         }
         // Invalid number of cores. Slot-based frames legitimately reserve 0
         // cores (they run unpinned, capped by concurrency slots instead), so
-        // only reject non-positive cores for regular frames.
-        if run_frame.num_cores <= 0 && run_frame.slots_required <= 0 {
+        // allow exactly 0 cores for them; negative cores are always invalid and
+        // regular frames must reserve a positive number of cores.
+        if run_frame.num_cores < 0 || (run_frame.num_cores == 0 && run_frame.slots_required <= 0) {
             Err(FrameManagerError::InvalidArgument(
                 "Not launching, num_cores must be positive".to_string(),
             ))?
