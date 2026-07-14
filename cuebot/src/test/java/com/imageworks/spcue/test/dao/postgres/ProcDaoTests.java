@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Resource;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -38,11 +39,13 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.Direction;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
@@ -103,6 +106,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     AdminManager adminManager;
 
     @Resource
+    ShowDao showDao;
+
+    @Resource
     Dispatcher dispatcher;
 
     @Resource
@@ -144,6 +150,13 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 env.getRequiredProperty("dispatcher.memory.mem_reserved_default", Long.class);
         this.MEM_GPU_RESERVED_DEFAULT =
                 env.getRequiredProperty("dispatcher.memory.mem_gpu_reserved_default", Long.class);
+    }
+
+    @After
+    public void resetSchedulerManagedCache() {
+        // @Rollback rolls back the DB row but leaves the in-process Guava cache populated; clear
+        // it so the next test reads the (rolled-back) value from the DB instead of stale cache.
+        showDao.invalidateSchedulerManagedCache();
     }
 
     @Test
@@ -294,6 +307,43 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         procDao.updateVirtualProcAssignment(proc);
         procDao.verifyRunningProc(proc.getId(), frame2.getId());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testVerifyRunningProcAfterReassignment() {
+        // Pins the proc-reuse semantics that strict fencing relies on: a proc id is retained when a
+        // host picks up its next frame, so verifyRunningProc must report the proc as owning only
+        // its
+        // *current* frame, not the previous one.
+        DispatchHost host = createHost();
+
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = PK_ALLOC;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame1.id;
+        proc.layerId = frame1.layerId;
+        proc.showId = frame1.showId;
+
+        procDao.insertVirtualProc(proc);
+        assertTrue(procDao.verifyRunningProc(proc.getId(), frame1.getId()));
+        assertFalse(procDao.verifyRunningProc(proc.getId(), frame2.getId()));
+
+        proc.frameId = frame2.id;
+        procDao.updateVirtualProcAssignment(proc);
+
+        // After reuse the proc owns frame2; a stale report referencing frame1 is no longer
+        // verified.
+        assertFalse(procDao.verifyRunningProc(proc.getId(), frame1.getId()));
+        assertTrue(procDao.verifyRunningProc(proc.getId(), frame2.getId()));
     }
 
     @Test
@@ -808,5 +858,130 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // Frame with a selfish service
         proc = VirtualProc.build(host, frame, "shell", "something-else");
         assertEquals(800, proc.coresReserved);
+    }
+
+    /**
+     * Cuebot-managed show: deleteVirtualProc should decrement the five PG accounting tables exactly
+     * as before PR-B. Regression guard for the default branch.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testProcDestroyedCuebotManagedShowDecrementsAccountingTables() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+
+        // After insert, the five tables carry +100 (proc booked).
+        int subCoresAfterInsert = readSubCores(proc.showId, proc.allocationId);
+        int layerCoresAfterInsert = readLayerCores(proc.layerId);
+        int jobCoresAfterInsert = readJobCores(proc.jobId);
+        int folderCoresAfterInsert = readFolderCores(proc.jobId);
+        int pointCoresAfterInsert = readPointCores(proc.jobId);
+
+        procDao.deleteVirtualProc(proc);
+
+        // Cuebot-managed: the five tables are decremented back down by 100.
+        assertEquals(subCoresAfterInsert - 100, readSubCores(proc.showId, proc.allocationId));
+        assertEquals(layerCoresAfterInsert - 100, readLayerCores(proc.layerId));
+        assertEquals(jobCoresAfterInsert - 100, readJobCores(proc.jobId));
+        assertEquals(folderCoresAfterInsert - 100, readFolderCores(proc.jobId));
+        assertEquals(pointCoresAfterInsert - 100, readPointCores(proc.jobId));
+    }
+
+    /**
+     * Scheduler-managed show: deleteVirtualProc must <em>not</em> decrement the five PG accounting
+     * tables. The Rust scheduler's recompute will rewrite them from SUM(proc) on a 2-min cadence
+     * (PR-C). For PR-B this only asserts the SQL chokepoint behavior; the Redis publish itself is
+     * covered by {@code LettuceAccountingRedisPublisherTests}.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testProcDestroyedSchedulerManagedShowSkipsAccountingDecrement() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+
+        int subCoresAfterInsert = readSubCores(proc.showId, proc.allocationId);
+        int layerCoresAfterInsert = readLayerCores(proc.layerId);
+        int jobCoresAfterInsert = readJobCores(proc.jobId);
+        int folderCoresAfterInsert = readFolderCores(proc.jobId);
+        int pointCoresAfterInsert = readPointCores(proc.jobId);
+
+        // Flip the show to scheduler-managed; the ShowDao writer-cache refresh means the next
+        // isSchedulerManaged() call sees true immediately on this Cuebot. The @After hook clears
+        // the cache so this transient flip doesn't leak into other tests.
+        ShowEntity show = showDao.getShowDetail(proc.showId);
+        showDao.updateSchedulerManaged(show, true);
+
+        procDao.deleteVirtualProc(proc);
+
+        // Scheduler-managed: the five tables are NOT decremented (Rust owns recompute).
+        assertEquals(subCoresAfterInsert, readSubCores(proc.showId, proc.allocationId));
+        assertEquals(layerCoresAfterInsert, readLayerCores(proc.layerId));
+        assertEquals(jobCoresAfterInsert, readJobCores(proc.jobId));
+        assertEquals(folderCoresAfterInsert, readFolderCores(proc.jobId));
+        assertEquals(pointCoresAfterInsert, readPointCores(proc.jobId));
+    }
+
+    private int readSubCores(String showId, String allocId) {
+        Integer v = jdbcTemplate.queryForObject(
+                "SELECT int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?", Integer.class,
+                showId, allocId);
+        return v == null ? 0 : v;
+    }
+
+    private int readLayerCores(String layerId) {
+        Integer v = jdbcTemplate.queryForObject(
+                "SELECT int_cores FROM layer_resource WHERE pk_layer=?", Integer.class, layerId);
+        return v == null ? 0 : v;
+    }
+
+    private int readJobCores(String jobId) {
+        Integer v = jdbcTemplate.queryForObject("SELECT int_cores FROM job_resource WHERE pk_job=?",
+                Integer.class, jobId);
+        return v == null ? 0 : v;
+    }
+
+    private int readFolderCores(String jobId) {
+        Integer v =
+                jdbcTemplate.queryForObject(
+                        "SELECT int_cores FROM folder_resource WHERE pk_folder = "
+                                + "(SELECT pk_folder FROM job WHERE pk_job=?)",
+                        Integer.class, jobId);
+        return v == null ? 0 : v;
+    }
+
+    private int readPointCores(String jobId) {
+        Integer v = jdbcTemplate.queryForObject(
+                "SELECT int_cores FROM point WHERE pk_dept = (SELECT pk_dept FROM job WHERE pk_job=?) "
+                        + "AND pk_show = (SELECT pk_show FROM job WHERE pk_job=?)",
+                Integer.class, jobId, jobId);
+        return v == null ? 0 : v;
     }
 }

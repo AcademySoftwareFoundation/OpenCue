@@ -54,26 +54,34 @@ impl CoreSize {
     }
 
     /// Converts this CoreSize to CoreSizeWithMultiplier by applying the configured multiplier.
-    ///
-    /// # Returns
-    ///
-    /// * `CoreSizeWithMultiplier` - Core count with multiplier applied
     #[allow(dead_code)]
     pub fn with_multiplier(self) -> CoreSizeWithMultiplier {
         self.into()
     }
 
-    /// Creates a CoreSize from a raw integer value that includes the multiplier.
-    ///
-    /// # Arguments
-    ///
-    /// * `size_with_multiplier` - Core count with multiplier already applied
-    ///
-    /// # Returns
-    ///
-    /// * `CoreSize` - Core count without multiplier
-    pub fn from_multiplied(size_with_multiplier: i32) -> CoreSize {
-        Self(size_with_multiplier / CONFIG.queue.core_multiplier as i32)
+    /// Strip the centicore multiplier. Accepts any integer widening to i64 — INTEGER
+    /// columns in host/layer/frame DAOs and BIGINT columns in subscription /
+    /// `SUM(proc.int_cores_reserved)::bigint` accounting snapshots both fit. Division
+    /// happens at i64 width before narrowing to the `CoreSize` i32 storage; realistic
+    /// fleet sums fit comfortably (1B centicores = 10M cores, well within i32::MAX of
+    /// ~2.1B cores). See design §0 unit invariant.
+    pub fn from_multiplied(centicores: impl Into<i64>) -> CoreSize {
+        let c = centicores.into();
+        Self((c / i64::from(CONFIG.queue.core_multiplier)) as i32)
+    }
+
+    /// Like `from_multiplied` but preserves negative sentinels. Cap fields
+    /// (`folder_resource.int_max_cores`, `job_resource.int_max_cores`) use `-1` as the
+    /// "unlimited" sentinel; the unguarded division would truncate that to 0. The Lua
+    /// script's `> 0` guard handles either, but preserving `-1` faithfully keeps
+    /// `redis-cli` output meaningful for operators.
+    pub fn from_multiplied_cap(centicores: impl Into<i64>) -> CoreSize {
+        let c = centicores.into();
+        if c < 0 {
+            Self(c as i32)
+        } else {
+            Self((c / i64::from(CONFIG.queue.core_multiplier)) as i32)
+        }
     }
 }
 

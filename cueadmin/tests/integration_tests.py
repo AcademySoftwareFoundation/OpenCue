@@ -67,8 +67,8 @@ class ShowAllocationSubscriptionWorkflowTest(unittest.TestCase):
         self.assertEqual(alloc.data.tag, TEST_TAG)
 
         # Step 3: Create subscription linking show and allocation
-        show.createSubscription(alloc.data, 100.0, 200.0)
-        show.createSubscription.assert_called_once_with(alloc.data, 100.0, 200.0)
+        show.createSubscription(alloc, 100.0, 200.0)
+        show.createSubscription.assert_called_once_with(alloc, 100.0, 200.0)
 
         # Verify state consistency: subscription should be created with correct parameters
         self.assertEqual(show.createSubscription.call_count, 1)

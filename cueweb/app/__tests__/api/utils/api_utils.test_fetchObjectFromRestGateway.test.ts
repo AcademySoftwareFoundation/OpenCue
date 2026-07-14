@@ -1,5 +1,21 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { loadClientEnvVars, loadServerEnvVars } from '@/app/utils/config';
-import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/api_utils';
+import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/gateway_server';
 import jwt from "jsonwebtoken";
 
 // Mock loadClientEnvVars and createJwtToken to return two predefined environment variables
@@ -9,8 +25,8 @@ jest.mock('@/app/utils/config', () => ({
   loadClientEnvVars: jest.fn(),
   loadServerEnvVars: jest.fn(),
 }));
-jest.mock('@/app/utils/api_utils', () => ({
-  ...jest.requireActual('@/app/utils/api_utils'), // Keep the original implementation for other functions
+jest.mock('@/app/utils/gateway_server', () => ({
+  ...jest.requireActual('@/app/utils/gateway_server'), // Keep the original implementation for other functions
   createJwtToken: jest.fn(), // Mock the createJwtToken function
 }));
 jest.mock('jsonwebtoken', () => ({

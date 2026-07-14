@@ -1,0 +1,96 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { handleRoute } from '@/app/utils/gateway_server';
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  const endpoint = "/job.JobInterface/SetPriority";
+  const method = request.method;
+  if (method !== 'POST') {
+    return NextResponse.json({ error: 'Invalid method. Only POST is allowed.' }, { status: 405 });
+  }
+
+  // Guard against malformed JSON so callers see a 400 instead of the route
+  // throwing and Next.js surfacing a generic 500 - request.json() throws a
+  // SyntaxError on invalid input.
+  let jsonBody: unknown;
+  try {
+    jsonBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  if (
+    !jsonBody
+    || typeof jsonBody !== 'object'
+    || Array.isArray(jsonBody)
+    || !(jsonBody as { job?: unknown }).job
+    || typeof (jsonBody as { val?: unknown }).val !== 'number'
+  ) {
+    return NextResponse.json({ error: 'Invalid request body (need {job, val:number})' }, { status: 400 });
+  }
+  const val = (jsonBody as { val: number }).val;
+  // CueGUI's Set Priority dialog and the Jobs table both treat priority
+  // as an integer in 1..100. Reject out-of-range values here so a buggy
+  // client can't silently push 99999 into Cuebot.
+  if (!Number.isInteger(val) || val < 1 || val > 100) {
+    return NextResponse.json(
+      { error: 'val must be an integer between 1 and 100' },
+      { status: 400 },
+    );
+  }
+  const body = JSON.stringify(jsonBody);
+
+  const response = await handleRoute(method, endpoint, body, true);
+  // The REST gateway is supposed to return JSON, but a misconfigured or down
+  // gateway can answer with empty bodies / HTML / plain text. Read the raw
+  // text and parse defensively so a non-JSON upstream surfaces as the real
+  // upstream status instead of crashing the route with a 500.
+  const raw = await response.text();
+  let responseData: any = {};
+  let parseFailed = false;
+  if (raw) {
+    try {
+      responseData = JSON.parse(raw);
+    } catch {
+      parseFailed = true;
+      responseData = { error: raw };
+    }
+  }
+  // A non-JSON body on an otherwise-OK upstream response is itself an
+  // upstream outage (HTML error page, plain-text proxy notice, ...) -
+  // surface it as a 502 instead of letting the UI treat the priority
+  // change as successful with a data:undefined envelope.
+  if (response.ok && parseFailed) {
+    return NextResponse.json(
+      { error: responseData.error ?? 'Upstream returned a non-JSON response', status: 502 },
+      { status: 502 },
+    );
+  }
+  // Preserve the upstream HTTP status. NextResponse.json defaults to 200
+  // when the second argument is omitted, which would otherwise mask
+  // gateway 4xx / 5xx responses behind a 200 envelope.
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: responseData.error, status: response.status },
+      { status: response.status },
+    );
+  }
+  return NextResponse.json(
+    { data: responseData.data, status: responseData.status ?? response.status },
+    { status: response.status },
+  );
+}

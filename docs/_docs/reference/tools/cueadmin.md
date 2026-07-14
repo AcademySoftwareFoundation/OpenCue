@@ -156,7 +156,17 @@ cueadmin -lh render                 # Hosts matching "render"
 cueadmin -lh -state UP              # Only UP hosts
 cueadmin -lh -state DOWN REPAIR     # DOWN or REPAIR hosts
 cueadmin -lh -alloc main.render     # Hosts in specific allocation
+cueadmin -lh -lock-state NIMBY_LOCKED  # Only NIMBY-locked hosts (a user is active)
+cueadmin -lh -lock-state OPEN -sort-idle  # Available hosts, most idle first
 ```
+
+The `-lock-state` option filters the list to a single lock state
+(`OPEN`, `LOCKED`, or `NIMBY_LOCKED`), and `-sort-idle` sorts the output by
+most idle resources first (idle cores, then idle memory) instead of by host
+name. These help identify idle hosts: `-lock-state OPEN -sort-idle` surfaces
+hosts that are available to OpenCue and doing the least work, while
+`NIMBY_LOCKED` indicates a host locked because a user is active on the
+machine.
 
 #### List Subscriptions (`-lb`)
 
@@ -565,6 +575,20 @@ cueadmin -lh -state UP              # Only UP hosts
 cueadmin -lh -state DOWN            # Only DOWN hosts
 cueadmin -lh -state REPAIR          # Hosts needing repair
 ```
+
+### Lock State Filter
+
+Filter hosts by lock state, and optionally sort by idleness:
+
+```bash
+cueadmin -lh -lock-state OPEN            # Only unlocked hosts
+cueadmin -lh -lock-state LOCKED          # Only locked hosts
+cueadmin -lh -lock-state NIMBY_LOCKED    # Only NIMBY-locked hosts
+cueadmin -lh -lock-state OPEN -sort-idle # Unlocked hosts, most idle first
+```
+
+`-sort-idle` sorts by idle cores, then idle memory, instead of by host name.
+It can be combined with any filter or used on its own.
 
 ### Allocation Filter
 

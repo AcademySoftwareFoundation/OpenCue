@@ -1,5 +1,22 @@
 "use client";
 
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
 import * as React from "react";
 import { ContextMenuState, MenuItem } from "./useContextMenu";
 
@@ -21,6 +38,38 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
 }) => {
   if (!contextMenuState.isVisible || !contextMenuState.position) return null;
 
+  // Cap the menu's height so it never extends past the viewport. The cap
+  // is the smaller of "remaining space from click point to bottom of
+  // viewport" minus a small margin, and 80vh as an upper bound. When the
+  // content exceeds the cap, the menu scrolls internally via the
+  // overflowY:'auto' rule below. This avoids the user having to zoom
+  // out the browser to reach items that fell off screen on jobs with
+  // the full ~25-item menu.
+  //
+  // When the click lands near the bottom of the viewport the remaining
+  // space below the cursor can be only a few pixels (or even negative).
+  // We do two things to keep the menu usable:
+  //   1) Clamp the menu's top position so the menu still has at least
+  //      MIN_MENU_HEIGHT_PX of vertical room before the viewport edge.
+  //   2) Floor menuMaxHeight to MIN_MENU_HEIGHT_PX so it never resolves
+  //      to "min(80vh, 0px)" and collapses the menu to zero height.
+  const VIEWPORT_MARGIN_PX = 16;
+  const MIN_MENU_HEIGHT_PX = 160;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+  const clampedTop =
+    typeof window !== "undefined"
+      ? Math.min(
+          contextMenuState.position.y,
+          Math.max(
+            VIEWPORT_MARGIN_PX,
+            viewportHeight - VIEWPORT_MARGIN_PX - MIN_MENU_HEIGHT_PX,
+          ),
+        )
+      : contextMenuState.position.y;
+  const remainingBelow = viewportHeight - clampedTop - VIEWPORT_MARGIN_PX;
+  const menuMaxHeight = `min(80vh, ${Math.max(remainingBelow, MIN_MENU_HEIGHT_PX)}px)`;
+
   // Event handlers for better performance and readability
   const handleItemClick = (item: MenuItem) => {
     item.onClick(contextMenuState.row);
@@ -40,7 +89,7 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
       ref={contextMenuRef}
       style={{
         position: 'fixed',
-        top: contextMenuState.position.y,
+        top: clampedTop,
         left: contextMenuState.position.x,
         zIndex: 2000,
         background: '#fff',
@@ -49,12 +98,23 @@ export const BaseContextMenu: React.FC<BaseContextMenuProps> = ({
         border: '1px solid #e2e8f0',
         padding: '4px',
         whiteSpace: 'nowrap',
+        maxHeight: menuMaxHeight,
+        overflowY: 'auto',
       }}
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {items.map((item, index) => (
           <li key={index}>
-            {item.isActive ? (
+            {item.separator ? (
+              // Horizontal divider between logical groups (CueGUI parity).
+              <hr
+                style={{
+                  margin: '4px 6px',
+                  border: 0,
+                  borderTop: '1px solid #e2e8f0',
+                }}
+              />
+            ) : item.isActive ? (
               <div
                 onClick={() => handleItemClick(item)}
                 onMouseEnter={handleMouseEnter}

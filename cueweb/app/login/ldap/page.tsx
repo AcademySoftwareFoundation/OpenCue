@@ -1,5 +1,22 @@
 'use client'
 
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
 // Custom authentication page
 import { signIn } from "next-auth/react";
 import React from "react";
@@ -7,8 +24,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CueWebIcon from "@/components/ui/cuewebicon";
 import { handleError } from "@/app/utils/notify_utils";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 export default function Page() {
     const router = useRouter();
@@ -43,8 +58,7 @@ export default function Page() {
     return (
         <div className="flex flex-col sm:flex-row w-full justify-center items-center h-screen bg-gray-100 
             dark:bg-gray-800">
-            <ToastContainer />
-            <div className="flex flex-col sm:flex-row sm:space-x-20 max-w-[100vh] bg-white dark:bg-black sm:px-16 
+            <div className="flex flex-col sm:flex-row sm:space-x-20 max-w-[100vh] bg-white dark:bg-black sm:px-16
                 sm:py-8 rounded-xl">
                 <div className="flex flex-col justify-center items-center">
                     <CueWebIcon/>

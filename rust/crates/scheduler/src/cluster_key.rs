@@ -21,10 +21,30 @@ pub enum TagType {
     Hardware,
 }
 
+/// IDENTITY NOTE: the derived `Hash`/`PartialEq`/`Eq`/`Ord` include every field,
+/// so `alloc_id` participates in tag identity. A `Tag{name, Alloc, Some(uuid)}`
+/// and a `Tag{name, Alloc, None}` with the same `name`/`ttype` are *distinct*
+/// keys in `BTreeSet<Tag>` and `HashMap<ClusterKey, _>`. Today the DB-loaded
+/// path produces `Some(uuid)` for alloc tags and the CLI override path produces
+/// `None`; the two are not mixed within a single set, so this is latent. The
+/// CLI override path for alloc tags is being discontinued in the next stage,
+/// after which every `TagType::Alloc` tag carries a resolved `alloc_id` and
+/// this becomes a non-issue.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tag {
     pub name: String,
     pub ttype: TagType,
+    /// `pk_alloc` (allocation UUID) when this tag was loaded as a
+    /// `TagType::Alloc` cluster tag from the database. Populated by
+    /// `cluster.rs::load_clusters` on the `"ALLOC"` arm and consumed by
+    /// `MatchingService::process_layer` to read the per-(show, alloc)
+    /// subscription burst snapshot from Redis before host checkout.
+    ///
+    /// `None` for non-alloc tags (manual / hostname / hardware) and for
+    /// CLI-built tags where the str_tag → pk_alloc mapping isn't resolved
+    /// at startup. Those paths fall back to the burst-unaware behavior.
+    #[serde(default)]
+    pub alloc_id: Option<Uuid>,
 }
 
 impl std::ops::Deref for Tag {
@@ -55,7 +75,7 @@ impl std::borrow::Borrow<str> for Tag {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClusterKey {
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
     pub tag: Tag,
 }

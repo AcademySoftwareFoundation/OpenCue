@@ -25,6 +25,7 @@ from __future__ import print_function
 from builtins import filter
 from builtins import str
 from builtins import object
+import os
 import getpass
 import glob
 import subprocess
@@ -1076,6 +1077,31 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
+
+    reorder_dispatch_info = ["Reorder Dispatch...", None, "configure"]
+
+    def reorder_dispatch(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if not layers:
+            return
+
+        body = "Which dispatch order to set?"
+        if len(layers) > 1:
+            title = "Reorder layers"
+            for layer in layers:
+                body += '\n%s' % layer.data.name
+        else:
+            title = "Reorder layer %s" % layers[0].data.name
+
+        (order, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body, 1, 1, 100000, 1)
+        if not choice:
+            return
+
+        for layer in layers:
+            self.cuebotCall(layer.setDispatchOrder, "Reorder Dispatch Failed", order)
+
+        self._update()
+
     reorder_info = ["Reorder Frames...", None, "configure"]
 
     def reorder(self, rpcObjects=None):
@@ -1738,6 +1764,85 @@ class HostActions(AbstractActions):
 
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
+
+    def canTakeOwnership(self, rpcObjects=None):
+        """Returns True when the selected host can be taken over."""
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        return len(hosts) == 1 and hosts[0].data.lock_state == opencue.api.host_pb2.NIMBY_LOCKED
+
+    takeOwnership_info = ["Take Ownership", "Take ownership of a NIMBY-locked host", "configure"]
+
+    def takeOwnership(self, rpcObjects=None):
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        if len(hosts) != 1:
+            return
+
+        host = hosts[0]
+        if host.data.lock_state != opencue.api.host_pb2.NIMBY_LOCKED:
+            return
+
+        default_user = getpass.getuser()
+        title = "Take Ownership"
+        body = "Which username should own %s?" % host.data.name
+        (user_name, choice) = QtWidgets.QInputDialog.getText(
+            self._caller, title, body, QtWidgets.QLineEdit.Normal, default_user)
+        if not choice:
+            return
+
+        user_name = str(user_name).strip()
+        if not user_name:
+            return
+
+        owner = None
+        create_owner = False
+        try:
+            owner = opencue.api.getOwner(user_name)
+        except opencue.EntityNotFoundException:
+            create_owner = True
+        except opencue.exception.CueException as e:
+            cuegui.Utils.showErrorMessageBox(str(e))
+            return
+
+        current_owner = None
+        host_has_owner = True
+        try:
+            current_owner = host.getDeed().getOwner().name()
+        except opencue.EntityNotFoundException:
+            host_has_owner = False
+        except opencue.exception.CueException:
+            logger.exception("Failed to resolve current owner for host %s", host.data.name)
+
+        if not host_has_owner:
+            confirm_message = None
+        elif current_owner is None:
+            confirm_message = "Host %s ownership could not be determined. Take ownership?" % (
+                host.data.name)
+        elif current_owner != user_name:
+            confirm_message = "Host %s is currently owned by %s. Take ownership?" % (
+                host.data.name, current_owner)
+        else:
+            confirm_message = None
+
+        if confirm_message and not cuegui.Utils.questionBoxYesNo(
+                self._caller,
+                "Confirm",
+                confirm_message):
+            return
+
+        if create_owner:
+            try:
+                show_name = os.environ.get("SHOW", "pipe")
+                owner = opencue.api.findShow(show_name).createOwner(user_name)
+            except opencue.exception.CueException as e:
+                cuegui.Utils.showErrorMessageBox(str(e))
+                return
+
+        try:
+            owner.takeOwnership(host.data.name)
+        except opencue.exception.CueException as e:
+            cuegui.Utils.showErrorMessageBox(str(e))
+            return
+        self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
 

@@ -18,7 +18,7 @@ use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{collections::HashSet, env, fs, path::PathBuf, time::Duration};
+use std::{env, fs, path::PathBuf, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/scheduler.yaml";
 
@@ -43,6 +43,65 @@ pub struct Config {
     pub rqd: RqdConfig,
     pub host_cache: HostCacheConfig,
     pub scheduler: SchedulerConfig,
+    pub accounting: AccountingConfig,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct AccountingConfig {
+    pub redis: RedisConfig,
+    /// Cadence at which booked counters are reseeded from `SUM(proc)` to both
+    /// the PG accounting tables and Redis (under the `acct:seq` CAS guard).
+    #[serde(with = "humantime_serde")]
+    pub recompute_interval: Duration,
+    /// Cadence at which limit fields (subscription burst, folder/job/point caps)
+    /// are reseeded from PG accounting tables to Redis.
+    #[serde(with = "humantime_serde")]
+    pub limit_reseed_interval: Duration,
+    /// TTL of the in-process `b_scheduler_managed=true` show-id cache.
+    #[serde(with = "humantime_serde")]
+    pub managed_shows_ttl: Duration,
+    /// Maximum CAS retries per reseed cycle before giving up and waiting for the
+    /// next cycle (per design §2.4).
+    pub cas_max_retries: u32,
+}
+
+impl Default for AccountingConfig {
+    fn default() -> Self {
+        Self {
+            redis: RedisConfig::default(),
+            recompute_interval: Duration::from_secs(120),
+            limit_reseed_interval: Duration::from_secs(300),
+            managed_shows_ttl: Duration::from_secs(30),
+            cas_max_retries: 3,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct RedisConfig {
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,
+    pub pool_size: u32,
+}
+
+impl Default for RedisConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: "localhost".to_string(),
+            port: 6379,
+            pool_size: 20,
+        }
+    }
+}
+
+impl RedisConfig {
+    pub fn url(&self) -> String {
+        format!("redis://{}:{}/", self.host, self.port)
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -77,16 +136,43 @@ pub struct QueueConfig {
     pub memory_stranded_threshold: ByteSize,
     #[serde(with = "humantime_serde")]
     pub job_back_off_duration: Duration,
+    /// Duration a cluster sleeps after a pass returned no dispatchable jobs.
+    /// Larger values reduce empty-pass query load on the database.
+    #[serde(with = "humantime_serde")]
+    pub cluster_empty_sleep: Duration,
+    /// Interval between full reloads of the cluster set from the database. The
+    /// feed re-runs the cluster query each tick so `show.b_scheduler_managed`
+    /// flips (and host-tag/subscription churn) are picked up without a restart.
+    /// The reload only swaps the live set when it actually changed.
+    #[serde(with = "humantime_serde")]
+    pub cluster_reload_interval: Duration,
+    /// Interval between awake-gate scans. Each scan runs a single query that
+    /// computes which clusters have plausibly-dispatchable work; clusters not in
+    /// that set are skipped by the producer until a later scan re-activates them.
+    /// This bounds idle->dispatch latency: a newly-launched job starts being
+    /// dispatched within at most one scan interval. Smaller = lower wake latency,
+    /// larger = fewer scan queries.
+    #[serde(with = "humantime_serde")]
+    pub active_scan_interval: Duration,
+    /// Duration a cluster sleeps after a pass found jobs but dispatched zero
+    /// frames (saturated farm: no host candidate fits any pending layer).
+    /// Keeps the loop from re-querying jobs and layers continuously while
+    /// nothing can be placed. Should stay in the same order of magnitude as
+    /// the host cache refresh interval so freed hosts are picked up promptly.
+    #[serde(with = "humantime_serde")]
+    pub cluster_saturated_sleep: Duration,
     pub stream: StreamConfig,
+    /// Maximum number of jobs returned per cluster pass. Caps the per-pass
+    /// dispatch cost so a big-show cluster doesn't iterate thousands of jobs
+    /// in a single round. Strict `ORDER BY priority DESC` means low-priority
+    /// jobs are deferred to subsequent passes when the high-priority backlog
+    /// drains.
+    pub max_jobs_per_cluster_pass: i64,
     pub manual_tags_chunk_size: usize,
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attempts_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
-    #[serde(with = "humantime_serde")]
-    pub subscription_recalculation_interval: Duration,
-    #[serde(with = "humantime_serde")]
-    pub resource_recalculation_interval: Duration,
     pub selfish_services: Vec<String>,
     pub host_booking_strategy: HostBookingStrategy,
     pub frame_memory_soft_limit: f64,
@@ -103,14 +189,17 @@ impl Default for QueueConfig {
             core_multiplier: 100,
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
+            cluster_empty_sleep: Duration::from_secs(30),
+            cluster_reload_interval: Duration::from_secs(120),
+            active_scan_interval: Duration::from_secs(2),
+            cluster_saturated_sleep: Duration::from_secs(5),
             stream: StreamConfig::default(),
-            manual_tags_chunk_size: 100,
-            hostname_tags_chunk_size: 300,
+            max_jobs_per_cluster_pass: 20,
+            manual_tags_chunk_size: 50,
+            hostname_tags_chunk_size: 50,
             host_candidate_attempts_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
-            subscription_recalculation_interval: Duration::from_secs(3),
-            resource_recalculation_interval: Duration::from_secs(10),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy::default(),
             frame_memory_soft_limit: 1.6,
@@ -136,18 +225,95 @@ impl Default for StreamConfig {
     }
 }
 
+/// Strategy for selecting a host when multiple candidates satisfy a layer's
+/// floor requirements.
+///
+/// `Saturation` is the legacy first-fit strategy: scan the B-tree in a
+/// configurable direction (`core_saturation` / `memory_saturation`) and take
+/// the first valid host. `Epvm` scores up to `max_candidates` hosts via
+/// E-PVM stranding and picks the lowest score. Saturation is the default;
+/// Epvm is opt-in.
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(default)]
-pub struct HostBookingStrategy {
-    pub core_saturation: bool,
-    pub memory_saturation: bool,
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HostBookingStrategy {
+    Saturation {
+        core_saturation: bool,
+        memory_saturation: bool,
+    },
+    Epvm {
+        weights: ScoreWeights,
+        max_candidates: usize,
+    },
 }
 
 impl Default for HostBookingStrategy {
     fn default() -> Self {
-        Self {
+        Self::Saturation {
             core_saturation: true,
             memory_saturation: false,
+        }
+    }
+}
+
+/// Weights for the E-PVM placement score.
+///
+/// For each resource dimension (cores, memory, GPUs, GPU memory), E-PVM
+/// computes how much of that resource will be "stranded" on a host — left
+/// idle because some other dimension ran out first. The weights here scale
+/// each dimension's stranding before they're summed into a single score.
+/// The cache picks the host with the lowest score.
+///
+/// # Units and range
+///
+/// All weights are dimensionless `f64`. Because stranding terms are themselves
+/// normalized (divided by the layer's per-dim minimum), a weight of `1.0`
+/// means "1 stranded layer-frame on this dimension contributes 1 score unit".
+///
+/// Practical range: **`0.0` to ~`10.0`**.
+/// * `0.0` — disables this dimension's contribution to the score.
+/// * `1.0` — baseline; this dimension counts at par with other unit-weighted dims.
+/// * `>1.0` — emphasizes the dimension (e.g. set `gpus: 4.0` to make GPU
+///   stranding hurt 4× as much as core stranding).
+/// * Values much higher than ~10.0 risk single-dimension dominance —
+///   placements become driven by one resource, ignoring everything else.
+/// * Negative values are not meaningful (would reward stranding); the gate
+///   does not enforce non-negativity, but operators should keep weights `>= 0`.
+///
+/// See `rust/config/scheduler.yaml` for annotated example configurations
+/// (baseline, GPU-scarce, memory-tight, cores-only) and the
+/// `gpu_count_reservation` / `gpu_mem_reservation` semantics.
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(default)]
+pub struct ScoreWeights {
+    /// Penalty per fractional stranded core-layer-frame. Default `1.0`.
+    pub cores: f64,
+    /// Penalty per fractional stranded mem-layer-frame. Default `1.0`.
+    pub mem: f64,
+    /// Penalty per fractional stranded GPU-layer-frame (GPU layers only).
+    /// Default `2.0` — GPU jobs are rarer, so wasting GPU capacity hurts more.
+    pub gpus: f64,
+    /// Penalty per fractional stranded GPU-memory-layer-frame (GPU layers only).
+    /// Default `1.0`.
+    pub gpu_mem: f64,
+    /// Soft-reservation penalty per idle GPU on the host for non-GPU layers.
+    /// Default `2.0`. With 8 idle GPUs, contributes `8 * gpu_count_reservation`
+    /// to the score.
+    pub gpu_count_reservation: f64,
+    /// Soft-reservation penalty per idle GB of GPU memory on the host for
+    /// non-GPU layers. Default `2.0`. With 80 GB idle, contributes
+    /// `80 * gpu_mem_reservation` to the score.
+    pub gpu_mem_reservation: f64,
+}
+
+impl Default for ScoreWeights {
+    fn default() -> Self {
+        Self {
+            cores: 1.0,
+            mem: 1.0,
+            gpus: 2.0,
+            gpu_mem: 1.0,
+            gpu_count_reservation: 2.0,
+            gpu_mem_reservation: 2.0,
         }
     }
 }
@@ -244,37 +410,7 @@ impl Default for HostCacheConfig {
 #[serde(default)]
 pub struct SchedulerConfig {
     pub facility: Option<String>,
-    pub entire_shows: Vec<String>,
-    pub alloc_tags: Vec<AllocTag>,
-    pub manual_tags: Vec<ManualTags>,
     pub ignore_tags: Vec<String>,
-}
-
-impl SchedulerConfig {
-    pub fn show_names(&self) -> Option<Vec<String>> {
-        let mut show_names: HashSet<String> =
-            HashSet::from_iter(self.entire_shows.iter().cloned());
-        for tag in &self.alloc_tags {
-            show_names.insert(tag.show.clone());
-        }
-        if show_names.is_empty() {
-            None
-        } else {
-            Some(show_names.into_iter().collect())
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct AllocTag {
-    pub show: String,
-    pub tag: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ManualTags {
-    pub show: String,
-    pub tags: Vec<String>,
 }
 
 //===Config Loader===
@@ -383,5 +519,75 @@ impl Config {
                     err
                 ))
             })
+    }
+}
+
+#[cfg(test)]
+mod host_booking_strategy_tests {
+    //! `deny_unknown_fields` is format-agnostic; testing with JSON is
+    //! sufficient to verify the serde behavior we care about (operators
+    //! configure via YAML in production, but the loader uses the same
+    //! `serde::Deserialize` impl).
+    use super::*;
+
+    #[test]
+    fn saturation_accepts_valid_fields() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false}"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Saturation {
+                core_saturation: true,
+                memory_saturation: false
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_accepts_valid_fields() {
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let parsed: HostBookingStrategy = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            parsed,
+            HostBookingStrategy::Epvm {
+                max_candidates: 500,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn epvm_rejects_saturation_field() {
+        // `core_saturation` belongs to the Saturation variant; under `type: epvm`
+        // it must be rejected, not silently ignored.
+        let json = r#"{
+            "type":"epvm",
+            "max_candidates":500,
+            "core_saturation":false,
+            "weights":{"cores":1.0,"mem":1.0,"gpus":2.0,"gpu_mem":1.0,"gpu_count_reservation":2.0,"gpu_mem_reservation":2.0}
+        }"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("core_saturation"),
+            "expected unknown-field error mentioning core_saturation, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn saturation_rejects_epvm_field() {
+        let json = r#"{"type":"saturation","core_saturation":true,"memory_saturation":false,"max_candidates":500}"#;
+        let err = serde_json::from_str::<HostBookingStrategy>(json).unwrap_err();
+        let msg = format!("{}", err);
+        assert!(
+            msg.contains("unknown field") && msg.contains("max_candidates"),
+            "expected unknown-field error mentioning max_candidates, got: {}",
+            msg
+        );
     }
 }
