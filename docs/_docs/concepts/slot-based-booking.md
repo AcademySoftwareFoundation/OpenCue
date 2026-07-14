@@ -89,7 +89,7 @@ non-threadable.
 ## How it accounts
 
 `proc.int_slots_reserved` is the single source of truth for slot usage. Per-host slot
-counts and per subscription/folder/job counts both derive from `SUM(proc.int_slots_reserved)`,
+counts and per-subscription/folder/job counts both derive from `SUM(proc.int_slots_reserved)`,
 so RQD does not need to report slots. The scheduler's periodic recompute reconciles the
 slot counters from that sum, the same way it reconciles cores/GPUs — a dropped release
 leaves a counter reading high (under-book), healed by the next recompute.
