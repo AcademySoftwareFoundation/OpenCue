@@ -31,9 +31,10 @@ sits on the booking hot path. A booking is a lock-guarded, in-process atomic
 check-and-increment.
 
 Keeping the counter in-process makes a whole class of accounting-drift bugs
-*structurally impossible*: there is exactly one writer and one reader of the
-booked state, and the check and the increment happen under the same lock, so the
-enforced state can never race against the writer that produced it.
+*structurally impossible*: the booked state is owned by a single scheduler
+process and every mutation is serialized through the same mutex, so the check
+and the increment happen atomically under one lock and the enforced state can
+never race against the writer that produced it.
 
 Source:
 - `rust/crates/scheduler/src/accounting/` (the store, listener, and backstop loops)
