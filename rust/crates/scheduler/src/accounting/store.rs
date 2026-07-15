@@ -25,22 +25,29 @@
 //!
 //! ## Pending carry-forward (the hard-cap invariant)
 //!
-//! The recompute reconciles booked counters by absolute-overwrite from a `SUM(proc)`
-//! snapshot, which is read OUTSIDE the lock and is therefore stale: it can miss a proc
-//! that committed after the read. To stop the overwrite from erasing such a booking (the
-//! only way to under-count → over-book a hard cap), each booking is carried as "pending"
-//! until a recompute whose snapshot provably includes its `proc` row has run:
+//! The recompute overwrites each booked counter with a `SUM(proc)` snapshot. That snapshot
+//! is read OUTSIDE the lock, so it is stale by the time the overwrite lands: a proc that
+//! commits just after the read is missing from it. Blindly copying it would erase that
+//! booking and under-count the cap — the one error that lets a hard cap over-book. So the
+//! overwrite copies the snapshot, then adds back any booking the snapshot may have missed.
 //!
-//! - `book` adds the delta to the live counter and to the **in-flight** bucket (proc not
-//!   yet committed → in no snapshot yet → always carried).
-//! - `confirm` (proc committed + RQD launched) moves the delta from in-flight to a
-//!   **settled** bucket, double-buffered by recompute-epoch parity.
-//! - `rollback` (dispatch failed) removes the delta from the live counter and in-flight.
-//! - The recompute bumps the epoch under the lock *before* its snapshot read, then on
-//!   overwrite sets `counter = snapshot + in-flight + settled[both buckets]` and clears
-//!   only the settled bucket from *before* this epoch — confirms that raced the snapshot
-//!   read land in the other bucket and survive. Double-counting a booking that is in both
-//!   the snapshot and a settled bucket is harmless (over-count → under-book → safe).
+//! A booking stays "pending" until a snapshot provably contains its `proc` row. Its delta:
+//!
+//! - `book`     → live counter + **in-flight** (proc not committed yet).
+//! - `confirm`  → in-flight → **settled** (proc committed + RQD launched).
+//! - `rollback` → removed from live + in-flight (dispatch failed).
+//!
+//! In-flight bookings are never in a snapshot, so they are always added back. Settled ones
+//! are subtler: some are already in the snapshot (adding them back would double-count), some
+//! raced the read and are missing (must be added back). The epoch tells them apart.
+//! `begin_recompute` bumps it under the lock *before* the snapshot read; picture the bump as
+//! opening a fresh bucket for the pass. Confirms after it — including ones racing the read —
+//! land in the new bucket and are added back; confirms before it are already in the snapshot
+//! and get cleared.
+//!
+//! Two buckets alternating by `epoch % 2` cover the only two generations ever live at once. A
+//! booking that raced the read but did make the snapshot is added back anyway — a brief
+//! over-count (→ under-book, safe) the next pass clears. See `overwrite_counters` for details.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -66,11 +73,10 @@ struct Counter {
     /// Booked, proc INSERT not yet confirmed committed. In no snapshot → always carried.
     inflight_cores: i64,
     inflight_gpus: i64,
-    /// Bookings that have been confirmed but whose `proc` row may not yet appear in a
-    /// recompute snapshot. Uses two alternating buckets indexed by `e % 2`: confirms
-    /// during epoch `e` write to bucket `e % 2`, so the recompute can identify and
-    /// preserve confirms that raced its snapshot read without clearing ones already
-    /// captured by it.
+    /// Confirmed bookings not yet provably in a recompute snapshot. Two buckets indexed by
+    /// `epoch % 2`; `confirm` writes the live epoch's bucket, so the overwrite can carry the
+    /// confirms that raced its snapshot read (`keep` bucket) while dropping the ones it
+    /// already counted (`clear` bucket). See the module docs.
     settled_cores: [i64; 2],
     settled_gpus: [i64; 2],
 }
@@ -129,8 +135,9 @@ struct Inner {
     sub_burst: HashMap<(Uuid, Uuid), i64>,
     folder_caps: HashMap<Uuid, MaxCap>,
     job_caps: HashMap<Uuid, MaxCap>,
-    /// Monotonic recompute epoch. Bumped under the lock at the start of each recompute so
-    /// `confirm` tags the correct settled bucket relative to the in-flight snapshot read.
+    /// Monotonic recompute epoch, bumped under the lock at the start of each pass *before*
+    /// the snapshot read. Its parity picks the settled bucket, so `confirm` and the overwrite
+    /// agree on which confirms the snapshot already saw. See the module docs.
     epoch: u64,
 }
 
@@ -424,14 +431,16 @@ impl Store {
         }
     }
 
-    /// One-shot absolute seed of a show's booked counters when it is flipped to
-    /// scheduler-managed, BEFORE it enters the managed-shows cache. At this point the show
-    /// has no scheduler bookings (the hot path no-ops for unpublished shows), so there is no
-    /// in-flight/settled pending and no concurrent booking on its keys. Unlike the recompute
-    /// overwrite this does NOT bump the epoch or touch the settled buckets, so it never
-    /// interferes with the single recompute driver's begin/overwrite sequencing. Setting the
-    /// live counter directly is what closes the managed-flip over-book window: the first
-    /// booking after publish enforces against real usage, not against 0 (= full burst free).
+    /// Overwrites a show's live booked counters (`cores`/`gpus`) with an absolute
+    /// snapshot from PG. Called once when a show flips to scheduler-managed, before it is
+    /// published into the managed-shows cache; see `ManagedShowsCache::seed_newly_managed`
+    /// for why the seed happens here.
+    ///
+    /// This needs no coordination with concurrent bookings: an unpublished show is
+    /// invisible to the booking hot path, so nothing else reads or mutates its counters
+    /// while this runs. It also stays clear of the recompute driver: unlike a recompute
+    /// overwrite it does not bump the epoch or clear the settled buckets, only the live
+    /// counters, so it cannot interfere with that driver's begin/overwrite sequencing.
     pub fn seed_show_booked(&self, snapshot: &CounterSnapshot) {
         let mut inner = self.lock();
         for (&k, &(cores, gpus)) in &snapshot.sub {
