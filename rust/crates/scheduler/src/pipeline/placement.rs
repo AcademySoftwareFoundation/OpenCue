@@ -98,8 +98,7 @@ pub fn fits_floor(host: &Host, profile: &LayerProfile) -> bool {
 /// A bound is *omitted* from the minimum (rather than contributing 0) when:
 ///   - a physical `<dim>_min` is 0 — the layer makes no demand on that dim,
 ///     so the dim cannot constrain anything; or
-///   - a cap is `<= 0` — OpenCue's "unlimited" sentinel (mirrors the Lua
-///     `> 0` cap guard); or
+///   - a cap is `<= 0` — OpenCue's "unlimited" sentinel; or
 ///   - the layer has no core demand (`cores_min == 0`), in which case the
 ///     core-denominated caps have no unit to divide by.
 ///

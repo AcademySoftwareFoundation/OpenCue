@@ -87,7 +87,7 @@ mod stress_suite {
     };
     use crate::util::{get_waiting_frames_count, test_connection_pool, WaitingFrameClause};
 
-    /// Every table label the booking Lua can reject on.
+    /// Every table label the booking check can reject on.
     const LIMIT_TABLES: [&str; 5] = ["subscription", "folder", "job", "folder_gpus", "job_gpus"];
 
     fn env_usize(name: &str, default: usize) -> usize {
@@ -343,7 +343,7 @@ mod stress_suite {
         };
 
         // Phase 2: demand >> caps. Three tight subscription bursts plus a per-job
-        // max-cores cap make the Redis Lua the binding constraint; most dispatch
+        // max-cores cap make the accounting store the binding constraint; most dispatch
         // attempts must be rejected by it without ever breaching a cap.
         let sat_spec = FarmSpec {
             prefix: format!("stress_s_{run_id}"),

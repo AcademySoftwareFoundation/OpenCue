@@ -89,7 +89,7 @@ lazy_static! {
     // `job_max_cores` cap would otherwise be re-checked-out and re-rejected up to
     // `host_candidate_attempts_per_layer` times every pass; the pre-check returns
     // early instead. Kept distinct from `ACCOUNTING_LIMIT_EXCEEDED_TOTAL{table="job"}`
-    // (Lua-rejection pressure) so this reads cleanly as "wasted attempts avoided".
+    // (booking-rejection pressure) so this reads cleanly as "wasted attempts avoided".
     pub static ref JOB_CAP_PRECHECK_SKIP_TOTAL: Counter = register_counter!(
         "scheduler_job_cap_precheck_skip_total",
         "Layers skipped pre-checkout because the job is already at its core cap"

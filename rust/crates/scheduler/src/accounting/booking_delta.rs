@@ -13,8 +13,8 @@
 use uuid::Uuid;
 
 /// A single booking-or-release applied to the in-memory accounting store. Carries only the
-/// three enforced vertices (subscription/folder/job); the legacy Lua incremented layer and
-/// point too but never read them, so they are not tracked.
+/// three enforced vertices (subscription/folder/job); layer and point are intentionally not
+/// tracked because nothing reads or enforces them.
 ///
 /// `core_delta`/`gpu_delta` are signed: positive on a booking, negative on a release.
 /// Rollback and release are expressed as the store subtracting/adding these directly, so

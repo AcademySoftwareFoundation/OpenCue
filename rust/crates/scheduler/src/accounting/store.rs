@@ -11,13 +11,11 @@
 // the License.
 
 //! In-process accounting store. Single source of truth for the scheduler's booking
-//! decisions, replacing the Redis-backed counters. See
-//! `docs/_docs/developer-guide/scheduler-accounting.md` for the full design.
+//! decisions. See `docs/_docs/developer-guide/scheduler-accounting.md` for the full design.
 //!
 //! Only the three enforced vertices are tracked: subscription (`burst`), folder
-//! (`int_max_cores`/`int_max_gpus`) and job (`int_max_cores`/`int_max_gpus`). The
-//! booking enforcement this replaces incremented layer and point counters too, but
-//! never read them, so they are not kept here.
+//! (`int_max_cores`/`int_max_gpus`) and job (`int_max_cores`/`int_max_gpus`). Layer and
+//! point counters are not kept here because the booking check never reads them.
 //!
 //! Concurrency: one `Mutex` guards the whole state. Every critical section is pure
 //! in-memory arithmetic (no I/O, no `.await`), so contention is negligible at this

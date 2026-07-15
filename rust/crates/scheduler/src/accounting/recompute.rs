@@ -144,7 +144,7 @@ pub async fn reseed_store_once(service: &AccountingService) -> Result<()> {
 /// several rows fold into the same sub/folder/job key - aggregate before converting.
 ///
 /// Layer and point are intentionally absent: the booking check never reads them, so they
-/// are not tracked in the store (the legacy Lua incremented them but never enforced them).
+/// are not tracked in the store.
 pub(crate) fn snapshot_to_counters(
     rows: &[BookedSnapshotRow],
     baseline: &BaselineKeys,

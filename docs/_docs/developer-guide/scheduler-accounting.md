@@ -30,14 +30,10 @@ Cuebot keeps the PG accounting tables fresh for CueGUI, but no external store
 sits on the booking hot path. A booking is a lock-guarded, in-process atomic
 check-and-increment.
 
-This replaces an earlier Redis-backed design. Redis was introduced to let the
-counters be shared across N scheduler instances, but the scheduler is and will
-remain **single-instance (N=1)**. At N=1, Redis's only unique benefit (splitting
-one show across instances) is unreachable, while it manufactured an entire class
-of accounting-drift bugs (limit-seeding fail-closed, mass dispatch rejection,
-double-booking, CAS starvation). A single in-process counter makes that bug
-class *structurally impossible*: there is exactly one writer and one reader of
-the booked state, and the check and the increment happen under the same lock.
+Keeping the counter in-process makes a whole class of accounting-drift bugs
+*structurally impossible*: there is exactly one writer and one reader of the
+booked state, and the check and the increment happen under the same lock, so the
+enforced state can never race against the writer that produced it.
 
 Source:
 - `rust/crates/scheduler/src/accounting/` (the store, listener, and backstop loops)
@@ -72,22 +68,16 @@ Three properties hold:
   to enforce caps, exactly as before — they are the live enforced state for those
   shows, not display-only.
 
-### Why in-memory, not Redis or PG-on-the-hot-path
+### Why in-memory, not PG-on-the-hot-path
 
-- **PG-on-the-hot-path** is what the scheduler was built to escape: the
-  scheduler's booking rate hammered the same accounting rows Cuebot's
-  `HostReportHandler` writes, and lock waits on `subscription`,
-  `folder_resource`, and `job_resource` limited throughput.
-- **Redis** decoupled the hot path from PG locks and could in principle be
-  shared across schedulers, but at N=1 it bought nothing the in-process store
-  does not, and every reseed had to defend against a read/write race with live
-  hot-path writes (the `acct:seq` compare-and-swap). That race only exists
-  because the counter lives in a separate process from the writer. Move the
-  counter in-process and the race — and the CAS, and the retry loop, and the
-  starvation failure mode — all disappear.
+**PG-on-the-hot-path** is what the scheduler was built to escape: the
+scheduler's booking rate hammered the same accounting rows Cuebot's
+`HostReportHandler` writes, and lock waits on `subscription`,
+`folder_resource`, and `job_resource` limited throughput.
 
-The in-process store keeps the hot path off PG locks (the win Redis gave) while
-removing the cross-process coordination Redis required (the cost Redis added).
+The in-process store keeps the hot path off PG locks while avoiding any
+cross-process coordination: the check and the increment happen in one place,
+under one lock, in the same process that owns the show's bookings.
 
 ---
 
@@ -144,10 +134,9 @@ The brief stale window after a toggle is safe in both directions — see
 The five accounting tables in PG are subscription, folder, job, layer, and
 department point. The scheduler tracks and enforces only **three**: subscription
 (burst), folder (`int_max_cores`/`int_max_gpus`), and job
-(`int_max_cores`/`int_max_gpus`). The booking Lua this replaces incremented
-layer and point counters too, but the booking check never *read* them, so they
-are not kept in the store. (Layer/point limits are still visible to CueGUI via
-PG, unchanged.)
+(`int_max_cores`/`int_max_gpus`). Layer and point counters are not kept in the
+store because the booking check never *reads* them. (Layer/point limits are
+still visible to CueGUI via PG, unchanged.)
 
 ### One lock, pure in-memory critical sections
 
@@ -197,8 +186,7 @@ After `book` returns `Applied`, the dispatcher carries the delta through to the
   frame. It drops the `pending` portion of the delta but keeps the booked
   increment.
 - **`rollback`** runs if the `proc` INSERT or RQD launch fails. It undoes both
-  the booked increment and the `pending` delta (the in-process equivalent of the
-  old force-rollback Lua).
+  the booked increment and the `pending` delta.
 
 Exactly one of `confirm`/`rollback` runs per successful `book`. Both ignore
 current managed status: if `apply_booking` applied a delta, it must be settled
@@ -219,10 +207,8 @@ recompute passes. Each notification is emitted with `SELECT pg_notify(channel,
 payload)` **in the same transaction** as the PG write it describes.
 
 `pg_notify` is transactional: the notification is delivered if and only if the
-enclosing transaction commits, and is discarded on rollback. This is strictly
-better than the old Redis `afterCommit` publish, which ran *after* the commit
-and so had a partial-failure window (commit succeeds, publish fails). Here there
-is no such window — the DELETE and its release signal are atomic.
+enclosing transaction commits, and is discarded on rollback. There is no
+partial-failure window — the DELETE and its release signal are atomic.
 
 The scheduler listens on both channels with a dedicated `PgListener`
 (`accounting/listener.rs`), separate from the query pool. On any connection
@@ -441,9 +427,9 @@ So flag-off degrades mostly to backstop-only operation, but it is not
 unconditionally safe: booking headroom is bounded by the limit-reseed interval,
 not by live cap changes.
 
-There is **no startup deployment guardrail** that refuses to run (the old Redis
-design had one because a disabled Redis publisher *over*-counted the booked
-state). Instead, when scheduler-managed shows exist and the flag is off, Cuebot
+There is **no startup deployment guardrail** that refuses to run: disabling the
+notifier makes the scheduler *under*-count rather than over-count, so it fails
+safe. Instead, when scheduler-managed shows exist and the flag is off, Cuebot
 logs a WARN and exposes a `cuebot_accounting_notify_disabled` metric for ops
 visibility — utilization will sag from under-booking, and any cap *decrease*
 applied while the flag is off will not be enforced until the next limit reseed.
@@ -480,10 +466,9 @@ can be a single in-process critical section, and the recompute can overwrite
 absolutely without coordinating with any peer. This is the assumption that makes
 the whole design correct *and* makes the drift bug class go away.
 
-This is a deliberate trade. The Redis design existed to allow N>1 schedulers to
-share counters, but at this scale N=1 is expected for the foreseeable future and
-the only thing N>1 would buy (splitting one show across instances) is not
-needed.
+This is a deliberate trade. At this scale N=1 is expected for the foreseeable
+future, and the only thing N>1 would buy (splitting one show across instances)
+is not needed.
 
 **Revisit trigger:** before ever running more than one scheduler instance that
 could book the same show. At that point the in-memory store is no longer a

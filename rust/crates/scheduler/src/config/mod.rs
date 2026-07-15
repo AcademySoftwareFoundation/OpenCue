@@ -52,7 +52,7 @@ pub struct AccountingConfig {
     /// Cadence at which booked counters are reconciled from `SUM(proc)` into the in-memory
     /// store (and the PG accounting tables for CueGUI). This is the primary utilization
     /// backstop for releases now that the live `acct_release` NOTIFY feeds the store
-    /// between ticks, so it runs tighter than the legacy Redis cadence.
+    /// between ticks.
     #[serde(with = "humantime_serde")]
     pub recompute_interval: Duration,
     /// Cadence at which enforced caps (subscription burst, folder/job max cores+gpus) are

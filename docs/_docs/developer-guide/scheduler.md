@@ -611,12 +611,9 @@ Historically these counters lived only in PostgreSQL and were updated transactio
 by Cuebot on every booking and release. As the Rust scheduler took over dispatch, the
 hot path was hammering the same accounting rows Cuebot's `HostReportHandler` writes to,
 and lock waits on `subscription`, `folder_resource`, and `job_resource` started
-limiting throughput. A short-lived Redis-backed design moved the hot path off PG locks,
-but at a single scheduler instance (N=1) it added cross-process coordination (an
-`acct:seq` compare-and-swap on every reseed) without the multi-instance benefit it was
-built for, and that coordination spawned a class of accounting-drift bugs.
+limiting throughput.
 
-The current design replaces both with an **in-memory `Store`** that is the single source
+The current design moves the hot path off PG locks with an **in-memory `Store`** that is the single source
 of truth for booked counters: there is exactly one writer and reader, and the booking
 check-and-increment is atomic under one lock. PostgreSQL remains the durable record (the
 `proc` rows), and Cuebot feeds live releases and cap changes via `LISTEN/NOTIFY`.
@@ -919,7 +916,7 @@ accounting:
 - **`managed_shows_ttl`** (default 30s): how often the cache of `b_scheduler_managed`
   shows is refreshed.
 
-The accounting store needs only PostgreSQL no Redis or other external store. The
+The accounting store needs only PostgreSQL; no other external store is required. The
 matching Cuebot side emits the live feed when `accounting.notify.enabled=true` (default),
 riding the existing PG connection.
 

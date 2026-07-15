@@ -2,22 +2,23 @@ name: OpenCue Scheduler Stress Pipeline
 
 # Runs the scheduler booking + accounting stress suite
 # (rust/crates/scheduler/tests/stress_tests.rs): a full pipeline::run against a
-# seeded farm, with an end-of-run audit that cross-checks the Redis acct:*
-# hashes against SUM(proc) in Postgres and asserts cap enforcement.
+# seeded farm, with an end-of-run audit that cross-checks the in-memory
+# accounting store against SUM(proc) in Postgres and asserts cap enforcement.
 #
 # When it runs — and when it deliberately doesn't:
 #   - Pull requests: only when the scheduler crate, its proto dependency, the
 #     DB migrations, or this workflow change. The suite needs a migrated
-#     Postgres plus a Redis container and takes several minutes — running it
-#     for Python/CueGUI/docs changes would burn runner time for zero signal.
+#     Postgres and takes several minutes — running it for Python/CueGUI/docs
+#     changes would burn runner time for zero signal.
 #   - Nightly on master: catches drift from changes that slipped past the
 #     paths filter (e.g. shared workspace dependencies) and gives a daily
 #     throughput data point under fixed scale.
 #   - Manually (workflow_dispatch): for benchmarking a branch at custom scale.
 #
 # What is a gate vs. what is informational:
-#   - The job FAILS on correctness regressions: accounting drift between Redis
-#     and Postgres, cap breaches (subscription burst / job max-cores), booking
+#   - The job FAILS on correctness regressions: accounting drift between the
+#     in-memory store and Postgres, cap breaches (subscription burst / job
+#     max-cores), booking
 #     liveness (<90% drain, no saturation rejections), or leftover test data.
 #   - The throughput numbers (frames/s) are reported in the step summary but
 #     are NOT asserted on: shared runners are too noisy for perf gating. For
@@ -66,9 +67,8 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
 
-    # The suite's Postgres half. Redis is NOT listed here on purpose: the test
-    # starts its own throwaway Redis via testcontainers, so all accounting
-    # state is guaranteed to die with the test process.
+    # The suite's Postgres service. Accounting state lives in-process inside the
+    # test itself, so nothing else needs to be provisioned here.
     services:
       postgres:
         image: postgres:15.1

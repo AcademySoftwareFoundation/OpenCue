@@ -32,8 +32,8 @@ import com.imageworks.spcue.dao.ShowDao;
  * Publishes per-release and admin cap-change accounting deltas to the standalone Rust scheduler via
  * Postgres {@code LISTEN/NOTIFY}. Every notification is emitted with {@code pg_notify(channel,
  * payload)} <em>inside</em> the same transaction as the DB write it describes, so the payload is
- * delivered if and only if that transaction commits (this replaces the old afterCommit Redis
- * publish with a transactional, stronger failure model).
+ * delivered if and only if that transaction commits, so a notification can never describe a
+ * write that rolled back.
  *
  * <p>
  * See the Scheduler Accounting Reference at

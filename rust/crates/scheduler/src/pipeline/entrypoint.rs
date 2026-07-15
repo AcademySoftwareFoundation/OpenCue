@@ -47,7 +47,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let accounting = accounting_service().await?;
     bootstrap::run_blocking_reseed(&accounting).await?;
     // Backstops: recompute reconciles booked counters from proc; limit reseed refreshes
-    // caps. The live NOTIFY listener feeds releases + cap changes between ticks. N=1 only.
+    // caps. The live NOTIFY listener feeds releases + cap changes between ticks.
     recompute::spawn_loop(accounting.clone());
     limit_reseed::spawn_loop(accounting.clone());
     listener::spawn_loop(accounting.store().clone());

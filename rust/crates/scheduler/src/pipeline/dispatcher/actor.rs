@@ -266,7 +266,7 @@ impl RqdDispatcherService {
             let frame_str = format!("{}", frame);
 
             // Compute the job's remaining core budget. `job_max_cores <= 0`
-            // means unlimited (matches the Lua's `job_max > 0` guard).
+            // means unlimited (OpenCue's "unlimited" cap sentinel).
             let job_cores_remaining = if layer.job_max_cores > 0 {
                 let remaining = layer.job_max_cores - (job_cores_in_use + job_cores_booked);
                 // Normalize the frame's request into the canonical positive core

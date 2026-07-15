@@ -4,15 +4,15 @@
 --   true            -> Rust scheduler is authoritative; Cuebot must not
 --                      mutate the show's accounting rows.
 --
--- The flag is wired through ShowDao/ShowInterface in PR-A but has no live
--- consumer until PR-B (Cuebot Redis publisher + show-aware unbookProc) and
--- PR-C (Rust scheduler accounting module). In PR-A all rows stay false in
+-- The flag is wired through ShowDao/ShowInterface first, but has no live
+-- consumer until the Cuebot accounting notifier (show-aware unbookProc) and
+-- the Rust scheduler accounting module land. Until then all rows stay false in
 -- practice, so behavior is unchanged.
 --
 -- recalculate_subs() is rewritten here (CREATE OR REPLACE) so that the
 -- 2-hour maintenance task skips scheduler-managed shows, per the
 -- "recalculate_subs() show-awareness" section of
--- docs/_docs/developer-guide/redis-accounting.md. The body is otherwise identical to
+-- docs/_docs/developer-guide/scheduler-accounting.md. The body is otherwise identical to
 -- V20__recalculate_subs_gpu.sql with two narrow changes:
 --   1) the initial UPDATE-to-zero of subscription is restricted to shows
 --      with b_scheduler_managed = false, so Rust-owned rows are never

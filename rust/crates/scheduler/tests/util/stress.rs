@@ -14,7 +14,7 @@
 //! (`tests/stress_tests.rs`):
 //!
 //! - [`create_stress_config`]: scheduler config tuned so a test run terminates on
-//!   its own and the Redis hot path is the accounting system under test
+//!   its own and the in-memory accounting store is the system under test
 //!   (reconciliation loops pushed out beyond the test horizon).
 //! - [`seed_farm`]: deterministic bulk seeding of a complete farm (facility →
 //!   show/allocs/subscriptions → hosts/tags → jobs/layers/frames) using multi-row
@@ -23,7 +23,7 @@
 //!   drains, so `pipeline::run` would loop forever; the watchdog pauses the phase's
 //!   jobs once bookings stop growing, which lets the feed quit gracefully via
 //!   `empty_job_cycles_before_quiting`.
-//! - [`audit_accounting`]: cross-checks every Redis `acct:*` hash touched by the
+//! - [`audit_accounting`]: cross-checks the in-memory store's booked counters for the
 //!   show against `SUM(proc)` in Postgres (the canonical record), plus host/frame/
 //!   stat invariants and cap enforcement (subscription burst, job max-cores).
 //! - [`clean_up_stress_data`] / [`residue_counts`]: removes everything matching the
@@ -165,7 +165,7 @@ pub struct FarmSpec {
     /// Per-(show, alloc) subscription size, whole cores.
     pub sub_size_cores: i64,
     /// Per-(show, alloc) subscription burst, whole cores. This is the cap the
-    /// Redis Lua enforces on the hot path.
+    /// booking check enforces on the hot path.
     pub sub_burst_cores: i64,
     pub manual_tag_count: usize,
     pub job_count: usize,
