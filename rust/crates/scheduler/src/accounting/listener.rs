@@ -20,9 +20,12 @@
 //!   shows. Cores/gpus are signed deltas (negative for a release).
 //! - `acct_limit_change`: an enforced cap change from a cueadmin operation.
 //!
-//! Both are best-effort optimisations: a dropped notification (listener reconnecting)
-//! only leaves the store reading high → under-book → healed by the next recompute /
-//! limit reseed. Nothing here can over-book a hard cap.
+//! Both are best-effort optimisations, but their failure modes differ. A dropped
+//! `acct_release` (listener reconnecting) only leaves the store reading high →
+//! under-book → healed by the next recompute / limit reseed; nothing about a missed
+//! release can over-book a hard cap. A dropped `acct_limit_change` that *lowers* a cap
+//! is not self-healing in the same way: the store keeps enforcing the stale, higher cap
+//! and may temporarily over-book until the next limit reseed picks up the new value.
 
 use std::sync::Arc;
 use std::time::Duration;

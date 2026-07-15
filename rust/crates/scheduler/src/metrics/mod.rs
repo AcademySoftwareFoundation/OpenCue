@@ -65,16 +65,21 @@ lazy_static! {
     )
     .expect("Failed to register time_to_book_seconds histogram");
 
-    // Accounting metrics from accounting/mod.rs + dispatcher/actor.rs
+    // Accounting metrics from dispatcher/actor.rs + pipeline/matcher.rs
     //
-    // Labeled by the table whose cap was hit (subscription / folder / job). Tracks
-    // dispatch attempts that reached the accounting check only to be rejected by
-    // it. Used to decide whether the pre-CheckOut pre-check
-    // optimization described in `pipeline/matcher.rs::process_layer` is worth
-    // implementing.
+    // Labeled by the table whose cap was hit (subscription / folder / job).
+    // Incremented from BOTH sources:
+    //   1. Authoritative accounting-cap rejections in `apply_booking`
+    //      (dispatcher/actor.rs) — attempts that reached the accounting check
+    //      only to be rejected by it, labeled by the actual table.
+    //   2. Subscription pre-check skips in `pipeline/matcher.rs::process_layer`
+    //      — layers skipped before checkout when the burst snapshot says the
+    //      requested cores won't fit under the (show, alloc) subscription burst
+    //      (always labeled `subscription`).
     pub static ref ACCOUNTING_LIMIT_EXCEEDED_TOTAL: CounterVec = register_counter_vec!(
         "scheduler_accounting_limit_exceeded_total",
-        "Dispatch attempts rejected by the accounting cap check, labeled by table",
+        "Dispatch attempts rejected by the accounting cap check plus subscription \
+         pre-check skips, labeled by table",
         &["table"]
     )
     .expect("Failed to register accounting_limit_exceeded_total counter");
@@ -98,6 +103,20 @@ lazy_static! {
         vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
     )
     .expect("Failed to register job_query_duration_seconds histogram");
+
+    // Recompute-loop metrics from accounting/recompute.rs
+    //
+    // Wall-clock of one full recompute cycle (PG recompute of the accounting
+    // tables + store reseed from SUM(proc)). This is the validation signal for
+    // the `accounting.recompute_interval` cadence: the cycle must complete
+    // comfortably within that interval, so buckets extend past 15s to make an
+    // interval overrun visible in the tail rather than clip it.
+    pub static ref RECOMPUTE_CYCLE_DURATION_SECONDS: Histogram = register_histogram!(
+        "scheduler_recompute_cycle_duration_seconds",
+        "Duration of one full accounting recompute cycle (PG recompute + store reseed)",
+        vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0, 60.0]
+    )
+    .expect("Failed to register recompute_cycle_duration_seconds histogram");
 
     // Cluster feed metrics from cluster.rs
     //
@@ -321,6 +340,12 @@ pub fn increment_no_candidate_iterations() {
 #[inline]
 pub fn observe_candidates_per_layer(candidates: usize) {
     CANDIDATES_PER_LAYER.observe(candidates as f64);
+}
+
+/// Helper function to observe one recompute cycle's wall-clock duration.
+#[inline]
+pub fn observe_recompute_cycle_duration(seconds: f64) {
+    RECOMPUTE_CYCLE_DURATION_SECONDS.observe(seconds);
 }
 
 /// Helper function to increment frames dispatched counter

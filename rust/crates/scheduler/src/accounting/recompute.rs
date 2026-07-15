@@ -77,6 +77,7 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
                 limit_exceeded_delta
             );
 
+            let cycle_start = time::Instant::now();
             let result = AssertUnwindSafe(async {
                 if let Err(err) = run_once(&service, &pg_dao).await {
                     warn!("Recompute cycle failed: {err}");
@@ -84,6 +85,10 @@ pub fn spawn_loop(service: Arc<AccountingService>) {
             })
             .catch_unwind()
             .await;
+            // Cycle-duration signal for validating the recompute_interval cadence:
+            // the tail must stay comfortably below interval_dur. Recorded even on the
+            // error path above (the cycle still consumed wall-clock), but not on panic.
+            metrics::observe_recompute_cycle_duration(cycle_start.elapsed().as_secs_f64());
             if let Err(e) = result {
                 error!("Recompute iteration panicked: {:?}", e);
             }

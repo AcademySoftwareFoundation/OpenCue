@@ -65,10 +65,12 @@ Three properties hold:
 - **The in-memory `Store` is the live enforced state.** It is what the booking
   check reads and increments. It is seeded from PG at startup and kept fresh by
   the NOTIFY feed, reconciled to `SUM(proc)` by the recompute.
-- **The PG accounting tables are derived, for display only.** For
-  scheduler-managed shows they are refreshed by the recompute loop; for
-  Cuebot-managed shows Cuebot writes them transactionally as before. Nothing on
-  the scheduler's hot path reads them.
+- **The PG accounting tables are derived and display-only *for
+  scheduler-managed shows*.** For those shows they are refreshed by the recompute
+  loop and nothing on the scheduler's hot path reads them. For Cuebot-managed
+  shows they are the opposite: Cuebot both reads and writes them transactionally
+  to enforce caps, exactly as before — they are the live enforced state for those
+  shows, not display-only.
 
 ### Why in-memory, not Redis or PG-on-the-hot-path
 
@@ -377,21 +379,31 @@ refresh; removals (shows that left the managed set) still apply immediately.
 
 ## Failure modes and drift
 
-Every failure mode is **safe-direction**: a dropped or delayed signal can only
-leave a counter reading *high*, which under-books (too conservative) and
-self-heals. A hard cap can only be breached if a counter reads *low*, which only
-the recompute-erase hole (closed by the [pending carry-forward](#why-pending-carry-forward-is-required))
+A missed **release** signal is always **safe-direction**: it leaves a *booked
+counter* reading *high*, which under-books (too conservative) and self-heals. A
+booked counter can breach a hard cap only if it reads *low*, which only the
+recompute-erase hole (closed by the [pending carry-forward](#why-pending-carry-forward-is-required))
 or an unseeded counter (closed by the [blocking bootstrap and managed-flip
 seeds](#the-other-backstops-and-seeds)) could cause.
+
+A missed **cap-change** signal is a distinct case and is **not** unconditionally
+safe. It leaves a stale *limit*, not a stale booked counter. A missed cap
+*increase* is harmless (the store enforces the old, lower limit — too
+conservative). But a missed cap *decrease* leaves the store enforcing a **stale
+higher** limit, and the hot path will **admit over-cap bookings** against it
+until the [limit reseed](#limit-reseed-cap-change-backstop) re-reads the true cap
+(up to ~5 min) — or immediately, if the `acct_limit_change` NOTIFY is delivered.
+This is the one drift direction that can transiently exceed a cap, bounded by the
+reseed interval.
 
 | Failure | Effect | Recovery |
 |---|---|---|
 | `acct_release` NOTIFY missed (listener reconnecting) | Store missing a decrement → counter high → under-book | Next recompute (~15 s) overwrites from `SUM(proc)` |
-| `acct_limit_change` NOTIFY missed | Store cap stale | Next limit reseed (~5 min) re-reads from PG |
+| `acct_limit_change` NOTIFY missed | Store cap stale. A missed *decrease* leaves a stale-higher limit → admits over-cap bookings until reseed; a missed *increase* just under-books | Next limit reseed (~5 min) re-reads from PG |
 | Scheduler dies between `book` and `proc` INSERT | Booked increment lost on crash (store is in memory) | Bootstrap reseed from `SUM(proc)` on restart |
 | `proc` INSERT / RQD launch fails after `book` | `rollback` undoes the increment + pending | Immediate; recompute is a further backstop |
 | Recompute snapshot straddles a live booking | Snapshot misses the proc | Carry-forward keeps the booking; never under-counts |
-| Cuebot admin cap change | Store stale on that cap until NOTIFY/limit-reseed | `acct_limit_change` NOTIFY (instant) or limit reseed (~5 min) |
+| Cuebot admin cap change | Store stale on that cap until NOTIFY/limit-reseed; a *decrease* not yet applied admits over-cap bookings in the gap | `acct_limit_change` NOTIFY (instant) or limit reseed (~5 min) |
 | `b_scheduler_managed` toggle mid-flight | Brief window of stale managed-set | Stale-true heals via recompute; stale-false defers to Cuebot (safe); managed-flip seed gates enforcement |
 | Cuebot NOTIFY kill-switch off | No live releases/cap-changes → counters high → under-book | Recompute / limit reseed still heal; ops alerted by metric |
 
@@ -413,17 +425,28 @@ accounting.notify.enabled=true   # default; ${ACCOUNTING_NOTIFY_ENABLED}
 ```
 
 With the flag **off**, Cuebot still deletes procs and updates caps
-transactionally but emits no `pg_notify`. The scheduler's store then stops
-receiving live releases and cap changes, so its counters only ever grow (reads
-high) → it under-books → the recompute and limit-reseed loops heal it within
-their intervals. This is the **safe** direction, so flag-off degrades
-gracefully to backstop-only operation; it does not over-book.
+transactionally but emits no `pg_notify`. The two suppressed signals degrade
+differently:
 
-Because flag-off is safe, there is **no startup deployment guardrail** that
-refuses to run (the old Redis design had one because a disabled Redis publisher
-*over*-counted). Instead, when scheduler-managed shows exist and the flag is off,
-Cuebot logs a WARN and exposes a `cuebot_accounting_notify_disabled` metric for
-ops visibility — utilization will sag (under-booking), but correctness holds.
+- **Missed releases (booked counters):** the store's booked counters only ever
+  grow (read high) → it under-books → the recompute loop heals within its
+  interval. This is the **safe** direction.
+- **Missed cap changes (limits):** the store's caps go stale until the limit
+  reseed re-reads PG (~5 min). A cap *decrease* made while the flag is off leaves
+  the store enforcing a **stale higher** limit and will **admit over-cap
+  bookings** in that window. This is the one flag-off behavior that is *not*
+  under-booking.
+
+So flag-off degrades mostly to backstop-only operation, but it is not
+unconditionally safe: booking headroom is bounded by the limit-reseed interval,
+not by live cap changes.
+
+There is **no startup deployment guardrail** that refuses to run (the old Redis
+design had one because a disabled Redis publisher *over*-counted the booked
+state). Instead, when scheduler-managed shows exist and the flag is off, Cuebot
+logs a WARN and exposes a `cuebot_accounting_notify_disabled` metric for ops
+visibility — utilization will sag from under-booking, and any cap *decrease*
+applied while the flag is off will not be enforced until the next limit reseed.
 
 The per-show `b_scheduler_managed` toggle remains the live operational rollback:
 flip a show back to Cuebot-managed to take it off the scheduler entirely.
