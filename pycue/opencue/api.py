@@ -38,6 +38,7 @@ from .cuebot import Cuebot
 # pylint: disable=cyclic-import
 from .wrappers.allocation import Allocation
 from .wrappers.comment import Comment
+from .wrappers.department import Department
 from .wrappers.depend import Depend
 from .wrappers.filter import Action
 from .wrappers.filter import Filter
@@ -62,8 +63,8 @@ __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, 
                filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2,
                show_pb2, subscription_pb2, task_pb2]
 
-__wrappers = [Action, Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, Matcher,
-              NestedHost, Proc, Show, Subscription, Task]
+__wrappers = [Action, Allocation, Comment, Department, Depend, Filter, Frame, Group, Host, Job,
+              Layer, Matcher, NestedHost, Proc, Show, Subscription, Task]
 
 
 #
@@ -185,6 +186,28 @@ def getDepartmentNames():
     """
     return list(Cuebot.getStub('department').GetDepartmentNames(
         department_pb2.DeptGetDepartmentNamesRequest(), timeout=Cuebot.Timeout).names)
+
+
+@util.grpcExceptionParser
+def addDepartmentName(name):
+    """Adds a department name to the list of allowed department names.
+
+    :type  name: str
+    :param name: a department name to allow
+    """
+    Cuebot.getStub('department').AddDepartmentName(
+        department_pb2.DeptAddDeptNameRequest(name=name), timeout=Cuebot.Timeout)
+
+
+@util.grpcExceptionParser
+def removeDepartmentName(name):
+    """Removes a department name from the list of allowed department names.
+
+    :type  name: str
+    :param name: the department name to remove
+    """
+    Cuebot.getStub('department').RemoveDepartmentName(
+        department_pb2.DeptRemoveDepartmentNameRequest(name=name), timeout=Cuebot.Timeout)
 
 
 #
