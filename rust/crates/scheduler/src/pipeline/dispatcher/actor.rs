@@ -255,7 +255,7 @@ impl RqdDispatcherService {
         // caller-supplied `job_cores_in_use` so each frame's reservation is
         // clamped against the job's *remaining* cap, mirroring Cuebot's
         // VirtualProc.build. Without this, a single threadable frame reserves a
-        // whole fat host (e.g. 32 cores) and the Lua rejects it forever against
+        // whole fat host (e.g. 32 cores) and the accounting check rejects it forever against
         // a small job cap (e.g. 16), wedging the job at zero booked.
         let mut job_cores_booked: i32 = 0;
 
@@ -266,7 +266,7 @@ impl RqdDispatcherService {
             let frame_str = format!("{}", frame);
 
             // Compute the job's remaining core budget. `job_max_cores <= 0`
-            // means unlimited (matches the Lua's `job_max > 0` guard).
+            // means unlimited (OpenCue's "unlimited" cap sentinel).
             let job_cores_remaining = if layer.job_max_cores > 0 {
                 let remaining = layer.job_max_cores - (job_cores_in_use + job_cores_booked);
                 // Normalize the frame's request into the canonical positive core
@@ -275,7 +275,7 @@ impl RqdDispatcherService {
                 // all-but-N), so a raw `remaining < frame.min_cores.value()`
                 // comparison would slip past the check (e.g. `0 < 0` is false)
                 // when a capped job has `remaining == 0`, then build a host-sized
-                // reservation that the Lua rejects forever. Non-threadable frames
+                // reservation that the accounting check rejects forever. Non-threadable frames
                 // always reserve exactly one core regardless of the sentinel.
                 let frame_min_cores = if frame.threadable {
                     Self::calculate_cores_requested(frame.min_cores, last_host_version.total_cores)
@@ -285,7 +285,7 @@ impl RqdDispatcherService {
                 };
                 // If the job can't fit even one minimum-sized frame, it's at its
                 // cap: stop the layer here rather than reserving a sub-minimum
-                // proc or busy-looping on guaranteed Lua rejections.
+                // proc or busy-looping on guaranteed accounting rejections.
                 if remaining < frame_min_cores {
                     debug!(
                         "({dispatch_id}) Job {} at core cap (max={}, in_use={}, booked_here={}); \
@@ -439,34 +439,6 @@ impl RqdDispatcherService {
 
                             break;
                         }
-                        DispatchVirtualProcError::AccountingUnavailable(msg) => {
-                            // Transient: Redis is unreachable. Per design §4.3 the scheduler
-                            // stops dispatching until Redis recovers - break the per-host
-                            // loop and let the matcher's outer loop handle the next host
-                            // (which will also fail until Redis is back).
-                            warn!(
-                                "({dispatch_id}) Accounting unavailable for frame {}: {}",
-                                frame_str, msg
-                            );
-                            last_error = Some(DispatchError::Failure(miette!(
-                                "Accounting unavailable: {msg}"
-                            )));
-                            break;
-                        }
-                        DispatchVirtualProcError::AccountingUnexpected(msg) => {
-                            // Programmer/protocol error from the accounting layer - should
-                            // not happen in steady state. Logged at error level so ops can
-                            // alert on it separately from the transient unavailable case.
-                            // Break the per-host loop and surface as a dispatch failure.
-                            error!(
-                                "({dispatch_id}) Accounting internal error for frame {}: {}",
-                                frame_str, msg
-                            );
-                            last_error = Some(DispatchError::Failure(miette!(
-                                "Accounting internal error: {msg}"
-                            )));
-                            break;
-                        }
                     }
                 }
             }
@@ -539,24 +511,22 @@ impl RqdDispatcherService {
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
         trace!("({dispatch_id}) Built virtual proc {}", virtual_proc);
         // `cores_reserved` is centicores (CoreSizeWithMultiplier); convert to cores for
-        // both the Redis booking delta (Redis = cores, design §0 unit invariant) and the
+        // both the booking delta (store = cores, design §0 unit invariant) and the
         // per-cluster allocation_capacity comparison below (which is already CoreSize).
         let cores_reserved: CoreSize = virtual_proc.cores_reserved.into();
 
-        // Build the booking delta once - used by Redis apply and by any compensation rollback.
+        // Build the booking delta once - used by the booking apply and by any compensation rollback.
         let delta = BookingDelta {
             show_id: virtual_proc.show_id,
             alloc_id: virtual_proc.alloc_id,
             folder_id: virtual_proc.folder_id,
             job_id: virtual_proc.job_id,
-            layer_id: virtual_proc.layer_id,
-            dept_id: virtual_proc.dept_id,
             core_delta: i64::from(cores_reserved.value()),
             gpu_delta: virtual_proc.gpus_reserved as i32,
         };
 
         // Per-cluster host accounting check - this dispatcher iteration may have already
-        // consumed cores from the allocation above what Redis knows about.
+        // consumed cores from the allocation above what the store knows about.
         if cores_reserved > allocation_capacity {
             return Err(DispatchVirtualProcError::AllocationOverBurst(
                 DispatchError::AllocationOverBurst(host.alloc_name.clone()),
@@ -564,17 +534,18 @@ impl RqdDispatcherService {
         }
         let new_allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
 
-        // Redis Lua first (design §2.1) - atomic check + 5×HINCRBY + INCR seq. Limit
-        // exceeded here means a subscription/folder/job cap would be breached; we bail
-        // before opening a transaction.
-        let booking_response = self.accounting.apply_booking(&delta).await;
-        booking_response.map_err(|err| match err {
+        // In-memory accounting check + increment first - atomic across subscription /
+        // folder / job under one lock. Limit exceeded here means one of those hard caps
+        // would be breached; we bail before opening a transaction. `Booking` records
+        // whether the delta was applied (managed show) so confirm/rollback can no-op for
+        // Cuebot-managed shows and survive a mid-dispatch managed flip.
+        let booking = self.accounting.apply_booking(&delta).map_err(|err| match err {
             AccountingError::LimitExceeded {
                 table,
                 current,
                 limit,
             } => {
-                // Tracks "wasted" Redis Lua calls — see
+                // Tracks "wasted" booking attempts — see
                 // `pipeline/matcher.rs::process_layer` for the trade-off this metric
                 // exists to measure.
                 metrics::increment_accounting_limit_exceeded(&table);
@@ -584,30 +555,21 @@ impl RqdDispatcherService {
                     )),
                 )
             }
-            AccountingError::Unavailable(msg) => {
-                DispatchVirtualProcError::AccountingUnavailable(msg)
-            }
-            AccountingError::Unexpected(msg) => DispatchVirtualProcError::AccountingUnexpected(msg),
-            AccountingError::CasContentionExceeded { .. } => {
-                DispatchVirtualProcError::AccountingUnexpected(
-                    "CAS contention exceeded".to_string(),
-                )
-            }
         })?;
 
-        // From this point on, any failure before successful RQD launch must force-roll back
-        // the Redis booking we just applied. Closure captures `self.accounting` and `delta`
-        // so the rollback sites stay terse.
+        // From this point on, any failure before successful RQD launch must roll back the
+        // booking we just applied. Closure captures `self.accounting` and `booking` so the
+        // rollback sites stay terse.
         let accounting = &self.accounting;
-        let redis_rollback_on_error = async || {
-            accounting.apply_force_rollback(&delta.negated()).await;
+        let rollback_on_error = async || {
+            accounting.rollback_booking(&booking);
         };
 
         // Begin a per-proc transaction for DB updates
         let mut proc_transaction = match begin_transaction().await {
             Ok(tx) => tx,
             Err(e) => {
-                redis_rollback_on_error().await;
+                rollback_on_error().await;
                 return Err(DispatchVirtualProcError::FailedToStartOnDb(
                     DispatchError::DbFailure(e),
                 ));
@@ -623,12 +585,12 @@ impl RqdDispatcherService {
             Ok(true) => {}
             Ok(false) => {
                 let _ = proc_transaction.rollback().await;
-                redis_rollback_on_error().await;
+                rollback_on_error().await;
                 return Err(DispatchVirtualProcError::LayerLimitReached);
             }
             Err(e) => {
                 let _ = proc_transaction.rollback().await;
-                redis_rollback_on_error().await;
+                rollback_on_error().await;
                 return Err(DispatchVirtualProcError::FailedToStartOnDb(
                     DispatchError::DbFailure(e),
                 ));
@@ -650,14 +612,14 @@ impl RqdDispatcherService {
             }
             Err(err) => {
                 let _ = proc_transaction.rollback().await;
-                redis_rollback_on_error().await;
+                rollback_on_error().await;
                 return Err(err);
             }
         };
 
         // Commit BEFORE the RQD call to release job_stat/layer_stat row locks immediately
         if let Err(e) = proc_transaction.commit().await {
-            redis_rollback_on_error().await;
+            rollback_on_error().await;
             return Err(DispatchVirtualProcError::FailedToStartOnDb(
                 DispatchError::DbFailure(e),
             ));
@@ -666,9 +628,9 @@ impl RqdDispatcherService {
         // When running on dry_run_mode, just log the outcome
         if !self.dry_run_mode {
             if let Err(err) = self.launch_on_rqd(&virtual_proc, &host, true).await {
-                // RQD launch failed after DB commit. Force-roll the Redis booking and
-                // compensate the DB writes (delete proc, restore host, clear frame).
-                redis_rollback_on_error().await;
+                // RQD launch failed after DB commit. Roll back the booking and compensate
+                // the DB writes (delete proc, restore host, clear frame).
+                rollback_on_error().await;
                 self.compensate_failed_dispatch(dispatch_id, &virtual_proc, &host.name)
                     .await;
 
@@ -695,6 +657,10 @@ impl RqdDispatcherService {
             .expect("db_gpus_idle should fit in u32");
         updated_host.idle_gpu_memory = ByteSize::kb(updated_resources.gpu_mem_idle as u64);
         updated_host.last_updated = updated_resources.last_updated;
+
+        // Dispatch fully succeeded (proc committed + RQD launched): settle the booking so
+        // its pending delta stops being carried forward by the recompute.
+        self.accounting.confirm_booking(&booking);
 
         Ok((updated_host, new_allocation_capacity))
     }
@@ -869,11 +835,10 @@ impl RqdDispatcherService {
     /// host report reconciles them. This is acceptable because a failed proc delete
     /// will surface as an error log and the host report cycle corrects the drift.
     ///
-    /// **Redis accounting:** `dispatch_virtual_proc` already issued
-    /// `apply_force_rollback` for the booking delta before invoking this DB compensation,
-    /// so the Redis hashes are consistent with `proc` once both rollbacks complete. If
-    /// the force-rollback itself failed (logged as a warning by `apply_force_rollback`),
-    /// the next 2-min recompute cycle reseeds Redis from `SUM(proc)`.
+    /// **In-memory accounting:** `dispatch_virtual_proc` already called
+    /// `rollback_booking` for the booking delta before invoking this DB compensation, so
+    /// the store counters are consistent with `proc` once both rollbacks complete. Any
+    /// residual drift is reconciled by the next recompute cycle from `SUM(proc)`.
     async fn compensate_failed_dispatch(
         &self,
         dispatch_id: Uuid,
@@ -1048,7 +1013,7 @@ impl RqdDispatcherService {
 
         // Clamp the threaded reservation to the job's remaining core cap so a
         // single frame never reserves more than the job is allowed (which would
-        // be rejected by the Lua job-cap check). `None` means unlimited.
+        // be rejected by the job-cap check). `None` means unlimited.
         // The caller guarantees `remaining >= frame.min_cores`, so this never
         // shrinks a reservation below the frame's minimum.
         match job_cores_remaining {

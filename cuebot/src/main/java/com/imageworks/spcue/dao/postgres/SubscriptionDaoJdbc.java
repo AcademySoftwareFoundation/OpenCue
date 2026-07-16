@@ -18,6 +18,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
@@ -29,10 +30,18 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionDao {
+
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingNotifier accountingNotifier;
 
     // spotless:off
     private static final String IS_SHOW_OVER_SIZE =
@@ -232,5 +241,13 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
     public void updateSubscriptionBurst(SubscriptionInterface sub, int size) {
         getJdbcTemplate().update("UPDATE subscription SET int_burst=? WHERE pk_subscription=?",
                 size, sub.getSubscriptionId());
+
+        // SubscriptionInterface extends both ShowInterface and AllocationInterface, so the show and
+        // alloc ids are available directly (the gRPC path passes a fully-hydrated
+        // SubscriptionEntity). Emit the burst cap change in this transaction for managed shows.
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(sub.getShowId())) {
+            accountingNotifier.notifySubscriptionBurst(sub.getShowId(), sub.getAllocationId(),
+                    size);
+        }
     }
 }

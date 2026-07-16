@@ -13,12 +13,12 @@
 //! Awake-gate superset guard, kept in its own test binary.
 //!
 //! This lives apart from `stress_tests.rs` on purpose: `OVERRIDE_CONFIG` is a
-//! process-global `OnceCell` (first-writer-wins), and this test installs a
-//! config with a dummy Redis port it never dials. Sharing a process with
-//! `stress_booking_and_accounting` would let whichever runs first pin the
-//! config, so this test's dummy port could clobber the booking suite's dynamic
-//! testcontainer port (or vice-versa). A separate binary = a separate process =
-//! a private `OVERRIDE_CONFIG`, so neither can race the other.
+//! process-global `OnceCell` (first-writer-wins), and this test installs its own
+//! static config. Sharing a process with `stress_booking_and_accounting` would
+//! let whichever runs first pin the config, so this test's config could clobber
+//! the booking suite's dynamic testcontainer port (or vice-versa). A separate
+//! binary = a separate process = a private `OVERRIDE_CONFIG`, so neither can race
+//! the other.
 
 mod util;
 
@@ -38,14 +38,13 @@ mod active_scan_suite {
     /// for every cluster the per-cluster dispatch query returns a job for, the
     /// scan must surface at least one of that cluster's tags. A regression that
     /// over-narrows `QUERY_ACTIVE_TAGS` (dropping a needed row) would starve
-    /// that cluster's jobs; this catches it directly against Postgres. Pure-PG
-    /// (no Redis), so it only needs a migrated database.
+    /// that cluster's jobs; this catches it directly against Postgres. It only
+    /// needs a migrated database.
     #[actix::test]
     async fn stress_active_scan_is_superset_of_per_cluster_query() {
-        // create_stress_config needs a Redis port for its accounting section,
-        // but this test never books, so the port is never dialed. This binary's
+        // This test never books, so accounting is inert here. This binary's
         // OVERRIDE_CONFIG is private to its own process (see module docs).
-        let _ = OVERRIDE_CONFIG.set(create_stress_config(6379));
+        let _ = OVERRIDE_CONFIG.set(create_stress_config());
 
         let pool = assert_ok!(test_connection_pool().await);
         let prefix = format!("stress_sc_{}", &Uuid::new_v4().to_string()[..6]);

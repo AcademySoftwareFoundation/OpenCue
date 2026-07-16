@@ -37,7 +37,9 @@ To plan your installation of the Distributed Scheduler, consider the following:
 - **Memory**: Minimum 2GB RAM per scheduler instance (scales with number of hosts cached)
 - **CPU**: 2-4 cores recommended per instance
 - **Network**: Low-latency connection to the OpenCue database (same requirements as Cuebot)
-- **Database**: PostgreSQL with the same schema as Cuebot (no additional tables required)
+- **Database**: PostgreSQL with the same schema as Cuebot (no additional tables required). This is the **only** datastore the scheduler needs. Per-show resource accounting is held in memory and kept fresh by a PostgreSQL `LISTEN/NOTIFY` feed from Cuebot (see the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/))
+
+> **One scheduler process per managed show.** Because resource accounting lives **in memory within each scheduler process** (it is not shared across instances via the database or any other store), a given scheduler-managed show must be handled by exactly **one** scheduler process. If two processes manage the same show, each counts only its own bookings, so the two accounting views diverge and per-show/subscription limits are effectively double-counted. Facility-based distribution (`--facility`) is only safe when it provably partitions shows so that no show's clusters are served by more than one process; splitting a single show's work across processes is **not** supported.
 
 ## Architecture Overview
 
