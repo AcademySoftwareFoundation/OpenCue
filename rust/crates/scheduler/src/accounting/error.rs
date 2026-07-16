@@ -12,18 +12,12 @@
 
 use thiserror::Error;
 
-/// Errors from the Redis-backed accounting service.
+/// Error from the in-memory accounting service.
 ///
-/// The booking hot path (`apply_booking`) can fail in three meaningful ways:
-/// - `LimitExceeded`: the Lua check rejected the booking because a hard cap
-///   (subscription burst, folder/job `int_max_cores`, or folder/job
-///   `int_max_gpus`) would be exceeded. Carries the offending table, the current
-///   counter value, and the limit - used to build user-facing error messages.
-/// - `Unavailable`: Redis is unreachable or in a state where bookings can't safely
-///   proceed (empty after a restart, before bootstrap reseed has run). The dispatcher
-///   maps this to an idle-cycle equivalent - design §4.3 row 5.
-/// - `Unexpected`: anything else (Lua syntax error, malformed return, etc.). Surfaced
-///   for diagnostics; same dispatch consequence as `Unavailable`.
+/// The booking hot path (`apply_booking`) has exactly one failure mode now that the store
+/// is in process and cannot be unreachable: `LimitExceeded`, when a hard cap (subscription
+/// burst, folder/job `int_max_cores`/`int_max_gpus`) would be exceeded. Carries the
+/// offending table, the current counter value, and the limit for user-facing messages.
 #[derive(Error, Debug)]
 pub enum AccountingError {
     #[error("limit exceeded on {table}: current={current} limit={limit}")]
@@ -32,30 +26,4 @@ pub enum AccountingError {
         current: i64,
         limit: i64,
     },
-
-    #[error("redis unavailable: {0}")]
-    Unavailable(String),
-
-    /// Raised when a CAS-guarded reseed exhausts its retry budget. The periodic
-    /// reseed loops downgrade this to a warn-log (hot-path writes keep Redis fresh,
-    /// per design §2.4), but the bootstrap reseed surfaces it as a startup gate so a
-    /// scheduler never begins booking against an unseeded Redis. Carries the number of
-    /// attempts made (`cas_max_retries + 1`) for diagnostics.
-    #[error(
-        "CAS contention exceeded retry budget after {attempts} attempts; reseed cycle skipped"
-    )]
-    CasContentionExceeded { attempts: u32 },
-
-    #[error("accounting redis error: {0}")]
-    Unexpected(String),
-}
-
-impl From<redis::RedisError> for AccountingError {
-    fn from(err: redis::RedisError) -> Self {
-        if err.is_connection_refusal() || err.is_io_error() || err.is_timeout() {
-            AccountingError::Unavailable(err.to_string())
-        } else {
-            AccountingError::Unexpected(err.to_string())
-        }
-    }
 }
