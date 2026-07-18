@@ -1,18 +1,18 @@
 ---
-title: "CueWeb and REST Gateway"
+title: "OpenCueWeb and REST Gateway"
 nav_order: 18
 parent: Concepts
 layout: default
-linkTitle: "CueWeb and REST Gateway"
+linkTitle: "OpenCueWeb and REST Gateway"
 date: 2024-09-17
 description: >
-  Understanding CueWeb and the OpenCue REST Gateway architecture
+  Understanding OpenCueWeb and the OpenCue REST Gateway architecture
 ---
 
-# CueWeb and REST Gateway
+# OpenCueWeb and REST Gateway
 {: .no_toc }
 
-Learn about CueWeb's web-based interface and the REST Gateway that enables HTTP communication with OpenCue.
+Learn about OpenCueWeb's web-based interface and the REST Gateway that enables HTTP communication with OpenCue.
 
 <details open markdown="block">
   <summary>
@@ -25,17 +25,17 @@ Learn about CueWeb's web-based interface and the REST Gateway that enables HTTP 
 
 ---
 
-## What is CueWeb?
+## What is OpenCueWeb?
 
-CueWeb is a web-based application that brings the core functionality of CueGUI to your browser. Built with Next.js and React, CueWeb provides a responsive, accessible interface for managing OpenCue render farms from anywhere on the network.
+OpenCueWeb is a web-based application that brings the core functionality of CueGUI to your browser. Built with Next.js and React, OpenCueWeb provides a responsive, accessible interface for managing OpenCue render farms from anywhere on the network.
 
 ### Key Features
 
-- **Persistent Global Header**: OpenCue logo + **CueWeb** wordmark, plus the full CueGUI menu bar (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** [Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut], **Help** with a search box that finds commands across every menu), a theme toggle, and an always-visible Sign out button
+- **Persistent Global Header**: OpenCue logo + **OpenCueWeb** wordmark, plus the full CueGUI menu bar (**File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** [Attributes / Immersive (full-screen) / Split view / Show Shortcuts / Notify on Shortcut], **Help** with a search box that finds commands across every menu), a theme toggle, and an always-visible Sign out button
 - **Collapsible Left Sidebar**: Same six groups as the header, organized as accordion sections; persists open/closed state and overall collapsed-vs-expanded width across reloads
 - **Disable Job Interaction**: Global read-only safety toggle (File ▸ Disable Job Interaction) that dims every destructive action and shows an amber banner under the header
 - **Attributes Panel**: Docked drawer (Other ▸ Attributes) with a position picker (right / bottom / left / top), filter input, and a collapsible key/value tree of the selected entity
-- **Bottom Status Bar**: IDE-style 24-pixel fixed bar showing REST gateway reachability (Online / Offline + round-trip latency, polled every 10 seconds via `/api/health`), time since the jobs table last refreshed, and the CueWeb build version (`NEXT_PUBLIC_APP_VERSION`). Turns red when the gateway is unreachable.
+- **Bottom Status Bar**: IDE-style 24-pixel fixed bar showing REST gateway reachability (Online / Offline + round-trip latency, polled every 10 seconds via `/api/health`), time since the jobs table last refreshed, and the OpenCueWeb build version (`NEXT_PUBLIC_APP_VERSION`). Turns red when the gateway is unreachable.
 - **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a "Home > Jobs > ..." trail above the content. Long labels truncate with an ellipsis; the full text is recoverable on hover.
 - **Job / Layer / Frame tables (CueGUI parity)**: Full CueGUI column sets (Comments / Launched / Eligible / Finished / User Color on Jobs; Eligible on Layers; LLU / Memory (RSS) / Memory (PSS) / Remain / Eligible Time / Submission Time / Last Line on Frames). The Jobs table's dedicated **Comments** column shows a sortable sticky-note icon next to Name, so jobs with comments can be pulled to the top in one click. Per-table substring filter, hide / show + `← / →` reorder + **Reset to Default** in each table's Columns dropdown. Both visibility and ordering persist in `localStorage`.
 - **Inline Layers + Frames panel**: Clicking a job row reveals the associated Layers and Frames tables stacked below the Jobs grid; clicking a layer narrows the frames panel to that layer and pushes the layer attributes into the docked Attributes panel; double-clicking a frame opens the log viewer.
@@ -51,12 +51,12 @@ CueWeb is a web-based application that brings the core functionality of CueGUI t
 - **Keyboard shortcuts + menu access**: press `?` (or use Other ▸ Show Shortcuts) for the cheat-sheet overlay. An opt-out toggle (Other ▸ Notify on Shortcut) controls whether a toast names every triggered shortcut.
 - **Dark/Light Mode**: Theme switching for user preference
 - **Mobile-friendly UI**: Hamburger-triggered nav drawer on phones, per-row `⋮` Actions button so touch users reach the right-click menu via a tap, swipeable wide data tables, and tappable key badges in the shortcuts overlay so single-letter shortcuts work without a physical keyboard.
-- **LAN access by default**: The same image works whether the browser loads CueWeb from `localhost`, a LAN IP, or a reverse-proxy host. Clipboard actions also work over plain-HTTP LAN access.
+- **LAN access by default**: The same image works whether the browser loads OpenCueWeb from `localhost`, a LAN IP, or a reverse-proxy host. Clipboard actions also work over plain-HTTP LAN access.
 - **Authentication Support**: Optional OAuth integration (GitHub, Google, Okta, LDAP)
 
-### CueWeb vs CueGUI
+### OpenCueWeb vs CueGUI
 
-| Feature | CueGUI | CueWeb |
+| Feature | CueGUI | OpenCueWeb |
 |---------|---------|---------|
 | **Platform** | Desktop application | Web browser |
 | **Installation** | Requires Python/Qt setup | No client installation |
@@ -76,7 +76,7 @@ The OpenCue REST Gateway is a production-ready HTTP service that provides RESTfu
 
 <div class="mermaid">
 graph LR
-    A["Web Client<br/>- CueWeb<br/>- Mobile App<br/>- curl/Scripts<br/>- Third-party"]
+    A["Web Client<br/>- OpenCueWeb<br/>- Mobile App<br/>- curl/Scripts<br/>- Third-party"]
     B["REST Gateway<br/>- Authentication<br/>- Request Trans.<br/>- Response Form.<br/>- Error Handling"]
     C["Cuebot<br/>- Job Mgmt<br/>- Scheduling<br/>- Resources<br/>- Monitoring"]
 
@@ -99,19 +99,19 @@ graph LR
 
 ### JWT Token System
 
-Both CueWeb and the REST Gateway use JSON Web Tokens (JWT) for secure authentication:
+The OpenCueWeb server and the REST Gateway use JSON Web Tokens (JWT) for secure authentication:
 
 - **Algorithm**: HMAC SHA256 (HS256)
 - **Header Format**: `Authorization: Bearer <token>`
 - **Expiration**: Configurable token lifetime
-- **Secret Sharing**: Same secret used by both CueWeb and REST Gateway
+- **Secret Sharing**: The shared secret is held only by the OpenCueWeb server (which signs each token and forwards requests to the gateway) and the REST Gateway (which verifies it). It must never be exposed to browser or client code — the browser calls OpenCueWeb's own server-side routes, and those routes attach the gateway JWT server-side.
 
 ### Token Lifecycle
 
 <div class="mermaid">
 sequenceDiagram
     participant U as User
-    participant C as CueWeb
+    participant C as OpenCueWeb
     participant G as Gateway
     participant B as Cuebot
 
@@ -135,7 +135,7 @@ sequenceDiagram
 
 ### Group-based authorization (optional)
 
-Authentication answers *who you are*; **authorization** answers *what you may do*. CueWeb adds an optional, opt-in authorization layer that restricts access by **group membership**, enforced server-side at a single middleware chokepoint. It is **off by default** - when disabled (or when no auth provider is configured) the middleware is a pure pass-through and every signed-in user is treated as an admin.
+Authentication answers *who you are*; **authorization** answers *what you may do*. OpenCueWeb adds an optional, opt-in authorization layer that restricts access by **group membership**, enforced server-side at a single middleware chokepoint. It is **off by default** - when disabled (or when no auth provider is configured) the middleware is a pure pass-through and every signed-in user is treated as an admin.
 
 The design separates **resolution** from **enforcement**, which is what keeps it both correct and fast:
 
@@ -144,50 +144,50 @@ The design separates **resolution** from **enforcement**, which is what keeps it
 
 Two gates are applied:
 
-- `CUEWEB_ALLOWED_GROUPS` - who may use CueWeb at all. A signed-in user outside this list is sent to an **Access denied** page (`/unauthorized`); API routes get a `403`.
+- `CUEWEB_ALLOWED_GROUPS` - who may use OpenCueWeb at all. A signed-in user outside this list is sent to an **Access denied** page (`/unauthorized`); API routes get a `403`.
 - `CUEWEB_ADMIN_GROUPS` - who may reach the **entire CueCommander section** (all of its pages, including Monitor Cue, Monitor Hosts and Stuck Frame), **job submission** (CueSubmit), and the **Manage facilities…** screen. On a restricted deployment those menus are hidden from everyone else; non-admins keep Cuetopia **Monitor Jobs** and the Dashboard.
 
 Infrastructure routes - the health probe, metrics, the auth flow, the login and unauthorized pages, and static assets - are never gated. **Prerequisite:** the gate only works when your identity provider emits the user's group memberships in the token; if the token carries no groups, the resolution seam can be extended (e.g. a directory lookup) without touching enforcement.
 
 ---
 
-## CueWeb Audit (web action audit)
+## OpenCueWeb Audit (web action audit)
 
-CueWeb keeps a **web audit trail**: an append-only record of who did which state-changing action, when, against which target, and with what outcome - for actions performed through CueWeb. It answers the operational question *"who killed that job?"* (or paused it, retried that frame, rebooted that host, changed a show) by recording each mutating action as a single timestamped entry. The trail is surfaced in an admin-only **Admin &rarr; CueWeb Audit** page (reachable from both the top menu and the left sidebar).
+OpenCueWeb keeps a **web audit trail**: an append-only record of who did which state-changing action, when, against which target, and with what outcome - for actions performed through OpenCueWeb. It answers the operational question *"who killed that job?"* (or paused it, retried that frame, rebooted that host, changed a show) by recording each mutating action as a single timestamped entry. The trail is surfaced in an admin-only **Admin &rarr; OpenCueWeb Audit** page (reachable from both the top menu and the left sidebar).
 
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 ### Where events are captured
 
-The architectural insight is that CueWeb proxies **every** mutating action through a **single chokepoint** - the server-side gateway request handler that signs and forwards each call to the facility's REST Gateway &rarr; Cuebot. Because all writes already funnel through that one place, instrumenting it once captures every mutating route with **no per-route changes**. It is also the only place where the three things an audit entry needs are available together: the **signed-in user identity**, the **selected facility**, and the **gRPC endpoint** being called. Read-only calls (`Get*` / `Find*` / `List*`) are skipped, so the trail stays focused on actions that change state. Sign in and sign out are captured separately, via the authentication layer's events, since they don't flow through the gateway.
+The architectural insight is that OpenCueWeb proxies **every** mutating action through a **single chokepoint** - the server-side gateway request handler that signs and forwards each call to the facility's REST Gateway &rarr; Cuebot. Because all writes already funnel through that one place, instrumenting it once captures every mutating route with **no per-route changes**. It is also the only place where the three things an audit entry needs are available together: the **signed-in user identity**, the **selected facility**, and the **gRPC endpoint** being called. Read-only calls (`Get*` / `Find*` / `List*`) are skipped, so the trail stays focused on actions that change state. Sign in and sign out are captured separately, via the authentication layer's events, since they don't flow through the gateway.
 
 Each record carries: the timestamp (`at`), the `actor`, a `category` (job, frame, layer, host, show, ..., or `auth`), the `action`, the `target`, the `facility`, the `result` (success or error) plus any `error` message, sanitized `details` (request parameters with secrets dropped), and the `endpoint` and `method`.
 
 ### How it's stored
 
-The trail is an **append-only JSONL file** - one JSON record per line - mirroring an existing CueWeb pattern (the per-facility override store). No database is introduced, so CueWeb stays **stateless** on the backend. The file path is configurable (`CUEWEB_AUDIT_STORE`), and its size is bounded (`CUEWEB_AUDIT_MAX_RECORDS`): once the cap is reached the oldest records are dropped. Because the default location is the OS temp directory, persisting the trail across restarts means pointing it at a mounted volume.
+The trail is an **append-only JSONL file** - one JSON record per line - mirroring an existing OpenCueWeb pattern (the per-facility override store). No database is introduced, so OpenCueWeb has **no database dependency** on the backend. The file path is configurable (`CUEWEB_AUDIT_STORE`), and its size is bounded (`CUEWEB_AUDIT_MAX_RECORDS`): once the cap is reached the oldest records are dropped. Because the default location is the OS temp directory, persisting the trail across restarts means pointing it at a mounted volume. The store is file-backed and single-process, so running multiple OpenCueWeb replicas means pointing them at shared storage (and the writes are last-writer-wins without a cross-process lock).
 
 ### Who can see it
 
-Access reuses the same optional group-authorization gate described above. When no group authorization is configured (`CUEWEB_AUTHZ_ENABLED` off), the audit page is shown to everyone - consistent with CueWeb's "everyone is an admin" default. When authorization is active, only members of the admin groups (`CUEWEB_ADMIN_GROUPS`) can reach it.
+Access reuses the same optional group-authorization gate described above. When no group authorization is configured (`CUEWEB_AUTHZ_ENABLED` off), the audit page is shown to everyone - consistent with OpenCueWeb's "everyone is an admin" default. When authorization is active, only members of the admin groups (`CUEWEB_ADMIN_GROUPS`) can reach it.
 
 ### Scope and limitation
 
-This is a **CueWeb audit**, not a farm-wide audit: it records only actions taken **through CueWeb**. Actions performed from CueGUI, `cueman`, or `pycue` go straight to Cuebot and are not seen here. Capturing every client's actions would require an audit layer in the backend (Cuebot / gateway); the CueWeb trail is the pragmatic, no-new-infrastructure step that covers the web interface today.
+This is an **OpenCueWeb audit**, not a farm-wide audit: it records only actions taken **through OpenCueWeb**. Actions performed from CueGUI, `cueman`, or `pycue` go straight to Cuebot and are not seen here. Capturing every client's actions would require an audit layer in the backend (Cuebot / gateway); the OpenCueWeb trail is the pragmatic, no-new-infrastructure step that covers the web interface today.
 
 ---
 
 ## Cuebot facilities (multi-facility routing)
 
-A **facility** in OpenCue labels and separates farm resources - typically by physical location. Each facility is served by its own **Cuebot** (and, for CueWeb, its own REST Gateway). CueWeb mirrors CueGUI's *Cuebot Facility* concept: you work in **one facility at a time**, and a menu lets you switch between them.
+A **facility** in OpenCue labels and separates farm resources - typically by physical location. Each facility is served by its own **Cuebot** (and, for OpenCueWeb, its own REST Gateway). OpenCueWeb mirrors CueGUI's *Cuebot Facility* concept: you work in **one facility at a time**, and a menu lets you switch between them.
 
 ### What "switching a facility" means
 
-Switching the active facility re-points CueWeb at that facility's Cuebot and reloads the current view. You never see two facilities mixed together - the jobs, hosts, shows, and everything else you see belong to the selected facility. The active facility is shown as a chip on the menu and in the bottom status bar, and the selection is remembered for the session.
+Switching the active facility re-points OpenCueWeb at that facility's Cuebot and reloads the current view. You never see two facilities mixed together - the jobs, hosts, shows, and everything else you see belong to the selected facility. The active facility is shown as a chip on the menu and in the bottom status bar, and the selection is remembered for the session.
 
 ### How routing works
 
-Because the browser only talks to CueWeb's own `/api` routes, facility routing is resolved **server-side, per request**:
+Because the browser only talks to OpenCueWeb's own `/api` routes, facility routing is resolved **server-side, per request**:
 
 - The client sends the active facility with each API call; a server-side resolver picks the matching gateway URL and JWT secret for that facility, signs the request, and forwards it to that facility's gateway &rarr; Cuebot.
 - The facility list comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`).
@@ -195,11 +195,11 @@ Because the browser only talks to CueWeb's own `/api` routes, facility routing i
 
 ### Why this design
 
-Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility CueWeb (secrets live in the Node server, never in the client bundle) while letting one CueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
+Keeping the per-facility gateway URLs and secrets **server-only** means the browser never holds a gateway credential - it only knows the facility *name*. This keeps the same security model as single-facility OpenCueWeb (secrets live in the Node server, never in the client bundle) while letting one OpenCueWeb deployment front many facilities. It also means a facility's gateway can change without touching the client.
 
 ### Per-facility health and runtime configuration
 
-Fronting many facilities raises two operational questions: *is each one reachable?* and *can I re-point one without a redeploy?* CueWeb answers both while preserving the server-only credential model.
+Fronting many facilities raises two operational questions: *is each one reachable?* and *can I re-point one without a redeploy?* OpenCueWeb answers both while preserving the server-only credential model.
 
 - **Live health per facility.** A server endpoint probes every configured facility's gateway in parallel and reports only reachability and round-trip latency (never gateway payloads). The Cuebot Facility menu polls it and shows a green/red dot next to each facility; a facility whose gateway is down can't be selected, so you can't switch into a dead facility by accident.
 - **Runtime overrides, layered over the env defaults.** Each facility's gateway URL and JWT secret can be edited at runtime from a **Manage facilities…** admin screen. The effective value is resolved as **override → per-facility env var → legacy default**, so an empty override store reproduces the env-only behavior exactly, and clearing an override falls back to the env/default. Overrides are persisted to a server-side file (`CUEWEB_FACILITY_STORE`) with an append-only audit log; the JWT secret is stored with restrictive permissions and is never logged or returned to a client.
@@ -208,9 +208,9 @@ Fronting many facilities raises two operational questions: *is each one reachabl
 
 ---
 
-## Plugins (extending CueWeb)
+## Plugins (extending OpenCueWeb)
 
-CueWeb is **extensible** through a small plugin system - the browser counterpart of CueGUI's plugin architecture, where each plugin declares metadata and exposes a component the host mounts. The same idea translates cleanly to the web:
+OpenCueWeb is **extensible** through a small plugin system - the browser counterpart of CueGUI's plugin architecture, where each plugin declares metadata and exposes a component the host mounts. The same idea translates cleanly to the web:
 
 - A **plugin** is a *manifest* (its name, title, version, route, and an optional description) plus a *lazily-loaded React component*. Each plugin mounts on its own route under `/plugins/<name>`.
 - Plugins are discovered from a **static registry** in the code rather than scanned at runtime. That registry is the single source of truth, which keeps discovery predictable and lets the bundler **code-split** each plugin into its own chunk that's only fetched when its page is opened - so unused plugins cost nothing.
@@ -222,24 +222,24 @@ CueWeb is **extensible** through a small plugin system - the browser counterpart
 
 ## Workspace layout (web-native windows)
 
-CueGUI is a desktop app, so it shapes the workspace with *windows*: saving window settings, toggling full-screen, and opening additional windows. CueWeb is a single browser tab, so it offers the same affordances in web-native form, and treats them all the same way - as **personal, client-side preferences** (browser `localStorage`, synced across tabs via the `storage` event), never server state:
+CueGUI is a desktop app, so it shapes the workspace with *windows*: saving window settings, toggling full-screen, and opening additional windows. OpenCueWeb is a single browser tab, so it offers the same affordances in web-native form, and treats them all the same way - as **personal, client-side preferences** (browser `localStorage`, synced across tabs via the `storage` event), never server state:
 
 - **View presets** replace CueGUI's *Save Window Settings*: a named snapshot of a table's column order/visibility, sort, filters, and page size. They're built on top of each table's existing per-column persistence and operate purely through the table component's own API, which is why they work uniformly across every table without per-table code.
 - **Immersive (full-screen) mode** replaces *Toggle Full-Screen*: the app shell drops the header, sidebar, and status bar so the active view fills the viewport.
 - **Split view** replaces *Add new window*: two pages share one tab as side-by-side panes. Each pane is a same-origin `<iframe>` so it keeps its **own** router context (URL, dynamic params), and the two pane targets live in the page's query string - so a split workspace is itself just a URL, making it bookmarkable, shareable, and reload-safe.
 
-**Why this design:** modeling these as URL- and `localStorage`-addressable state (rather than server-side window managers) keeps them stateless on the backend, shareable as links, and consistent with how the rest of CueWeb persists per-user preferences - enabling any of them never touches Cuebot.
+**Why this design:** modeling these as URL- and `localStorage`-addressable state (rather than server-side window managers) keeps them stateless on the backend, shareable as links, and consistent with how the rest of OpenCueWeb persists per-user preferences - enabling any of them never touches Cuebot.
 
 ---
 
 ## Frame logs (file-based and Loki)
 
-A frame's log can be read two ways, and CueWeb supports both behind the same viewer:
+A frame's log can be read two ways, and OpenCueWeb supports both behind the same viewer:
 
-- **File-based (default):** RQD writes each frame's output to a `.rqlog` file on a shared filesystem. CueWeb's server reads that file (so the render-log directory must be mounted into the CueWeb container). This is the zero-extra-infrastructure default.
-- **Loki (optional):** in studios that already centralize logs, RQD ships frame output to a [Grafana Loki](https://grafana.com/oss/loki/) server tagged with `frame_id` and `session_start_time` labels. Setting `NEXT_PUBLIC_LOKI_URL` makes CueWeb query Loki for a frame's lines instead of reading a file - the same model as CueGUI's Loki log viewer. There's no shared log mount to manage, logs survive the worker, and each frame **attempt** is a selectable version.
+- **File-based (default):** RQD writes each frame's output to a `.rqlog` file on a shared filesystem. OpenCueWeb's server reads that file (so the render-log directory must be mounted into the OpenCueWeb container). This is the zero-extra-infrastructure default.
+- **Loki (optional):** in studios that already centralize logs, RQD ships frame output to a [Grafana Loki](https://grafana.com/oss/loki/) server tagged with `frame_id` and `session_start_time` labels. Setting `NEXT_PUBLIC_LOKI_URL` makes OpenCueWeb query Loki for a frame's lines instead of reading a file - the same model as CueGUI's Loki log viewer. There's no shared log mount to manage, logs survive the worker, and each frame **attempt** is a selectable version.
 
-**Why this design:** the backend is a single deployment-time switch (`NEXT_PUBLIC_LOKI_URL` set or not), not a UI choice, and the viewer is identical either way - so a site adopts centralized logging without changing how artists view logs. Because the var is browser-readable (`NEXT_PUBLIC_*`), the Loki query goes straight from the browser to Loki, which must therefore be reachable from clients and allow CORS from the CueWeb origin.
+**Why this design:** the backend is a single deployment-time switch (`NEXT_PUBLIC_LOKI_URL` set or not), not a UI choice, and the viewer is identical either way - so a site adopts centralized logging without changing how artists view logs. Because the var is browser-readable (`NEXT_PUBLIC_*`), the Loki query goes straight from the browser to Loki, which must therefore be reachable from clients and allow CORS from the OpenCueWeb origin.
 
 ---
 
@@ -247,11 +247,11 @@ A frame's log can be read two ways, and CueWeb supports both behind the same vie
 
 ### Standalone Deployment
 
-CueWeb and REST Gateway run as separate services:
+OpenCueWeb and REST Gateway run as separate services:
 
 <div class="mermaid">
 graph LR
-    A["CueWeb<br/>Port: 3000"] --> B["REST Gateway<br/>Port: 8448"]
+    A["OpenCueWeb<br/>Port: 3000"] --> B["REST Gateway<br/>Port: 8448"]
     B --> C["Cuebot<br/>Port: 8443"]
 </div>
 
@@ -283,9 +283,9 @@ Load-balanced deployment for production environments:
 graph TD
     LB["Load Balancer"]
 
-    LB --> CW1["CueWeb #1"]
-    LB --> CW2["CueWeb #2"]
-    LB --> CW3["CueWeb #3"]
+    LB --> CW1["OpenCueWeb #1"]
+    LB --> CW2["OpenCueWeb #2"]
+    LB --> CW3["OpenCueWeb #3"]
 
     CW1 --> RG["REST Gateway<br/>(Clustered)"]
     CW2 --> RG
@@ -335,19 +335,19 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 
 ### Job Submission (CueSubmit)
 
-CueWeb's `/cuesubmit` route is a browser-based equivalent of the standalone CueSubmit CLI tool. The data path is:
+OpenCueWeb's `/cuesubmit` route is a browser-based equivalent of the standalone CueSubmit CLI tool. The data path is:
 
 1. The form serializes a typed payload (job info, layers, per-type options) to JSON.
 2. The Next.js route `POST /api/job/submit` parses + validates the payload with zod.
 3. The same route assembles an OpenCue job-spec XML document (the CJSL format that the standalone pyoutline tool also emits) and forwards it to `job.JobInterface/LaunchSpecAndWait` on the REST Gateway.
 4. The gateway calls the same gRPC RPC against cuebot. Cuebot creates the job, dispatches frames as RQDs become available, and returns the resolved `JobSeq` to the gateway.
-5. CueWeb redirects the browser to the tabbed `/jobs/<name>` detail view; the user can immediately watch their frames go WAITING -> RUNNING -> SUCCEEDED.
+5. OpenCueWeb redirects the browser to the tabbed `/jobs/<name>` detail view; the user can immediately watch their frames go WAITING -> RUNNING -> SUCCEEDED.
 
-The browser never needs `outline` / `pyoutline` / `pycuerun` runtime - the XML the CLI tool builds locally is built server-side inside CueWeb's Node process and posted straight to the gateway. This keeps the deploy footprint small and ensures that submissions from the browser are indistinguishable from CueGUI / CueSubmit-CLI submissions on cuebot's side.
+The browser never needs `outline` / `pyoutline` / `pycuerun` runtime - the XML the CLI tool builds locally is built server-side inside OpenCueWeb's Node process and posted straight to the gateway. This keeps the deploy footprint small and ensures that submissions from the browser are indistinguishable from CueGUI / CueSubmit-CLI submissions on cuebot's side.
 
 ### Real-time Updates
 
-CueWeb implements automatic updates through:
+OpenCueWeb implements automatic updates through:
 
 - **Polling Strategy**: Regular API calls to refresh data
 - **Configurable Intervals**: Adjustable refresh rates per table
@@ -358,14 +358,14 @@ CueWeb implements automatic updates through:
 
 ## Configuration and Environment Variables
 
-### CueWeb Configuration
+### OpenCueWeb Configuration
 
-Key environment variables for CueWeb:
+Key environment variables for OpenCueWeb:
 
 ```bash
 # Required
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448  # REST Gateway URL
-NEXT_PUBLIC_URL=http://localhost:3000               # CueWeb URL
+NEXT_PUBLIC_URL=http://localhost:3000               # OpenCueWeb URL
 NEXT_JWT_SECRET=your-secret-key                     # JWT signing secret
 
 # Authentication (optional)
@@ -404,7 +404,7 @@ RATE_LIMIT_RPS=100                                  # Rate limiting
 
 ## Performance and Scalability
 
-### CueWeb Performance
+### OpenCueWeb Performance
 
 - **Server-Side Rendering**: Fast initial page loads with Next.js SSR
 - **Code Splitting**: Automatic bundle optimization
@@ -422,7 +422,7 @@ RATE_LIMIT_RPS=100                                  # Rate limiting
 
 ### Scaling Considerations
 
-- **Horizontal Scaling**: Multiple CueWeb instances behind load balancer
+- **Horizontal Scaling**: Multiple OpenCueWeb instances behind load balancer
 - **Gateway Clustering**: Multiple REST Gateway instances for redundancy
 - **Database Optimization**: Efficient Cuebot database queries
 - **CDN Integration**: Static asset delivery optimization
@@ -479,6 +479,6 @@ RATE_LIMIT_RPS=100                                  # Rate limiting
 - **API Rate Limits**: Implement request throttling and caching strategies
 
 For detailed troubleshooting guides, see:
-- [CueWeb User Guide](/docs/user-guides/cueweb-user-guide)
+- [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide)
 - [REST API Reference](/docs/reference/rest-api-reference/)
 - [Developer Guide](/docs/developer-guide/cueweb-development)

@@ -413,17 +413,17 @@ for show in shows:
 
 ---
 
-## Deploy with CueWeb
+## Deploy with OpenCueWeb
 
-For a complete web interface, deploy CueWeb alongside the REST Gateway using the `cueweb` profile:
+For a complete web interface, deploy OpenCueWeb alongside the REST Gateway using the `cueweb` profile:
 
 ```bash
-# Start core services + Web UI (REST Gateway + CueWeb)
+# Start core services + Web UI (REST Gateway + OpenCueWeb)
 docker compose --profile cueweb up -d
 ```
 
 This deploys:
-- **CueWeb**: http://localhost:3000
+- **OpenCueWeb**: http://localhost:3000
 - **REST Gateway**: http://localhost:8448
 - **Cuebot**: localhost:8443
 - **RQD**: localhost:8444
@@ -437,7 +437,7 @@ Now that the REST Gateway is running:
 
 1. **Explore the API**: Try different endpoints from the [REST API Reference](/docs/reference/rest-api-reference/)
 2. **Build integrations**: Create scripts or applications using the API
-3. **Deploy CueWeb**: Set up the web interface for browser access
+3. **Deploy OpenCueWeb**: Set up the web interface for browser access
 4. **Production setup**: Review [Deploying REST Gateway](/docs/getting-started/deploying-rest-gateway/) for production configuration
 
 ---
@@ -448,4 +448,4 @@ Now that the REST Gateway is running:
 - [REST API Tutorial](/docs/tutorials/rest-api-tutorial/) - Step-by-step tutorial
 - [Deploying REST Gateway](/docs/getting-started/deploying-rest-gateway/) - Production deployment
 - [Using the REST API](/docs/user-guides/using-rest-api/) - User guide
-- [CueWeb Quick Start](/docs/quick-starts/quick-start-cueweb/) - Web interface setup
+- [OpenCueWeb Quick Start](/docs/quick-starts/quick-start-cueweb/) - Web interface setup

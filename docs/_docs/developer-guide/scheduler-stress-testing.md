@@ -170,7 +170,7 @@ workflow.
 
 ### When it deliberately does not run
 
-- **PRs that don't touch the scheduler or schema** (Python, CueGUI, CueWeb,
+- **PRs that don't touch the scheduler or schema** (Python, CueGUI, OpenCueWeb,
   docs, …). The suite needs a migrated Postgres, a Docker daemon, and several
   minutes of runner time; for those changes it produces zero signal.
 - **As a performance gate.** Shared CI runners have noisy CPU/IO, so the

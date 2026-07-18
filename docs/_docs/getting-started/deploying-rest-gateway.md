@@ -32,21 +32,21 @@ You also need:
 
 ## Quick Start with Docker Compose (Recommended)
 
-The REST Gateway and CueWeb are included in OpenCue's main `docker-compose.yml` under the `cueweb` profile.
+The REST Gateway and OpenCueWeb are included in OpenCue's main `docker-compose.yml` under the `cueweb` profile.
 
 ### Step 1: Start OpenCue Stack with Web UI
 
 From the OpenCue repository root:
 
 ```bash
-# Start core services plus REST Gateway and CueWeb
+# Start core services plus REST Gateway and OpenCueWeb
 docker compose --profile cueweb up -d
 
 # Check service status
 docker compose ps
 ```
 
-The REST Gateway will be available at `http://localhost:8448` and CueWeb at `http://localhost:3000`.
+The REST Gateway will be available at `http://localhost:8448` and OpenCueWeb at `http://localhost:3000`.
 
 ### Step 2: Deploy REST Gateway Separately (Alternative)
 
