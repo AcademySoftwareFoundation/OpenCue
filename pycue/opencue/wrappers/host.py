@@ -240,6 +240,18 @@ class Host(object):
         self.stub.SetThreadMode(host_pb2.HostSetThreadModeRequest(host=self.data, mode=mode),
                                 timeout=Cuebot.Timeout)
 
+    def setConcurrentSlotsLimit(self, limit):
+        """Sets the host concurrent slots limit.
+
+        :type  limit: int
+        :param limit: -1 disables slot mode (regular host); >= 0 makes the host slot-based,
+                      running only slot layers up to this many concurrent slots
+        """
+        self.stub.SetConcurrentSlotsLimit(
+            host_pb2.HostSetConcurrentSlotsLimitRequest(
+                host=self.data, concurrent_slots_limit=limit),
+            timeout=Cuebot.Timeout)
+
     @staticmethod
     def hasHostRebootedSince(host, start_time):
         """

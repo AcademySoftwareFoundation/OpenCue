@@ -77,6 +77,11 @@ struct Counter {
     /// already counted (`clear` bucket). See the module docs.
     settled_cores: [i64; 2],
     settled_gpus: [i64; 2],
+    /// Slot booking counters. Independent axis: slot frames book slots with 0
+    /// cores/gpus and vice-versa. Mirrors the cores/gpus double-buffer exactly.
+    slots: i64,
+    inflight_slots: i64,
+    settled_slots: [i64; 2],
 }
 
 impl Counter {
@@ -90,29 +95,38 @@ impl Counter {
     fn carried_gpus(&self, keep: usize) -> i64 {
         self.inflight_gpus + self.settled_gpus[keep]
     }
+    fn carried_slots(&self, keep: usize) -> i64 {
+        self.inflight_slots + self.settled_slots[keep]
+    }
 
     /// `book`: add to the live total and the in-flight bucket.
-    fn add_booking(&mut self, dc: i64, dg: i64) {
+    fn add_booking(&mut self, dc: i64, dg: i64, ds: i64) {
         self.cores += dc;
         self.gpus += dg;
+        self.slots += ds;
         self.inflight_cores += dc;
         self.inflight_gpus += dg;
+        self.inflight_slots += ds;
     }
 
     /// `confirm`: move from in-flight to the current epoch's settled bucket (live unchanged).
-    fn settle(&mut self, dc: i64, dg: i64, bucket: usize) {
+    fn settle(&mut self, dc: i64, dg: i64, ds: i64, bucket: usize) {
         self.inflight_cores -= dc;
         self.inflight_gpus -= dg;
+        self.inflight_slots -= ds;
         self.settled_cores[bucket] += dc;
         self.settled_gpus[bucket] += dg;
+        self.settled_slots[bucket] += ds;
     }
 
     /// `rollback`: undo a `book` (live total and in-flight).
-    fn remove_booking(&mut self, dc: i64, dg: i64) {
+    fn remove_booking(&mut self, dc: i64, dg: i64, ds: i64) {
         self.cores -= dc;
         self.gpus -= dg;
+        self.slots -= ds;
         self.inflight_cores -= dc;
         self.inflight_gpus -= dg;
+        self.inflight_slots -= ds;
     }
 }
 
@@ -133,6 +147,12 @@ struct Inner {
     sub_burst: HashMap<(Uuid, Uuid), i64>,
     folder_caps: HashMap<Uuid, MaxCap>,
     job_caps: HashMap<Uuid, MaxCap>,
+    /// Slot caps per vertex (subscription/folder/job), a hard max independent of
+    /// cores/gpus. `-1` = unlimited, `0`/missing = reject-all (fail-closed before
+    /// the seed). See [`over_slot_cap`].
+    sub_slot_caps: HashMap<(Uuid, Uuid), i64>,
+    folder_slot_caps: HashMap<Uuid, i64>,
+    job_slot_caps: HashMap<Uuid, i64>,
     /// Monotonic recompute epoch, bumped under the lock at the start of each pass *before*
     /// the snapshot read. Its parity picks the settled bucket, so `confirm` and the overwrite
     /// agree on which confirms the snapshot already saw. See the module docs.
@@ -177,15 +197,29 @@ pub enum LimitChange {
         job_id: Uuid,
         max_gpus: i64,
     },
+    SubMaxSlots {
+        show_id: Uuid,
+        alloc_id: Uuid,
+        max_slots: i64,
+    },
+    FolderMaxSlots {
+        folder_id: Uuid,
+        max_slots: i64,
+    },
+    JobMaxSlots {
+        job_id: Uuid,
+        max_slots: i64,
+    },
 }
 
 /// Aggregated `SUM(proc)` totals for one recompute pass, already converted to cores and
 /// overlaid on the zero-baseline (every enumerable key present, drained keys carrying 0).
+/// Per-vertex booked totals `(cores, gpus, slots)`.
 #[derive(Default, Debug)]
 pub struct CounterSnapshot {
-    pub sub: HashMap<(Uuid, Uuid), (i64, i64)>,
-    pub folder: HashMap<Uuid, (i64, i64)>,
-    pub job: HashMap<Uuid, (i64, i64)>,
+    pub sub: HashMap<(Uuid, Uuid), (i64, i64, i64)>,
+    pub folder: HashMap<Uuid, (i64, i64, i64)>,
+    pub job: HashMap<Uuid, (i64, i64, i64)>,
 }
 
 /// Process-wide in-memory accounting state.
@@ -206,6 +240,14 @@ fn over_cap(cur: i64, delta: i64, cap: i64, enforce_zero: bool) -> bool {
     }
 }
 
+/// Slot cap rule: `-1` (negative) is unlimited; `0` and any missing cap mean
+/// "reject all" (fail-closed before the seed); `N >= 0` caps at N. Distinct from
+/// [`over_cap`] because `0` is a *valid* admin value (reject all slot work here),
+/// so it must not read as "unset/unlimited".
+fn over_slot_cap(cur: i64, delta: i64, cap: i64) -> bool {
+    cap >= 0 && cur + delta > cap
+}
+
 impl Store {
     pub fn new() -> Self {
         Self::default()
@@ -220,6 +262,7 @@ impl Store {
     pub fn book(&self, delta: &BookingDelta) -> BookOutcome {
         let core_delta = delta.core_delta;
         let gpu_delta = i64::from(delta.gpu_delta);
+        let slot_delta = delta.slot_delta;
         let mut inner = self.lock();
 
         if core_delta > 0 {
@@ -290,21 +333,69 @@ impl Store {
             }
         }
 
+        if slot_delta > 0 {
+            // Slot caps: `-1` unlimited, `0`/missing reject-all (fail-closed).
+            let cur_sub_slots = inner
+                .sub
+                .get(&(delta.show_id, delta.alloc_id))
+                .map_or(0, |c| c.slots);
+            let sub_slot_max = inner
+                .sub_slot_caps
+                .get(&(delta.show_id, delta.alloc_id))
+                .copied()
+                .unwrap_or(0);
+            if over_slot_cap(cur_sub_slots, slot_delta, sub_slot_max) {
+                return BookOutcome::LimitExceeded {
+                    table: "subscription_slots",
+                    current: cur_sub_slots,
+                    limit: sub_slot_max,
+                };
+            }
+
+            let cur_folder_slots = inner.folder.get(&delta.folder_id).map_or(0, |c| c.slots);
+            let folder_slot_max = inner
+                .folder_slot_caps
+                .get(&delta.folder_id)
+                .copied()
+                .unwrap_or(0);
+            if over_slot_cap(cur_folder_slots, slot_delta, folder_slot_max) {
+                return BookOutcome::LimitExceeded {
+                    table: "folder_slots",
+                    current: cur_folder_slots,
+                    limit: folder_slot_max,
+                };
+            }
+
+            let cur_job_slots = inner.job.get(&delta.job_id).map_or(0, |c| c.slots);
+            let job_slot_max = inner
+                .job_slot_caps
+                .get(&delta.job_id)
+                .copied()
+                .unwrap_or(0);
+            if over_slot_cap(cur_job_slots, slot_delta, job_slot_max) {
+                return BookOutcome::LimitExceeded {
+                    table: "job_slots",
+                    current: cur_job_slots,
+                    limit: job_slot_max,
+                };
+            }
+        }
+
         inner
             .sub
             .entry((delta.show_id, delta.alloc_id))
             .or_default()
-            .add_booking(core_delta, gpu_delta);
+            .add_booking(core_delta, gpu_delta, slot_delta);
         inner
             .folder
             .entry(delta.folder_id)
             .or_default()
-            .add_booking(core_delta, gpu_delta);
+            .add_booking(core_delta, gpu_delta, slot_delta);
         inner
             .job
             .entry(delta.job_id)
             .or_default()
-            .add_booking(core_delta, gpu_delta);
+            .add_booking(core_delta, gpu_delta, slot_delta);
         BookOutcome::Applied
     }
 
@@ -314,45 +405,47 @@ impl Store {
     pub fn confirm(&self, delta: &BookingDelta) {
         let dc = delta.core_delta;
         let dg = i64::from(delta.gpu_delta);
+        let ds = delta.slot_delta;
         let mut inner = self.lock();
         let bucket = (inner.epoch % 2) as usize;
         inner
             .sub
             .entry((delta.show_id, delta.alloc_id))
             .or_default()
-            .settle(dc, dg, bucket);
+            .settle(dc, dg, ds, bucket);
         inner
             .folder
             .entry(delta.folder_id)
             .or_default()
-            .settle(dc, dg, bucket);
+            .settle(dc, dg, ds, bucket);
         inner
             .job
             .entry(delta.job_id)
             .or_default()
-            .settle(dc, dg, bucket);
+            .settle(dc, dg, ds, bucket);
     }
 
     /// Booking failed before launch: undo the live increment and the in-flight delta.
     pub fn rollback(&self, delta: &BookingDelta) {
         let dc = delta.core_delta;
         let dg = i64::from(delta.gpu_delta);
+        let ds = delta.slot_delta;
         let mut inner = self.lock();
         inner
             .sub
             .entry((delta.show_id, delta.alloc_id))
             .or_default()
-            .remove_booking(dc, dg);
+            .remove_booking(dc, dg, ds);
         inner
             .folder
             .entry(delta.folder_id)
             .or_default()
-            .remove_booking(dc, dg);
+            .remove_booking(dc, dg, ds);
         inner
             .job
             .entry(delta.job_id)
             .or_default()
-            .remove_booking(dc, dg);
+            .remove_booking(dc, dg, ds);
     }
 
     /// Apply a release delta (negative cores/gpus) from the Cuebot `acct_release` NOTIFY.
@@ -360,18 +453,22 @@ impl Store {
     pub fn apply_release(&self, delta: &BookingDelta) {
         let dc = delta.core_delta;
         let dg = i64::from(delta.gpu_delta);
+        let ds = delta.slot_delta;
         let mut inner = self.lock();
         if let Some(c) = inner.sub.get_mut(&(delta.show_id, delta.alloc_id)) {
             c.cores += dc;
             c.gpus += dg;
+            c.slots += ds;
         }
         if let Some(c) = inner.folder.get_mut(&delta.folder_id) {
             c.cores += dc;
             c.gpus += dg;
+            c.slots += ds;
         }
         if let Some(c) = inner.job.get_mut(&delta.job_id) {
             c.cores += dc;
             c.gpus += dg;
+            c.slots += ds;
         }
     }
 
@@ -398,34 +495,40 @@ impl Store {
         let clear = (epoch % 2) as usize;
         let keep = 1 - clear;
         let mut inner = self.lock();
-        for (&k, &(cores, gpus)) in &snapshot.sub {
+        for (&k, &(cores, gpus, slots)) in &snapshot.sub {
             let c = inner.sub.entry(k).or_default();
             c.cores = cores + c.carried_cores(keep);
             c.gpus = gpus + c.carried_gpus(keep);
+            c.slots = slots + c.carried_slots(keep);
         }
-        for (&k, &(cores, gpus)) in &snapshot.folder {
+        for (&k, &(cores, gpus, slots)) in &snapshot.folder {
             let c = inner.folder.entry(k).or_default();
             c.cores = cores + c.carried_cores(keep);
             c.gpus = gpus + c.carried_gpus(keep);
+            c.slots = slots + c.carried_slots(keep);
         }
-        for (&k, &(cores, gpus)) in &snapshot.job {
+        for (&k, &(cores, gpus, slots)) in &snapshot.job {
             let c = inner.job.entry(k).or_default();
             c.cores = cores + c.carried_cores(keep);
             c.gpus = gpus + c.carried_gpus(keep);
+            c.slots = slots + c.carried_slots(keep);
         }
         // Clear the pre-snapshot settled bucket across all keys (confirms older than this
         // pass's snapshot read are provably reflected in the snapshot now).
         for c in inner.sub.values_mut() {
             c.settled_cores[clear] = 0;
             c.settled_gpus[clear] = 0;
+            c.settled_slots[clear] = 0;
         }
         for c in inner.folder.values_mut() {
             c.settled_cores[clear] = 0;
             c.settled_gpus[clear] = 0;
+            c.settled_slots[clear] = 0;
         }
         for c in inner.job.values_mut() {
             c.settled_cores[clear] = 0;
             c.settled_gpus[clear] = 0;
+            c.settled_slots[clear] = 0;
         }
     }
 
@@ -441,20 +544,23 @@ impl Store {
     /// counters, so it cannot interfere with that driver's begin/overwrite sequencing.
     pub fn seed_show_booked(&self, snapshot: &CounterSnapshot) {
         let mut inner = self.lock();
-        for (&k, &(cores, gpus)) in &snapshot.sub {
+        for (&k, &(cores, gpus, slots)) in &snapshot.sub {
             let c = inner.sub.entry(k).or_default();
             c.cores = cores;
             c.gpus = gpus;
+            c.slots = slots;
         }
-        for (&k, &(cores, gpus)) in &snapshot.folder {
+        for (&k, &(cores, gpus, slots)) in &snapshot.folder {
             let c = inner.folder.entry(k).or_default();
             c.cores = cores;
             c.gpus = gpus;
+            c.slots = slots;
         }
-        for (&k, &(cores, gpus)) in &snapshot.job {
+        for (&k, &(cores, gpus, slots)) in &snapshot.job {
             let c = inner.job.entry(k).or_default();
             c.cores = cores;
             c.gpus = gpus;
+            c.slots = slots;
         }
     }
 
@@ -462,15 +568,16 @@ impl Store {
     /// unlimited sentinels are preserved by the caller.
     pub fn set_caps(
         &self,
-        subs: impl IntoIterator<Item = (Uuid, Uuid, i64)>,
-        folders: impl IntoIterator<Item = (Uuid, i64, i64)>,
-        jobs: impl IntoIterator<Item = (Uuid, i64, i64)>,
+        subs: impl IntoIterator<Item = (Uuid, Uuid, i64, i64)>,
+        folders: impl IntoIterator<Item = (Uuid, i64, i64, i64)>,
+        jobs: impl IntoIterator<Item = (Uuid, i64, i64, i64)>,
     ) {
         let mut inner = self.lock();
-        for (show_id, alloc_id, burst) in subs {
+        for (show_id, alloc_id, burst, max_slots) in subs {
             inner.sub_burst.insert((show_id, alloc_id), burst);
+            inner.sub_slot_caps.insert((show_id, alloc_id), max_slots);
         }
-        for (folder_id, max_cores, max_gpus) in folders {
+        for (folder_id, max_cores, max_gpus, max_slots) in folders {
             inner.folder_caps.insert(
                 folder_id,
                 MaxCap {
@@ -478,8 +585,9 @@ impl Store {
                     max_gpus,
                 },
             );
+            inner.folder_slot_caps.insert(folder_id, max_slots);
         }
-        for (job_id, max_cores, max_gpus) in jobs {
+        for (job_id, max_cores, max_gpus, max_slots) in jobs {
             inner.job_caps.insert(
                 job_id,
                 MaxCap {
@@ -487,6 +595,7 @@ impl Store {
                     max_gpus,
                 },
             );
+            inner.job_slot_caps.insert(job_id, max_slots);
         }
     }
 
@@ -537,12 +646,34 @@ impl Store {
                     .or_insert(MaxCap::unlimited())
                     .max_gpus = max_gpus;
             }
+            LimitChange::SubMaxSlots {
+                show_id,
+                alloc_id,
+                max_slots,
+            } => {
+                inner.sub_slot_caps.insert((show_id, alloc_id), max_slots);
+            }
+            LimitChange::FolderMaxSlots {
+                folder_id,
+                max_slots,
+            } => {
+                inner.folder_slot_caps.insert(folder_id, max_slots);
+            }
+            LimitChange::JobMaxSlots { job_id, max_slots } => {
+                inner.job_slot_caps.insert(job_id, max_slots);
+            }
         }
     }
 
     /// Live booked cores for a job (E-PVM placement snapshot in the matcher). 0 if unseen.
     pub fn job_cores_in_use(&self, job_id: Uuid) -> i64 {
         self.lock().job.get(&job_id).map_or(0, |c| c.cores)
+    }
+
+    /// Live booked slots for a job (slot-axis observability). 0 if unseen.
+    #[cfg(test)]
+    pub fn job_slots_in_use(&self, job_id: Uuid) -> i64 {
+        self.lock().job.get(&job_id).map_or(0, |c| c.slots)
     }
 
     /// `(booked_cores, burst)` for a subscription (matcher over-burst pre-check). Both in
@@ -622,6 +753,20 @@ mod tests {
             job_id: job,
             core_delta: cores,
             gpu_delta: gpus,
+            slot_delta: 0,
+        }
+    }
+
+    /// A pure slot booking delta (0 cores/gpus) for the slot-axis tests.
+    fn slot_delta(show: Uuid, alloc: Uuid, folder: Uuid, job: Uuid, slots: i64) -> BookingDelta {
+        BookingDelta {
+            show_id: show,
+            alloc_id: alloc,
+            folder_id: folder,
+            job_id: job,
+            core_delta: 0,
+            gpu_delta: 0,
+            slot_delta: slots,
         }
     }
 
@@ -663,7 +808,7 @@ mod tests {
     fn book_enforces_job_hard_cap_atomically() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 1000)], [(folder, -1, -1)], [(job, 10, -1)]);
+        store.set_caps([(show, alloc, 1000, -1)], [(folder, -1, -1, -1)], [(job, 10, -1, -1)]);
         let d = delta(show, alloc, folder, job, 6, 0);
         assert!(applied(store.book(&d))); // 6 <= 10
                                           // Second booking of 6 would reach 12 > 10 -> rejected. No partial state.
@@ -683,9 +828,9 @@ mod tests {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
         store.set_caps(
-            [(show, alloc, 1_000_000)],
-            [(folder, -1, -1)],
-            [(job, -1, -1)],
+            [(show, alloc, 1_000_000, -1)],
+            [(folder, -1, -1, -1)],
+            [(job, -1, -1, -1)],
         );
         let d = delta(show, alloc, folder, job, 500, 4);
         assert!(applied(store.book(&d)));
@@ -696,13 +841,13 @@ mod tests {
     fn confirm_then_recompute_keeps_booked() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
         let d = delta(show, alloc, folder, job, 10, 0);
         assert!(applied(store.book(&d)));
         store.confirm(&d);
         let epoch = store.begin_recompute();
         let snap = CounterSnapshot {
-            job: [(job, (10, 0))].into_iter().collect(),
+            job: [(job, (10, 0, 0))].into_iter().collect(),
             ..Default::default()
         };
         store.overwrite_counters(&snap, epoch);
@@ -713,14 +858,14 @@ mod tests {
     fn rollback_undoes_book() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
         let d = delta(show, alloc, folder, job, 10, 0);
         assert!(applied(store.book(&d)));
         store.rollback(&d);
         assert_eq!(store.job_cores_in_use(job), 0);
         let epoch = store.begin_recompute();
         let snap = CounterSnapshot {
-            job: [(job, (0, 0))].into_iter().collect(),
+            job: [(job, (0, 0, 0))].into_iter().collect(),
             ..Default::default()
         };
         store.overwrite_counters(&snap, epoch);
@@ -732,15 +877,15 @@ mod tests {
     fn recompute_carries_forward_in_flight_booking() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, 20, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, 20, -1, -1)]);
         let d = delta(show, alloc, folder, job, 8, 0);
         assert!(applied(store.book(&d))); // booked, still in-flight (not confirmed)
 
         let epoch = store.begin_recompute();
         let snap = CounterSnapshot {
-            sub: [((show, alloc), (0, 0))].into_iter().collect(),
-            folder: [(folder, (0, 0))].into_iter().collect(),
-            job: [(job, (0, 0))].into_iter().collect(),
+            sub: [((show, alloc), (0, 0, 0))].into_iter().collect(),
+            folder: [(folder, (0, 0, 0))].into_iter().collect(),
+            job: [(job, (0, 0, 0))].into_iter().collect(),
         };
         store.overwrite_counters(&snap, epoch);
         assert_eq!(store.job_cores_in_use(job), 8);
@@ -754,7 +899,7 @@ mod tests {
     fn recompute_does_not_erase_booking_confirmed_after_snapshot_read() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, 20, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, 20, -1, -1)]);
         let d = delta(show, alloc, folder, job, 8, 0);
         assert!(applied(store.book(&d)));
 
@@ -764,9 +909,9 @@ mod tests {
         store.confirm(&d);
         // Overwrite lands. The confirm tagged the other settled bucket, so 8 survives.
         let snap = CounterSnapshot {
-            sub: [((show, alloc), (0, 0))].into_iter().collect(),
-            folder: [(folder, (0, 0))].into_iter().collect(),
-            job: [(job, (0, 0))].into_iter().collect(),
+            sub: [((show, alloc), (0, 0, 0))].into_iter().collect(),
+            folder: [(folder, (0, 0, 0))].into_iter().collect(),
+            job: [(job, (0, 0, 0))].into_iter().collect(),
         };
         store.overwrite_counters(&snap, epoch);
         assert_eq!(
@@ -778,9 +923,9 @@ mod tests {
         // The following recompute (proc now visible) reconciles cleanly to the true value.
         let epoch2 = store.begin_recompute();
         let snap2 = CounterSnapshot {
-            sub: [((show, alloc), (8 * 100 / 100, 0))].into_iter().collect(),
-            folder: [(folder, (8, 0))].into_iter().collect(),
-            job: [(job, (8, 0))].into_iter().collect(),
+            sub: [((show, alloc), (8 * 100 / 100, 0, 0))].into_iter().collect(),
+            folder: [(folder, (8, 0, 0))].into_iter().collect(),
+            job: [(job, (8, 0, 0))].into_iter().collect(),
         };
         store.overwrite_counters(&snap2, epoch2);
         assert_eq!(store.job_cores_in_use(job), 8);
@@ -790,7 +935,7 @@ mod tests {
     fn release_decrements_unconditionally() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
         let d = delta(show, alloc, folder, job, 10, 0);
         assert!(applied(store.book(&d)));
         store.confirm(&d);
@@ -805,7 +950,7 @@ mod tests {
     fn missed_release_heals_via_recompute() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
         let d = delta(show, alloc, folder, job, 10, 0);
         assert!(applied(store.book(&d)));
         store.confirm(&d);
@@ -813,18 +958,18 @@ mod tests {
         let e1 = store.begin_recompute();
         store.overwrite_counters(
             &CounterSnapshot {
-                sub: [((show, alloc), (10, 0))].into_iter().collect(),
-                folder: [(folder, (10, 0))].into_iter().collect(),
-                job: [(job, (10, 0))].into_iter().collect(),
+                sub: [((show, alloc), (10, 0, 0))].into_iter().collect(),
+                folder: [(folder, (10, 0, 0))].into_iter().collect(),
+                job: [(job, (10, 0, 0))].into_iter().collect(),
             },
             e1,
         );
         let e2 = store.begin_recompute();
         store.overwrite_counters(
             &CounterSnapshot {
-                sub: [((show, alloc), (10, 0))].into_iter().collect(),
-                folder: [(folder, (10, 0))].into_iter().collect(),
-                job: [(job, (10, 0))].into_iter().collect(),
+                sub: [((show, alloc), (10, 0, 0))].into_iter().collect(),
+                folder: [(folder, (10, 0, 0))].into_iter().collect(),
+                job: [(job, (10, 0, 0))].into_iter().collect(),
             },
             e2,
         );
@@ -835,9 +980,9 @@ mod tests {
         let e3 = store.begin_recompute();
         store.overwrite_counters(
             &CounterSnapshot {
-                sub: [((show, alloc), (0, 0))].into_iter().collect(),
-                folder: [(folder, (0, 0))].into_iter().collect(),
-                job: [(job, (0, 0))].into_iter().collect(),
+                sub: [((show, alloc), (0, 0, 0))].into_iter().collect(),
+                folder: [(folder, (0, 0, 0))].into_iter().collect(),
+                job: [(job, (0, 0, 0))].into_iter().collect(),
             },
             e3,
         );
@@ -851,12 +996,12 @@ mod tests {
     fn managed_flip_seed_prevents_overbook() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, -1, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
         // Cuebot already has 90 cores booked on this (show, alloc) at flip time.
         let seed = CounterSnapshot {
-            sub: [((show, alloc), (90, 0))].into_iter().collect(),
-            folder: [(folder, (90, 0))].into_iter().collect(),
-            job: [(job, (90, 0))].into_iter().collect(),
+            sub: [((show, alloc), (90, 0, 0))].into_iter().collect(),
+            folder: [(folder, (90, 0, 0))].into_iter().collect(),
+            job: [(job, (90, 0, 0))].into_iter().collect(),
         };
         store.seed_show_booked(&seed);
         assert_eq!(store.sub_counters(show, alloc), (90, 100));
@@ -877,7 +1022,7 @@ mod tests {
     fn live_limit_change_updates_cap() {
         let (show, alloc, folder, job) = ids();
         let store = Store::new();
-        store.set_caps([(show, alloc, 100)], [(folder, -1, -1)], [(job, 50, -1)]);
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, 50, -1, -1)]);
         let d = delta(show, alloc, folder, job, 40, 0);
         assert!(applied(store.book(&d))); // 40 <= 50
                                           // Operator lowers the hard cap to 30 live; further bookings must reject.
@@ -890,5 +1035,81 @@ mod tests {
             store.book(&d2),
             BookOutcome::LimitExceeded { table: "job", .. }
         ));
+    }
+
+    // ── Slot axis ────────────────────────────────────────────────────────────
+
+    /// Missing slot cap (unseeded) rejects all slot work — fail-closed.
+    #[test]
+    fn slot_book_missing_cap_rejects_all() {
+        let (show, alloc, folder, job) = ids();
+        let store = Store::new();
+        // No set_caps: slot caps default to 0 = reject-all.
+        assert!(matches!(
+            store.book(&slot_delta(show, alloc, folder, job, 1)),
+            BookOutcome::LimitExceeded {
+                table: "subscription_slots",
+                ..
+            }
+        ));
+    }
+
+    /// `-1` slot cap is unlimited; many slot bookings succeed.
+    #[test]
+    fn slot_unlimited_cap_never_rejects() {
+        let (show, alloc, folder, job) = ids();
+        let store = Store::new();
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, -1)]);
+        for _ in 0..100 {
+            assert!(applied(store.book(&slot_delta(show, alloc, folder, job, 1))));
+        }
+        assert_eq!(store.job_slots_in_use(job), 100);
+    }
+
+    /// The folder slot cap is enforced (and `0` means reject-all even at the folder level).
+    #[test]
+    fn slot_book_respects_folder_cap() {
+        let (show, alloc, folder, job) = ids();
+        let store = Store::new();
+        // sub/job unlimited, folder capped at 2 slots.
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, 2)], [(job, -1, -1, -1)]);
+        assert!(applied(store.book(&slot_delta(show, alloc, folder, job, 2)))); // fills the cap
+        assert!(matches!(
+            store.book(&slot_delta(show, alloc, folder, job, 1)),
+            BookOutcome::LimitExceeded {
+                table: "folder_slots",
+                current: 2,
+                limit: 2
+            }
+        ));
+    }
+
+    /// The slot axis is fully independent of the core/gpu axes: a slot booking
+    /// consumes no core budget, and a core booking consumes no slot budget.
+    #[test]
+    fn slot_axis_independent_from_cores() {
+        let (show, alloc, folder, job) = ids();
+        let store = Store::new();
+        // Cores capped tight at 1; slots capped generously.
+        store.set_caps([(show, alloc, 1, -1)], [(folder, 1, -1, -1)], [(job, 1, -1, 10)]);
+        // A 5-slot booking (0 cores) is unaffected by the 1-core cap.
+        assert!(applied(store.book(&slot_delta(show, alloc, folder, job, 5))));
+        assert_eq!(store.job_slots_in_use(job), 5);
+        assert_eq!(store.job_cores_in_use(job), 0);
+        // A 1-core booking still fits its own budget, untouched by slot usage.
+        assert!(applied(store.book(&delta(show, alloc, folder, job, 1, 0))));
+        assert_eq!(store.job_cores_in_use(job), 1);
+    }
+
+    /// A release NOTIFY with a negative slot delta decrements the slot counters.
+    #[test]
+    fn slot_release_decrements() {
+        let (show, alloc, folder, job) = ids();
+        let store = Store::new();
+        store.set_caps([(show, alloc, 100, -1)], [(folder, -1, -1, -1)], [(job, -1, -1, 10)]);
+        assert!(applied(store.book(&slot_delta(show, alloc, folder, job, 4))));
+        assert_eq!(store.job_slots_in_use(job), 4);
+        store.apply_release(&slot_delta(show, alloc, folder, job, -3));
+        assert_eq!(store.job_slots_in_use(job), 1);
     }
 }

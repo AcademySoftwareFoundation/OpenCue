@@ -41,6 +41,9 @@ pub struct LayerProfile {
     pub mem_min: ByteSize,
     pub gpus_min: i32,
     pub gpu_mem_min: ByteSize,
+    // Slot-based scheduling: `> 0` marks the layer slot-based. A slot layer only
+    // matches slot-based hosts, and cores/memory floors are ignored on those hosts.
+    pub slots_required: u32,
     // Compatibility
     pub os: Option<String>,
     pub threadable: bool,
@@ -222,14 +225,49 @@ pub fn placement_score(host: &Host, profile: &LayerProfile) -> f64 {
     w.cores * cores_waste + w.mem * mem_waste + gpu_term
 }
 
+/// Result of pairing a host and layer on the slot-based axis.
+///
+/// Slot hosts and slot layers are strictly paired: a slot host runs only slot
+/// layers and vice-versa. On a slot host, cores/memory floors are irrelevant —
+/// the only constraint is the per-host concurrent slots cap.
+enum SlotMatch {
+    /// Neither host nor layer is slot-based: use the normal cores/memory gate.
+    Neither,
+    /// Both slot-based and the host has room for the layer's slots: accept.
+    Accept,
+    /// Pairing mismatch, or slot host at capacity: reject.
+    Reject,
+}
+
+fn match_slots(host: &Host, profile: &LayerProfile) -> SlotMatch {
+    match (host.concurrent_slots_limit, profile.slots_required) {
+        // Slot host + slot layer: enforce the per-host concurrency cap.
+        (Some(limit), req) if req > 0 => {
+            if host.running_slots_count + req <= limit {
+                SlotMatch::Accept
+            } else {
+                SlotMatch::Reject
+            }
+        }
+        // Regular host + regular layer.
+        (None, 0) => SlotMatch::Neither,
+        // Slot host + regular layer, or regular host + slot layer.
+        _ => SlotMatch::Reject,
+    }
+}
+
 /// Saturation strategy gate: validate-only. Returns `Some(0.0)` when the host
 /// is a valid candidate; the constant score is irrelevant because the
 /// Saturation path is first-fit, not lowest-score.
 pub fn saturation_gate(host: &Host, profile: &LayerProfile) -> Option<f64> {
-    if validate_os_and_thread_mode(host, profile) && fits_floor(host, profile) {
-        Some(0.0)
-    } else {
-        None
+    match match_slots(host, profile) {
+        SlotMatch::Neither => {
+            (validate_os_and_thread_mode(host, profile) && fits_floor(host, profile)).then_some(0.0)
+        }
+        // Slot placement: only OS compatibility matters (cores/mem/thread-mode
+        // are irrelevant on slot hosts; the cap was checked in match_slots).
+        SlotMatch::Accept => host_matches_layer_os(host, profile).then_some(0.0),
+        SlotMatch::Reject => None,
     }
 }
 
@@ -237,10 +275,14 @@ pub fn saturation_gate(host: &Host, profile: &LayerProfile) -> Option<f64> {
 /// host fits; `None` otherwise. The cache picks the lowest score among up to
 /// `max_candidates` scanned.
 pub fn epvm_gate(host: &Host, profile: &LayerProfile) -> Option<f64> {
-    if validate_os_and_thread_mode(host, profile) && fits_floor(host, profile) {
-        Some(placement_score(host, profile))
-    } else {
-        None
+    match match_slots(host, profile) {
+        SlotMatch::Neither => (validate_os_and_thread_mode(host, profile)
+            && fits_floor(host, profile))
+        .then(|| placement_score(host, profile)),
+        // Slot placements don't strand cores/memory, so E-PVM scoring is
+        // meaningless — every valid slot host ties at a constant score.
+        SlotMatch::Accept => host_matches_layer_os(host, profile).then_some(0.0),
+        SlotMatch::Reject => None,
     }
 }
 
@@ -255,6 +297,7 @@ mod tests {
             mem_min: ByteSize::gb(1),
             gpus_min: 0,
             gpu_mem_min: ByteSize::gb(0),
+            slots_required: 0,
             os: os.map(str::to_string),
             threadable,
             job_max_cores: 0,
@@ -288,6 +331,7 @@ mod tests {
             CoreSize::from_multiplied(100),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -415,6 +459,7 @@ mod scoring_tests {
             CoreSize(idle_cores),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -424,6 +469,7 @@ mod scoring_tests {
             mem_min: ByteSize::gb(mem_min_gb),
             gpus_min,
             gpu_mem_min: ByteSize::gb(gpu_mem_min_gb),
+            slots_required: 0,
             os: None,
             threadable: true,
             job_max_cores: 0,
@@ -709,6 +755,60 @@ mod scoring_tests {
         let h = host(2, 4, 0, 0);
         let l = layer(4, 4, 0, 0);
         assert_eq!(saturation_gate(&h, &l), None);
+    }
+
+    // ── Slot-based pairing gate ──────────────────────────────────────────────
+
+    fn slot_host(limit: u32, running: u32) -> Host {
+        let mut h = host(4, 4, 0, 0);
+        h.concurrent_slots_limit = Some(limit);
+        h.running_slots_count = running;
+        h
+    }
+
+    fn slot_layer(slots: u32) -> LayerProfile {
+        let mut l = layer(4, 4, 0, 0);
+        l.slots_required = slots;
+        l
+    }
+
+    #[test]
+    fn slot_host_accepts_slot_layer_within_cap() {
+        // 2 running + 2 requested <= 8 cap.
+        assert_eq!(saturation_gate(&slot_host(8, 2), &slot_layer(2)), Some(0.0));
+    }
+
+    #[test]
+    fn slot_host_rejects_slot_layer_over_cap() {
+        // 7 running + 2 requested > 8 cap.
+        assert_eq!(saturation_gate(&slot_host(8, 7), &slot_layer(2)), None);
+    }
+
+    #[test]
+    fn slot_host_rejects_regular_layer() {
+        // Strict pairing: a slot host never runs a non-slot layer.
+        assert_eq!(saturation_gate(&slot_host(8, 0), &layer(4, 4, 0, 0)), None);
+    }
+
+    #[test]
+    fn regular_host_rejects_slot_layer() {
+        // Strict pairing: a slot layer never runs on a non-slot host.
+        assert_eq!(saturation_gate(&host(4, 4, 0, 0), &slot_layer(1)), None);
+    }
+
+    #[test]
+    fn slot_gate_ignores_core_and_memory_floor() {
+        // Slot host with zero idle cores/memory still accepts a slot layer.
+        let mut h = slot_host(8, 0);
+        h.idle_cores = CoreSize(0);
+        h.idle_memory = ByteSize::gb(0);
+        assert_eq!(saturation_gate(&h, &slot_layer(4)), Some(0.0));
+    }
+
+    #[test]
+    fn epvm_gate_scores_slot_placement_constant() {
+        // Slot placements tie at a constant score (no core stranding to minimize).
+        assert_eq!(epvm_gate(&slot_host(8, 0), &slot_layer(1)), Some(0.0));
     }
 
     #[test]

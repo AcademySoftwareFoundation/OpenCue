@@ -38,6 +38,7 @@ pub struct BookedSnapshotRow {
     pub job_id: Uuid,
     pub cores: i64,
     pub gpus: i64,
+    pub slots: i64,
 }
 
 /// The full universe of enumerable accounting keys for scheduler-managed shows, used by
@@ -57,6 +58,7 @@ pub struct SubscriptionLimitsRow {
     pub show_id: Uuid,
     pub alloc_id: Uuid,
     pub burst: i64,
+    pub max_slots: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +66,7 @@ pub struct FolderLimitsRow {
     pub folder_id: Uuid,
     pub max_cores: i64,
     pub max_gpus: i64,
+    pub max_slots: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +74,7 @@ pub struct JobLimitsRow {
     pub job_id: Uuid,
     pub max_cores: i64,
     pub max_gpus: i64,
+    pub max_slots: i64,
 }
 
 static QUERY_MANAGED_SHOW_IDS: &str = r#"
@@ -88,7 +92,8 @@ static QUERY_MANAGED_SHOW_IDS: &str = r#"
 static QUERY_BOOKED: &str = r#"
     SELECT j.pk_show, h.pk_alloc, j.pk_folder, p.pk_job,
            COALESCE(SUM(p.int_cores_reserved), 0)::bigint as cores,
-           COALESCE(SUM(p.int_gpus_reserved),  0)::bigint as gpus
+           COALESCE(SUM(p.int_gpus_reserved),  0)::bigint as gpus,
+           COALESCE(SUM(p.int_slots_reserved), 0)::bigint as slots
     FROM proc p
     JOIN host h ON h.pk_host = p.pk_host
     JOIN job  j ON j.pk_job  = p.pk_job AND j.str_state <> 'FINISHED'
@@ -102,7 +107,8 @@ static QUERY_BOOKED: &str = r#"
 static QUERY_BOOKED_FOR_SHOW: &str = r#"
     SELECT h.pk_alloc, j.pk_folder, p.pk_job,
            COALESCE(SUM(p.int_cores_reserved), 0)::bigint as cores,
-           COALESCE(SUM(p.int_gpus_reserved),  0)::bigint as gpus
+           COALESCE(SUM(p.int_gpus_reserved),  0)::bigint as gpus,
+           COALESCE(SUM(p.int_slots_reserved), 0)::bigint as slots
     FROM proc p
     JOIN host h ON h.pk_host = p.pk_host
     JOIN job  j ON j.pk_job  = p.pk_job AND j.str_state <> 'FINISHED'
@@ -111,20 +117,20 @@ static QUERY_BOOKED_FOR_SHOW: &str = r#"
 "#;
 
 static QUERY_SUBSCRIPTION_LIMITS: &str = r#"
-    SELECT s.pk_show, s.pk_alloc, s.int_burst
+    SELECT s.pk_show, s.pk_alloc, s.int_burst, s.int_max_slots
     FROM subscription s
     JOIN show sh ON sh.pk_show = s.pk_show AND sh.b_scheduler_managed = true
 "#;
 
 static QUERY_FOLDER_LIMITS: &str = r#"
-    SELECT fr.pk_folder, fr.int_max_cores, fr.int_max_gpus
+    SELECT fr.pk_folder, fr.int_max_cores, fr.int_max_gpus, fr.int_max_slots
     FROM folder_resource fr
     JOIN folder f ON f.pk_folder = fr.pk_folder
     JOIN show   s ON s.pk_show   = f.pk_show AND s.b_scheduler_managed = true
 "#;
 
 static QUERY_JOB_LIMITS: &str = r#"
-    SELECT jr.pk_job, jr.int_max_cores, jr.int_max_gpus
+    SELECT jr.pk_job, jr.int_max_cores, jr.int_max_gpus, jr.int_max_slots
     FROM job_resource jr
     JOIN job  j ON j.pk_job  = jr.pk_job AND j.str_state <> 'FINISHED'
     JOIN show s ON s.pk_show = j.pk_show AND s.b_scheduler_managed = true
@@ -160,6 +166,7 @@ impl AccountingDao {
             pk_job: String,
             cores: i64,
             gpus: i64,
+            slots: i64,
         }
         let rows: Vec<Row> = sqlx::query_as(QUERY_BOOKED)
             .fetch_all(self.connection_pool.as_ref())
@@ -176,6 +183,7 @@ impl AccountingDao {
                 job_id: parse_uuid(&r.pk_job),
                 cores: r.cores,
                 gpus: r.gpus,
+                slots: r.slots,
             })
             .collect())
     }
@@ -193,6 +201,7 @@ impl AccountingDao {
             pk_job: String,
             cores: i64,
             gpus: i64,
+            slots: i64,
         }
         let rows: Vec<Row> = sqlx::query_as(QUERY_BOOKED_FOR_SHOW)
             .bind(show_id.to_string())
@@ -209,6 +218,7 @@ impl AccountingDao {
                 job_id: parse_uuid(&r.pk_job),
                 cores: r.cores,
                 gpus: r.gpus,
+                slots: r.slots,
             })
             .collect())
     }
@@ -237,6 +247,7 @@ impl AccountingDao {
             pk_show: String,
             pk_alloc: String,
             int_burst: i64,
+            int_max_slots: i32,
         }
         let rows: Vec<Row> = sqlx::query_as(QUERY_SUBSCRIPTION_LIMITS)
             .fetch_all(self.connection_pool.as_ref())
@@ -249,6 +260,7 @@ impl AccountingDao {
                 show_id: parse_uuid(&r.pk_show),
                 alloc_id: parse_uuid(&r.pk_alloc),
                 burst: r.int_burst,
+                max_slots: i64::from(r.int_max_slots),
             })
             .collect())
     }
@@ -260,6 +272,7 @@ impl AccountingDao {
             pk_folder: String,
             int_max_cores: i32,
             int_max_gpus: i32,
+            int_max_slots: i32,
         }
         let rows: Vec<Row> = sqlx::query_as(QUERY_FOLDER_LIMITS)
             .fetch_all(self.connection_pool.as_ref())
@@ -272,6 +285,7 @@ impl AccountingDao {
                 folder_id: parse_uuid(&r.pk_folder),
                 max_cores: i64::from(r.int_max_cores),
                 max_gpus: i64::from(r.int_max_gpus),
+                max_slots: i64::from(r.int_max_slots),
             })
             .collect())
     }
@@ -283,6 +297,7 @@ impl AccountingDao {
             pk_job: String,
             int_max_cores: i32,
             int_max_gpus: i32,
+            int_max_slots: i32,
         }
         let rows: Vec<Row> = sqlx::query_as(QUERY_JOB_LIMITS)
             .fetch_all(self.connection_pool.as_ref())
@@ -295,6 +310,7 @@ impl AccountingDao {
                 job_id: parse_uuid(&r.pk_job),
                 max_cores: i64::from(r.int_max_cores),
                 max_gpus: i64::from(r.int_max_gpus),
+                max_slots: i64::from(r.int_max_slots),
             })
             .collect())
     }

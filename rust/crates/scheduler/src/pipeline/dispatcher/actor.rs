@@ -523,6 +523,9 @@ impl RqdDispatcherService {
             job_id: virtual_proc.job_id,
             core_delta: i64::from(cores_reserved.value()),
             gpu_delta: virtual_proc.gpus_reserved as i32,
+            // Slot frames reserve 0 cores/gpus; regular frames reserve 0 slots.
+            // The axes are independent, so exactly one of these is non-zero.
+            slot_delta: virtual_proc.slots_required as i64,
         };
 
         // Per-cluster host accounting check - this dispatcher iteration may have already
@@ -1036,6 +1039,48 @@ impl RqdDispatcherService {
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
         let mut host = host.clone();
 
+        // Slot-based hosts ignore cores/memory entirely: a slot frame reserves 0
+        // cores and 0 memory and only consumes the host's concurrency slots. The
+        // placement gate enforced the per-host slot cap at check-out, but several
+        // slot frames booked onto this host in the same dispatch pass accumulate
+        // `running_slots_count`, so re-check the cap here and stop dispatching to
+        // the host once another frame would exceed it.
+        if host.is_slot_host() {
+            if let Some(limit) = host.concurrent_slots_limit {
+                if host.running_slots_count + frame.slots_required > limit {
+                    return Err(VirtualProcError::HostResourcesExtinguished(format!(
+                        "slot host {} at capacity ({} + {} > {})",
+                        host.name, host.running_slots_count, frame.slots_required, limit
+                    )));
+                }
+            }
+            host.running_slots_count += frame.slots_required;
+            host.last_updated = Utc::now();
+            return Ok((
+                VirtualProc {
+                    proc_id: Uuid::new_v4(),
+                    host_id: host.id,
+                    show_id: frame.show_id,
+                    folder_id,
+                    dept_id,
+                    layer_id: frame.layer_id,
+                    job_id: frame.job_id,
+                    frame_id: frame.id,
+                    alloc_id: host.alloc_id,
+                    cores_reserved: CoreSize(0).into(),
+                    memory_reserved: ByteSize(0),
+                    gpus_reserved: 0,
+                    gpu_memory_reserved: ByteSize(0),
+                    os: host.str_os.clone().unwrap_or_default(),
+                    is_local_dispatch: false,
+                    frame: frame.clone(),
+                    host_name: host.name.clone(),
+                    slots_required: frame.slots_required,
+                },
+                host,
+            ));
+        }
+
         let cores_reserved = Self::calculate_core_reservation(
             &host,
             frame,
@@ -1108,6 +1153,7 @@ impl RqdDispatcherService {
                 is_local_dispatch: false,
                 frame: frame.clone(),
                 host_name: host.name.clone(),
+                slots_required: 0,
             },
             host,
         ))
@@ -1319,6 +1365,7 @@ impl RqdDispatcherService {
             attributes: HashMap::new(),
             children: None,
             pid: 0, // Will be set by RQD
+            slots_required: proc.slots_required as i32,
 
             // Deprecated fields
             #[allow(deprecated)]
@@ -1400,6 +1447,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -1435,6 +1483,7 @@ mod tests {
             version: 1,
             updated_at: SystemTime::now(),
             env: HashMap::new(),
+            slots_required: 0,
         }
     }
 
@@ -1643,6 +1692,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1679,6 +1729,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1715,6 +1766,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1750,6 +1802,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1941,6 +1994,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -2019,6 +2073,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);
@@ -2057,6 +2112,7 @@ mod tests {
             is_local_dispatch: false,
             frame,
             host_name: "somehost".to_string(),
+            slots_required: 0,
         };
 
         let result = RqdDispatcherService::prepare_rqd_run_frame(&virtual_proc);

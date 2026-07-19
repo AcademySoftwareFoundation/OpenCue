@@ -114,4 +114,13 @@ public interface SubscriptionDao {
      * @param size int
      */
     void updateSubscriptionBurst(SubscriptionInterface sub, int size);
+
+    /**
+     * update the subscription max concurrent slots for slot-based layers (-1 unlimited, 0
+     * reject-all, N cap)
+     *
+     * @param sub SubscriptionInterface
+     * @param maxSlots int
+     */
+    void updateSubscriptionMaxSlots(SubscriptionInterface sub, int maxSlots);
 }
