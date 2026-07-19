@@ -435,13 +435,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     // spotless:off
     public static final String FIND_ORPHANED_FRAMES =
             "SELECT "
-                + "frame.pk_frame, "
-                + "frame.pk_layer, "
-                + "frame.str_name, "
-                + "frame.int_version, "
-                + "job.pk_job, "
-                + "job.pk_show, "
-                + "job.pk_facility "
+                + "frame.*, "
+                + "job.pk_show "
             + "FROM "
                 + "frame, "
                 + "job "
@@ -453,8 +448,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     // spotless:on
 
     @Override
-    public List<FrameInterface> getOrphanedFrames() {
-        return getJdbcTemplate().query(FIND_ORPHANED_FRAMES, FRAME_MAPPER);
+    public List<FrameDetail> getOrphanedFrames() {
+        return getJdbcTemplate().query(FIND_ORPHANED_FRAMES, FRAME_DETAIL_MAPPER);
     }
 
     // spotless:off

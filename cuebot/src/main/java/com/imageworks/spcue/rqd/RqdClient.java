@@ -97,4 +97,19 @@ public interface RqdClient {
      * @param frameId
      */
     void killFrame(String hostName, String frameId, String message);
+
+    /**
+     * Returns whether the given frame is still running on the given host.
+     *
+     * Used to confirm a frame's render is dead before its frame record is cleared. A {@code false}
+     * result means RQD no longer tracks the frame (it has been reaped). A communication failure
+     * with the host (i.e. anything other than the frame being absent) is raised as an
+     * {@link RqdClientException} so callers can distinguish "confirmed gone" from "could not
+     * reach".
+     *
+     * @param hostName
+     * @param frameId
+     * @return true if the frame is still running on the host, false if RQD reports it is gone
+     */
+    boolean isFrameRunning(String hostName, String frameId);
 }
