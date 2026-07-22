@@ -212,8 +212,9 @@ public final class RqdClientGrpc implements RqdClient {
             // RqdClientException, which hides why the launch failed (e.g. an
             // EMFILE "Too many open files" once the per-host channel cache
             // exhausts the process FD limit at large farm scale).
-            logger.warn("failed to launch frame on " + proc.hostName + ":"
-                    + rqdServerPort + ": " + e, e);
+            logger.warn(
+                    "failed to launch frame on " + proc.hostName + ":" + rqdServerPort + ": " + e,
+                    e);
             throw new RqdClientException("failed to launch frame", e);
         }
     }

@@ -168,17 +168,17 @@ public interface FrameDao {
     void updateFrameStarted(VirtualProc proc, FrameInterface frame);
 
     /**
-     * Batch variant of {@link #updateFrameStarted}: marks many frames RUNNING in
-     * one round-trip with the same per-row optimistic version+state guard. No
-     * SELECT ... FOR UPDATE is taken; a frame whose state/version changed since
-     * planning simply updates zero rows and is reported as a loser.
+     * Batch variant of {@link #updateFrameStarted}: marks many frames RUNNING in one round-trip
+     * with the same per-row optimistic version+state guard. No SELECT ... FOR UPDATE is taken; a
+     * frame whose state/version changed since planning simply updates zero rows and is reported as
+     * a loser.
      *
      * @param bookings the planned (frame, proc) pairs to start
-     * @return a mask, aligned to {@code bookings}, true where the frame was won
-     *         (transitioned WAITING -> RUNNING by this call)
+     * @return a mask, aligned to {@code bookings}, true where the frame was won (transitioned
+     *         WAITING -> RUNNING by this call)
      */
-    boolean[] batchUpdateFramesStarted(java.util.List<com.imageworks.spcue.dispatcher.FrameBooking>
-            bookings);
+    boolean[] batchUpdateFramesStarted(
+            java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings);
 
     /**
      * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.

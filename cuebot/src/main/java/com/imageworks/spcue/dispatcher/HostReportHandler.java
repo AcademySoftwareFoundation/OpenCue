@@ -325,7 +325,7 @@ public class HostReportHandler {
             // b_scheduler_managed shows -- so we do NOT suppress it globally there.
             boolean bookingOff =
                     env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
-                    || SchedulerMode.facility(env);
+                            || SchedulerMode.facility(env);
             /*
              * If a message was set, the host is not bookable. Log the message and move on.
              */

@@ -167,12 +167,11 @@ public interface Dispatcher {
     List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer);
 
     /**
-     * Plan (but do not commit) the frames that would be booked for a layer on a
-     * host. Runs the same placement logic as
-     * {@link #dispatchHost(DispatchHost, LayerInterface)}, candidate query,
-     * fit checks, in-memory host resource decrement, but instead of writing
-     * each booking, collects the planned (frame, proc) pairs for the Scheduler
-     * to commit in bulk. No DB writes and no RQD launch happen here.
+     * Plan (but do not commit) the frames that would be booked for a layer on a host. Runs the same
+     * placement logic as {@link #dispatchHost(DispatchHost, LayerInterface)}, candidate query, fit
+     * checks, in-memory host resource decrement, but instead of writing each booking, collects the
+     * planned (frame, proc) pairs for the Scheduler to commit in bulk. No DB writes and no RQD
+     * launch happen here.
      *
      * @param host
      * @param layer

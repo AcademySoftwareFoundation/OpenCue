@@ -184,13 +184,13 @@ public class FrameCompleteHandler {
                 // (pk_frame NULL, cores still held) until the task runs -- a standing backlog
                 // under load, and a stranded zombie if the task is ever lost. Run it inline
                 // (exactly as test mode does) so the proc is reaped within the completion
-                // itself: no limbo. The legacy dispatcher and Rust (dispatcher.turn_off_booking) are
+                // itself: no limbo. The legacy dispatcher and Rust (dispatcher.turn_off_booking)
+                // are
                 // deliberately left on the async path here -- out of scope for this change.
                 // Inline post-complete only for shows the in-process Scheduler owns
                 // (facility, or a 'managed' show); legacy shows and Rust
                 // (dispatcher.turn_off_booking) stay on the async path.
-                boolean schedulerOwnsShow =
-                        SchedulerMode.schedules(env, showDao, proc.getShowId());
+                boolean schedulerOwnsShow = SchedulerMode.schedules(env, showDao, proc.getShowId());
                 if (dispatcher.isTestMode() || schedulerOwnsShow) {
                     // Database modifications on a threadpool cannot be captured by the test thread
                     handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
@@ -304,7 +304,7 @@ public class FrameCompleteHandler {
              */
             boolean bookingOff =
                     env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
-                    || SchedulerMode.facility(env);
+                            || SchedulerMode.facility(env);
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
@@ -377,12 +377,12 @@ public class FrameCompleteHandler {
 
             /*
              * Some exit statuses indicate that a frame was killed by the application due to a
-             * memory issue and should be retried, by raising the memory (service override,
-             * service, or 2GB). The legacy dispatcher raises the whole LAYER and disables its
-             * optimizer -- the original behavior, kept unchanged. The in-process Scheduler
-             * instead bumps per FRAME so one hungry or spuriously-killed frame does not
-             * inflate every other frame and strand cores, escalating to the layer only after
-             * repeated OOMs in a row (see OomMemoryTracker).
+             * memory issue and should be retried, by raising the memory (service override, service,
+             * or 2GB). The legacy dispatcher raises the whole LAYER and disables its optimizer --
+             * the original behavior, kept unchanged. The in-process Scheduler instead bumps per
+             * FRAME so one hungry or spuriously-killed frame does not inflate every other frame and
+             * strand cores, escalating to the layer only after repeated OOMs in a row (see
+             * OomMemoryTracker).
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
@@ -419,16 +419,16 @@ public class FrameCompleteHandler {
                     // In-process Scheduler: bump per FRAME, escalate to the layer only after
                     // it OOMs oom_layer_escalate_threshold times in a row. Leaves the layer
                     // optimizer on, so an escalated layer later settles at its true size.
-                    int oomThreshold = env.getProperty(
-                            "dispatcher.oom_layer_escalate_threshold", Integer.class, 3);
+                    int oomThreshold = env.getProperty("dispatcher.oom_layer_escalate_threshold",
+                            Integer.class, 3);
                     if (OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(),
                             newReserved, oomThreshold)) {
                         jobManager.increaseLayerMemoryRequirement(frame, newReserved);
                         logger.info("Layer " + frame.getLayerId() + " OOMed " + oomThreshold
                                 + "x in a row; raised layer mem to: " + newReserved);
                     } else {
-                        logger.info("Frame " + frame.getFrameId()
-                                + " OOM; per-frame mem bump to: " + newReserved);
+                        logger.info("Frame " + frame.getFrameId() + " OOM; per-frame mem bump to: "
+                                + newReserved);
                     }
                 } else {
                     // Legacy dispatcher: original behavior, unchanged -- disable the layer

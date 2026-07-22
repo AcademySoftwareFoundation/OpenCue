@@ -19,10 +19,9 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.VirtualProc;
 
 /**
- * A planned (frame, proc) pairing produced by the Scheduler's planning phase
- * and committed in bulk by the batch booking path. Carries both the frame
- * (needed for the version-guarded frame UPDATE and the RQD launch) and the
- * proc built for it (the INSERT row plus host/accounting deltas).
+ * A planned (frame, proc) pairing produced by the Scheduler's planning phase and committed in bulk
+ * by the batch booking path. Carries both the frame (needed for the version-guarded frame UPDATE
+ * and the RQD launch) and the proc built for it (the INSERT row plus host/accounting deltas).
  */
 public final class FrameBooking {
     public final DispatchFrame frame;

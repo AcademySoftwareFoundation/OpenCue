@@ -236,13 +236,12 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     }
 
     /**
-     * Pre-acquire, in a deterministic global order, the layer_stat and job_stat
-     * counter rows that the batch's frame-start triggers will update. Locks all
-     * distinct layer_stat rows first (ordered by pk_layer), then all distinct
-     * job_stat rows (ordered by pk_job), the same "layer-before-job" order
-     * every single-frame transaction follows via the trigger, so this batch
-     * can never deadlock against a concurrent frame completion. SELECT ... FOR
-     * UPDATE inside the batch's transaction; rows are released at commit.
+     * Pre-acquire, in a deterministic global order, the layer_stat and job_stat counter rows that
+     * the batch's frame-start triggers will update. Locks all distinct layer_stat rows first
+     * (ordered by pk_layer), then all distinct job_stat rows (ordered by pk_job), the same
+     * "layer-before-job" order every single-frame transaction follows via the trigger, so this
+     * batch can never deadlock against a concurrent frame completion. SELECT ... FOR UPDATE inside
+     * the batch's transaction; rows are released at commit.
      */
     private void lockStatRowsForBatch(
             java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings) {
@@ -254,17 +253,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         }
         if (!layerIds.isEmpty()) {
             String in = String.join(",", java.util.Collections.nCopies(layerIds.size(), "?"));
-            getJdbcTemplate().query(
-                    "SELECT pk_layer FROM layer_stat WHERE pk_layer IN (" + in + ") "
-                            + "ORDER BY pk_layer FOR UPDATE",
-                    rs -> {}, layerIds.toArray());
+            getJdbcTemplate().query("SELECT pk_layer FROM layer_stat WHERE pk_layer IN (" + in
+                    + ") " + "ORDER BY pk_layer FOR UPDATE", rs -> {
+                    }, layerIds.toArray());
         }
         if (!jobIds.isEmpty()) {
             String in = String.join(",", java.util.Collections.nCopies(jobIds.size(), "?"));
-            getJdbcTemplate().query(
-                    "SELECT pk_job FROM job_stat WHERE pk_job IN (" + in + ") "
-                            + "ORDER BY pk_job FOR UPDATE",
-                    rs -> {}, jobIds.toArray());
+            getJdbcTemplate().query("SELECT pk_job FROM job_stat WHERE pk_job IN (" + in + ") "
+                    + "ORDER BY pk_job FOR UPDATE", rs -> {
+                    }, jobIds.toArray());
         }
     }
 
@@ -301,10 +298,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         for (com.imageworks.spcue.dispatcher.FrameBooking b : bookings) {
             VirtualProc proc = b.proc;
             DispatchFrame frame = b.frame;
-            startParams.add(new Object[] {FrameState.RUNNING.toString(), proc.hostName,
-                    proc.coresReserved, proc.memoryReserved, proc.gpusReserved,
-                    proc.gpuMemoryReserved, frame.getFrameId(), FrameState.WAITING.toString(),
-                    frame.getVersion()});
+            startParams.add(
+                    new Object[] {FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
+                            proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
+                            frame.getFrameId(), FrameState.WAITING.toString(), frame.getVersion()});
         }
         int[] counts;
         try {

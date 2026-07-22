@@ -25,10 +25,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Unit tests for the pure, side-effect-free logic in {@link Scheduler}:
- * tag normalization, host grouping, the fit check, the per-tick frame
- * prediction, and the E-PVM placement score. These need no Spring context
- * or database; the test lives in the dispatcher package so it can reach the
+ * Unit tests for the pure, side-effect-free logic in {@link Scheduler}: tag normalization, host
+ * grouping, the fit check, the per-tick frame prediction, and the E-PVM placement score. These need
+ * no Spring context or database; the test lives in the dispatcher package so it can reach the
  * package-private static helpers and POJOs.
  */
 public class SchedulerTests {
@@ -38,9 +37,9 @@ public class SchedulerTests {
     /** One gigabyte expressed in kilobytes (host/layer mem values are in KB). */
     private static final long GB = 1024L * 1024L;
 
-    private static Scheduler.BookableHost host(String alloc, String tags, String os,
-            int coresIdle, long memIdle, int gpusIdle, long gpuMemIdle,
-            int coresTotal, long memTotal, int gpusTotal, long gpuMemTotal) {
+    private static Scheduler.BookableHost host(String alloc, String tags, String os, int coresIdle,
+            long memIdle, int gpusIdle, long gpuMemIdle, int coresTotal, long memTotal,
+            int gpusTotal, long gpuMemTotal) {
         Scheduler.BookableHost h = new Scheduler.BookableHost();
         h.hostId = "host";
         h.hostName = "host";
@@ -61,12 +60,11 @@ public class SchedulerTests {
 
     /** Host whose idle resources equal its totals (fully free). */
     private static Scheduler.BookableHost freeHost(int cores, long mem, int gpus, long gpuMem) {
-        return host("alloc", "tags", "Linux", cores, mem, gpus, gpuMem,
-                cores, mem, gpus, gpuMem);
+        return host("alloc", "tags", "Linux", cores, mem, gpus, gpuMem, cores, mem, gpus, gpuMem);
     }
 
-    private static Scheduler.LayerCandidate layer(int coresMin, long memMin,
-            int gpusMin, long gpuMemMin) {
+    private static Scheduler.LayerCandidate layer(int coresMin, long memMin, int gpusMin,
+            long gpuMemMin) {
         Scheduler.LayerCandidate c = new Scheduler.LayerCandidate();
         c.layerId = "layer";
         c.jobId = "job";
@@ -109,8 +107,7 @@ public class SchedulerTests {
     public void normalizeTagsDedupsAndStripsHostName() {
         // cuebot stores "general general <hostname>"; grouping must reduce
         // that to just "general" so same-spec hosts group together.
-        assertEquals("general",
-                Scheduler.normalizeTags("general general elk0001", "elk0001"));
+        assertEquals("general", Scheduler.normalizeTags("general general elk0001", "elk0001"));
         // host-name exclusion is case-insensitive.
         assertEquals("general", Scheduler.normalizeTags("general ELK0001", "elk0001"));
     }
@@ -141,8 +138,7 @@ public class SchedulerTests {
         // the regression guard for the idle-vs-total grouping fix.
         Scheduler.BookableHost gpuFullyBooked =
                 host("a", "t", "Linux", 100, GB, 0, 0, 200, 2 * GB, 2, 8 * GB);
-        Scheduler.BookableHost cpuOnly =
-                host("a", "t", "Linux", 100, GB, 0, 0, 200, 2 * GB, 0, 0);
+        Scheduler.BookableHost cpuOnly = host("a", "t", "Linux", 100, GB, 0, 0, 200, 2 * GB, 0, 0);
 
         Map<Scheduler.HostSpecKey, List<Scheduler.BookableHost>> groups =
                 Scheduler.groupByHostSpec(Arrays.asList(gpuFullyBooked, cpuOnly));
@@ -179,12 +175,9 @@ public class SchedulerTests {
 
     @Test
     public void groupByHostSpecSeparatesAllocAndOs() {
-        Scheduler.BookableHost alloc1 =
-                host("a1", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
-        Scheduler.BookableHost alloc2 =
-                host("a2", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
-        Scheduler.BookableHost otherOs =
-                host("a1", "t", "Windows", 100, GB, 0, 0, 100, GB, 0, 0);
+        Scheduler.BookableHost alloc1 = host("a1", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
+        Scheduler.BookableHost alloc2 = host("a2", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
+        Scheduler.BookableHost otherOs = host("a1", "t", "Windows", 100, GB, 0, 0, 100, GB, 0, 0);
 
         Map<Scheduler.HostSpecKey, List<Scheduler.BookableHost>> groups =
                 Scheduler.groupByHostSpec(Arrays.asList(alloc1, alloc2, otherOs));
@@ -216,39 +209,36 @@ public class SchedulerTests {
     @Test
     public void computeMaxMoreIsBoundedByThePhysicalDimension() {
         // 10 cores idle, 1-core layer, ample memory: 9 additional frames fit.
-        assertEquals(9L,
-                Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0), layer(CORE, GB, 0, 0)));
+        assertEquals(9L, Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0),
+                layer(CORE, GB, 0, 0)));
     }
 
     @Test
     public void computeMaxMoreRespectsJobMaxCores() {
         Scheduler.LayerCandidate c = layer(CORE, GB, 0, 0);
-        c.jobMaxCores = 3 * CORE;            // room for 3 cores total
+        c.jobMaxCores = 3 * CORE; // room for 3 cores total
         // first frame consumes 1 core, leaving room for 2 more.
-        assertEquals(2L,
-                Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0), c));
+        assertEquals(2L, Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0), c));
     }
 
     @Test
     public void computeMaxMoreRespectsShowBurst() {
         Scheduler.LayerCandidate c = layer(CORE, GB, 0, 0);
-        c.showBurstCores = 2 * CORE;         // room for 2 cores total
-        assertEquals(1L,
-                Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0), c));
+        c.showBurstCores = 2 * CORE; // room for 2 cores total
+        assertEquals(1L, Scheduler.computeMaxMore(freeHost(10 * CORE, 100 * GB, 0, 0), c));
     }
 
     // ---- placementScore ---------------------------------------------------
     //
     // Real E-PVM: score is the marginal rise of a convex cost
-    //   sum_D W_D * ( e^(after_D/total_D) - e^(before_D/total_D) )
+    // sum_D W_D * ( e^(after_D/total_D) - e^(before_D/total_D) )
     // with before_D = total_D - idle_D and after_D = before_D + layer.min_D.
     // Lower is better. Weights cores=1, mem=1, gpus=4, gpu_mem=1.
 
     /** Host with explicit idle resources (idle <= total). */
-    private static Scheduler.BookableHost loadedHost(int cores, long mem,
-            int coresIdle, long memIdle) {
-        return host("alloc", "tags", "Linux", coresIdle, memIdle, 0, 0,
-                cores, mem, 0, 0);
+    private static Scheduler.BookableHost loadedHost(int cores, long mem, int coresIdle,
+            long memIdle) {
+        return host("alloc", "tags", "Linux", coresIdle, memIdle, 0, 0, cores, mem, 0, 0);
     }
 
     @Test
@@ -268,7 +258,7 @@ public class SchedulerTests {
         // from sitting idle under the old absolute-stranding score.
         Scheduler.LayerCandidate c = layer(4 * CORE, 4 * GB, 0, 0);
         double small = Scheduler.placementScore(freeHost(4 * CORE, 4 * GB, 0, 0), c);
-        double big   = Scheduler.placementScore(freeHost(64 * CORE, 64 * GB, 0, 0), c);
+        double big = Scheduler.placementScore(freeHost(64 * CORE, 64 * GB, 0, 0), c);
         assertTrue("bigger empty host should score lower", big < small);
         // Exact: 2*(e^(4/64) - 1) on the 64-core host.
         assertEquals(2 * (Math.exp(4.0 / 64.0) - 1.0), big, 1e-9);
@@ -280,7 +270,7 @@ public class SchedulerTests {
         // costs more than adding it to the same-size empty host, so work
         // spreads across hosts instead of piling onto one.
         Scheduler.LayerCandidate c = layer(CORE, GB, 0, 0);
-        double empty  = Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 8 * CORE, 8 * GB), c);
+        double empty = Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 8 * CORE, 8 * GB), c);
         double loaded = Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 2 * CORE, 2 * GB), c);
         assertTrue("loaded host should score higher than empty", loaded > empty);
     }
@@ -291,8 +281,10 @@ public class SchedulerTests {
         // memory axis, so its marginal cost is dominated by the steep e^x
         // region, far higher than a balanced host with the same idle cores.
         Scheduler.LayerCandidate c = layer(CORE, GB, 0, 0);
-        double balanced  = Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 4 * CORE, 4 * GB), c);
-        double memTight  = Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 4 * CORE, 1 * GB), c);
+        double balanced =
+                Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 4 * CORE, 4 * GB), c);
+        double memTight =
+                Scheduler.placementScore(loadedHost(8 * CORE, 8 * GB, 4 * CORE, 1 * GB), c);
         assertTrue("memory-tight host should score higher", memTight > balanced);
     }
 
@@ -300,15 +292,13 @@ public class SchedulerTests {
     public void placementScoreWeightsGpuDimensions() {
         // 1-core/1GB/1-gpu/1GB-gpumem layer on an empty 1-core/1GB/2-gpu/4GB
         // host. Each dimension's term is e^(add/total) - 1:
-        //   cores   : e^1   - 1
-        //   mem     : e^1   - 1
-        //   gpus    : (e^0.5 - 1) * 4   (W_GPUS = 4)
-        //   gpu_mem : (e^0.25 - 1) * 1
+        // cores : e^1 - 1
+        // mem : e^1 - 1
+        // gpus : (e^0.5 - 1) * 4 (W_GPUS = 4)
+        // gpu_mem : (e^0.25 - 1) * 1
         Scheduler.LayerCandidate gpu = layer(CORE, GB, 1, GB);
-        double expected = (Math.exp(1.0) - 1.0)
-                        + (Math.exp(1.0) - 1.0)
-                        + 4.0 * (Math.exp(0.5) - 1.0)
-                        + 1.0 * (Math.exp(0.25) - 1.0);
+        double expected = (Math.exp(1.0) - 1.0) + (Math.exp(1.0) - 1.0)
+                + 4.0 * (Math.exp(0.5) - 1.0) + 1.0 * (Math.exp(0.25) - 1.0);
         assertEquals(expected, Scheduler.placementScore(freeHost(CORE, GB, 2, 4 * GB), gpu), 1e-9);
     }
 
@@ -363,8 +353,7 @@ public class SchedulerTests {
     public void hostReadySecondsUnknownWhenANeededProcHasNoEstimate() {
         // First proc (10s) frees 1 core; the next needed proc has an unknown
         // finish (MAX_VALUE) so the host's ready time is unknown, not optimistic.
-        List<int[]> procs = Arrays.asList(
-                new int[] {100, 10}, new int[] {100, Integer.MAX_VALUE});
+        List<int[]> procs = Arrays.asList(new int[] {100, 10}, new int[] {100, Integer.MAX_VALUE});
         assertEquals(Integer.MAX_VALUE, Scheduler.hostReadySeconds(200, procs));
     }
 

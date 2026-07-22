@@ -93,15 +93,13 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     /**
      * Build a proc for a frame on a host.
      *
-     * @param expandThreadable when {@code false}, reserve exactly
-     *        {@code frame.minCores} and SKIP the thread-mode idle-core expansion.
-     *        The whole-farm Scheduler uses this: it has already scored the
-     *        placement and decremented its in-memory snapshot by the requested
-     *        cores, so letting build() silently reserve more (grab-idle) would
-     *        corrupt that accounting and make it over-plan a host whose cores a
-     *        prior frame already swallowed. The Scheduler fills hosts by planning
-     *        several placements, not by one frame ballooning. Explicit whole-host
-     *        requests ({@code minCores <= 0}) are honored regardless.
+     * @param expandThreadable when {@code false}, reserve exactly {@code frame.minCores} and SKIP
+     *        the thread-mode idle-core expansion. The whole-farm Scheduler uses this: it has
+     *        already scored the placement and decremented its in-memory snapshot by the requested
+     *        cores, so letting build() silently reserve more (grab-idle) would corrupt that
+     *        accounting and make it over-plan a host whose cores a prior frame already swallowed.
+     *        The Scheduler fills hosts by planning several placements, not by one frame ballooning.
+     *        Explicit whole-host requests ({@code minCores <= 0}) are honored regardless.
      */
     public static final VirtualProc build(DispatchHost host, DispatchFrame frame,
             boolean expandThreadable, String... selfishServices) {

@@ -19,24 +19,22 @@ import com.imageworks.spcue.dao.ShowDao;
 import org.springframework.core.env.Environment;
 
 /**
- * Interprets {@code scheduler.enabled} as a tri-state progressive-rollout switch
- * (rather than a plain boolean), so the in-process Scheduler can be turned on for
- * one show at a time -- the same per-show model the standalone Rust scheduler uses
- * via {@code show.b_scheduler_managed}:
+ * Interprets {@code scheduler.enabled} as a tri-state progressive-rollout switch (rather than a
+ * plain boolean), so the in-process Scheduler can be turned on for one show at a time -- the same
+ * per-show model the standalone Rust scheduler uses via {@code show.b_scheduler_managed}:
  *
  * <ul>
- *   <li>{@code no}       -- Scheduler off; the legacy dispatcher owns every show.</li>
- *   <li>{@code facility} -- Scheduler plans ALL shows; legacy booking globally
- *       suppressed (this is the old {@code scheduler.enabled=true} behaviour).</li>
- *   <li>{@code managed}  -- Scheduler plans only shows flagged
- *       {@code b_scheduler_managed=true} (set per show via the show API, exactly
- *       like Rust); the legacy dispatcher keeps the rest. The legacy dispatch
- *       query already excludes managed shows, so the two partition cleanly.</li>
+ * <li>{@code no} -- Scheduler off; the legacy dispatcher owns every show.</li>
+ * <li>{@code facility} -- Scheduler plans ALL shows; legacy booking globally suppressed (this is
+ * the old {@code scheduler.enabled=true} behaviour).</li>
+ * <li>{@code managed} -- Scheduler plans only shows flagged {@code b_scheduler_managed=true} (set
+ * per show via the show API, exactly like Rust); the legacy dispatcher keeps the rest. The legacy
+ * dispatch query already excludes managed shows, so the two partition cleanly.</li>
  * </ul>
  *
- * Back-compat: {@code "true"} maps to {@code facility}, {@code "false"} to
- * {@code no}. Show selection lives in the per-show flag, NOT in this string, so
- * Cuebot never has to reconcile a config value into the database.
+ * Back-compat: {@code "true"} maps to {@code facility}, {@code "false"} to {@code no}. Show
+ * selection lives in the per-show flag, NOT in this string, so Cuebot never has to reconcile a
+ * config value into the database.
  */
 public final class SchedulerMode {
 
@@ -54,8 +52,8 @@ public final class SchedulerMode {
     }
 
     /**
-     * True when the Scheduler owns EVERY show and the legacy BookingQueue is
-     * globally suppressed (facility-wide rollout / the old boolean {@code true}).
+     * True when the Scheduler owns EVERY show and the legacy BookingQueue is globally suppressed
+     * (facility-wide rollout / the old boolean {@code true}).
      */
     public static boolean facility(Environment env) {
         String m = mode(env);
@@ -63,9 +61,8 @@ public final class SchedulerMode {
     }
 
     /**
-     * Whether the in-process Scheduler -- not the legacy dispatcher -- owns this
-     * show. In {@code managed} mode this defers to the per-show
-     * {@code b_scheduler_managed} flag.
+     * Whether the in-process Scheduler -- not the legacy dispatcher -- owns this show. In
+     * {@code managed} mode this defers to the per-show {@code b_scheduler_managed} flag.
      */
     public static boolean schedules(Environment env, ShowDao showDao, String showId) {
         if (!enabled(env)) {
