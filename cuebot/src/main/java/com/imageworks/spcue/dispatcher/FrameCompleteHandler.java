@@ -175,7 +175,23 @@ public class FrameCompleteHandler {
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
-                if (dispatcher.isTestMode()) {
+                // In-process Scheduler only (scheduler.enabled): cuebot plans in-process and never
+                // same-host-rebooks -- the Scheduler rebooks fresh next tick (the reactive
+                // DispatchNextFrame path is gone, now a locality score bonus) -- so on
+                // frame-complete the proc is ALWAYS released. The legacy async hop to
+                // dispatchQueue exists only to defer the rebook-or-release decision off the
+                // report thread; with no rebook to decide it just leaves the proc in limbo
+                // (pk_frame NULL, cores still held) until the task runs -- a standing backlog
+                // under load, and a stranded zombie if the task is ever lost. Run it inline
+                // (exactly as test mode does) so the proc is reaped within the completion
+                // itself: no limbo. The legacy dispatcher and Rust (dispatcher.turn_off_booking)
+                // are
+                // deliberately left on the async path here -- out of scope for this change.
+                // Inline post-complete only for shows the in-process Scheduler owns
+                // (facility, or a 'managed' show); legacy shows and Rust
+                // (dispatcher.turn_off_booking) stay on the async path.
+                boolean schedulerOwnsShow = SchedulerMode.schedules(env, showDao, proc.getShowId());
+                if (dispatcher.isTestMode() || schedulerOwnsShow) {
                     // Database modifications on a threadpool cannot be captured by the test thread
                     handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
                             frameDetail);
@@ -279,6 +295,17 @@ public class FrameCompleteHandler {
              */
             boolean unbookProc = proc.unbooked;
 
+            /*
+             * When booking is disabled, or the new Scheduler is enabled, suppress the legacy
+             * per-host BookingQueue enqueues below so the two booking paths never both run. The
+             * Scheduler reaches this host on its own tick. This mirrors the guard in
+             * HostReportHandler and prevents legacy booking threads from racing the Scheduler's
+             * batched commit for the same frames.
+             */
+            boolean bookingOff =
+                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
+                            || SchedulerMode.facility(env);
+
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
             boolean isLayerComplete = false;
@@ -327,6 +354,12 @@ public class FrameCompleteHandler {
                  */
                 jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
                         report.getFrame().getMaxRss(), report.getRunTime());
+                if (SchedulerMode.enabled(env)) {
+                    // With the in-process Scheduler, a success means the layer is not
+                    // systematically under-sized now, so reset its OOM streak and this
+                    // frame's bump.
+                    OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId(), frame.getLayerId());
+                }
             }
 
             /*
@@ -344,8 +377,12 @@ public class FrameCompleteHandler {
 
             /*
              * Some exit statuses indicate that a frame was killed by the application due to a
-             * memory issue and should be retried. In this case, disable the optimizer and raise the
-             * memory by what is specified in the show's service override, service or 2GB.
+             * memory issue and should be retried, by raising the memory (service override, service,
+             * or 2GB). The legacy dispatcher raises the whole LAYER and disables its optimizer --
+             * the original behavior, kept unchanged. The in-process Scheduler instead bumps per
+             * FRAME so one hungry or spuriously-killed frame does not inflate every other frame and
+             * strand cores, escalating to the layer only after repeated OOMs in a row (see
+             * OomMemoryTracker).
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
@@ -377,9 +414,29 @@ public class FrameCompleteHandler {
                 }
 
                 unbookProc = true;
-                jobManager.enableMemoryOptimizer(frame, false);
-                jobManager.increaseLayerMemoryRequirement(frame, proc.memoryReserved + increase);
-                logger.info("Increased mem usage to: " + (proc.memoryReserved + increase));
+                long newReserved = proc.memoryReserved + increase;
+                if (SchedulerMode.enabled(env)) {
+                    // In-process Scheduler: bump per FRAME, escalate to the layer only after
+                    // it OOMs oom_layer_escalate_threshold times in a row. Leaves the layer
+                    // optimizer on, so an escalated layer later settles at its true size.
+                    int oomThreshold = env.getProperty("dispatcher.oom_layer_escalate_threshold",
+                            Integer.class, 3);
+                    if (OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(),
+                            newReserved, oomThreshold)) {
+                        jobManager.increaseLayerMemoryRequirement(frame, newReserved);
+                        logger.info("Layer " + frame.getLayerId() + " OOMed " + oomThreshold
+                                + "x in a row; raised layer mem to: " + newReserved);
+                    } else {
+                        logger.info("Frame " + frame.getFrameId() + " OOM; per-frame mem bump to: "
+                                + newReserved);
+                    }
+                } else {
+                    // Legacy dispatcher: original behavior, unchanged -- disable the layer
+                    // optimizer and raise the whole layer.
+                    jobManager.enableMemoryOptimizer(frame, false);
+                    jobManager.increaseLayerMemoryRequirement(frame, newReserved);
+                    logger.info("Increased mem usage to: " + newReserved);
+                }
             }
 
             /*
@@ -469,7 +526,7 @@ public class FrameCompleteHandler {
                  * fractional can cause storms of booking requests that don't have a chance of
                  * finding a suitable frame to run.
                  */
-                if (!proc.isLocalDispatch && proc.coresReserved >= 100
+                if (!bookingOff && !proc.isLocalDispatch && proc.coresReserved >= 100
                         && dispatchSupport.isCueBookable(job)) {
 
                     bookingQueue.execute(new DispatchBookHost(
@@ -489,7 +546,8 @@ public class FrameCompleteHandler {
              * This will handle show balancing in the future.
              */
 
-            if (!proc.isLocalDispatch && randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
+            if (!bookingOff && !proc.isLocalDispatch
+                    && randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
                     && System.currentTimeMillis() > lastUnbook.get()) {
 
                 // First make sure all jobs have their min cores
@@ -543,7 +601,7 @@ public class FrameCompleteHandler {
                 /*
                  * Check for stranded cores on the host.
                  */
-                if (!proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
+                if (!bookingOff && !proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
                         && jobManager.isLayerThreadable(frame)
                         && dispatchSupport.isJobBookable(job)) {
 
@@ -558,11 +616,22 @@ public class FrameCompleteHandler {
                     }
                 }
 
-                // Book the next frame of this job on the same proc
+                // Book the next frame of this job on the same proc.
+                //
+                // With the in-process Scheduler the reactive booking path is off:
+                // rebooking here would race the Scheduler's batched commit and
+                // dispatch outside the single batched commit path (the source
+                // of the inline-path deadlock). Instead, unbook the proc so its
+                // cores return to the host's idle pool; the Scheduler rebooks on
+                // its next tick, preferring the same host via a locality score
+                // bonus (see Scheduler placement). stopFrame only nulled the
+                // proc's pk_frame, so without this the reserved cores would leak.
                 if (proc.isLocalDispatch) {
                     dispatchQueue.execute(new DispatchNextFrame(job, proc, localDispatcher));
-                } else {
+                } else if (!bookingOff) {
                     dispatchQueue.execute(new DispatchNextFrame(job, proc, dispatcher));
+                } else {
+                    dispatchSupport.unbookProc(proc);
                 }
             } else {
                 dispatchSupport.unbookProc(proc, "frame state was " + newFrameState.toString());

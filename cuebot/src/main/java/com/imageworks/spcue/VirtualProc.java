@@ -85,6 +85,24 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      */
     public static final VirtualProc build(DispatchHost host, DispatchFrame frame,
             String... selfishServices) {
+        // Legacy/reactive dispatch: allow the thread-mode "grab idle cores"
+        // expansion so a single threadable frame can swell to fill the host.
+        return build(host, frame, true, selfishServices);
+    }
+
+    /**
+     * Build a proc for a frame on a host.
+     *
+     * @param expandThreadable when {@code false}, reserve exactly {@code frame.minCores} and SKIP
+     *        the thread-mode idle-core expansion. The whole-farm Scheduler uses this: it has
+     *        already scored the placement and decremented its in-memory snapshot by the requested
+     *        cores, so letting build() silently reserve more (grab-idle) would corrupt that
+     *        accounting and make it over-plan a host whose cores a prior frame already swallowed.
+     *        The Scheduler fills hosts by planning several placements, not by one frame ballooning.
+     *        Explicit whole-host requests ({@code minCores <= 0}) are honored regardless.
+     */
+    public static final VirtualProc build(DispatchHost host, DispatchFrame frame,
+            boolean expandThreadable, String... selfishServices) {
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.getAllocationId();
         proc.hostId = host.getHostId();
@@ -124,7 +142,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         } else if (proc.coresReserved < 0) {
             logger.debug("Reserving all cores minus " + proc.coresReserved);
             proc.coresReserved = host.cores + proc.coresReserved;
-        } else if (proc.coresReserved >= 100) {
+        } else if (proc.coresReserved >= 100 && expandThreadable) {
 
             int originalCores = proc.coresReserved;
 

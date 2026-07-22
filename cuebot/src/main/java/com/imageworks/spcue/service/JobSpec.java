@@ -49,6 +49,7 @@ import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.SpecBuilderException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.SchedulerMode;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
@@ -601,10 +602,20 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
+        // The in-process Scheduler can place much wider per-frame reservations
+        // than the legacy dispatcher (it reserves/drains whole hosts for wide
+        // jobs), so it gets a higher clamp. dispatcher.frame_cores_max raises it
+        // further for whole-host jobs. Legacy keeps the conservative cap.
+        boolean schedulerEnabled = SchedulerMode.enabled(env);
+        int coreMax = schedulerEnabled
+                ? env.getProperty("dispatcher.frame_cores_max", Integer.class,
+                        Dispatcher.CORE_POINTS_RESERVED_MAX_NEW)
+                : Dispatcher.CORE_POINTS_RESERVED_MAX;
+
         if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
-        } else if (corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
-            corePoints = Dispatcher.CORE_POINTS_RESERVED_MAX;
+        } else if (corePoints > coreMax) {
+            corePoints = coreMax;
         }
 
         layer.minimumCores = corePoints;
