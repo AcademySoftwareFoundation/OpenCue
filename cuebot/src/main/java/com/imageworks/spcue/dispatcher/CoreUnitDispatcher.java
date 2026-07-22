@@ -482,11 +482,6 @@ public class CoreUnitDispatcher implements Dispatcher {
             DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
             DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
 
-            if (host.strandedCores > 0) {
-                dispatchSupport.pickupStrandedCores(host);
-                break;
-            }
-
             host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved,
                     proc.gpuMemoryReserved);
             if (!host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, MEM_RESERVED_MIN,

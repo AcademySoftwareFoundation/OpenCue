@@ -792,6 +792,10 @@ public class Scheduler extends JdbcDaoSupport {
         tickGranted = 0;
         tickBackfilled = 0;
         tickBackfilledCores = 0;
+        // Defensive: normally drained at the end of every tick, but a tick that
+        // throws mid-placement leaves stale (host, layer) pairings behind, and
+        // the next tick would plan them against a fresh snapshot. Start clean.
+        plannedByHost.clear();
         // 1. SNAPSHOT. Read ALL schedulable hosts (UP + OPEN), busy or idle.
         // Placement only uses the idle ones, but reservations must see BUSY
         // hosts too, a reservation's whole purpose is to hold a host that is
