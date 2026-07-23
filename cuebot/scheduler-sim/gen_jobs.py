@@ -91,9 +91,10 @@ def main():
             if line.startswith("<range>1-"):
                 total_frames += int(line[len("<range>1-"):-len("</range>")])
                 total_layers += 1
+    farm_cores = spec.total_cores()
     print(f"submitted {NUM_JOBS} jobs, {total_layers} layers, {total_frames} frames")
     print(f"core demand: {total_core_demand} cp ({total_core_demand//100} cores) "
-          f"vs farm 57248 cores -> {total_core_demand/100/57248:.1f}x")
+          f"vs farm {farm_cores} cores -> {total_core_demand/100/farm_cores:.1f}x")
 
 
 if __name__ == "__main__":

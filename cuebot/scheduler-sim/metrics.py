@@ -15,6 +15,7 @@ import farm_spec
 
 PSQL = farm_spec.psql_cmd()
 FARM_CP = farm_spec.total_cores() * 100  # honor SIM_HOST_COUNTS small-farm mode
+FARM_HOSTS = farm_spec.total_hosts()     # ditto for the host-count denominator
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 75
 STEP = 2.0
@@ -47,7 +48,7 @@ while time.time() - t0 < DURATION:
     series.append((time.time() - t0, util, running, waiting, done, hosts_busy))
 
     print(f"t={series[-1][0]:5.1f}s util={util:5.1f}% running={int(running):5d} "
-          f"waiting={int(waiting):6d} done={int(done):6d} hostsBusy={int(hosts_busy)}/1553",
+          f"waiting={int(waiting):6d} done={int(done):6d} hostsBusy={int(hosts_busy)}/{FARM_HOSTS}",
           flush=True)
     time.sleep(STEP)
 
@@ -56,7 +57,7 @@ print("\n==== SUMMARY ====", flush=True)
 peak = max(series, key=lambda s: s[1])
 avg_util = sum(s[1] for s in series) / len(series)
 print(f"utilization: peak {peak[1]:.1f}%  avg {avg_util:.1f}%  "
-      f"(peak running {int(peak[2])} frames, hostsBusy {int(peak[5])}/1553)")
+      f"(peak running {int(peak[2])} frames, hostsBusy {int(peak[5])}/{FARM_HOSTS})")
 print(f"throughput: {int(series[-1][4])} frames completed in {DURATION}s")
 
 print("\nco-locality (frame packing) at last sample:")

@@ -2,7 +2,8 @@ import time, subprocess, sys, os
 OUT = sys.argv[1]
 _PORT = os.environ.get("SIM_PG_PORT", "5433")
 _HOST = os.environ.get("SIM_PG_HOST", "127.0.0.1")
-PSQL = ["psql","-tA","-h",_HOST,"-p",_PORT,"-U","cue","-d","cuebot","-c"]
+_PSQL_BIN = os.path.join(os.environ.get("SIM_PG_BIN", "/usr/lib/postgresql/16/bin"), "psql")
+PSQL = [_PSQL_BIN,"-tA","-h",_HOST,"-p",_PORT,"-U","cue","-d","cuebot","-c"]
 def q(sql): return subprocess.run(PSQL+[sql], capture_output=True, text=True).stdout.strip()
 with open(OUT,"w") as f:
     f.write("ts,commits,rollbacks,tup_ret,tup_fetch,ins,upd,del,deadlocks,"

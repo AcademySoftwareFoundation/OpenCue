@@ -13,7 +13,7 @@ This box has a toolchain trap. These are the exact steps that work.
 A vanilla JDK 17 download can't fetch deps: the env's outbound proxy uses a TLS
 CA that vanilla cacerts don't trust (Gradle reports "plugin not found"). Fix:
 copy the managed JDK 21 truststore into the JDK 17.
-```
+```bash
 # /tmp/jdk-17.0.2 was unpacked from openjdk-17.0.2_linux-x64; then:
 cp /usr/lib/jvm/java-21-openjdk-amd64/lib/security/cacerts /tmp/jdk-17.0.2/lib/security/cacerts
 ```
@@ -22,12 +22,12 @@ cp /usr/lib/jvm/java-21-openjdk-amd64/lib/security/cacerts /tmp/jdk-17.0.2/lib/s
 cuebot/settings.gradle (pluginManagement) and build.gradle list `jcenter()` and
 `repo.spring.io/plugins-snapshot`, which are dead and break resolution on 7.6.2.
 Strip them before building:
-```
+```bash
 # in cuebot/: remove the 'maven { url ".../plugins-snapshot" }' line and 'jcenter()' lines
 ```
 
 ## Postgres (must run as non-root; refuses root)
-```
+```bash
 # run these as your own (non-root) user; postgres refuses root, no sudo needed
 PGBIN=/usr/lib/postgresql/16/bin
 rm -rf /tmp/pgdata && mkdir -p /tmp/pgdata /tmp/pgrun
@@ -44,7 +44,7 @@ for f in $(ls *.sql | sort -t_ -k1.2 -n); do $PGBIN/psql -h127.0.0.1 -p5433 -Ucu
 A dedicated gradle home /tmp/ghome-$USER holds the resolved deps. Build as the
 user that owns the checkout (a fresh `git clone` already is); no specific account
 is required. Remove cuebot/.gradle if you hit `checksums.lock (Permission denied)`.
-```
+```bash
 cd cuebot && env \
   CUEBOT_DB_URL="jdbc:postgresql://127.0.0.1:5433/cuebot" CUEBOT_DB_USER=cue CUEBOT_DB_PASSWORD= \
   SCHEDULER_ENABLED=true SCHEDULER_INTERVAL_MS=250 SCHEDULER_RESERVATIONS_ENABLED=false \
@@ -62,7 +62,7 @@ After a cuebot restart, restart status_pinger.py too (its gRPC channel goes
 stale -> all ReportStatus fail -> hosts age to DOWN).
 
 ## Reset the farm between runs
-```
+```bash
 psql ... -c "DELETE FROM proc;"
 psql ... -c "UPDATE host SET int_cores_idle=int_cores,int_mem_idle=int_mem,int_gpus_idle=int_gpus,int_gpu_mem_idle=int_gpu_mem;"
 psql ... -c "UPDATE subscription SET int_cores=0,int_gpus=0;"
@@ -75,4 +75,3 @@ psql ... -c "DELETE FROM layer l USING job j WHERE l.pk_job=j.pk_job AND j.pk_sh
 That is NOT a Postgres OOM. It's `trigger__verify_host_resources` raising when a
 booking pushes a host's int_*_idle below 0 (overbooking protection). Treat it as
 an overbooking/accounting signal, not a memory problem.
-```

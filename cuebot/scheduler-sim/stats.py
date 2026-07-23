@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import farm_spec
 PSQL = farm_spec.psql_cmd()
 FARM_CP = farm_spec.total_cores() * 100  # honor SIM_HOST_COUNTS small-farm mode
+FARM_HOSTS = farm_spec.total_hosts()     # ditto for the host-count denominator
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 120
 STEP = 3.0
 
@@ -102,7 +103,7 @@ print(f"zombie procs (pk_frame NULL, holding cores, doing no work): peak {int(zm
 if zmax > 50:
     print(f"  *** PROC LEAK DETECTED: {int(zmax)} dead reservations hold cores but back no running frame ***")
 print(f"  at honest peak: large {peak[2]:.0f}%  medium {peak[3]:.0f}%  small {peak[4]:.0f}%  "
-      f"busyHosts {int(peak[8])}/1553")
+      f"busyHosts {int(peak[8])}/{FARM_HOSTS}")
 jmax=max(s[2] for s in series); rmax=max(s[3] for s in series); emax=max(s[4] for s in series)
 print(f"per-type peak util: large {jmax:.0f}%  medium {rmax:.0f}%  small {emax:.0f}%")
 thru=(series[-1][7]-series[0][7])/(series[-1][0]-series[0][0] or 1)

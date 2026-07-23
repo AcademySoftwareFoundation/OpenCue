@@ -47,7 +47,7 @@ def med_csv(pre,suffix,colidx,lo,hi,rate=False):
             t=ts-t0
             if lo<=t<=hi and colidx < len(c): v.append(c[colidx])
     return st.median(v) if v else None
-# dbstat cols (after ts): 0 commits,1 rollbacks,2 tup_ret,3 tup_fetch,4 ins,5 upd,6 del,7 deadlk,8 active,9 lockwait
+# dbstat cols (after ts): 0 commits,1 rollbacks,2 tup_ret,3 tup_fetch,4 ins,5 upd,6 del,7 deadlk,8 blks_read,9 blks_hit,10 active,11 lockwait
 # cpu cols (after ts): 0 total_cpu%,1 cuebot,2 postgres,3 scheduler,4 python
 LO,HI=90,180
 print(f"{'cell':8} {'util%':>6} {'done/s':>7} {'orphan':>7} {'reads/s':>9} {'writes/s':>9} {'rollbk/s':>8} {'lockwt':>6} {'CPU%':>5} {'pg':>5} {'cuebot':>6} {'rust':>5} {'py':>5}")
@@ -59,7 +59,7 @@ for name,pre in CELLS:
     def wr():
         xs=[med_csv(pre,"dbstat",i,LO,HI,True) for i in (4,5,6)]
         return sum(x for x in xs if x is not None) if any(x is not None for x in xs) else None
-    reads=rd(); writes=wr(); rb=med_csv(pre,"dbstat",1,LO,HI,True); lw=med_csv(pre,"dbstat",9,LO,HI,False)
+    reads=rd(); writes=wr(); rb=med_csv(pre,"dbstat",1,LO,HI,True); lw=med_csv(pre,"dbstat",11,LO,HI,False)
     cpu=med_csv(pre,"cpu",0,LO,HI,False); pg=med_csv(pre,"cpu",2,LO,HI,False)
     cb=med_csv(pre,"cpu",1,LO,HI,False); ru=med_csv(pre,"cpu",3,LO,HI,False); py=med_csv(pre,"cpu",4,LO,HI,False)
     def f(x,d=0): return ("%.{}f".format(d)%x) if x is not None else "-"

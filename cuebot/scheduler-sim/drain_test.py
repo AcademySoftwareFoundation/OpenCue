@@ -30,16 +30,16 @@ def main():
     nframes = 0
     for i in range(NJOBS):
         random.seed(SEED + i)
-        spec = gen_jobs.SPEC_HEAD + gen_jobs.make_job(i) + "</spec>\n"
-        for line in spec.splitlines():
+        job_spec = gen_jobs.SPEC_HEAD + gen_jobs.make_job(i) + "</spec>\n"
+        for line in job_spec.splitlines():
             ls = line.strip()
             if ls.startswith("<range>1-"):
                 nframes += int(ls[len("<range>1-"):ls.index("</range>")])
         try:
-            stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=spec))
+            stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=job_spec))
         except grpc.RpcError:
             time.sleep(1.0)
-            stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=spec))
+            stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=job_spec))
     print(f"[{LABEL}] submitted {NJOBS} jobs / ~{nframes} frames", flush=True)
     # poll until drained
     peak_run = 0

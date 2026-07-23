@@ -53,8 +53,8 @@ def rates(tag):
         o["writes"].append((rt, ((b[4]-a[4])+(b[5]-a[5])+(b[6]-a[6]))/dt))
         o["rollbacks"].append((rt, (b[1]-a[1])/dt))
         o["deadlocks"].append((rt, (b[7]-a[7])/dt))
-        o["lockwait"].append((rt, b[9]))
-        o["active"].append((rt, b[8]))
+        o["lockwait"].append((rt, b[11]))
+        o["active"].append((rt, b[10]))
     return o
 R = {t: rates(t) for t, _, _ in RUNS}
 def line(title, fname, ylabel, key):
