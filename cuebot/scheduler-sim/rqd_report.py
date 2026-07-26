@@ -190,7 +190,16 @@ def ping_round(stub, pool):
 
 
 def main():
-    chan = grpc.insecure_channel(CUEBOT)
+    # Cuebot failover, like a real RQD's multi-cuebot config: when a whole
+    # report round fails (the cuebot we dial died -- e.g. the FAILOVER verify
+    # scenario killing the leader), re-dial the next address from
+    # SIM_CUEBOT_GRPC_FALLBACKS so host+frame status keeps flowing to the
+    # surviving cuebot and procs never age into DOWN.
+    cuebots = [CUEBOT] + [a.strip() for a in
+                          os.environ.get("SIM_CUEBOT_GRPC_FALLBACKS", "").split(",")
+                          if a.strip()]
+    idx = 0
+    chan = grpc.insecure_channel(cuebots[idx])
     grpc.channel_ready_future(chan).result(timeout=15)
     stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
     rounds = 0
@@ -198,6 +207,12 @@ def main():
         while True:
             t0 = time.time()
             nframes, failed = ping_round(stub, pool)
+            if failed == len(HOSTS) and len(cuebots) > 1:
+                idx = (idx + 1) % len(cuebots)
+                print(f"whole round failed; failing over to cuebot {cuebots[idx]}",
+                      flush=True)
+                chan = grpc.insecure_channel(cuebots[idx])
+                stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
             rounds += 1
             print(f"report round {rounds}: {len(HOSTS)} hosts, {nframes} running "
                   f"frames in {time.time()-t0:.2f}s "

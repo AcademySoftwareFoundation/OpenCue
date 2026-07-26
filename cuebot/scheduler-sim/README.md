@@ -40,7 +40,7 @@ to get wrong:
 ```
 python simulate.py --verify
 ```
-It runs seven scenarios back-to-back — each a fresh, fully torn-down sim that
+It runs ten scenarios back-to-back — each a fresh, fully torn-down sim that
 writes its own graphs — then prints a PASS/FAIL summary (nonzero exit if any
 scenario fails):
 
@@ -53,6 +53,9 @@ scenario fails):
 | **LIMIT** | a global license cap (`limit_record.int_max_value`) holds concurrent running frames at the cap under a deep backlog |
 | **LIMIT_HOST** | a per-host limit (`b_host_limit`, floating license) holds DISTINCT HOSTS at the cap while running frames blow far past it (all frames on a seated host share its seat) |
 | **FOLDER** | a folder/group core ceiling (`folder_resource.int_max_cores`) holds the folder's running cores at the cap under a deep backlog |
+| **LOCALITY** | the same-layer locality bonus steers refills: newly booked procs land on hosts already running their layer (refill affinity above a calibrated floor; near-random without the bonus) |
+| **DEPENDS** | dependency correctness: no frame ever RUNS with unsatisfied depends, while depends satisfy and previously-gated frames run (coverage floors) |
+| **FAILOVER** | HA / leader election: the leader cuebot is killed mid-run and the standby takes over booking AND keeps accepting submissions (all clients re-dial the survivor like a real farm's multi-cuebot config) |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
 Each scenario is tuned (farm size, oversubscription, frame length) so its verdict
@@ -122,6 +125,9 @@ Run `python metrics.py 120` against a live run anytime.
 | `--limit-test SECS` | `0` | LIMIT test: attach one global license cap (`SIM_LIMIT_MAX`, default 50) to a deep flood of 1-core frames and assert concurrent running never exceeds it. Normally driven by `--verify`. |
 | `--limit-host-test SECS` | `0` | LIMIT_HOST test: like `--limit-test` but the limit is per-host (`b_host_limit=true`, floating license): the cap counts distinct hosts ("seats", `SIM_LIMIT_MAX`, default 5) and frames on a seated host share its seat. Asserts hosts never exceed the cap AND running frames pack far past it. Normally driven by `--verify`. |
 | `--folder-test SECS` | `0` | FOLDER test: cap the sim folder (`SIM_FOLDER_MAX` cores, default 50), flood narrow work into it, and assert the folder's running cores never exceed the cap. Normally driven by `--verify`. |
+| `--locality-test SECS` | `0` | LOCALITY test: measure refill affinity (fraction of newly booked procs landing on a host already running their layer); PASS at `SIM_LOCALITY_MIN_HIT` (default 0.15; calibrated: bonus-ON ~29%, bonus-OFF ~1.3% on the full farm). Pair with `--feed`; control-run the bonus off with `SIM_LOCALITY_ENABLED=false`. Normally driven by `--verify`. |
+| `--depend-test SECS` | `0` | DEPENDS test: assert no frame ever RUNS with unsatisfied depends (plus coverage floors `SIM_DEPEND_MIN_SATISFIED`/`SIM_DEPEND_MIN_STARTED`). Pair with `--feed` (dep trees are its default). Normally driven by `--verify`. |
+| `--failover-test SECS` | `0` | FAILOVER test: kill the leader cuebot at SECS/2 and assert the standby books >= `SIM_FAILOVER_MIN_STARTED` (default 100) new frames in the second half. All clients (reporters, fake RQD, feeder) re-dial the survivor via `SIM_CUEBOT_GRPC_FALLBACKS`; PASS also requires >= `SIM_FAILOVER_MIN_JOBS` (default 3) jobs SUBMITTED after the kill. Needs `--cuebots >= 2` and `--feed`. Normally driven by `--verify`. |
 
 #### Farm realism / placement stress
 | Flag | Default | What it does |

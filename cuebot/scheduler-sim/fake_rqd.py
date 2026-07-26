@@ -51,7 +51,29 @@ import farm_spec as spec
 CUEBOT = spec.GRPC
 RQD_PORT = 8444
 
-_report = report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(CUEBOT))
+# Cuebot failover for completion reports, like a real RQD's multi-cuebot
+# facility config: primary is spec.GRPC; SIM_CUEBOT_GRPC_FALLBACKS (comma-
+# separated) lists survivors to re-dial when the current cuebot dies (the
+# FAILOVER verify scenario kills the leader mid-run). In-flight frame timers
+# live HERE, so failing over the report stub -- instead of restarting this
+# process -- preserves every running frame across the leader kill.
+_CUEBOTS = [CUEBOT] + [a.strip() for a in
+                       os.environ.get("SIM_CUEBOT_GRPC_FALLBACKS", "").split(",") if a.strip()]
+_cuebot_idx = 0
+_report = report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(_CUEBOTS[0]))
+_report_swap_lock = threading.Lock()
+
+
+def _failover_report_stub():
+    """Advance to the next cuebot address and rebuild the completion stub.
+    Called when a completion RPC fails; with a single configured cuebot this
+    just rebuilds the channel (harmless)."""
+    global _cuebot_idx, _report
+    with _report_swap_lock:
+        _cuebot_idx = (_cuebot_idx + 1) % len(_CUEBOTS)
+        target = _CUEBOTS[_cuebot_idx]
+        _report = report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(target))
+        print(f"completion reports failing over to cuebot {target}", flush=True)
 
 _heap = []            # (due_time, seq, RunningFrameInfo)
 _heap_lock = threading.Lock()
@@ -115,25 +137,33 @@ def _send_completion(frame, due_time, killed=False):
     report = report_pb2.FrameCompleteReport(
         host=_DUMMY_HOST, frame=frame, exit_status=exit_status, exit_signal=0, run_time=1)
     t0 = time.time()
-    try:
-        _report.ReportRunningFrameCompletion(
-            report_pb2.RqdReportRunningFrameCompletionRequest(
-                frame_complete_report=report))
-        ack = (time.time() - t0) * 1000.0
-        with _heap_lock:
-            if killed:
-                _stats["oom_killed"] += 1
-            elif mem_fail:
-                _stats["mem_failed"] += 1
-            else:
-                _stats["completed"] += 1
-            _stats["ack_ms_sum"] += ack
-            if ack > _stats["ack_ms_max"]:
-                _stats["ack_ms_max"] = ack
-            _stats["lag_ms_sum"] += max(0.0, (t0 - due_time) * 1000.0)
-    except grpc.RpcError:
-        with _heap_lock:
-            _stats["failed"] += 1
+    # One failover retry: on RpcError re-dial the next configured cuebot and
+    # resend, so a leader kill costs at most one bounced report per frame.
+    for attempt in range(2):
+        try:
+            _report.ReportRunningFrameCompletion(
+                report_pb2.RqdReportRunningFrameCompletionRequest(
+                    frame_complete_report=report))
+            ack = (time.time() - t0) * 1000.0
+            with _heap_lock:
+                if killed:
+                    _stats["oom_killed"] += 1
+                elif mem_fail:
+                    _stats["mem_failed"] += 1
+                else:
+                    _stats["completed"] += 1
+                _stats["ack_ms_sum"] += ack
+                if ack > _stats["ack_ms_max"]:
+                    _stats["ack_ms_max"] = ack
+                _stats["lag_ms_sum"] += max(0.0, (t0 - due_time) * 1000.0)
+            return
+        except grpc.RpcError:
+            if attempt == 0 and len(_CUEBOTS) > 1:
+                _failover_report_stub()
+                continue
+            with _heap_lock:
+                _stats["failed"] += 1
+            return
 
 
 def _completion_loop():

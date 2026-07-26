@@ -725,6 +725,9 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
         "SCHEDULER_RESERVATION_MAX_FRACTION": str(max_fraction),
         "SCHEDULER_RESERVATION_MAX_GRANTEES": str(max_grantees),
         "SCHEDULER_BACKFILL_ENABLED": bf,
+        # Locality bonus toggle, so the LOCALITY scenario can be calibrated
+        # against a bonus-off control run (SIM_LOCALITY_ENABLED=false).
+        "SCHEDULER_LOCALITY_ENABLED": os.environ.get("SIM_LOCALITY_ENABLED", "true"),
         # Periodic "Scheduler stat:" summary (carries backfilled=N) fires every
         # this many seconds -- lowered from the 300s default so the live tail's
         # bf[] backfill counter updates often (override with SIM_STAT_INTERVAL_SECONDS).
@@ -750,8 +753,12 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
         sys.exit(f"cuebot jar not found at {jar} (ensure_cuebot_built should have built it)")
     java = os.path.join(JDK17, "bin", "java") if (JDK17 and os.path.isdir(JDK17)) else "java"
     logf = open(CUEBOT_LOG, "w")
-    subprocess.Popen([java, "-jar", jar], cwd=CUEBOT_DIR, stdout=logf,
-                     stderr=subprocess.STDOUT, start_new_session=True, env=env)
+    p = subprocess.Popen([java, "-jar", jar], cwd=CUEBOT_DIR, stdout=logf,
+                         stderr=subprocess.STDOUT, start_new_session=True, env=env)
+    # Record the PID so tests can target THIS instance (FAILOVER kills the
+    # leader, which is instance 0: it starts first and holds the advisory lock).
+    with open("/tmp/sim-cuebot-0.pid", "w") as pf:
+        pf.write(str(p.pid))
     # Wait for ready.
     for i in range(180):
         if "Started CuebotApplication" in read_text(CUEBOT_LOG) and port_open(GRPC_PORT):
@@ -822,8 +829,10 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
     log(f"starting cuebot #{instance} (jar, gRPC :{cue}, web :{web}, "
         f"scheduler.enabled={enabled}) ...")
     logf = open(logpath, "w")
-    subprocess.Popen([java, "-jar", jar], cwd=CUEBOT_DIR, stdout=logf,
-                     stderr=subprocess.STDOUT, start_new_session=True, env=env)
+    p = subprocess.Popen([java, "-jar", jar], cwd=CUEBOT_DIR, stdout=logf,
+                         stderr=subprocess.STDOUT, start_new_session=True, env=env)
+    with open(f"/tmp/sim-cuebot-{instance}.pid", "w") as pf:
+        pf.write(str(p.pid))
     for i in range(180):
         if "Started CuebotApplication" in read_text(logpath) and port_open(cue):
             log(f"  cuebot #{instance} ready after ~{i}s (gRPC :{cue})")
@@ -1321,6 +1330,44 @@ def _verify_check(name, gdir, logp, cblog):
         peak = int(pm.group(1)) if pm else -1
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, f"peak folder running {peak} vs cap {cap} cores"
+    if name == "LOCALITY":
+        # Refill affinity: freed capacity must be refilled by the same layer.
+        # Gate on locality_watch.py's verdict.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        m = re.search(r"refill affinity: hits=(\d+) of refills=(\d+) rate=([\d.]+)%",
+                      txt)
+        rate = float(m.group(3)) if m else -1.0
+        n = int(m.group(2)) if m else 0
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"refill affinity {rate:.1f}% over {n} refills"
+    if name == "DEPENDS":
+        # No frame may ever RUN with unsatisfied depends; coverage must prove
+        # depends actually cycled. Gate on depend_watch.py's verdict.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"satisfied during watch=(\d+)", txt)
+        gm = re.search(r"gated frames started=(\d+)", txt)
+        vm = re.search(r"violation samples=(\d+)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"{vm.group(1) if vm else '?'} violations, "
+                    f"{sm.group(1) if sm else '?'} depends satisfied, "
+                    f"{gm.group(1) if gm else '?'} gated frames ran")
+    if name == "FAILOVER":
+        # The standby must book new frames after the leader kill. Gate on the
+        # inline verdict simulate.py prints in the scenario log.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        km = re.search(r"frames started after leader kill=(\d+)", txt)
+        started = int(km.group(1)) if km else -1
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"{started} frames booked by the standby after leader kill"
     return False, "unknown scenario"
 
 
@@ -1381,6 +1428,32 @@ def run_verify():
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
         ("FOLDER", ["--hosts", "3,4,10", "--folder-test", str(D)]),
+        # LOCALITY: the same-layer locality bonus must steer refills, measured
+        # on the FULL farm (1553 hosts, all three host classes) under the
+        # standard sustained feed -- the realistic regime, like OOM and
+        # PRIORITY_STARVING. At this scale the accidental hit rate (a refill
+        # landing on a warm host by chance) is tiny, so the affinity signal is
+        # unambiguous.
+        ("LOCALITY", ["--feed", str(D + 30), "--locality-test", str(D)]),
+        # DEPENDS: the feeder's JOB_ON_JOB trees (depth 3) gate most of the
+        # backlog; assert no frame ever RUNS with unsatisfied depends while
+        # depends actually satisfy and gated work runs (coverage floors).
+        # FULL farm: a root job's frames all run at once there, so parents
+        # complete and children unblock WITHIN the watch window -- on a small
+        # farm no parent job can finish in time and coverage stays zero.
+        ("DEPENDS", ["--feed", str(D + 30), "--depend-test", str(D)]),
+        # FAILOVER: kill the leader cuebot mid-run; the standby (--cuebots
+        # default 2) must take over BOTH booking and submissions within the
+        # second half -- every client (reporters, fake RQD, feeder) re-dials
+        # the survivor, like a real farm's multi-cuebot client config.
+        # FULL farm, independent jobs (--dep-tree-depth 1: with dep trees the
+        # feeder's DEPEND-backlog cap silences it mid-run and the submission-
+        # failover assertion is unexercisable; tree coverage belongs to
+        # DEPENDS). At full scale the farm drains fast enough that the main
+        # feeder stays active across the kill; the post-kill probe feeder is
+        # the guaranteed submission-failover signal either way.
+        ("FAILOVER", ["--feed", str(D + 40),
+                      "--dep-tree-depth", "1", "--failover-test", str(D)]),
     ]
     results = []
     for name, flags in scenarios:
@@ -1561,6 +1634,26 @@ def main():
                          "and watcher; cap defaults to SIM_LIMIT_MAX=5 hosts. FAILs "
                          "if distinct hosts exceed the cap OR frames fail to pack "
                          "far past it (seats not shared).")
+    ap.add_argument("--locality-test", type=int, default=0, metavar="SECS",
+                    help="LOCALITY test: measure refill affinity -- of newly booked "
+                         "procs whose layer already ran somewhere, the fraction "
+                         "landing on a host already running that layer. Needs a "
+                         "churning farm: pair with --feed. PASS gate "
+                         "SIM_LOCALITY_MIN_HIT (default 0.15; calibrated ON~29% vs OFF~1.3% full-farm); disable the bonus "
+                         "for a control run with SIM_LOCALITY_ENABLED=false.")
+    ap.add_argument("--depend-test", type=int, default=0, metavar="SECS",
+                    help="DEPENDS test: with the feeder's dependency trees, assert "
+                         "no frame ever RUNS with unsatisfied depends "
+                         "(frame.int_depend_count>0), and that depends actually "
+                         "satisfied + gated frames ran (coverage floors). Pair "
+                         "with --feed.")
+    ap.add_argument("--failover-test", type=int, default=0, metavar="SECS",
+                    help="FAILOVER (HA) test: run under load for SECS/2, then KILL "
+                         "the leader cuebot (instance 0) and assert planning fails "
+                         "over: the standby books new frames within the second "
+                         "half (fake_rqd/rqd_report re-dial the survivor via "
+                         "SIM_CUEBOT_GRPC_FALLBACKS). Needs --cuebots >= 2 (the "
+                         "default) and --feed.")
     ap.add_argument("--folder-test", type=int, default=0, metavar="SECS",
                     help="FOLDER test: cap the sim folder at SIM_FOLDER_MAX=50 cores "
                          "(folder_resource.int_max_cores) and flood work into it; "
@@ -1633,6 +1726,16 @@ def main():
         os.environ["SIM_LIMIT_HOST"] = "1"
         os.environ.setdefault("SIM_LIMIT_MAX", "5")
         args.limit_test = args.limit_host_test
+
+    # FAILOVER: hand the surviving cuebot's address to fake_rqd / rqd_report
+    # (spawned later, they inherit this env) so completion + status reports
+    # re-dial instance 1 after the leader is killed -- the sim analogue of a
+    # real RQD's multi-cuebot facility config. Set BEFORE any helper spawns.
+    if args.failover_test:
+        if args.cuebots < 2:
+            sys.exit("--failover-test needs --cuebots >= 2 (a standby to fail over to)")
+        os.environ.setdefault("SIM_CUEBOT_GRPC_FALLBACKS",
+                              f"localhost:{GRPC_PORT + 10}")
 
     # Heartbeat default is mode-aware (see --heartbeat-interval): only NEW needs
     # the slow 5s rate, because its cuebot books AND processes reports, so a 0.1s
@@ -1794,7 +1897,8 @@ def main():
     # big jobs are present) stream by default for the duration of whatever phase
     # is active, so a run can be watched without querying the DB by hand.
     watch = (args.strand or args.priority_starve or args.priority_spread
-             or args.limit_test or args.folder_test
+             or args.limit_test or args.folder_test or args.locality_test
+             or args.depend_test or args.failover_test
              or args.stats or args.metrics or args.feed)
     if watch:
         # This run owns the stack for a bounded, watched lifetime: tear it down on
@@ -1826,6 +1930,83 @@ def main():
         csv = f"{graph_dir}/run_folder.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "folder_watch.py", str(args.folder_test), "3"],
                        cwd=FARM, env=dict(os.environ, SIM_FOLDER_CSV=csv))
+    elif args.locality_test:
+        log(f"watching LOCALITY (refill affinity vs floor) for {args.locality_test}s ...")
+        csv = f"{graph_dir}/run_locality.csv" if graph_dir else ""
+        subprocess.run([VENV_PY, "locality_watch.py", str(args.locality_test), "2"],
+                       cwd=FARM, env=dict(os.environ, SIM_LOCALITY_CSV=csv))
+    elif args.depend_test:
+        log(f"watching DEPENDS (no frame runs before its parents) for "
+            f"{args.depend_test}s ...")
+        subprocess.run([VENV_PY, "depend_watch.py", str(args.depend_test), "2"],
+                       cwd=FARM)
+    elif args.failover_test:
+        # HA drill: normal load for the first half, then SIGKILL the leader
+        # (instance 0 -- it starts first, so it holds the advisory lock) and
+        # prove the WHOLE service fails over: the standby must both BOOK new
+        # frames and ACCEPT new submissions after the kill. Every client
+        # re-dials the survivor via SIM_CUEBOT_GRPC_FALLBACKS (set above):
+        # fake_rqd/rqd_report for completions/status, and the feeder for
+        # LaunchSpec -- exactly like a real farm's multi-cuebot client config.
+        D = args.failover_test
+        half = D // 2
+        log(f"FAILOVER: load for {half}s, then killing the leader cuebot ...")
+        subprocess.run([VENV_PY, "live_stats.py", str(half), "5"], cwd=FARM)
+        try:
+            pid = int(open("/tmp/sim-cuebot-0.pid").read().strip())
+            os.kill(pid, signal.SIGKILL)
+            log(f"KILLED leader cuebot (instance 0, pid {pid}); watching the "
+                f"standby (:{GRPC_PORT + 10}) take over for {D - half}s ...")
+        except Exception as e:
+            log(f"FAILOVER: could not kill leader: {e}")
+        kill_ts = psql("SELECT now();").stdout.strip()
+        # Submission-failover probe: the long-running feeder may legitimately
+        # be idle at the kill (backlog target reached), so it would never dial
+        # cuebot again and prove nothing. Launch a fresh SHORT feeder with an
+        # effectively-unbounded target -- "an artist submitting during the
+        # outage": it dials the DEAD primary first, must fail over
+        # (SIM_CUEBOT_GRPC_FALLBACKS) and land submissions on the survivor.
+        # Submissions are counted as the job-table delta from the kill moment
+        # (job.ts_started is NOT submission time -- it mutates when the job
+        # starts running).
+        jobs0 = int(psql("SELECT count(*) FROM job;").stdout.strip() or 0)
+        probe_dur = max(20, D - half - 15)
+        spawn(["feed.py", str(probe_dur), "9999999"], f"{FARM}/feed_probe.log",
+              env_extra={"SIM_DEP_TREE_DEPTH": "1"})
+        log(f"  [failover] submission probe feeder launched ({probe_dur}s)")
+        started_after = 0
+        running_end = 0
+        jobs_after = 0
+        t1 = time.time()
+        while time.time() - t1 < (D - half):
+            out = psql(f"SELECT count(*) FROM frame WHERE ts_started > '{kill_ts}';")
+            started_after = int(out.stdout.strip() or 0)
+            out = psql("SELECT count(*) FROM frame WHERE str_state='RUNNING';")
+            running_end = int(out.stdout.strip() or 0)
+            out = psql("SELECT count(*) FROM job;")
+            jobs_after = int(out.stdout.strip() or 0) - jobs0
+            log(f"  [failover] frames started since kill: {started_after}  "
+                f"running now: {running_end}  jobs submitted since kill: {jobs_after}")
+            time.sleep(5)
+        floor = int(os.environ.get("SIM_FAILOVER_MIN_STARTED", "100"))
+        jfloor = int(os.environ.get("SIM_FAILOVER_MIN_JOBS", "3"))
+        print("\n==== FAILOVER VERDICT ====", flush=True)
+        print(f"frames started after leader kill={started_after}  "
+              f"jobs submitted after leader kill={jobs_after}  "
+              f"running at end={running_end}  (floors {floor}/{jfloor})", flush=True)
+        if started_after >= floor and jobs_after >= jfloor and running_end > 0:
+            print(f"PASS: after the leader was killed the standby booked "
+                  f"{started_after} new frames (>= {floor}) AND accepted "
+                  f"{jobs_after} new job submissions (>= {jfloor}) -- full-service "
+                  f"leader failover works.", flush=True)
+        elif started_after >= floor:
+            print(f"FAIL: bookings failed over ({started_after} frames) but only "
+                  f"{jobs_after} jobs were submitted after the kill (< {jfloor}) -- "
+                  f"the submission path did not fail over.", flush=True)
+        else:
+            print(f"FAIL: only {started_after} frames started after the leader "
+                  f"kill (floor {floor}, running at end {running_end}) -- the "
+                  f"standby did not take over booking.", flush=True)
     elif args.strand and args.strand_duration_mix:
         log(f"watching wide-job DURATION fairness (short vs long frames) for "
             f"{args.strand}s ...")

@@ -131,7 +131,18 @@ def pending():
 
 
 def main():
-    chan = grpc.insecure_channel(CUEBOT)
+    # Cuebot failover, like a real submission client (pycue takes a comma-
+    # separated Cuebot host list): when a launch fails, rotate to the next
+    # address from SIM_CUEBOT_GRPC_FALLBACKS so submissions keep flowing to
+    # the surviving cuebot after a leader kill (FAILOVER verify scenario).
+    # A plain "launch queue full" burst also lands here; rotating through the
+    # (usually 1-entry) list back to the same address just rebuilds the
+    # channel, preserving the old back-off behaviour.
+    cuebots = [CUEBOT] + [a.strip() for a in
+                          os.environ.get("SIM_CUEBOT_GRPC_FALLBACKS", "").split(",")
+                          if a.strip()]
+    idx = 0
+    chan = grpc.insecure_channel(cuebots[idx])
     grpc.channel_ready_future(chan).result(timeout=15)
     stub = job_pb2_grpc.JobInterfaceStub(chan)
     t0 = time.time(); submitted = 0; seq = 0
@@ -152,7 +163,13 @@ def main():
                     stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=job_xml))
                     submitted += 1
                 except grpc.RpcError:
-                    time.sleep(2.0)   # launch queue full -> back off
+                    if len(cuebots) > 1:
+                        idx = (idx + 1) % len(cuebots)
+                        print(f"launch failed; failing over to cuebot {cuebots[idx]}",
+                              flush=True)
+                        chan = grpc.insecure_channel(cuebots[idx])
+                        stub = job_pb2_grpc.JobInterfaceStub(chan)
+                    time.sleep(2.0)   # dead cuebot or launch queue full -> back off
                     break
         extra = f" pending={p}" if trees else ""
         print(f"t={time.time()-t0:5.0f}s waiting={w}{extra} submitted={submitted}", flush=True)
