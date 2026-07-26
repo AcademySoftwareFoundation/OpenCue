@@ -225,6 +225,34 @@ if cb and os.path.exists(cb) and ut0 is not None:
         out = os.path.join(DIR, f"{TAG}_reservations.png")
         finish(fig, out)
 
+# ---- GPU utilization (TAGS_GPU runs; GPU-capable hosts only) ----
+# Written by tag_gpu_watch.py (SIM_TAGGPU_CSV): percent of GPU UNITS and GPU
+# MEMORY in use across hosts that HAVE GPUs -- most of the farm doesn't, and
+# a farm-wide percentage would be meaningless.
+gq = load(os.path.join(DIR, f"{TAG}_taggpu.csv"))
+if len(gq) > 1:
+    x = [float(r["t"]) for r in gq]
+    gu = [float(r["gpu_util"]) for r in gq]
+    gmu = [float(r["gpu_mem_util"]) for r in gq]
+    gp = [int(r["gpu_procs"]) for r in gq]
+    fig, ax1 = plt.subplots(figsize=(11, 5))
+    ax1.plot(x, gu, color="tab:blue", lw=2, label="GPU units util % (GPU hosts)")
+    ax1.plot(x, gmu, color="tab:purple", lw=2, label="GPU memory util % (GPU hosts)")
+    ax1.set_xlabel("seconds")
+    ax1.set_ylabel("percent of GPU-host capacity")
+    ax1.set_ylim(0, 100)
+    ax1.grid(True, alpha=0.3)
+    ax2 = ax1.twinx()
+    ax2.plot(x, gp, color="tab:green", lw=1, alpha=0.7, label="GPU procs running")
+    ax2.set_ylabel("GPU procs", color="tab:green")
+    ax2.set_ylim(bottom=0)
+    lines = ax1.get_lines() + ax2.get_lines()
+    ax1.legend(lines, [ln.get_label() for ln in lines], loc="lower right", fontsize=8)
+    ax1.set_title(f"{TAG}: GPU utilization, GPU-capable hosts only "
+                  f"(peak units {max(gu):.1f}%, mem {max(gmu):.1f}%)")
+    out = os.path.join(DIR, f"{TAG}_gpu.png")
+    finish(fig, out)
+
 # ---- DB load ----
 d = load(os.path.join(DIR, f"{TAG}_dbstat.csv"))
 if len(d) > 1:

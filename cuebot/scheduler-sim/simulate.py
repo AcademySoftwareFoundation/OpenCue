@@ -1357,6 +1357,20 @@ def _verify_check(name, gdir, logp, cblog):
         return ok, (f"{vm.group(1) if vm else '?'} violations, "
                     f"{sm.group(1) if sm else '?'} depends satisfied, "
                     f"{gm.group(1) if gm else '?'} gated frames ran")
+    if name == "TAGS_GPU":
+        # Tag confinement + GPU placement + GPU memory accounting must never
+        # violate while both fragmentations bind. Gate on tag_gpu_watch.py.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        vm = re.search(r"violation samples=(\d+)", txt)
+        gm = re.search(r"peak gpu procs=(\d+)", txt)
+        tm = re.search(r"peak tags active=(\d+) of (\d+)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"{vm.group(1) if vm else '?'} violations, "
+                    f"peak {gm.group(1) if gm else '?'} GPU procs, "
+                    f"tags {tm.group(1) + '/' + tm.group(2) if tm else '?'}")
     if name == "FAILOVER":
         # The standby must book new frames after the leader kill. Gate on the
         # inline verdict simulate.py prints in the scenario log.
@@ -1454,6 +1468,13 @@ def run_verify():
         # the guaranteed submission-failover signal either way.
         ("FAILOVER", ["--feed", str(D + 40),
                       "--dep-tree-depth", "1", "--failover-test", str(D)]),
+        # TAGS_GPU: one MIXED run where the constraints intersect on the FULL
+        # farm -- 8 random capability tags fragment the hosts AND 25% of hosts/
+        # layers are GPU, so a GPU layer tagged cap3 fits only hosts that are
+        # BOTH. Asserts zero tag/GPU placement violations and sound GPU/GPU-mem
+        # accounting while every pool still runs work.
+        ("TAGS_GPU", ["--tags", "8", "--gpu", "0.25", "--feed", str(D + 30),
+                      "--tag-gpu-test", str(D)]),
     ]
     results = []
     for name, flags in scenarios:
@@ -1654,6 +1675,14 @@ def main():
                          "half (fake_rqd/rqd_report re-dial the survivor via "
                          "SIM_CUEBOT_GRPC_FALLBACKS). Needs --cuebots >= 2 (the "
                          "default) and --feed.")
+    ap.add_argument("--tag-gpu-test", type=int, default=0, metavar="SECS",
+                    help="TAGS_GPU test: one mixed run where the constraints "
+                         "INTERSECT -- pair with --tags N and --gpu F and --feed. "
+                         "Asserts zero tag-placement violations, zero GPU-layers-on-"
+                         "GPU-less-hosts, no host oversubscribed on GPUs/GPU memory, "
+                         "no negative GPU idle counters; coverage floors: peak GPU "
+                         "procs >= SIM_TAGGPU_MIN_GPU (default 50) and all N tag "
+                         "pools ran work.")
     ap.add_argument("--folder-test", type=int, default=0, metavar="SECS",
                     help="FOLDER test: cap the sim folder at SIM_FOLDER_MAX=50 cores "
                          "(folder_resource.int_max_cores) and flood work into it; "
@@ -1726,6 +1755,14 @@ def main():
         os.environ["SIM_LIMIT_HOST"] = "1"
         os.environ.setdefault("SIM_LIMIT_MAX", "5")
         args.limit_test = args.limit_host_test
+
+    # TAGS_GPU: uniform tag demand. farm_spec's default TAG_SKEW (0.3) is a
+    # steep, deliberate starvation profile for stranding studies -- cold pools
+    # get ~zero jobs and the "every pool ran work" coverage floor can never be
+    # met. This is a CORRECTNESS scenario: every pool must see load, and the
+    # fragmentation still binds (each job stays confined to its ~1/N slice).
+    if args.tag_gpu_test:
+        os.environ.setdefault("SIM_TAG_SKEW", "1.0")
 
     # FAILOVER: hand the surviving cuebot's address to fake_rqd / rqd_report
     # (spawned later, they inherit this env) so completion + status reports
@@ -1898,7 +1935,7 @@ def main():
     # is active, so a run can be watched without querying the DB by hand.
     watch = (args.strand or args.priority_starve or args.priority_spread
              or args.limit_test or args.folder_test or args.locality_test
-             or args.depend_test or args.failover_test
+             or args.depend_test or args.failover_test or args.tag_gpu_test
              or args.stats or args.metrics or args.feed)
     if watch:
         # This run owns the stack for a bounded, watched lifetime: tear it down on
@@ -1940,6 +1977,12 @@ def main():
             f"{args.depend_test}s ...")
         subprocess.run([VENV_PY, "depend_watch.py", str(args.depend_test), "2"],
                        cwd=FARM)
+    elif args.tag_gpu_test:
+        log(f"watching TAGS_GPU (tag confinement + GPU placement + GPU-mem "
+            f"accounting + GPU utilization) for {args.tag_gpu_test}s ...")
+        csv = f"{graph_dir}/run_taggpu.csv" if graph_dir else ""
+        subprocess.run([VENV_PY, "tag_gpu_watch.py", str(args.tag_gpu_test), "2"],
+                       cwd=FARM, env=dict(os.environ, SIM_TAGGPU_CSV=csv))
     elif args.failover_test:
         # HA drill: normal load for the first half, then SIGKILL the leader
         # (instance 0 -- it starts first, so it holds the advisory lock) and

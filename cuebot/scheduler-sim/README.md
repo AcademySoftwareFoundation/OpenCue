@@ -40,7 +40,7 @@ to get wrong:
 ```
 python simulate.py --verify
 ```
-It runs ten scenarios back-to-back — each a fresh, fully torn-down sim that
+It runs eleven scenarios back-to-back — each a fresh, fully torn-down sim that
 writes its own graphs — then prints a PASS/FAIL summary (nonzero exit if any
 scenario fails):
 
@@ -56,6 +56,7 @@ scenario fails):
 | **LOCALITY** | the same-layer locality bonus steers refills: newly booked procs land on hosts already running their layer (refill affinity above a calibrated floor; near-random without the bonus) |
 | **DEPENDS** | dependency correctness: no frame ever RUNS with unsatisfied depends, while depends satisfy and previously-gated frames run (coverage floors) |
 | **FAILOVER** | HA / leader election: the leader cuebot is killed mid-run and the standby takes over booking AND keeps accepting submissions (all clients re-dial the survivor like a real farm's multi-cuebot config) |
+| **TAGS_GPU** | one mixed run where capability tags AND a GPU slice fragment the farm at once: zero tag/GPU placement violations, GPUs and GPU memory never oversubscribed, every tag pool still runs work |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
 Each scenario is tuned (farm size, oversubscription, frame length) so its verdict
@@ -128,6 +129,7 @@ Run `python metrics.py 120` against a live run anytime.
 | `--locality-test SECS` | `0` | LOCALITY test: measure refill affinity (fraction of newly booked procs landing on a host already running their layer); PASS at `SIM_LOCALITY_MIN_HIT` (default 0.15; calibrated: bonus-ON ~29%, bonus-OFF ~1.3% on the full farm). Pair with `--feed`; control-run the bonus off with `SIM_LOCALITY_ENABLED=false`. Normally driven by `--verify`. |
 | `--depend-test SECS` | `0` | DEPENDS test: assert no frame ever RUNS with unsatisfied depends (plus coverage floors `SIM_DEPEND_MIN_SATISFIED`/`SIM_DEPEND_MIN_STARTED`). Pair with `--feed` (dep trees are its default). Normally driven by `--verify`. |
 | `--failover-test SECS` | `0` | FAILOVER test: kill the leader cuebot at SECS/2 and assert the standby books >= `SIM_FAILOVER_MIN_STARTED` (default 100) new frames in the second half. All clients (reporters, fake RQD, feeder) re-dial the survivor via `SIM_CUEBOT_GRPC_FALLBACKS`; PASS also requires >= `SIM_FAILOVER_MIN_JOBS` (default 3) jobs SUBMITTED after the kill. Needs `--cuebots >= 2` and `--feed`. Normally driven by `--verify`. |
+| `--tag-gpu-test SECS` | `0` | TAGS_GPU test: pair with `--tags N`, `--gpu F` and `--feed` for one mixed run where both constraints intersect. Asserts zero tag/GPU placement violations, no GPU/GPU-mem oversubscription, no negative GPU idle counters; floors: peak GPU procs >= `SIM_TAGGPU_MIN_GPU` (default 50), all N tag pools ran work (demand forced uniform: `SIM_TAG_SKEW=1.0`). Normally driven by `--verify`. |
 
 #### Farm realism / placement stress
 | Flag | Default | What it does |
