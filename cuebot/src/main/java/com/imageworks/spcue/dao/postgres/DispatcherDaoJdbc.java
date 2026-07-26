@@ -454,6 +454,26 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
+    public List<DispatchFrame> findNextDispatchFramesPlanner(LayerInterface layer,
+            DispatchHost host, int limit) {
+        // Scheduler (E-PVM planner) plan-read: same as the by-layer query above
+        // but limit-gated with HOST-limit (floating license) awareness. Only the
+        // planner's planHost calls this; the legacy dispatcher keeps the
+        // original query untouched (host limits are unsupported under legacy).
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames = getJdbcTemplate().query(
+                FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_PLANNER, FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                host.idleCores, host.idleMemory, threadMode(host.threadMode), host.idleGpus,
+                host.idleGpuMemory, layer.getLayerId(), host.getName(), layer.getLayerId(), limit);
+
+        prometheusMetrics.setBookingDurationMetric(
+                "findNextDispatchFramesPlanner by layer and host query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
+    }
+
+    @Override
     public DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc) {
         return findNextDispatchFrames(job, proc, 1).get(0);
     }

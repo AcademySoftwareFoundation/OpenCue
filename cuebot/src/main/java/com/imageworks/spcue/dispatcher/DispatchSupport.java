@@ -250,6 +250,19 @@ public interface DispatchSupport {
     List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
     /**
+     * Return the next N frames to be dispatched from the specified layer, for the Scheduler's
+     * (E-PVM planner) plan-read: identical to findNextDispatchFrames(layer, host, limit) but
+     * HOST-limit (floating license) aware. Planner use only.
+     *
+     * @param layer
+     * @param host
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFramesPlanner(LayerInterface layer, DispatchHost host,
+            int limit);
+
+    /**
      * Return the next N frames to be dispatched from the specified layer.
      *
      * @param layer

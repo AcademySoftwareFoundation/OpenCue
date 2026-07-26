@@ -131,6 +131,17 @@ public class Scheduler extends JdbcDaoSupport {
     private volatile double localityBonus = 8.0;
     private volatile boolean localityEnabled = true;
 
+    // Host-limit (floating license) seat bonus. A host that already holds a
+    // "seat" for a layer's HOST limit (b_host_limit: the cap counts distinct
+    // hosts, and every frame on a seated host shares that one seat) can take
+    // more of the limit's frames for free, so placement subtracts this bonus
+    // for seated hosts to pack licensed work onto the fewest hosts. Sized
+    // ABOVE the maximum possible E-PVM score spread (7*(e-1) ~= 12, see the
+    // dimension weights above) so among fitting hosts a seated host always
+    // wins -- effectively lexicographic -- while fit and reservations are
+    // still filtered BEFORE scoring and can never be overridden by it.
+    private volatile double hostLimitSeatBonus = 16.0;
+
     @Autowired
     private Environment env;
 
@@ -369,6 +380,7 @@ public class Scheduler extends JdbcDaoSupport {
         backfillEnabled = env.getProperty("scheduler.backfill_enabled", Boolean.class, true);
         localityEnabled = env.getProperty("scheduler.locality_enabled", Boolean.class, true);
         localityBonus = env.getProperty("scheduler.locality_bonus", Double.class, 8.0);
+        hostLimitSeatBonus = env.getProperty("scheduler.host_limit_seat_bonus", Double.class, 16.0);
         // Cadence of the consolidated INFO stat line (see maybeLogStat). Default
         // 5 minutes; lower it for a live incident, raise it to quiet the log.
         statIntervalMs =
@@ -447,9 +459,12 @@ public class Scheduler extends JdbcDaoSupport {
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
             // Limit (license-cap) accounting: the layer's most-constraining limit,
             // its cap, and how many frames of that limit run farm-wide right now.
+            // limit_host marks a HOST limit (floating license): int_max_value then
+            // counts DISTINCT HOSTS running the limit's layers, not frames.
             + "  lim.pk_limit_record AS limit_id, "
             + "  COALESCE(lim.int_max_value, 0)   AS limit_max, "
             + "  COALESCE(lu2.int_sum_running, 0) AS limit_running, "
+            + "  COALESCE(lim.b_host_limit, false) AS limit_host, "
             // Folder (group/dept) core cap: the job's folder, its ceiling, and the
             // folder's current running cores (ground truth = SUM of the folder's jobs).
             + "  j.pk_folder AS folder_id, " + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
@@ -461,7 +476,8 @@ public class Scheduler extends JdbcDaoSupport {
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             // The layer's most-constraining limit (smallest cap), one row per layer.
-            + "LEFT JOIN LATERAL (" + "    SELECT ll.pk_limit_record, lr.int_max_value "
+            + "LEFT JOIN LATERAL ("
+            + "    SELECT ll.pk_limit_record, lr.int_max_value, lr.b_host_limit "
             + "    FROM   layer_limit ll "
             + "    JOIN   limit_record lr ON lr.pk_limit_record = ll.pk_limit_record "
             + "    WHERE  ll.pk_layer = l.pk_layer "
@@ -511,8 +527,12 @@ public class Scheduler extends JdbcDaoSupport {
             // scoring a host + running the plan read for them only burns a cycle that
             // returns nothing (it surfaces as raceLost). A limit-less layer (NULL)
             // always passes. Not a correctness gate -- the downstream query still
-            // enforces the cap -- purely an efficiency filter.
+            // enforces the cap -- purely an efficiency filter. HOST limits
+            // (b_host_limit) always pass: their cap counts distinct hosts, not
+            // frames, and at the seat cap the layer may still book onto hosts
+            // that already hold a seat -- the planner enforces that per host.
             + "  AND (lim.pk_limit_record IS NULL "
+            + "       OR COALESCE(lim.b_host_limit, false) = true "
             + "       OR COALESCE(lu2.int_sum_running, 0) < lim.int_max_value) "
             // Skip jobs whose FOLDER (group/dept) core ceiling is already reached --
             // folder_resource.int_max_cores, another core cap the legacy dispatcher
@@ -588,6 +608,7 @@ public class Scheduler extends JdbcDaoSupport {
                     c.limitId = rs.getString("limit_id"); // null when no limit
                     c.limitMax = rs.getInt("limit_max");
                     c.limitRunning = rs.getInt("limit_running");
+                    c.limitHostBased = rs.getBoolean("limit_host");
                     c.folderId = rs.getString("folder_id");
                     c.folderMax = rs.getInt("folder_max"); // -1 = unlimited
                     c.folderRunning = rs.getInt("folder_running"); // core-points
@@ -858,6 +879,13 @@ public class Scheduler extends JdbcDaoSupport {
         // the live proc table (before this tick's commits mutate it).
         Map<String, Set<String>> hostLayerAffinity = readHostLayerAffinity();
 
+        // Host-limit (floating license) seats, limitId -> hosts holding one.
+        // Seeded from the DB here, then ACCUMULATED as this tick opens new
+        // seats (dispatchGroupWithScoring adds the host on booking), so across
+        // all groups one tick can never open more seats than the cap allows.
+        // Planner-thread only, like the other tick-scoped cap maps below.
+        Map<String, Set<String>> limitHostSeats = readLimitHostSeats();
+
         // Job/show core accounting shared across every candidate this tick.
         // The candidate query seeds each candidate from a point-in-time DB
         // snapshot, so two layers of the same job (or two jobs of the same
@@ -941,7 +969,7 @@ public class Scheduler extends JdbcDaoSupport {
             // idle subset; reservations use the full group (busy hosts too).
             dispatched += dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
                     jobCoresUsed, showCoresUsed, limitUsed, folderUsed, reservationReqs,
-                    tReadyByHost, hostLayerAffinity);
+                    tReadyByHost, hostLayerAffinity, limitHostSeats);
         }
 
         // 3c. GRANT RESERVATIONS, highest priority first (then widest job).
@@ -1211,6 +1239,30 @@ public class Scheduler extends JdbcDaoSupport {
         return affinity;
     }
 
+    /**
+     * Host-limit (floating license) seats: for each HOST limit (b_host_limit=true), the set of
+     * hosts currently holding a seat -- i.e. running at least one proc of any layer attached to the
+     * limit. A seat is purely derived state (it exists while such a proc exists), so no bookkeeping
+     * or release logic is needed anywhere: the seat frees itself when the host's last proc of the
+     * limit's layers is unbooked.
+     *
+     * Deliberately SEPARATE from {@link #readHostLayerAffinity}: that read is gated by
+     * scheduler.locality_enabled (a scoring toggle) while this map is a correctness input to the
+     * seat cap, and this query is filtered to b_host_limit=true limits so it is near-free when no
+     * host limits exist.
+     */
+    private Map<String, Set<String>> readLimitHostSeats() {
+        Map<String, Set<String>> seats = new HashMap<>();
+        getJdbcTemplate().query("SELECT DISTINCT ll.pk_limit_record, p.pk_host " + "FROM proc p "
+                + "JOIN layer_limit ll ON ll.pk_layer = p.pk_layer "
+                + "JOIN limit_record lr ON lr.pk_limit_record = ll.pk_limit_record "
+                + "WHERE lr.b_host_limit = true", rs -> {
+                    seats.computeIfAbsent(rs.getString("pk_limit_record"), k -> new HashSet<>())
+                            .add(rs.getString("pk_host"));
+                });
+        return seats;
+    }
+
     private List<LayerCandidate> readLayerCandidatesForGroup(HostSpecKey spec, int maxIdleInGroup) {
         int limit =
                 env.getProperty("scheduler.layer_candidates_per_group_max", Integer.class, 2000);
@@ -1339,7 +1391,7 @@ public class Scheduler extends JdbcDaoSupport {
             Map<String, Integer> jobCoresUsed, Map<String, Integer> showCoresUsed,
             Map<String, Integer> limitUsed, Map<String, Integer> folderUsed,
             List<ReservationRequest> reservationReqs, Map<String, Integer> tReadyByHost,
-            Map<String, Set<String>> hostLayerAffinity) {
+            Map<String, Set<String>> hostLayerAffinity, Map<String, Set<String>> limitHostSeats) {
         int dispatched = 0;
         // Largest host in this group, for the reservation width gate below: a
         // layer may reserve only if its per-frame cores are a big enough fraction
@@ -1364,9 +1416,21 @@ public class Scheduler extends JdbcDaoSupport {
             // the first time it is seen this tick (candidate query already
             // excluded limits that were full at query time; this catches a limit
             // filling DURING the tick as sibling layers book against it).
-            int limitInUse =
-                    (c.limitId != null) ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
-                            : 0;
+            // HOST limits are excluded: their cap counts seats (distinct hosts),
+            // tracked in limitHostSeats below, and their frame count is
+            // unbounded by design.
+            int limitInUse = (c.limitId != null && !c.limitHostBased)
+                    ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
+                    : 0;
+            // Host-limit (floating license) seat state for this candidate's
+            // limit: the hosts currently holding a seat, DB-seeded at tick start
+            // and accumulated as this tick opens seats. At the seat cap the
+            // layer is NOT capped -- seated hosts can still take frames -- the
+            // per-host gate inside the scoring loop enforces the cap instead.
+            Set<String> limitSeats = (c.limitId != null && c.limitHostBased)
+                    ? limitHostSeats.computeIfAbsent(c.limitId, k -> new HashSet<>())
+                    : null;
+            boolean seatCapped = limitSeats != null && limitSeats.size() >= c.limitMax;
             // Same for the folder core ceiling (cores, not frames). Only tracked
             // when the folder actually has a cap (folderMax >= 0; -1 = unlimited).
             int folderInUse = (c.folderMax >= 0)
@@ -1382,7 +1446,7 @@ public class Scheduler extends JdbcDaoSupport {
             // consume.
             boolean capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
                     || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
-                    || (c.limitId != null && limitInUse >= c.limitMax)
+                    || (c.limitId != null && !c.limitHostBased && limitInUse >= c.limitMax)
                     || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax);
 
             boolean placed = false;
@@ -1391,6 +1455,13 @@ public class Scheduler extends JdbcDaoSupport {
                 double bestScore = Double.POSITIVE_INFINITY;
                 for (BookableHost h : hosts) {
                     if (!fitsOnHost(c, h))
+                        continue;
+                    // Host-limit (floating license) seat gate: at the seat cap
+                    // only hosts already holding a seat for this limit are
+                    // eligible (more frames on a seated host share its seat);
+                    // a new host would need a seat that does not exist. Under
+                    // the cap any fitting host may open a new seat.
+                    if (seatCapped && !limitSeats.contains(h.hostId))
                         continue;
                     // A host reserved for a higher/equal-priority blocked layer
                     // is normally off-limits. EASY backfill lets c borrow it
@@ -1423,6 +1494,15 @@ public class Scheduler extends JdbcDaoSupport {
                             score -= localityBonus;
                         }
                     }
+                    // Seat bonus: strongly prefer a host already seated for this
+                    // layer's HOST limit, so licensed work packs onto the fewest
+                    // hosts (fewest seats consumed) instead of spreading a seat
+                    // onto every host it merely fits on. Applies under the cap
+                    // too (pack before the cap is ever reached); stacks with the
+                    // per-layer locality bonus above.
+                    if (limitSeats != null && limitSeats.contains(h.hostId)) {
+                        score -= hostLimitSeatBonus;
+                    }
                     if (score < bestScore) {
                         bestScore = score;
                         best = h;
@@ -1451,7 +1531,9 @@ public class Scheduler extends JdbcDaoSupport {
                 // count is authoritative: sibling layers of the same limit may
                 // already have booked against it this tick. If it is now full,
                 // stop booking this layer (its later frames would find nothing).
-                if (c.limitId != null) {
+                // HOST limits skip this clamp: frames on a seated host are
+                // unbounded (they share the host's one seat).
+                if (c.limitId != null && !c.limitHostBased) {
                     int limHeadroom = c.limitMax - limitUsed.get(c.limitId);
                     if (limHeadroom <= 0)
                         break;
@@ -1486,8 +1568,20 @@ public class Scheduler extends JdbcDaoSupport {
                 // tick see the updated usage.
                 jobCoresUsed.put(c.jobId, c.jobCoresInUse);
                 showCoresUsed.put(c.showId, c.showCoresInUse);
-                if (c.limitId != null)
-                    limitUsed.merge(c.limitId, estFrames, Integer::sum);
+                if (c.limitId != null) {
+                    if (c.limitHostBased) {
+                        // Record the seat so every later candidate of this limit
+                        // (this tick, any group) sees it: the cap holds in
+                        // aggregate and siblings pack onto the same host.
+                        if (limitSeats.add(best.hostId)) {
+                            logger.info("Scheduler host-limit: new seat " + limitSeats.size() + "/"
+                                    + c.limitMax + " on host " + best.hostName + " for limit "
+                                    + c.limitId);
+                        }
+                    } else {
+                        limitUsed.merge(c.limitId, estFrames, Integer::sum);
+                    }
+                }
                 if (c.folderMax >= 0)
                     folderUsed.merge(c.folderId, estCores, Integer::sum);
 
@@ -1532,7 +1626,11 @@ public class Scheduler extends JdbcDaoSupport {
                 // A layer is "blocked" this tick if it still has waiting frames,
                 // is not capped, and could not place even one (no host fit ->
                 // placed == false). Accumulate net blocked time (leaky bucket).
-                boolean blocked = !capped && !placed && c.waitingFrameCount > 0;
+                // A layer at its HOST limit's seat cap that could not place (its
+                // seated hosts are full) is treated like capped, not blocked:
+                // reserving new hosts could never help -- the seat gate excludes
+                // them -- so it must not accrue reservation debt.
+                boolean blocked = !capped && !seatCapped && !placed && c.waitingFrameCount > 0;
                 long now = System.currentTimeMillis();
                 long dt = now - lastSeenMs.getOrDefault(c.layerId, now);
                 lastSeenMs.put(c.layerId, now);
@@ -2152,9 +2250,14 @@ public class Scheduler extends JdbcDaoSupport {
         // limit (null = no limit); limitMax is that limit's int_max_value;
         // limitRunning is how many frames of it run farm-wide right now (seed for
         // the tick-wide limitUsed cap in dispatchGroupWithScoring).
+        // limitHostBased marks a HOST limit (b_host_limit, a floating license):
+        // limitMax then counts DISTINCT HOSTS holding >=1 proc of the limit's
+        // layers ("seats"), not running frames -- frames on a seated host are
+        // unbounded by the limit.
         String limitId;
         int limitMax;
         int limitRunning;
+        boolean limitHostBased;
         // Folder (group/dept) core cap. folderId is the job's folder; folderMax is
         // folder_resource.int_max_cores (-1 = unlimited, core-points); folderRunning
         // is the folder's current running cores (core-points), seed for the

@@ -191,6 +191,58 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + ")";
     // spotless:on
 
+    /**
+     * Scheduler (E-PVM planner) variant of UPDATE_FRAME_STARTED, used ONLY by the planner's batch
+     * commit (batchUpdateFramesStarted). Identical except the limit gate understands HOST limits
+     * (limit_record.b_host_limit = true, floating licenses): their cap counts DISTINCT HOSTS, not
+     * running frames, so the frame-count gate must not apply -- it would reject every commit the
+     * moment running frames exceed the numeric cap. The seat cap is enforced by the planner's
+     * tick-scoped seat accounting and the seated-host arm of its plan-read query. The legacy
+     * single-row path (updateFrameStarted) keeps the original statement, so legacy dispatch and
+     * redirects of a host-limited frame stay over-strictly frame-capped (safe, self-healing: the
+     * planner re-books the frame next tick).
+     */
+    // spotless:off
+    private static final String UPDATE_FRAME_STARTED_PLANNER =
+            "UPDATE frame "
+            + "SET "
+                + "str_state = ?, "
+                + "str_host = ?, "
+                + "int_cores = ?, "
+                + "int_mem_reserved = ?, "
+                + "int_gpus = ?, "
+                + "int_gpu_mem_reserved = ?, "
+                + "ts_updated = current_timestamp, "
+                + "ts_started = current_timestamp, "
+                + "ts_stopped = null, "
+                + "int_version = int_version + 1 "
+            + "WHERE pk_frame = ? "
+            + "AND str_state = ? "
+            + "AND int_version = ? "
+            + "AND frame.pk_layer IN ("
+                + "SELECT layer.pk_layer "
+                + "FROM layer "
+                + "LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer "
+                + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
+                + "LEFT JOIN ("
+                    + "SELECT "
+                        + "limit_record.pk_limit_record, "
+                        + "SUM(layer_stat.int_running_count) AS int_sum_running "
+                    + "FROM layer_limit "
+                    + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+                    + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
+                    + "GROUP BY limit_record.pk_limit_record) AS sum_running "
+                    + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                + "WHERE ( "
+                    + "limit_record.pk_limit_record IS NULL "
+                    + "OR (COALESCE(limit_record.b_host_limit, false) = false "
+                        + "AND (sum_running.int_sum_running IS NULL "
+                            + "OR sum_running.int_sum_running < limit_record.int_max_value)) "
+                    + "OR limit_record.b_host_limit = true "
+                + ") "
+            + ")";
+    // spotless:on
+
     // spotless:off
     private static final String UPDATE_FRAME_RETRIES =
             "UPDATE frame "
@@ -305,7 +357,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         }
         int[] counts;
         try {
-            counts = getJdbcTemplate().batchUpdate(UPDATE_FRAME_STARTED, startParams);
+            counts = getJdbcTemplate().batchUpdate(UPDATE_FRAME_STARTED_PLANNER, startParams);
         } catch (DataAccessException e) {
             throw new FrameReservationException(e.getCause());
         }

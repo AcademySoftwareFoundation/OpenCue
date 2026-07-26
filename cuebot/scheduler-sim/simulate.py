@@ -1291,6 +1291,23 @@ def _verify_check(name, gdir, logp, cblog):
         peak = int(pm.group(1)) if pm else -1
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, f"peak concurrent running {peak} vs cap {cap}"
+    if name == "LIMIT_HOST":
+        # Floating license: the cap counts DISTINCT HOSTS (seats), and frames
+        # must blow far past it (seats shared) while hosts never exceed it.
+        # Gate on limit_watch.py's host-mode verdict.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        cm = re.search(r"host-cap=(\d+)", txt)
+        hm = re.search(r"peak distinct hosts=(\d+)", txt)
+        rm = re.search(r"peak concurrent running=(\d+)", txt)
+        cap = int(cm.group(1)) if cm else -1
+        hosts = int(hm.group(1)) if hm else -1
+        run = int(rm.group(1)) if rm else -1
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"peak {hosts} seat-hosts vs cap {cap}, "
+                    f"running peaked {run} (seats shared)")
     if name == "FOLDER":
         # The scheduler must never run more than the folder's core cap. Gate on
         # folder_watch.py's verdict, read from the scenario stdout log.
@@ -1353,6 +1370,13 @@ def run_verify():
         # concurrent running never exceeds the cap. Inherits --compress 8 so frames
         # run long enough for concurrency to accumulate.
         ("LIMIT", ["--hosts", "3,4,10", "--limit-test", str(D)]),
+        # LIMIT_HOST: a per-host limit (floating license, b_host_limit=true).
+        # Cap 5 SEATS (distinct hosts) on the same 17-host farm, deep 1-core
+        # flood: a correct scheduler packs the limit's frames onto <= 5 hosts
+        # (seats) while RUNNING blows far past 5 (all frames on a seated host
+        # share its one seat) -- the sharing proof. FAILs if a 6th host ever
+        # runs the limit's work, or if running never clears 10x the cap.
+        ("LIMIT_HOST", ["--hosts", "3,4,10", "--limit-host-test", str(D)]),
         # FOLDER: a folder/group core cap (folder_resource.int_max_cores). Cap the
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
@@ -1529,6 +1553,14 @@ def main():
                          "cap SIM_LIMIT_MAX=50) to a flood of frames and check the "
                          "scheduler never runs more than the cap concurrently -- the "
                          "license-cap constraint. FAILs if concurrency exceeds the cap.")
+    ap.add_argument("--limit-host-test", type=int, default=0, metavar="SECS",
+                    help="LIMIT_HOST test: like --limit-test but the limit is "
+                         "PER-HOST (b_host_limit=true, a floating license): the cap "
+                         "counts DISTINCT HOSTS and all frames on a seated host "
+                         "share its seat. Sets SIM_LIMIT_HOST=1 for the injector "
+                         "and watcher; cap defaults to SIM_LIMIT_MAX=5 hosts. FAILs "
+                         "if distinct hosts exceed the cap OR frames fail to pack "
+                         "far past it (seats not shared).")
     ap.add_argument("--folder-test", type=int, default=0, metavar="SECS",
                     help="FOLDER test: cap the sim folder at SIM_FOLDER_MAX=50 cores "
                          "(folder_resource.int_max_cores) and flood work into it; "
@@ -1591,6 +1623,16 @@ def main():
 
     if args.verify:
         sys.exit(run_verify())
+
+    # --limit-host-test is --limit-test with the per-host flavor of the limit:
+    # flip the env the injector/watcher read and reuse the whole limit-test
+    # pipeline (injector start, watcher dispatch, CSV, teardown) unchanged.
+    # Cap defaults to 5 seats -- the global default of 50 exceeds the small
+    # test farm's host count, which could never cap anything.
+    if args.limit_host_test:
+        os.environ["SIM_LIMIT_HOST"] = "1"
+        os.environ.setdefault("SIM_LIMIT_MAX", "5")
+        args.limit_test = args.limit_host_test
 
     # Heartbeat default is mode-aware (see --heartbeat-interval): only NEW needs
     # the slow 5s rate, because its cuebot books AND processes reports, so a 0.1s

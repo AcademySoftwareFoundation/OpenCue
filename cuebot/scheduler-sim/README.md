@@ -40,7 +40,7 @@ to get wrong:
 ```
 python simulate.py --verify
 ```
-It runs six scenarios back-to-back — each a fresh, fully torn-down sim that
+It runs seven scenarios back-to-back — each a fresh, fully torn-down sim that
 writes its own graphs — then prints a PASS/FAIL summary (nonzero exit if any
 scenario fails):
 
@@ -51,6 +51,7 @@ scenario fails):
 | **PRIORITY_STARVING** | a low-priority stream survives a high-priority flood (stays above a 3% floor) |
 | **RESERVATIONS** | stranded wide jobs are rescued by reservations + backfill and actually run |
 | **LIMIT** | a global license cap (`limit_record.int_max_value`) holds concurrent running frames at the cap under a deep backlog |
+| **LIMIT_HOST** | a per-host limit (`b_host_limit`, floating license) holds DISTINCT HOSTS at the cap while running frames blow far past it (all frames on a seated host share its seat) |
 | **FOLDER** | a folder/group core ceiling (`folder_resource.int_max_cores`) holds the folder's running cores at the cap under a deep backlog |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
@@ -119,6 +120,7 @@ Run `python metrics.py 120` against a live run anytime.
 | `--priority-spread SECS` | `0` | PRIORITY test: 10 classes at pri 10..100 contend with equal backlog; normally driven by `--verify` (pair with a small `--hosts` so it is oversubscribed). |
 | `--priority-starve SECS` | `0` | PRIORITY_STARVING test: a deep high-priority flood; the low stream must stay above a 3% floor. Normally driven by `--verify`. |
 | `--limit-test SECS` | `0` | LIMIT test: attach one global license cap (`SIM_LIMIT_MAX`, default 50) to a deep flood of 1-core frames and assert concurrent running never exceeds it. Normally driven by `--verify`. |
+| `--limit-host-test SECS` | `0` | LIMIT_HOST test: like `--limit-test` but the limit is per-host (`b_host_limit=true`, floating license): the cap counts distinct hosts ("seats", `SIM_LIMIT_MAX`, default 5) and frames on a seated host share its seat. Asserts hosts never exceed the cap AND running frames pack far past it. Normally driven by `--verify`. |
 | `--folder-test SECS` | `0` | FOLDER test: cap the sim folder (`SIM_FOLDER_MAX` cores, default 50), flood narrow work into it, and assert the folder's running cores never exceed the cap. Normally driven by `--verify`. |
 
 #### Farm realism / placement stress

@@ -446,7 +446,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         // Scheduler commits the bookings in bulk. No writes, no RQD launch.
         List<FrameBooking> bookings = new ArrayList<FrameBooking>();
 
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(layer, host,
+        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFramesPlanner(layer, host,
                 getIntProperty("dispatcher.frame_query_max"));
 
         String[] selfishServices =
