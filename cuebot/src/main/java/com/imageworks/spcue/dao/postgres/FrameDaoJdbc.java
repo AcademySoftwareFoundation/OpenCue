@@ -191,6 +191,58 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + ")";
     // spotless:on
 
+    /**
+     * Scheduler (E-PVM planner) variant of UPDATE_FRAME_STARTED, used ONLY by the planner's batch
+     * commit (batchUpdateFramesStarted). Identical except the limit gate understands HOST limits
+     * (limit_record.b_host_limit = true, floating licenses): their cap counts DISTINCT HOSTS, not
+     * running frames, so the frame-count gate must not apply -- it would reject every commit the
+     * moment running frames exceed the numeric cap. The seat cap is enforced by the planner's
+     * tick-scoped seat accounting and the seated-host arm of its plan-read query. The legacy
+     * single-row path (updateFrameStarted) keeps the original statement, so legacy dispatch and
+     * redirects of a host-limited frame stay over-strictly frame-capped (safe, self-healing: the
+     * planner re-books the frame next tick).
+     */
+    // spotless:off
+    private static final String UPDATE_FRAME_STARTED_PLANNER =
+            "UPDATE frame "
+            + "SET "
+                + "str_state = ?, "
+                + "str_host = ?, "
+                + "int_cores = ?, "
+                + "int_mem_reserved = ?, "
+                + "int_gpus = ?, "
+                + "int_gpu_mem_reserved = ?, "
+                + "ts_updated = current_timestamp, "
+                + "ts_started = current_timestamp, "
+                + "ts_stopped = null, "
+                + "int_version = int_version + 1 "
+            + "WHERE pk_frame = ? "
+            + "AND str_state = ? "
+            + "AND int_version = ? "
+            + "AND frame.pk_layer IN ("
+                + "SELECT layer.pk_layer "
+                + "FROM layer "
+                + "LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer "
+                + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
+                + "LEFT JOIN ("
+                    + "SELECT "
+                        + "limit_record.pk_limit_record, "
+                        + "SUM(layer_stat.int_running_count) AS int_sum_running "
+                    + "FROM layer_limit "
+                    + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+                    + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
+                    + "GROUP BY limit_record.pk_limit_record) AS sum_running "
+                    + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                + "WHERE ( "
+                    + "limit_record.pk_limit_record IS NULL "
+                    + "OR (COALESCE(limit_record.b_host_limit, false) = false "
+                        + "AND (sum_running.int_sum_running IS NULL "
+                            + "OR sum_running.int_sum_running < limit_record.int_max_value)) "
+                    + "OR limit_record.b_host_limit = true "
+                + ") "
+            + ")";
+    // spotless:on
+
     // spotless:off
     private static final String UPDATE_FRAME_RETRIES =
             "UPDATE frame "
@@ -233,6 +285,105 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         } catch (DataAccessException e) {
             throw new FrameReservationException(e.getCause());
         }
+    }
+
+    /**
+     * Pre-acquire, in a deterministic global order, the layer_stat and job_stat counter rows that
+     * the batch's frame-start triggers will update. Locks all distinct layer_stat rows first
+     * (ordered by pk_layer), then all distinct job_stat rows (ordered by pk_job), the same
+     * "layer-before-job" order every single-frame transaction follows via the trigger, so this
+     * batch can never deadlock against a concurrent frame completion. SELECT ... FOR UPDATE inside
+     * the batch's transaction; rows are released at commit.
+     */
+    private void lockStatRowsForBatch(
+            java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings) {
+        java.util.SortedSet<String> layerIds = new java.util.TreeSet<>();
+        java.util.SortedSet<String> jobIds = new java.util.TreeSet<>();
+        for (com.imageworks.spcue.dispatcher.FrameBooking b : bookings) {
+            layerIds.add(b.frame.getLayerId());
+            jobIds.add(b.frame.getJobId());
+        }
+        if (!layerIds.isEmpty()) {
+            String in = String.join(",", java.util.Collections.nCopies(layerIds.size(), "?"));
+            getJdbcTemplate().query("SELECT pk_layer FROM layer_stat WHERE pk_layer IN (" + in
+                    + ") " + "ORDER BY pk_layer FOR UPDATE", rs -> {
+                    }, layerIds.toArray());
+        }
+        if (!jobIds.isEmpty()) {
+            String in = String.join(",", java.util.Collections.nCopies(jobIds.size(), "?"));
+            getJdbcTemplate().query("SELECT pk_job FROM job_stat WHERE pk_job IN (" + in + ") "
+                    + "ORDER BY pk_job FOR UPDATE", rs -> {
+                    }, jobIds.toArray());
+        }
+    }
+
+    @Override
+    public boolean[] batchUpdateFramesStarted(
+            java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings) {
+
+        boolean[] won = new boolean[bookings.size()];
+        if (bookings.isEmpty()) {
+            return won;
+        }
+
+        // 0. Deadlock-free lock ordering. The frame-start UPDATE below fires
+        // trigger__update_frame_status_counts, which UPDATEs layer_stat then
+        // job_stat for each frame's layer/job, always layer first, then job.
+        // Every single-frame transaction (dispatch, completion, kill, ...)
+        // therefore acquires those counter rows in "layer-before-job" order.
+        // This multi-frame batch is the only writer that interleaves them: it
+        // would hold job_stat[J] (taken for an early frame) while still
+        // acquiring layer_stat rows for later frames of the same job, and a
+        // concurrent frame completion holding one of those layer_stat rows and
+        // reaching for job_stat[J] closes a deadlock cycle.
+        //
+        // Fix: pre-acquire every counter row this batch will touch, in the same
+        // global order the triggers use, all layer_stat rows (sorted), then
+        // all job_stat rows (sorted), so the batch and every single-frame
+        // transaction acquire on one total order and can never form a cycle.
+        // The trigger's later UPDATEs are then no-op re-locks on rows we hold.
+        lockStatRowsForBatch(bookings);
+
+        // 1. Version+state-guarded RUNNING transition for every frame in one
+        // batch. Each row updates 0 (lost the race / limit hit) or 1 (won).
+        java.util.List<Object[]> startParams = new java.util.ArrayList<>(bookings.size());
+        for (com.imageworks.spcue.dispatcher.FrameBooking b : bookings) {
+            VirtualProc proc = b.proc;
+            DispatchFrame frame = b.frame;
+            startParams.add(
+                    new Object[] {FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
+                            proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
+                            frame.getFrameId(), FrameState.WAITING.toString(), frame.getVersion()});
+        }
+        int[] counts;
+        try {
+            counts = getJdbcTemplate().batchUpdate(UPDATE_FRAME_STARTED_PLANNER, startParams);
+        } catch (DataAccessException e) {
+            throw new FrameReservationException(e.getCause());
+        }
+
+        java.util.List<Object[]> retryParams = new java.util.ArrayList<>();
+        for (int i = 0; i < bookings.size(); i++) {
+            // A JDBC batch may report SUCCESS_NO_INFO (-2); treat anything but an
+            // explicit 0 as a win, since the WHERE clause matches at most one row.
+            won[i] = counts[i] != 0;
+            if (won[i]) {
+                retryParams.add(new Object[] {bookings.get(i).frame.getFrameId(), -1,
+                        FrameExitStatus.SKIP_RETRY_VALUE, FrameExitStatus.FAILED_LAUNCH_VALUE,
+                        Dispatcher.EXIT_STATUS_FRAME_CLEARED, Dispatcher.EXIT_STATUS_FRAME_ORPHAN,
+                        Dispatcher.EXIT_STATUS_FAILED_KILL, Dispatcher.EXIT_STATUS_DOWN_HOST});
+            }
+        }
+
+        // 2. Bump the retry counter for the winners, also batched.
+        if (!retryParams.isEmpty()) {
+            try {
+                getJdbcTemplate().batchUpdate(UPDATE_FRAME_RETRIES, retryParams);
+            } catch (DataAccessException e) {
+                throw new FrameReservationException(e.getCause());
+            }
+        }
+        return won;
     }
 
     // spotless:off

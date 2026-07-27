@@ -20,9 +20,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -184,6 +188,105 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     "unable to book proc " + proc.id + " the insert query succeeded but returned 0";
             throw new ResourceReservationFailureException(msg);
         }
+    }
+
+    // Guarded per-host reservation: only decrements a host that currently has room
+    // for the whole aggregated share (the four ">= ?" guards). A host without room
+    // matches 0 rows instead of going negative, so the verify_host_resources
+    // trigger never fires and the batched tick is never aborted.
+    private static final String RESERVE_HOST_RESOURCES_GUARDED = "UPDATE host SET "
+            + "int_cores_idle = int_cores_idle - ?, int_mem_idle = int_mem_idle - ?, "
+            + "int_gpus_idle = int_gpus_idle - ?, int_gpu_mem_idle = int_gpu_mem_idle - ? "
+            + "WHERE pk_host = ? AND int_cores_idle >= ? AND int_mem_idle >= ? "
+            + "AND int_gpus_idle >= ? AND int_gpu_mem_idle >= ?";
+
+    // Release resources reserved for procs that were not booked after all (pure
+    // re-increment, so it can never drive idle negative).
+    private static final String REFUND_HOST_RESOURCES = "UPDATE host SET "
+            + "int_cores_idle = int_cores_idle + ?, int_mem_idle = int_mem_idle + ?, "
+            + "int_gpus_idle = int_gpus_idle + ?, int_gpu_mem_idle = int_gpu_mem_idle + ? "
+            + "WHERE pk_host = ?";
+
+    @Override
+    public void batchInsertVirtualProcs(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return;
+        }
+        long memReservedMin =
+                env.getRequiredProperty("dispatcher.memory.mem_reserved_min", Long.class);
+        long memGpuReservedMin =
+                env.getRequiredProperty("dispatcher.memory.mem_gpu_reserved_min", Long.class);
+
+        List<Object[]> procRows = new ArrayList<Object[]>(procs.size());
+        for (VirtualProc proc : procs) {
+            proc.id = SqlUtil.genKeyRandom();
+            procRows.add(new Object[] {proc.getProcId(), proc.getHostId(), proc.getShowId(),
+                    proc.getLayerId(), proc.getJobId(), proc.getFrameId(), proc.coresReserved,
+                    proc.memoryReserved, proc.memoryReserved, memReservedMin, proc.gpusReserved,
+                    proc.gpuMemoryReserved, proc.gpuMemoryReserved, memGpuReservedMin,
+                    proc.isLocalDispatch});
+        }
+
+        // Host idle is reserved up-front by reserveHostResourcesBatch (a guarded,
+        // per-host decrement), so this only writes the proc rows.
+        getJdbcTemplate().batchUpdate(INSERT_VIRTUAL_PROC, procRows);
+    }
+
+    @Override
+    public Set<String> reserveHostResourcesBatch(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return Collections.emptySet();
+        }
+        // Aggregate this tick's demand per host (a host commonly gets several procs).
+        Map<String, long[]> hostDelta = new LinkedHashMap<String, long[]>();
+        for (VirtualProc proc : procs) {
+            long[] d = hostDelta.computeIfAbsent(proc.getHostId(), k -> new long[4]);
+            d[0] += proc.coresReserved;
+            d[1] += proc.memoryReserved;
+            d[2] += proc.gpusReserved;
+            d[3] += proc.gpuMemoryReserved;
+        }
+        List<String> hostIds = new ArrayList<String>(hostDelta.keySet());
+        List<Object[]> rows = new ArrayList<Object[]>(hostIds.size());
+        for (String hostId : hostIds) {
+            long[] d = hostDelta.get(hostId);
+            // SET deltas (4), pk_host, then the four ">= ?" guards (same deltas).
+            rows.add(new Object[] {d[0], d[1], d[2], d[3], hostId, d[0], d[1], d[2], d[3]});
+        }
+        int[] updated = getJdbcTemplate().batchUpdate(RESERVE_HOST_RESOURCES_GUARDED, rows);
+        Set<String> affordable = new HashSet<String>();
+        for (int i = 0; i < hostIds.size(); i++) {
+            // A JDBC batch may report SUCCESS_NO_INFO (-2); treat anything but an
+            // explicit 0 (the guard matched no row -> not enough idle) as reserved,
+            // matching FrameDaoJdbc's win test since each row keys on pk_host. A
+            // '> 0' test would drop a -2 host with its idle already decremented,
+            // and refundHostResourcesBatch only refunds race losers, so it would leak.
+            if (updated[i] != 0) {
+                affordable.add(hostIds.get(i));
+            }
+        }
+        return affordable;
+    }
+
+    @Override
+    public void refundHostResourcesBatch(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return;
+        }
+        Map<String, long[]> hostDelta = new LinkedHashMap<String, long[]>();
+        for (VirtualProc proc : procs) {
+            long[] d = hostDelta.computeIfAbsent(proc.getHostId(), k -> new long[4]);
+            d[0] += proc.coresReserved;
+            d[1] += proc.memoryReserved;
+            d[2] += proc.gpusReserved;
+            d[3] += proc.gpuMemoryReserved;
+        }
+        List<Object[]> rows = new ArrayList<Object[]>(hostDelta.size());
+        for (Map.Entry<String, long[]> e : hostDelta.entrySet()) {
+            long[] d = e.getValue();
+            rows.add(new Object[] {d[0], d[1], d[2], d[3], e.getKey()});
+        }
+        getJdbcTemplate().batchUpdate(REFUND_HOST_RESOURCES, rows);
     }
 
     // spotless:off

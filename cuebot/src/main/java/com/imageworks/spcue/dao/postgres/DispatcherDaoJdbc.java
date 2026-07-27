@@ -437,13 +437,37 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     layer.getLayerId(), limit);
 
         } else {
+            // Bind order must match the query: outer layer.pk_layer=?, then
+            // the tag subquery's h.str_name=?, then its l.pk_layer=?. The host
+            // name and the second layer id were transposed, so the tag
+            // subquery matched no host/layer and the query returned no frames.
             frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
                     threadMode(host.threadMode), host.idleGpus, host.idleGpuMemory,
-                    layer.getLayerId(), layer.getLayerId(), host.getName(), limit);
+                    layer.getLayerId(), host.getName(), layer.getLayerId(), limit);
         }
 
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and host query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
+    }
+
+    @Override
+    public List<DispatchFrame> findNextDispatchFramesPlanner(LayerInterface layer,
+            DispatchHost host, int limit) {
+        // Scheduler (E-PVM planner) plan-read: same as the by-layer query above
+        // but limit-gated with HOST-limit (floating license) awareness. Only the
+        // planner's planHost calls this; the legacy dispatcher keeps the
+        // original query untouched (host limits are unsupported under legacy).
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames = getJdbcTemplate().query(
+                FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_PLANNER, FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                host.idleCores, host.idleMemory, threadMode(host.threadMode), host.idleGpus,
+                host.idleGpuMemory, layer.getLayerId(), host.getName(), layer.getLayerId(), limit);
+
+        prometheusMetrics.setBookingDurationMetric(
+                "findNextDispatchFramesPlanner by layer and host query",
                 System.currentTimeMillis() - lastTime);
 
         return frames;

@@ -1075,6 +1075,124 @@ public class DispatchQuery {
             + ") WHERE LINENUM <= ?";
     // spotless:on
 
+    /**
+     * Scheduler (E-PVM planner) variant of FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST, used ONLY by
+     * planHost. Identical except for the limit clause, which understands HOST limits
+     * (limit_record.b_host_limit = true, floating licenses): their cap counts DISTINCT HOSTS
+     * ("seats"), and every frame on a seated host shares that seat, so the frame-count gate of the
+     * legacy query must not apply -- it would return zero frames the moment running frames exceed
+     * the numeric cap. The legacy dispatcher keeps the original query (and thereby treats a host
+     * limit as an over-strict frame cap): host limits are only supported under the scheduler.
+     */
+    // spotless:off
+    public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_PLANNER =
+            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            + "FROM ("
+                + "SELECT "
+                    + "ROW_NUMBER() OVER ( ORDER BY "
+                        + "frame.int_dispatch_order ASC, "
+                        + "frame.int_layer_order ASC "
+                    + ") AS LINENUM, "
+                    + "job.str_show AS show_name, "
+                    + "job.str_name AS job_name, "
+                    + "job.pk_job, "
+                    + "job.pk_show, "
+                    + "job.pk_facility, "
+                    + "job.str_name, "
+                    + "job.str_shot, "
+                    + "job.str_user, "
+                    + "job.int_uid, "
+                    + "job.str_log_dir, "
+                    + "job.str_os, "
+                    + "job.str_loki_url, "
+                    + "frame.str_name AS frame_name, "
+                    + "frame.str_state AS frame_state, "
+                    + "frame.pk_frame, "
+                    + "frame.pk_layer, "
+                    + "frame.int_retries, "
+                    + "frame.int_version, "
+                    + "layer.str_name AS layer_name, "
+                    + "layer.str_type AS layer_type, "
+                    + "layer.int_cores_min, "
+                    + "layer.int_cores_max, "
+                    + "layer.b_threadable, "
+                    + "layer.int_mem_min, "
+                    + "layer.int_gpus_min, "
+                    + "layer.int_gpus_max, "
+                    + "layer.int_gpu_mem_min, "
+                    + "layer.str_cmd, "
+                    + "layer.str_range, "
+                    + "layer.int_chunk_size, "
+                    + "layer.str_services "
+                + "FROM "
+                    + "job, "
+                    + "frame, "
+                    + "layer "
+                + "WHERE "
+                    + "frame.pk_layer = layer.pk_layer "
+                + "AND "
+                    + "layer.pk_job = job.pk_job "
+                + "AND "
+                    + "layer.int_cores_min <= ? "
+                + "AND "
+                    + "layer.int_mem_min <= ? "
+                + "AND "
+                    + "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? "
+                + "AND "
+                    + "layer.int_gpus_min <= ? "
+                + "AND "
+                    + "layer.int_gpu_mem_min <= ? "
+                + "AND "
+                    + "frame.str_state='WAITING' "
+                + "AND "
+                    + "layer.pk_layer=? "
+                + "AND "
+                    + "layer.pk_layer IN ( "
+                        + "SELECT /*+ index (h i_str_host_tag) */ "
+                            + "l.pk_layer "
+                        + "FROM "
+                            + "layer l "
+                        + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags  || '\\y') AND h.str_name = ?) "
+                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
+                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
+                        + "LEFT JOIN ("
+                            + "SELECT "
+                                + "limit_record.pk_limit_record, "
+                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
+                            + "FROM "
+                                + "layer_limit "
+                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
+                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
+                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                        + "WHERE "
+                            + "l.pk_layer= ? "
+                        + "AND ( "
+                            + "limit_record.pk_limit_record IS NULL "
+                            // Frame limit (b_host_limit=false, the default): the cap
+                            // counts RUNNING FRAMES farm-wide, gate on the sum.
+                            + "OR (COALESCE(limit_record.b_host_limit, false) = false "
+                                + "AND (sum_running.int_sum_running IS NULL "
+                                    + "OR sum_running.int_sum_running < limit_record.int_max_value)) "
+                            // Host limit (floating license, b_host_limit=true): the cap
+                            // counts DISTINCT HOSTS, and all frames on a seated host
+                            // share its seat. This host may take the frame if it
+                            // already holds a seat (>=1 proc of the limit's layers)
+                            // or a seat is still free.
+                            + "OR (limit_record.b_host_limit = true "
+                                + "AND (EXISTS (SELECT 1 FROM proc p "
+                                        + "JOIN layer_limit ll3 ON ll3.pk_layer = p.pk_layer "
+                                        + "WHERE ll3.pk_limit_record = limit_record.pk_limit_record "
+                                        + "AND p.pk_host = h.pk_host) "
+                                    + "OR (SELECT COUNT(DISTINCT p2.pk_host) FROM proc p2 "
+                                        + "JOIN layer_limit ll4 ON ll4.pk_layer = p2.pk_layer "
+                                        + "WHERE ll4.pk_limit_record = limit_record.pk_limit_record) "
+                                        + "< limit_record.int_max_value)) "
+                        + ") "
+                    + ") "
+            + ") WHERE LINENUM <= ?";
+    // spotless:on
+
 
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
