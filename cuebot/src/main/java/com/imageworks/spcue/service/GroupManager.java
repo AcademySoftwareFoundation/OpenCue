@@ -28,6 +28,8 @@ public interface GroupManager {
 
     void setGroupMaxCores(GroupInterface g, int coreUnits);
 
+    void setGroupMaxSlots(GroupInterface g, int slots);
+
     void setGroupMinCores(GroupInterface g, int coreUnits);
 
     void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);

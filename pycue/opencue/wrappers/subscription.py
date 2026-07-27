@@ -77,6 +77,18 @@ class Subscription(object):
             subscription_pb2.SubscriptionSetBurstRequest(subscription=self.data, burst=burst),
             timeout=Cuebot.Timeout)
 
+    def setMaxSlots(self, maxSlots):
+        """Sets the max concurrent slots for slot-based layers on this subscription.
+
+        :type  maxSlots: int
+        :param maxSlots: new max slots (-1 unlimited, 0 reject-all, N cap)
+        """
+        assert (isinstance(maxSlots, int)), "maxSlots is not expected type: int"
+        self.stub.SetMaxSlots(
+            subscription_pb2.SubscriptionSetMaxSlotsRequest(
+                subscription=self.data, max_slots=maxSlots),
+            timeout=Cuebot.Timeout)
+
     def delete(self):
         """Deletes a subscription."""
         self.stub.Delete(

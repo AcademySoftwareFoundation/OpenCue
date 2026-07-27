@@ -42,6 +42,11 @@ pub struct DispatchLayer {
     /// when not positive. Slow-moving admin field; refreshed each time the
     /// matcher re-queries the job's layers (design Branch 2b).
     pub job_max_cores: i32,
+    /// Concurrency slots each frame of this layer requires (`layer.int_slots_required`).
+    /// `0` means the layer is not slot-based and books by cores/memory. `> 0` marks the
+    /// layer slot-based: it only runs on slot-based hosts and counts against the
+    /// subscription/folder/job slot limits.
+    pub slots_required: u32,
 }
 
 impl fmt::Display for DispatchLayer {

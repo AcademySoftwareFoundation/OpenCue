@@ -29,6 +29,9 @@ service SubscriptionInterface {
 
     // Set the size of a subscription
     rpc SetSize(SubscriptionSetSizeRequest) returns (SubscriptionSetSizeResponse);
+
+    // Set the max concurrent slots for slot-based layers on this subscription
+    rpc SetMaxSlots(SubscriptionSetMaxSlotsRequest) returns (SubscriptionSetMaxSlotsResponse);
 }
 
 
@@ -44,6 +47,8 @@ message Subscription {
     int32 burst = 7;
     int32 reserved_cores = 8;
     int32 reserved_gpus = 9;
+    // Max concurrent slots for slot-based layers (-1 unlimited, 0 reject-all).
+    int32 max_slots = 10;
 }
 
 message SubscriptionSeq {
@@ -93,3 +98,11 @@ message SubscriptionSetSizeRequest {
 }
 
 message SubscriptionSetSizeResponse {} // Empty
+
+// SetMaxSlots
+message SubscriptionSetMaxSlotsRequest {
+    Subscription subscription = 1;
+    int32 max_slots = 2;
+}
+
+message SubscriptionSetMaxSlotsResponse {} // Empty

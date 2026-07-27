@@ -54,6 +54,15 @@ use crate::{
 type CoreKey = u32;
 type MemoryKey = u64;
 
+/// Sentinel B-tree index key for slot-based hosts. Slot hosts are indexed
+/// independently of their idle cores/memory (which are ignored for slot
+/// scheduling) so a slot host can never slide out of the search range while it
+/// still has free slots. Slot-layer checkouts query this exact key, so they only
+/// scan slot hosts; regular checkouts may also visit this bucket, but the
+/// placement gate rejects the pairing mismatch.
+const SLOT_CORE_KEY: CoreKey = u32::MAX;
+const SLOT_MEMORY_KEY: MemoryKey = u64::MAX;
+
 /// A B-Tree of Hosts ordered by memory
 pub type MemoryBTree = BTreeMap<MemoryKey, HashSet<HostId>>;
 
@@ -270,8 +279,13 @@ impl HostCache {
         core_saturation: bool,
         memory_saturation: bool,
     ) -> Option<Host> {
-        let core_key = cores.value() as u32;
-        let memory_key = Self::gen_memory_key(memory);
+        // Slot layers query the fixed slot sentinel bucket; regular layers query
+        // by their cores/memory floor.
+        let (core_key, memory_key) = if profile.slots_required > 0 {
+            (SLOT_CORE_KEY, SLOT_MEMORY_KEY)
+        } else {
+            (cores.value() as u32, Self::gen_memory_key(memory))
+        };
 
         let failed_candidates: RefCell<Vec<Uuid>> = RefCell::new(Vec::new());
         let host_validation = |host: &Host| {
@@ -373,8 +387,13 @@ impl HostCache {
     ) -> Option<Host> {
         const EPVM_INNER_RETRIES: usize = 3;
 
-        let core_key = cores.value() as u32;
-        let memory_key = Self::gen_memory_key(memory);
+        // Slot layers query the fixed slot sentinel bucket; regular layers query
+        // by their cores/memory floor.
+        let (core_key, memory_key) = if profile.slots_required > 0 {
+            (SLOT_CORE_KEY, SLOT_MEMORY_KEY)
+        } else {
+            (cores.value() as u32, Self::gen_memory_key(memory))
+        };
 
         // Phase 3 CAS failures within this call. Any host_id added here is
         // skipped by subsequent re-scans so we don't burn retries scoring and
@@ -477,8 +496,16 @@ impl HostCache {
         // Update the data_store with new version
         let last_host_version = HOST_STORE.insert(host, authoritative);
 
-        let core_key = last_host_version.idle_cores.value() as CoreKey;
-        let memory_key = Self::gen_memory_key(last_host_version.idle_memory);
+        // Slot hosts are indexed at a fixed sentinel key, decoupled from their
+        // idle cores/memory, so they stay findable while free slots remain.
+        let (core_key, memory_key) = if last_host_version.is_slot_host() {
+            (SLOT_CORE_KEY, SLOT_MEMORY_KEY)
+        } else {
+            (
+                last_host_version.idle_cores.value() as CoreKey,
+                Self::gen_memory_key(last_host_version.idle_memory),
+            )
+        };
 
         // Insert at the new location, removing any entry left at the host's
         // previous bucket
@@ -582,6 +609,8 @@ mod tests {
             alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
+            concurrent_slots_limit: None,
+            running_slots_count: 0,
         }
     }
 
@@ -591,6 +620,7 @@ mod tests {
             mem_min,
             gpus_min: 0,
             gpu_mem_min: ByteSize::gb(0),
+            slots_required: 0,
             os: None,
             threadable: true,
             job_max_cores: 0,

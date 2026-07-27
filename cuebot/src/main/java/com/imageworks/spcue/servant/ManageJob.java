@@ -128,6 +128,8 @@ import com.imageworks.spcue.grpc.job.JobSetGroupRequest;
 import com.imageworks.spcue.grpc.job.JobSetGroupResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMaxSlotsRequest;
+import com.imageworks.spcue.grpc.job.JobSetMaxSlotsResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxGpusRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesRequest;
@@ -355,6 +357,23 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             if (attemptChange(env, property, jobManager, job, responseObserver)) {
                 jobDao.updateMaxCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
                 responseObserver.onNext(JobSetMaxCoresResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(
+                    Status.NOT_FOUND.withDescription("Job not found").asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMaxSlots(JobSetMaxSlotsRequest request,
+            StreamObserver<JobSetMaxSlotsResponse> responseObserver) {
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                // Slots are whole counts, no core-unit conversion.
+                jobDao.updateMaxSlots(job, request.getVal());
+                responseObserver.onNext(JobSetMaxSlotsResponse.newBuilder().build());
                 responseObserver.onCompleted();
             }
         } catch (EmptyResultDataAccessException e) {

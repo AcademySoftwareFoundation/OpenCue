@@ -37,6 +37,9 @@ pub struct VirtualProc {
     pub os: String,
     pub is_local_dispatch: bool,
     pub frame: DispatchFrame,
+    /// Concurrency slots reserved by this proc (written to `proc.int_slots_reserved`).
+    /// `0` for regular (cores/memory) procs.
+    pub slots_required: u32,
 }
 
 impl Display for VirtualProc {

@@ -395,6 +395,7 @@ impl MatchingService {
                 mem_min: layer.mem_min,
                 gpus_min: layer.gpus_min,
                 gpu_mem_min: layer.gpu_mem_min,
+                slots_required: layer.slots_required,
                 os: layer.str_os.clone(),
                 threadable: layer.threadable,
                 job_max_cores: layer.job_max_cores,

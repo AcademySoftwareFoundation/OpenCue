@@ -32,6 +32,8 @@ import com.imageworks.spcue.grpc.subscription.SubscriptionGetResponse;
 import com.imageworks.spcue.grpc.subscription.SubscriptionInterfaceGrpc;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSetBurstRequest;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSetBurstResponse;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSetMaxSlotsRequest;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSetMaxSlotsResponse;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSetSizeRequest;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSetSizeResponse;
 import com.imageworks.spcue.service.AdminManager;
@@ -102,6 +104,15 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
         adminManager.setSubscriptionSize(getSubscriptionDetail(request.getSubscription()),
                 request.getNewSize());
         responseObserver.onNext(SubscriptionSetSizeResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMaxSlots(SubscriptionSetMaxSlotsRequest request,
+            StreamObserver<SubscriptionSetMaxSlotsResponse> responseObserver) {
+        adminManager.setSubscriptionMaxSlots(getSubscriptionDetail(request.getSubscription()),
+                request.getMaxSlots());
+        responseObserver.onNext(SubscriptionSetMaxSlotsResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

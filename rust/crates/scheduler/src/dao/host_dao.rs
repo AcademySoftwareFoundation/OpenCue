@@ -111,6 +111,10 @@ pub struct HostModel {
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
     ts_ping: DateTime<Utc>,
+    // `host.int_concurrent_slots_limit`: `-1` = regular host, `>= 0` = slot-based host.
+    int_concurrent_slots_limit: i64,
+    // Slots currently reserved on this host, from `SUM(proc.int_slots_reserved)`.
+    int_running_slots: i64,
 }
 
 impl From<HostModel> for Host {
@@ -133,6 +137,10 @@ impl From<HostModel> for Host {
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
+            // `-1` marks a regular host; `>= 0` marks a slot-based host with that cap.
+            concurrent_slots_limit: (val.int_concurrent_slots_limit >= 0)
+                .then_some(val.int_concurrent_slots_limit as u32),
+            running_slots_count: val.int_running_slots.max(0) as u32,
         }
     }
 }
@@ -161,7 +169,11 @@ SELECT DISTINCT
     s.int_burst - s.int_cores as int_alloc_available_cores,
     a.pk_alloc,
     a.str_name as str_alloc_name,
-    hs.ts_ping
+    hs.ts_ping,
+    h.int_concurrent_slots_limit,
+    COALESCE((
+        SELECT SUM(p.int_slots_reserved) FROM proc p WHERE p.pk_host = h.pk_host
+    ), 0)::bigint as int_running_slots
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc

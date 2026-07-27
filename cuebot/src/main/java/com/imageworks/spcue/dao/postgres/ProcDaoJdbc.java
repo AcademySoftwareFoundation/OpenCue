@@ -102,7 +102,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             + "WHERE "
                 + "pk_proc=? "
             + "RETURNING int_cores_reserved, int_mem_reserved, "
-                + "int_gpus_reserved, int_gpu_mem_reserved";
+                + "int_gpus_reserved, int_gpu_mem_reserved, int_slots_reserved";
     // spotless:on
 
     public boolean deleteVirtualProc(VirtualProc proc) {
@@ -117,6 +117,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             proc.memoryReserved = ((Number) result.get("int_mem_reserved")).longValue();
             proc.gpusReserved = ((Number) result.get("int_gpus_reserved")).intValue();
             proc.gpuMemoryReserved = ((Number) result.get("int_gpu_mem_reserved")).longValue();
+            proc.slotsReserved = ((Number) result.get("int_slots_reserved")).intValue();
         } catch (EmptyResultDataAccessException e) {
             logger.info("failed to delete " + proc + " , proc does not exist.");
             return false;
@@ -341,6 +342,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             proc.memoryReserved = rs.getLong("int_mem_reserved");
             proc.memoryMax = rs.getLong("int_mem_max_used");
             proc.gpusReserved = rs.getInt("int_gpus_reserved");
+            proc.slotsReserved = rs.getInt("int_slots_reserved");
             proc.gpuMemoryReserved = rs.getLong("int_gpu_mem_reserved");
             proc.gpuMemoryMax = rs.getLong("int_gpu_mem_max_used");
             proc.virtualMemoryMax = rs.getLong("int_virt_max_used");
@@ -370,6 +372,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "host.pk_alloc, "
                 + "alloc.pk_facility,"
                 + "proc.int_cores_reserved,"
+                + "proc.int_slots_reserved,"
                 + "proc.int_mem_reserved,"
                 + "proc.int_mem_max_used,"
                 + "proc.int_mem_used,"

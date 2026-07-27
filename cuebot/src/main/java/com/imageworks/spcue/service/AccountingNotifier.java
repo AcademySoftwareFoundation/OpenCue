@@ -129,11 +129,14 @@ public class AccountingNotifier extends JdbcDaoSupport {
 
         int cores = -proc.coresReserved / CENTICORES_PER_CORE;
         int gpus = -proc.gpusReserved;
+        // Slots are whole counts (no centicore conversion); negated like cores/gpus. 0 for
+        // regular procs, so this is a no-op on the scheduler's slot axis for non-slot procs.
+        int slots = -proc.slotsReserved;
         String payload = String.format(
                 "{\"show\":\"%s\",\"alloc\":\"%s\",\"folder\":\"%s\",\"job\":\"%s\","
-                        + "\"layer\":\"%s\",\"dept\":\"%s\",\"cores\":%d,\"gpus\":%d}",
+                        + "\"layer\":\"%s\",\"dept\":\"%s\",\"cores\":%d,\"gpus\":%d,\"slots\":%d}",
                 proc.getShowId(), proc.getAllocationId(), proc.folderId, proc.getJobId(),
-                proc.getLayerId(), proc.deptId, cores, gpus);
+                proc.getLayerId(), proc.deptId, cores, gpus, slots);
         notify(CHANNEL_RELEASE, payload);
     }
 
@@ -191,6 +194,40 @@ public class AccountingNotifier extends JdbcDaoSupport {
         }
         String payload =
                 String.format("{\"vertex\":\"job\",\"id\":\"%s\",\"max_gpus\":%d}", jobId, value);
+        notify(CHANNEL_LIMIT_CHANGE, payload);
+    }
+
+    /**
+     * Emit a subscription max-slots cap change. Slots are whole counts (no centicore conversion);
+     * {@code -1} = unlimited, {@code 0} = reject all slot work.
+     */
+    public void notifySubscriptionMaxSlots(String showId, String allocId, int value) {
+        if (!notifyEnabled) {
+            return;
+        }
+        String payload = String.format(
+                "{\"vertex\":\"sub\",\"show\":\"%s\",\"alloc\":\"%s\",\"max_slots\":%d}", showId,
+                allocId, value);
+        notify(CHANNEL_LIMIT_CHANGE, payload);
+    }
+
+    /** Emit a folder max-slots cap change. Whole counts; {@code -1} = unlimited. */
+    public void notifyFolderMaxSlots(String folderId, int value) {
+        if (!notifyEnabled) {
+            return;
+        }
+        String payload = String.format("{\"vertex\":\"folder\",\"id\":\"%s\",\"max_slots\":%d}",
+                folderId, value);
+        notify(CHANNEL_LIMIT_CHANGE, payload);
+    }
+
+    /** Emit a job max-slots cap change. Whole counts; {@code -1} = unlimited. */
+    public void notifyJobMaxSlots(String jobId, int value) {
+        if (!notifyEnabled) {
+            return;
+        }
+        String payload =
+                String.format("{\"vertex\":\"job\",\"id\":\"%s\",\"max_slots\":%d}", jobId, value);
         notify(CHANNEL_LIMIT_CHANGE, payload);
     }
 

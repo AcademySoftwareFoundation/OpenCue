@@ -45,6 +45,9 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public int gpusReserved;
     public long gpuMemoryReserved;
     public long gpuMemoryUsed;
+
+    // Concurrency slots reserved by this proc (slot-based scheduling). 0 for regular procs.
+    public int slotsReserved;
     public long gpuMemoryMax;
 
     public boolean unbooked;

@@ -200,6 +200,21 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
+        self.addColumn("Slots", 50, id=25,
+                       data=lambda host: (
+                           host.data.concurrent_slots_limit
+                           if host.data.concurrent_slots_limit >= 0 else "-"),
+                       sort=lambda host: host.data.concurrent_slots_limit,
+                       tip="When >= 0 the host is slot-based: it runs only layers with a "
+                           "slots_required field, up to this many concurrent slots "
+                           "(usually 1 frame = 1 slot). '-' means a regular cores/memory host.")
+        self.addColumn("Slots Idle", 60, id=26,
+                       data=lambda host: (
+                           host.data.idle_slots
+                           if host.data.concurrent_slots_limit > 0 else "-"),
+                       sort=lambda host: host.data.idle_slots,
+                       tip="The number of slots that are not reserved by running frames.\n"
+                           "'-' means a regular cores/memory host.")
 
         self.hostSearch = opencue.search.HostSearch()
 
@@ -334,6 +349,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "removeTags")
         self.__menuActions.hosts().addAction(menu, "renameTag")
         self.__menuActions.hosts().addAction(menu, "changeAllocation")
+        self.__menuActions.hosts().addAction(menu, "setConcurrentSlotsLimit")
         self.__menuActions.hosts().addAction(menu, "delete")
         self.__menuActions.hosts().addAction(menu, "rebootWhenIdle")
         self.__menuActions.hosts().addAction(menu, "setRepair")

@@ -998,6 +998,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")));
         builder.setHasComment(rs.getBoolean("b_comment"));
         builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
+        builder.setConcurrentSlotsLimit(rs.getInt("int_concurrent_slots_limit"));
+        builder.setIdleSlots(rs.getInt("int_slots_idle"));
         builder.setOs(SqlUtil.getString(rs, "str_os"));
 
         String tags = SqlUtil.getString(rs, "str_tags");
@@ -1074,7 +1076,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                     .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                     .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
-                    .setLevel(rs.getInt("int_level"))
+                    .setMaxSlots(rs.getInt("int_max_slots")).setLevel(rs.getInt("int_level"))
                     .setParentId(SqlUtil.getString(rs, "pk_parent_folder")).setGroupStats(stats)
                     .build();
         }
@@ -1087,6 +1089,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                     .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                     .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
+                    .setMaxSlots(rs.getInt("int_max_slots"))
                     .setName(SqlUtil.getString(rs, "str_name"))
                     .setPriority(rs.getInt("int_priority"))
                     .setShot(SqlUtil.getString(rs, "str_shot"))
@@ -1282,6 +1285,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setBurst(rs.getInt("int_burst")).setName(rs.getString("name"))
                             .setReservedCores(rs.getInt("int_cores"))
                             .setReservedGpus(rs.getInt("int_gpus")).setSize(rs.getInt("int_size"))
+                            .setMaxSlots(rs.getInt("int_max_slots"))
                             .setAllocationName(rs.getString("alloc_name"))
                             .setShowName(rs.getString("show_name"))
                             .setFacility(rs.getString("facility_name")).build();
@@ -1869,6 +1873,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "folder.int_job_max_cores,"
                 + "folder_resource.int_min_cores,"
                 + "folder_resource.int_max_cores,"
+                + "folder_resource.int_max_slots,"
                 + "folder.int_job_min_gpus,"
                 + "folder.int_job_max_gpus,"
                 + "folder_resource.int_min_gpus,"
@@ -1919,6 +1924,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "job.pk_job,"
                 + "job.str_log_dir,"
                 + "job_resource.int_max_cores,"
+                + "job_resource.int_max_slots,"
                 + "job_resource.int_min_cores,"
                 + "job_resource.int_max_gpus,"
                 + "job_resource.int_min_gpus,"
@@ -2220,6 +2226,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "host.str_lock_state,"
                 + "host.b_comment,"
                 + "host.int_thread_mode,"
+                + "host.int_concurrent_slots_limit,"
+                + "CASE WHEN host.int_concurrent_slots_limit > 0 THEN "
+                    + "(host.int_concurrent_slots_limit - COALESCE("
+                    + "(SELECT SUM(proc.int_slots_reserved) FROM proc "
+                    + "WHERE proc.pk_host = host.pk_host), 0)) "
+                    + "ELSE -1 END AS int_slots_idle,"
                 + "host_stat.str_os,"
                 + "host_stat.int_mem_total,"
                 + "host_stat.int_mem_free,"
@@ -2268,6 +2280,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "subscription.pk_subscription, "
                 + "(alloc.str_name || '.' || show.str_name) AS name, "
                 + "subscription.int_burst, "
+                + "subscription.int_max_slots, "
                 + "subscription.int_size, "
                 + "subscription.int_cores, "
                 + "subscription.int_gpus, "

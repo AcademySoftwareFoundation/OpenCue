@@ -46,6 +46,14 @@ public interface JobDao {
     public void updateMaxCores(GroupInterface g, int cores);
 
     /**
+     * Updates all jobs in the specified group to the max slots value.
+     *
+     * @param g
+     * @param slots
+     */
+    public void updateMaxSlots(GroupInterface g, int slots);
+
+    /**
      * Updates all jobs in the specifid group to the min cores value.
      *
      * @param g
@@ -305,6 +313,14 @@ public interface JobDao {
      * @param v
      */
     void updateMaxCores(JobInterface j, int v);
+
+    /**
+     * Sets the job's max concurrent slots for slot-based layers. -1 unlimited, 0 reject-all.
+     *
+     * @param j
+     * @param v
+     */
+    void updateMaxSlots(JobInterface j, int v);
 
     /**
      * sets the jobs new min gpu value

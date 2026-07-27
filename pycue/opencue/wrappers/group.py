@@ -58,6 +58,15 @@ class Group(object):
         self.stub.SetMaxCores(job_pb2.GroupSetMaxCoresRequest(group=self.data, max_cores=value),
                               timeout=Cuebot.Timeout)
 
+    def setMaxSlots(self, value):
+        """Sets the max concurrent slots for slot-based layers in the group.
+
+        :type  value: int
+        :param value: new max slots (-1 unlimited, 0 reject-all, N cap)
+        """
+        self.stub.SetMaxSlots(job_pb2.GroupSetMaxSlotsRequest(group=self.data, max_slots=value),
+                              timeout=Cuebot.Timeout)
+
     def setMinCores(self, value):
         """Sets the minimum cores of everything the group.
 

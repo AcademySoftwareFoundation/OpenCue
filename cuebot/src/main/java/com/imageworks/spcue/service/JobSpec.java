@@ -444,6 +444,11 @@ public class JobSpec {
                 layer.timeout_llu = Integer.parseInt(layerTag.getChildTextTrim("timeout_llu"));
             }
 
+            String slotsRequired = layerTag.getChildTextTrim("slots_required");
+            if (slotsRequired != null && !slotsRequired.isEmpty()) {
+                layer.slotsRequired = Integer.parseInt(slotsRequired);
+            }
+
             /*
              * Handle the layer environment
              */
