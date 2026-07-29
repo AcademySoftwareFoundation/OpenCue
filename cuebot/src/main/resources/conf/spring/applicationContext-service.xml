@@ -420,7 +420,8 @@
        BookingQueue enqueue, and the Quartz trigger below drives a single
        tick that groups hosts by static spec and runs one candidate-layer
        query per group. Cross-Cuebot exclusion via pg_try_advisory_lock. -->
-  <bean id="scheduler" class="com.imageworks.spcue.dispatcher.Scheduler" depends-on="cueDataSource">
+  <bean id="scheduler" class="com.imageworks.spcue.dispatcher.Scheduler" depends-on="cueDataSource"
+        destroy-method="onShutdown">
     <property name="dataSource"  ref="cueDataSource" />
     <property name="dispatcher"  ref="dispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />

@@ -173,6 +173,21 @@ public class Scheduler extends JdbcDaoSupport {
     private final AtomicBoolean tickInFlight = new AtomicBoolean(false);
 
     /**
+     * The dedicated connection that holds this Cuebot's planning-leadership advisory lock, or null
+     * when this Cuebot is a standby. Leadership is STICKY: the leader acquires the lock once and
+     * holds it for its whole life (not re-taken per tick), so one Cuebot plans continuously and the
+     * others idle as warm backups -- no leadership churn, no farm-wide planning redone in N places.
+     * A standby only becomes leader when the holder's session dies (Postgres auto-releases the
+     * session-scoped lock) -- i.e. real failover, never load-sharing.
+     *
+     * Deliberately NOT a pooled connection: HikariCP would reap it on idle-timeout or warn on the
+     * 30s leak-detection threshold, and either silently drops the lock. It is a raw DriverManager
+     * connection outside the pool. Touched by the single tick thread (guarded by tickInFlight) and
+     * by shutdown; volatile for that one cross-thread read.
+     */
+    private volatile Connection leaderConn = null;
+
+    /**
      * Live host reservations, persistent across ticks. Key: host id. Value: the (layer, priority)
      * pair that has claimed the host. A reservation is created when a blocked layer's reconcile
      * claims a target host, and removed when the layer's pending unfittable frame count reaches
@@ -630,51 +645,35 @@ public class Scheduler extends JdbcDaoSupport {
         startSchedulerPoolsIfNeeded();
         long t0 = System.currentTimeMillis();
         try {
-            // A Postgres advisory lock is session-scoped: it can only be
-            // released by the same physical connection that took it.
-            // getJdbcTemplate() borrows a fresh pooled connection per
-            // statement, so acquire and release would land on different
-            // connections, leaking the lock and stalling the scheduler.
-            // Pin one connection for the whole tick and run lock/unlock on
-            // it directly; the planning queries can still use the pool.
-            Connection lockConn = null;
-            try {
-                lockConn = getDataSource().getConnection();
-                if (!acquireLeaderLock(lockConn)) {
-                    logger.debug("Scheduler: another Cuebot holds the planning lock");
-                    summaryLockLost++;
-                    return;
-                }
-                try {
-                    int dispatched = doTick();
-                    long ms = System.currentTimeMillis() - t0;
-                    // Per-tick detail at DEBUG; INFO gets one consolidated stat
-                    // line per window (maybeLogStat, called in the finally below).
-                    logger.debug("Scheduler tick: dispatched " + dispatched + " procs, " + ms
-                            + " ms, reservations=" + reservations.size());
-                    summaryTicks++;
-                    summaryDispatched += dispatched;
-                    summaryTickMs += ms;
-                    if (ms > summaryMaxTickMs)
-                        summaryMaxTickMs = ms;
-                    summaryPlanned += tickPlanned;
-                    summaryGranted += tickGranted;
-                    summaryBackfilled += tickBackfilled;
-                    summaryBackfilledCores += tickBackfilledCores;
-                } finally {
-                    releaseLeaderLock(lockConn);
-                }
-            } finally {
-                if (lockConn != null) {
-                    try {
-                        lockConn.close();
-                    } catch (SQLException e) {
-                        logger.debug(
-                                "Scheduler: closing lock connection failed: " + e.getMessage());
-                    }
-                }
+            // STICKY leadership. We hold the advisory lock across ticks on a
+            // dedicated connection (leaderConn) rather than re-taking it every
+            // tick. If we are not the leader this returns false and we idle as a
+            // standby -- one Cuebot plans, the rest back it up, so the farm-wide
+            // planning is never redone in parallel by several Cuebots.
+            if (!ensureLeadership()) {
+                logger.debug("Scheduler: another Cuebot holds the planning lock");
+                summaryLockLost++;
+                return;
             }
-        } catch (RuntimeException | SQLException e) {
+            // We are the sticky leader. Note: no per-tick lock release -- we keep
+            // leadership even if this tick throws, and only give it up on death
+            // (connection drop, detected next tick) or shutdown.
+            int dispatched = doTick();
+            long ms = System.currentTimeMillis() - t0;
+            // Per-tick detail at DEBUG; INFO gets one consolidated stat
+            // line per window (maybeLogStat, called in the finally below).
+            logger.debug("Scheduler tick: dispatched " + dispatched + " procs, " + ms
+                    + " ms, reservations=" + reservations.size());
+            summaryTicks++;
+            summaryDispatched += dispatched;
+            summaryTickMs += ms;
+            if (ms > summaryMaxTickMs)
+                summaryMaxTickMs = ms;
+            summaryPlanned += tickPlanned;
+            summaryGranted += tickGranted;
+            summaryBackfilled += tickBackfilled;
+            summaryBackfilledCores += tickBackfilledCores;
+        } catch (RuntimeException e) {
             logger.error("Scheduler tick failed", e);
         } finally {
             // One consolidated stat line per window, on EVERY tick attempt
@@ -1189,6 +1188,96 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     // ---- leader lock ------------------------------------------------------
+
+    /**
+     * Ensure this Cuebot holds planning leadership, acquiring it once and keeping it (sticky).
+     * Returns true if we are the leader this tick.
+     *
+     * <ul>
+     * <li>Already leader (leaderConn set): confirm the lock connection is still alive. If it is, we
+     * still hold the session-scoped advisory lock -- do NOT re-acquire (it is re-entrant and would
+     * need matching unlocks). If the connection died, Postgres already auto-released the lock, so
+     * demote to standby and re-probe next tick.</li>
+     * <li>Standby (leaderConn null): try to take the lock on a fresh dedicated connection. Win ->
+     * become the sticky leader. Lose -> another Cuebot leads; idle.</li>
+     * </ul>
+     *
+     * The isValid() ping each tick doubles as a keepalive, so an otherwise-idle lock connection is
+     * never dropped by a firewall/NAT idle timeout.
+     */
+    private boolean ensureLeadership() {
+        Connection held = leaderConn;
+        if (held != null) {
+            try {
+                if (held.isValid(1)) {
+                    return true;
+                }
+            } catch (SQLException e) {
+                // treated as dead below
+            }
+            logger.warn("Scheduler: planning-lock connection lost; demoting to standby");
+            closeLeaderConn();
+            return false;
+        }
+        Connection conn = null;
+        try {
+            conn = openLeaderConnection();
+            if (acquireLeaderLock(conn)) {
+                leaderConn = conn;
+                logger.info("Scheduler: acquired planning leadership (sticky)");
+                return true;
+            }
+            conn.close();
+            return false;
+        } catch (SQLException e) {
+            logger.warn("Scheduler: leadership probe failed: " + e.getMessage());
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException ignore) {
+                    // best effort
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Open a dedicated Postgres connection for the leadership lock, OUTSIDE the HikariCP pool. A
+     * pooled connection would be reaped on idle-timeout or flagged by the leak-detection threshold
+     * while we hold it across ticks, silently releasing the advisory lock. Built straight from the
+     * configured JDBC url/credentials so the scheduler stays pool-implementation agnostic.
+     */
+    private Connection openLeaderConnection() throws SQLException {
+        String url = env.getProperty("datasource.cue-data-source.jdbc-url");
+        String user = env.getProperty("datasource.cue-data-source.username");
+        String pass = env.getProperty("datasource.cue-data-source.password");
+        Connection c = java.sql.DriverManager.getConnection(url, user, pass);
+        c.setAutoCommit(true);
+        return c;
+    }
+
+    /** Release (if the connection is still alive) and close the leadership connection. */
+    private void closeLeaderConn() {
+        Connection held = leaderConn;
+        leaderConn = null;
+        if (held != null) {
+            releaseLeaderLock(held);
+            try {
+                held.close();
+            } catch (SQLException ignore) {
+                // best effort
+            }
+        }
+    }
+
+    /**
+     * Bean lifecycle: give up leadership promptly on shutdown so a standby can take over without
+     * waiting for the OS to tear down the socket.
+     */
+    public void onShutdown() {
+        closeLeaderConn();
+    }
 
     private boolean acquireLeaderLock(Connection conn) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
