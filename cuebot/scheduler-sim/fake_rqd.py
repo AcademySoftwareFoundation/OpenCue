@@ -112,6 +112,15 @@ _report_pool = futures.ThreadPoolExecutor(max_workers=max(1, _REPORTER_THREADS))
 _MEM_FAILURE_RATE = float(
     sys.argv[2] if len(sys.argv) > 2 else os.environ.get("SIM_MEM_FAILURE_RATE", "0"))
 
+# License-denial injection (the LICENSE scenario). A frame whose application
+# could not check out a license exits with a vendor-specific status; cuebot must
+# put it straight back to WAITING WITHOUT spending a retry, because a busy pool is
+# a queue to wait in, not a broken frame. Rate 0 disables it, so every other
+# scenario is unaffected. The status must match cuebot's
+# scheduler.license.denied_exit_statuses.
+_LIC_DENY_RATE = float(os.environ.get("SIM_LIC_DENY_RATE", "0"))
+_EXIT_LICENSE_DENIED = int(os.environ.get("SIM_LIC_DENY_STATUS", "203"))
+
 # Duration-class markers for the wide-job fairness test (inject_big.py mixed
 # mode). A frame whose job name carries "durshort" / "durlong" runs for a FIXED
 # short / long time regardless of cores, so two otherwise-identical wide jobs can
@@ -134,6 +143,10 @@ def _send_completion(frame, due_time, killed=False):
     # the configured rate. Either way cuebot raises the layer's memory and retries.
     mem_fail = killed or (_MEM_FAILURE_RATE > 0 and random.random() < _MEM_FAILURE_RATE)
     exit_status = _EXIT_MEM_FAILURE if mem_fail else 0
+    # A license denial is not a memory failure, so it only applies to frames that
+    # were not already failing for memory.
+    if not mem_fail and _LIC_DENY_RATE > 0 and random.random() < _LIC_DENY_RATE:
+        exit_status = _EXIT_LICENSE_DENIED
     report = report_pb2.FrameCompleteReport(
         host=_DUMMY_HOST, frame=frame, exit_status=exit_status, exit_signal=0, run_time=1)
     t0 = time.time()

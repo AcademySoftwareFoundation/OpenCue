@@ -240,17 +240,20 @@ This keeps the *decisions* on one thread (no races) while parallelizing the part
 that dominates tick time as the farm fills: the per-host reads. The writes stay
 one batched, atomic commit.
 
-### 3.4 Leader election
+### 3.4 Leader election (sticky)
 
-Only one Cuebot may plan at a time. `runTick` takes a Postgres advisory lock
-(`pg_try_advisory_lock`); a Cuebot that does not hold it returns
-immediately. The lock is released at the end of each tick and is released
-automatically by Postgres if the leader's session drops, so failover is
-automatic. A new leader starts with an empty reservation map and no
-persistent state to migrate; placement resumes immediately. One caveat: the
-block-time bucket is in-memory too, so after a failover reservations re-arm
-only as blocked layers re-accrue `reservation_block_seconds` — over that
-window, not a tick or two.
+Only one Cuebot may plan at a time, and leadership is **sticky**: the first
+Cuebot to take the Postgres advisory lock holds it for its whole life, on a
+dedicated non-pooled connection (HikariCP would reap a pooled one and silently
+drop the lock). Extra Cuebots are warm **backups**, not load sharing — the
+planner is a single writer, so more Cuebots cannot speed planning, and
+re-electing per tick only redid farm-wide work in N places. A standby probes
+the lock each tick and takes over only when the holder's session dies
+(Postgres releases the lock automatically), i.e. real failover. A new leader
+starts with an empty reservation map and no persistent state to migrate;
+placement resumes immediately. One caveat: the block-time bucket is in-memory
+too, so after a failover reservations re-arm only as blocked layers re-accrue
+`reservation_block_seconds` — over that window, not a tick or two.
 
 ### 3.5 Priority: a weighted lottery (rate, not rank)
 
@@ -286,6 +289,59 @@ contested selections, not 100%. Two consequences:
 priority-first (the requests are re-sorted by priority before the per-class caps
 fill; §3.2), so the lottery changes only booking *order*, never which wide job
 gets rescued first.
+
+### 3.6 Live application licenses
+
+A layer that needs a floating application license (Houdini Engine, Katana,
+Maya, ...) declares it in its own environment:
+
+    CUE_LICENSES=hengine,katana
+
+and is placed only while the **license server** says seats are free. The
+declaration is the switch — there is no enable flag to forget — and layers that
+declare nothing are untouched. A static Limit cannot do this job: the pool is
+shared with consumers Cuebot never sees (artist workstations, CI, other farms),
+so only the server knows what is free.
+
+`LicenseSource` polls a site provider off the hot path, on every Cuebot (so a
+promoted standby is warm):
+
+    scheduler.license.provider=http://lic-reporter:9101/licenses
+    scheduler.license.provider=script:/site/bin/cue_licenses.sh
+
+Either flavour returns the same JSON:
+
+    {"queried_at": 1690000000,
+     "licenses": [{"name": "hengine", "feature": "Houdini Engine",
+                   "total": 800, "available": 794, "host_based": false,
+                   "hosts": [{"host": "wolf1018", "count": 1}]}]}
+
+`queried_at` is when the numbers were true (epoch seconds; used to age the
+sample). It is REQUIRED: a response without a usable timestamp is rejected and
+the previous sample keeps aging toward stale, so a provider re-serving a cached
+payload can never look fresh forever. `available` is server truth, already net of every consumer, ours
+included. `hosts` is optional by design — sesictrl only reports checkouts per
+user — so counts-only providers are fully supported; when present it lets a
+machine licensed outside the cue (an artist's workstation that is also a render
+node) be recognized as free to place on. Seats are per frame (**floating**) or
+per machine (**host_based**: all frames on a seated machine share its one
+checkout, and a per-pool seat bonus packs licensed work onto the fewest
+machines).
+
+The planner corrects the always-stale sample before spending it: it subtracts
+**in-flight** (our own frames started since the sample, derived from the
+database so any Cuebot computes the same numbers — what makes licensing survive
+failover) and per-license **headroom** (seats kept for interactive users).
+host_based caps are bounded via `available`, never the total, so a counts-only
+provider cannot be oversubscribed. An in-tick gate steers placement and a
+commit-time trim enforces the numbers exactly (the plan read is license-blind,
+like folder ceilings). Stale sample, unknown license, or no provider while a
+layer asks for one: that work is **held**, never run blind.
+
+A frame that exits with a status listed in
+`scheduler.license.denied_exit_statuses` (a site's render wrapper maps the
+vendor's "no license" signal to a sentinel code) is requeued WAITING without
+spending a retry, so a busy pool never marches a layer to DEAD.
 
 ---
 
@@ -410,6 +466,15 @@ already takes most of the load off it.
 | `scheduler.locality_enabled` | `true` | Prefer hosts already running the layer (co-locality / cache coherence). |
 | `scheduler.locality_bonus` | `8.0` | Score bonus for a co-located host. Applied after fit/reservation filtering, so it never overrides them. |
 | `scheduler.stat_interval_seconds` | `300` | Cadence of the consolidated INFO `Scheduler stat:` line (planner health, farm fill, throughput, reservations). Lower it for live debugging. |
+| `scheduler.license.provider` | (unset) | Where live license counts come from: an http endpoint or `script:<cmd>` wrapping a vendor CLI. Unset while layers declare `CUE_LICENSES`: those layers are held and a warning names them. |
+| `scheduler.license.poll_seconds` | `20` | Provider poll cadence (every Cuebot polls). |
+| `scheduler.license.timeout_seconds` | `10` | Hard deadline on one provider call; a hung CLI is killed. |
+| `scheduler.license.stale_seconds` | `300` | Sample age past which the planner fails closed and holds licensed layers. |
+| `scheduler.license.inflight_pad_seconds` | `5` | Padding on the in-flight window, covering providers that timestamp their response after collection. |
+| `scheduler.license.headroom.<name>` | `0` | Seats withheld per license for interactive users (default via `headroom.default`). |
+| `scheduler.license.env_key` | `CUE_LICENSES` | Layer environment key carrying the license names. |
+| `scheduler.license.denied_exit_statuses` | (empty) | Exit codes meaning "could not get a license": such frames requeue WAITING without spending a retry. |
+| `scheduler.host_limit_seat_bonus` | `16.0` | Score bonus per host_based license pool the host already holds a seat in; packs licensed work onto the fewest machines. |
 | `dispatcher.job_frame_dispatch_max` | `8` | Max frames of one job booked onto a host per tick. |
 | `dispatcher.host_frame_dispatch_max` | `12` | Max frames booked onto a host per tick. |
 
@@ -537,6 +602,10 @@ What it can simulate (the knobs):
     memory), runnable only on GPU hosts.
   - `--mem-failure-rate`: inject OOM failures so cuebot bumps layer memory and
     requeues, exercising the retry path.
+  - `--license-test`: live application licenses against a fake license server
+    that counts the farm's own usage plus artist holds (scenarios LICENSE and
+    LICENSE_NO_HOSTS in `--verify`; `--with-licenses` rides the licensed load
+    along FAILOVER, where the standby polls via the `script:` provider).
   - `--hosts`: shrink the farm to a few machines for legible, watchable debugging.
 
 What it measures, live (`live_stats`): real core utilization (cores actually

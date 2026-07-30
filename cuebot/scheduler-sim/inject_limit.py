@@ -2,19 +2,14 @@
 
 OpenCue's Limits feature (limit_record.int_max_value + layer_limit) caps how many
 frames of layers sharing a limit may RUN at once -- the classic "we only have N
-licenses" constraint. This injector attaches ONE limit (default `simlic`, cap N)
+licenses" internal throttle. This injector attaches ONE limit (default `simlic`, cap N)
 to every layer it submits and then floods the farm with far more runnable frames
 than N, so a scheduler that honors the limit must hold concurrency at <= N while a
 scheduler that ignores it will run as many as the cores allow.
 
-Two modes, selected by SIM_LIMIT_HOST:
-  - GLOBAL (default, b_host_limit=false): at most N frames across the whole farm,
-    regardless of host count. limit_watch.py samples the peak concurrent running
-    count for the limit and checks it never exceeds N.
-  - PER-HOST / floating license (SIM_LIMIT_HOST=1, b_host_limit=true): N counts
-    DISTINCT HOSTS ("seats"); every frame on a seated host shares its seat, so
-    running frames should blow far past N while distinct hosts stay <= N.
-    limit_watch.py (same env) samples distinct hosts instead.
+For real application licenses, whose pools are shared with consumers outside
+the cue (artist workstations, CI, other farms), see the LICENSE scenario: a
+static cap cannot see those consumers.
 
 usage: inject_limit.py [duration_s]
 """
@@ -32,8 +27,6 @@ DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 180
 
 LIMIT_NAME = os.environ.get("SIM_LIMIT_NAME", "simlic")
 LIMIT_MAX = int(os.environ.get("SIM_LIMIT_MAX", "50"))   # N: the license cap
-# Per-host (floating license) mode: b_host_limit=true, N counts distinct hosts.
-HOST_LIMIT = os.environ.get("SIM_LIMIT_HOST", "0") == "1"
 # Hold a deep backlog of limited frames -- MANY more than N want to run -- so the
 # cap is the only thing that can hold concurrency down. Narrow 1-core layers: each
 # running frame is one license unit, and cores never bind before the limit does.
@@ -55,18 +48,16 @@ def ensure_limit():
     """Create the limit_record the layers reference (cuebot resolves <limit> by
     NAME at submit, so it must exist first). Idempotent: drop any stale copy and
     its links, then insert a fresh cap=LIMIT_MAX global limit."""
-    host_flag = "true" if HOST_LIMIT else "false"
     sql = (f"DELETE FROM layer_limit WHERE pk_limit_record IN "
            f"(SELECT pk_limit_record FROM limit_record WHERE str_name='{LIMIT_NAME}');"
            f"DELETE FROM limit_record WHERE str_name='{LIMIT_NAME}';"
-           f"INSERT INTO limit_record (pk_limit_record, str_name, int_max_value, b_host_limit) "
-           f"VALUES (CAST(gen_random_uuid() AS VARCHAR), '{LIMIT_NAME}', {LIMIT_MAX}, {host_flag});")
+           f"INSERT INTO limit_record (pk_limit_record, str_name, int_max_value) "
+           f"VALUES (CAST(gen_random_uuid() AS VARCHAR), '{LIMIT_NAME}', {LIMIT_MAX});")
     subprocess.run(PSQL + ["-c", sql], capture_output=True, text=True, timeout=15)
     out = subprocess.run(PSQL + ["-c", f"SELECT int_max_value FROM limit_record "
                                        f"WHERE str_name='{LIMIT_NAME}';"],
                          capture_output=True, text=True, timeout=10).stdout.strip()
-    kind = "per-host seats" if HOST_LIMIT else "global"
-    print(f"limit '{LIMIT_NAME}' cap={out} ({kind})", flush=True)
+    print(f"limit '{LIMIT_NAME}' cap={out}", flush=True)
 
 
 def make_job(name, rng):

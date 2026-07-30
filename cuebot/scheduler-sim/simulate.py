@@ -402,6 +402,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "strand_dur_watch.py", "priority_starve_watch.py",
                      "priority_spread_watch.py", "inject_limit.py",
                      "limit_watch.py", "inject_folder.py", "folder_watch.py",
+                     "inject_license.py", "license_watch.py", "fake_license.py",
                      "live_stats.py",
                      "gen_jobs.py", "drain_test.py", "metrics.py", "stats.py",
                      "status_pinger", "db_sampler.py", "util_sampler.py"]
@@ -684,6 +685,53 @@ def ensure_cuebot_built():
     log("  cuebot build ready (cache warm)")
 
 
+def license_env(script=False):
+    """Live-license settings for a cuebot process, or {} when licensing is off.
+
+    EVERY cuebot gets these, not just instance 0. In production they come from one
+    opencue.properties shared by the whole cluster, so a standby that planned with
+    licensing off would be a misconfiguration -- and a dangerous one: promoted by
+    failover it would book licensed layers with no gate at all and flood the pools.
+    The FAILOVER scenario asserts exactly that does not happen, so the harness has
+    to configure the standbys the same way production would.
+
+    script=True gives the cuebot the SCRIPT flavour of the provider: a shell
+    command (curl) wrapping the SAME endpoint, exactly how a site wraps a vendor
+    CLI. The standbys use it (instance 0 keeps http), so when FAILOVER promotes
+    one, the script transport is proven under load and across a failover, not
+    just parsed. --noproxy keeps the sandbox's HTTP proxy out of a loopback
+    fetch.
+
+    Poll fast and go stale fast: a sim run is shorter than a production poll
+    interval, and a tight window is the harder test of the in-flight correction.
+    """
+    if os.environ.get("SIM_LICENSE_TEST") != "1":
+        return {}
+    port = os.environ.get("SIM_LIC_PORT", "9101")
+    url = f"http://127.0.0.1:{port}/licenses"
+    return {
+        # SIM_LIC_PROVIDER=" " (blank) drops the provider while leaving layers
+        # declaring CUE_LICENSES, which is the misconfiguration case: cuebot has no
+        # way to learn what is free, so it must HOLD that work rather than book it
+        # blind. Used to prove the fail-closed path, since there is deliberately no
+        # enable flag to test instead.
+        "SCHEDULER_LICENSE_PROVIDER": os.environ.get(
+            "SIM_LIC_PROVIDER",
+            f"script:curl -sf --noproxy '*' {url}" if script else url),
+        "SCHEDULER_LICENSE_POLL_SECONDS": os.environ.get("SIM_LIC_POLL_S", "4"),
+        "SCHEDULER_LICENSE_STALE_SECONDS": os.environ.get("SIM_LIC_STALE_S", "60"),
+        # Seats held back for interactive users. katana carries the headroom so the
+        # scenario can prove an artist still gets a seat while the farm is
+        # saturated; the other pools run with none.
+        "SCHEDULER_LICENSE_HEADROOM_KATANA": os.environ.get("SIM_LIC_HEADROOM_KATANA", "8"),
+        # Exit status fake_rqd uses for an injected license denial. Such a frame
+        # must go back to WAITING without spending a retry, so a busy pool never
+        # marches a layer to DEAD.
+        "SCHEDULER_LICENSE_DENIED_EXIT_STATUSES":
+            os.environ.get("SIM_LIC_DENY_STATUS", "203"),
+    }
+
+
 def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
                  max_grantees=8, backfill=True, booking_off=False, frame_cores_max=0):
     # scheduler.enabled is a tri-state rollout switch: no | facility | managed
@@ -737,6 +785,7 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
         # and never dispatches -- the Rust scheduler owns all booking.
         "DISPATCHER_TURN_OFF_BOOKING": "true" if booking_off else "false",
     })
+    env.update(license_env())
     # Raise the per-frame core clamp (core-points) so whole-host wide jobs are
     # not capped back to 64; only when asked (0 keeps cuebot's default).
     if frame_cores_max > 0:
@@ -823,6 +872,9 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
         "CUEBOT_GRPC_RQD_SERVER_PORT": str(rqd),
         "SERVER_PORT": str(web),
     })
+    # Same licensing DATA as instance 0, but via the script: provider flavour,
+    # so a promoted standby exercises the vendor-CLI transport for real.
+    env.update(license_env(script=True))
     if frame_cores_max > 0:
         env["DISPATCHER_FRAME_CORES_MAX"] = str(frame_cores_max)
     java = os.path.join(JDK17, "bin", "java") if (JDK17 and os.path.isdir(JDK17)) else "java"
@@ -1058,6 +1110,22 @@ def start_limit_injector(duration):
     spawn(["inject_limit.py", str(duration)], f"{FARM}/inject_limit.log")
 
 
+def start_license_server(duration):
+    """Bring up the fake license server BEFORE cuebot polls it, so the planner's
+    first sample is real rather than a failed fetch."""
+    log(f"starting fake license server on 127.0.0.1:{os.environ.get('SIM_LIC_PORT','9101')} "
+        f"(hengine seats / katana / maya, re-reads the farm every "
+        f"{os.environ.get('SIM_LIC_SAMPLE_S','4')}s) ...")
+    spawn(["fake_license.py", str(duration)], f"{FARM}/fake_license.log")
+
+
+def start_license_injector(duration):
+    log(f"starting LICENSE injector (layers declaring CUE_LICENSES: hengine "
+        f"host-based, katana + maya floating, plus an unlicensed control, "
+        f"for {duration}s) ...")
+    spawn(["inject_license.py", str(duration)], f"{FARM}/inject_license.log")
+
+
 def start_folder_injector(duration):
     log(f"starting FOLDER injector (flood the sim folder, cap "
         f"{os.environ.get('SIM_FOLDER_MAX','50')} cores, for {duration}s) ...")
@@ -1220,6 +1288,32 @@ def _verify_peak_util(gdir):
         return 0.0
 
 
+def _verify_throughput(gdir):
+    """(frames completed, frames per second) for a scenario, from its util CSV.
+
+    Reported for EVERY scenario and gated on, because utilization alone cannot
+    tell you the farm is working: a host whose frames are stuck, or rebooked in a
+    loop, still shows its cores as busy. 90% utilization with nothing completing
+    is a broken farm that looks healthy. Completions are the only proof work
+    actually flowed, so every verdict carries them.
+    """
+    import csv
+    import datetime
+    try:
+        rows = list(csv.DictReader(open(os.path.join(gdir, "run_util.csv"))))
+        if len(rows) < 2:
+            return 0, 0.0
+        done = int(rows[-1]["succeeded_frames"]) - int(rows[0]["succeeded_frames"])
+        t0 = datetime.datetime.strptime(rows[0]["ts"], "%H:%M:%S")
+        t1 = datetime.datetime.strptime(rows[-1]["ts"], "%H:%M:%S")
+        elapsed = (t1 - t0).total_seconds()
+        if elapsed < 0:                      # sampler crossed midnight
+            elapsed += 24 * 3600
+        return done, (done / elapsed if elapsed > 0 else 0.0)
+    except Exception:
+        return 0, 0.0
+
+
 def _verify_check(name, gdir, logp, cblog):
     """Return (passed, detail) for one verify scenario, read from its cuebot log
     (OOM / reservations) or its stdout log (priority)."""
@@ -1300,23 +1394,24 @@ def _verify_check(name, gdir, logp, cblog):
         peak = int(pm.group(1)) if pm else -1
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, f"peak concurrent running {peak} vs cap {cap}"
-    if name == "LIMIT_HOST":
-        # Floating license: the cap counts DISTINCT HOSTS (seats), and frames
-        # must blow far past it (seats shared) while hosts never exceed it.
-        # Gate on limit_watch.py's host-mode verdict.
+    if name in ("LICENSE", "LICENSE_NO_HOSTS"):
+        # Live licenses: the farm's usage plus what artists hold must never exceed
+        # a pool. Gate on license_watch.py's verdict. Same watcher for both
+        # flavours: the invariants do not change when the provider reports only
+        # counts, only cuebot's means of honouring them does.
         try:
             txt = open(logp, errors="ignore").read()
         except Exception:
             txt = ""
-        cm = re.search(r"host-cap=(\d+)", txt)
-        hm = re.search(r"peak distinct hosts=(\d+)", txt)
-        rm = re.search(r"peak concurrent running=(\d+)", txt)
-        cap = int(cm.group(1)) if cm else -1
-        hosts = int(hm.group(1)) if hm else -1
-        run = int(rm.group(1)) if rm else -1
+        peaks = re.findall(r"(?m)^(\w+)\s+total=(\d+)\s+peak farm use=(\d+)", txt)
+        am = re.search(r"artists took (\d+) katana seats", txt)
+        dm = re.search(r"succeeded=(\d+)\s+dead=(\d+)", txt)
         ok = bool(re.search(r"(?m)^PASS:", txt))
-        return ok, (f"peak {hosts} seat-hosts vs cap {cap}, "
-                    f"running peaked {run} (seats shared)")
+        pools = ", ".join(f"{n} {u}/{t}" for n, t, u in peaks) or "?"
+        return ok, (f"{pools}; artists got "
+                    f"{am.group(1) if am else '?'} katana seats; "
+                    f"{dm.group(1) if dm else '?'} done, "
+                    f"{dm.group(2) if dm else '?'} dead")
     if name == "FOLDER":
         # The scheduler must never run more than the folder's core cap. Gate on
         # folder_watch.py's verdict, read from the scenario stdout log.
@@ -1380,18 +1475,38 @@ def _verify_check(name, gdir, logp, cblog):
             txt = ""
         km = re.search(r"frames started after leader kill=(\d+)", txt)
         started = int(km.group(1)) if km else -1
+        lm = re.search(r"licensed frames booked after kill=(\d+)", txt)
+        om = re.search(r"worst pool oversubscription after kill=(\d+)", txt)
         ok = bool(re.search(r"(?m)^PASS:", txt))
-        return ok, f"{started} frames booked by the standby after leader kill"
+        detail = f"{started} frames booked by the standby after leader kill"
+        if lm:
+            detail += (f"; {lm.group(1)} of them licensed, "
+                       f"{om.group(1) if om else '?'} pool oversubscription")
+        return ok, detail
     return False, "unknown scenario"
 
 
 def run_verify():
-    """Run the OOM, priority and reservation scenarios back-to-back. Each is a
-    separate simulate.py subprocess, so it does its own full teardown + fresh
-    Postgres on startup (never contaminating the next) and writes its own graph
-    set. Prints a PASS/FAIL summary; returns a process exit code (0 = all pass).
-    Per-scenario duration from SIM_VERIFY_SECONDS (default 180)."""
+    """Run every scenario back-to-back. Each is a separate simulate.py subprocess,
+    so it does its own full teardown + fresh Postgres on startup (never
+    contaminating the next) and writes its own graph set. Prints a PASS/FAIL
+    summary; returns a process exit code (0 = all pass). Per-scenario duration
+    from SIM_VERIFY_SECONDS (default 180).
+
+    Every scenario is judged on TWO things: its own invariant, and THROUGHPUT.
+    The second is not optional -- an invariant like "the cap was never exceeded"
+    is trivially satisfied by a farm that ran nothing, and utilization does not
+    expose that either, because stuck or endlessly-rebooked frames still hold
+    their cores and read as busy. Completed frames are the only evidence work
+    flowed, so they are printed for every scenario and gated on
+    (SIM_VERIFY_MIN_DONE)."""
     D = int(os.environ.get("SIM_VERIFY_SECONDS", "180"))
+    # Completions every scenario must clear to count as a working farm. Set well
+    # below the leanest scenario's real figure (the capped ones, LIMIT and FOLDER,
+    # complete a few hundred because their caps deliberately hold the farm nearly
+    # idle) so this catches a farm that stopped, not a farm that is throttled on
+    # purpose.
+    min_done = int(os.environ.get("SIM_VERIFY_MIN_DONE", "100"))
     base = [VENV_PY, os.path.abspath(__file__), "--mode", "new", "--compress", "8"]
     cblog = "/tmp/cuebot-new.log"   # every scenario runs --mode new
     scenarios = [
@@ -1431,13 +1546,24 @@ def run_verify():
         # concurrent running never exceeds the cap. Inherits --compress 8 so frames
         # run long enough for concurrency to accumulate.
         ("LIMIT", ["--hosts", "3,4,10", "--limit-test", str(D)]),
-        # LIMIT_HOST: a per-host limit (floating license, b_host_limit=true).
-        # Cap 5 SEATS (distinct hosts) on the same 17-host farm, deep 1-core
-        # flood: a correct scheduler packs the limit's frames onto <= 5 hosts
-        # (seats) while RUNNING blows far past 5 (all frames on a seated host
-        # share its one seat) -- the sharing proof. FAILs if a 6th host ever
-        # runs the limit's work, or if running never clears 10x the cap.
-        ("LIMIT_HOST", ["--hosts", "3,4,10", "--limit-host-test", str(D)]),
+        # LICENSE: live application licenses (hengine host-based, katana + maya
+        # floating) served by a fake license server that counts the farm's own
+        # usage AND artist holds, the way a real one does. Same small farm as the
+        # LIMIT scenarios (672 cores) with a deep 1-core flood, so the licenses --
+        # not the cores -- bind. Asserts no pool is ever oversubscribed, seats are
+        # shared on the host-based pool, the unlicensed control keeps running, and
+        # artists still get katana seats mid-run (headroom). Long enough that the
+        # artist grab at t=60s lands well inside the window.
+        ("LICENSE", ["--hosts", "3,4,10", "--license-test", str(max(D, 150))]),
+        # LICENSE_NO_HOSTS: the same run against a provider that reports ONLY
+        # COUNTS, no per-license hosts list. This is the realistic SESI shape:
+        # sesictrl exposes checkout info per user, not per machine, so for
+        # Houdini Engine (the primary target) cuebot must bound itself by
+        # `available` while blind to which machines outside the cue hold seats.
+        # This is the path that caught a real seat-cap feedback bug (11 seats
+        # opened against a pool of 8), so it guards against its regression.
+        ("LICENSE_NO_HOSTS", ["--hosts", "3,4,10", "--license-test", str(max(D, 150))],
+         {"SIM_LIC_NO_HOSTS": "1"}),
         # FOLDER: a folder/group core cap (folder_resource.int_max_cores). Cap the
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
@@ -1466,8 +1592,12 @@ def run_verify():
         # DEPENDS). At full scale the farm drains fast enough that the main
         # feeder stays active across the kill; the post-kill probe feeder is
         # the guaranteed submission-failover signal either way.
-        ("FAILOVER", ["--feed", str(D + 40),
-                      "--dep-tree-depth", "1", "--failover-test", str(D)]),
+        # Licensed load rides along (--with-licenses): the promoted standby must
+        # take over the license pools too, without double-booking the seats the
+        # dead leader had already spent. That is exactly why in-flight is derived
+        # from the DB rather than counted in the leader's memory.
+        ("FAILOVER", ["--feed", str(D + 40), "--dep-tree-depth", "1",
+                      "--with-licenses", "--failover-test", str(D)]),
         # TAGS_GPU: one MIXED run where the constraints intersect on the FULL
         # farm -- 8 random capability tags fragment the hosts AND 25% of hosts/
         # layers are GPU, so a GPU layer tagged cap3 fits only hosts that are
@@ -1477,16 +1607,32 @@ def run_verify():
                       "--tag-gpu-test", str(D)]),
     ]
     results = []
-    for name, flags in scenarios:
+    for entry in scenarios:
+        name, flags = entry[0], entry[1]
+        env_extra = entry[2] if len(entry) > 2 else {}
         gdir = os.path.join("/tmp/scheduler-sim/verify", name.lower())
         logp = gdir + ".log"
         os.makedirs(gdir, exist_ok=True)
         log(f"[verify] === {name}: fresh sim (teardown + reinit) for {D}s ===")
-        env = dict(os.environ, SIM_GRAPH_DIR=gdir)
+        env = dict(os.environ, SIM_GRAPH_DIR=gdir, **env_extra)
         with open(logp, "w") as lf:
             subprocess.run(base + flags, env=env, stdout=lf,
                            stderr=subprocess.STDOUT, cwd=FARM)
         ok, detail = _verify_check(name, gdir, logp, cblog)
+        # THROUGHPUT, on every scenario without exception. A scenario's own
+        # invariant (a cap held, no violation seen) can be satisfied by a farm
+        # that is not working at all, and utilization does not catch that either:
+        # stuck or endlessly-rebooked frames keep cores looking busy. Only
+        # completions prove work flowed, so a scenario that completes almost
+        # nothing FAILS no matter how clean its invariant looked.
+        done, rate = _verify_throughput(gdir)
+        if done < min_done:
+            ok = False
+            detail += (f"; THROUGHPUT FAIL: only {done} frames completed "
+                       f"({rate:.1f}/s, floor {min_done}) -- the farm was not "
+                       f"working, so the check above proves nothing")
+        else:
+            detail += f"; {done} frames done ({rate:.1f}/s)"
         results.append((name, ok, detail, gdir))
         log(f"[verify] {name}: {'PASS' if ok else 'FAIL'} ({detail})")
 
@@ -1647,14 +1793,25 @@ def main():
                          "cap SIM_LIMIT_MAX=50) to a flood of frames and check the "
                          "scheduler never runs more than the cap concurrently -- the "
                          "license-cap constraint. FAILs if concurrency exceeds the cap.")
-    ap.add_argument("--limit-host-test", type=int, default=0, metavar="SECS",
-                    help="LIMIT_HOST test: like --limit-test but the limit is "
-                         "PER-HOST (b_host_limit=true, a floating license): the cap "
-                         "counts DISTINCT HOSTS and all frames on a seated host "
-                         "share its seat. Sets SIM_LIMIT_HOST=1 for the injector "
-                         "and watcher; cap defaults to SIM_LIMIT_MAX=5 hosts. FAILs "
-                         "if distinct hosts exceed the cap OR frames fail to pack "
-                         "far past it (seats not shared).")
+    ap.add_argument("--with-licenses", action="store_true",
+                    help="run licensed load ALONGSIDE another scenario: starts the "
+                         "fake license server and the CUE_LICENSES injector and "
+                         "turns on scheduler.license.*, but leaves the watcher to "
+                         "the host scenario. Used by FAILOVER, where the promoted "
+                         "standby must pick up licensing correctly (it derives "
+                         "in-flight seats from the DB precisely so a new leader "
+                         "computes the same numbers as the one it replaced).")
+    ap.add_argument("--license-test", type=int, default=0, metavar="SECS",
+                    help="LICENSE test: gate placement on LIVE license "
+                         "availability instead of a static cap. Starts a fake "
+                         "license server (fake_license.py: hengine host-based, "
+                         "katana + maya floating) that counts the farm's own usage "
+                         "plus artist holds, floods work whose layers declare "
+                         "CUE_LICENSES, and asserts no pool is ever oversubscribed, "
+                         "seats are shared on host-based pools, unlicensed work is "
+                         "untouched, and artists still get seats mid-run (the "
+                         "headroom proof). Sets SIM_LICENSE_TEST=1 so cuebot runs "
+                         "against the fake provider.")
     ap.add_argument("--locality-test", type=int, default=0, metavar="SECS",
                     help="LOCALITY test: measure refill affinity -- of newly booked "
                          "procs whose layer already ran somewhere, the fraction "
@@ -1746,15 +1903,17 @@ def main():
     if args.verify:
         sys.exit(run_verify())
 
-    # --limit-host-test is --limit-test with the per-host flavor of the limit:
-    # flip the env the injector/watcher read and reuse the whole limit-test
-    # pipeline (injector start, watcher dispatch, CSV, teardown) unchanged.
-    # Cap defaults to 5 seats -- the global default of 50 exceeds the small
-    # test farm's host count, which could never cap anything.
-    if args.limit_host_test:
-        os.environ["SIM_LIMIT_HOST"] = "1"
-        os.environ.setdefault("SIM_LIMIT_MAX", "5")
-        args.limit_test = args.limit_host_test
+    # LICENSE: every cuebot reads this to turn scheduler.license.* on, and the
+    # server/injector/watcher take the port and env key from the same place.
+    # --with-licenses runs the licensed load under ANOTHER scenario (FAILOVER),
+    # so it configures cuebot but leaves that scenario's watcher in charge.
+    if args.license_test or args.with_licenses:
+        os.environ["SIM_LICENSE_TEST"] = "1"
+    if args.license_test:
+        # Have fake_rqd fail a slice of frames with the license-denied status, so
+        # the requeue path is exercised for real: those frames must come back
+        # WAITING with no retry spent, and none may end DEAD.
+        os.environ.setdefault("SIM_LIC_DENY_RATE", "0.05")
 
     # TAGS_GPU: uniform tag demand. farm_spec's default TAG_SKEW (0.3) is a
     # steep, deliberate starvation profile for stranding studies -- cold pools
@@ -1846,6 +2005,12 @@ def main():
     # show (migration V45 filters b_scheduler_managed=false).
     set_scheduler_managed(rust or os.environ.get("SIM_SCHEDULER_ENABLED") == "managed")
     ensure_cuebot_built()
+    # LICENSE test: the license server must be answering BEFORE cuebot's first
+    # poll, so the planner starts from a real sample instead of a failed fetch
+    # (which would correctly, but uninterestingly, hold every licensed layer).
+    lic_secs = args.license_test or (args.failover_test if args.with_licenses else 0)
+    if lic_secs:
+        start_license_server(lic_secs + 120)
     if rust:
         # One cuebot, scheduler OFF + booking OFF: it neither plans nor books, it
         # only handles RQD reports/completions and maintains frame/layer/job
@@ -1916,6 +2081,8 @@ def main():
         start_priority_spread_injector(args.priority_spread)
     if args.limit_test:
         start_limit_injector(args.limit_test)
+    if lic_secs:
+        start_license_injector(lic_secs)
     if args.folder_test:
         start_folder_injector(args.folder_test)
 
@@ -1934,7 +2101,8 @@ def main():
     # big jobs are present) stream by default for the duration of whatever phase
     # is active, so a run can be watched without querying the DB by hand.
     watch = (args.strand or args.priority_starve or args.priority_spread
-             or args.limit_test or args.folder_test or args.locality_test
+             or args.limit_test or args.license_test
+             or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
              or args.stats or args.metrics or args.feed)
     if watch:
@@ -1962,6 +2130,12 @@ def main():
         csv = f"{graph_dir}/run_limit.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "limit_watch.py", str(args.limit_test), "3"],
                        cwd=FARM, env=dict(os.environ, SIM_LIMIT_CSV=csv))
+    elif args.license_test:
+        log(f"watching LICENSE (farm usage + artist holds vs live pool) for "
+            f"{args.license_test}s ...")
+        csv = f"{graph_dir}/run_license.csv" if graph_dir else ""
+        subprocess.run([VENV_PY, "license_watch.py", str(args.license_test), "3"],
+                       cwd=FARM, env=dict(os.environ, SIM_LICENSE_CSV=csv))
     elif args.folder_test:
         log(f"watching FOLDER (folder running cores vs cap) for {args.folder_test}s ...")
         csv = f"{graph_dir}/run_folder.csv" if graph_dir else ""
@@ -2020,6 +2194,22 @@ def main():
         started_after = 0
         running_end = 0
         jobs_after = 0
+        # With --with-licenses, the handover must also carry LICENSING. This is the
+        # scenario that justifies deriving in-flight seats from the database: the
+        # promoted standby never saw the dead leader's bookings, so if it counted
+        # them in memory it would think the pools were free and double-book them.
+        # Reuse license_watch's ground-truth helpers rather than restating any of
+        # its logic here.
+        licensed = bool(os.environ.get("SIM_LICENSE_TEST") == "1")
+        licw = None
+        lic_worst = {}
+        lic_started_after = 0
+        if licensed:
+            try:
+                import license_watch as licw
+            except Exception as e:
+                log(f"  [failover] license checks unavailable: {e}")
+                licensed = False
         t1 = time.time()
         while time.time() - t1 < (D - half):
             out = psql(f"SELECT count(*) FROM frame WHERE ts_started > '{kill_ts}';")
@@ -2028,20 +2218,72 @@ def main():
             running_end = int(out.stdout.strip() or 0)
             out = psql("SELECT count(*) FROM job;")
             jobs_after = int(out.stdout.strip() or 0) - jobs0
+            lic_note = ""
+            if licensed:
+                st = licw.server_state()
+                totals = st.get("totals", {})
+                hb = st.get("host_based", {})
+                holds = st.get("artist_holds", {})
+                frames_by, hosts_by = licw.farm_usage()
+                parts = []
+                for n in sorted(totals):
+                    use = (len(hosts_by.get(n, [])) if hb.get(n)
+                           else frames_by.get(n, 0))
+                    excess = (use + int(holds.get(n, 0))) - int(totals[n])
+                    if excess > lic_worst.get(n, 0):
+                        lic_worst[n] = excess
+                    parts.append(f"{n} {use}+{holds.get(n, 0)}/{totals[n]}")
+                out = psql(f"SELECT count(*) FROM frame f "
+                           f"JOIN layer_env le ON le.pk_layer = f.pk_layer "
+                           f"WHERE le.str_key='CUE_LICENSES' AND le.str_value <> '' "
+                           f"AND f.ts_started > '{kill_ts}';")
+                lic_started_after = int(out.stdout.strip() or 0)
+                lic_note = (f"  licensed started since kill: {lic_started_after}  "
+                            f"pools: {' | '.join(parts)}")
             log(f"  [failover] frames started since kill: {started_after}  "
-                f"running now: {running_end}  jobs submitted since kill: {jobs_after}")
+                f"running now: {running_end}  jobs submitted since kill: "
+                f"{jobs_after}{lic_note}")
             time.sleep(5)
         floor = int(os.environ.get("SIM_FAILOVER_MIN_STARTED", "100"))
         jfloor = int(os.environ.get("SIM_FAILOVER_MIN_JOBS", "3"))
+        lfloor = int(os.environ.get("SIM_FAILOVER_MIN_LICENSED", "20"))
+        lic_over = max(lic_worst.values()) if lic_worst else 0
+        lic_ok = True
+        if licensed:
+            print(f"licensed frames booked after kill={lic_started_after} "
+                  f"(floor {lfloor})  worst pool oversubscription after kill="
+                  f"{lic_over}", flush=True)
+            if lic_over > 0:
+                bad = ", ".join(f"{n} by {v}" for n, v in lic_worst.items() if v > 0)
+                print(f"LICENSE-FAILOVER FAIL: the new leader oversubscribed a pool "
+                      f"({bad}) -- it is not accounting for seats the dead leader "
+                      f"had already booked.", flush=True)
+                lic_ok = False
+            elif lic_started_after < lfloor:
+                print(f"LICENSE-FAILOVER FAIL: only {lic_started_after} licensed "
+                      f"frames were booked after the kill (< {lfloor}) -- the new "
+                      f"leader is holding licensed work instead of taking over its "
+                      f"pools.", flush=True)
+                lic_ok = False
+            else:
+                print(f"LICENSE-FAILOVER OK: the standby booked "
+                      f"{lic_started_after} licensed frames after the kill without "
+                      f"oversubscribing any pool.", flush=True)
         print("\n==== FAILOVER VERDICT ====", flush=True)
         print(f"frames started after leader kill={started_after}  "
               f"jobs submitted after leader kill={jobs_after}  "
               f"running at end={running_end}  (floors {floor}/{jfloor})", flush=True)
-        if started_after >= floor and jobs_after >= jfloor and running_end > 0:
+        if started_after >= floor and jobs_after >= jfloor and running_end > 0 and lic_ok:
             print(f"PASS: after the leader was killed the standby booked "
                   f"{started_after} new frames (>= {floor}) AND accepted "
-                  f"{jobs_after} new job submissions (>= {jfloor}) -- full-service "
-                  f"leader failover works.", flush=True)
+                  f"{jobs_after} new job submissions (>= {jfloor})"
+                  + (f" AND took over {lic_started_after} licensed frames with no "
+                     f"pool oversubscribed" if licensed else "")
+                  + " -- full-service leader failover works.", flush=True)
+        elif not lic_ok:
+            print(f"FAIL: bookings and submissions failed over ({started_after} "
+                  f"frames, {jobs_after} jobs) but LICENSING did not -- see the "
+                  f"LICENSE-FAILOVER line above.", flush=True)
         elif started_after >= floor:
             print(f"FAIL: bookings failed over ({started_after} frames) but only "
                   f"{jobs_after} jobs were submitted after the kill (< {jfloor}) -- "

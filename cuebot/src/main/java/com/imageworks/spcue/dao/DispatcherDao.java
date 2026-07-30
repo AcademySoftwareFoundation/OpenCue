@@ -154,20 +154,6 @@ public interface DispatcherDao {
     List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
     /**
-     * Return a list of frames from the given layer for the Scheduler's (E-PVM planner) plan-read.
-     * Same as findNextDispatchFrames(layer, host, limit) but its limit gate understands HOST limits
-     * (limit_record.b_host_limit, floating licenses). Only the planner may call this; the legacy
-     * dispatcher keeps the frame-count-gated query.
-     *
-     * @param layer
-     * @param host
-     * @param limit
-     * @return
-     */
-    List<DispatchFrame> findNextDispatchFramesPlanner(LayerInterface layer, DispatchHost host,
-            int limit);
-
-    /**
      * Return Scheduling Mode selected
      *
      * @return

@@ -21,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -131,16 +132,25 @@ public class Scheduler extends JdbcDaoSupport {
     private volatile double localityBonus = 8.0;
     private volatile boolean localityEnabled = true;
 
-    // Host-limit (floating license) seat bonus. A host that already holds a
-    // "seat" for a layer's HOST limit (b_host_limit: the cap counts distinct
-    // hosts, and every frame on a seated host shares that one seat) can take
-    // more of the limit's frames for free, so placement subtracts this bonus
-    // for seated hosts to pack licensed work onto the fewest hosts. Sized
-    // ABOVE the maximum possible E-PVM score spread (7*(e-1) ~= 12, see the
-    // dimension weights above) so among fitting hosts a seated host always
-    // wins -- effectively lexicographic -- while fit and reservations are
-    // still filtered BEFORE scoring and can never be overridden by it.
-    private volatile double hostLimitSeatBonus = 16.0;
+    // Seat bonus for HOST-BASED application licenses, where a seat is a machine
+    // and every frame on a seated machine shares its one checkout. A seated host
+    // can take more of the layer's frames for free, so placement subtracts this
+    // bonus to pack licensed work onto the fewest hosts instead of spreading a
+    // seat onto every host it merely fits on. Sized ABOVE the maximum possible
+    // E-PVM score spread (7*(e-1) ~= 12, see the dimension weights above) so
+    // among fitting hosts a seated host always wins -- effectively
+    // lexicographic -- while fit and reservations are still filtered BEFORE
+    // scoring and can never be overridden by it. Applied ONCE PER POOL the host
+    // is seated in, so a host that already holds every license the layer needs
+    // (costing zero new seats) outranks one that holds only some.
+    private volatile double licenseSeatBonus = 16.0;
+
+    /**
+     * Live application-license availability (Houdini Engine, Katana, ...), or null until the first
+     * tick builds it. Polls a site provider off the hot path; the planner only reads numbers from
+     * it. See {@link LicenseSource} for why a static {@code limit_record} cannot do this job.
+     */
+    private volatile LicenseSource licenseSource;
 
     @Autowired
     private Environment env;
@@ -322,6 +332,9 @@ public class Scheduler extends JdbcDaoSupport {
     private int summaryGranted = 0; // new reservations granted
     private int summaryBackfilled = 0; // frames placed onto a reserved host
     private long summaryBackfilledCores = 0; // core-points placed via EASY backfill
+    private long summaryLicenseBooked = 0; // frames booked against a license pool
+    private long summaryLicenseHeld = 0; // candidates held back by a license pool
+    private long summaryLicenseTrimmed = 0; // planned frames a pool could not cover
     private long summaryLaunchDroppedAt = 0; // launchDropped count at window start
     private final java.util.concurrent.atomic.AtomicInteger summarySkipped =
             new java.util.concurrent.atomic.AtomicInteger(0);
@@ -339,6 +352,13 @@ public class Scheduler extends JdbcDaoSupport {
     private int tickGranted = 0;
     private int tickBackfilled = 0;
     private long tickBackfilledCores = 0;
+    // Live licensing: frames booked against a license pool, and candidates a pool
+    // held back this tick (out of seats, or its sample was too stale to spend).
+    private int tickLicenseBooked = 0;
+    private int tickLicenseHeld = 0;
+    // Planned frames dropped at commit time because a pool could not cover them
+    // (the plan read has no license clause; see the trim in doTick).
+    private int tickLicenseTrimmed = 0;
     // Guardrail: a handful of host-spec groups is expected. A count anywhere near
     // the host count means hosts are fragmenting into near-per-host groups (the
     // classic cause is a host name leaking into the tag set), which collapses the
@@ -395,7 +415,15 @@ public class Scheduler extends JdbcDaoSupport {
         backfillEnabled = env.getProperty("scheduler.backfill_enabled", Boolean.class, true);
         localityEnabled = env.getProperty("scheduler.locality_enabled", Boolean.class, true);
         localityBonus = env.getProperty("scheduler.locality_bonus", Double.class, 8.0);
-        hostLimitSeatBonus = env.getProperty("scheduler.host_limit_seat_bonus", Double.class, 16.0);
+        // Property name kept from the per-host-limit feature this supersedes, so
+        // any site already setting it keeps its value.
+        licenseSeatBonus = env.getProperty("scheduler.host_limit_seat_bonus", Double.class, 16.0);
+        // Live application licenses. Started here rather than wired as a bean so
+        // its poll thread's life matches the planner's, and so a Cuebot with
+        // scheduler.license.enabled=false never starts one at all.
+        LicenseSource ls = new LicenseSource(env, getJdbcTemplate());
+        ls.start();
+        licenseSource = ls;
         // Cadence of the consolidated INFO stat line (see maybeLogStat). Default
         // 5 minutes; lower it for a live incident, raise it to quiet the log.
         statIntervalMs =
@@ -474,25 +502,23 @@ public class Scheduler extends JdbcDaoSupport {
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
             // Limit (license-cap) accounting: the layer's most-constraining limit,
             // its cap, and how many frames of that limit run farm-wide right now.
-            // limit_host marks a HOST limit (floating license): int_max_value then
-            // counts DISTINCT HOSTS running the limit's layers, not frames.
             + "  lim.pk_limit_record AS limit_id, "
             + "  COALESCE(lim.int_max_value, 0)   AS limit_max, "
             + "  COALESCE(lu2.int_sum_running, 0) AS limit_running, "
-            + "  COALESCE(lim.b_host_limit, false) AS limit_host, "
             // Folder (group/dept) core cap: the job's folder, its ceiling, and the
             // folder's current running cores (ground truth = SUM of the folder's jobs).
             + "  j.pk_folder AS folder_id, " + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
-            + "  COALESCE(fu.folder_cores, 0)   AS folder_running " + "FROM   layer l "
-            + "JOIN   job j           ON j.pk_job  = l.pk_job "
+            // Application licenses the layer declares (CUE_LICENSES), comma
+            // separated, NULL when it declares none.
+            + "  le.str_value AS licenses, " + "  COALESCE(fu.folder_cores, 0)   AS folder_running "
+            + "FROM   layer l " + "JOIN   job j           ON j.pk_job  = l.pk_job "
             + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
             + "JOIN   show sh         ON sh.pk_show = j.pk_show "
             + "JOIN   subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = ? "
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             // The layer's most-constraining limit (smallest cap), one row per layer.
-            + "LEFT JOIN LATERAL ("
-            + "    SELECT ll.pk_limit_record, lr.int_max_value, lr.b_host_limit "
+            + "LEFT JOIN LATERAL (" + "    SELECT ll.pk_limit_record, lr.int_max_value "
             + "    FROM   layer_limit ll "
             + "    JOIN   limit_record lr ON lr.pk_limit_record = ll.pk_limit_record "
             + "    WHERE  ll.pk_layer = l.pk_layer "
@@ -525,6 +551,14 @@ public class Scheduler extends JdbcDaoSupport {
             + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
             + "    WHERE  j2.str_state = 'PENDING' "
             + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
+            // Live application licenses, carried on the candidate row so the
+            // planner needs no second round trip for them. Joined on pk_layer,
+            // which layer_env is indexed on (i_layer_env_pk_layer); asking the
+            // other way round, "which layers declare CUE_LICENSES", has no index
+            // to use and would scan every environment variable on the farm once
+            // per tick. At most one row per layer, so this cannot multiply
+            // candidates or disturb the ranking below.
+            + "LEFT JOIN layer_env le ON le.pk_layer = l.pk_layer AND le.str_key = ? "
             + "WHERE  j.str_state = 'PENDING' " + "  AND  j.b_paused  = false "
             + "  AND  (j.str_os IS NULL OR j.str_os = '' OR j.str_os = ?) "
             + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
@@ -542,12 +576,8 @@ public class Scheduler extends JdbcDaoSupport {
             // scoring a host + running the plan read for them only burns a cycle that
             // returns nothing (it surfaces as raceLost). A limit-less layer (NULL)
             // always passes. Not a correctness gate -- the downstream query still
-            // enforces the cap -- purely an efficiency filter. HOST limits
-            // (b_host_limit) always pass: their cap counts distinct hosts, not
-            // frames, and at the seat cap the layer may still book onto hosts
-            // that already hold a seat -- the planner enforces that per host.
+            // enforces the cap -- purely an efficiency filter.
             + "  AND (lim.pk_limit_record IS NULL "
-            + "       OR COALESCE(lim.b_host_limit, false) = true "
             + "       OR COALESCE(lu2.int_sum_running, 0) < lim.int_max_value) "
             // Skip jobs whose FOLDER (group/dept) core ceiling is already reached --
             // folder_resource.int_max_cores, another core cap the legacy dispatcher
@@ -623,10 +653,14 @@ public class Scheduler extends JdbcDaoSupport {
                     c.limitId = rs.getString("limit_id"); // null when no limit
                     c.limitMax = rs.getInt("limit_max");
                     c.limitRunning = rs.getInt("limit_running");
-                    c.limitHostBased = rs.getBoolean("limit_host");
                     c.folderId = rs.getString("folder_id");
                     c.folderMax = rs.getInt("folder_max"); // -1 = unlimited
                     c.folderRunning = rs.getInt("folder_running"); // core-points
+                    // Application licenses the layer declares, or null when none.
+                    // Kept null rather than an empty list so the placement loop
+                    // skips all license work with one reference check.
+                    List<String> lics = LicenseSource.splitNames(rs.getString("licenses"));
+                    c.licenses = lics.isEmpty() ? null : lics;
                     return c;
                 }
             };
@@ -673,6 +707,9 @@ public class Scheduler extends JdbcDaoSupport {
             summaryGranted += tickGranted;
             summaryBackfilled += tickBackfilled;
             summaryBackfilledCores += tickBackfilledCores;
+            summaryLicenseBooked += tickLicenseBooked;
+            summaryLicenseHeld += tickLicenseHeld;
+            summaryLicenseTrimmed += tickLicenseTrimmed;
         } catch (RuntimeException e) {
             logger.error("Scheduler tick failed", e);
         } finally {
@@ -708,6 +745,13 @@ public class Scheduler extends JdbcDaoSupport {
      * (reservedCores), reservations newly granted, requested last tick, frames placed onto a
      * reserved host via EASY backfill, and the cores (whole cores, not core-points) those
      * backfilled frames borrowed.</li>
+     * <li><b>lic:</b> present only when live application licenses are in play. Frames booked
+     * against a license pool, and how many times a pool held a candidate back (out of seats, or its
+     * sample had gone stale), and planned frames dropped at commit time because a pool could not
+     * cover them. A persistently high held with booked near zero means the provider is failing or
+     * headroom is set too high, not that the farm is out of licenses. A high trimmed is normal
+     * under contention (the plan read is license-blind by design); it matters only if it dwarfs
+     * booked.</li>
      * </ul>
      *
      * Called from runTick's finally on the thread that held tickInFlight, so the plain fields are
@@ -744,16 +788,24 @@ public class Scheduler extends JdbcDaoSupport {
             reservedCp += r.layerCoresMin;
         }
 
+        // Licensing section, only when a license pool is actually in play, so the
+        // line stays as it was on the many farms that use no live licenses.
+        String lic = "";
+        if (summaryLicenseBooked > 0 || summaryLicenseHeld > 0) {
+            lic = String.format(" | lic booked=%d held=%d trimmed=%d", summaryLicenseBooked,
+                    summaryLicenseHeld, summaryLicenseTrimmed);
+        }
+
         logger.info(String.format(
                 "Scheduler stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
                         + " | flow committed=%d planned=%d raceLost=%d launchDropped=%d"
-                        + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d",
+                        + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
                 summaryPlanned, raceLost, droppedInWindow, reservations.size(),
                 reservedCp / CORE_POINTS_PER_CORE, summaryGranted, lastReservationReqs,
-                summaryBackfilled, summaryBackfilledCores / CORE_POINTS_PER_CORE));
+                summaryBackfilled, summaryBackfilledCores / CORE_POINTS_PER_CORE, lic));
 
         lastSummaryMs = nowMs;
         summaryTicks = 0;
@@ -765,6 +817,9 @@ public class Scheduler extends JdbcDaoSupport {
         summaryGranted = 0;
         summaryBackfilled = 0;
         summaryBackfilledCores = 0;
+        summaryLicenseBooked = 0;
+        summaryLicenseHeld = 0;
+        summaryLicenseTrimmed = 0;
         summaryLaunchDroppedAt = dropNow;
     }
 
@@ -812,6 +867,9 @@ public class Scheduler extends JdbcDaoSupport {
         tickGranted = 0;
         tickBackfilled = 0;
         tickBackfilledCores = 0;
+        tickLicenseBooked = 0;
+        tickLicenseHeld = 0;
+        tickLicenseTrimmed = 0;
         // Defensive: normally drained at the end of every tick, but a tick that
         // throws mid-placement leaves stale (host, layer) pairings behind, and
         // the next tick would plan them against a fresh snapshot. Start clean.
@@ -878,12 +936,28 @@ public class Scheduler extends JdbcDaoSupport {
         // the live proc table (before this tick's commits mutate it).
         Map<String, Set<String>> hostLayerAffinity = readHostLayerAffinity();
 
-        // Host-limit (floating license) seats, limitId -> hosts holding one.
-        // Seeded from the DB here, then ACCUMULATED as this tick opens new
-        // seats (dispatchGroupWithScoring adds the host on booking), so across
-        // all groups one tick can never open more seats than the cap allows.
-        // Planner-thread only, like the other tick-scoped cap maps below.
-        Map<String, Set<String>> limitHostSeats = readLimitHostSeats();
+        // Live application licenses (Houdini Engine, Katana, ...). layerLicenses
+        // maps a layer to the pools it declares in CUE_LICENSES; it is empty
+        // unless some live layer asks for a license, and then licenseBudgets says
+        // what each of those pools allows RIGHT NOW: the license server's free
+        // count, less what we booked since it was sampled, less the interactive
+        // headroom. Unlike a limit_record this number moves on its own, because
+        // artists and other farms draw on the same pool.
+        // Filled in per group below, keyed by the candidate layer ids we are
+        // actually about to place: layer_env is indexed on pk_layer but not on
+        // str_key, so this is an index lookup rather than a scan of every
+        // environment variable on the farm. There is no on/off switch to consult:
+        // a layer declaring CUE_LICENSES is what makes licensing apply, because
+        // that is a requirement of the work rather than a site preference.
+        Map<String, List<String>> layerLicenses = new HashMap<>();
+        Map<String, LicenseSource.LicenseBudget> licenseBudgets = new HashMap<>();
+        // Tick-scoped license bookings, same aggregate-enforcement pattern as
+        // limits: floating pools count frames, host-based pools count seats
+        // (distinct hosts, by lowercased host NAME because that is what a license
+        // server reports). Seeded lazily from the budget so several layers sharing
+        // a pool cannot each book it to the cap.
+        Map<String, Integer> licenseUsed = new HashMap<>();
+        Map<String, Set<String>> licenseSeats = new HashMap<>();
 
         // Job/show core accounting shared across every candidate this tick.
         // The candidate query seeds each candidate from a point-in-time DB
@@ -952,6 +1026,12 @@ public class Scheduler extends JdbcDaoSupport {
                     jobFolderCap.putIfAbsent(lc.jobId, lc.folderId);
                 }
             }
+            // Resolve what this group's licensed candidates may spend. The names
+            // arrived on the candidate rows; budgets are computed once per license
+            // per tick and shared across groups, so a pool queried by the first
+            // group is not re-derived for the rest. layerLicenses is what the
+            // commit-time trim below reads.
+            resolveLicenseBudgets(candidates, layerLicenses, licenseBudgets);
             // Log per-group candidate summary so we can verify wide-job layers
             // are included (not cut by LIMIT or maxCores filter).
             if (logger.isDebugEnabled()) {
@@ -968,7 +1048,7 @@ public class Scheduler extends JdbcDaoSupport {
             // idle subset; reservations use the full group (busy hosts too).
             dispatched += dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
                     jobCoresUsed, showCoresUsed, limitUsed, folderUsed, reservationReqs,
-                    tReadyByHost, hostLayerAffinity, limitHostSeats);
+                    tReadyByHost, hostLayerAffinity, licenseBudgets, licenseUsed, licenseSeats);
         }
 
         // 3c. GRANT RESERVATIONS, highest priority first (then widest job).
@@ -1116,6 +1196,75 @@ public class Scheduler extends JdbcDaoSupport {
                 planned = keep;
                 logger.debug("Scheduler: folder ceiling trimmed " + folderTrimmed
                         + " planned frame(s) over cap this tick");
+            }
+        }
+
+        // LICENSE POOLS (exact). Same gap as the folder ceiling above, and it
+        // matters more here: the limit gate lives INSIDE the plan-read query, but
+        // license availability is in memory, so nothing stops planHost from
+        // reading more of a licensed layer's frames than the pool can cover. The
+        // in-tick estimate steers placement; this is what actually holds the line.
+        // Walk the frames about to commit in plan order, single-threaded, and drop
+        // any that would take a pool past what it has:
+        // - floating: budget.usable is what may still be booked now (already net
+        // of in-flight and headroom), so count up from zero against it.
+        // - host-based: a frame on a host that already holds a seat is free; one
+        // on a new host needs a seat the pool can still give out.
+        // Frames dropped here are not lost, they are simply not booked this tick
+        // and remain WAITING for the next one.
+        if (!licenseBudgets.isEmpty() && !layerLicenses.isEmpty() && !planned.isEmpty()) {
+            Map<String, Integer> committedByLicense = new HashMap<>();
+            Map<String, Set<String>> seatsByLicense = new HashMap<>();
+            List<FrameBooking> keep = new ArrayList<>(planned.size());
+            int licTrimmed = 0;
+            for (FrameBooking b : planned) {
+                List<String> names = layerLicenses.get(b.proc.getLayerId());
+                if (names == null) {
+                    keep.add(b); // unlicensed layer, never gated
+                    continue;
+                }
+                String hostName = b.proc.hostName == null ? "" : b.proc.hostName.toLowerCase();
+                boolean fits = true;
+                for (String name : names) {
+                    LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
+                    if (bd == null || bd.stale) {
+                        fits = false;
+                        break;
+                    }
+                    if (bd.hostBased) {
+                        Set<String> seats =
+                                seatsByLicense.computeIfAbsent(name, k -> new HashSet<>(bd.seats));
+                        if (!seats.contains(hostName) && seats.size() >= bd.seatCap) {
+                            fits = false;
+                            break;
+                        }
+                    } else if (committedByLicense.getOrDefault(name, 0) + 1 > bd.usable) {
+                        fits = false;
+                        break;
+                    }
+                }
+                if (!fits) {
+                    licTrimmed++;
+                    continue;
+                }
+                // Only spend the pools once the frame is certain to be kept, so a
+                // frame rejected by its second license does not consume a seat in
+                // its first.
+                for (String name : names) {
+                    LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
+                    if (bd.hostBased) {
+                        seatsByLicense.get(name).add(hostName);
+                    } else {
+                        committedByLicense.merge(name, 1, Integer::sum);
+                    }
+                }
+                keep.add(b);
+            }
+            if (licTrimmed > 0) {
+                planned = keep;
+                tickLicenseTrimmed += licTrimmed;
+                logger.debug("Scheduler: license pools trimmed " + licTrimmed
+                        + " planned frame(s) over live availability this tick");
             }
         }
 
@@ -1277,6 +1426,9 @@ public class Scheduler extends JdbcDaoSupport {
      */
     public void onShutdown() {
         closeLeaderConn();
+        LicenseSource ls = licenseSource;
+        if (ls != null)
+            ls.stop();
     }
 
     private boolean acquireLeaderLock(Connection conn) throws SQLException {
@@ -1329,34 +1481,84 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Host-limit (floating license) seats: for each HOST limit (b_host_limit=true), the set of
-     * hosts currently holding a seat -- i.e. running at least one proc of any layer attached to the
-     * limit. A seat is purely derived state (it exists while such a proc exists), so no bookkeeping
-     * or release logic is needed anywhere: the seat frees itself when the host's last proc of the
-     * limit's layers is unbooked.
+     * Record which of these candidates need application licenses, and make sure a budget exists for
+     * every pool they name.
      *
-     * Deliberately SEPARATE from {@link #readHostLayerAffinity}: that read is gated by
-     * scheduler.locality_enabled (a scoring toggle) while this map is a correctness input to the
-     * seat cap, and this query is filtered to b_host_limit=true limits so it is near-free when no
-     * host limits exist.
+     * The license names already arrived on the candidate rows (the candidate query carries them),
+     * so this costs nothing but a walk of the list. Budgets are the part that touches the database
+     * (the in-flight term), so they are derived ONCE per license per tick: a pool named by an
+     * earlier group is reused by every later one, which also keeps the numbers consistent across
+     * groups within a tick. Both maps are tick-scoped and planner-thread only.
      */
-    private Map<String, Set<String>> readLimitHostSeats() {
-        Map<String, Set<String>> seats = new HashMap<>();
-        getJdbcTemplate().query("SELECT DISTINCT ll.pk_limit_record, p.pk_host " + "FROM proc p "
-                + "JOIN layer_limit ll ON ll.pk_layer = p.pk_layer "
-                + "JOIN limit_record lr ON lr.pk_limit_record = ll.pk_limit_record "
-                + "WHERE lr.b_host_limit = true", rs -> {
-                    seats.computeIfAbsent(rs.getString("pk_limit_record"), k -> new HashSet<>())
-                            .add(rs.getString("pk_host"));
-                });
-        return seats;
+    private void resolveLicenseBudgets(List<LayerCandidate> candidates,
+            Map<String, List<String>> layerLicenses,
+            Map<String, LicenseSource.LicenseBudget> licenseBudgets) {
+        Set<String> fresh = null;
+        for (LayerCandidate c : candidates) {
+            if (c.licenses == null)
+                continue;
+            layerLicenses.put(c.layerId, c.licenses);
+            for (String name : c.licenses) {
+                if (!licenseBudgets.containsKey(name)) {
+                    if (fresh == null)
+                        fresh = new HashSet<>();
+                    fresh.add(name);
+                }
+            }
+        }
+        if (fresh == null)
+            return;
+        LicenseSource ls = licenseSource;
+        if (ls == null) {
+            // No source at all (a tick before init). Hold rather than run blind.
+            for (String name : fresh) {
+                licenseBudgets.put(name, new LicenseSource.LicenseBudget(name, false, 0, 0,
+                        Collections.emptySet(), true));
+            }
+            return;
+        }
+        licenseBudgets.putAll(ls.snapshotBudgets(fresh));
+    }
+
+    /**
+     * May this host take a frame of a layer whose licenses include host-based pools?
+     *
+     * Yes when, for EVERY such pool, the host either already holds a seat (extra frames there are
+     * free, they share the one checkout) or the pool still has an unused seat. The seat set
+     * includes seats the license server reports held by machines outside the cue, so an artist's
+     * workstation occupies a seat here just as a render node does.
+     */
+    private static boolean licenseSeatsAllow(List<LicenseSource.LicenseBudget> pools,
+            Map<String, Set<String>> licenseSeats, BookableHost h) {
+        String hostName = h.hostName.toLowerCase();
+        for (LicenseSource.LicenseBudget b : pools) {
+            Set<String> seats = licenseSeats.get(b.name);
+            if (seats.contains(hostName))
+                continue;
+            if (seats.size() >= b.seatCap)
+                return false;
+        }
+        return true;
     }
 
     private List<LayerCandidate> readLayerCandidatesForGroup(HostSpecKey spec, int maxIdleInGroup) {
         int limit =
                 env.getProperty("scheduler.layer_candidates_per_group_max", Integer.class, 2000);
-        return getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP, CANDIDATE_MAPPER, spec.pkAlloc,
-                spec.os, spec.tagsNormalized, maxIdleInGroup, SchedulerMode.facility(env), limit);
+        LicenseSource ls = licenseSource;
+        String licenseKey = (ls != null) ? ls.getEnvKey() : "CUE_LICENSES";
+        List<LayerCandidate> rows = getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP,
+                CANDIDATE_MAPPER, spec.pkAlloc, licenseKey, spec.os, spec.tagsNormalized,
+                maxIdleInGroup, SchedulerMode.facility(env), limit);
+        // Defensive dedupe: nothing in the schema forbids two layer_env rows
+        // with the same key, and a duplicated row would clone its candidate
+        // (double placement per tick). First row per layer wins.
+        Set<String> seen = new HashSet<>(rows.size() * 2);
+        List<LayerCandidate> out = new ArrayList<>(rows.size());
+        for (LayerCandidate c : rows) {
+            if (seen.add(c.layerId))
+                out.add(c);
+        }
+        return out;
     }
 
     /**
@@ -1480,7 +1682,9 @@ public class Scheduler extends JdbcDaoSupport {
             Map<String, Integer> jobCoresUsed, Map<String, Integer> showCoresUsed,
             Map<String, Integer> limitUsed, Map<String, Integer> folderUsed,
             List<ReservationRequest> reservationReqs, Map<String, Integer> tReadyByHost,
-            Map<String, Set<String>> hostLayerAffinity, Map<String, Set<String>> limitHostSeats) {
+            Map<String, Set<String>> hostLayerAffinity,
+            Map<String, LicenseSource.LicenseBudget> licenseBudgets,
+            Map<String, Integer> licenseUsed, Map<String, Set<String>> licenseSeats) {
         int dispatched = 0;
         // Largest host in this group, for the reservation width gate below: a
         // layer may reserve only if its per-frame cores are a big enough fraction
@@ -1505,21 +1709,43 @@ public class Scheduler extends JdbcDaoSupport {
             // the first time it is seen this tick (candidate query already
             // excluded limits that were full at query time; this catches a limit
             // filling DURING the tick as sibling layers book against it).
-            // HOST limits are excluded: their cap counts seats (distinct hosts),
-            // tracked in limitHostSeats below, and their frame count is
-            // unbounded by design.
-            int limitInUse = (c.limitId != null && !c.limitHostBased)
-                    ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
-                    : 0;
-            // Host-limit (floating license) seat state for this candidate's
-            // limit: the hosts currently holding a seat, DB-seeded at tick start
-            // and accumulated as this tick opens seats. At the seat cap the
-            // layer is NOT capped -- seated hosts can still take frames -- the
-            // per-host gate inside the scoring loop enforces the cap instead.
-            Set<String> limitSeats = (c.limitId != null && c.limitHostBased)
-                    ? limitHostSeats.computeIfAbsent(c.limitId, k -> new HashSet<>())
-                    : null;
-            boolean seatCapped = limitSeats != null && limitSeats.size() >= c.limitMax;
+            int limitInUse =
+                    (c.limitId != null) ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
+                            : 0;
+
+            // Live application licenses. A layer needs a seat in EVERY pool it
+            // declares (AND, not OR), so:
+            // - floating pools: the layer may book the MIN of their remaining
+            // counts, each already net of what this tick booked against it.
+            // - host-based pools: the cap counts distinct hosts, so eligibility
+            // is per host and enforced in the scoring loop below, exactly like a
+            // HOST limit -- except the seat set starts from what the LICENSE
+            // SERVER reports, so a seat held by an artist's workstation is
+            // visible to us and is not double counted.
+            // A pool whose sample is stale, or that the provider does not report
+            // at all, holds the layer: we have no authority to spend it.
+            int licenseUsable = Integer.MAX_VALUE;
+            boolean licenseHeld = false;
+            List<LicenseSource.LicenseBudget> licenseSeatPools = null;
+            if (c.licenses != null) {
+                for (String licName : c.licenses) {
+                    LicenseSource.LicenseBudget b = licenseBudgets.get(licName);
+                    if (b == null || b.stale) {
+                        licenseHeld = true;
+                        break;
+                    }
+                    if (b.hostBased) {
+                        if (licenseSeatPools == null)
+                            licenseSeatPools = new ArrayList<>(2);
+                        licenseSeatPools.add(b);
+                        licenseSeats.computeIfAbsent(licName, k -> new HashSet<>(b.seats));
+                    } else {
+                        int remaining = b.usable - licenseUsed.computeIfAbsent(licName, k -> 0);
+                        if (remaining < licenseUsable)
+                            licenseUsable = remaining;
+                    }
+                }
+            }
             // Same for the folder core ceiling (cores, not frames). Only tracked
             // when the folder actually has a cap (folderMax >= 0; -1 = unlimited).
             int folderInUse = (c.folderMax >= 0)
@@ -1535,8 +1761,11 @@ public class Scheduler extends JdbcDaoSupport {
             // consume.
             boolean capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
                     || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
-                    || (c.limitId != null && !c.limitHostBased && limitInUse >= c.limitMax)
-                    || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax);
+                    || (c.limitId != null && limitInUse >= c.limitMax)
+                    || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax)
+                    || licenseHeld || licenseUsable <= 0;
+            if (c.licenses != null && (licenseHeld || licenseUsable <= 0))
+                tickLicenseHeld++;
 
             boolean placed = false;
             while (!capped) {
@@ -1545,12 +1774,13 @@ public class Scheduler extends JdbcDaoSupport {
                 for (BookableHost h : hosts) {
                     if (!fitsOnHost(c, h))
                         continue;
-                    // Host-limit (floating license) seat gate: at the seat cap
-                    // only hosts already holding a seat for this limit are
-                    // eligible (more frames on a seated host share its seat);
-                    // a new host would need a seat that does not exist. Under
-                    // the cap any fitting host may open a new seat.
-                    if (seatCapped && !limitSeats.contains(h.hostId))
+                    // Same gate for a host-based LICENSE pool, but keyed by host
+                    // name (what a license server reports) and against the live
+                    // seat count rather than a typed-in cap: this host is
+                    // eligible only if it already holds a seat in every such
+                    // pool, or the pool still has a seat to give out.
+                    if (licenseSeatPools != null
+                            && !licenseSeatsAllow(licenseSeatPools, licenseSeats, h))
                         continue;
                     // A host reserved for a higher/equal-priority blocked layer
                     // is normally off-limits. EASY backfill lets c borrow it
@@ -1583,14 +1813,17 @@ public class Scheduler extends JdbcDaoSupport {
                             score -= localityBonus;
                         }
                     }
-                    // Seat bonus: strongly prefer a host already seated for this
-                    // layer's HOST limit, so licensed work packs onto the fewest
-                    // hosts (fewest seats consumed) instead of spreading a seat
-                    // onto every host it merely fits on. Applies under the cap
-                    // too (pack before the cap is ever reached); stacks with the
-                    // per-layer locality bonus above.
-                    if (limitSeats != null && limitSeats.contains(h.hostId)) {
-                        score -= hostLimitSeatBonus;
+                    // Seat bonus for host-based license pools: packing onto an
+                    // already-seated machine consumes no new seat, which is the
+                    // whole point when seats are the scarce resource. Applied per
+                    // pool, so a host seated in all of the layer's pools outranks
+                    // one seated in only some. Stacks with the locality bonus.
+                    if (licenseSeatPools != null) {
+                        String hName = h.hostName.toLowerCase();
+                        for (LicenseSource.LicenseBudget b : licenseSeatPools) {
+                            if (licenseSeats.get(b.name).contains(hName))
+                                score -= licenseSeatBonus;
+                        }
                     }
                     if (score < bestScore) {
                         bestScore = score;
@@ -1620,14 +1853,22 @@ public class Scheduler extends JdbcDaoSupport {
                 // count is authoritative: sibling layers of the same limit may
                 // already have booked against it this tick. If it is now full,
                 // stop booking this layer (its later frames would find nothing).
-                // HOST limits skip this clamp: frames on a seated host are
-                // unbounded (they share the host's one seat).
-                if (c.limitId != null && !c.limitHostBased) {
+                if (c.limitId != null) {
                     int limHeadroom = c.limitMax - limitUsed.get(c.limitId);
                     if (limHeadroom <= 0)
                         break;
                     if (estFrames > limHeadroom)
                         estFrames = limHeadroom;
+                }
+                // Cap the commit to the licenses' remaining seats. licenseUsable is
+                // the MIN across the layer's floating pools and is decremented as
+                // this tick books, so sibling layers sharing a pool cannot each
+                // spend it. One frame is one seat.
+                if (licenseUsable != Integer.MAX_VALUE) {
+                    if (licenseUsable <= 0)
+                        break;
+                    if (estFrames > licenseUsable)
+                        estFrames = licenseUsable;
                 }
                 // Cap the commit to the folder's remaining CORE headroom (this cap
                 // is in cores, not frames). If one more frame's cores won't fit,
@@ -1657,22 +1898,34 @@ public class Scheduler extends JdbcDaoSupport {
                 // tick see the updated usage.
                 jobCoresUsed.put(c.jobId, c.jobCoresInUse);
                 showCoresUsed.put(c.showId, c.showCoresInUse);
-                if (c.limitId != null) {
-                    if (c.limitHostBased) {
-                        // Record the seat so every later candidate of this limit
-                        // (this tick, any group) sees it: the cap holds in
-                        // aggregate and siblings pack onto the same host.
-                        if (limitSeats.add(best.hostId)) {
-                            logger.info("Scheduler host-limit: new seat " + limitSeats.size() + "/"
-                                    + c.limitMax + " on host " + best.hostName + " for limit "
-                                    + c.limitId);
-                        }
-                    } else {
-                        limitUsed.merge(c.limitId, estFrames, Integer::sum);
-                    }
-                }
+                if (c.limitId != null)
+                    limitUsed.merge(c.limitId, estFrames, Integer::sum);
                 if (c.folderMax >= 0)
                     folderUsed.merge(c.folderId, estCores, Integer::sum);
+                // Spend the licenses: a frame is a seat in each floating pool, and
+                // this host now holds a seat in each host-based one. Both are
+                // tick-wide so every later candidate of the same pool, in any
+                // group, sees the spend.
+                if (c.licenses != null) {
+                    if (licenseUsable != Integer.MAX_VALUE)
+                        licenseUsable -= estFrames;
+                    for (String licName : c.licenses) {
+                        LicenseSource.LicenseBudget b = licenseBudgets.get(licName);
+                        if (b == null)
+                            continue;
+                        if (b.hostBased) {
+                            Set<String> seats = licenseSeats.get(licName);
+                            if (seats.add(best.hostName.toLowerCase())) {
+                                logger.info("Scheduler license: new seat " + seats.size() + "/"
+                                        + b.seatCap + " on host " + best.hostName + " for license "
+                                        + licName);
+                            }
+                        } else {
+                            licenseUsed.merge(licName, estFrames, Integer::sum);
+                        }
+                    }
+                    tickLicenseBooked += estFrames;
+                }
 
                 // Count an EASY-backfill borrow for the stat line: c is committing
                 // onto a host reserved at >= its priority for another layer
@@ -1719,7 +1972,7 @@ public class Scheduler extends JdbcDaoSupport {
                 // seated hosts are full) is treated like capped, not blocked:
                 // reserving new hosts could never help -- the seat gate excludes
                 // them -- so it must not accrue reservation debt.
-                boolean blocked = !capped && !seatCapped && !placed && c.waitingFrameCount > 0;
+                boolean blocked = !capped && !placed && c.waitingFrameCount > 0;
                 long now = System.currentTimeMillis();
                 long dt = now - lastSeenMs.getOrDefault(c.layerId, now);
                 lastSeenMs.put(c.layerId, now);
@@ -2339,14 +2592,13 @@ public class Scheduler extends JdbcDaoSupport {
         // limit (null = no limit); limitMax is that limit's int_max_value;
         // limitRunning is how many frames of it run farm-wide right now (seed for
         // the tick-wide limitUsed cap in dispatchGroupWithScoring).
-        // limitHostBased marks a HOST limit (b_host_limit, a floating license):
-        // limitMax then counts DISTINCT HOSTS holding >=1 proc of the limit's
-        // layers ("seats"), not running frames -- frames on a seated host are
-        // unbounded by the limit.
         String limitId;
         int limitMax;
         int limitRunning;
-        boolean limitHostBased;
+        // Live application licenses the layer declares in CUE_LICENSES, or null
+        // when it declares none (the common case). A seat is needed in EVERY pool
+        // listed. Attached per tick from layer_env, not from the candidate query.
+        List<String> licenses;
         // Folder (group/dept) core cap. folderId is the job's folder; folderMax is
         // folder_resource.int_max_cores (-1 = unlimited, core-points); folderRunning
         // is the folder's current running cores (core-points), seed for the
