@@ -699,7 +699,21 @@ public class Scheduler extends JdbcDaoSupport {
 
     // ---- tick -------------------------------------------------------------
 
-    /** Public entry point. Invoked by the Quartz trigger. */
+    /**
+     * Public entry point. Invoked by the Quartz trigger.
+     *
+     * Every tick starts with the COMPLETION DRAIN, on every Cuebot, leader and standby alike: apply
+     * the completions this Cuebot resolved and queued since the last tick, single-threaded and in
+     * batches. The planner then plans against a snapshot where every finished frame and freed core
+     * is already visible, and completions never race each other, a job shutdown, or the batch
+     * commit, the concurrency that used to manufacture orphaned procs. Each chunk is one
+     * transaction (frames stopped, procs deleted, resources refunded). Winners hand their follow-up
+     * work (depends, layer/job completion, usage counters) to the handler's dedicated post-complete
+     * thread, so the tick stays a few batched statements regardless of the completion rate. Losers
+     * (frame killed, eaten or retried meanwhile) get their proc redirected or unbooked, and a chunk
+     * that fails outright falls back to per-report processing so one bad report cannot wedge the
+     * rest.
+     */
     public void runTick() {
         if (!isEnabled())
             return;
@@ -710,20 +724,7 @@ public class Scheduler extends JdbcDaoSupport {
         }
         startSchedulerPoolsIfNeeded();
         long t0 = System.currentTimeMillis();
-        // COMPLETION DRAIN, before anything else and on EVERY
-        // Cuebot, leader or standby: apply the completions this Cuebot resolved
-        // and queued since the last tick, single-threaded and in batches. The
-        // planner then plans against a snapshot where every finished frame and
-        // freed core is already visible, and completions never race each other,
-        // a job shutdown, or the batch commit -- the concurrency that used to
-        // manufacture orphaned procs. Each chunk is one transaction (frames
-        // stopped + procs deleted + resources refunded); winners hand their
-        // follow-up work (depends, layer/job completion, usage counters) to the
-        // handler's dedicated post-complete thread so the tick stays a few
-        // batched statements regardless of the completion rate; losers (frame
-        // was killed/eaten/retried meanwhile) get their proc redirected or
-        // unbooked, and a chunk that fails outright falls back to per-report
-        // processing so one bad report cannot wedge the rest.
+        // COMPLETION DRAIN, before anything else: one writer, in tick order.
         int drained = 0;
         if (frameCompleteHandler != null) {
             List<QueuedFrameCompletion> resolved = SchedulerCompletionQueue.drain();
@@ -1053,45 +1054,23 @@ public class Scheduler extends JdbcDaoSupport {
         // the live proc table (before this tick's commits mutate it).
         Map<String, Set<String>> hostLayerAffinity = readHostLayerAffinity();
 
-        // Live application licenses (Houdini Engine, Katana, ...). layerLicenses
-        // maps a layer to the pools it declares in CUE_LICENSES; it is empty
-        // unless some live layer asks for a license, and then licenseBudgets says
-        // what each of those pools allows RIGHT NOW: the license server's free
-        // count, less what we booked since it was sampled, less the interactive
-        // headroom. Unlike a limit_record this number moves on its own, because
-        // artists and other farms draw on the same pool.
-        // Filled in per group below, keyed by the candidate layer ids we are
-        // actually about to place: layer_env is indexed on pk_layer but not on
-        // str_key, so this is an index lookup rather than a scan of every
-        // environment variable on the farm. There is no on/off switch to consult:
-        // a layer declaring CUE_LICENSES is what makes licensing apply, because
-        // that is a requirement of the work rather than a site preference.
+        // Live application licenses: pools each layer declares, and what each
+        // pool allows RIGHT NOW (filled per group by resolveLicenseBudgets).
         Map<String, List<String>> layerLicenses = new HashMap<>();
         Map<String, LicenseSource.LicenseBudget> licenseBudgets = new HashMap<>();
-        // Tick-scoped license bookings, same aggregate-enforcement pattern as
-        // limits: floating pools count frames, host-based pools count seats
-        // (distinct hosts, by lowercased host NAME because that is what a license
-        // server reports). Seeded lazily from the budget so several layers sharing
-        // a pool cannot each book it to the cap.
+        // Tick-scoped license bookings: floating pools count frames, host-based
+        // pools count seats (distinct lowercased host names).
         Map<String, Integer> licenseUsed = new HashMap<>();
         Map<String, Set<String>> licenseSeats = new HashMap<>();
 
-        // Job/show core accounting shared across every candidate this tick.
-        // The candidate query seeds each candidate from a point-in-time DB
-        // snapshot, so two layers of the same job (or two jobs of the same
-        // show), in one group or across groups, would each book up to the
-        // full cap. These tick-scoped maps carry the accumulated in-tick
-        // usage so the caps are enforced once, in aggregate. Planner-thread
-        // only, like reservations.
+        // Tick-scoped aggregate cap accounting, planner-thread only. Candidates
+        // are seeded from a point-in-time snapshot, so without these maps two
+        // layers sharing a job/show/limit/folder cap would each book to it.
         Map<String, Integer> jobCoresUsed = new HashMap<>();
         Map<String, Integer> showCoresUsed = new HashMap<>();
-        // Tick-scoped running count per limit (license cap), seeded from the
-        // farm-wide count and incremented as this tick books, so several layers
-        // sharing a limit don't each fill it to the cap. Enforced in aggregate.
+        // Per limit (license cap), in frames.
         Map<String, Integer> limitUsed = new HashMap<>();
-        // Tick-scoped running CORES per folder (group/dept ceiling), seeded from
-        // the farm-wide count and enforced in aggregate -- like limits, but the
-        // folder cap is in cores, not frames.
+        // Per folder (group/dept ceiling), in cores.
         Map<String, Integer> folderUsed = new HashMap<>();
         // Capped-folder bookkeeping for the exact post-plan trim below. planHost
         // has no folder clause, so within one tick it can book a capped folder past
@@ -1168,19 +1147,11 @@ public class Scheduler extends JdbcDaoSupport {
                     tReadyByHost, hostLayerAffinity, licenseBudgets, licenseUsed, licenseSeats);
         }
 
-        // 3c. GRANT RESERVATIONS, highest priority first (then widest job).
-        // reconcile reads the live reservation map, so the per-class cap fills
-        // up for wide jobs before narrow ones are even considered, the scarce
-        // budget lands on work that cannot fit, not on small layers that will
-        // get a gap on their own.
-        //
-        // Top-K cap: at full-farm scale hundreds of layers may qualify
-        // simultaneously; reconciling all of them is O(layers × hosts) and
-        // blows up tick time. Split into two passes:
-        // 1. Existing reservers (maintenance): always reconcile so held
-        // reservations are refreshed or released promptly.
-        // 2. New qualifiers: only the top-K widest/highest-priority ones
-        // receive a grant this tick. The rest will qualify again next tick.
+        // 3c. GRANT RESERVATIONS, highest priority first (then widest job), so
+        // the scarce budget lands on work that cannot fit on its own. Two
+        // passes to keep the tick bounded: existing reservers are always
+        // reconciled (refresh or release promptly); NEW qualifiers get at most
+        // top-K grants this tick, the rest qualify again next tick.
         int reservationMaxGrantees =
                 env.getProperty("scheduler.reservation_max_grantees", Integer.class, 8);
         reservationReqs.sort(Comparator.<ReservationRequest>comparingInt(r -> -r.candidate.priority)
@@ -1234,14 +1205,10 @@ public class Scheduler extends JdbcDaoSupport {
         // in memory (no writes). Parallelized across hosts, the candidate
         // reads are the dominant tick cost as the farm fills.
         long tPlan = System.currentTimeMillis();
-        // plannedByHost is already grouped host -> layer ids. Each host's layers
-        // must be planned serially on one thread: planHost decrements the
-        // DispatchHost's idle fields as it books (host.useResources), so a later
-        // layer on the same host sees the cores an earlier one already took. If
-        // two threads planned the same host concurrently they would both book
-        // against full capacity, the aggregated batch host UPDATE would overrun,
-        // and trigger__verify_host_resources would abort the whole batch (and
-        // tick). Different hosts are independent, so they run concurrently.
+        // One thread per host, serial within it: planHost decrements the
+        // host's idle fields as it books, so a later layer sees what an
+        // earlier one took. Two threads on one host would double-book it and
+        // abort the whole batch. Different hosts run concurrently.
         int placements = 0;
         for (List<String> ls : plannedByHost.values())
             placements += ls.size();
@@ -1278,17 +1245,11 @@ public class Scheduler extends JdbcDaoSupport {
             return dispatched;
         }
 
-        // FOLDER CEILING (exact). planHost books up to job_frame_dispatch_max
-        // frames per (host,layer) from findNextDispatchFrames, which -- unlike the
-        // limit filter that lives inside that query -- has no folder clause. So one
-        // tick's batch can carry more of a capped folder's frames than
-        // folder_resource.int_max_cores allows; the candidate filter and the
-        // in-tick estimate bound what we PLAN, not what actually commits. Hold the
-        // ceiling on the frames about to commit, single-threaded: walk them in plan
-        // order and drop any that would push a capped folder past its cap.
-        // folderRunSeed is the folder's running cores at tick start (the resource
-        // flush is synchronous within a tick, so it is current); count committed
-        // cores up from there. Folders with no cap are never touched.
+        // FOLDER CEILING (exact). The plan read has no folder clause, so the
+        // batch can carry more of a capped folder than int_max_cores allows.
+        // Walk the frames about to commit in plan order and drop any that
+        // would cross the cap, counting up from the folder's running cores at
+        // tick start. Folders with no cap are never touched.
         if (!folderMaxCp.isEmpty() && !planned.isEmpty()) {
             Map<String, Integer> folderCommit = new HashMap<>(folderRunSeed);
             List<FrameBooking> keep = new ArrayList<>(planned.size());
@@ -1316,19 +1277,11 @@ public class Scheduler extends JdbcDaoSupport {
             }
         }
 
-        // LICENSE POOLS (exact). Same gap as the folder ceiling above, and it
-        // matters more here: the limit gate lives INSIDE the plan-read query, but
-        // license availability is in memory, so nothing stops planHost from
-        // reading more of a licensed layer's frames than the pool can cover. The
-        // in-tick estimate steers placement; this is what actually holds the line.
-        // Walk the frames about to commit in plan order, single-threaded, and drop
-        // any that would take a pool past what it has:
-        // - floating: budget.usable is what may still be booked now (already net
-        // of in-flight and headroom), so count up from zero against it.
-        // - host-based: a frame on a host that already holds a seat is free; one
-        // on a new host needs a seat the pool can still give out.
-        // Frames dropped here are not lost, they are simply not booked this tick
-        // and remain WAITING for the next one.
+        // LICENSE POOLS (exact). Same gap as the folder ceiling above: the plan
+        // read is license-blind, so this trim is what actually holds the line.
+        // Floating pools count frames against budget.usable; host-based pools
+        // charge a seat only for hosts not already seated. Dropped frames are
+        // not lost, they stay WAITING for the next tick.
         if (!licenseBudgets.isEmpty() && !layerLicenses.isEmpty() && !planned.isEmpty()) {
             Map<String, Integer> committedByLicense = new HashMap<>();
             Map<String, Set<String>> seatsByLicense = new HashMap<>();
@@ -1426,12 +1379,9 @@ public class Scheduler extends JdbcDaoSupport {
                 try {
                     dispatchSupport.runFrame(fb.proc, fb.frame);
                 } catch (RuntimeException e) {
-                    // The commit already succeeded (frame RUNNING + proc), but the
-                    // launch failed. Match the inline path's compensation so the
-                    // slot is freed immediately instead of waiting for the reaper:
-                    // unbook the proc, return the frame to WAITING, and kill it on
-                    // RQD in case it actually started. This runs on the launch
-                    // thread, so the tick is never blocked by it.
+                    // Commit succeeded but the launch failed: unbook the proc,
+                    // return the frame to WAITING, kill on RQD in case it did
+                    // start. Runs on the launch thread, never blocks the tick.
                     logger.warn("Scheduler: RQD launch failed for " + fb.proc.getName()
                             + " on frame " + fb.frame.getFrameId() + ": " + e.getMessage()
                             + ", unbooking and clearing frame");
@@ -1845,17 +1795,10 @@ public class Scheduler extends JdbcDaoSupport {
                     (c.limitId != null) ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
                             : 0;
 
-            // Live application licenses. A layer needs a seat in EVERY pool it
-            // declares (AND, not OR), so:
-            // - floating pools: the layer may book the MIN of their remaining
-            // counts, each already net of what this tick booked against it.
-            // - host-based pools: the cap counts distinct hosts, so eligibility
-            // is per host and enforced in the scoring loop below, exactly like a
-            // HOST limit -- except the seat set starts from what the LICENSE
-            // SERVER reports, so a seat held by an artist's workstation is
-            // visible to us and is not double counted.
-            // A pool whose sample is stale, or that the provider does not report
-            // at all, holds the layer: we have no authority to spend it.
+            // Live application licenses: a layer needs a seat in EVERY pool it
+            // declares. Floating pools allow the MIN of their remaining counts;
+            // host-based pools are enforced per host in the scoring loop. A
+            // stale or unreported pool HOLDS the layer, never runs it blind.
             int licenseUsable = Integer.MAX_VALUE;
             boolean licenseHeld = false;
             List<LicenseSource.LicenseBudget> licenseSeatPools = null;
@@ -1884,13 +1827,9 @@ public class Scheduler extends JdbcDaoSupport {
                     ? folderUsed.computeIfAbsent(c.folderId, k -> c.folderRunning)
                     : 0;
 
-            // A layer at its job or show cap, whose limit (license cap) is full, or
-            // whose folder (group/dept) core ceiling is reached, cannot run any more
-            // frames this tick, so it must not dispatch, but it must still reconcile,
-            // which now drops the reservations it can no longer use (see
-            // reconcileReservationsForLayer). Skipping reconcile here would leave a
-            // capped layer holding hosts that lower-priority work could otherwise
-            // consume.
+            // A capped layer (job/show cap, full limit, folder ceiling) must
+            // not dispatch but MUST still reconcile, dropping reservations it
+            // can no longer use so other work can take those hosts.
             boolean capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
                     || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
                     || (c.limitId != null && limitInUse >= c.limitMax)
@@ -1914,23 +1853,8 @@ public class Scheduler extends JdbcDaoSupport {
                     if (licenseSeatPools != null
                             && !licenseSeatsAllow(licenseSeatPools, licenseSeats, h))
                         continue;
-                    // A host reserved for a higher/equal-priority blocked layer
-                    // is normally off-limits. EASY backfill lets c borrow it
-                    // anyway, but only if c's worst-case runtime finishes before
-                    // the host is projected to free enough cores for its owner
-                    // (backfillAllows), so the reserved (wide) job is never
-                    // delayed. That time check IS the whole guarantee: a frame
-                    // that ends by the host's ready time has vacated its cores
-                    // before the owner needs them, so backfilling a still-
-                    // draining host does not delay the drain.
-                    //
-                    // (Do NOT also gate on "host already has enough idle for the
-                    // owner": that made backfill dead. Once idle covers the
-                    // owner, the higher-priority owner books the host itself, so
-                    // the only moment backfill can place anything is WHILE the
-                    // host is still draining -- exactly what such a guard forbids,
-                    // leaving the sub-owner-width idle on reserved hosts to
-                    // strand instead of being backfilled.)
+                    // A reserved host is off-limits unless EASY backfill can
+                    // borrow it without delaying the reservation's owner.
                     if (!reservationAllows(h, c)) {
                         if (!backfillAllows(h, c, tReadyByHost))
                             continue;
@@ -1984,13 +1908,9 @@ public class Scheduler extends JdbcDaoSupport {
                 // bounded by the same fit checks placementScore uses.
                 long maxMore = computeMaxMore(best, c);
                 int estFrames = (int) Math.min(jobFrameDispatchMax, maxMore + 1);
-                // Never dispatch more frames than the layer actually has
-                // waiting. computeMaxMore only bounds by host capacity and
-                // job/show caps, so without this a layer with a few waiting
-                // frames on a large host would emit commit after commit (up
-                // to the job cap) for frames that do not exist, inflating
-                // the dispatch estimate and padding the batch commit with
-                // bookings that find nothing.
+                // Never dispatch more frames than the layer has waiting, or
+                // the batch commit gets padded with bookings that find
+                // nothing.
                 if (estFrames > c.waitingFrameCount)
                     estFrames = c.waitingFrameCount;
                 if (estFrames <= 0)
@@ -2073,12 +1993,9 @@ public class Scheduler extends JdbcDaoSupport {
                     tickLicenseBooked += estFrames;
                 }
 
-                // Count an EASY-backfill borrow for the stat line: c is committing
-                // onto a host reserved at >= its priority for another layer
-                // (reservationAllows == false), which only got past the scoring
-                // loop because backfillAllows cleared it. Checked before the
-                // ownership block below, which never fires for this case (it
-                // overrides only strictly-lower-priority reservations).
+                // Count an EASY-backfill borrow for the stat line: this host
+                // is reserved for someone else and only backfillAllows let us
+                // in.
                 if (!reservationAllows(best, c)) {
                     tickBackfilled++;
                     tickBackfilledCores += estCores;
@@ -2098,26 +2015,16 @@ public class Scheduler extends JdbcDaoSupport {
                 dispatched += estFrames;
                 placed = true;
 
-                // One commit per layer per tick. Fanning a layer onto many
-                // hosts in a single tick would make the parallel per-host plan
-                // reads (planHost) all re-query "the layer's next frames" and
-                // grab the SAME frames: mass frame.int_version collisions and
-                // lost placements. Booking one host now and the rest on later
-                // ticks keeps each layer's frames read by exactly one plan task;
-                // the next tick's fresh snapshot continues where this one left
-                // off. A layer spreads across hosts over a few ticks instead of
-                // all at once.
+                // One commit per layer per tick: parallel per-host plan reads
+                // would otherwise grab the SAME frames (version collisions).
+                // A layer spreads across hosts over a few ticks instead.
                 break;
             }
 
             if (reservationsEnabled) {
-                // A layer is "blocked" this tick if it still has waiting frames,
-                // is not capped, and could not place even one (no host fit ->
-                // placed == false). Accumulate net blocked time (leaky bucket).
-                // A layer at its HOST limit's seat cap that could not place (its
-                // seated hosts are full) is treated like capped, not blocked:
-                // reserving new hosts could never help -- the seat gate excludes
-                // them -- so it must not accrue reservation debt.
+                // Blocked = waiting frames, not capped, placed nothing. A layer
+                // at its seat cap counts as capped, not blocked: reserving new
+                // hosts could never help it, so it must not accrue debt.
                 boolean blocked = !capped && !placed && c.waitingFrameCount > 0;
                 long now = System.currentTimeMillis();
                 long dt = now - lastSeenMs.getOrDefault(c.layerId, now);
@@ -2126,16 +2033,10 @@ public class Scheduler extends JdbcDaoSupport {
                 debt = blocked ? debt + dt : Math.max(0, debt - dt);
                 blockedDebtMs.put(c.layerId, debt);
 
-                // Record a reservation request if the layer already holds
-                // reservations (keep maintaining them, need shrinks as frames
-                // place, until the job drains, so an in-progress big job is
-                // never re-stolen by the small-frame stream) OR it NEWLY qualifies:
-                // blocked past the time threshold AND wide enough to warrant a
-                // reservation. The width gate keeps the narrow small-frame stream
-                // (which runs the instant any core frees) from flooding the budget
-                // meant for wide, fragmentation-starved jobs. Granting happens
-                // after all groups, priority-first then widest (see the sort), so
-                // the scarce budget goes to the highest-priority widest work.
+                // Request a reservation if the layer already holds some (keep
+                // maintaining them until the job drains) OR it newly qualifies:
+                // blocked past the threshold AND wide enough. The width gate
+                // keeps the small-frame stream out of the wide-job budget.
                 boolean wideEnough = maxGroupHostCores > 0
                         && c.layerCoresMin >= RESERVATION_MIN_HOST_FRACTION * maxGroupHostCores;
                 boolean qualified = blocked && debt >= reservationBlockMs && wideEnough;
@@ -2228,6 +2129,12 @@ public class Scheduler extends JdbcDaoSupport {
      * Refuses to backfill when c has no runtime history (cannot bound its occupancy) or the host's
      * ready time is unknown, keeping the no-delay guarantee conservative under soft (non-killed)
      * estimates.
+     *
+     * The time check is the WHOLE guarantee; do not also gate on "host already has enough idle for
+     * the owner". That guard makes backfill dead: once idle covers the owner, the higher-priority
+     * owner books the host itself, so the only moment backfill can place anything is while the host
+     * is still draining, exactly what such a guard forbids. The sub-owner-width idle on reserved
+     * hosts would then strand instead of being backfilled.
      */
     private boolean backfillAllows(BookableHost h, LayerCandidate c,
             Map<String, Integer> tReadyByHost) {

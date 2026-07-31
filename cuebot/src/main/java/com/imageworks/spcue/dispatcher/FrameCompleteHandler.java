@@ -350,11 +350,9 @@ public class FrameCompleteHandler {
             if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
                 exitStatus = frameDetail.exitStatus;
             }
-            // A frame that died because no application license was free is
-            // requeued by determineFrameState above. Persist it as SKIP_RETRY so
-            // the retry counter is not incremented when it runs again (the
-            // increment reads the frame's STORED exit status, so recording the
-            // vendor's own code here would spend a retry on a queue wait).
+            // License-denied frames persist SKIP_RETRY: the retry increment
+            // reads the STORED exit status, so recording the vendor's code
+            // would spend a retry on a queue wait.
             if (isLicenseDenied(exitStatus)) {
                 logger.info("frame " + frame.getName() + " could not get a license (exit "
                         + exitStatus + "); requeueing without spending a retry");
@@ -363,20 +361,10 @@ public class FrameCompleteHandler {
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
-                // In-process Scheduler only (scheduler.enabled): cuebot plans in-process and never
-                // same-host-rebooks -- the Scheduler rebooks fresh next tick (the reactive
-                // DispatchNextFrame path is gone, now a locality score bonus) -- so on
-                // frame-complete the proc is ALWAYS released. The legacy async hop to
-                // dispatchQueue exists only to defer the rebook-or-release decision off the
-                // report thread; with no rebook to decide it just leaves the proc in limbo
-                // (pk_frame NULL, cores still held) until the task runs -- a standing backlog
-                // under load, and a stranded zombie if the task is ever lost. Run it inline
-                // (exactly as test mode does) so the proc is reaped within the completion
-                // itself: no limbo. The legacy dispatcher and Rust (dispatcher.turn_off_booking)
-                // are
-                // deliberately left on the async path here -- out of scope for this change.
-                // Inline post-complete only for shows the in-process Scheduler owns
-                // (facility, or a 'managed' show); legacy shows and Rust
+                // Scheduler-owned shows run post-complete INLINE: there is no
+                // rebook decision to defer (the Scheduler rebooks next tick),
+                // and the async hop would leave the proc in limbo holding
+                // cores until the queued task runs. Legacy shows and Rust
                 // (dispatcher.turn_off_booking) stay on the async path.
                 boolean schedulerOwnsShow = SchedulerMode.schedules(env, showDao, proc.getShowId());
                 if (dispatcher.isTestMode() || schedulerOwnsShow) {
@@ -820,14 +808,10 @@ public class FrameCompleteHandler {
 
                 // Book the next frame of this job on the same proc.
                 //
-                // With the in-process Scheduler the reactive booking path is off:
-                // rebooking here would race the Scheduler's batched commit and
-                // dispatch outside the single batched commit path (the source
-                // of the inline-path deadlock). Instead, unbook the proc so its
-                // cores return to the host's idle pool; the Scheduler rebooks on
-                // its next tick, preferring the same host via a locality score
-                // bonus (see Scheduler placement). stopFrame only nulled the
-                // proc's pk_frame, so without this the reserved cores would leak.
+                // Under the in-process Scheduler: never rebook here (it would
+                // race the batched commit); unbook instead, and the Scheduler
+                // rebooks next tick with the locality bonus preferring this
+                // host. Without the unbook the reserved cores would leak.
                 if (proc.isLocalDispatch) {
                     dispatchQueue.execute(new DispatchNextFrame(job, proc, localDispatcher));
                 } else if (!bookingOff) {
@@ -895,13 +879,10 @@ public class FrameCompleteHandler {
 
             FrameState newState = FrameState.WAITING;
             if (isLicenseDenied(report.getExitStatus())) {
-                // The application could not get a license. That is a resource
-                // being contended, not a broken frame: requeue it and do NOT
-                // burn a retry (the caller persists SKIP_RETRY for that), or a
-                // busy license pool would march every frame to DEAD. Headroom
-                // and the planner's live gate are what avoid this; this catches
-                // the race they cannot -- an artist taking the last seat between
-                // the planner's sample and the actual checkout.
+                // No license free: a contended resource, not a broken frame.
+                // Requeue WAITING without burning a retry. This catches the
+                // race the planner's gate cannot: an artist taking the last
+                // seat between the sample and the checkout.
                 newState = FrameState.WAITING;
             } else if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {

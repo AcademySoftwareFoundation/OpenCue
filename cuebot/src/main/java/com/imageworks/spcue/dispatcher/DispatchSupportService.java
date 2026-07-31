@@ -242,21 +242,24 @@ public class DispatchSupportService implements DispatchSupport {
         publishFrameStartedEvent(frame, proc, previousState);
     }
 
+    /**
+     * Apply a chunk of queued frame completions in ONE transaction: stop the frames (state+version
+     * guarded), delete the winners' procs with their live reserved values, refund host and
+     * accounting resources.
+     *
+     * Lock order is PROC rows, then HOSTS, then stat rows, and it is load-bearing. Procs before
+     * hosts because every single-proc writer (the OOM memory bump, whose proc-update trigger then
+     * locks the host row) acquires "proc, then host"; a hosts-first flush deadlocks against it,
+     * seen live as the bump holding its proc row and waiting on a host this flush had pre-locked
+     * while the flush's batched DELETE waited on that proc row. Hosts before stats is the same
+     * global order as the booking commit (reserveHostResourcesBatch, then the frame-start stat
+     * pre-locks); the opposite interleaving deadlocks against a concurrent booking tick.
+     */
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public boolean[] stopFramesBatch(List<QueuedFrameCompletion> completions) {
-        // 0. Lock order: PROC rows first, then HOSTS, then stat rows. Procs
-        // before hosts because every single-proc writer (the OOM memory bump,
-        // whose proc-update trigger then locks the host row) acquires "proc,
-        // then host"; a hosts-first flush deadlocks against it (seen live:
-        // the bump held its proc row and waited on a host this flush had
-        // pre-locked, while the flush's batched DELETE waited on that proc
-        // row). Hosts before stats is the same global order as the booking
-        // commit (reserveHostResourcesBatch, then the frame-start stat
-        // pre-locks); stats first with hosts refunded later (step 3) would be
-        // the exact opposite interleaving and deadlocks against a concurrent
-        // booking tick. Locked for all queued completions (superset of
-        // winners).
+        // 0. Pre-lock proc rows, then hosts, for ALL queued completions (a
+        // superset of the winners). See the lock-order contract above.
         List<VirtualProc> allProcs = new ArrayList<VirtualProc>(completions.size());
         for (QueuedFrameCompletion c : completions) {
             allProcs.add(c.proc);
@@ -297,18 +300,11 @@ public class DispatchSupportService implements DispatchSupport {
             jobDao.updateMaxRSS(c.frame, c.report.getFrame().getMaxRss());
         }
 
-        // 3. Release the winners' procs inside this same transaction: batched
-        // DELETE with live reserved values, host idle refunds summed per host,
-        // accounting decrements coalesced per key. Waiting for the per-frame
-        // post-complete operations to unbook (the inline path's behavior)
-        // leaves completed procs holding their cores for as long as the
-        // dispatch queue lags -- a standing "orphan" pool at exactly the scale
-        // batching is for -- and hides freed capacity from the plan that runs
-        // right after this flush. Marking the proc unbooked makes the
-        // post-complete operations treat it as already released (their
-        // unbookProc call degrades to a no-op event publish). Local dispatches
-        // keep the per-proc path: their release credits different tables and
-        // cuebot still owns their proc reuse.
+        // 3. Release the winners' procs in this same transaction, so freed
+        // capacity is visible to the plan that runs right after this flush.
+        // proc.unbooked=true makes the later post-complete operations treat
+        // the proc as already released (their unbook is a no-op). Local
+        // dispatches keep the per-proc path (different credit tables).
         List<VirtualProc> releasable = new ArrayList<VirtualProc>(winners.size());
         List<DispatchFrame> localFrames = new ArrayList<DispatchFrame>();
         for (QueuedFrameCompletion c : winners) {
@@ -354,13 +350,10 @@ public class DispatchSupportService implements DispatchSupport {
             return java.util.Collections.emptyList();
         }
 
-        // 1. CAPACITY GATE (before any frame is marked RUNNING): atomically reserve
-        // each host's aggregated share with a guarded decrement. A host that cannot
-        // currently hold its share returns 0 rows and is left untouched, so we never
-        // overcommit a host -- an unguarded decrement would drive idle negative,
-        // trip the verify_host_resources trigger, and abort this whole batched tick.
-        // Bookings on a host without room are deferred (stay WAITING) and re-planned
-        // next tick against fresh idle counts.
+        // 1. CAPACITY GATE (before any frame is marked RUNNING): guarded
+        // per-host decrement; a host without room matches 0 rows and its
+        // bookings stay WAITING for next tick, so a host is never overcommitted
+        // (which would trip verify_host_resources and abort the whole batch).
         List<VirtualProc> demanded = new ArrayList<VirtualProc>(bookings.size());
         for (FrameBooking b : bookings) {
             // Apply any per-frame OOM memory bump BEFORE the capacity gate, so the host
@@ -394,12 +387,9 @@ public class DispatchSupportService implements DispatchSupport {
         for (int i = 0; i < affordable.size(); i++) {
             FrameBooking b = affordable.get(i);
             if (won[i]) {
-                // Stamp the frame linkage onto the proc before the batch insert.
-                // The inline path does this in reserveProc(); the planning path
-                // (CoreUnitDispatcher.planHost) builds the proc but never sets it,
-                // so without this every batch-inserted proc lands with
-                // pk_frame=NULL, backing no frame while holding its host cores
-                // (the frame shows RUNNING but its cores are stranded).
+                // Stamp the frame linkage onto the proc (the planning path
+                // never sets it); without this every proc lands with
+                // pk_frame=NULL, holding cores while backing no frame.
                 b.proc.frameId = b.frame.getFrameId();
                 b.proc.jobId = b.frame.getJobId();
                 b.proc.layerId = b.frame.getLayerId();
@@ -424,14 +414,10 @@ public class DispatchSupportService implements DispatchSupport {
             return winners;
         }
 
-        // 4. EVICT STALE PROCS. A proc row still sitting on a frame we just won
-        // is provably dead: we hold the frame's WAITING -> RUNNING transition, so
-        // no legitimate proc can exist for it. Such corpses are left by crashes
-        // or failed completions, and without this step ONE of them wedges the
-        // planner permanently: the insert below hits c_proc_uk, this whole
-        // batched transaction rolls back (innocent bookings included), and the
-        // next tick replans the same frame into the same collision. Delete the
-        // corpse, refund the host resources it was still holding, and go on.
+        // 4. EVICT STALE PROCS on frames we just won: we hold the WAITING ->
+        // RUNNING transition, so any proc still sitting there is a corpse, and
+        // ONE corpse would wedge the planner forever (c_proc_uk collision
+        // rolls back the whole batch, every tick). Delete it, refund its host.
         List<String> winnerFrameIds = new ArrayList<String>(winnerProcs.size());
         for (FrameBooking b : winners) {
             winnerFrameIds.add(b.frame.getFrameId());

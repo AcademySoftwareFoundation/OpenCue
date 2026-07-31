@@ -242,6 +242,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
      * "layer-before-job" order every single-frame transaction follows via the trigger, so this
      * batch can never deadlock against a concurrent frame completion. SELECT ... FOR UPDATE inside
      * the batch's transaction; rows are released at commit.
+     *
+     * Without this, a multi-frame batch is the one writer that interleaves the trigger's order: it
+     * would hold job_stat[J] (taken for an early frame) while still acquiring layer_stat rows for
+     * later frames of the same job, and a concurrent single-frame transaction holding one of those
+     * layer_stat rows and reaching for job_stat[J] closes the deadlock cycle.
      */
     private void lockStatRowsForBatch(
             java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings) {
@@ -279,12 +284,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             return won;
         }
 
-        // Same deadlock discipline as batchUpdateFramesStarted: each stop fires
-        // trigger__update_frame_status_counts (layer_stat then job_stat), so
-        // pre-acquire every counter row this batch can touch in the global
-        // "sorted layers, then sorted jobs" order before the first frame UPDATE.
-        // Locked for all queued completions (a superset of the winners): the
-        // stale ones update zero frame rows and never reach their stat rows.
+        // Same deadlock discipline as batchUpdateFramesStarted (see its lock
+        // ordering note): pre-acquire the stat counter rows in sorted order,
+        // for ALL queued completions (a superset of the winners).
         java.util.SortedSet<String> layerIds = new java.util.TreeSet<>();
         java.util.SortedSet<String> jobIds = new java.util.TreeSet<>();
         for (com.imageworks.spcue.dispatcher.QueuedFrameCompletion c : completions) {
@@ -320,22 +322,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             return won;
         }
 
-        // 0. Deadlock-free lock ordering. The frame-start UPDATE below fires
-        // trigger__update_frame_status_counts, which UPDATEs layer_stat then
-        // job_stat for each frame's layer/job, always layer first, then job.
-        // Every single-frame transaction (dispatch, completion, kill, ...)
-        // therefore acquires those counter rows in "layer-before-job" order.
-        // This multi-frame batch is the only writer that interleaves them: it
-        // would hold job_stat[J] (taken for an early frame) while still
-        // acquiring layer_stat rows for later frames of the same job, and a
-        // concurrent frame completion holding one of those layer_stat rows and
-        // reaching for job_stat[J] closes a deadlock cycle.
-        //
-        // Fix: pre-acquire every counter row this batch will touch, in the same
-        // global order the triggers use, all layer_stat rows (sorted), then
-        // all job_stat rows (sorted), so the batch and every single-frame
-        // transaction acquire on one total order and can never form a cycle.
-        // The trigger's later UPDATEs are then no-op re-locks on rows we hold.
+        // 0. Deadlock-free lock ordering: pre-acquire every stat counter row
+        // this batch will touch, all layer_stat (sorted) then all job_stat
+        // (sorted), the same total order the single-frame trigger path uses,
+        // so no cycle can form. The trigger's later UPDATEs are then no-op
+        // re-locks on rows we already hold.
         lockStatRowsForBatch(bookings);
 
         // 1. Version+state-guarded RUNNING transition for every frame in one

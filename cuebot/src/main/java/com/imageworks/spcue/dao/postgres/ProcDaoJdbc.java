@@ -332,11 +332,9 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         }
 
         // 1. One DELETE for the whole batch. RETURNING carries the reserved
-        // amounts as of deletion time (same anti-leak semantics as
-        // deleteVirtualProc: a concurrent increaseReservedMemory must be
-        // refunded at its final value, not the value cached in the Java
-        // object). Procs someone else already deleted simply don't come back
-        // and get no refunds.
+        // amounts as of deletion time (a concurrent memory bump must be
+        // refunded at its final value, not the cached one). Procs someone
+        // else already deleted don't come back and get no refunds.
         Map<String, VirtualProc> byId = new HashMap<String, VirtualProc>(procs.size() * 2);
         List<Object> ids = new ArrayList<Object>(procs.size());
         for (VirtualProc proc : procs) {
