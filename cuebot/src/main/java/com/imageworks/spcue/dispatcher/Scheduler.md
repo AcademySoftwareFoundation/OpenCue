@@ -155,7 +155,9 @@ so the signal persists without tracking individual completions. The bonus is
 sized to outweigh the marginal stranding terms (which are ~e^util, single
 digits) but it is applied AFTER fit and reservation filtering, so it can never
 place a frame that does not fit or override a reservation. Disable with
-`scheduler.locality_enabled=false`.
+`scheduler.locality_enabled=false`. When a host loses its LAST proc of a
+layer this live signal disappears; the cache-warmth window (§3.7) carries it
+across the gap.
 
 ### 3.2 Reservations (EASY/Maui backfill)
 
@@ -343,6 +345,66 @@ A frame that exits with a status listed in
 vendor's "no license" signal to a sentinel code) is requeued WAITING without
 spending a retry, so a busy pool never marches a layer to DEAD.
 
+### 3.7 Cache warmth (windowed locality)
+
+The live locality bonus (§3.1) prefers hosts that *currently* run the
+candidate's layer, so freed cores refill with the same layer. It dies the
+moment a host loses its last proc of that layer — yet the layer's locally
+cached data (texture caches, NFS client caches) is still on the host's disk.
+Measured over 88 minutes / 555k frame starts: 77.5% of starts landed on a
+live-warm host, but once a host went dark nothing pulled the layer back, and
+natural revisits died within a minute. Cold starts were 40.7%.
+
+The fix keeps a decayed pull on vacated `(host, layer)` pairs:
+
+    bonus = locality_bonus * (1 - foreignFrames / window)
+
+**Age is displacement, not wall clock.** What invalidates a local cache is
+other layers' frames writing their data over yours. So age is counted in
+frames of *other* work booked onto the host since the layer left it: the
+scheduler keeps a per-host booking odometer, each warmth entry stores the
+odometer reading when the layer last completed there, and the difference is
+the age. A host that idles moves no odometer — its entries stay fully warm
+forever, because nothing displaced them. The map is fed by the completion
+drain (§4) and read only on the planner thread; the same odometer comparison
+expires entries, so the map is self-cleaning and bounded by
+`hosts x co-resident layers` (a few MB at worst). Added cost per tick is
+linear in completions + bookings + map size; scoring pays one hash lookup per
+already-evaluated (host, candidate) pair.
+
+**Worked example.** A 32-core host runs ~12 frames at once across three
+layers: A holds 6 slots, B 4, C 2, frames last a couple of minutes. While all
+three co-reside, each holds the full live bonus and the warmth map is idle —
+but their caches already share the disk three ways. Now C completes its last
+frame here. A and B keep cycling ~10 frames per round, every one of them
+foreign to C, so with the default `window = 64` C's pull dies after 6-12
+minutes of this traffic — matching the physical reality that ten A/B frames
+have shredded C's third of the cache. If instead the whole host drains and
+idles, all three entries freeze at full pull, and the first layer to have
+work again is steered straight back. A wall-clock window gets both cases
+wrong: it overstates cache life on the busy host and understates it on the
+idle one.
+
+**Emergent behavior.** A returning layer competes against the *live* bonuses
+of the host's current tenants, and live (full strength) always outranks
+warm (decayed), so mixed hosts keep their tenants while homeless layers are
+steered to hosts warm for them specifically. Over time layers acquire "home"
+machines: less mixing, slower decay on those homes, stronger homes. This
+never fights utilization — fit, reservations, tags and licenses are all
+filtered before any bonus is scored, so warmth only breaks ties among hosts
+that could all take the work.
+
+Validated in the sim (20-minute A/B at identical feed): cold starts fell
+from 40.7% to 19.4%, live-warm rate rose from 80% to 90%, and refill
+affinity reached ~90% (floor 15%) with POISON and the throughput gates
+unaffected.
+
+The window is a site property — your cache size over a typical frame's cache
+footprint — hence the `scheduler.locality_window_frames` knob (default 64,
+0 disables). Known simplification: displacement counts frames, not bytes; if
+production data ever shows the average too coarse, the odometer can weight
+each booking by its memory reservation instead of counting 1.
+
 ---
 
 ## 4. Concurrency model
@@ -465,6 +527,7 @@ already takes most of the load off it.
 | `scheduler.backfill_enabled` | `true` | Allow lower-priority frames to backfill draining reserved hosts. |
 | `scheduler.locality_enabled` | `true` | Prefer hosts already running the layer (co-locality / cache coherence). |
 | `scheduler.locality_bonus` | `8.0` | Score bonus for a co-located host. Applied after fit/reservation filtering, so it never overrides them. |
+| `scheduler.locality_window_frames` | `64` | Cache-warmth window (§3.7): a vacated host keeps a decayed pull on its layer until this many foreign frames have displaced its cache. 0 disables. |
 | `scheduler.stat_interval_seconds` | `300` | Cadence of the consolidated INFO `Scheduler stat:` line (planner health, farm fill, throughput, reservations). Lower it for live debugging. |
 | `scheduler.license.provider` | (unset) | Where live license counts come from: an http endpoint or `script:<cmd>` wrapping a vendor CLI. Unset while layers declare `CUE_LICENSES`: those layers are held and a warning names them. |
 | `scheduler.license.poll_seconds` | `20` | Provider poll cadence (every Cuebot polls). |

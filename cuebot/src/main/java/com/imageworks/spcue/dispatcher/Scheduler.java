@@ -132,6 +132,28 @@ public class Scheduler extends JdbcDaoSupport {
     private volatile double localityBonus = 8.0;
     private volatile boolean localityEnabled = true;
 
+    /**
+     * Cache-warmth window. The live locality bonus dies the moment a host loses its LAST proc of a
+     * layer, yet the layer's locally cached data (texture caches, NFS client caches, ...) is still
+     * sitting on that host, so a decayed pull is kept on vacated (host, layer) pairs:
+     * {@code bonus = localityBonus * (1 - foreignFrames/window)}.
+     *
+     * Age is NOT wall clock. What invalidates a local cache is DISPLACEMENT: other layers' frames
+     * writing their data over yours. A host that idled for an hour still has layer K's cache, so K
+     * lands there with the full pull; a busy host cools by one step per foreign frame booked. Age
+     * is therefore counted in frames of other work booked onto the host since the layer left it:
+     * bookingsByHost is the per-host booking odometer, and each warmthByHostLayer entry stores the
+     * odometer reading when the layer last completed there. The window is your cache size over a
+     * typical frame's cache footprint, a site property, hence the knob; 0 disables.
+     *
+     * Fed by the completion drain (this Cuebot's completions only, best effort by design: a map
+     * lost to a failover just means a few minutes of colder placement) and read only on the planner
+     * thread, so no locking anywhere.
+     */
+    private volatile int localityWindowFrames = 64;
+    private final Map<String, Long> warmthByHostLayer = new HashMap<String, Long>();
+    private final Map<String, Long> bookingsByHost = new HashMap<String, Long>();
+
     // Seat bonus for HOST-BASED application licenses, where a seat is a machine
     // and every frame on a seated machine shares its one checkout. A seated host
     // can take more of the layer's frames for free, so placement subtracts this
@@ -423,6 +445,8 @@ public class Scheduler extends JdbcDaoSupport {
         backfillEnabled = env.getProperty("scheduler.backfill_enabled", Boolean.class, true);
         localityEnabled = env.getProperty("scheduler.locality_enabled", Boolean.class, true);
         localityBonus = env.getProperty("scheduler.locality_bonus", Double.class, 8.0);
+        localityWindowFrames =
+                env.getProperty("scheduler.locality_window_frames", Integer.class, 64);
         // Property name kept from the per-host-limit feature this supersedes, so
         // any site already setting it keeps its value.
         licenseSeatBonus = env.getProperty("scheduler.host_limit_seat_bonus", Double.class, 16.0);
@@ -719,6 +743,15 @@ public class Scheduler extends JdbcDaoSupport {
                     for (int i = 0; i < won.length; i++) {
                         QueuedFrameCompletion c = chunk.get(i);
                         if (won[i]) {
+                            // Cache-warmth feed: this host just ran this
+                            // layer, so its local caches are hot. Stamp the
+                            // entry with the host's booking odometer.
+                            if (localityEnabled && localityWindowFrames > 0
+                                    && c.proc.getLayerId() != null) {
+                                warmthByHostLayer.put(
+                                        c.proc.getHostId() + "|" + c.proc.getLayerId(),
+                                        bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
+                            }
                             frameCompleteHandler.queuePostOps(c);
                         } else {
                             frameCompleteHandler.handleStaleCompletion(c.proc,
@@ -744,6 +777,14 @@ public class Scheduler extends JdbcDaoSupport {
             }
         }
         summaryDrained += drained;
+        // Expire warmth entries displaced by a window's worth of foreign
+        // frames. Idle hosts' entries never expire: nothing displaced them.
+        if (!warmthByHostLayer.isEmpty()) {
+            warmthByHostLayer.entrySet()
+                    .removeIf(e -> bookingsByHost
+                            .getOrDefault(e.getKey().substring(0, e.getKey().indexOf('|')), 0L)
+                            - e.getValue() >= localityWindowFrames);
+        }
         try {
             // STICKY leadership. We hold the advisory lock across ticks on a
             // dedicated connection (leaderConn) rather than re-taking it every
@@ -1363,6 +1404,21 @@ public class Scheduler extends JdbcDaoSupport {
         }
         flushResourceDeltas();
 
+        // Cache-warmth odometer: every committed booking displaces cache on
+        // its host. A layer returning to its own warm host re-stamps its
+        // entry instead (its cache is being kept hot, not displaced).
+        if (localityEnabled && localityWindowFrames > 0) {
+            for (FrameBooking b : committed) {
+                long odo = bookingsByHost.merge(b.proc.getHostId(), 1L, Long::sum);
+                if (b.proc.getLayerId() != null) {
+                    String key = b.proc.getHostId() + "|" + b.proc.getLayerId();
+                    if (warmthByHostLayer.containsKey(key)) {
+                        warmthByHostLayer.put(key, odo);
+                    }
+                }
+            }
+        }
+
         // 4d. LAUNCH: fire the RQD launches post-commit on the launch pool.
         for (FrameBooking b : committed) {
             final FrameBooking fb = b;
@@ -1887,6 +1943,20 @@ public class Scheduler extends JdbcDaoSupport {
                         Set<String> layersHere = hostLayerAffinity.get(h.hostId);
                         if (layersHere != null && layersHere.contains(c.layerId)) {
                             score -= localityBonus;
+                        } else if (localityWindowFrames > 0) {
+                            // Cache warmth: the host ran this layer and few
+                            // foreign frames displaced its cache since, so
+                            // pull the layer back with a decayed bonus. Never
+                            // larger than the live bonus; fit/reservations
+                            // are filtered before scoring.
+                            Long seen = warmthByHostLayer.get(h.hostId + "|" + c.layerId);
+                            if (seen != null) {
+                                long foreign = bookingsByHost.getOrDefault(h.hostId, 0L) - seen;
+                                if (foreign >= 0 && foreign < localityWindowFrames) {
+                                    score -= localityBonus
+                                            * (1.0 - (double) foreign / localityWindowFrames);
+                                }
+                            }
                         }
                     }
                     // Seat bonus for host-based license pools: packing onto an
