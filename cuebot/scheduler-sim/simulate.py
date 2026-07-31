@@ -1793,6 +1793,17 @@ def main():
                          "cap SIM_LIMIT_MAX=50) to a flood of frames and check the "
                          "scheduler never runs more than the cap concurrently -- the "
                          "license-cap constraint. FAILs if concurrency exceeds the cap.")
+    ap.add_argument("--poison-test", type=int, default=0, metavar="SECS",
+                    help="POISON test: reproduce the orphaned-proc wedge. Run "
+                         "normal load for SECS/2, then flip SIM_POISON_COUNT "
+                         "(default 3) RUNNING frames back to WAITING while "
+                         "leaving their proc rows alive -- byte-for-byte the "
+                         "state the completion path leaves behind when it fails "
+                         "after stopFrame but before releasing the proc. A "
+                         "correct planner must evict the stale procs and keep "
+                         "booking; the unfixed planner wedges permanently "
+                         "(every batch commit hits c_proc_uk and rolls back). "
+                         "Pair with --feed.")
     ap.add_argument("--with-licenses", action="store_true",
                     help="run licensed load ALONGSIDE another scenario: starts the "
                          "fake license server and the CUE_LICENSES injector and "
@@ -2101,7 +2112,7 @@ def main():
     # big jobs are present) stream by default for the duration of whatever phase
     # is active, so a run can be watched without querying the DB by hand.
     watch = (args.strand or args.priority_starve or args.priority_spread
-             or args.limit_test or args.license_test
+             or args.limit_test or args.license_test or args.poison_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
              or args.stats or args.metrics or args.feed)
@@ -2157,6 +2168,129 @@ def main():
         csv = f"{graph_dir}/run_taggpu.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "tag_gpu_watch.py", str(args.tag_gpu_test), "2"],
                        cwd=FARM, env=dict(os.environ, SIM_TAGGPU_CSV=csv))
+    elif args.poison_test:
+        # POISON drill: create orphaned procs mid-run and watch whether booking
+        # survives. The injection IS the bug's aftermath, made deterministic:
+        # a frame goes back to WAITING (version bumped, host cleared) while its
+        # proc row -- and the host resources that proc holds -- stay behind,
+        # exactly as when handlePostFrameCompleteOperations dies between
+        # stopFrame and the proc release.
+        D = args.poison_test
+        half = D // 2
+        npoison = int(os.environ.get("SIM_POISON_COUNT", "3"))
+        # Two modes. "plant" (default) is the deterministic gate: inject the
+        # terminal orphan state directly, whatever its cause, and demand the
+        # planner survives it. "stall" reproduces the WHOLE causal chain
+        # organically, as proposed by Aghiles: SIGSTOP cuebot mid-load so
+        # completion acks time out and fake_rqd re-sends, then SIGCONT -- the
+        # resume floods the unguarded inline post-completion path with
+        # concurrent duplicates, which is exactly how the real incident
+        # manufactured its orphans. Organic, but stochastic: use it to
+        # demonstrate and to validate the fix against the true mechanism, not
+        # as the regression gate.
+        mode = os.environ.get("SIM_POISON_MODE", "plant")
+        log(f"POISON({mode}): normal load for {half}s, then "
+            + (f"stalling cuebot {os.environ.get('SIM_POISON_STALL_S', '12')}s ..."
+               if mode == "stall" else f"orphaning {npoison} procs ..."))
+        subprocess.run([VENV_PY, "live_stats.py", str(half), "5"], cwd=FARM)
+        if mode == "stall":
+            stall = float(os.environ.get("SIM_POISON_STALL_S", "12"))
+            try:
+                cpid = int(open("/tmp/sim-cuebot-0.pid").read().strip())
+                os.kill(cpid, signal.SIGSTOP)
+                log(f"  [poison] SIGSTOP cuebot (pid {cpid}) for {stall:.0f}s; "
+                    f"completions keep arriving, acks time out, fake_rqd re-sends ...")
+                time.sleep(stall)
+                os.kill(cpid, signal.SIGCONT)
+                log(f"  [poison] SIGCONT; duplicate completion flood hits the "
+                    f"inline post-complete path now")
+            except Exception as e:
+                log(f"  [poison] stall failed: {e}")
+            poisoned = []          # organic: we do not know which frames orphan
+        # Create TERMINAL orphans: a proc row for a WAITING frame that was
+        # NEVER dispatched (ts_started IS NULL), so no RQD anywhere holds it and
+        # no future completion report can ever clean it up. (A first version of
+        # this test flipped RUNNING frames instead; their fake_rqd copies later
+        # completed and the normal completion path deleted the orphans -- a
+        # self-healing state the real bug does not produce. The real orphan is
+        # born AFTER its completion report was consumed; this reproduces that.)
+        out = None if mode == "stall" else psql(
+            f"INSERT INTO proc (pk_proc, pk_host, pk_show, pk_layer, pk_job, "
+            f"pk_frame, int_cores_reserved, int_mem_reserved, "
+            f"int_mem_pre_reserved, int_mem_used, int_gpus_reserved, "
+            f"int_gpu_mem_reserved, int_gpu_mem_pre_reserved, int_gpu_mem_used, "
+            f"b_local) "
+            f"SELECT CAST(gen_random_uuid() AS VARCHAR), "
+            f"  (SELECT pk_host FROM host ORDER BY pk_host LIMIT 1), "
+            f"  j.pk_show, f.pk_layer, f.pk_job, f.pk_frame, "
+            f"  100, 3355443, 3355443, 0, 0, 0, 0, 0, false "
+            f"FROM frame f JOIN job j ON j.pk_job = f.pk_job "
+            f"WHERE f.str_state='WAITING' AND f.int_depend_count=0 "
+            f"  AND f.ts_started IS NULL "
+            # Aim at the HEAD of the queue: lowest dispatch order in layers the
+            # planner is actively refilling (they hold procs right now), which
+            # is the plan-read's own pick order. A random waiting frame deep in
+            # the backlog might not be planned for minutes; these collide on the
+            # next tick -- as in the real incident, where the orphaned frames
+            # were already at the front of their layers.
+            f"  AND f.pk_layer IN (SELECT DISTINCT pk_layer FROM proc "
+            f"      WHERE pk_layer IS NOT NULL) "
+            f"ORDER BY f.int_dispatch_order ASC "
+            f"LIMIT {npoison} RETURNING pk_frame;")
+        import re as _re
+        if mode != "stall":
+            poisoned = [ln.strip() for ln in out.stdout.strip().splitlines()
+                        if _re.fullmatch(r"[0-9a-f-]{36}", ln.strip())]
+            log(f"  [poison] planted {len(poisoned)} terminal orphan procs "
+                f"(WAITING never-dispatched frames, no RQD knows them): "
+                f"{', '.join(p[:8] for p in poisoned)}")
+        poison_ts = psql("SELECT now();").stdout.strip()
+        cb_log = CUEBOT_LOG
+        def _tickfails():
+            try:
+                return sum(1 for ln in open(cb_log, errors="ignore")
+                           if "Scheduler tick failed" in ln)
+            except Exception:
+                return 0
+        fails0 = _tickfails()
+        started_after = 0
+        orphans_left = len(poisoned)
+        t1 = time.time()
+        while time.time() - t1 < (D - half):
+            out = psql(f"SELECT count(*) FROM frame WHERE ts_started > '{poison_ts}';")
+            started_after = int(out.stdout.strip() or 0)
+            if poisoned:
+                inlist = ",".join(f"'{p}'" for p in poisoned)
+                out = psql(f"SELECT count(*) FROM proc WHERE pk_frame IN ({inlist});")
+            else:
+                out = psql("SELECT count(*) FROM proc p JOIN frame f "
+                           "ON f.pk_frame = p.pk_frame "
+                           "WHERE f.str_state <> 'RUNNING';")
+            orphans_left = int(out.stdout.strip() or 0)
+            log(f"  [poison] frames started since injection: {started_after}  "
+                f"orphaned procs remaining: {orphans_left}  "
+                f"tick failures since injection: {_tickfails() - fails0}")
+            time.sleep(5)
+        tick_fails = _tickfails() - fails0
+        floor = int(os.environ.get("SIM_POISON_MIN_STARTED", "200"))
+        print("\n==== POISON VERDICT ====", flush=True)
+        print(f"orphaned procs injected={len(poisoned)}  remaining={orphans_left}  "
+              f"frames started after injection={started_after} (floor {floor})  "
+              f"tick failures after injection={tick_fails}", flush=True)
+        if orphans_left == 0 and started_after >= floor and tick_fails <= 2:
+            print(f"PASS: the planner evicted all {len(poisoned)} stale procs and "
+                  f"kept booking ({started_after} frames started, {tick_fails} "
+                  f"failed ticks) -- one corpse cannot stop the farm.", flush=True)
+        elif started_after < floor:
+            print(f"FAIL: booking STOPPED after the injection ({started_after} "
+                  f"frames < {floor}; {tick_fails} failed ticks; {orphans_left} "
+                  f"orphans still in place) -- the planner is wedged by a stale "
+                  f"proc, the whole-farm outage this scenario exists to prevent.",
+                  flush=True)
+        else:
+            print(f"FAIL: booking survived but the stale procs were not cleaned "
+                  f"({orphans_left} remaining, {tick_fails} failed ticks) -- "
+                  f"eviction is not working.", flush=True)
     elif args.failover_test:
         # HA drill: normal load for the first half, then SIGKILL the leader
         # (instance 0 -- it starts first, so it holds the advisory lock) and
