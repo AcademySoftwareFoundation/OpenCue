@@ -17,6 +17,8 @@ package com.imageworks.spcue.dispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -242,6 +244,111 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
+    public boolean[] stopFramesBatch(List<QueuedFrameCompletion> completions) {
+        // 0. Lock order: PROC rows first, then HOSTS, then stat rows. Procs
+        // before hosts because every single-proc writer (the OOM memory bump,
+        // whose proc-update trigger then locks the host row) acquires "proc,
+        // then host"; a hosts-first flush deadlocks against it (seen live:
+        // the bump held its proc row and waited on a host this flush had
+        // pre-locked, while the flush's batched DELETE waited on that proc
+        // row). Hosts before stats is the same global order as the booking
+        // commit (reserveHostResourcesBatch, then the frame-start stat
+        // pre-locks); stats first with hosts refunded later (step 3) would be
+        // the exact opposite interleaving and deadlocks against a concurrent
+        // booking tick. Locked for all queued completions (superset of
+        // winners).
+        List<VirtualProc> allProcs = new ArrayList<VirtualProc>(completions.size());
+        for (QueuedFrameCompletion c : completions) {
+            allProcs.add(c.proc);
+        }
+        procDao.lockProcsForBatch(allProcs);
+        procDao.lockHostsForBatch(allProcs);
+
+        // 1. Stop every queued frame in one guarded batch (stat triggers fire
+        // here, on counter rows the DAO pre-locked in sorted order).
+        boolean[] won = frameDao.batchUpdateFramesStopped(completions);
+
+        // 2. Winners' max-RSS high-water marks, coalesced: layer_mem/job_mem
+        // keep only the max, so one update per distinct layer/job carrying the
+        // batch max is equivalent to the per-frame updates it replaces.
+        Map<String, QueuedFrameCompletion> layerMax = new TreeMap<String, QueuedFrameCompletion>();
+        Map<String, QueuedFrameCompletion> jobMax = new TreeMap<String, QueuedFrameCompletion>();
+        List<QueuedFrameCompletion> winners =
+                new ArrayList<QueuedFrameCompletion>(completions.size());
+        for (int i = 0; i < completions.size(); i++) {
+            if (!won[i]) {
+                continue;
+            }
+            QueuedFrameCompletion c = completions.get(i);
+            winners.add(c);
+            QueuedFrameCompletion l = layerMax.get(c.frame.getLayerId());
+            if (l == null || c.report.getFrame().getMaxRss() > l.report.getFrame().getMaxRss()) {
+                layerMax.put(c.frame.getLayerId(), c);
+            }
+            QueuedFrameCompletion j = jobMax.get(c.frame.getJobId());
+            if (j == null || c.report.getFrame().getMaxRss() > j.report.getFrame().getMaxRss()) {
+                jobMax.put(c.frame.getJobId(), c);
+            }
+        }
+        for (QueuedFrameCompletion c : layerMax.values()) {
+            layerDao.updateLayerMaxRSS(c.frame, c.report.getFrame().getMaxRss(), false);
+        }
+        for (QueuedFrameCompletion c : jobMax.values()) {
+            jobDao.updateMaxRSS(c.frame, c.report.getFrame().getMaxRss());
+        }
+
+        // 3. Release the winners' procs inside this same transaction: batched
+        // DELETE with live reserved values, host idle refunds summed per host,
+        // accounting decrements coalesced per key. Waiting for the per-frame
+        // post-complete operations to unbook (the inline path's behavior)
+        // leaves completed procs holding their cores for as long as the
+        // dispatch queue lags -- a standing "orphan" pool at exactly the scale
+        // batching is for -- and hides freed capacity from the plan that runs
+        // right after this flush. Marking the proc unbooked makes the
+        // post-complete operations treat it as already released (their
+        // unbookProc call degrades to a no-op event publish). Local dispatches
+        // keep the per-proc path: their release credits different tables and
+        // cuebot still owns their proc reuse.
+        List<VirtualProc> releasable = new ArrayList<VirtualProc>(winners.size());
+        List<DispatchFrame> localFrames = new ArrayList<DispatchFrame>();
+        for (QueuedFrameCompletion c : winners) {
+            if (c.proc.isLocalDispatch) {
+                localFrames.add(c.frame);
+            } else {
+                releasable.add(c.proc);
+            }
+        }
+        if (!releasable.isEmpty()) {
+            procDao.batchDeleteVirtualProcs(releasable);
+            for (VirtualProc proc : releasable) {
+                proc.unbooked = true;
+            }
+        }
+        if (!localFrames.isEmpty()) {
+            procDao.batchClearVirtualProcAssignments(localFrames);
+        }
+        return won;
+    }
+
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public int sweepOrphanedProcs(int olderThanSeconds) {
+        List<VirtualProc> orphans = procDao.deleteOrphanedProcs(olderThanSeconds);
+        if (!orphans.isEmpty()) {
+            procDao.refundHostResourcesBatch(orphans);
+            StringBuilder sb = new StringBuilder();
+            for (VirtualProc p : orphans) {
+                sb.append(' ').append(p.frameId);
+            }
+            logger.warn("janitor swept " + orphans.size() + " orphaned proc(s) whose frames are"
+                    + " no longer RUNNING (crash or failed completion left them); frames:" + sb);
+        }
+        return orphans.size();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
     public List<FrameBooking> startFramesAndProcsBatch(List<FrameBooking> bookings) {
         if (bookings == null || bookings.isEmpty()) {
             return java.util.Collections.emptyList();
@@ -317,12 +424,35 @@ public class DispatchSupportService implements DispatchSupport {
             return winners;
         }
 
-        // 4. Insert the winner procs. Host idle was already decremented in step 1,
+        // 4. EVICT STALE PROCS. A proc row still sitting on a frame we just won
+        // is provably dead: we hold the frame's WAITING -> RUNNING transition, so
+        // no legitimate proc can exist for it. Such corpses are left by crashes
+        // or failed completions, and without this step ONE of them wedges the
+        // planner permanently: the insert below hits c_proc_uk, this whole
+        // batched transaction rolls back (innocent bookings included), and the
+        // next tick replans the same frame into the same collision. Delete the
+        // corpse, refund the host resources it was still holding, and go on.
+        List<String> winnerFrameIds = new ArrayList<String>(winnerProcs.size());
+        for (FrameBooking b : winners) {
+            winnerFrameIds.add(b.frame.getFrameId());
+        }
+        List<VirtualProc> stale = procDao.deleteStaleProcsByFrames(winnerFrameIds);
+        if (!stale.isEmpty()) {
+            procDao.refundHostResourcesBatch(stale);
+            StringBuilder sb = new StringBuilder();
+            for (VirtualProc p : stale) {
+                sb.append(' ').append(p.frameId);
+            }
+            logger.warn("evicted " + stale.size() + " stale proc(s) blocking this tick's"
+                    + " bookings (crash or failed completion left them); frames:" + sb);
+        }
+
+        // 5. Insert the winner procs. Host idle was already decremented in step 1,
         // so this only writes the proc rows. The subscription/layer/job/folder/
         // point counters are batched by the Scheduler from the winners returned here.
         procDao.batchInsertVirtualProcs(winnerProcs);
 
-        // 5. Publish FRAME_STARTED events (WAITING -> RUNNING).
+        // 6. Publish FRAME_STARTED events (WAITING -> RUNNING).
         for (FrameBooking b : winners) {
             publishFrameStartedEvent(b.frame, b.proc, FrameState.WAITING);
         }

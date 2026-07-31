@@ -69,6 +69,18 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     @Autowired
     private AccountingNotifier accountingNotifier;
 
+    /**
+     * Does an EXTERNAL scheduler (the standalone Rust one) own the five PG accounting tables via
+     * its periodic recompute? Only then may a release skip the decrements in favor of a NOTIFY. The
+     * per-show b_scheduler_managed flag alone is NOT enough: the in-process Scheduler's 'managed'
+     * mode uses the same flag, but ITS bookings increment these tables (the batched resource-delta
+     * flush), so its releases must decrement them or the counters ratchet upward until every cap
+     * looks full.
+     */
+    private boolean externalSchedulerOwnsAccounting() {
+        return env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
+    }
+
     // spotless:off
     private static final String VERIFY_RUNNING_PROC =
             "SELECT "
@@ -122,7 +134,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             proc.gpusReserved = ((Number) result.get("int_gpus_reserved")).intValue();
             proc.gpuMemoryReserved = ((Number) result.get("int_gpu_mem_reserved")).longValue();
         } catch (EmptyResultDataAccessException e) {
-            logger.info("failed to delete " + proc + " , proc does not exist.");
+            // Debug, not info: with the scheduler's batched completion flush
+            // this is the EXPECTED path for every completed proc (the flush
+            // already deleted it; the post-complete unbook is a no-op).
+            logger.debug("failed to delete " + proc + " , proc does not exist.");
             return false;
         }
         // update all of the resource counts.
@@ -266,6 +281,225 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             }
         }
         return affordable;
+    }
+
+    @Override
+    public void batchClearVirtualProcAssignments(java.util.List<? extends FrameInterface> frames) {
+        if (frames.isEmpty()) {
+            return;
+        }
+        java.util.List<Object[]> params = new java.util.ArrayList<>(frames.size());
+        for (FrameInterface frame : frames) {
+            params.add(new Object[] {frame.getFrameId()});
+        }
+        getJdbcTemplate().batchUpdate(CLEAR_VIRTUAL_PROC_ASSIGN_BY_FRAME, params);
+    }
+
+    @Override
+    public void lockHostsForBatch(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return;
+        }
+        java.util.SortedSet<String> hostIds = new java.util.TreeSet<String>();
+        for (VirtualProc proc : procs) {
+            hostIds.add(proc.getHostId());
+        }
+        String in = String.join(",", Collections.nCopies(hostIds.size(), "?"));
+        getJdbcTemplate().query("SELECT pk_host FROM host WHERE pk_host IN (" + in + ") "
+                + "ORDER BY pk_host FOR UPDATE", rs -> {
+                }, hostIds.toArray());
+    }
+
+    @Override
+    public void lockProcsForBatch(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return;
+        }
+        java.util.SortedSet<String> procIds = new java.util.TreeSet<String>();
+        for (VirtualProc proc : procs) {
+            procIds.add(proc.getProcId());
+        }
+        String in = String.join(",", Collections.nCopies(procIds.size(), "?"));
+        getJdbcTemplate().query("SELECT pk_proc FROM proc WHERE pk_proc IN (" + in + ") "
+                + "ORDER BY pk_proc FOR UPDATE", rs -> {
+                }, procIds.toArray());
+    }
+
+    @Override
+    public List<VirtualProc> batchDeleteVirtualProcs(List<VirtualProc> procs) {
+        if (procs == null || procs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. One DELETE for the whole batch. RETURNING carries the reserved
+        // amounts as of deletion time (same anti-leak semantics as
+        // deleteVirtualProc: a concurrent increaseReservedMemory must be
+        // refunded at its final value, not the value cached in the Java
+        // object). Procs someone else already deleted simply don't come back
+        // and get no refunds.
+        Map<String, VirtualProc> byId = new HashMap<String, VirtualProc>(procs.size() * 2);
+        List<Object> ids = new ArrayList<Object>(procs.size());
+        for (VirtualProc proc : procs) {
+            byId.put(proc.getProcId(), proc);
+            ids.add(proc.getProcId());
+        }
+        String in = String.join(",", Collections.nCopies(ids.size(), "?"));
+        List<VirtualProc> deleted = new ArrayList<VirtualProc>(procs.size());
+        getJdbcTemplate().query("DELETE FROM proc WHERE pk_proc IN (" + in + ") "
+                + "RETURNING pk_proc, int_cores_reserved, int_mem_reserved, "
+                + "int_gpus_reserved, int_gpu_mem_reserved", rs -> {
+                    VirtualProc proc = byId.get(rs.getString("pk_proc"));
+                    if (proc == null) {
+                        return;
+                    }
+                    proc.coresReserved = rs.getInt("int_cores_reserved");
+                    proc.memoryReserved = rs.getLong("int_mem_reserved");
+                    proc.gpusReserved = rs.getInt("int_gpus_reserved");
+                    proc.gpuMemoryReserved = rs.getLong("int_gpu_mem_reserved");
+                    deleted.add(proc);
+                }, ids.toArray());
+        if (deleted.isEmpty()) {
+            return deleted;
+        }
+
+        // 2. Host idle refunds, summed per host (pure re-increment, never
+        // negative). Sorted keys so concurrent releases/reservations walk the
+        // host rows in one global order.
+        java.util.SortedMap<String, long[]> byHost = new java.util.TreeMap<String, long[]>();
+        for (VirtualProc proc : deleted) {
+            long[] h = byHost.computeIfAbsent(proc.getHostId(), k -> new long[4]);
+            h[0] += proc.coresReserved;
+            h[1] += proc.memoryReserved;
+            h[2] += proc.gpusReserved;
+            h[3] += proc.gpuMemoryReserved;
+        }
+        List<Object[]> hostRows = new ArrayList<Object[]>(byHost.size());
+        for (Map.Entry<String, long[]> e : byHost.entrySet()) {
+            long[] h = e.getValue();
+            hostRows.add(new Object[] {h[0], h[1], h[2], h[3], e.getKey()});
+        }
+        getJdbcTemplate().batchUpdate(REFUND_HOST_RESOURCES, hostRows);
+
+        // 3. Accounting-table credits, mirroring procDestroyed's non-local
+        // branch per proc: scheduler-managed shows keep their NOTIFY-based
+        // accounting; everything else accumulates coalesced decrements.
+        java.util.SortedMap<String, long[]> bySub = new java.util.TreeMap<String, long[]>();
+        java.util.SortedMap<String, long[]> byLayer = new java.util.TreeMap<String, long[]>();
+        java.util.SortedMap<String, long[]> byJob = new java.util.TreeMap<String, long[]>();
+        // Same ownership gate as procDestroyed: only an EXTERNAL scheduler's
+        // shows may skip the decrements (see externalSchedulerOwnsAccounting).
+        boolean externalOwns = externalSchedulerOwnsAccounting();
+        Map<String, Boolean> managedByShow = new HashMap<String, Boolean>();
+        for (VirtualProc proc : deleted) {
+            boolean managed = externalOwns && managedByShow.computeIfAbsent(proc.getShowId(),
+                    k -> showDao.isSchedulerManaged(k));
+            if (managed) {
+                accountingNotifier.notifyRelease(proc);
+                continue;
+            }
+            long[] s = bySub.computeIfAbsent(proc.getShowId() + "\t" + proc.getAllocationId(),
+                    k -> new long[2]);
+            long[] l = byLayer.computeIfAbsent(proc.getLayerId(), k -> new long[2]);
+            long[] j = byJob.computeIfAbsent(proc.getJobId(), k -> new long[2]);
+            s[0] += proc.coresReserved;
+            s[1] += proc.gpusReserved;
+            l[0] += proc.coresReserved;
+            l[1] += proc.gpusReserved;
+            j[0] += proc.coresReserved;
+            j[1] += proc.gpusReserved;
+        }
+
+        List<Object[]> subRows = new ArrayList<Object[]>(bySub.size());
+        for (Map.Entry<String, long[]> e : bySub.entrySet()) {
+            String[] k = e.getKey().split("\t", 2);
+            subRows.add(new Object[] {e.getValue()[0], e.getValue()[1], k[0], k[1]});
+        }
+        List<Object[]> layerRows = new ArrayList<Object[]>(byLayer.size());
+        for (Map.Entry<String, long[]> e : byLayer.entrySet()) {
+            layerRows.add(new Object[] {e.getValue()[0], e.getValue()[1], e.getKey()});
+        }
+        List<Object[]> jobRows = new ArrayList<Object[]>(byJob.size());
+        List<Object[]> pointRows = new ArrayList<Object[]>(byJob.size());
+        for (Map.Entry<String, long[]> e : byJob.entrySet()) {
+            jobRows.add(new Object[] {e.getValue()[0], e.getValue()[1], e.getKey()});
+            pointRows.add(new Object[] {e.getValue()[0], e.getValue()[1], e.getKey(), e.getKey()});
+        }
+
+        // Same table order as procDestroyed and the Scheduler's booking-side
+        // delta flush (subscription, layer_resource, job_resource,
+        // folder_resource, point), keys sorted within each.
+        if (!subRows.isEmpty()) {
+            getJdbcTemplate().batchUpdate(
+                    "UPDATE subscription SET int_cores = int_cores - ?, "
+                            + "int_gpus = int_gpus - ? WHERE pk_show = ? AND pk_alloc = ?",
+                    subRows);
+        }
+        if (!layerRows.isEmpty()) {
+            getJdbcTemplate().batchUpdate("UPDATE layer_resource SET int_cores = int_cores - ?, "
+                    + "int_gpus = int_gpus - ? WHERE pk_layer = ?", layerRows);
+        }
+        if (!jobRows.isEmpty()) {
+            getJdbcTemplate().batchUpdate("UPDATE job_resource SET int_cores = int_cores - ?, "
+                    + "int_gpus = int_gpus - ? WHERE pk_job = ?", jobRows);
+            getJdbcTemplate().batchUpdate(
+                    "UPDATE folder_resource SET int_cores = int_cores - ?, "
+                            + "int_gpus = int_gpus - ? "
+                            + "WHERE pk_folder = (SELECT pk_folder FROM job WHERE pk_job = ?)",
+                    jobRows);
+            getJdbcTemplate().batchUpdate(
+                    "UPDATE point SET int_cores = int_cores - ?, int_gpus = int_gpus - ? "
+                            + "WHERE pk_dept = (SELECT pk_dept FROM job WHERE pk_job = ?) "
+                            + "AND pk_show = (SELECT pk_show FROM job WHERE pk_job = ?)",
+                    pointRows);
+        }
+        return deleted;
+    }
+
+
+    @Override
+    public List<VirtualProc> deleteStaleProcsByFrames(List<String> frameIds) {
+        if (frameIds == null || frameIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        // DELETE .. RETURNING in one statement: the corpse and its held resources
+        // come back together, so eviction and refund cannot diverge.
+        String in = String.join(",", java.util.Collections.nCopies(frameIds.size(), "?"));
+        return getJdbcTemplate().query(
+                "DELETE FROM proc WHERE pk_frame IN (" + in + ") "
+                        + "RETURNING pk_proc, pk_host, pk_frame, int_cores_reserved, "
+                        + "int_mem_reserved, int_gpus_reserved, int_gpu_mem_reserved",
+                (rs, rowNum) -> {
+                    VirtualProc proc = new VirtualProc();
+                    proc.id = rs.getString("pk_proc");
+                    proc.hostId = rs.getString("pk_host");
+                    proc.frameId = rs.getString("pk_frame");
+                    proc.coresReserved = rs.getInt("int_cores_reserved");
+                    proc.memoryReserved = rs.getLong("int_mem_reserved");
+                    proc.gpusReserved = rs.getInt("int_gpus_reserved");
+                    proc.gpuMemoryReserved = rs.getLong("int_gpu_mem_reserved");
+                    return proc;
+                }, frameIds.toArray());
+    }
+
+    @Override
+    public List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds) {
+        return getJdbcTemplate().query(
+                "DELETE FROM proc p USING frame f WHERE f.pk_frame = p.pk_frame "
+                        + "AND f.str_state <> 'RUNNING' "
+                        + "AND p.ts_booked < now() - CAST(? AS INTERVAL) "
+                        + "RETURNING p.pk_proc, p.pk_host, p.pk_frame, p.int_cores_reserved, "
+                        + "p.int_mem_reserved, p.int_gpus_reserved, p.int_gpu_mem_reserved",
+                (rs, rowNum) -> {
+                    VirtualProc proc = new VirtualProc();
+                    proc.id = rs.getString("pk_proc");
+                    proc.hostId = rs.getString("pk_host");
+                    proc.frameId = rs.getString("pk_frame");
+                    proc.coresReserved = rs.getInt("int_cores_reserved");
+                    proc.memoryReserved = rs.getLong("int_mem_reserved");
+                    proc.gpusReserved = rs.getInt("int_gpus_reserved");
+                    proc.gpuMemoryReserved = rs.getLong("int_gpu_mem_reserved");
+                    return proc;
+                }, olderThanSeconds + " seconds");
     }
 
     @Override
@@ -787,6 +1021,19 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             borrowMap.put((String) map.get("pk_proc"), 0l);
         }
 
+        // Pre-lock every proc this balance will shrink, in sorted order, BEFORE
+        // the first UPDATE. Each shrink's trigger locks the HOST row, so an
+        // unordered walk interleaves proc and host locks (proc A, host, proc B,
+        // ...) and deadlocks against the scheduler's completion flush, which
+        // locks all its procs then all its hosts (seen live, reproduced by
+        // scheduler-sim/deadlock_repro.py). With this pre-lock every multi-row
+        // writer acquires procs first, then hosts, one total order, no cycle.
+        java.util.SortedSet<String> lockIds = new java.util.TreeSet<String>(borrowMap.keySet());
+        String in = String.join(",", Collections.nCopies(lockIds.size(), "?"));
+        getJdbcTemplate().query("SELECT pk_proc FROM proc WHERE pk_proc IN (" + in + ") "
+                + "ORDER BY pk_proc FOR UPDATE", rs -> {
+                }, lockIds.toArray());
+
         long memBorrowedTotal = 0l;
         int pass = 0;
         int maxPasses = 3;
@@ -902,7 +1149,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             return;
         }
 
-        if (showDao.isSchedulerManaged(proc.getShowId())) {
+        if (externalSchedulerOwnsAccounting() && showDao.isSchedulerManaged(proc.getShowId())) {
             // Skip the five PG accounting tables; the Rust scheduler owns recompute. Emit a release
             // delta via NOTIFY inside this (the unbook) transaction so it is delivered iff the
             // DELETE proc commits.

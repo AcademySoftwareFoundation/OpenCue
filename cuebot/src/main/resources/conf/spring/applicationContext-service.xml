@@ -428,6 +428,7 @@
     <property name="hostManager" ref="hostManager" />
     <property name="jobManager"  ref="jobManager" />
     <property name="rqdClient"   ref="rqdClient" />
+    <property name="frameCompleteHandler" ref="frameCompleteHandler" />
   </bean>
 
   <!-- ##################################################################################### -->

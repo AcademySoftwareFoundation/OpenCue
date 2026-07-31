@@ -175,6 +175,13 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     private Dispatcher dispatcher;
+    private FrameCompleteHandler frameCompleteHandler;
+
+    /**
+     * Max queued completions applied per drain transaction. Bounds the size (and lock footprint) of
+     * the single stop/delete/refund transaction; the drain loops until the queue snapshot is empty.
+     */
+    private static final int DRAIN_CHUNK = 2000;
     private DispatchSupport dispatchSupport;
     private HostManager hostManager;
     private JobManager jobManager;
@@ -332,6 +339,7 @@ public class Scheduler extends JdbcDaoSupport {
     private int summaryGranted = 0; // new reservations granted
     private int summaryBackfilled = 0; // frames placed onto a reserved host
     private long summaryBackfilledCores = 0; // core-points placed via EASY backfill
+    private long summaryDrained = 0; // completion reports drained at tick start
     private long summaryLicenseBooked = 0; // frames booked against a license pool
     private long summaryLicenseHeld = 0; // candidates held back by a license pool
     private long summaryLicenseTrimmed = 0; // planned frames a pool could not cover
@@ -678,6 +686,64 @@ public class Scheduler extends JdbcDaoSupport {
         }
         startSchedulerPoolsIfNeeded();
         long t0 = System.currentTimeMillis();
+        // COMPLETION DRAIN, before anything else and on EVERY
+        // Cuebot, leader or standby: apply the completions this Cuebot resolved
+        // and queued since the last tick, single-threaded and in batches. The
+        // planner then plans against a snapshot where every finished frame and
+        // freed core is already visible, and completions never race each other,
+        // a job shutdown, or the batch commit -- the concurrency that used to
+        // manufacture orphaned procs. Each chunk is one transaction (frames
+        // stopped + procs deleted + resources refunded); winners hand their
+        // follow-up work (depends, layer/job completion, usage counters) to the
+        // handler's dedicated post-complete thread so the tick stays a few
+        // batched statements regardless of the completion rate; losers (frame
+        // was killed/eaten/retried meanwhile) get their proc redirected or
+        // unbooked, and a chunk that fails outright falls back to per-report
+        // processing so one bad report cannot wedge the rest.
+        int drained = 0;
+        if (frameCompleteHandler != null) {
+            List<QueuedFrameCompletion> resolved = SchedulerCompletionQueue.drain();
+            drained = resolved.size();
+            long tDrain0 = System.currentTimeMillis();
+            for (int from = 0; from < resolved.size(); from += DRAIN_CHUNK) {
+                List<QueuedFrameCompletion> chunk =
+                        resolved.subList(from, Math.min(from + DRAIN_CHUNK, resolved.size()));
+                long tChunk0 = System.currentTimeMillis();
+                try {
+                    boolean[] won = dispatchSupport.stopFramesBatch(chunk);
+                    long tChunk = System.currentTimeMillis() - tChunk0;
+                    if (tChunk > 500) {
+                        logger.info("Scheduler drain: stopFramesBatch(" + chunk.size() + ") took "
+                                + tChunk + "ms");
+                    }
+                    for (int i = 0; i < won.length; i++) {
+                        QueuedFrameCompletion c = chunk.get(i);
+                        if (won[i]) {
+                            frameCompleteHandler.queuePostOps(c);
+                        } else {
+                            frameCompleteHandler.handleStaleCompletion(c.proc,
+                                    c.proc.getName() + "/" + c.frame.getName());
+                        }
+                    }
+                } catch (RuntimeException e) {
+                    logger.warn("Scheduler drain: batch of " + chunk.size()
+                            + " completions failed, retrying per-report: " + e);
+                    for (QueuedFrameCompletion c : chunk) {
+                        try {
+                            frameCompleteHandler.processReportNow(c.report);
+                        } catch (RuntimeException e2) {
+                            logger.warn("Scheduler drain: completion for frame " + c.frame.getName()
+                                    + " failed: " + e2);
+                        }
+                    }
+                }
+            }
+            long tDrain = System.currentTimeMillis() - tDrain0;
+            if (tDrain > 1000) {
+                logger.info("Scheduler drain: " + drained + " completions in " + tDrain + "ms");
+            }
+        }
+        summaryDrained += drained;
         try {
             // STICKY leadership. We hold the advisory lock across ticks on a
             // dedicated connection (leaderConn) rather than re-taking it every
@@ -799,11 +865,11 @@ public class Scheduler extends JdbcDaoSupport {
         logger.info(String.format(
                 "Scheduler stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
-                        + " | flow committed=%d planned=%d raceLost=%d launchDropped=%d"
+                        + " | flow committed=%d planned=%d raceLost=%d launchDropped=%d drained=%d"
                         + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
-                summaryPlanned, raceLost, droppedInWindow, reservations.size(),
+                summaryPlanned, raceLost, droppedInWindow, summaryDrained, reservations.size(),
                 reservedCp / CORE_POINTS_PER_CORE, summaryGranted, lastReservationReqs,
                 summaryBackfilled, summaryBackfilledCores / CORE_POINTS_PER_CORE, lic));
 
@@ -817,6 +883,7 @@ public class Scheduler extends JdbcDaoSupport {
         summaryGranted = 0;
         summaryBackfilled = 0;
         summaryBackfilledCores = 0;
+        summaryDrained = 0;
         summaryLicenseBooked = 0;
         summaryLicenseHeld = 0;
         summaryLicenseTrimmed = 0;
@@ -870,6 +937,15 @@ public class Scheduler extends JdbcDaoSupport {
         tickLicenseBooked = 0;
         tickLicenseHeld = 0;
         tickLicenseTrimmed = 0;
+        // JANITOR: sweep procs whose frame is no longer RUNNING (10s old, so an
+        // in-flight booking is never touched). The commit-time eviction heals an
+        // orphan only when its frame is planned again; an orphan on a finished
+        // or killed job never is, and would hold its host's cores forever.
+        try {
+            dispatchSupport.sweepOrphanedProcs(10);
+        } catch (RuntimeException e) {
+            logger.warn("Scheduler: orphan sweep failed: " + e);
+        }
         // Defensive: normally drained at the end of every tick, but a tick that
         // throws mid-placement leaves stale (host, layer) pairings behind, and
         // the next tick would plan them against a fresh snapshot. Start clean.
@@ -2707,5 +2783,9 @@ public class Scheduler extends JdbcDaoSupport {
 
     public void setRqdClient(RqdClient r) {
         this.rqdClient = r;
+    }
+
+    public void setFrameCompleteHandler(FrameCompleteHandler h) {
+        this.frameCompleteHandler = h;
     }
 }

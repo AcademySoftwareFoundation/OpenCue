@@ -21,6 +21,8 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
@@ -190,13 +192,142 @@ public class FrameCompleteHandler {
      */
     public void handleFrameCompleteReport(final FrameCompleteReport report) {
 
-        /*
-         * A boolean we're going to set to true if we can detect a corrupted data block in Oracle.
-         */
         if (isShutdown()) {
             throw new RqdRetryReportException("Error processing the frame complete report, "
                     + "cuebot not accepting packets.");
         }
+
+        /*
+         * The completion drain: for any show the in-process Scheduler owns, this thread only ACKS,
+         * RESOLVES (pure reads) and QUEUES; the scheduler tick drains the queue single-threaded
+         * before planning. Dozens of report threads used to process completions concurrently,
+         * racing each other and the planner; two duplicate reports interleaving with a job shutdown
+         * could throw mid-way and leave an orphaned proc behind, and one orphan wedges the
+         * planner's batch commit. One WRITER in tick order removes that whole class; the resolve
+         * stays here because spread across the report threads it is free, while done serially in
+         * the tick it multiplies the tick time by the completion rate. Not optional: an off switch
+         * would silently bring the orphan factory back. Per-show like the rest of the rollout: in
+         * managed mode the resolved proc carries the show id and the ownership check is the same
+         * read processReportNow always did; legacy-owned shows keep the inline path.
+         */
+        if (SchedulerMode.enabled(env)) {
+            QueuedFrameCompletion resolved = resolveForDrain(report);
+            if (resolved == null) {
+                return;
+            }
+            if (SchedulerMode.schedules(env, showDao, resolved.proc.getShowId())) {
+                SchedulerCompletionQueue.offer(resolved);
+                return;
+            }
+        }
+
+        processReportNow(report);
+    }
+
+    /**
+     * Resolve a queued report into everything the batched stop needs: proc, job, layer, frame,
+     * detail, the decided next state and the (possibly rewritten) exit status. Returns null for a
+     * duplicate or unknown report (proc already gone), the common benign case.
+     */
+    public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report) {
+        try {
+            final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
+            final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
+            final FrameDetail frameDetail =
+                    jobManager.getFrameDetail(report.getFrame().getFrameId());
+            final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+            final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+            int exitStatus = report.getExitStatus();
+            if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                exitStatus = frameDetail.exitStatus;
+            }
+            if (isLicenseDenied(exitStatus)) {
+                logger.info("frame " + frame.getName() + " could not get a license (exit "
+                        + exitStatus + "); requeueing without spending a retry");
+                exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
+            }
+            return new QueuedFrameCompletion(report, proc, job, layer, frameDetail, frame,
+                    newFrameState, exitStatus);
+        } catch (EmptyResultDataAccessException e) {
+            // Duplicate or stale report: the proc (or frame) is already gone.
+            // The single-threaded drain makes this the ONLY way a duplicate
+            // shows up -- there is no concurrent twin to race.
+            logger.debug("drain: stale/duplicate completion report for frame "
+                    + report.getFrame().getFrameName() + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * The post-complete worker for the drain: one dedicated, NON-droppable thread. The drain's
+     * batched stop already did every write the planner depends on (frame stopped, proc deleted,
+     * resources refunded), so the follow-up work per frame (depend satisfaction, layer/job
+     * completion checks, usage counters) can lag a little without hurting anyone; running it inside
+     * the tick would multiply the tick time by the completion rate, and putting it on dispatchQueue
+     * would let load-shedding silently drop depend satisfaction (a job then hangs forever). An
+     * unbounded single-thread queue drops nothing and stays ordered.
+     */
+    private final ExecutorService postCompleteExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "CompletionPostOps");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /**
+     * Queue a drained (already stopped) completion's follow-up work on the post-complete worker.
+     * Called by the Scheduler's drain for every frame its batched stop won.
+     */
+    public void queuePostOps(final QueuedFrameCompletion c) {
+        postCompleteExecutor.execute(() -> {
+            try {
+                handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame, c.newFrameState,
+                        c.frameDetail);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete operations for frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        });
+    }
+
+    /**
+     * A completion whose frame was already transitioned by someone else (kill, eat, retry): the
+     * frame is not ours to touch, but the proc still has to go somewhere. Redirect if one is
+     * pending, else unbook.
+     */
+    public void handleStaleCompletion(final VirtualProc proc, final String key) {
+        if (redirectManager.hasRedirect(proc)) {
+            dispatchQueue.execute(new KeyRunnable(key) {
+                @Override
+                public void run() {
+                    try {
+                        redirectManager.redirect(proc);
+                    } catch (Exception e) {
+                        logger.warn("Exception during redirect in handleStaleCompletion"
+                                + CueExceptionUtil.getStackTrace(e));
+                    }
+                }
+            });
+        } else {
+            dispatchQueue.execute(new KeyRunnable(key) {
+                @Override
+                public void run() {
+                    try {
+                        dispatchSupport.unbookProc(proc);
+                    } catch (Exception e) {
+                        logger.warn("Exception during unbookProc in handleStaleCompletion"
+                                + CueExceptionUtil.getStackTrace(e));
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Process one completion report to the end. Called inline by the report thread when the drain
+     * is off (or for legacy shows), and by the Scheduler's per-tick drain otherwise.
+     */
+    public void processReportNow(final FrameCompleteReport report) {
 
         try {
             final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
@@ -250,8 +381,22 @@ public class FrameCompleteHandler {
                 boolean schedulerOwnsShow = SchedulerMode.schedules(env, showDao, proc.getShowId());
                 if (dispatcher.isTestMode() || schedulerOwnsShow) {
                     // Database modifications on a threadpool cannot be captured by the test thread
-                    handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
-                            frameDetail);
+                    try {
+                        handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
+                                frameDetail);
+                    } catch (Exception e) {
+                        // The frame is already stopped; whatever else failed, the
+                        // proc must not survive it. An orphaned proc (proc row
+                        // alive, frame back to WAITING) wedges the planner's
+                        // batch commit on c_proc_uk, permanently.
+                        logger.warn("post-complete processing failed for frame " + frame.getName()
+                                + "; releasing the proc anyway: " + e);
+                        try {
+                            dispatchSupport.unbookProc(proc);
+                        } catch (Exception e2) {
+                            logger.warn("stale-proc release also failed for " + proc + ": " + e2);
+                        }
+                    }
                 } else {
                     dispatchQueue.execute(new KeyRunnable(key) {
                         @Override

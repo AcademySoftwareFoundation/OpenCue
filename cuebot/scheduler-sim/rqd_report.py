@@ -54,6 +54,8 @@ PSQL = spec.psql_cmd(tab=True)
 # swap cross their thresholds, so swap size sets how far a host may run over
 # physical RAM before frames are killed. Real render nodes run modest swap.
 SWAP_KB = int(float(os.environ.get("SIM_SWAP_GB", "8")) * spec.GB_KB)
+# Deadlock-pressure: over-report every frame's RSS by this factor (0 = honest).
+OVERREPORT = float(os.environ.get("SIM_RSS_OVERREPORT", "0"))
 
 HOSTS = list(spec.all_hosts())                    # (name, cores, mem_kb)
 HOST_INFO = {n: (c, m) for n, c, m in HOSTS}
@@ -133,6 +135,13 @@ def _send_one(stub, name, cores, mem_kb, frames, now):
         dur = sim_model.duration_seconds(core_pts)
         elapsed = (now - ts_booked) if ts_booked else dur
         kb = sim_mem.rss_at(fcores, frame_id, layer_id, elapsed, dur)
+        # DEADLOCK-pressure knob: over-report RSS by this factor so frames
+        # exceed their reservations on packed hosts. Every host report then
+        # fails increaseReservedMemory and runs the multi-proc balancer
+        # (balanceUnderUtilizedProcs), the transaction that can deadlock
+        # against the scheduler's completion drain. 0 (default) = honest RSS.
+        if OVERREPORT > 0:
+            kb = int(kb * (1.0 + OVERREPORT))
         rss.append(kb)
         sum_rss += kb
 

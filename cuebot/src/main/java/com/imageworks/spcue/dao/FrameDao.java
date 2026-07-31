@@ -201,6 +201,21 @@ public interface FrameDao {
     boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss);
 
     /**
+     * Batch variant of {@link #updateFrameStopped(FrameInterface, FrameState, int, long)} for the
+     * scheduler's queued frame completions: stops many RUNNING frames in one round-trip with the
+     * same per-row state+version guard, firing the stat-count trigger for every row inside the
+     * caller's single transaction (stat counter rows are pre-locked in sorted layer-then-job order
+     * first, so the batch cannot deadlock a concurrent single-frame transition). A frame that was
+     * killed, eaten or retried after its report arrived updates zero rows and is reported as a
+     * loser.
+     *
+     * @param completions the queued completions to apply
+     * @return a mask, aligned to {@code completions}, true where the frame was stopped by this call
+     */
+    boolean[] batchUpdateFramesStopped(
+            java.util.List<com.imageworks.spcue.dispatcher.QueuedFrameCompletion> completions);
+
+    /**
      * Sets a frame to an unreserved waiting state.
      *
      * @param frame

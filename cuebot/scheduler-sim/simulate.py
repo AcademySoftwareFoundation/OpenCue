@@ -1412,6 +1412,38 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{am.group(1) if am else '?'} katana seats; "
                     f"{dm.group(1) if dm else '?'} done, "
                     f"{dm.group(2) if dm else '?'} dead")
+    if name == "DEADLOCK":
+        # Two-sided: the balancer must have RUN (else the pressure knob broke
+        # and a pass is meaningless) and postgres must report ZERO deadlocks
+        # for this scenario's fresh database.
+        try:
+            cb = open(cblog, errors="ignore").read()
+        except Exception:
+            cb = ""
+        balance = cb.count("attempted to borrow")
+        losers = cb.count("DeadlockLoser")
+        out = psql("SELECT deadlocks FROM pg_stat_database WHERE datname='cuebot';")
+        try:
+            dl = int(out.stdout.strip())
+        except (ValueError, AttributeError):
+            dl = -1
+        ok = balance >= 100 and dl == 0
+        return ok, (f"balancer ran {balance}x under RSS over-report, "
+                    f"deadlocks={dl}, cuebot deadlock losers={losers}")
+    if name == "POISON":
+        # Gate on the inline verdict: orphans evicted, booking uninterrupted.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        im = re.search(r"orphaned procs injected=(\d+)\s+remaining=(\d+)", txt)
+        sm = re.search(r"frames started after injection=(\d+)", txt)
+        fm = re.search(r"tick failures after injection=(\d+)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"{im.group(1) if im else '?'} orphans planted, "
+                    f"{im.group(2) if im else '?'} left, "
+                    f"{sm.group(1) if sm else '?'} frames booked after, "
+                    f"{fm.group(1) if fm else '?'} failed ticks")
     if name == "FOLDER":
         # The scheduler must never run more than the folder's core cap. Gate on
         # folder_watch.py's verdict, read from the scenario stdout log.
@@ -1564,6 +1596,22 @@ def run_verify():
         # opened against a pool of 8), so it guards against its regression.
         ("LICENSE_NO_HOSTS", ["--hosts", "3,4,10", "--license-test", str(max(D, 150))],
          {"SIM_LIC_NO_HOSTS": "1"}),
+        # POISON: the orphaned-proc drill. Plant terminal stale procs (the state
+        # a crash or failed completion leaves behind) on frames at the head of
+        # the dispatch order; the planner must evict them, keep booking, and
+        # never fail a tick. Before the completion drain + eviction + janitor
+        # this wedged the planner permanently (13 consecutive failed ticks).
+        ("POISON", ["--hosts", "3,4,10", "--feed", str(D + 40),
+                    "--poison-test", str(D)]),
+        # DEADLOCK: the memory balancer vs the completion drain. fake_rqd
+        # over-reports every frame's RSS, so host reports constantly fail
+        # increaseReservedMemory and run the multi-proc balancer
+        # (balanceUnderUtilizedProcs) while the heavy feed keeps the drain's
+        # batched flush holding proc+host locks. Before the balancer's sorted
+        # proc pre-lock this deadlocked 1-2 times per 5 minutes (postgres
+        # 40P01, cuebot DeadlockLoser, drain falling back per-report); the fix
+        # must hold it at ZERO while the balancer provably keeps running.
+        ("DEADLOCK", ["--feed", str(D + 30)], {"SIM_RSS_OVERREPORT": "1.0"}),
         # FOLDER: a folder/group core cap (folder_resource.int_max_cores). Cap the
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
@@ -2260,8 +2308,14 @@ def main():
             out = psql(f"SELECT count(*) FROM frame WHERE ts_started > '{poison_ts}';")
             started_after = int(out.stdout.strip() or 0)
             if poisoned:
+                # An orphan is a proc whose frame is NOT RUNNING. After eviction
+                # the poisoned frame is legitimately REBOOKED (fresh proc, frame
+                # RUNNING) -- that is the healthy outcome, not a leftover.
                 inlist = ",".join(f"'{p}'" for p in poisoned)
-                out = psql(f"SELECT count(*) FROM proc WHERE pk_frame IN ({inlist});")
+                out = psql(f"SELECT count(*) FROM proc p JOIN frame f "
+                           f"ON f.pk_frame = p.pk_frame "
+                           f"WHERE p.pk_frame IN ({inlist}) "
+                           f"AND f.str_state <> 'RUNNING';")
             else:
                 out = psql("SELECT count(*) FROM proc p JOIN frame f "
                            "ON f.pk_frame = p.pk_frame "

@@ -251,6 +251,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             layerIds.add(b.frame.getLayerId());
             jobIds.add(b.frame.getJobId());
         }
+        lockStatRows(layerIds, jobIds);
+    }
+
+    private void lockStatRows(java.util.SortedSet<String> layerIds,
+            java.util.SortedSet<String> jobIds) {
         if (!layerIds.isEmpty()) {
             String in = String.join(",", java.util.Collections.nCopies(layerIds.size(), "?"));
             getJdbcTemplate().query("SELECT pk_layer FROM layer_stat WHERE pk_layer IN (" + in
@@ -263,6 +268,47 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                     + "ORDER BY pk_job FOR UPDATE", rs -> {
                     }, jobIds.toArray());
         }
+    }
+
+    @Override
+    public boolean[] batchUpdateFramesStopped(
+            java.util.List<com.imageworks.spcue.dispatcher.QueuedFrameCompletion> completions) {
+
+        boolean[] won = new boolean[completions.size()];
+        if (completions.isEmpty()) {
+            return won;
+        }
+
+        // Same deadlock discipline as batchUpdateFramesStarted: each stop fires
+        // trigger__update_frame_status_counts (layer_stat then job_stat), so
+        // pre-acquire every counter row this batch can touch in the global
+        // "sorted layers, then sorted jobs" order before the first frame UPDATE.
+        // Locked for all queued completions (a superset of the winners): the
+        // stale ones update zero frame rows and never reach their stat rows.
+        java.util.SortedSet<String> layerIds = new java.util.TreeSet<>();
+        java.util.SortedSet<String> jobIds = new java.util.TreeSet<>();
+        for (com.imageworks.spcue.dispatcher.QueuedFrameCompletion c : completions) {
+            layerIds.add(c.frame.getLayerId());
+            jobIds.add(c.frame.getJobId());
+        }
+        lockStatRows(layerIds, jobIds);
+
+        // Version+state-guarded stop for every queued completion in one batch.
+        // The version captured at drain time makes any frame that was killed,
+        // eaten or retried in the meantime a clean 0-row loser.
+        java.util.List<Object[]> params = new java.util.ArrayList<>(completions.size());
+        for (com.imageworks.spcue.dispatcher.QueuedFrameCompletion c : completions) {
+            params.add(new Object[] {c.newFrameState.toString(), c.exitStatus,
+                    c.report.getFrame().getMaxRss(), c.frame.getFrameId(),
+                    FrameState.RUNNING.toString(), c.frame.getVersion()});
+        }
+        int[] counts = getJdbcTemplate().batchUpdate(UPDATE_FRAME_STOPPED, params);
+        for (int i = 0; i < counts.length; i++) {
+            // SUCCESS_NO_INFO (-2) counts as a win; the WHERE clause matches at
+            // most one row.
+            won[i] = counts[i] != 0;
+        }
+        return won;
     }
 
     @Override

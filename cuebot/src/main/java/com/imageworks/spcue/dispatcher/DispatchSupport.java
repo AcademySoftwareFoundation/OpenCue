@@ -191,6 +191,23 @@ public interface DispatchSupport {
      * @param bookings the planned (frame, proc) pairs from the planning phase
      * @return the subset of bookings that were actually committed (winners)
      */
+    /**
+     * The janitor sweep: delete every proc whose frame is no longer RUNNING (older than the given
+     * age) and refund its host resources. Catches orphans on frames that never get planned again
+     * (job finished or killed), which the commit-time eviction cannot reach. Returns how many were
+     * swept.
+     */
+    int sweepOrphanedProcs(int olderThanSeconds);
+
+    /**
+     * Commit a chunk of queued frame completions as ONE transaction: host rows pre-locked (sorted,
+     * the same global order as the booking commit), every frame stopped with the state+version
+     * guard in one batch (stat triggers fire on pre-locked counter rows), winners' max-RSS marks
+     * coalesced per layer/job, and winners' procs batch-deleted with all release-side resource
+     * credits applied. Returns the winner mask aligned to the input.
+     */
+    boolean[] stopFramesBatch(java.util.List<QueuedFrameCompletion> completions);
+
     public java.util.List<FrameBooking> startFramesAndProcsBatch(
             java.util.List<FrameBooking> bookings);
 
