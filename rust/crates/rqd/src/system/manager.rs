@@ -11,6 +11,7 @@
 // the License.
 
 use std::collections::HashMap;
+use std::time::SystemTime;
 
 use miette::{Diagnostic, Result};
 use opencue_proto::{host::HardwareState, report::ChildrenProcStats};
@@ -120,17 +121,17 @@ pub struct MachineGpuStats {
 /// Tracks memory and runtime statistics for a rendering process and its children.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProcessStats {
-    /// Maximum resident set size (KB) - maximum amount of physical memory used.
+    /// Maximum resident set size (bytes) - maximum amount of physical memory used.
     pub max_rss: u64,
-    /// Current resident set size (KB) - amount of physical memory currently in use.
+    /// Current resident set size (bytes) - amount of physical memory currently in use.
     pub rss: u64,
-    /// Maximum proportional set size (KB) - maximum amount of physical memory used.
+    /// Maximum proportional set size (bytes) - maximum amount of physical memory used.
     pub max_pss: u64,
-    /// Current proportional set size (KB) - amount of physical memory currently in use.
+    /// Current proportional set size (bytes) - amount of physical memory currently in use.
     pub pss: u64,
-    /// Maximum virtual memory size (KB) - maximum amount of virtual memory used.
+    /// Maximum virtual memory size (bytes) - maximum amount of virtual memory used.
     pub max_vsize: u64,
-    /// Current virtual memory size (KB) - amount of virtual memory currently in use.
+    /// Current virtual memory size (bytes) - amount of virtual memory currently in use.
     pub vsize: u64,
     /// Last time the log was updated
     pub llu_time: u64,
@@ -166,6 +167,40 @@ impl Default for ProcessStats {
             run_time: 0,
         }
     }
+}
+
+/// Compact, host-wide memory picture captured once per monitor cycle and shared (via `Arc`)
+/// into every running frame. A failing frame's log footer renders this to expose whether it
+/// may have been starved by co-tenant frames overusing memory.
+///
+/// All memory fields are in bytes.
+#[derive(Clone)]
+pub struct HostMemSnapshot {
+    /// When this snapshot was captured.
+    pub captured_at: SystemTime,
+    /// Total physical memory on the host (bytes).
+    pub total_memory: u64,
+    /// Available physical memory on the host at capture time (bytes).
+    pub available_memory: u64,
+    /// Per-frame memory footprint, pre-sorted by `current_rss` descending.
+    pub peers: Vec<PeerMem>,
+}
+
+/// Memory footprint of a single running frame, aggregated over its whole process session.
+///
+/// All memory fields are in bytes.
+#[derive(Clone)]
+pub struct PeerMem {
+    /// Frame id, retained only to identify "self" when rendering. Never printed.
+    pub frame_id: Uuid,
+    /// Human-facing label: `job_name.frame_name` (no UUID).
+    pub label: String,
+    /// Current session RSS (bytes).
+    pub current_rss: u64,
+    /// Peak session RSS (bytes).
+    pub max_rss: u64,
+    /// Reserved memory (bytes) from `soft_memory_limit`; `None` when unset (<= 0).
+    pub reserved: Option<u64>,
 }
 
 impl ProcessStats {
