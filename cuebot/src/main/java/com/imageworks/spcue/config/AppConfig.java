@@ -15,7 +15,6 @@
 
 package com.imageworks.spcue.config;
 
-import com.imageworks.spcue.dispatcher.LicenseSource;
 import com.imageworks.spcue.servlet.JobLaunchServlet;
 import com.imageworks.spcue.servlet.HealthCheckServlet;
 
@@ -29,11 +28,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 @ImportResource({"classpath:conf/spring/applicationContext-dbEngine.xml",
@@ -45,6 +43,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
         "classpath:conf/spring/applicationContext-monitoring.xml",
         "classpath:conf/spring/applicationContext-accounting.xml"})
 @EnableConfigurationProperties
+@Import(LicenseConfig.class)
 @PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
 
@@ -59,16 +58,6 @@ public class AppConfig {
     @ConfigurationProperties(prefix = "datasource.cue-data-source")
     public DataSource cueDataSource() {
         return DataSourceBuilder.create().build();
-    }
-
-    /**
-     * Live view of floating application licenses (CUE_LICENSES). The poller is a no-op unless
-     * scheduler.license.provider is configured; a layer declaring licenses in its environment is
-     * what turns gating on.
-     */
-    @Bean(initMethod = "start", destroyMethod = "stop")
-    public LicenseSource licenseSource(Environment env) {
-        return new LicenseSource(env, new JdbcTemplate(cueDataSource()));
     }
 
     @Bean

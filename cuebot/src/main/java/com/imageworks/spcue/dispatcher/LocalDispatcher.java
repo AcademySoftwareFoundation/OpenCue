@@ -49,6 +49,13 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     private JobManager jobManager;
     private HostManager hostManager;
 
+    /**
+     * Gates dispatch on live application-license budgets (CUE_LICENSES). Local dispatch is gated
+     * like farm dispatch: an artist's local booking draws from the same license pools as the render
+     * nodes. Optional: when unset, dispatch behaves exactly as before.
+     */
+    private LicenseBookingGate licenseBookingGate;
+
     private static final int MAX_QUERY_FRAMES = 10;
     private static final int MAX_DISPATCHED_FRAMES = 10;
 
@@ -99,7 +106,17 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         logger.info("Frames found: " + frames.size() + " for host " + host.getName() + " "
                 + host.idleCores + "/" + host.idleMemory + " on job " + job.getName());
 
+        LicenseBookingGate.Session licenseSession =
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(host.getName());
         for (DispatchFrame frame : frames) {
+
+            /*
+             * Hold frames whose layer needs an application license with no free seat; other layers
+             * of the job may still book, so skip, not break.
+             */
+            if (licenseSession != null && !licenseSession.canBook(frame.getLayerId())) {
+                continue;
+            }
 
             /*
              * Check if we have enough memory/cores for this frame, if not move on.
@@ -128,6 +145,9 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              */
             if (dispatchHost(frame, proc)) {
 
+                if (licenseSession != null) {
+                    licenseSession.booked(frame.getLayerId());
+                }
                 procs.add(proc);
 
                 long memReservedMin =
@@ -184,7 +204,16 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         logger.info("Frames found: " + frames.size() + " for host " + host.getName() + " "
                 + host.idleCores + "/" + host.idleMemory + " on layer " + layer);
 
+        LicenseBookingGate.Session licenseSession =
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(host.getName());
         for (DispatchFrame frame : frames) {
+
+            /*
+             * Hold frames whose layer needs an application license with no free seat.
+             */
+            if (licenseSession != null && !licenseSession.canBook(frame.getLayerId())) {
+                continue;
+            }
 
             /*
              * Check if we have enough memory/cores for this frame, if not move on.
@@ -213,6 +242,9 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              */
             if (dispatchHost(frame, proc)) {
 
+                if (licenseSession != null) {
+                    licenseSession.booked(frame.getLayerId());
+                }
                 procs.add(proc);
 
                 long memReservedMin =
@@ -270,6 +302,14 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         DispatchFrame dframe = jobManager.getDispatchFrame(frame.getId());
         if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(), dframe.getMinMemory(),
                 lha.getMaxGpuUnits(), dframe.minGpuMemory)) {
+            return procs;
+        }
+
+        /*
+         * Hold the frame if its layer needs an application license with no free seat.
+         */
+        if (licenseBookingGate != null
+                && !licenseBookingGate.newSession(host.getName()).canBook(dframe.getLayerId())) {
             return procs;
         }
 
@@ -353,7 +393,12 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         logger.info("Frames found: " + frames.size() + " for host " + proc + " "
                 + proc.coresReserved + "/" + proc.memoryReserved + " on job " + job.getName());
 
+        LicenseBookingGate.Session licenseSession =
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(proc.hostName);
         for (DispatchFrame frame : frames) {
+            if (licenseSession != null && !licenseSession.canBook(frame.getLayerId())) {
+                continue;
+            }
             if (dispatchProc(frame, proc)) {
                 return;
             }
@@ -408,5 +453,13 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
+    }
+
+    public LicenseBookingGate getLicenseBookingGate() {
+        return licenseBookingGate;
+    }
+
+    public void setLicenseBookingGate(LicenseBookingGate licenseBookingGate) {
+        this.licenseBookingGate = licenseBookingGate;
     }
 }
