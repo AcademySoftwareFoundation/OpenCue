@@ -16,8 +16,11 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
@@ -129,11 +132,55 @@ public class FrameCompleteHandler {
         this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
     }
 
+    /**
+     * Exit statuses that mean "the application could not get a license", from
+     * {@code scheduler.license.denied_exit_statuses}. Vendor specific, so it is a site setting;
+     * EMPTY by default, which leaves frame-completion behaviour exactly as it was.
+     *
+     * Static because {@link #determineFrameState} is static and is the natural place for the
+     * decision. Written once when this bean is constructed, long before any report can arrive, and
+     * only read afterwards.
+     */
+    private static volatile Set<Integer> licenseDeniedStatuses = Collections.emptySet();
+
     @Autowired
     public FrameCompleteHandler(Environment env) {
         this.env = env;
         satisfyDependOnlyOnFrameSuccess =
                 env.getProperty("depend.satisfy_only_on_frame_success", Boolean.class, true);
+        licenseDeniedStatuses =
+                parseStatuses(env.getProperty("scheduler.license.denied_exit_statuses", ""));
+        if (!licenseDeniedStatuses.isEmpty()) {
+            logger.info("license-denied exit statuses (requeued without spending a retry): "
+                    + licenseDeniedStatuses);
+        }
+    }
+
+    /** Parse a comma separated list of exit statuses, ignoring blanks and junk. */
+    private static Set<Integer> parseStatuses(String csv) {
+        if (csv == null || csv.trim().isEmpty())
+            return Collections.emptySet();
+        Set<Integer> out = new HashSet<>();
+        for (String part : csv.split(",")) {
+            String s = part.trim();
+            if (s.isEmpty())
+                continue;
+            try {
+                out.add(Integer.valueOf(s));
+            } catch (NumberFormatException e) {
+                logger.warn("ignoring non-numeric scheduler.license.denied_exit_statuses entry '"
+                        + s + "'");
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Did this frame exit because no application license was free? Always false unless the site
+     * configured the statuses, so this cannot change behaviour on its own.
+     */
+    private static boolean isLicenseDenied(int exitStatus) {
+        return licenseDeniedStatuses.contains(exitStatus);
     }
 
     /**
@@ -171,6 +218,16 @@ public class FrameCompleteHandler {
             int exitStatus = report.getExitStatus();
             if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
                 exitStatus = frameDetail.exitStatus;
+            }
+            // A frame that died because no application license was free is
+            // requeued by determineFrameState above. Persist it as SKIP_RETRY so
+            // the retry counter is not incremented when it runs again (the
+            // increment reads the frame's STORED exit status, so recording the
+            // vendor's own code here would spend a retry on a queue wait).
+            if (isLicenseDenied(exitStatus)) {
+                logger.info("frame " + frame.getName() + " could not get a license (exit "
+                        + exitStatus + "); requeueing without spending a retry");
+                exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
             }
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
@@ -623,7 +680,16 @@ public class FrameCompleteHandler {
             long lastUpdate = (r - report.getFrame().getLluTime()) / 60;
 
             FrameState newState = FrameState.WAITING;
-            if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
+            if (isLicenseDenied(report.getExitStatus())) {
+                // The application could not get a license. That is a resource
+                // being contended, not a broken frame: requeue it and do NOT
+                // burn a retry (the caller persists SKIP_RETRY for that), or a
+                // busy license pool would march every frame to DEAD. Headroom
+                // and the dispatcher's live gate are what avoid this; this
+                // catches the race they cannot -- an artist taking the last seat
+                // between the license sample and the actual checkout.
+                newState = FrameState.WAITING;
+            } else if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
