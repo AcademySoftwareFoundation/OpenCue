@@ -1565,6 +1565,9 @@ Render Frame Completed
     /// Lists co-tenant frames (top 15 by current RSS) with current/peak session RSS and
     /// their reservation, flagging any frame using more than it reserved. Helps pinpoint
     /// whether the frame may have been starved by a memory-overusing neighbor.
+    ///
+    /// This frame's own row is always shown, even when 15 other frames outrank it by
+    /// current RSS: in that case it takes the last displayed slot.
     fn render_host_mem_distribution(&self, end_time: SystemTime) -> String {
         const TOP_N: usize = 15;
         // Bytes -> GiB as a float, for compact human-readable sizes.
@@ -1597,7 +1600,23 @@ Render Frame Completed
             gib(snapshot.available_memory),
         );
 
-        for peer in snapshot.peers.iter().take(TOP_N) {
+        // Display the top-N peers by current RSS, but always keep this frame's own row:
+        // if it falls outside the natural top-N, reserve the last slot for it. Peers are
+        // already sorted by current RSS descending, so appending self preserves ordering.
+        let self_pos = snapshot
+            .peers
+            .iter()
+            .position(|peer| peer.frame_id == self.frame_id);
+        let display: Vec<&PeerMem> = match self_pos {
+            Some(pos) if pos >= TOP_N => {
+                let mut peers: Vec<&PeerMem> = snapshot.peers.iter().take(TOP_N - 1).collect();
+                peers.push(&snapshot.peers[pos]);
+                peers
+            }
+            _ => snapshot.peers.iter().take(TOP_N).collect(),
+        };
+
+        for peer in display {
             let reserved_str = match peer.reserved {
                 Some(reserved) => format!("{:.1}G", gib(reserved)),
                 None => "—".to_string(),
@@ -2013,6 +2032,60 @@ mod tests {
         assert!(
             footer.contains("… +4 more"),
             "top-N truncation summary missing/incorrect: {footer}"
+        );
+
+        // Now the case where 15 peers all outrank this frame by current RSS: the self
+        // row must still be shown, taking the last displayed slot, displacing the
+        // lowest-RSS non-self peer from the top-15.
+        let outranked = create_running_frame("true", 1, 1, HashMap::new());
+        outranked.start(1234);
+        {
+            use crate::system::manager::{HostMemSnapshot, PeerMem};
+            use std::sync::Arc;
+            use std::time::SystemTime;
+
+            let gib = bytesize::GIB;
+            let mut peers: Vec<PeerMem> = (0..15)
+                .map(|i| PeerMem {
+                    frame_id: Uuid::new_v4(),
+                    label: format!("bigshow.frame_{i}"),
+                    current_rss: (100 + i as u64) * gib, // all above self's 40G
+                    max_rss: (100 + i as u64) * gib,
+                    reserved: Some(200 * gib),
+                })
+                .collect();
+            peers.push(PeerMem {
+                frame_id: outranked.frame_id,
+                label: "othershow.sim".to_string(),
+                current_rss: 40 * gib,
+                max_rss: 41 * gib,
+                reserved: None,
+            });
+            peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+            outranked.set_host_mem_snapshot(Arc::new(HostMemSnapshot {
+                captured_at: SystemTime::now(),
+                total_memory: 512 * gib,
+                available_memory: 8 * gib,
+                peers,
+            }));
+        }
+        outranked.finish(1, None, None).unwrap();
+
+        let footer = outranked.write_footer();
+        assert!(
+            footer.contains("◀ this frame"),
+            "self row must be retained even when outside the natural top-15: {footer}"
+        );
+        // 16 peers, 15 displayed (14 top + self) -> exactly one hidden.
+        assert!(
+            footer.contains("… +1 more"),
+            "hidden count should be '+1 more' with self reserved: {footer}"
+        );
+        // The displaced peer is the lowest-RSS non-self one (frame_0 @ 100G); it must
+        // not be displayed, proving self took a reserved slot rather than a 16th row.
+        assert!(
+            !footer.contains("bigshow.frame_0"),
+            "lowest non-self peer should be hidden to make room for self: {footer}"
         );
     }
 
