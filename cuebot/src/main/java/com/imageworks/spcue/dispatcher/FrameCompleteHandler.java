@@ -293,10 +293,10 @@ public class FrameCompleteHandler {
 
             if (isLayerComplete) {
                 /*
-                 * Proc-independent layer-completion telemetry, emitted only on the proc-backed
-                 * path (the orphaned path intentionally omits it). Safe to run after the shared
-                 * helper: optimizeLayer is skipped when the layer is complete, so nothing above
-                 * has mutated the layer state read here.
+                 * Proc-independent layer-completion telemetry, emitted only on the proc-backed path
+                 * (the orphaned path intentionally omits it). Safe to run after the shared helper:
+                 * optimizeLayer is skipped when the layer is complete, so nothing above has mutated
+                 * the layer state read here.
                  */
 
                 // Record layer max runtime and memory metrics
@@ -315,9 +315,8 @@ public class FrameCompleteHandler {
                 // Publish layer completed event to Kafka
                 if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
                     LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                    LayerEvent layerEvent =
-                            monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
-                                    layerDetail, frame.getName(), frame.show);
+                    LayerEvent layerEvent = monitoringEventBuilder.buildLayerEvent(
+                            EventType.LAYER_COMPLETED, layerDetail, frame.getName(), frame.show);
                     kafkaEventPublisher.publishLayerEvent(layerEvent);
                 }
             }
@@ -683,8 +682,8 @@ public class FrameCompleteHandler {
             FrameCompleteReport report, FrameState newFrameState) {
         boolean isLayerComplete = false;
 
-        if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
-                && newFrameState.equals(FrameState.EATEN))) {
+        if (newFrameState.equals(FrameState.SUCCEEDED)
+                || (!satisfyDependOnlyOnFrameSuccess && newFrameState.equals(FrameState.EATEN))) {
             satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
                     "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")", job.getName(),
                     job.getJobId());
@@ -727,9 +726,9 @@ public class FrameCompleteHandler {
      * rqd is currently not able to report exit_signal=9 when a frame is killed by the OOM logic.
      * The current solution sets exitStatus to {@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} before
      * killing the frame, which enables auto-retrying frames affected by the logic when they report
-     * with a FrameCompleteReport. This status retouch ensures a frame complete report is not able to
-     * override what has been set by the previous logic: when that stored status is present it wins,
-     * otherwise the status reported by rqd is used.
+     * with a FrameCompleteReport. This status retouch ensures a frame complete report is not able
+     * to override what has been set by the previous logic: when that stored status is present it
+     * wins, otherwise the status reported by rqd is used.
      */
     private static int resolveExitStatus(FrameCompleteReport report, FrameDetail frameDetail) {
         if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
