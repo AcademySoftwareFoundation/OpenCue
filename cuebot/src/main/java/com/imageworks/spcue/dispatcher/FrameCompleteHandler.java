@@ -178,16 +178,7 @@ public class FrameCompleteHandler {
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
                     + report.getFrame().getFrameId();
 
-            // rqd is currently not able to report exit_signal=9 when a frame is killed by
-            // the OOM logic. The current solution sets exitStatus to
-            // Dispatcher.EXIT_STATUS_MEMORY_FAILURE before killing the frame, this enables
-            // auto-retrying frames affected by the logic when they report with a
-            // frameCompleteReport. This status retouch ensures a frame complete report is
-            // not able to override what has been set by the previous logic.
-            int exitStatus = report.getExitStatus();
-            if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
-                exitStatus = frameDetail.exitStatus;
-            }
+            int exitStatus = resolveExitStatus(report, frameDetail);
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
@@ -297,64 +288,37 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            boolean isLayerComplete = false;
+            boolean isLayerComplete =
+                    satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState);
 
-            if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
-                    && newFrameState.equals(FrameState.EATEN))) {
-                satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
-                        "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")",
-                        job.getName(), job.getJobId());
+            if (isLayerComplete) {
+                /*
+                 * Proc-independent layer-completion telemetry, emitted only on the proc-backed
+                 * path (the orphaned path intentionally omits it). Safe to run after the shared
+                 * helper: optimizeLayer is skipped when the layer is complete, so nothing above
+                 * has mutated the layer state read here.
+                 */
 
-                isLayerComplete = jobManager.isLayerComplete(frame);
-                if (isLayerComplete) {
-                    satisfyDependsWithRetry(
-                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
-                            "layer " + frame.getLayerId(), job.getName(), job.getJobId());
-
-                    // Record layer max runtime and memory metrics
-                    if (prometheusMetrics != null) {
-                        ExecutionSummary layerSummary =
-                                jobManager.getExecutionSummary((LayerInterface) frame);
-                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                        prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
+                // Record layer max runtime and memory metrics
+                if (prometheusMetrics != null) {
+                    ExecutionSummary layerSummary =
+                            jobManager.getExecutionSummary((LayerInterface) frame);
+                    LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                    prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec, frame.show,
+                            frame.shot, layerDetail.type.toString());
+                    if (layerSummary.highMemoryKb > 0) {
+                        prometheusMetrics.recordLayerMaxMemory(layerSummary.highMemoryKb * 1024L,
                                 frame.show, frame.shot, layerDetail.type.toString());
-                        if (layerSummary.highMemoryKb > 0) {
-                            prometheusMetrics.recordLayerMaxMemory(
-                                    layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
-                                    layerDetail.type.toString());
-                        }
-                    }
-
-                    // Publish layer completed event to Kafka
-                    if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
-                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                        LayerEvent layerEvent =
-                                monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
-                                        layerDetail, frame.getName(), frame.show);
-                        kafkaEventPublisher.publishLayerEvent(layerEvent);
                     }
                 }
-            }
 
-            if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
-                /*
-                 * If the layer meets some specific criteria then try to update the minimum memory
-                 * and tags so it can run on a wider variety of cores, namely older hardware.
-                 */
-                jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                        report.getFrame().getMaxRss(), report.getRunTime());
-            }
-
-            /*
-             * The final frame can either be Succeeded or Eaten. If you only check if the frame is
-             * Succeeded before doing an isJobComplete check, then jobs that finish with the
-             * auto-eat flag enabled will not leave the cue.
-             */
-            if (newFrameState.equals(FrameState.SUCCEEDED)
-                    || newFrameState.equals(FrameState.EATEN)) {
-                if (jobManager.isJobComplete(job)) {
-                    job.state = JobState.FINISHED;
-                    jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
+                // Publish layer completed event to Kafka
+                if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                    LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                    LayerEvent layerEvent =
+                            monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
+                                    layerDetail, frame.getName(), frame.show);
+                    kafkaEventPublisher.publishLayerEvent(layerEvent);
                 }
             }
 
@@ -647,10 +611,7 @@ public class FrameCompleteHandler {
             // No proc owns the frame: it is genuinely orphaned, proceed with finalizing it.
         }
 
-        int exitStatus = report.getExitStatus();
-        if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
-            exitStatus = frameDetail.exitStatus;
-        }
+        int exitStatus = resolveExitStatus(report, frameDetail);
         final FrameState newFrameState = determineFrameState(job, layer, frame, report);
 
         if (!dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
@@ -697,9 +658,33 @@ public class FrameCompleteHandler {
 
         dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
+        satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState);
+
+        /*
+         * Note: unlike handlePostFrameCompleteOperations, a memory-failure frame finalized here
+         * does NOT get its layer minimum-memory bumped. That increase is proc-specific (it is based
+         * on proc.memoryReserved + increase) and there is no proc on the orphan path. This is a
+         * rare edge case -- the frame's exitStatus retouch still lets it auto-retry; it simply
+         * retries at the same memory reservation rather than a raised one.
+         */
+    }
+
+    /**
+     * Proc-independent frame-completion bookkeeping shared by the normal and orphaned paths:
+     * satisfies frame- and layer-level dependencies, optimizes the layer's resource requirements on
+     * success, and shuts the job down once it has fully completed. Each caller's existing state
+     * conditions are preserved. Proc-dependent work (usage counters, unbook/rebook, memory growth,
+     * and Kafka/Prometheus telemetry) is intentionally left to the callers.
+     *
+     * @return whether the frame's layer is now complete, so a caller can run any additional
+     *         layer-completion side effects it owns.
+     */
+    private boolean satisfyDependsAndCompleteLayerAndJob(DispatchJob job, DispatchFrame frame,
+            FrameCompleteReport report, FrameState newFrameState) {
         boolean isLayerComplete = false;
-        if (newFrameState.equals(FrameState.SUCCEEDED)
-                || (!satisfyDependOnlyOnFrameSuccess && newFrameState.equals(FrameState.EATEN))) {
+
+        if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
+                && newFrameState.equals(FrameState.EATEN))) {
             satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
                     "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")", job.getName(),
                     job.getJobId());
@@ -713,10 +698,19 @@ public class FrameCompleteHandler {
         }
 
         if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+            /*
+             * If the layer meets some specific criteria then try to update the minimum memory and
+             * tags so it can run on a wider variety of cores, namely older hardware.
+             */
             jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
                     report.getFrame().getMaxRss(), report.getRunTime());
         }
 
+        /*
+         * The final frame can either be Succeeded or Eaten. If you only check if the frame is
+         * Succeeded before doing an isJobComplete check, then jobs that finish with the auto-eat
+         * flag enabled will not leave the cue.
+         */
         if (newFrameState.equals(FrameState.SUCCEEDED) || newFrameState.equals(FrameState.EATEN)) {
             if (jobManager.isJobComplete(job)) {
                 job.state = JobState.FINISHED;
@@ -724,13 +718,24 @@ public class FrameCompleteHandler {
             }
         }
 
-        /*
-         * Note: unlike handlePostFrameCompleteOperations, a memory-failure frame finalized here
-         * does NOT get its layer minimum-memory bumped. That increase is proc-specific (it is based
-         * on proc.memoryReserved + increase) and there is no proc on the orphan path. This is a
-         * rare edge case -- the frame's exitStatus retouch still lets it auto-retry; it simply
-         * retries at the same memory reservation rather than a raised one.
-         */
+        return isLayerComplete;
+    }
+
+    /**
+     * Selects the exit status to record for a completed frame.
+     *
+     * rqd is currently not able to report exit_signal=9 when a frame is killed by the OOM logic.
+     * The current solution sets exitStatus to {@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} before
+     * killing the frame, which enables auto-retrying frames affected by the logic when they report
+     * with a FrameCompleteReport. This status retouch ensures a frame complete report is not able to
+     * override what has been set by the previous logic: when that stored status is present it wins,
+     * otherwise the status reported by rqd is used.
+     */
+    private static int resolveExitStatus(FrameCompleteReport report, FrameDetail frameDetail) {
+        if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+            return frameDetail.exitStatus;
+        }
+        return report.getExitStatus();
     }
 
     /**

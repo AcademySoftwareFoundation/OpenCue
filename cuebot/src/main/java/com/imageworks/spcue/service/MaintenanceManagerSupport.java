@@ -200,6 +200,11 @@ public class MaintenanceManagerSupport {
             try {
                 boolean dead;
                 if (System.currentTimeMillis() >= phaseDeadlineMs) {
+                    // Budget exhausted: there is no time left to confirm death. Still send a
+                    // best-effort, non-blocking kill so the render is at least asked to stop
+                    // instead of being left alive, then fail the frame closed (DEAD) since we
+                    // cannot confirm it died.
+                    killFrameBestEffort(frame);
                     dead = false;
                 } else {
                     dead = killAndConfirmDead(frame, phaseDeadlineMs);
@@ -237,23 +242,10 @@ public class MaintenanceManagerSupport {
      * the frame closed (DEAD) rather than risk double booking it.
      */
     private boolean killAndConfirmDead(FrameDetail frame, long phaseDeadlineMs) {
-        // lastResource is "host/cores/gpus" (see FrameDaoJdbc.FRAME_DETAIL_MAPPER); empty if the
-        // frame never ran, in which case there is no render alive to confirm dead.
-        if (frame.lastResource == null || frame.lastResource.isEmpty()) {
+        String host = killFrameBestEffort(frame);
+        // A null host means the frame never ran, so there is no render alive to confirm dead.
+        if (host == null) {
             return true;
-        }
-        String host = frame.lastResource.split("/")[0];
-        if (host.isEmpty()) {
-            return true;
-        }
-
-        try {
-            rqdClient.killFrame(host, frame.getFrameId(),
-                    "kill-before-reset: clearing orphaned frame");
-        } catch (Exception e) {
-            // Best effort: the host may already be gone. Confirmation below decides the outcome.
-            logger.info(
-                    "kill-before-reset failed for orphaned frame " + frame.getName() + ", " + e);
         }
 
         while (System.currentTimeMillis() < phaseDeadlineMs) {
@@ -275,6 +267,34 @@ public class MaintenanceManagerSupport {
             }
         }
         return false;
+    }
+
+    /**
+     * Sends a best-effort, non-blocking kill for an orphaned frame on its last-known host. Does not
+     * wait for or confirm the render is dead, so it is safe to call even when the kill budget is
+     * exhausted. Returns the host the kill was sent to, or {@code null} when the frame never ran
+     * (nothing to kill).
+     */
+    private String killFrameBestEffort(FrameDetail frame) {
+        // lastResource is "host/cores/gpus" (see FrameDaoJdbc.FRAME_DETAIL_MAPPER); empty if the
+        // frame never ran, in which case there is no render alive to kill.
+        if (frame.lastResource == null || frame.lastResource.isEmpty()) {
+            return null;
+        }
+        String host = frame.lastResource.split("/")[0];
+        if (host.isEmpty()) {
+            return null;
+        }
+
+        try {
+            rqdClient.killFrame(host, frame.getFrameId(),
+                    "kill-before-reset: clearing orphaned frame");
+        } catch (Exception e) {
+            // Best effort: the host may already be gone. Any confirmation is left to the caller.
+            logger.info(
+                    "kill-before-reset failed for orphaned frame " + frame.getName() + ", " + e);
+        }
+        return host;
     }
 
     private void clearDownProcs() {

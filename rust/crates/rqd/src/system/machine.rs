@@ -480,6 +480,7 @@ impl MachineMonitor {
         // is never lost.
         self.enqueue_finished_frames(finished_frames).await;
         self.flush_pending_completions().await;
+
         // Build a host-wide memory snapshot from the freshly-updated running frames and
         // share it (same Arc) into each of them. A frame that later fails renders this in
         // its footer to expose whether a co-tenant may have starved it of memory.
@@ -506,8 +507,6 @@ impl MachineMonitor {
                 running_frame.set_host_mem_snapshot(Arc::clone(&snapshot));
             }
         }
-
-        self.handle_finished_frames(finished_frames).await;
 
         match self.memory_usage().await {
             Some((memory_usage, total_memory))
@@ -595,6 +594,32 @@ impl MachineMonitor {
     async fn flush_pending_completions(&self) {
         if self.pending_completions.is_empty() {
             return;
+        }
+
+        // Surface a genuine backlog: completions that could not be delivered pile up here across
+        // monitor cycles (Cuebot unreachable or rejecting reports). Emit a single summary warning
+        // per cycle -- not per individual retry below -- carrying the backlog size and the age of
+        // its oldest entry, so the condition is observable before it grows unbounded. Only entries
+        // that have already survived at least one monitor cycle count as a backlog; freshly
+        // finished frames delivered in this same cycle have ~zero age and must not warn.
+        let backlog = self.pending_completions.len();
+        let oldest_age = self
+            .pending_completions
+            .iter()
+            .filter_map(|entry| match entry.value().get_state_copy() {
+                FrameState::Finished(finished_state) => finished_state.end_time.elapsed().ok(),
+                _ => None,
+            })
+            .max();
+        if let Some(age) = oldest_age {
+            if age >= self.maching_config.monitor_interval {
+                warn!(
+                    "{} pending frame completion(s) still awaiting delivery to Cuebot after \
+                     retries; oldest is {}s old",
+                    backlog,
+                    age.as_secs()
+                );
+            }
         }
 
         // Avoid holding a lock while reporting back to cuebot
