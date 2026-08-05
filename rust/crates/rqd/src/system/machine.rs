@@ -568,24 +568,35 @@ impl MachineMonitor {
         };
 
         for frame in finished_frames {
-            let exit_code_and_signal: Option<(u32, u32)> = match frame.get_state_copy() {
+            // (exit_code, exit_signal, run_time_seconds)
+            let exit_report: Option<(u32, u32, u32)> = match frame.get_state_copy() {
                 FrameState::Finished(finished_state) => {
                     let exit_signal = match finished_state.exit_signal {
                         Some(signal) => signal as u32,
                         None => 0,
                     };
-                    Some((finished_state.exit_code as u32, exit_signal))
+                    // Wall-clock runtime of the frame in seconds. Cuebot relies on run_time
+                    // to enforce layer runtime timeouts and the 12h no-retry cap
+                    // (see Dispatcher.FRAME_TIME_NO_RETRY / determineFrameState). Sending 0
+                    // disables those timeout-based DEAD decisions and skews usage counters.
+                    let run_time = finished_state
+                        .end_time
+                        .duration_since(finished_state.start_time)
+                        .map(|d| d.as_secs() as u32)
+                        .unwrap_or(0);
+                    Some((finished_state.exit_code as u32, exit_signal, run_time))
                 }
                 FrameState::FailedBeforeStart => {
                     Some((
                         1,  // Mark frame as failed
                         10, // Use signal to indicate it failed before starting
+                        0,  // Never ran, so no runtime
                     ))
                 }
                 _ => None,
             };
 
-            if let Some((exit_code, exit_signal)) = exit_code_and_signal {
+            if let Some((exit_code, exit_signal, run_time)) = exit_report {
                 let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
@@ -605,7 +616,7 @@ impl MachineMonitor {
                         frame_report,
                         exit_code,
                         exit_signal,
-                        0,
+                        run_time,
                     )
                     .await
                 {
