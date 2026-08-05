@@ -437,10 +437,14 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     layer.getLayerId(), limit);
 
         } else {
+            // Bind order must match the query: outer layer.pk_layer=?, then
+            // the tag subquery's h.str_name=?, then its l.pk_layer=?. The host
+            // name and the second layer id were transposed, so the tag
+            // subquery matched no host/layer and the query returned no frames.
             frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
                     threadMode(host.threadMode), host.idleGpus, host.idleGpuMemory,
-                    layer.getLayerId(), layer.getLayerId(), host.getName(), limit);
+                    layer.getLayerId(), host.getName(), layer.getLayerId(), limit);
         }
 
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and host query",

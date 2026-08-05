@@ -97,6 +97,113 @@ public interface ProcDao {
     void insertVirtualProc(VirtualProc proc);
 
     /**
+     * Batch variant of {@link #insertVirtualProc}: inserts many procs in one round-trip. Does NOT
+     * touch host idle resources (those are reserved up-front by {@link #reserveHostResourcesBatch})
+     * nor the subscription/layer/job/folder/point counters, the Scheduler batches those separately.
+     * Each proc is assigned a fresh id. Intended for the Scheduler's batch commit path, where the
+     * frames were already won via a version-guarded update so duplicate inserts cannot occur.
+     *
+     * @param procs the procs to insert (non-local)
+     */
+    void batchInsertVirtualProcs(java.util.List<VirtualProc> procs);
+
+    /**
+     * Atomically reserve each host's aggregated idle-resource share for this tick's procs, using a
+     * guarded decrement that only books a host that currently has room for its whole share. Returns
+     * the set of host ids that had room (were decremented); procs on any other host must NOT be
+     * booked. This is what keeps the Scheduler from sending a proc to a host that cannot hold it:
+     * an unguarded decrement would drive idle negative, trip the verify_host_resources trigger, and
+     * abort the whole batched tick.
+     *
+     * @param procs the procs whose hosts to reserve (non-local)
+     * @return host ids that were successfully reserved
+     */
+    java.util.Set<String> reserveHostResourcesBatch(java.util.List<VirtualProc> procs);
+
+    /**
+     * Return host idle resources reserved by {@link #reserveHostResourcesBatch} for procs that
+     * ended up not being booked (e.g. their frame lost the version race). A pure re-increment, so
+     * it can never drive idle negative.
+     *
+     * @param procs the procs whose host reservation to release
+     */
+    void refundHostResourcesBatch(java.util.List<VirtualProc> procs);
+
+    /**
+     * Delete any proc rows sitting on the given frames and return them with their host and reserved
+     * resources, so the caller can refund the hosts. Used by the planner's batch commit right after
+     * it wins a frame's WAITING to RUNNING transition: a proc still attached to such a frame is
+     * provably stale (a crash or a failed completion left it behind), and inserting the new proc
+     * would otherwise hit c_proc_uk and wedge the whole batch.
+     *
+     * @param frameIds
+     * @return the deleted stale procs (empty in the normal case)
+     */
+    java.util.List<VirtualProc> deleteStaleProcsByFrames(java.util.List<String> frameIds);
+
+    /**
+     * Delete every proc whose frame is no longer RUNNING and that has been in that state for at
+     * least the given age, returning them for host-resource refund. The janitor sweep: an orphaned
+     * proc whose frame never gets planned again (job finished or killed) would otherwise hold its
+     * host's cores forever, invisible to the commit-time eviction.
+     *
+     * @param olderThanSeconds minimum age, so an in-flight booking is never swept
+     * @return the deleted orphans (empty in the normal case)
+     */
+    java.util.List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds);
+
+    /**
+     * Batch variant of {@link #clearVirtualProcAssignment(FrameInterface)}: clears the proc
+     * assignment of many frames in one round-trip. Used by the scheduler's batched completion flush
+     * inside its single stop transaction.
+     *
+     * @param frames the frames whose procs should be unassigned
+     */
+    void batchClearVirtualProcAssignments(java.util.List<? extends FrameInterface> frames);
+
+    /**
+     * Batched unbook for the scheduler's completion flush: deletes many procs in one round-trip and
+     * applies every release-side resource credit coalesced -- host idle refunds summed per host,
+     * and the subscription/layer_resource/job_resource/folder_resource/point decrements summed per
+     * key -- instead of ~7 single-row updates per proc. Semantically a batched
+     * {@code deleteVirtualProc}: reserved amounts are taken from the DELETE's RETURNING clause (the
+     * live database values, immune to the stale-reservation race), a proc already deleted by
+     * someone else is skipped entirely, and scheduler-managed shows keep their NOTIFY-based
+     * accounting instead of the table decrements. Callers must not pass local-dispatch procs (their
+     * release touches different tables and stays on the per-proc path).
+     *
+     * @param procs the procs to delete; non-local only
+     * @return the subset actually deleted, with reserved fields refreshed from the database
+     */
+    java.util.List<VirtualProc> batchDeleteVirtualProcs(java.util.List<VirtualProc> procs);
+
+    /**
+     * Pre-acquire (SELECT ... FOR UPDATE, sorted by pk_proc) the proc rows of the given procs
+     * inside the current transaction. The scheduler's completion flush calls this before anything
+     * else: every single-proc writer (the OOM memory bump's UPDATE proc, whose trigger then locks
+     * the host row) acquires "proc, then host", so the flush must lock its proc rows BEFORE its
+     * host rows too or the two directions deadlock -- observed live as the memory bump holding a
+     * proc row and waiting on a host the flush had pre-locked, while the flush's batched DELETE
+     * waited on that proc row. Procs already deleted simply don't match and are skipped.
+     *
+     * @param procs the procs whose proc rows to lock
+     */
+    void lockProcsForBatch(java.util.List<VirtualProc> procs);
+
+    /**
+     * Pre-acquire (SELECT ... FOR UPDATE, sorted by pk_host) the host rows of the given procs
+     * inside the current transaction. The scheduler's completion flush calls this after
+     * {@link #lockProcsForBatch} and before it touches any frame or stat-counter row, so its lock
+     * order is "procs, then hosts, then stats" -- hosts-then-stats being the same global order the
+     * booking commit uses (reserveHostResourcesBatch, then the frame-start stat pre-locks) --
+     * making the batched transactions incapable of deadlocking each other or the single-row
+     * writers.
+     *
+     * @param procs the procs whose host rows to lock
+     */
+    void lockHostsForBatch(java.util.List<VirtualProc> procs);
+
+    /**
      * Deletes an existing virtual proc
      *
      * @param proc

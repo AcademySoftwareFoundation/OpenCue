@@ -168,6 +168,19 @@ public interface FrameDao {
     void updateFrameStarted(VirtualProc proc, FrameInterface frame);
 
     /**
+     * Batch variant of {@link #updateFrameStarted}: marks many frames RUNNING in one round-trip
+     * with the same per-row optimistic version+state guard. No SELECT ... FOR UPDATE is taken; a
+     * frame whose state/version changed since planning simply updates zero rows and is reported as
+     * a loser.
+     *
+     * @param bookings the planned (frame, proc) pairs to start
+     * @return a mask, aligned to {@code bookings}, true where the frame was won (transitioned
+     *         WAITING -> RUNNING by this call)
+     */
+    boolean[] batchUpdateFramesStarted(
+            java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings);
+
+    /**
      * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.
      *
      * @param proc
@@ -186,6 +199,21 @@ public interface FrameDao {
      * @return
      */
     boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss);
+
+    /**
+     * Batch variant of {@link #updateFrameStopped(FrameInterface, FrameState, int, long)} for the
+     * scheduler's queued frame completions: stops many RUNNING frames in one round-trip with the
+     * same per-row state+version guard, firing the stat-count trigger for every row inside the
+     * caller's single transaction (stat counter rows are pre-locked in sorted layer-then-job order
+     * first, so the batch cannot deadlock a concurrent single-frame transition). A frame that was
+     * killed, eaten or retried after its report arrived updates zero rows and is reported as a
+     * loser.
+     *
+     * @param completions the queued completions to apply
+     * @return a mask, aligned to {@code completions}, true where the frame was stopped by this call
+     */
+    boolean[] batchUpdateFramesStopped(
+            java.util.List<com.imageworks.spcue.dispatcher.QueuedFrameCompletion> completions);
 
     /**
      * Sets a frame to an unreserved waiting state.
