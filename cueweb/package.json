@@ -48,7 +48,7 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.304.0",
-    "next": "^15.5.22",
+    "next": "^16.3.0",
     "next-auth": "^4.24.15",
     "next-themes": "^0.2.1",
     "prom-client": "^15.1.2",
