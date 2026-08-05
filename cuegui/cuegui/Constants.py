@@ -250,6 +250,7 @@ TYPE_DEPEND = QtWidgets.QTreeWidgetItem.UserType + 13
 TYPE_SUB = QtWidgets.QTreeWidgetItem.UserType + 14
 TYPE_TASK = QtWidgets.QTreeWidgetItem.UserType + 15
 TYPE_LIMIT = QtWidgets.QTreeWidgetItem.UserType + 16
+TYPE_LICENSE = QtWidgets.QTreeWidgetItem.UserType + 17
 
 QVARIANT_NULL = None
 QT_MAX_INT = 2147483647

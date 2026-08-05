@@ -28,6 +28,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
@@ -42,6 +43,7 @@ import org.springframework.context.annotation.PropertySource;
         "classpath:conf/spring/applicationContext-monitoring.xml",
         "classpath:conf/spring/applicationContext-accounting.xml"})
 @EnableConfigurationProperties
+@Import(LicenseConfig.class)
 @PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
 

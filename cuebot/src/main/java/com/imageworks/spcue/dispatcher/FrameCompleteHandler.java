@@ -16,10 +16,16 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,11 +135,95 @@ public class FrameCompleteHandler {
         this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
     }
 
+    /**
+     * Exit statuses that mean "the application could not get a license", from
+     * {@code scheduler.license.denied_exit_statuses}. Vendor specific, so it is a site setting;
+     * EMPTY by default, which leaves frame-completion behaviour exactly as it was.
+     *
+     * Static because {@link #determineFrameState} is static and is the natural place for the
+     * decision. Written once when this bean is constructed, long before any report can arrive, and
+     * only read afterwards.
+     */
+    private static volatile Set<Integer> licenseDeniedStatuses = Collections.emptySet();
+
+    /**
+     * How many times one frame may be requeued for a license-denied exit without spending a retry,
+     * from {@code scheduler.license.denied_requeue_limit}. The booking gate holds licensed layers
+     * while their pool is full, so genuine denials are rare races; a frame denied over and over is
+     * misconfigured (wrong feature name, bad local license setup) and without a bound it would
+     * requeue forever, never marching to DEAD. Past the limit the vendor's own exit status is
+     * persisted again, so ordinary retry accounting takes over. Zero or negative means unbounded
+     * (the pre-limit behaviour).
+     */
+    private static volatile int licenseDeniedRequeueLimit = 10;
+
+    /**
+     * License-denied requeues per frame id, backing the limit above. Static for the same reason as
+     * {@link #licenseDeniedStatuses}. Entries expire so a frame retried much later starts fresh,
+     * and the size bound keeps a misbehaving farm from growing it without limit.
+     */
+    private static final Cache<String, Long> licenseDeniedRequeues = CacheBuilder.newBuilder()
+            .maximumSize(50_000).expireAfterWrite(12, TimeUnit.HOURS).build();
+
     @Autowired
     public FrameCompleteHandler(Environment env) {
         this.env = env;
         satisfyDependOnlyOnFrameSuccess =
                 env.getProperty("depend.satisfy_only_on_frame_success", Boolean.class, true);
+        licenseDeniedStatuses =
+                parseStatuses(env.getProperty("scheduler.license.denied_exit_statuses", ""));
+        licenseDeniedRequeueLimit =
+                env.getProperty("scheduler.license.denied_requeue_limit", Integer.class, 10);
+        if (!licenseDeniedStatuses.isEmpty()) {
+            logger.info("license-denied exit statuses (requeued without spending a retry, up to "
+                    + licenseDeniedRequeueLimit + " times per frame): " + licenseDeniedStatuses);
+        }
+    }
+
+    /** Parse a comma separated list of exit statuses, ignoring blanks and junk. */
+    private static Set<Integer> parseStatuses(String csv) {
+        if (csv == null || csv.trim().isEmpty())
+            return Collections.emptySet();
+        Set<Integer> out = new HashSet<>();
+        for (String part : csv.split(",")) {
+            String s = part.trim();
+            if (s.isEmpty())
+                continue;
+            try {
+                out.add(Integer.valueOf(s));
+            } catch (NumberFormatException e) {
+                logger.warn("ignoring non-numeric scheduler.license.denied_exit_statuses entry '"
+                        + s + "'");
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Did this frame exit because no application license was free? Always false unless the site
+     * configured the statuses, so this cannot change behaviour on its own.
+     */
+    private static boolean isLicenseDenied(int exitStatus) {
+        return licenseDeniedStatuses.contains(exitStatus);
+    }
+
+    /**
+     * Does this frame still have license-denied requeue budget left? Read by
+     * {@link #determineFrameState} and by the exit-status persistence, both against the same count;
+     * {@link #countLicenseDeniedRequeue} moves the count afterwards, once per report.
+     */
+    static boolean underLicenseDeniedLimit(String frameId) {
+        if (licenseDeniedRequeueLimit <= 0) {
+            return true;
+        }
+        Long count = licenseDeniedRequeues.getIfPresent(frameId);
+        return count == null || count < licenseDeniedRequeueLimit;
+    }
+
+    /** Record one license-denied requeue for this frame. */
+    static void countLicenseDeniedRequeue(String frameId) {
+        Long count = licenseDeniedRequeues.getIfPresent(frameId);
+        licenseDeniedRequeues.put(frameId, count == null ? 1L : count + 1);
     }
 
     /**
@@ -170,7 +260,23 @@ public class FrameCompleteHandler {
             // not able to override what has been set by the previous logic.
             int exitStatus = report.getExitStatus();
             if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                // The OOM pre-mark wins over everything, including a license-denied
+                // exit code: the frame was killed for memory, and storing
+                // MEMORY_FAILURE is what drives the retry-with-more-memory logic.
                 exitStatus = frameDetail.exitStatus;
+            } else if (isLicenseDenied(exitStatus)
+                    && underLicenseDeniedLimit(report.getFrame().getFrameId())) {
+                // A frame that died because no application license was free is
+                // requeued by determineFrameState above. Persist it as SKIP_RETRY so
+                // the retry counter is not incremented when it runs again (the
+                // increment reads the frame's STORED exit status, so recording the
+                // vendor's own code here would spend a retry on a queue wait).
+                // Bounded per frame: past the limit the vendor status is stored and
+                // ordinary retry accounting resumes (see licenseDeniedRequeueLimit).
+                logger.info("frame " + frame.getName() + " could not get a license (exit "
+                        + exitStatus + "); requeueing without spending a retry");
+                countLicenseDeniedRequeue(report.getFrame().getFrameId());
+                exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
             }
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
@@ -623,7 +729,20 @@ public class FrameCompleteHandler {
             long lastUpdate = (r - report.getFrame().getLluTime()) / 60;
 
             FrameState newState = FrameState.WAITING;
-            if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
+            if (isLicenseDenied(report.getExitStatus())
+                    && underLicenseDeniedLimit(frame.getFrameId())) {
+                // The application could not get a license. That is a resource
+                // being contended, not a broken frame: requeue it and do NOT
+                // burn a retry (the caller persists SKIP_RETRY for that), or a
+                // busy license pool would march every frame to DEAD. Headroom
+                // and the dispatcher's live gate are what avoid this; this
+                // catches the race they cannot -- an artist taking the last seat
+                // between the license sample and the actual checkout. Bounded
+                // per frame (underLicenseDeniedLimit): a frame denied over and
+                // over is misconfigured, not queue-unlucky, and falls back to
+                // ordinary retry accounting below.
+                newState = FrameState.WAITING;
+            } else if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
                 report = FrameCompleteReport.newBuilder(report)
                         .setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();

@@ -27,6 +27,7 @@ from opencue_proto import facility_pb2
 from opencue_proto import filter_pb2
 from opencue_proto import host_pb2
 from opencue_proto import job_pb2
+from opencue_proto import license_pb2
 from opencue_proto import limit_pb2
 from opencue_proto import renderPartition_pb2
 from opencue_proto import report_pb2
@@ -48,6 +49,7 @@ from .wrappers.group import Group
 from .wrappers.host import Host, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
+from .wrappers.license import License, LicensingStatus
 from .wrappers.limit import Limit
 from .wrappers.owner import Owner
 from .wrappers.proc import Proc
@@ -830,3 +832,47 @@ def findLimit(name):
     :return: the matching Limit object"""
     return Limit(Cuebot.getStub('limit').Find(
         limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)
+
+#
+# Licenses
+#
+@util.grpcExceptionParser
+def getLicenses():
+    """Return all application licenses in Cuebot's current provider sample.
+
+    Read-only: the numbers come from the license server Cuebot polls
+    (``scheduler.license.provider``). Empty when no provider is configured
+    or no sample has landed yet; use :func:`getLicensingStatus` to tell
+    those cases apart.
+
+    :rtype: list[opencue.wrappers.license.License]
+    :return: a list of License objects, sorted by name"""
+    return [License(license) for license in Cuebot.getStub('license').GetAll(
+        license_pb2.LicenseGetAllRequest(), timeout=Cuebot.Timeout).licenses]
+
+
+@util.grpcExceptionParser
+def getLicensingStatus():
+    """Return the license poller status plus the cached licenses.
+
+    One round trip: the status says whether a provider is configured and
+    how fresh the sample is, and carries the same licenses
+    :func:`getLicenses` returns.
+
+    :rtype: opencue.wrappers.license.LicensingStatus
+    :return: the licensing status"""
+    return LicensingStatus(Cuebot.getStub('license').GetAll(
+        license_pb2.LicenseGetAllRequest(), timeout=Cuebot.Timeout))
+
+
+@util.grpcExceptionParser
+def findLicense(name):
+    """Returns the License in the current provider sample that matches the name.
+
+    :type  name: str
+    :param name: a license pool name, e.g. ``hengine``; matching is
+        case-insensitive
+    :rtype:  opencue.wrappers.license.License
+    :return: the matching License object"""
+    return License(Cuebot.getStub('license').Find(
+        license_pb2.LicenseFindRequest(name=name), timeout=Cuebot.Timeout).license)

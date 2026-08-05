@@ -27,6 +27,7 @@ CueCommander
 │   └── Settings Manager
 ├── Plugins
 │   ├── AllocationsPlugin
+│   ├── LicensesPlugin
 │   ├── LimitsPlugin
 │   ├── MonitorCuePlugin
 │   ├── MonitorHostsPlugin
@@ -80,6 +81,49 @@ class MonitorAllocations(AbstractTreeWidget):
 - `dragEnterEvent()`: Handles host drag operations
 - `dropEvent()`: Processes host reassignment
 - `reparentHostIds()`: Moves hosts between allocations
+
+---
+
+### LicensesPlugin
+
+**Module**: `cuegui.plugins.LicensesPlugin`  
+**Widget**: `LicensesDockWidget`  
+**Data Source**: `opencue.api.getLicensingStatus()`
+
+#### Class Structure
+
+```python
+class LicensesDockWidget(AbstractDockWidget):
+    - __licensesWidget: LicensesWidget
+    - pluginRegisterSettings()
+
+class LicensesTreeWidget(AbstractTreeWidget):
+    - Update interval: 60 seconds
+    - Read-only: no context menu, no mutations
+    - status_update signal: publishes the poller status after each refresh
+```
+
+#### Data Model
+
+| Field | Type | Description |
+|-------|------|-------------|
+| name | str | License pool name, e.g. `hengine` |
+| feature | str | Human-readable feature name |
+| total | int | Seats the license server owns |
+| available | int | Seats free, net of every consumer |
+| host_based | bool | One seat per machine vs per frame |
+| headroom | int | Seats withheld for interactive users |
+| running_frames | int | Frames running on this deploy declaring the license |
+| running_hosts | int | Distinct hosts running those frames |
+| provider_host_count | int | Hosts the provider reports holding a seat |
+
+#### Operations
+
+Read-only — the numbers come from the license server Cuebot polls
+(`scheduler.license.provider`); tuning lives in `opencue.properties`.
+
+- Query all: `opencue.api.getLicenses()` / `opencue.api.getLicensingStatus()`
+- Query one: `opencue.api.findLicense(name)`
 
 ---
 

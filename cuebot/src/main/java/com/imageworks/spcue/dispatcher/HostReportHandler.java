@@ -28,11 +28,13 @@ import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.PrometheusMetricsCollector;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLicensePack;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
@@ -57,6 +59,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +94,7 @@ public class HostReportHandler {
     private LayerDao layerDao;
     private KafkaEventPublisher kafkaEventPublisher;
     private MonitoringEventBuilder monitoringEventBuilder;
+    private LicenseBookingGate licenseBookingGate;
 
     @Autowired
     private Environment env;
@@ -338,6 +342,26 @@ public class HostReportHandler {
                     if (!bookingManager.hasResourceDeficit(host)) {
                         bookingQueue.execute(new DispatchBookHostLocal(host, localDispatcher));
                     }
+                    return;
+                }
+
+                /*
+                 * License packing: when this host is already running frames that hold host-based
+                 * application licenses, try to book some frames which require the same license to
+                 * keep them from booking a new host and consuming more licenses. Only the cheap
+                 * query runs on this thread (cached layer lookups); the budget snapshot, the
+                 * pack-job query and the dispatching all happen on a booking thread. The pack
+                 * command ends with the exact booking the host would have received here (preferred
+                 * show included), so nothing is lost if packing finds no work.
+                 */
+                if (licenseBookingGate != null
+                        && env.getProperty("scheduler.license.pack_jobs_max", Integer.class, 5) > 0
+                        && licenseBookingGate.anyLicensedLayers(runningFrames)) {
+                    ShowInterface preferredShow =
+                            hostManager.isPreferShow(host) ? hostManager.getPreferredShow(host)
+                                    : null;
+                    bookingQueue.execute(new DispatchBookHostLicensePack(host, runningFrames,
+                            preferredShow, licenseBookingGate, jobManager, dispatcher, env));
                     return;
                 }
 
@@ -1225,6 +1249,14 @@ public class HostReportHandler {
 
     public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
         this.monitoringEventBuilder = monitoringEventBuilder;
+    }
+
+    public LicenseBookingGate getLicenseBookingGate() {
+        return licenseBookingGate;
+    }
+
+    public void setLicenseBookingGate(LicenseBookingGate licenseBookingGate) {
+        this.licenseBookingGate = licenseBookingGate;
     }
 
     /**

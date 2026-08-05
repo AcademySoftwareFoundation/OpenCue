@@ -351,6 +351,7 @@
     <property name="jobManager" ref="jobManager" />
     <property name="hostManager" ref="hostManager" />
     <property name="rqdClient" ref="rqdClient" />
+    <property name="licenseBookingGate" ref="licenseBookingGate" />
   </bean>
 
   <bean id="localDispatcher" class="com.imageworks.spcue.dispatcher.LocalDispatcher">
@@ -359,6 +360,7 @@
     <property name="bookingManager" ref="bookingManager" />
     <property name="hostManager" ref="hostManager" />
     <property name="rqdClient" ref="rqdClient" />
+    <property name="licenseBookingGate" ref="licenseBookingGate" />
   </bean>
 
   <bean id="redirectService" class="com.imageworks.spcue.service.RedirectService">
@@ -413,6 +415,7 @@
     <property name="killQueue" ref="killQueue"/>
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
+    <property name="licenseBookingGate" ref="licenseBookingGate" />
   </bean>
 
   <!-- ##################################################################################### -->

@@ -85,6 +85,12 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     private HostManager hostManager;
 
+    /**
+     * Gates dispatch on live application-license budgets (CUE_LICENSES). Optional: when unset,
+     * dispatch behaves exactly as before.
+     */
+    private LicenseBookingGate licenseBookingGate;
+
     public boolean testMode = false;
 
     private final long MEM_RESERVED_MIN;
@@ -135,6 +141,10 @@ public class CoreUnitDispatcher implements Dispatcher {
     private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
+        // One license session for the whole booking pass: its budget snapshot is
+        // read at most once and its pass-local accounting spans every job below.
+        LicenseBookingGate.Session licenseSession =
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(host.getName());
         try {
             for (String jobid : jobs) {
 
@@ -157,7 +167,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
                 DispatchJob job = jobManager.getDispatchJob(jobid);
                 try {
-                    procs.addAll(dispatchHost(host, job));
+                    procs.addAll(dispatchHost(host, job, licenseSession));
                 } catch (JobDispatchException e) {
                     logger.info("job dispatch exception," + e);
                 }
@@ -241,6 +251,12 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job) {
+        return dispatchHost(host, job,
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(host.getName()));
+    }
+
+    private List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job,
+            LicenseBookingGate.Session licenseSession) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
@@ -257,6 +273,14 @@ public class CoreUnitDispatcher implements Dispatcher {
         String[] selfishServices =
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame : frames) {
+
+            // Hold frames whose layer needs an application license with no free
+            // seat; other layers of the job may still book, so skip, not break.
+            if (licenseSession != null && !licenseSession.canBook(frame.getLayerId())) {
+                logger.debug("Cannot dispatch frame " + frame.getName()
+                        + ", no application license seat free.");
+                continue;
+            }
 
             VirtualProc proc = VirtualProc.build(host, frame, selfishServices);
 
@@ -291,6 +315,9 @@ public class CoreUnitDispatcher implements Dispatcher {
             }.execute();
 
             if (success) {
+                if (licenseSession != null) {
+                    licenseSession.booked(frame.getLayerId());
+                }
                 procs.add(proc);
 
                 DispatchSupport.bookedProcs.getAndIncrement();
@@ -322,9 +349,14 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     public void dispatchProcToJob(VirtualProc proc, JobInterface job) {
 
+        LicenseBookingGate.Session licenseSession =
+                licenseBookingGate == null ? null : licenseBookingGate.newSession(proc.hostName);
         // Do not throttle this method
         for (DispatchFrame frame : dispatchSupport.findNextDispatchFrames(job, proc,
                 getIntProperty("dispatcher.frame_query_max"))) {
+            if (licenseSession != null && !licenseSession.canBook(frame.getLayerId())) {
+                continue;
+            }
             try {
                 boolean success = new DispatchFrameTemplate(proc, job, frame, true) {
                     public void wrapDispatchFrame() {
@@ -420,6 +452,14 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     public void setRqdClient(RqdClient rqdClient) {
         this.rqdClient = rqdClient;
+    }
+
+    public LicenseBookingGate getLicenseBookingGate() {
+        return licenseBookingGate;
+    }
+
+    public void setLicenseBookingGate(LicenseBookingGate licenseBookingGate) {
+        this.licenseBookingGate = licenseBookingGate;
     }
 
     private abstract class DispatchFrameTemplate {

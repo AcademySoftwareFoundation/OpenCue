@@ -1,0 +1,94 @@
+
+syntax = "proto3";
+package license;
+
+option java_package = "com.imageworks.spcue.grpc.license";
+option java_multiple_files = true;
+
+option go_package = "opencue_gateway/gen/go";
+
+// Read-only view of the live application licenses (Houdini Engine, Katana, ...)
+// Cuebot polls from scheduler.license.provider. Unlike a Limit, none of this is
+// editable over the wire: the numbers come from the license server and the
+// tuning (provider, headroom, poll cadence) lives in opencue.properties.
+
+// -------- Services --------]
+
+service LicenseInterface {
+    // Get the license source status and every license in the current sample.
+    rpc GetAll(LicenseGetAllRequest) returns (LicenseGetAllResponse);
+    // Find one license in the current sample by (lowercased) name.
+    rpc Find(LicenseFindRequest) returns (LicenseFindResponse);
+}
+
+// -------- Primary Message Types --------]
+
+// One application license as of the last provider sample, with this
+// cluster's own usage alongside the license server's numbers.
+message License {
+    // Pool name as layers declare it (lowercased), e.g. "hengine".
+    string name = 1;
+    // Human-readable feature name from the provider, e.g. "Houdini Engine".
+    string feature = 2;
+    // Total seats the license server owns.
+    int32 total = 3;
+    // Seats the license server reports free, net of every consumer
+    // (workstations, CI and other farms included).
+    int32 available = 4;
+    // True when one seat covers a whole machine (every frame on that host
+    // shares it); false when every running frame consumes a seat.
+    bool host_based = 5;
+    // Seats deliberately withheld from the farm for interactive users
+    // (scheduler.license.headroom.<name>).
+    int32 headroom = 6;
+    // Frames currently RUNNING on this OpenCue deploy that declare this
+    // license, from the database at request time.
+    int32 running_frames = 7;
+    // Distinct hosts those running frames occupy.
+    int32 running_hosts = 8;
+    // Hosts the provider reports holding a seat (any consumer, not just
+    // OpenCue); 0 when the provider does not report hosts.
+    int32 provider_host_count = 9;
+}
+
+// State of the poller feeding the sample, so a GUI can say how trustworthy
+// the numbers are.
+message LicenseSourceStatus {
+    // False when scheduler.license.provider is unset; licensed layers are
+    // held and the license list is empty.
+    bool configured = 1;
+    // The configured provider, e.g. "http://lic-reporter:9101/licenses" or
+    // "script:/site/bin/cue_licenses.sh".
+    string provider = 2;
+    // Layer environment key that binds a layer to licenses (CUE_LICENSES).
+    string env_key = 3;
+    // Poll cadence in seconds.
+    int32 poll_seconds = 4;
+    // Age past which the sample stops being actionable and booking fails
+    // closed.
+    int32 stale_seconds = 5;
+    // False until the first successful poll lands.
+    bool has_sample = 6;
+    // Age of the current sample in seconds, including how old the provider
+    // said its numbers were on arrival. 0 when there is no sample.
+    int64 age_seconds = 7;
+    // True when there is no sample or it aged past stale_seconds; licensed
+    // layers are being held.
+    bool stale = 8;
+}
+
+// -------- Requests & Responses --------]
+
+// GetAll
+message LicenseGetAllRequest {} // Empty
+message LicenseGetAllResponse {
+    LicenseSourceStatus source = 1;
+    repeated License licenses = 2;
+}
+// Find
+message LicenseFindRequest {
+    string name = 1;
+}
+message LicenseFindResponse {
+    License license = 1;
+}

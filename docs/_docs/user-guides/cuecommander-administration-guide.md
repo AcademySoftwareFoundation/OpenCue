@@ -168,6 +168,17 @@ Configures and monitors system-wide limits that restrict how many frames can run
 - **Database Connections**: Control simultaneous database queries
 - **Network Bandwidth**: Manage render output bandwidth usage
 
+#### Related: live application licenses
+
+A limit caps concurrency at a number an admin typed, which cannot see the
+seats consumed outside the farm (artist workstations, CI, other farms). For
+real license pools, Cuebot can instead poll the license server and gate
+booking on live seat counts. The read-only **Licenses** view
+(**View/Plugins** > **Cuecommander** > **Licenses**) shows the polled pools,
+their usage and headroom, and the poller's health. See
+[Configuring application licenses](/docs/other-guides/configuring-application-licenses/)
+and [Monitoring application licenses](/docs/user-guides/monitoring-licenses/).
+
 ---
 
 ### 3. Monitor Cue
