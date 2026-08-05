@@ -46,9 +46,9 @@ import com.imageworks.spcue.grpc.report.RunningFrameInfo;
  * Two entry points:
  *
  * <ul>
- * <li>{@link Session}: per dispatch pass, filters candidate {@code DispatchFrame}s against a
- * budget snapshot, with pass-local accounting so one pass cannot book fifty frames against ten
- * seats. Cross-Cuebot and cross-host races are absorbed by the in-flight correction inside
+ * <li>{@link Session}: per dispatch pass, filters candidate {@code DispatchFrame}s against a budget
+ * snapshot, with pass-local accounting so one pass cannot book fifty frames against ten seats.
+ * Cross-Cuebot and cross-host races are absorbed by the in-flight correction inside
  * {@link LicenseSource} (booked frames are RUNNING in the DB immediately) plus headroom, and the
  * license-denied requeue in {@code FrameCompleteHandler} catches the remainder.</li>
  * <li>the packing helpers ({@link #hostBasedLicensesRunning}, {@link #findPackableJobs}), used by

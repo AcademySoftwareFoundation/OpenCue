@@ -22,7 +22,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -448,6 +450,131 @@ public class LicenseSource {
                     }
                 }, ageSeconds + " seconds", envKey);
         return f;
+    }
+
+    // ---- read-only view (ManageLicense servant) --------------------------
+
+    /** One license for display: the provider's numbers plus this cluster's own usage. */
+    public static final class LicenseInfo {
+        public final LicenseState state;
+        /** Seats withheld for interactive users ({@code scheduler.license.headroom.<name>}). */
+        public final int headroom;
+        /** Frames currently RUNNING here whose layer declares this license. */
+        public final int runningFrames;
+        /** Distinct hosts those running frames occupy. */
+        public final int runningHosts;
+
+        LicenseInfo(LicenseState state, int headroom, int runningFrames, int runningHosts) {
+            this.state = state;
+            this.headroom = headroom;
+            this.runningFrames = runningFrames;
+            this.runningHosts = runningHosts;
+        }
+    }
+
+    /** Poller state plus every license in the current sample, for display. */
+    public static final class SourceStatus {
+        public final boolean configured;
+        public final String provider;
+        public final String envKey;
+        public final int pollSeconds;
+        public final int staleSeconds;
+        public final boolean hasSample;
+        /** Age of the sample including the provider's own lag; 0 without a sample. */
+        public final long ageSeconds;
+        public final boolean stale;
+        /** Sorted by name. Empty without a sample. */
+        public final List<LicenseInfo> licenses;
+
+        SourceStatus(boolean configured, String provider, String envKey, int pollSeconds,
+                int staleSeconds, boolean hasSample, long ageSeconds, boolean stale,
+                List<LicenseInfo> licenses) {
+            this.configured = configured;
+            this.provider = provider;
+            this.envKey = envKey;
+            this.pollSeconds = pollSeconds;
+            this.staleSeconds = staleSeconds;
+            this.hasSample = hasSample;
+            this.ageSeconds = ageSeconds;
+            this.stale = stale;
+            this.licenses = licenses;
+        }
+    }
+
+    /**
+     * The current sample and poller state, for display (the read-only Licenses view in CueGUI).
+     *
+     * Unlike {@link #snapshotBudgets} this reports every license in the sample, and the usage
+     * numbers count ALL of our running licensed frames rather than only the recent ones inside the
+     * in-flight window: an operator wants "what is the farm holding", not the booking correction.
+     * The database read is one indexed pass over running licensed frames, the same shape the
+     * booking path already pays per tick, so a GUI refresh is cheap. A database failure propagates:
+     * this is a live inspection, and a wrong answer dressed as a real one would send an operator
+     * chasing numbers that mean nothing.
+     */
+    public SourceStatus describe() {
+        Sample s = sample;
+        long ageSeconds = (s == null) ? 0
+                : s.lagSeconds + (System.currentTimeMillis() - s.receivedAtMs) / 1000L;
+        boolean stale = (s == null) || ageSeconds > staleSeconds;
+        List<LicenseInfo> licenses = new ArrayList<>();
+        if (s != null && !s.licenses.isEmpty()) {
+            RunningUse use = readRunningUse(s.licenses.keySet());
+            List<LicenseState> states = new ArrayList<>(s.licenses.values());
+            states.sort(Comparator.comparing(st -> st.name));
+            for (LicenseState st : states) {
+                int headroom = env.getProperty("scheduler.license.headroom." + st.name,
+                        Integer.class, defaultHeadroom);
+                licenses.add(new LicenseInfo(st, headroom, use.frames.getOrDefault(st.name, 0),
+                        use.hosts.getOrDefault(st.name, Collections.emptySet()).size()));
+            }
+        }
+        return new SourceStatus(hasProvider(), redactProvider(provider), envKey, pollSeconds,
+                staleSeconds, s != null, ageSeconds, stale, licenses);
+    }
+
+    /**
+     * The provider string safe for display. The status travels to every CueGUI, and sites embed
+     * credentials in http URLs (userinfo, query tokens), so both are redacted while the host and
+     * path stay visible -- an operator debugging still sees WHERE the numbers come from. A
+     * {@code script:} command line is shown as configured; keep secrets out of it.
+     */
+    static String redactProvider(String provider) {
+        if (!provider.startsWith("http:") && !provider.startsWith("https:")) {
+            return provider;
+        }
+        // scheme://user:secret@host -> scheme://host. Greedy to the LAST @
+        // before the path/query, because Java's URL tolerates a raw @ in the
+        // password and a lazy match would leak its tail; bounded at /?# so an
+        // @ inside the query or path is never mistaken for userinfo.
+        String out = provider.replaceFirst("^(https?://)[^/?#]*@", "$1");
+        // ?token=abc&x=y -> ?token=****&x=****
+        return out.replaceAll("([?&][^=&#]*)=[^&#]*", "$1=****");
+    }
+
+    /** Running licensed frames and their hosts, per license, no age window. */
+    private static final class RunningUse {
+        final Map<String, Integer> frames = new HashMap<>();
+        final Map<String, Set<String>> hosts = new HashMap<>();
+    }
+
+    private RunningUse readRunningUse(Set<String> wanted) {
+        RunningUse use = new RunningUse();
+        jdbc.query("SELECT le.str_value AS lic, f.str_host AS host " + "FROM layer_env le "
+                + "JOIN frame f ON f.pk_layer = le.pk_layer "
+                + "WHERE le.str_key = ? AND f.str_state = 'RUNNING'", rs -> {
+                    String host = rs.getString("host");
+                    for (String name : splitNames(rs.getString("lic"))) {
+                        if (!wanted.contains(name))
+                            continue;
+                        use.frames.merge(name, 1, Integer::sum);
+                        if (host != null && !host.isEmpty()) {
+                            use.hosts.computeIfAbsent(name, k -> new HashSet<>())
+                                    .add(host.toLowerCase());
+                        }
+                    }
+                }, envKey);
+        return use;
     }
 
     // ---- polling ---------------------------------------------------------

@@ -138,6 +138,10 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
+    <bean scope="prototype" id="manageLicense" class="com.imageworks.spcue.servant.ManageLicense">
+        <property name="licenseSource" ref="licenseSource" />
+    </bean>
+
     <bean scope="prototype" id="manageMatcher" class="com.imageworks.spcue.servant.ManageMatcher">
         <property name="filterManager" ref="filterManager" />
         <property name="whiteboard" ref="whiteboard" />

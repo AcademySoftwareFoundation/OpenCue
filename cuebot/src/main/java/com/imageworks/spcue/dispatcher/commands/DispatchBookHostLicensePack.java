@@ -37,8 +37,8 @@ import com.imageworks.spcue.service.JobManager;
  *
  * Queued when a host report shows running frames that declare application licenses. All the real
  * work: deciding which of those licenses are host-based with a live sample, finding pending jobs
- * that need them, and dispatching happens here on a booking thread, so the report thread only
- * pays a cache lookup to decide whether to queue this command at all.
+ * that need them, and dispatching happens here on a booking thread, so the report thread only pays
+ * a cache lookup to decide whether to queue this command at all.
  *
  * Jobs that need a host-based license this host already holds get the first shot at its idle
  * resources (an extra frame on a seated machine is free; a fresh machine burns a seat). Whatever
