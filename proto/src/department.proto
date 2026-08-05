@@ -69,7 +69,7 @@ service DepartmentInterface {
     rpc ReplaceTasks(DeptReplaceTaskRequest) returns (DeptReplaceTaskResponse);
 
     // Sets the minimum number of cores for the department to manage between its tasks.
-    rpc SetMangedCores(DeptSetManagedCoresRequest) returns (DeptSetManagedCoresResponse);
+    rpc SetManagedCores(DeptSetManagedCoresRequest) returns (DeptSetManagedCoresResponse);
 }
 
 

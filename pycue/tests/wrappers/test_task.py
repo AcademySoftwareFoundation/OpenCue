@@ -57,6 +57,18 @@ class TaskTests(unittest.TestCase):
             task_pb2.TaskSetMinCoresRequest(task=task.data, new_min_cores=minCores),
             timeout=mock.ANY)
 
+    def testClearAdjustments(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.ClearAdjustments.return_value = task_pb2.TaskClearAdjustmentsResponse()
+        getStubMock.return_value = stubMock
+
+        task = opencue.wrappers.task.Task(
+            task_pb2.Task(name='testTask'))
+        task.clearAdjustments()
+
+        stubMock.ClearAdjustments.assert_called_with(
+            task_pb2.TaskClearAdjustmentsRequest(task=task.data), timeout=mock.ANY)
+
 
 if __name__ == '__main__':
     unittest.main()

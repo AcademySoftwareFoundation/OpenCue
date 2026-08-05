@@ -1738,11 +1738,11 @@ class TaskActionsTests(unittest.TestCase):
 
     def test_clearAdjustment(self):
         task = opencue.wrappers.task.Task(opencue_proto.task_pb2.Task())
-        task.clearAdjustment = mock.MagicMock()
+        task.clearAdjustments = mock.MagicMock()
 
         self.task_actions.clearAdjustment(rpcObjects=[task])
 
-        task.clearAdjustment.assert_called()
+        task.clearAdjustments.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):

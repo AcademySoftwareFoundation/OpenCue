@@ -2655,4 +2655,4 @@ curl -X POST http://localhost:8448/layer.LayerInterface/SetTags \
 - [Using the REST API](/docs/user-guides/using-rest-api/) - Usage examples and integration
 - [REST API Tutorial](/docs/tutorials/rest-api-tutorial/) - Step-by-step walkthrough
 - [Deploying REST Gateway](/docs/getting-started/deploying-rest-gateway) - Deployment instructions
-- [CueWeb Developer Guide](/docs/developer-guide/cueweb-development) - Integration examples with CueWeb
+- [OpenCueWeb Developer Guide](/docs/developer-guide/cueweb-development) - Integration examples with OpenCueWeb

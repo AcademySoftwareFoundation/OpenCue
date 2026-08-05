@@ -229,6 +229,17 @@ def getParser():
         # choices=["UP", "DOWN", "REPAIR"], type=str.upper,
         help="Filter host search by hardware state, up or down.",
     )
+    filter_grp.add_argument(
+        "-lock-state",
+        action="store",
+        choices=["OPEN", "LOCKED", "NIMBY_LOCKED"],
+        help="Filter -lh output to hosts in this lock state (e.g. NIMBY_LOCKED)",
+    )
+    filter_grp.add_argument(
+        "-sort-idle",
+        action="store_true",
+        help="Sort -lh output by most idle resources first",
+    )
 
     #
     # Show
@@ -1073,7 +1084,9 @@ def handleArgs(args):
     if args.lh:
         states = [Convert.strToHardwareState(s) for s in args.state]
         cueadmin.output.displayHosts(
-            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc)
+            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc),
+            lock_state=args.lock_state,
+            sort_idle=args.sort_idle,
         )
         return
 

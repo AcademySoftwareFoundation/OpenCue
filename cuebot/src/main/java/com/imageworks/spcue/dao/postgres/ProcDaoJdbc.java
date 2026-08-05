@@ -33,8 +33,6 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
-import org.springframework.transaction.support.TransactionSynchronizationAdapter;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
@@ -51,7 +49,7 @@ import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.service.AccountingRedisPublisher;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
@@ -65,7 +63,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     private ShowDao showDao;
 
     @Autowired
-    private AccountingRedisPublisher accountingRedisPublisher;
+    private AccountingNotifier accountingNotifier;
 
     // spotless:off
     private static final String VERIFY_RUNNING_PROC =
@@ -759,9 +757,9 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
      * For shows flagged {@code b_scheduler_managed=true} (and non-local dispatch), the five PG
      * accounting tables (subscription / layer_resource / job_resource / folder_resource / point)
      * are <em>not</em> decremented here — the standalone Rust scheduler owns recompute from
-     * {@code SUM(proc)} on a few minutes cadence. Instead, a Redis delta is published after the
-     * surrounding Postgres transaction commits. The host idle counters always update because
-     * Cuebot's own host-report path consumes them regardless of who owns dispatch.
+     * {@code SUM(proc)} on a few minutes cadence. Instead, a release delta is emitted via Postgres
+     * {@code NOTIFY} inside this transaction. The host idle counters always update because Cuebot's
+     * own host-report path consumes them regardless of who owns dispatch.
      *
      * <p>
      * Local dispatches are always Cuebot-managed, regardless of the show flag.
@@ -802,9 +800,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         }
 
         if (showDao.isSchedulerManaged(proc.getShowId())) {
-            // Skip the five PG accounting tables; the Rust scheduler owns recompute. Publish a
-            // release delta to Redis once the surrounding transaction commits.
-            registerAfterCommitRedisPublish(proc);
+            // Skip the five PG accounting tables; the Rust scheduler owns recompute. Emit a release
+            // delta via NOTIFY inside this (the unbook) transaction so it is delivered iff the
+            // DELETE proc commits.
+            accountingNotifier.notifyRelease(proc);
             return;
         }
 
@@ -835,49 +834,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                         + "(SELECT pk_dept FROM job WHERE pk_job=?) " + "AND " + "pk_show = "
                         + "(SELECT pk_show FROM job WHERE pk_job=?) ",
                 proc.coresReserved, proc.gpusReserved, proc.getJobId(), proc.getJobId());
-    }
-
-    /**
-     * Register an afterCommit hook to publish the Redis release delta. The Redis publish must not
-     * run on rollback or it would over-decrement.
-     *
-     * <p>
-     * folderId, deptId, and allocationId are read directly from the {@link VirtualProc} fields
-     * hydrated by {@link #VIRTUAL_PROC_MAPPER}. A defensive fallback populates folderId/deptId from
-     * the job table and allocationId from the host table if a caller built the proc manually
-     * instead of going through a SELECT.
-     */
-    private void registerAfterCommitRedisPublish(final VirtualProc proc) {
-        if (proc.folderId == null || proc.deptId == null) {
-            Map<String, Object> jobMeta = getJdbcTemplate().queryForMap(
-                    "SELECT pk_folder, pk_dept FROM job WHERE pk_job=?", proc.getJobId());
-            proc.folderId = (String) jobMeta.get("pk_folder");
-            proc.deptId = (String) jobMeta.get("pk_dept");
-        }
-
-        // allocationId is sourced from host.pk_alloc (see VIRTUAL_PROC_MAPPER), not the job row, so
-        // backfill it separately to avoid publishing to acct:sub:<show>:null.
-        if (proc.getAllocationId() == null) {
-            proc.allocationId = getJdbcTemplate().queryForObject(
-                    "SELECT pk_alloc FROM host WHERE pk_host=?", String.class, proc.getHostId());
-        }
-
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager
-                    .registerSynchronization(new TransactionSynchronizationAdapter() {
-                        @Override
-                        public void afterCommit() {
-                            accountingRedisPublisher.publishRelease(proc);
-                        }
-                    });
-        } else {
-            // procDestroyed is always called from within a transactional service method
-            // (DispatchSupportService is @Transactional). Defensive fallback if that invariant
-            // changes.
-            logger.warn("procDestroyed called outside a transaction; publishing Redis delta "
-                    + "synchronously for proc {}", proc.getProcId());
-            accountingRedisPublisher.publishRelease(proc);
-        }
     }
 
     /**

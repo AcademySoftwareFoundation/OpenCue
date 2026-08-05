@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
@@ -36,13 +37,21 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.GroupDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
     private static final int MAX_NESTING_LEVEL = 10;
+
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingNotifier accountingNotifier;
 
     @Override
     public String getRootGroupId(ShowInterface show) {
@@ -200,6 +209,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
         getJdbcTemplate().update("UPDATE folder_resource SET int_max_cores=? WHERE pk_folder=?",
                 value, group.getId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(group.getShowId())) {
+            accountingNotifier.notifyFolderMaxCores(group.getId(), value);
+        }
     }
 
     @Override
@@ -258,6 +271,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
         getJdbcTemplate().update("UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
                 value, group.getId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(group.getShowId())) {
+            accountingNotifier.notifyFolderMaxGpus(group.getId(), value);
+        }
     }
 
     @Override

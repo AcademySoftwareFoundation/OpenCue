@@ -16,6 +16,7 @@
 
 from opencue_proto import show_pb2
 from opencue.cuebot import Cuebot
+import opencue.wrappers.department
 import opencue.wrappers.filter
 import opencue.wrappers.group
 import opencue.wrappers.subscription
@@ -256,6 +257,31 @@ class Show(object):
         response = self.stub.CreateFilter(show_pb2.ShowCreateFilterRequest(
             show=self.data, name=name), timeout=Cuebot.Timeout)
         return opencue.wrappers.filter.Filter(response.filter)
+
+    def getDepartment(self, department):
+        """Gets the department of the show with the matching name.
+
+        :type  department: str
+        :param department: name of the department to find
+        :rtype:  opencue.wrappers.department.Department
+        :return: matching department of the show
+        """
+        response = self.stub.GetDepartment(show_pb2.ShowGetDepartmentRequest(
+            show=self.data, department=department),
+            timeout=Cuebot.Timeout)
+        return opencue.wrappers.department.Department(response.department)
+
+    def getDepartments(self):
+        """Gets the departments that belong to the show.
+
+        :rtype:  list<opencue.wrappers.department.Department>
+        :return: list of departments for this show
+        """
+        response = self.stub.GetDepartments(show_pb2.ShowGetDepartmentsRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return [opencue.wrappers.department.Department(dept)
+                for dept in response.departments.departments]
 
     def getGroups(self):
         """Gets the groups for the show.

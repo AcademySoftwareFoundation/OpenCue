@@ -23,6 +23,7 @@ import unittest
 
 import mock
 
+from opencue_proto import department_pb2
 from opencue_proto import facility_pb2
 from opencue_proto import filter_pb2
 from opencue_proto import host_pb2
@@ -49,6 +50,7 @@ TEST_MAX_GPUS = 7
 TEST_ENABLE_VALUE = False
 TEST_GROUP_NAME = 'group'
 TEST_GROUP_DEPT = 'lighting'
+TEST_DEPARTMENT_NAME = 'unittest_department'
 TEST_TARGET_SHOW_NAME = 'target_show'
 
 
@@ -284,6 +286,36 @@ class ShowTests(unittest.TestCase):
             show_pb2.ShowCreateFilterRequest(show=show.data, name=TEST_FILTER_NAME),
             timeout=mock.ANY)
         self.assertEqual(filter_created.name(), TEST_FILTER_NAME)
+
+    def testGetDepartment(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetDepartment.return_value = show_pb2.ShowGetDepartmentResponse(
+            department=department_pb2.Department(name=TEST_DEPARTMENT_NAME))
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        department = show.getDepartment(TEST_DEPARTMENT_NAME)
+
+        stubMock.GetDepartment.assert_called_with(
+            show_pb2.ShowGetDepartmentRequest(show=show.data, department=TEST_DEPARTMENT_NAME),
+            timeout=mock.ANY)
+        self.assertEqual(department.name(), TEST_DEPARTMENT_NAME)
+
+    def testGetDepartments(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetDepartments.return_value = show_pb2.ShowGetDepartmentsResponse(
+            departments=department_pb2.DepartmentSeq(
+                departments=[department_pb2.Department(name=TEST_DEPARTMENT_NAME)])
+        )
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        departments = show.getDepartments()
+
+        stubMock.GetDepartments.assert_called_with(
+            show_pb2.ShowGetDepartmentsRequest(show=show.data), timeout=mock.ANY)
+        self.assertEqual(len(departments), 1)
+        self.assertEqual(departments[0].name(), TEST_DEPARTMENT_NAME)
 
     def testGetGroups(self, getStubMock):
         stubMock = mock.Mock()

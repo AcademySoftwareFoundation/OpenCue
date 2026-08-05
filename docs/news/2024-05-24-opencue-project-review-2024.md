@@ -2,7 +2,7 @@
 layout: default
 title: "May 24, 2024: OpenCue Project Review 2024"
 parent: News
-nav_order: 3
+nav_order: 4
 ---
 
 # OpenCue Project Review 2024
@@ -24,7 +24,7 @@ Diego Tavares, Chair of the Technical Steering Committee, presented an overview 
 ## Highlights from the Presentation:
 
 - New TSC chair appointed while maintaining strong continuity in leadership.
-- Preview of CueWeb, the new browser-based UI.
+- Preview of OpenCueWeb, the new browser-based UI.
 - Performance improvements, including Out-of-Memory (OOM) prevention and database schema upgrades.
 - Integration updates: Blender plugin, PySide6 migration, and better Windows support.
 - Community engagement: ~2 pull requests merged per week, with a growing number of contributors.
@@ -32,7 +32,7 @@ Diego Tavares, Chair of the Technical Steering Committee, presented an overview 
 ## Looking Ahead:
 
 - Upgrade Cuebot to Java 21.
-- Release CueWeb officially.
+- Release OpenCueWeb officially.
 - Improve contributor experience by reducing stale issues/PRs.
 - Update and maintain the OpenCue homepage with TSC meeting notes and blog posts.
 

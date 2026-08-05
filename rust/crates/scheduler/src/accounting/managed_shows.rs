@@ -19,20 +19,21 @@ use tokio::time;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
-use crate::accounting::dao::AccountingDao;
+use crate::accounting::dao::{AccountingDao, BaselineKeys};
 use crate::accounting::limit_reseed;
-use crate::accounting::redis_client::RedisAccounting;
+use crate::accounting::recompute;
+use crate::accounting::store::Store;
 use crate::config::CONFIG;
 
 /// In-process cache of show ids where `b_scheduler_managed = true`. Refreshed by a
 /// dedicated `tokio::spawn` loop every `CONFIG.accounting.managed_shows_ttl`
 /// (default 30 s).
 ///
-///  - Stale-true (show was managed, now isn't): scheduler keeps writing Redis for up to
-///    one TTL after the flip; orphan writes are reseeded away within 5 min.
-///  - Stale-false (show is now managed, cache still says no): scheduler dispatches without
-///    Redis writes. Silent over-count until next refresh + next recompute heal (≤2 min
-///    after refresh). Acceptable per design §4.3.1.
+///  - Stale-true (show was managed, now isn't): scheduler keeps booking it against the
+///    store for up to one TTL after the flip; the next recompute reconciles from `proc`.
+///  - Stale-false (show is now managed, cache still says no): scheduler treats it as
+///    Cuebot-managed (no store enforcement) until the next refresh seeds its caps. Cuebot
+///    keeps booking it via PG in the meantime, so no decision is made against stale state.
 pub struct ManagedShowsCache {
     inner: Arc<RwLock<HashSet<Uuid>>>,
 }
@@ -56,8 +57,9 @@ impl ManagedShowsCache {
     /// shutdown ever becomes a requirement (multi-scheduler rollout, integration
     /// tests that recreate the service), this needs a `CancellationToken` or a
     /// stored handle.
-    // TODO: cancellation handle when multi-init/graceful-shutdown lands (design §5).
-    pub fn start_refresh_loop(self: &Arc<Self>, dao: Arc<AccountingDao>, redis: RedisAccounting) {
+    // Single-scheduler (N=1) assumed; if multi-init/graceful-shutdown ever lands this needs
+    // a cancellation handle.
+    pub fn start_refresh_loop(self: &Arc<Self>, dao: Arc<AccountingDao>, store: Arc<Store>) {
         let inner = self.inner.clone();
         tokio::spawn(async move {
             let mut interval = time::interval(CONFIG.accounting.managed_shows_ttl);
@@ -65,74 +67,104 @@ impl ManagedShowsCache {
             interval.tick().await;
             loop {
                 interval.tick().await;
-                let result = AssertUnwindSafe(async {
-                    match dao.query_managed_show_ids().await {
-                        Ok(ids) => {
-                            let new_set: HashSet<Uuid> = ids.into_iter().collect();
-
-                            // Shows that became scheduler-managed since the last refresh.
-                            // Their accounting limits (notably subscription `burst`) may
-                            // not be in Redis yet - bootstrap only seeded shows managed at
-                            // startup, and the periodic limit reseed runs on a slow cadence.
-                            // Publishing them into the cache now would flip the booking hot
-                            // path to enforce against an unseeded burst (== 0 == "reject
-                            // all"). So seed limits FIRST, then publish.
-                            let added: Vec<Uuid> = {
-                                let lock = inner.read().unwrap_or_else(|p| p.into_inner());
-                                new_set
-                                    .iter()
-                                    .filter(|id| !lock.contains(*id))
-                                    .copied()
-                                    .collect()
-                            };
-                            if !added.is_empty() {
-                                if let Err(err) = limit_reseed::reseed_limits(&redis, &dao).await {
-                                    // Defer publishing only the *additions* this tick: a
-                                    // newly-managed show that is not yet in the cache
-                                    // dispatches without Redis enforcement (silent
-                                    // over-count, healed by the next recompute) - strictly
-                                    // safer than enforcing against an unseeded burst.
-                                    // Retried on the next tick.
-                                    //
-                                    // Removals still apply: a show that is no longer
-                                    // scheduler-managed must drop out of the cache
-                                    // regardless of the reseed outcome, otherwise
-                                    // apply_booking keeps enforcing Redis for it
-                                    // indefinitely (until reseed eventually succeeds).
-                                    warn!(
-                                        "Limit seed for newly-managed show(s) {:?} failed; \
-                                         deferring their cache publish to next tick: {err}",
-                                        added
-                                    );
-                                    let added_set: HashSet<Uuid> = added.iter().copied().collect();
-                                    let deferred: HashSet<Uuid> =
-                                        new_set.difference(&added_set).copied().collect();
-                                    let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
-                                    *lock = deferred;
-                                    return;
-                                }
-                                debug!(
-                                    "Seeded limits for {} newly-managed show(s) before publishing",
-                                    added.len()
-                                );
-                            }
-
-                            let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
-                            *lock = new_set;
-                            debug!("ManagedShowsCache refreshed: {} shows", lock.len());
-                        }
-                        Err(err) => {
-                            warn!("Failed to refresh managed-shows cache: {err}");
-                        }
-                    }
-                })
-                .catch_unwind()
-                .await;
+                // Catch panics so one bad tick can't kill the refresh loop for the
+                // life of the process.
+                let result = AssertUnwindSafe(Self::refresh_once(&inner, &dao, &store))
+                    .catch_unwind()
+                    .await;
                 if let Err(e) = result {
                     error!("Managed-shows refresh iteration panicked: {:?}", e);
                 }
             }
         });
+    }
+
+    /// Performs a single refresh tick: re-queries the managed-show set, seeds caps +
+    /// booked counters for any newly-managed shows, then publishes the new set. Errors
+    /// are logged rather than propagated - the driver loop must keep running.
+    async fn refresh_once(
+        inner: &Arc<RwLock<HashSet<Uuid>>>,
+        dao: &Arc<AccountingDao>,
+        store: &Arc<Store>,
+    ) {
+        let new_set: HashSet<Uuid> = match dao.query_managed_show_ids().await {
+            Ok(ids) => ids.into_iter().collect(),
+            Err(err) => {
+                warn!("Failed to refresh managed-shows cache: {err}");
+                return;
+            }
+        };
+
+        // Shows that became scheduler-managed since the last refresh. Their enforced
+        // caps (notably subscription `burst`) may not be in the store yet - bootstrap
+        // only seeded shows managed at startup, and the periodic limit reseed runs on a
+        // slow cadence. Publishing them into the cache now would flip the booking hot
+        // path to enforce against an unseeded burst (== 0 == "reject all"). So seed caps
+        // FIRST, then publish (the managed-flip gate).
+        let added: Vec<Uuid> = {
+            let lock = inner.read().unwrap_or_else(|p| p.into_inner());
+            new_set
+                .iter()
+                .filter(|id| !lock.contains(*id))
+                .copied()
+                .collect()
+        };
+
+        if !added.is_empty() {
+            if let Err(err) = Self::seed_newly_managed(store, dao, &added).await {
+                // Defer publishing only the *additions* this tick: a newly-managed show
+                // that is not yet in the cache is treated as Cuebot-managed (Cuebot still
+                // books it via PG until the flip lands) - strictly safer than enforcing
+                // against unseeded state. Retried next tick.
+                //
+                // Removals still apply: a show no longer scheduler-managed must drop out
+                // of the cache regardless of the seed outcome, otherwise apply_booking
+                // keeps enforcing the store for it indefinitely.
+                warn!(
+                    "Seed for newly-managed show(s) {:?} failed; deferring their cache \
+                     publish to next tick: {err}",
+                    added
+                );
+                let added_set: HashSet<Uuid> = added.iter().copied().collect();
+                let deferred: HashSet<Uuid> = new_set.difference(&added_set).copied().collect();
+                let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
+                *lock = deferred;
+                return;
+            }
+            debug!(
+                "Seeded caps + booked counters for {} newly-managed show(s) before publishing",
+                added.len()
+            );
+        }
+
+        let mut lock = inner.write().unwrap_or_else(|p| p.into_inner());
+        *lock = new_set;
+        debug!("ManagedShowsCache refreshed: {} shows", lock.len());
+    }
+
+    /// Seeds a newly-managed show into the store BEFORE it is published into the cache:
+    /// its caps (subscription burst, folder/job limits) via the limit reseed, then its
+    /// booked counters via [`Store::seed_show_booked`].
+    ///
+    /// This is the fix for the managed-flip over-book window. A show that just flipped to
+    /// scheduler-managed may already have live Cuebot procs, but its store counters start
+    /// at 0. If it were published with counters still at 0, the first booking would see 0
+    /// booked, read the whole burst as free, and over-book. Seeding to real PG usage first
+    /// means the hot path enforces against actual usage from the very first booking.
+    async fn seed_newly_managed(
+        store: &Arc<Store>,
+        dao: &Arc<AccountingDao>,
+        added: &[Uuid],
+    ) -> miette::Result<()> {
+        limit_reseed::reseed_limits(store, dao).await?;
+        for show in added {
+            let rows = dao.query_booked_snapshot_for_show(*show).await?;
+            store.seed_show_booked(&recompute::snapshot_to_counters(
+                &rows,
+                &BaselineKeys::default(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn contains(&self, show_id: &Uuid) -> bool {

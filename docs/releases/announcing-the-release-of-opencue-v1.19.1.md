@@ -15,7 +15,7 @@ nav_order: 0
 
 To learn how to install and configure OpenCue, see our [Getting Started guide](https://docs.opencue.io/docs/quick-starts).
 
-This release brings major new capabilities including a distributed scheduler written in Rust, comprehensive RQD improvements (OOM prevention, Windows support, PSS memory), CueWeb LDAP authentication, a full-stack sandbox deployment, and numerous bug fixes and stability improvements across the ecosystem.
+This release brings major new capabilities including a distributed scheduler written in Rust, comprehensive RQD improvements (OOM prevention, Windows support, PSS memory), OpenCueWeb LDAP authentication, a full-stack sandbox deployment, and numerous bug fixes and stability improvements across the ecosystem.
 
 ## Major Features
 
@@ -27,12 +27,12 @@ This release brings major new capabilities including a distributed scheduler wri
   Added a full event-driven monitoring stack with enhanced metrics, dashboards, and comprehensive documentation.  
   ([#2086](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2086))
 
-- **CueWeb LDAP Authentication**  
-  Added LDAP authentication support for CueWeb, enabling enterprise directory integration.  
+- **OpenCueWeb LDAP Authentication**  
+  Added LDAP authentication support for OpenCueWeb, enabling enterprise directory integration.  
   ([#2096](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2096))
 
 - **Full-Stack Sandbox Deployment**  
-  Introduced a unified Docker Compose sandbox deployment with CueWeb, REST Gateway, core-only defaults, monitoring profiles, and quick start documentation.  
+  Introduced a unified Docker Compose sandbox deployment with OpenCueWeb, REST Gateway, core-only defaults, monitoring profiles, and quick start documentation.  
   ([#2103](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2103)), ([#2110](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2110)), ([#2166](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2166))
 
 - **RQD Windows Support (Release Candidate)**  
@@ -176,7 +176,7 @@ This release brings major new capabilities including a distributed scheduler wri
     ([#2197](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2197))
   - Added Docker setup for building documentation  
     ([#2130](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2130))
-  - Updated CueWeb documentation with correct healthcheck using wget  
+  - Updated OpenCueWeb documentation with correct healthcheck using wget  
     ([#2132](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2132))
   - Added nav_order management utilities for documentation  
     ([#2055](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2055))

@@ -40,7 +40,10 @@ use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
 use crate::system::OOM_REASON_MSG;
-use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
+use crate::{
+    frame::frame_cmd::FrameCmdBuilder,
+    system::manager::{HostMemSnapshot, PeerMem, ProcessStats},
+};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
@@ -77,6 +80,12 @@ pub struct RunningFrame {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     stats_frozen: AtomicBool,
+    /// Latest host-wide memory distribution, refreshed each monitor cycle. Read by the log
+    /// footer of a failing frame to expose potential memory starvation from co-tenants.
+    /// Transient host state, never persisted in frame snapshots.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    latest_host_mem_snapshot: RwLock<Option<Arc<HostMemSnapshot>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -208,6 +217,7 @@ impl RunningFrame {
             })),
             dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
+            latest_host_mem_snapshot: RwLock::new(None),
         }
     }
 
@@ -1257,6 +1267,8 @@ impl RunningFrame {
         frame.config = config;
         // Initialize stats_frozen (skipped during deserialization)
         frame.stats_frozen = AtomicBool::new(false);
+        // Initialize host mem snapshot (skipped during deserialization)
+        frame.latest_host_mem_snapshot = RwLock::new(None);
 
         let pid = frame.pid();
 
@@ -1388,6 +1400,14 @@ Environment Variables:
                     })
                     .unwrap_or("".to_string());
 
+                // Only failed frames get the host memory distribution, to keep it a
+                // diagnostic signal rather than noise on every successful frame.
+                let host_mem_section = if exit_status != 0 {
+                    self.render_host_mem_distribution(finished_state.end_time)
+                } else {
+                    String::new()
+                };
+
                 format!(
                     r#"
 
@@ -1402,7 +1422,7 @@ maxUsedGpuMemory    {max_gpu_memory}
 runTime             {run_time}
 
 Processes:
-{children}
+{children}{host_mem_section}
 ===================================================================================================="#
                 )
             }
@@ -1502,6 +1522,132 @@ Render Frame Completed
     /// Once frozen, calls to `update_frame_stats()` will be ignored.
     pub fn freeze_stats(&self) {
         self.stats_frozen.store(true, Ordering::SeqCst);
+    }
+
+    /// Stores the latest host-wide memory snapshot, shared from the monitor loop.
+    ///
+    /// The same `Arc` is pushed into every running frame each monitor cycle so that a
+    /// failing frame's footer can render the host memory distribution without touching
+    /// the machine singleton or any global lock on the failure path.
+    pub fn set_host_mem_snapshot(&self, snapshot: Arc<HostMemSnapshot>) {
+        let mut lock = self
+            .latest_host_mem_snapshot
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *lock = Some(snapshot);
+    }
+
+    /// Builds this frame's contribution to the host memory snapshot from its current stats.
+    ///
+    /// Memory values are in bytes. `reserved` is `None` when the frame declares no soft
+    /// memory limit, in which case it is never flagged as overusing memory.
+    pub fn to_peer_mem(&self) -> PeerMem {
+        let stats = self
+            .frame_stats
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let reserved = if self.request.soft_memory_limit > 0 {
+            Some(self.request.soft_memory_limit as u64)
+        } else {
+            None
+        };
+        PeerMem {
+            frame_id: self.frame_id,
+            label: format!("{}.{}", self.request.job_name, self.request.frame_name),
+            current_rss: stats.rss,
+            max_rss: stats.max_rss,
+            reserved,
+        }
+    }
+
+    /// Renders the host memory distribution block for the footer of a failed frame.
+    ///
+    /// Lists co-tenant frames (top 15 by current RSS) with current/peak session RSS and
+    /// their reservation, flagging any frame using more than it reserved. Helps pinpoint
+    /// whether the frame may have been starved by a memory-overusing neighbor.
+    ///
+    /// This frame's own row is always shown, even when 15 other frames outrank it by
+    /// current RSS: in that case it takes the last displayed slot.
+    fn render_host_mem_distribution(&self, end_time: SystemTime) -> String {
+        const TOP_N: usize = 15;
+        // Bytes -> GiB as a float, for compact human-readable sizes.
+        let gib = |bytes: u64| bytes as f64 / bytesize::GIB as f64;
+
+        let snapshot = self
+            .latest_host_mem_snapshot
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+
+        let snapshot = match snapshot {
+            Some(snapshot) => snapshot,
+            None => {
+                return "\n\nHost Memory Distribution: unavailable (no sample captured)".to_string()
+            }
+        };
+
+        // Snapshot was captured before the frame exited; guard against clock skew.
+        let age_secs = end_time
+            .duration_since(snapshot.captured_at)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let mut out = format!(
+            "\n\nHost Memory Distribution   (captured {age_secs}s before exit)\n\
+             host: {:.1} GiB total, {:.1} GiB available\n\
+             \x20  RSS now |    peak  | reserved |\n",
+            gib(snapshot.total_memory),
+            gib(snapshot.available_memory),
+        );
+
+        // Display the top-N peers by current RSS, but always keep this frame's own row:
+        // if it falls outside the natural top-N, reserve the last slot for it. Peers are
+        // already sorted by current RSS descending, so appending self preserves ordering.
+        let self_pos = snapshot
+            .peers
+            .iter()
+            .position(|peer| peer.frame_id == self.frame_id);
+        let display: Vec<&PeerMem> = match self_pos {
+            Some(pos) if pos >= TOP_N => {
+                let mut peers: Vec<&PeerMem> = snapshot.peers.iter().take(TOP_N - 1).collect();
+                peers.push(&snapshot.peers[pos]);
+                peers
+            }
+            _ => snapshot.peers.iter().take(TOP_N).collect(),
+        };
+
+        for peer in display {
+            let reserved_str = match peer.reserved {
+                Some(reserved) => format!("{:.1}G", gib(reserved)),
+                None => "—".to_string(),
+            };
+            let over_flag = match peer.reserved {
+                Some(reserved) if peer.current_rss > reserved => {
+                    format!("OVER +{:.1}G", gib(peer.current_rss - reserved))
+                }
+                _ => String::new(),
+            };
+            let self_marker = if peer.frame_id == self.frame_id {
+                " ◀ this frame"
+            } else {
+                ""
+            };
+            out.push_str(&format!(
+                "  {:>7} {:>8} {:>8}   {:<12} {}{}\n",
+                format!("{:.1}G", gib(peer.current_rss)),
+                format!("{:.1}G", gib(peer.max_rss)),
+                reserved_str,
+                over_flag,
+                peer.label,
+                self_marker,
+            ));
+        }
+
+        if snapshot.peers.len() > TOP_N {
+            out.push_str(&format!("  … +{} more\n", snapshot.peers.len() - TOP_N));
+        }
+
+        out.trim_end().to_string()
     }
 }
 
@@ -1720,6 +1866,227 @@ mod tests {
         if let Ok(status) = running_frame.read_exit_file().await {
             assert_eq!((0, None), status);
         }
+    }
+
+    fn set_test_snapshot(frame: &RunningFrame, include_self: bool, extra_peers: usize) {
+        use crate::system::manager::{HostMemSnapshot, PeerMem};
+        use std::sync::Arc;
+        use std::time::SystemTime;
+
+        let gib = bytesize::GIB;
+        let mut peers = vec![
+            // Over-reserved co-tenant: biggest current RSS, should top the list + be flagged.
+            PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: "bigshow-sq010.comp_v3".to_string(),
+                current_rss: 180 * gib,
+                max_rss: 190 * gib,
+                reserved: Some(16 * gib),
+            },
+            // Innocent whale: within its reservation, no flag.
+            PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: "bigshow-sq010.light_v1".to_string(),
+                current_rss: 58 * gib,
+                max_rss: 60 * gib,
+                reserved: Some(60 * gib),
+            },
+        ];
+        if include_self {
+            // Unreserved frame (soft limit unset) -> reserved shown as dash, never flagged.
+            peers.push(PeerMem {
+                frame_id: frame.frame_id,
+                label: "othershow-sh05.sim".to_string(),
+                current_rss: 40 * gib,
+                max_rss: 41 * gib,
+                reserved: None,
+            });
+        }
+        for i in 0..extra_peers {
+            peers.push(PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: format!("filler.frame_{i}"),
+                current_rss: (1 + i as u64) * gib,
+                max_rss: (1 + i as u64) * gib,
+                reserved: Some(gib),
+            });
+        }
+        peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+
+        frame.set_host_mem_snapshot(Arc::new(HostMemSnapshot {
+            captured_at: SystemTime::now(),
+            total_memory: 512 * gib,
+            available_memory: 8 * gib,
+            peers,
+        }));
+    }
+
+    #[test]
+    fn test_to_peer_mem_maps_stats_and_reservation() {
+        use crate::system::manager::ProcessStats;
+        let gib = bytesize::GIB;
+
+        // Unreserved frame (soft_memory_limit == 0) -> reserved is None.
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.update_frame_stats(ProcessStats {
+            rss: 10 * gib,
+            max_rss: 12 * gib,
+            ..Default::default()
+        });
+        let peer = frame.to_peer_mem();
+        assert_eq!(peer.frame_id, frame.frame_id);
+        assert_eq!(peer.label, "job_name.frame_name");
+        assert_eq!(peer.current_rss, 10 * gib);
+        assert_eq!(peer.max_rss, 12 * gib);
+        assert_eq!(peer.reserved, None);
+
+        // Reserved frame (soft_memory_limit > 0) -> reserved is Some(limit as bytes).
+        let mut reserved_frame = create_running_frame("true", 1, 1, HashMap::new());
+        reserved_frame.request.soft_memory_limit = (8 * gib) as i64;
+        reserved_frame.update_frame_stats(ProcessStats {
+            rss: 4 * gib,
+            max_rss: 5 * gib,
+            ..Default::default()
+        });
+        let reserved_peer = reserved_frame.to_peer_mem();
+        assert_eq!(reserved_peer.reserved, Some(8 * gib));
+        assert_eq!(reserved_peer.current_rss, 4 * gib);
+        assert_eq!(reserved_peer.max_rss, 5 * gib);
+    }
+
+    #[test]
+    fn test_footer_host_mem_on_failure() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        set_test_snapshot(&frame, true, 0);
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("Host Memory Distribution"),
+            "failed frame should render the memory distribution: {footer}"
+        );
+        assert!(
+            footer.contains("512.0 GiB total, 8.0 GiB available"),
+            "host header line missing: {footer}"
+        );
+        // Over-reserved frame (180G used vs 16G reserved) flagged with the overage.
+        assert!(
+            footer.contains("OVER +164.0G"),
+            "over-reservation flag missing/incorrect: {footer}"
+        );
+        // Unreserved self frame: dash for reserved, no OVER, marked as this frame.
+        assert!(footer.contains("—"), "unreserved dash missing: {footer}");
+        assert!(
+            footer.contains("◀ this frame"),
+            "self marker missing: {footer}"
+        );
+        // Innocent whale within reservation is not flagged.
+        assert!(
+            footer.contains("bigshow-sq010.light_v1"),
+            "within-reservation peer missing: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_no_host_mem_on_success() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        set_test_snapshot(&frame, true, 0);
+        frame.finish(0, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            !footer.contains("Host Memory Distribution"),
+            "successful frame must not render the memory distribution: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_host_mem_unavailable() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        // No snapshot set.
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("Host Memory Distribution: unavailable (no sample captured)"),
+            "missing-snapshot case should be reported: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_host_mem_top_n_cap() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        // 2 base peers + self + 16 fillers = 19 peers, cap is 15 -> "+4 more".
+        set_test_snapshot(&frame, true, 16);
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("… +4 more"),
+            "top-N truncation summary missing/incorrect: {footer}"
+        );
+
+        // Now the case where 15 peers all outrank this frame by current RSS: the self
+        // row must still be shown, taking the last displayed slot, displacing the
+        // lowest-RSS non-self peer from the top-15.
+        let outranked = create_running_frame("true", 1, 1, HashMap::new());
+        outranked.start(1234);
+        {
+            use crate::system::manager::{HostMemSnapshot, PeerMem};
+            use std::sync::Arc;
+            use std::time::SystemTime;
+
+            let gib = bytesize::GIB;
+            let mut peers: Vec<PeerMem> = (0..15)
+                .map(|i| PeerMem {
+                    frame_id: Uuid::new_v4(),
+                    label: format!("bigshow.frame_{i}"),
+                    current_rss: (100 + i as u64) * gib, // all above self's 40G
+                    max_rss: (100 + i as u64) * gib,
+                    reserved: Some(200 * gib),
+                })
+                .collect();
+            peers.push(PeerMem {
+                frame_id: outranked.frame_id,
+                label: "othershow.sim".to_string(),
+                current_rss: 40 * gib,
+                max_rss: 41 * gib,
+                reserved: None,
+            });
+            peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+            outranked.set_host_mem_snapshot(Arc::new(HostMemSnapshot {
+                captured_at: SystemTime::now(),
+                total_memory: 512 * gib,
+                available_memory: 8 * gib,
+                peers,
+            }));
+        }
+        outranked.finish(1, None, None).unwrap();
+
+        let footer = outranked.write_footer();
+        assert!(
+            footer.contains("◀ this frame"),
+            "self row must be retained even when outside the natural top-15: {footer}"
+        );
+        // 16 peers, 15 displayed (14 top + self) -> exactly one hidden.
+        assert!(
+            footer.contains("… +1 more"),
+            "hidden count should be '+1 more' with self reserved: {footer}"
+        );
+        // The displaced peer is the lowest-RSS non-self one (frame_0 @ 100G); it must
+        // not be displayed, proving self took a reserved slot rather than a 16th row.
+        assert!(
+            !footer.contains("bigshow.frame_0"),
+            "lowest non-self peer should be hidden to make room for self: {footer}"
+        );
     }
 
     #[test]

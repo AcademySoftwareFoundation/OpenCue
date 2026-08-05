@@ -10,52 +10,51 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-//! Redis-backed accounting service for the Rust scheduler.
+//! In-memory accounting service for the Rust scheduler.
 //!
-//! Replaces the in-process `ResourceAccountingService` with a shared store that scales
-//! horizontally across N scheduler instances. See the Redis-Backed Accounting Reference
-//! at `docs/_docs/developer-guide/redis-accounting.md` for architecture; key invariants:
+//! Holds the per-show resource counters in process - a single source of truth that makes
+//! the accounting-drift bug class structurally impossible. See the Scheduler Accounting
+//! Reference at `docs/_docs/developer-guide/scheduler-accounting.md` for architecture;
+//! key invariants:
 //!
-//! - Both Cuebot (release path, see `LettuceAccountingRedisPublisher`) and the Rust
-//!   scheduler (booking path, here) mutate the same `acct:*` hashes via Lua scripts
-//!   that bump `acct:seq` atomically.
-//! - PG accounting tables stay durable via Cuebot's transactional UPDATEs (for
-//!   Cuebot-managed shows) or the Rust 2-min recompute loop (for scheduler-managed
-//!   shows). `proc` remains the canonical record of bookings.
-//! - All reseeds (booted counters + limits + bootstrap) use the `acct:seq` CAS guard
-//!   to avoid clobbering concurrent hot-path writes.
+//! - The booking hot path checks subscription burst + folder/job caps and increments the
+//!   counters atomically under one lock (`Store`). `proc` remains the canonical record.
+//! - Releases arrive live via Cuebot's PG `acct_release` NOTIFY (`listener`); cap changes
+//!   via `acct_limit_change`. Both are optimisations over the periodic backstops.
+//! - The recompute (`SUM(proc)` → counters, carrying pending in-flight bookings forward)
+//!   and the limit reseed keep the store convergent and are the recovery mechanism.
+//! - Single scheduler instance (N=1) is assumed; the in-memory store is not shared.
 
 pub mod booking_delta;
 pub mod bootstrap;
 pub mod dao;
 pub mod error;
 pub mod limit_reseed;
-pub mod lua;
+pub mod listener;
 pub mod managed_shows;
 pub mod recompute;
-pub mod redis_client;
+pub mod store;
 
 use std::sync::Arc;
 
 use miette::Result;
 use tokio::sync::OnceCell;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::accounting::booking_delta::BookingDelta;
 use crate::accounting::dao::AccountingDao;
 use crate::accounting::error::AccountingError;
 use crate::accounting::managed_shows::ManagedShowsCache;
-use crate::accounting::redis_client::{BookMode, BookOutcome, RedisAccounting};
-use crate::config::CONFIG;
+use crate::accounting::store::{BookOutcome, Store};
 
 static ACCOUNTING_SERVICE: OnceCell<Arc<AccountingService>> = OnceCell::const_new();
 
 /// Returns the process-wide `AccountingService`, initializing on first call.
 ///
-/// Initialization connects to Redis and populates the managed-shows cache; the caller
-/// is responsible for running `bootstrap::run_blocking_reseed` before the scheduler
-/// accepts work, and for spawning the recompute + limit-reseed loops afterwards.
+/// Initialization builds the in-memory store and the managed-shows cache; the caller is
+/// responsible for running `bootstrap::run_blocking_reseed` before the scheduler accepts
+/// work, and for spawning the recompute, limit-reseed, and NOTIFY-listener loops after.
 pub async fn accounting_service() -> Result<Arc<AccountingService>> {
     ACCOUNTING_SERVICE
         .get_or_try_init(|| async {
@@ -66,41 +65,46 @@ pub async fn accounting_service() -> Result<Arc<AccountingService>> {
         .cloned()
 }
 
+/// Result of [`AccountingService::apply_booking`]. Carries the delta so the caller can
+/// `confirm`/`rollback` without re-deriving managed status (which can flip mid-dispatch).
+pub enum Booking {
+    /// Show is scheduler-managed and the delta was applied to the store.
+    Applied(BookingDelta),
+    /// Show is Cuebot-managed; nothing was applied. Confirm/rollback are no-ops.
+    NotManaged,
+}
+
 /// High-level facade that the dispatcher hot path and the background loops both consume.
 pub struct AccountingService {
-    redis: RedisAccounting,
+    store: Arc<Store>,
     dao: Arc<AccountingDao>,
     managed_shows: Arc<ManagedShowsCache>,
 }
 
 impl AccountingService {
-    /// Connects to Redis, populates the managed-shows cache from PG, and returns a
-    /// ready-to-use service. Callers must run `bootstrap::run_blocking_reseed` against
-    /// the returned service before the scheduler accepts work.
+    /// Builds the in-memory store, populates the managed-shows cache from PG, and starts
+    /// the cache refresh loop. Callers must run `bootstrap::run_blocking_reseed` before
+    /// the scheduler accepts work.
     pub async fn init() -> Result<Self> {
-        let redis = RedisAccounting::connect(&CONFIG.accounting.redis)
-            .await
-            .map_err(|e| miette::miette!("Failed to connect to redis: {e}"))?;
+        let store = Arc::new(Store::new());
         let dao = Arc::new(AccountingDao::new().await?);
         let managed_shows = ManagedShowsCache::populate(&dao).await?;
-        // The refresh loop also seeds limits for shows that become managed after startup,
-        // before publishing them into the cache - so it needs a Redis handle.
-        managed_shows.start_refresh_loop(dao.clone(), redis.clone());
+        // The refresh loop seeds caps for shows that become managed after startup, before
+        // publishing them into the cache - so it needs a store handle.
+        managed_shows.start_refresh_loop(dao.clone(), store.clone());
         info!(
-            "AccountingService initialized: redis={}:{} managed_shows={}",
-            CONFIG.accounting.redis.host,
-            CONFIG.accounting.redis.port,
+            "AccountingService initialized (in-memory store): managed_shows={}",
             managed_shows.snapshot().len(),
         );
         Ok(Self {
-            redis,
+            store,
             dao,
             managed_shows,
         })
     }
 
-    pub fn redis(&self) -> &RedisAccounting {
-        &self.redis
+    pub fn store(&self) -> &Arc<Store> {
+        &self.store
     }
 
     pub fn dao(&self) -> &Arc<AccountingDao> {
@@ -111,82 +115,58 @@ impl AccountingService {
         &self.managed_shows
     }
 
-    /// Hot-path booking. Atomically checks subscription burst, folder/job caps and
-    /// applies the delta to all five `acct:*` hashes. For shows not currently
-    /// `b_scheduler_managed = true`, this is a no-op (Cuebot owns the show's accounting).
-    pub async fn apply_booking(&self, delta: &BookingDelta) -> Result<(), AccountingError> {
+    /// Hot-path booking. Atomically checks subscription burst, folder/job caps and applies
+    /// the delta to the counters. For shows not currently `b_scheduler_managed = true` this
+    /// is a no-op (Cuebot owns the show's accounting), reported as `Booking::NotManaged`.
+    pub fn apply_booking(&self, delta: &BookingDelta) -> Result<Booking, AccountingError> {
         if !self.managed_shows.contains(&delta.show_id) {
             debug!(
                 "apply_booking skipped: show {} is not scheduler-managed",
                 delta.show_id
             );
-            return Ok(());
+            return Ok(Booking::NotManaged);
         }
-        match self.redis.book(delta, BookMode::Enforce).await? {
-            BookOutcome::Applied { new_seq: _ } => Ok(()),
+        match self.store.book(delta) {
+            BookOutcome::Applied => Ok(Booking::Applied(delta.clone())),
             BookOutcome::LimitExceeded {
                 table,
                 current,
                 limit,
             } => Err(AccountingError::LimitExceeded {
-                table,
+                table: table.to_string(),
                 current,
                 limit,
             }),
         }
     }
 
-    /// Force-applies a (typically negated) delta, bypassing all caps. Used by the
-    /// dispatcher on DB or RQD failure to roll back a booking that was already counted
-    /// in Redis. Cannot return `LimitExceeded`. On Redis failure we log and swallow -
-    /// the next recompute (≤2 min) heals Redis from `proc`.
+    /// Booking fully succeeded (proc committed + RQD launched): drop the pending portion,
+    /// keep the booked increment. No-op when nothing was booked.
     ///
-    /// Intentionally does NOT consult `managed_shows`: if `apply_booking` wrote the
-    /// hashes (the only path that reaches this rollback), we must undo it, even if
-    /// the show was flipped to Cuebot-managed between the booking and the failure.
-    /// Otherwise the orphan booking persists in Redis - the recompute filters by
-    /// `b_scheduler_managed=true` in SQL and won't include the show.
-    pub async fn apply_force_rollback(&self, delta: &BookingDelta) {
-        match self.redis.book(delta, BookMode::Force).await {
-            Ok(_) => {}
-            Err(err) => {
-                warn!(
-                    "apply_force_rollback failed for show={} job={}: {err}; \
-                     recompute will heal Redis from proc",
-                    delta.show_id, delta.job_id
-                );
-            }
+    /// Intentionally does NOT re-check managed status: if `apply_booking` applied the
+    /// delta we must settle it even if the show flipped to Cuebot-managed in between.
+    pub fn confirm_booking(&self, booking: &Booking) {
+        if let Booking::Applied(delta) = booking {
+            self.store.confirm(delta);
         }
     }
 
-    /// Cheap pre-check that would filter doomed host candidates before host selection.
-    /// Returns `Ok(true)` when the requested cores fit under the subscription burst,
-    /// `Ok(false)` when they don't. Conservatively returns `true` for non-managed shows
-    /// and on transient Redis errors.
-    ///
-    /// **Currently unwired** because `host_cache::CheckOut.validation` is a sync `Fn`
-    /// and calling Redis from inside it requires either making the validation async
-    /// (host_cache actor refactor) or precomputing a per-layer (show, alloc) → bookable
-    /// map before CheckOut. See the comment at `pipeline/matcher.rs::process_layer`.
-    #[allow(dead_code)]
-    pub async fn subscription_can_book(
-        &self,
-        show_id: Uuid,
-        alloc_id: Uuid,
-        cores_requested: i64,
-    ) -> bool {
-        if !self.managed_shows.contains(&show_id) {
-            return true;
+    /// Booking failed before launch: undo the counter increment and the pending delta.
+    /// No-op when nothing was booked. Like `confirm_booking`, ignores managed status.
+    pub fn rollback_booking(&self, booking: &Booking) {
+        if let Booking::Applied(delta) = booking {
+            self.store.rollback(delta);
         }
-        match self.redis.read_sub_counters(show_id, alloc_id).await {
-            Ok((booked, burst)) => burst <= 0 || (booked + cores_requested) <= burst,
-            Err(err) => {
-                debug!(
-                    "subscription_can_book HGET failed for show={show_id} alloc={alloc_id}: \
-                     {err}; allowing through, Lua will decide",
-                );
-                true
-            }
-        }
+    }
+
+    /// Live booked cores for a job (E-PVM placement snapshot in the matcher). 0 if unseen
+    /// or the show is not managed.
+    pub fn job_cores_in_use(&self, job_id: Uuid) -> i64 {
+        self.store.job_cores_in_use(job_id)
+    }
+
+    /// `(booked_cores, burst)` for a subscription (matcher over-burst pre-check), in cores.
+    pub fn sub_counters(&self, show_id: Uuid, alloc_id: Uuid) -> (i64, i64) {
+        self.store.sub_counters(show_id, alloc_id)
     }
 }

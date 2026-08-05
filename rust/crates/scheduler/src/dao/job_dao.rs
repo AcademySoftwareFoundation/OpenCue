@@ -87,8 +87,11 @@ static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
 -- booking, Cuebot deletes on frame completion, compensation deletes on a failed launch),
 -- so we sum it directly. Each CTE is scoped to this show ($1) via i_proc_pkshow and
 -- mirrors the recompute aggregation (so the value equals a fresher copy of the PG
--- column), and joins on indexed pk_host / pk_job. Gating on stale PG would otherwise
--- (a) over-fetch jobs for caps that are full in Redis -> wasted rejections, and worse
+-- column), and joins on indexed pk_host / pk_job. This query fetches from PG (live proc
+-- aggregates vs the lagged *_resource.int_cores columns) and is independent of the
+-- scheduler's in-memory accounting Store used on the hot path. Gating on stale PG would
+-- otherwise
+-- (a) over-fetch jobs for caps that are already full per the live proc sums -> wasted rejections, and worse
 -- (b) FALSE-EXCLUDE: a frame completes and frees burst live, but the lagged PG column
 -- stays high for up to a cycle, dropping the show/folder/job from the fetch and starving
 -- its (esp. low-priority) jobs until the next recompute.

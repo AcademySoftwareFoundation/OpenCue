@@ -1,14 +1,14 @@
 ---
 layout: default
-title: CueWeb Reference
+title: OpenCueWeb Reference
 parent: Reference
 nav_order: 71
 ---
 
-# CueWeb Reference
+# OpenCueWeb Reference
 {: .no_toc }
 
-Complete reference documentation for CueWeb, the web-based interface for OpenCue.
+Complete reference documentation for OpenCueWeb, the web-based interface for OpenCue.
 
 <details open markdown="block">
   <summary>
@@ -23,7 +23,7 @@ Complete reference documentation for CueWeb, the web-based interface for OpenCue
 
 ## Overview
 
-CueWeb is a web-based application that provides browser access to OpenCue render farm management. Built with Next.js and React, it offers a responsive interface for monitoring jobs, managing frames, and controlling rendering operations.
+OpenCueWeb is a web-based application that provides browser access to OpenCue render farm management. Built with Next.js and React, it offers a responsive interface for monitoring jobs, managing frames, and controlling rendering operations.
 
 ### System Requirements
 
@@ -42,7 +42,7 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      CueWeb                              │
+│                      OpenCueWeb                          │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
 │  │   Next.js   │  │    React    │  │   Shadcn UI     │  │
 │  │   Server    │  │  Components │  │   Components    │  │
@@ -66,8 +66,8 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 
 ### Data Flow
 
-1. User interacts with CueWeb UI
-2. CueWeb generates JWT token using shared secret
+1. User interacts with OpenCueWeb UI
+2. OpenCueWeb generates JWT token using shared secret
 3. HTTP request sent to REST Gateway with JWT in Authorization header
 4. REST Gateway validates JWT and forwards to Cuebot via gRPC
 5. Response returned through the same path
@@ -81,15 +81,14 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `NEXT_PUBLIC_OPENCUE_ENDPOINT` | REST Gateway URL | `http://localhost:8448` |
-| `NEXT_PUBLIC_URL` | CueWeb public URL | `http://localhost:3000` |
 | `NEXT_JWT_SECRET` | JWT signing secret (must match REST Gateway) | `your-secret-key` |
 
 ### Optional Build-Time Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar and the About CueWeb dialog. When unset, resolved from `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel tracks the repo-root `VERSION.in`; any other value pins an explicit version), then `cueweb/package.json#version`. | (resolved from `VERSION.in`) |
-| `NEXT_PUBLIC_GIT_SHA` | Short Git SHA shown in the About CueWeb dialog. Build-time only; CI injects `$(git rev-parse --short HEAD)`. Empty &rarr; "unknown". | (empty) |
+| `NEXT_PUBLIC_APP_VERSION` | Build version shown in the bottom status bar and the About OpenCueWeb dialog. When unset, resolved from `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel tracks the repo-root `VERSION.in`; any other value pins an explicit version), then `cueweb/package.json#version`. | (resolved from `VERSION.in`) |
+| `NEXT_PUBLIC_GIT_SHA` | Short Git SHA shown in the About OpenCueWeb dialog. Build-time only; CI injects `$(git rev-parse --short HEAD)`. Empty &rarr; "unknown". | (empty) |
 | `NEXT_PUBLIC_CUEBOT_FACILITIES` | Comma-separated facility list shown in the Cuebot Facility menu. | `local,dev,cloud,external` |
 | `CUEBOT_<NAME>_REST_GATEWAY_URL` | Per-facility REST gateway base URL (server-only; `<NAME>` is the uppercased facility name). Falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT`. | (unset &rarr; default gateway) |
 | `CUEBOT_<NAME>_JWT_SECRET` | Per-facility JWT secret the target gateway trusts (server-only). Falls back to `NEXT_JWT_SECRET`. | (unset &rarr; default secret) |
@@ -97,9 +96,9 @@ CueWeb is a web-based application that provides browser access to OpenCue render
 | `NEXT_PUBLIC_DOCS_URL` | Online User Guide link in the Help menu. | `https://www.opencue.io/docs/` |
 | `NEXT_PUBLIC_SUGGESTIONS_URL` | Make a Suggestion link in the Help menu. | CueGUI default (GitHub issues, `enhancement` template) |
 | `NEXT_PUBLIC_BUGS_URL` | Report a Bug link in the Help menu. | CueGUI default (GitHub issues, `bug_report` template) |
-| `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so CueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
+| `NEXT_PUBLIC_URL` | Base URL the client uses when calling the Next.js API routes. **Default empty** = the client builds same-origin relative URLs (`/api/job/getjobs`, ...) so OpenCueWeb works from any host the browser reached it at (`http://localhost:3000` on the dev Mac, `http://<lan-ip>:3000` from a phone on the same network). Set to an absolute URL only if your deployment serves the API on a different origin than the UI. | (empty) |
 | `NEXT_PUBLIC_LOG_EDITOR_URL` | URL template for the Frame context menu's **View Log on \<editor\>** item. The literal `{path}` is substituted with the absolute rqlog path at click time. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. Empty hides the menu item entirely. The sandbox `docker-compose.yml` defaults to `vscode://file{path}`. | `vscode://file{path}` (sandbox) / empty (Dockerfile default) |
-| `NEXT_PUBLIC_LOKI_URL` | Base URL of a [Grafana Loki](https://grafana.com/oss/loki/) HTTP API (no trailing path; CueWeb appends `/loki/api/v1/...`). When set, the frame log viewer queries Loki by `frame_id` instead of reading the on-disk `.rqlog` file (CueGUI `LokiViewPlugin` parity); when empty, CueWeb uses the default file-based viewer. Read in the browser (`NEXT_PUBLIC_*`), so the Loki host must be reachable from clients and must allow CORS from the CueWeb origin. See [Frame log backends](#frame-log-backends). | (empty) |
+| `NEXT_PUBLIC_LOKI_URL` | Base URL of a [Grafana Loki](https://grafana.com/oss/loki/) HTTP API (no trailing path; OpenCueWeb appends `/loki/api/v1/...`). When set, the frame log viewer queries Loki by `frame_id` instead of reading the on-disk `.rqlog` file (CueGUI `LokiViewPlugin` parity); when empty, OpenCueWeb uses the default file-based viewer. Read in the browser (`NEXT_PUBLIC_*`), so the Loki host must be reachable from clients and must allow CORS from the OpenCueWeb origin. See [Frame log backends](#frame-log-backends). | (empty) |
 | `NEXT_PUBLIC_CUEPROGBAR_COMMAND` | Command shown in the job menu's **Show Progress Bar** dialog; `{job}` is substituted with the job name. Sites override it with their own launcher (e.g. `spawn launch cueprogbar {job}`). | `python -m cuegui.cueguiplugin.cueprogbar {job}` |
 | `NEXT_PUBLIC_CUEPROGBAR_URL` | Optional registered URL scheme the **Show Progress Bar** dialog's launch button hands off to a local handler. Empty hides the launch button. | (empty) |
 | `NEXT_PUBLIC_PREVIEW_COMMAND` | Command shown/copied by the frame menu's **Preview All** dialog to open rendered output in an external image viewer. Placeholders `{paths}` / `{job}` / `{layer}` / `{frame}` are substituted. | `rv {paths}` |
@@ -127,22 +126,22 @@ Optional, opt-in group-based access control enforced server-side in `middleware.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `CUEWEB_AUTHZ_ENABLED` | Master switch for the authorization gate. When off, the middleware is a pure pass-through | unset (off) |
-| `CUEWEB_ALLOWED_GROUPS` | Comma-separated groups allowed to use CueWeb at all (empty ⇒ every signed-in user) | empty |
+| `CUEWEB_ALLOWED_GROUPS` | Comma-separated groups allowed to use OpenCueWeb at all (empty ⇒ every signed-in user) | empty |
 | `CUEWEB_ADMIN_GROUPS` | Comma-separated groups allowed to use the entire CueCommander section (all pages), job submission (CueSubmit), and the Manage facilities… screen (empty ⇒ every signed-in user) | empty |
 | `CUEWEB_GROUPS_CLAIM` | JWT/OIDC claim that carries the user's group memberships | `groups` |
 
-**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the entire CueCommander section (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), job submission (CueSubmit), the Manage facilities… screen (`/settings/facilities`), and the CueWeb Audit page - and those admin-only menus are hidden from non-admins. Everything else stays open to non-admins, including Cuetopia Monitor Jobs and the Dashboard; the health probe (`/api/health`) and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
+**Behavior:** when enabled, a signed-in user not in `CUEWEB_ALLOWED_GROUPS` is redirected to `/unauthorized` (API routes get `403`); a user not in `CUEWEB_ADMIN_GROUPS` is blocked the same way from the entire CueCommander section (Allocations, Limits, Monitor Cue, Monitor Hosts, Redirect, Services, Shows, Stuck Frame, Subscription Graphs, Subscriptions), job submission (CueSubmit), the Manage facilities… screen (`/settings/facilities`), and the OpenCueWeb Audit page - and those admin-only menus are hidden from non-admins. Everything else stays open to non-admins, including Cuetopia Monitor Jobs and the Dashboard; the health probe (`/api/health`) and metrics (`/api/metrics`) are never gated. Group gating requires an auth provider whose token carries group memberships; when authentication is disabled the gate is inactive.
 
 ### Audit Variables
 
-Configuration for the [CueWeb Audit](#cueweb-audit) trail, an append-only JSONL log of every state-changing action performed through CueWeb. Both default to a working out-of-the-box configuration, so no setup is required to start auditing.
+Configuration for the [OpenCueWeb Audit](#opencueweb-audit) trail, an append-only JSONL log of every state-changing action performed through OpenCueWeb. Both default to a working out-of-the-box configuration, so no setup is required to start auditing.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `CUEWEB_AUDIT_STORE` | Path to the append-only JSONL audit trail (one JSON record per line, newest appended last, `0600` file mode). Point it at a mounted volume to persist the trail across restarts. | (a `cueweb-audit.jsonl` file in the OS temp dir) |
 | `CUEWEB_AUDIT_MAX_RECORDS` | Maximum number of records retained; the oldest lines are dropped on write once the cap is reached. Set to `0` for no cap. | `50000` |
 
-**Access gating:** the CueWeb Audit page (`/admin/*`) and its read API (`/api/admin/*`) are gated by the [Authorization Variables](#authorization-variables) `CUEWEB_AUTHZ_ENABLED` and `CUEWEB_ADMIN_GROUPS`, exactly like the CueCommander admin pages. When the gate is inactive (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` configured) the page is visible to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can see the menu entry or reach the page/API.
+**Access gating:** the OpenCueWeb Audit page (`/admin/*`) and its read API (`/api/admin/*`) are gated by the [Authorization Variables](#authorization-variables) `CUEWEB_AUTHZ_ENABLED` and `CUEWEB_ADMIN_GROUPS`, exactly like the CueCommander admin pages. When the gate is inactive (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` configured) the page is visible to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can see the menu entry or reach the page/API.
 
 ### OAuth Provider Variables
 
@@ -265,7 +264,7 @@ The Frames table (`cueweb/app/frames/frame-columns.tsx`, rendered by `SimpleData
 | **Memory (RSS)** | `used_memory` while RUNNING, `max_rss` after stop. |
 | **Memory (PSS)** | `used_pss` while RUNNING, `max_pss` after stop. |
 | **GPU Memory** | `used_gpu_memory` while RUNNING, `max_gpu_memory` after stop. |
-| **Remain** | Placeholder column for CueGUI's ETA buffer; renders an em-dash until the predictor is wired into CueWeb. Hidden by default in the inline panel. |
+| **Remain** | Placeholder column for CueGUI's ETA buffer; renders an em-dash until the predictor is wired into OpenCueWeb. Hidden by default in the inline panel. |
 | **Start Time** | `frame.startTime` formatted `YYYY-MM-DD HH:MM`. |
 | **Stop Time** | `frame.stopTime` formatted `YYYY-MM-DD HH:MM`. |
 | **Eligible Time** | `frame.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
@@ -375,7 +374,7 @@ The frame log page (`app/frames/[frame-name]/page.tsx`) has two interchangeable 
 
 | | File-based (default) | Loki (`NEXT_PUBLIC_LOKI_URL` set) |
 |---|---|---|
-| **Source** | Reads the `.rqlog` file from the render-log directory mounted into the CueWeb server, via `/api/getlines`, `/api/countlines`, `/api/getlogversions`. | Queries the Loki HTTP API directly from the browser via `lib/loki.ts`. Mirrors CueGUI's `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). |
+| **Source** | Reads the `.rqlog` file from the render-log directory mounted into the OpenCueWeb server, via `/api/getlines`, `/api/countlines`, `/api/getlogversions`. | Queries the Loki HTTP API directly from the browser via `lib/loki.ts`. Mirrors CueGUI's `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). |
 | **Log versions dropdown** | Rotated log files found on disk for the frame. | Distinct `session_start_time` Loki label values (one per **frame attempt**), newest first, from `getFrameLogVersions()`. |
 | **Line loading** | Paginated/infinite scroll with "Scroll from Top" for very large logs. | `getFrameLogLines()` runs a backward `query_range` (so the most recent lines survive the 5000-line per-query cap), re-sorts ascending across streams, and scrolls to the bottom. A **Refresh** button re-fetches the selected attempt. |
 | **Empty/missing copy** | "Log file not found" / "No log output yet". | "No logs in Loki" / "No log output yet". |
@@ -413,7 +412,7 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 
 ### Monitor Cue
 
-A show-grouped job tree at `/monitor-cue` (`cueweb/app/monitor-cue/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Monitor Cue window. Reached from **CueCommander &rarr; Monitor Cue** (header dropdown and sidebar) - previously a dead sidebar link.
+A show-grouped job tree at `/monitor-cue` (`cueweb/app/monitor-cue/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Monitor Cue window. Reached from **CueCommander &rarr; Monitor Cue** (header dropdown and sidebar) - previously a dead sidebar link.
 
 | Behavior | Description |
 |----------|-------------|
@@ -430,11 +429,11 @@ A show-grouped job tree at `/monitor-cue` (`cueweb/app/monitor-cue/page.tsx`), t
 
 ### Monitor Hosts
 
-A host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the CueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
+A host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the OpenCueWeb equivalent of CueGUI's `MonitorHostsPlugin` / `HostMonitorTree`. Reached from **CueCommander &rarr; Monitor Hosts** (header dropdown and sidebar) or the dashboard hosts widget's **View hosts** link.
 
 ![Monitor Hosts entry in the CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
 
-![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+![OpenCueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -466,9 +465,9 @@ A per-host page at `/hosts/[host-name]` (`cueweb/app/hosts/[host-name]/page.tsx`
 
 ### Allocations
 
-An allocations table at `/allocations` (`cueweb/app/allocations/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from **CueCommander &rarr; Allocations** (header dropdown and sidebar).
+An allocations table at `/allocations` (`cueweb/app/allocations/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Allocations window. Reached from **CueCommander &rarr; Allocations** (header dropdown and sidebar).
 
-![CueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
+![OpenCueWeb Allocations page](/assets/images/cueweb/cueweb_cuecommander_allocation.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -479,9 +478,9 @@ An allocations table at `/allocations` (`cueweb/app/allocations/page.tsx`), the 
 
 ### Shows
 
-A shows registry at `/shows` (`cueweb/app/shows/page.tsx` + `shows-client.tsx`), the CueWeb equivalent of CueGUI's CueCommander Shows window. Reached from **CueCommander &rarr; Shows** (header dropdown and sidebar).
+A shows registry at `/shows` (`cueweb/app/shows/page.tsx` + `shows-client.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Shows window. Reached from **CueCommander &rarr; Shows** (header dropdown and sidebar).
 
-![CueWeb Shows page](/assets/images/cueweb/cueweb_cuecommander_shows.png)
+![OpenCueWeb Shows page](/assets/images/cueweb/cueweb_cuecommander_shows.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -512,7 +511,7 @@ Save calls only the setters whose value changed (via the `action_utils` helpers 
 
 Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/page.tsx`), a client page that resolves the show via `findShow()` (`app/utils/show_utils.ts` &rarr; `/api/show/findshow` &rarr; `show.ShowInterface/FindShow`) and renders its **group tree** (`components/group-tree/`).
 
-![CueWeb show detail page with the group tree](/assets/images/cueweb/cueweb_cuecommander_shows_group_tree_page.png)
+![OpenCueWeb show detail page with the group tree](/assets/images/cueweb/cueweb_cuecommander_shows_group_tree_page.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -523,9 +522,9 @@ Clicking a show name opens `/shows/[showName]` (`cueweb/app/shows/[showName]/pag
 
 ### Stuck Frames
 
-A stuck-frame finder at `/stuck-frames` (`cueweb/app/stuck-frames/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Stuck Frame window (`StuckFramePlugin`). Reached from **CueCommander &rarr; Stuck Frame** (header dropdown and sidebar).
+A stuck-frame finder at `/stuck-frames` (`cueweb/app/stuck-frames/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Stuck Frame window (`StuckFramePlugin`). Reached from **CueCommander &rarr; Stuck Frame** (header dropdown and sidebar).
 
-![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+![OpenCueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -538,9 +537,9 @@ A stuck-frame finder at `/stuck-frames` (`cueweb/app/stuck-frames/page.tsx`), th
 
 ### Facility Service Defaults
 
-A facility-wide service-defaults editor at `/services` (`cueweb/app/services/page.tsx` + `components/ui/service-defaults-form.tsx`), the CueWeb equivalent of CueGUI's Facility Service Defaults tab (`ServiceDialog` / `ServiceForm`). Reached from **CueCommander &rarr; Services** (header dropdown and sidebar).
+A facility-wide service-defaults editor at `/services` (`cueweb/app/services/page.tsx` + `components/ui/service-defaults-form.tsx`), the OpenCueWeb equivalent of CueGUI's Facility Service Defaults tab (`ServiceDialog` / `ServiceForm`). Reached from **CueCommander &rarr; Services** (header dropdown and sidebar).
 
-![CueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
+![OpenCueWeb Facility Service Defaults page](/assets/images/cueweb/cueweb_cuecommander_facility_services.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -555,9 +554,9 @@ A facility-wide service-defaults editor at `/services` (`cueweb/app/services/pag
 
 ### Subscriptions
 
-A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscriptions window. Reached from **CueCommander &rarr; Subscriptions** (header dropdown and sidebar).
+A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Subscriptions window. Reached from **CueCommander &rarr; Subscriptions** (header dropdown and sidebar).
 
-![CueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
+![OpenCueWeb Subscriptions page](/assets/images/cueweb/cueweb_cuecommander_subscriptions.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -574,9 +573,9 @@ A per-show subscriptions table at `/subscriptions` (`cueweb/app/subscriptions/pa
 
 ### Subscription Graphs
 
-A multi-show graph view at `/subscription-graphs` (`cueweb/app/subscription-graphs/page.tsx` + `components/ui/subscription-graph.tsx`), the CueWeb equivalent of CueGUI's CueCommander Subscription Graphs window (`SubscriptionGraphWidget` / `SubBookingBarDelegate`). Reached from **CueCommander &rarr; Subscription Graphs** (header dropdown and sidebar).
+A multi-show graph view at `/subscription-graphs` (`cueweb/app/subscription-graphs/page.tsx` + `components/ui/subscription-graph.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Subscription Graphs window (`SubscriptionGraphWidget` / `SubBookingBarDelegate`). Reached from **CueCommander &rarr; Subscription Graphs** (header dropdown and sidebar).
 
-![CueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
+![OpenCueWeb Subscription Graphs page](/assets/images/cueweb/cueweb_cuecommander_subscriptions_graphs.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -588,9 +587,9 @@ A multi-show graph view at `/subscription-graphs` (`cueweb/app/subscription-grap
 
 ### Limits
 
-A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Limits window. Reached from **CueCommander &rarr; Limits** (header dropdown and sidebar).
+A limits table at `/limits` (`cueweb/app/limits/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Limits window. Reached from **CueCommander &rarr; Limits** (header dropdown and sidebar).
 
-![CueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
+![OpenCueWeb Limits page](/assets/images/cueweb/cueweb_cuecommander_limits.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -604,9 +603,9 @@ The action helpers (`createLimit` / `deleteLimit` / `renameLimit` / `setLimitMax
 
 ### Redirect
 
-An administrator tool at `/redirect` (`cueweb/app/redirect/page.tsx`), the CueWeb equivalent of CueGUI's CueCommander Redirect window (`Redirect.update()`). Reached from **CueCommander &rarr; Redirect** (header dropdown and sidebar). It reassigns busy procs to a target job: the running frames on the selected procs are killed and the freed cores are booked onto the target.
+An administrator tool at `/redirect` (`cueweb/app/redirect/page.tsx`), the OpenCueWeb equivalent of CueGUI's CueCommander Redirect window (`Redirect.update()`). Reached from **CueCommander &rarr; Redirect** (header dropdown and sidebar). It reassigns busy procs to a target job: the running frames on the selected procs are killed and the freed cores are booked onto the target.
 
-![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+![OpenCueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -654,7 +653,7 @@ Web-native equivalent of CueGUI's Toggle Full-Screen (`cuegui/cuegui/MainWindow.
 
 ### Multi-pane split workspace
 
-Web-native equivalent of CueGUI's Window ▸ "Add new window" entries (`cuegui/cuegui/MainWindow.py`) - open two CueWeb pages side-by-side in one tab.
+Web-native equivalent of CueGUI's Window ▸ "Add new window" entries (`cuegui/cuegui/MainWindow.py`) - open two OpenCueWeb pages side-by-side in one tab.
 
 | Aspect | Description |
 |--------|-------------|
@@ -704,7 +703,7 @@ Above the frames table, one filter chip is rendered per supported state. Each ch
 
 ### Job Comments Page
 
-CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `/jobs/<job-name>/comments`.
+OpenCueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `/jobs/<job-name>/comments`.
 
 | Aspect | Description |
 |--------|-------------|
@@ -716,11 +715,11 @@ CueWeb mirrors the CueGUI **Comments** dialog (`cuegui/cuegui/Comments.py`) at `
 | **Predefined macros** | Stored in `localStorage` under `cueweb-comment-macros`. Scope is per-browser; not synced. |
 | **Indicator icon** | The Jobs table has a dedicated **Comments** column (right after Name) showing a sticky-note icon when `Job.hasComment` is true. The column is sortable so users can pull jobs-with-comments to the top. Updated on the regular jobs-table polling cycle. |
 
-### CueWeb Audit
+### OpenCueWeb Audit
 
-An admin-only audit trail at `/admin/audit` (`cueweb/app/admin/audit/page.tsx` + `audit-table.tsx`) that records **who** performed **which** action, **when**, against **which** target, and with **what outcome**. Every state-changing action proxied through CueWeb is captured at a single gateway chokepoint (`handleRoute` in `cueweb/app/utils/gateway_server.ts`); read-only queries (`Get*` / `Find*` / `List*`) are skipped. Reached from **Admin &rarr; CueWeb Audit** (header dropdown and sidebar), which is hidden from non-admins. Access is gated by [`CUEWEB_AUTHZ_ENABLED` / `CUEWEB_ADMIN_GROUPS`](#authorization-variables); the trail is configured with the [Audit Variables](#audit-variables).
+An admin-only audit trail at `/admin/audit` (`cueweb/app/admin/audit/page.tsx` + `audit-table.tsx`) that records **who** performed **which** action, **when**, against **which** target, and with **what outcome**. Every state-changing action proxied through OpenCueWeb is captured at a single gateway chokepoint (`handleRoute` in `cueweb/app/utils/gateway_server.ts`); read-only queries (`Get*` / `Find*` / `List*`) are skipped. Reached from **Admin &rarr; OpenCueWeb Audit** (header dropdown and sidebar), which is hidden from non-admins. Access is gated by [`CUEWEB_AUTHZ_ENABLED` / `CUEWEB_ADMIN_GROUPS`](#authorization-variables); the trail is configured with the [Audit Variables](#audit-variables).
 
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 The table renders these columns, in default order:
 
@@ -774,7 +773,7 @@ Authentication events (`Sign in` / `Sign out`) are captured separately via the N
 
 #### Audit API
 
-The CueWeb Audit page reads the trail through one admin-gated route.
+The OpenCueWeb Audit page reads the trail through one admin-gated route.
 
 | Aspect | Description |
 |--------|-------------|
@@ -827,7 +826,7 @@ Prefix with `!` for regex patterns:
 
 ## Context Menu Actions
 
-All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu`) live in `cueweb/components/ui/context_menus/action-context-menu.tsx` and follow the CueGUI Monitor Jobs / Monitor Job Details structure. Items that depend on dialogs / backend integrations not yet implemented in CueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on. Menus scroll instead of overflowing on small viewports.
+All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu`) live in `cueweb/components/ui/context_menus/action-context-menu.tsx` and follow the CueGUI Monitor Jobs / Monitor Job Details structure. Items that depend on dialogs / backend integrations not yet implemented in OpenCueWeb route through a `notYetImplemented(label)` placeholder. Destructive items are auto-disabled when **Disable Job Interaction** is on. Menus scroll instead of overflowing on small viewports.
 
 ### Job Actions
 
@@ -906,7 +905,7 @@ The Frame context menu's **View Log on \<editor\>** item launches the log file i
 | **Env var** | `NEXT_PUBLIC_LOG_EDITOR_URL` (build-time). Default in the sandbox deployment is `vscode://file{path}`; the Dockerfile-level default is empty (item hidden). |
 | **Template** | The literal `{path}` is replaced with the absolute log path when the item is clicked. Common values: `vscode://file{path}`, `vscode-insiders://file{path}`, `subl://open?url=file://{path}`, `txmt://open?url=file://{path}`, `idea://open?file={path}`. |
 | **Why not `$EDITOR`?** | Web browsers can't read the user's shell environment or launch arbitrary local programs the way CueGUI does. The URL-scheme approach is the web equivalent: the same trick GitHub's "Open in VSCode" button uses. |
-| **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, CueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
+| **Missing-handler detection** | If the chosen editor isn't installed on the user's machine, OpenCueWeb shows a warning toast after a short delay pointing the user at the alternatives. |
 | **Frame-state guard** | When the frame hasn't been dispatched yet by RQD (no log file on disk), the handler shows a friendly warning toast instead of handing a non-existent path to the editor. |
 
 ---
@@ -952,7 +951,7 @@ Defaults derived from the row:
 
 Send mechanism: the **Send** button builds a `mailto:` URL with the dialog's `to`, `cc`, `bcc`, `subject`, and `body` and assigns it to `window.location.href`. The OS hands the URL to the user's default mail client (Mail.app, Outlook, Thunderbird, etc.).
 
-Browsers don't let `mailto:` override the user's account's `From:` header, so the **From** field in the dialog is informational only - it surfaces the support alias the team typically uses. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with.
+Browsers don't let `mailto:` override the user's account's `From:` header, so the **From** field in the dialog is informational only - it surfaces the support alias the team typically uses. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; OpenCueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with.
 
 Configurable at build time via two env vars (see [Environment Variables](#environment-variables)):
 
@@ -1207,7 +1206,7 @@ The screenshots below show the screen flow for each dependency type. Every picke
 
 ## CueSubmit (Job Submission UI)
 
-CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at the `/cuesubmit` route, reachable from the **CueSubmit** top-level dropdown in the header (and the matching entry in the sidebar / mobile nav drawer). It mirrors the CueSubmit dialog layout one-for-one with a few quality-of-life improvements made possible by running in the browser.
+OpenCueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at the `/cuesubmit` route, reachable from the **CueSubmit** top-level dropdown in the header (and the matching entry in the sidebar / mobile nav drawer). It mirrors the CueSubmit dialog layout one-for-one with a few quality-of-life improvements made possible by running in the browser.
 
 ![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
 
@@ -1236,7 +1235,7 @@ CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at 
 
 ### Username and the Edit override
 
-When CueWeb is deployed with `NEXT_PUBLIC_AUTH_PROVIDER` non-empty, the Username field is pre-populated from the signed-in session and rendered read-only. A small **Edit** checkbox to the right of the field toggles it editable. Unticking the box snaps the value back to the signed-in user. In sandbox mode (no auth) the field is always editable and the Edit checkbox is hidden.
+When OpenCueWeb is deployed with `NEXT_PUBLIC_AUTH_PROVIDER` non-empty, the Username field is pre-populated from the signed-in session and rendered read-only. A small **Edit** checkbox to the right of the field toggles it editable. Unticking the box snaps the value back to the signed-in user. In sandbox mode (no auth) the field is always editable and the Edit checkbox is hidden.
 
 ### Defaults tuned for the OpenCue sandbox
 
@@ -1244,7 +1243,7 @@ The form chooses defaults that produce a runnable submission against the seeded 
 
 - **Memory**: `256m`. The seeded `default` service has a 3.2 GB minimum, which the sandbox RQD usually can't satisfy. The 256 MB default keeps trivial jobs dispatchable.
 - **Facility**: `local` when the user picks `[Default]`. The seeded sandbox's RQD belongs to the `local.general` allocation; cuebot's internal fallback (`cloud`) does not match.
-- **UID**: derived deterministically from the username (1000-65000). Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so CueWeb never emits zero.
+- **UID**: derived deterministically from the username (1000-65000). Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so OpenCueWeb never emits zero.
 
 These three defaults match what the standalone CueSubmit CLI tool produces against the same sandbox.
 
@@ -1287,7 +1286,7 @@ The `?` buttons next to Frame Spec and Command To Run open small themed popovers
 
 ### JWT Token Generation
 
-CueWeb generates JWT tokens for REST Gateway authentication:
+OpenCueWeb generates JWT tokens for REST Gateway authentication:
 
 ```javascript
 // Token structure
@@ -1305,7 +1304,7 @@ CueWeb generates JWT tokens for REST Gateway authentication:
 
 ### API Endpoints Used
 
-CueWeb communicates with these REST Gateway endpoints:
+OpenCueWeb communicates with these REST Gateway endpoints:
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -1347,7 +1346,7 @@ CueWeb communicates with these REST Gateway endpoints:
 | `host.HostInterface/Reboot` / `RebootWhenIdle` | Reboot a host immediately / when idle |
 | `host.HostInterface/AddTags` / `RemoveTags` | Add / remove host tags |
 
-### CueWeb Proxy Routes
+### OpenCueWeb Proxy Routes
 
 The browser does not call REST Gateway directly; it goes through Next.js API proxies that attach the JWT. Comment- and host-related routes:
 
@@ -1432,7 +1431,7 @@ Default Dockerfile exposes:
 
 | Port | Service |
 |------|---------|
-| 3000 | CueWeb HTTP |
+| 3000 | OpenCueWeb HTTP |
 
 Required volume mounts for log viewing (file-based backend):
 
@@ -1449,7 +1448,7 @@ When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are
 
 `GET /api/metrics` exposes Prometheus usage metrics (plain text; never gated by the authorization gate) so operators can track *who uses what, how often, and how fast* - per user, per page/module, per action - with bounded cardinality.
 
-![CueWeb /api/metrics endpoint output](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
+![OpenCueWeb /api/metrics endpoint output](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
@@ -1460,23 +1459,23 @@ When the deployment uses the Loki backend (`NEXT_PUBLIC_LOKI_URL` set), logs are
 | `cueweb_logins_total` | Counter | `user` | Session starts. |
 | `cueweb_facility_selected_total` | Counter | `user`, `facility` | Cuebot Facility switches. |
 
-- **User label** is resolved server-side from the signed-in NextAuth session (`lib/track-user.ts`), so the client can never spoof it; it falls back to `anonymous` when there is no session. The forgeable `X-User` / `X-Forwarded-User` identity headers are honored **only** when `CUEWEB_TRUST_IDENTITY_HEADER=true` (off by default) - set it only when CueWeb sits behind a trusted reverse proxy / auth gateway that strips inbound copies and injects the authenticated identity. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
+- **User label** is resolved server-side from the signed-in NextAuth session (`lib/track-user.ts`), so the client can never spoof it; it falls back to `anonymous` when there is no session. The forgeable `X-User` / `X-Forwarded-User` identity headers are honored **only** when `CUEWEB_TRUST_IDENTITY_HEADER=true` (off by default) - set it only when OpenCueWeb sits behind a trusted reverse proxy / auth gateway that strips inbound copies and injects the authenticated identity. Only the username and coarse page/action names are recorded - no job names, search text, or file paths.
 - **Instrumentation**: `app/utils/gateway_server.ts` `handleRoute` records the API request + latency for all routes; the client `UsageTracker` + `accessActionApi` beacon page views and actions to `POST /api/track`. Disable the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
-- **Wiring**: Prometheus scrapes `cueweb:3000/api/metrics` (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions the **CueWeb User Usage** dashboard (`sandbox/config/grafana/dashboards/cueweb-usage.json`) with a `$user` variable.
+- **Wiring**: Prometheus scrapes `cueweb:3000/api/metrics` (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions the **OpenCueWeb User Usage** dashboard (`sandbox/config/grafana/dashboards/cueweb-usage.json`) with a `$user` variable.
 
-![CueWeb User Usage Grafana dashboard](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
+![OpenCueWeb User Usage Grafana dashboard](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
 
 ---
 
 ## Global Application Header
 
-CueWeb mounts a persistent header at the top of every authenticated route
+OpenCueWeb mounts a persistent header at the top of every authenticated route
 via `app/layout.tsx`. The header is implemented in
 `components/ui/app-header.tsx` and is hidden on `/login*` routes only.
 
 Layout, left to right:
 
-- **OpenCue logo + "CueWeb" wordmark**: The logo swaps between
+- **OpenCue logo + "OpenCueWeb" wordmark**: The logo swaps between
   `public/opencue-icon-black.png` and
   `public/opencue-icon-white.png` (dark mode). Clicking the logo returns
   to `/` (Monitor Jobs).
@@ -1537,7 +1536,7 @@ Layout, left to right:
     [Keyboard shortcuts overlay (+ menu access)](#keyboard-shortcuts-overlay--menu-access).
 - **Help** dropdown - CueGUI parity:
   - A search input at the top that searches across **every** menu command
-    in CueWeb via the `useMenuRegistry` hook
+    in OpenCueWeb via the `useMenuRegistry` hook
     (`app/utils/use_menu_registry.ts`). Matches render as `Group > Label`.
   - Online User Guide - `NEXT_PUBLIC_DOCS_URL`
     (default `https://www.opencue.io/docs/`).
@@ -1545,7 +1544,7 @@ Layout, left to right:
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md`).
   - Report a Bug - `NEXT_PUBLIC_BUGS_URL`
     (default `https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md`).
-  - About CueWeb - opens the About dialog (`components/ui/about-dialog.tsx`)
+  - About OpenCueWeb - opens the About dialog (`components/ui/about-dialog.tsx`)
     showing the version (`NEXT_PUBLIC_APP_VERSION`), build SHA
     (`NEXT_PUBLIC_GIT_SHA`), active Cuebot facility, masked REST gateway URL,
     Apache-2.0 license, and credits. A **Copy diagnostics** button copies those
@@ -1559,48 +1558,48 @@ Layout, left to right:
 
 The `/login` page handles both auth configurations:
 
-- `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) renders only the **CueWeb Home**
+- `NEXT_PUBLIC_AUTH_PROVIDER=` (empty) renders only the **OpenCueWeb Home**
   button - useful for sandbox deployments without authentication.
 - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google,ldap` (or any subset)
   renders one sign-in button per configured provider.
 
 The header dropdown menus:
 
-![CueWeb File menu](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
+![OpenCueWeb File menu](/assets/images/cueweb/cueweb_file_disable_job_interaction_menu.png)
 
 
-![CueWeb Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
+![OpenCueWeb Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
 
-![CueWeb Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
+![OpenCueWeb Cuetopia menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_menu.png)
 
 
-![CueWeb CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
+![OpenCueWeb CueCommander menu](/assets/images/cueweb/cueweb_cuecommander_menu_options.png)
 
 
-![CueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
+![OpenCueWeb Other menu](/assets/images/cueweb/cueweb_other_menu_options.png)
 
 
-![CueWeb Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+![OpenCueWeb Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
 
 
-![CueWeb About dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+![OpenCueWeb About dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
 
 The bottom status bar:
 
-![CueWeb status bar](/assets/images/cueweb/cueweb_status_indicators.png)
+![OpenCueWeb status bar](/assets/images/cueweb/cueweb_status_indicators.png)
 
 
 ---
 
 ## Left Sidebar
 
-CueWeb also mounts a collapsible sidebar to the left of the content area.
+OpenCueWeb also mounts a collapsible sidebar to the left of the content area.
 Implemented in `components/ui/app-sidebar.tsx` and hidden on `/login*` and
 on viewports smaller than the `md` breakpoint.
 
-![CueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
+![OpenCueWeb left sidebar](/assets/images/cueweb/cueweb_left_side_menu.png)
 
 
 - Same six groups as the header (**File**, **Cuebot Facility**,
@@ -1656,8 +1655,8 @@ By default the client builds same-origin relative URLs for every API call, so th
 
 | Caveat | Workaround |
 |--------|-----------|
-| The modern browser clipboard API is restricted to secure contexts (HTTPS / `localhost`). On plain-HTTP LAN access it's either unavailable or rejected. | CueWeb automatically falls back to a legacy copy path outside secure contexts, including iOS Safari. **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** still work. |
-| Desktop notification popups also require a secure context. **Subscribe to Job** still works on LAN HTTP - the in-app toast always fires - but the optional OS-level notification banner is skipped. | Serve CueWeb over HTTPS (self-signed cert is enough for LAN testing) to enable the desktop popup. |
+| The modern browser clipboard API is restricted to secure contexts (HTTPS / `localhost`). On plain-HTTP LAN access it's either unavailable or rejected. | OpenCueWeb automatically falls back to a legacy copy path outside secure contexts, including iOS Safari. **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** still work. |
+| Desktop notification popups also require a secure context. **Subscribe to Job** still works on LAN HTTP - the in-app toast always fires - but the optional OS-level notification banner is skipped. | Serve OpenCueWeb over HTTPS (self-signed cert is enough for LAN testing) to enable the desktop popup. |
 
 ---
 
@@ -1684,7 +1683,7 @@ When the flag is on:
   toggle whose label flips on `isPaused` - both flavors are dimmed the
   same way. *Unmonitor* and *Comments* on the job menu remain active.
 
-![CueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
+![OpenCueWeb read-only banner when job interaction is disabled](/assets/images/cueweb/cueweb_file_disable_job_interaction_enabled.png)
 
 
 ---
@@ -1708,24 +1707,24 @@ implemented in `components/ui/attributes-panel.tsx`.
 
 The Attributes panel for a selected job and for a selected layer:
 
-![CueWeb attributes panel for a job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
+![OpenCueWeb attributes panel for a job](/assets/images/cueweb/cueweb_other_menu_attributes_job.png)
 
 
-![CueWeb attributes panel for a layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
+![OpenCueWeb attributes panel for a layer](/assets/images/cueweb/cueweb_other_menu_attributes_layer.png)
 
 
 The panel docked on each edge of the viewport - right, bottom, left, and top:
 
-![CueWeb attributes panel docked right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
+![OpenCueWeb attributes panel docked right](/assets/images/cueweb/cueweb_other_menu_attributes_dock_right.png)
 
 
-![CueWeb attributes panel docked bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
+![OpenCueWeb attributes panel docked bottom](/assets/images/cueweb/cueweb_other_menu_attributes_dock_bottom.png)
 
 
-![CueWeb attributes panel docked left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
+![OpenCueWeb attributes panel docked left](/assets/images/cueweb/cueweb_other_menu_attributes_dock_left.png)
 
 
-![CueWeb attributes panel docked top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
+![OpenCueWeb attributes panel docked top](/assets/images/cueweb/cueweb_other_menu_attributes_dock_top.png)
 
 
 ---
@@ -1758,7 +1757,7 @@ corresponding `BreadcrumbItem`.
 
 ## Status Bar
 
-CueWeb mounts an IDE-style fixed status bar at the bottom of every
+OpenCueWeb mounts an IDE-style fixed status bar at the bottom of every
 authenticated route. Implemented in `components/ui/status-bar.tsx` and
 hidden on `/login*`. Three metrics, each with a tooltip:
 
@@ -1781,12 +1780,12 @@ hidden on `/login*`. Three metrics, each with a tooltip:
      generated OpenCue version or a build tag).
   2. `cueweb/OVERRIDE_CUEWEB_VERSION.in`: the `VERSION.in` sentinel (default)
      reads the repo-root `VERSION.in` - OpenCue's shared version, also read by
-     cuebot / cuegui; any other value pins an explicit CueWeb version. In the
+     cuebot / cuegui; any other value pins an explicit OpenCueWeb version. In the
      Docker image the root `VERSION.in` is supplied via a `project_root` named
      build context (see `docker-compose.yml`).
   3. The `version` field in `cueweb/package.json` (last-resort fallback).
   - The Dockerfile exposes a matching `ARG NEXT_PUBLIC_APP_VERSION`, so CI can
-    override it directly. The About CueWeb dialog shows the same version plus
+    override it directly. The About OpenCueWeb dialog shows the same version plus
     the build SHA (`NEXT_PUBLIC_GIT_SHA`).
 
 ### `GET /api/health`
@@ -1823,7 +1822,7 @@ each facility's green/red dot and to disable a facility whose gateway is down.
 }
 ```
 
-![CueWeb per-facility health endpoint](/assets/images/cueweb/cueweb_cuebot_facility_health_endpoint.png)
+![OpenCueWeb per-facility health endpoint](/assets/images/cueweb/cueweb_cuebot_facility_health_endpoint.png)
 
 ### Per-facility health and runtime config
 
@@ -1832,7 +1831,7 @@ The **Manage facilities…** item in the Cuebot Facility menu opens
 editing each facility's REST gateway URL and JWT secret **at runtime, without a
 redeploy**.
 
-![CueWeb Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
+![OpenCueWeb Manage Facilities screen](/assets/images/cueweb/cueweb_cuebot_facility_manage_facilities.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -1840,7 +1839,7 @@ redeploy**.
 | **Override store** | Edits are persisted to a JSON file at `CUEWEB_FACILITY_STORE` (defaults to the OS temp dir) by a `"use server"` action; a short in-process cache makes the change take effect within a few seconds. Point the var at a mounted volume to persist across restarts. The JWT secret is written `0600` and never returned to the client. |
 | **Audit log** | Every change appends an entry (`{ at, actor, facility, changes }`) to a `.audit.jsonl` file next to the store; the secret value is never recorded. The screen shows a change-history table. |
 | **Concurrency** | Writes are serialized through an in-process queue so concurrent saves can't lose updates (single Node process). |
-| **Authorization** | Fail-closed when authentication is configured (a signed-in user is required); open when auth is disabled (the sandbox default), matching the rest of CueWeb. When the group authorization gate is active, `/settings/facilities` is one of the admin paths restricted to `CUEWEB_ADMIN_GROUPS`, and the **Manage facilities…** menu item is hidden from non-admins. |
+| **Authorization** | Fail-closed when authentication is configured (a signed-in user is required); open when auth is disabled (the sandbox default), matching the rest of OpenCueWeb. When the group authorization gate is active, `/settings/facilities` is one of the admin paths restricted to `CUEWEB_ADMIN_GROUPS`, and the **Manage facilities…** menu item is hidden from non-admins. |
 
 The override-aware resolution lives in the server-only `lib/facility-server.ts`
 (layered over the client-safe `lib/facility.ts`) and the filesystem store in
@@ -1853,7 +1852,7 @@ The override-aware resolution lives in the server-only `lib/facility-server.ts`
 
 A minimal plugin system (`cueweb/lib/plugins.ts` + `cueweb/app/plugins/`), the browser equivalent of CueGUI's plugin loader. A plugin is a manifest plus a lazily-loaded React component mounted on its own route.
 
-![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+![OpenCueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
 
 | Behavior | Description |
 |----------|-------------|
@@ -1870,14 +1869,14 @@ A minimal plugin system (`cueweb/lib/plugins.ts` + `cueweb/app/plugins/`), the b
 
 ### Theme Toggle
 
-CueWeb supports light and dark themes:
+OpenCueWeb supports light and dark themes:
 
 - **Light Mode**: Default theme with light backgrounds
 - **Dark Mode**: Dark theme for reduced eye strain
 
 Toggle via the sun/moon button in the global header (or press `t`). The choice persists across sessions. Every view has a dark equivalent; for example, the Monitor Jobs page in dark mode:
 
-![CueWeb Monitor Jobs in dark mode](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png)
+![OpenCueWeb Monitor Jobs in dark mode](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage_dark.png)
 
 ### CSS Variables
 
@@ -1942,7 +1941,7 @@ Key theme variables (defined in Tailwind config):
 
 #### JWT Token Errors
 
-**Cause**: Secret mismatch between CueWeb and REST Gateway
+**Cause**: Secret mismatch between OpenCueWeb and REST Gateway
 
 **Solution**:
 1. Ensure `NEXT_JWT_SECRET` matches REST Gateway's `JWT_SECRET`
@@ -2008,9 +2007,9 @@ cueweb/
 
 ## Related Documentation
 
-- [CueWeb Quick Start](/docs/quick-starts/quick-start-cueweb/) - Getting started guide
-- [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/) - Complete usage guide
-- [CueWeb Tutorial](/docs/tutorials/cueweb-tutorial/) - Step-by-step tutorial
-- [CueWeb Developer Guide](/docs/developer-guide/cueweb-development/) - Development reference
+- [OpenCueWeb Quick Start](/docs/quick-starts/quick-start-cueweb/) - Getting started guide
+- [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide/) - Complete usage guide
+- [OpenCueWeb Tutorial](/docs/tutorials/cueweb-tutorial/) - Step-by-step tutorial
+- [OpenCueWeb Developer Guide](/docs/developer-guide/cueweb-development/) - Development reference
 - [REST API Reference](/docs/reference/rest-api-reference/) - API documentation
-- [Deploying CueWeb](/docs/getting-started/deploying-cueweb/) - Deployment guide
+- [Deploying OpenCueWeb](/docs/getting-started/deploying-cueweb/) - Deployment guide

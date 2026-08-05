@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -49,14 +50,22 @@ import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     private static final Pattern LAST_JOB_STRIP_PATTERN = Pattern.compile("_v*([_0-9]*$)");
+
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingNotifier accountingNotifier;
 
     /*
      * Maps a row to a DispatchJob object
@@ -370,6 +379,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     public void updateMaxCores(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE pk_job=?", v,
                 j.getJobId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(j.getShowId())) {
+            accountingNotifier.notifyJobMaxCores(j.getJobId(), v);
+        }
     }
 
     @Override
@@ -398,6 +411,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     public void updateMaxGpus(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_gpus=? WHERE pk_job=?", v,
                 j.getJobId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(j.getShowId())) {
+            accountingNotifier.notifyJobMaxGpus(j.getJobId(), v);
+        }
     }
 
     @Override

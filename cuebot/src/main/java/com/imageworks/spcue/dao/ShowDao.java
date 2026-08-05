@@ -152,8 +152,8 @@ public interface ShowDao {
     boolean isSchedulerManaged(String showId);
 
     /**
-     * Return the number of shows currently flagged scheduler-managed. Used at boot by the Redis
-     * accounting publisher to emit the deployment-invariant misconfiguration warning.
+     * Return the number of shows currently flagged scheduler-managed. Used at boot by the
+     * accounting NOTIFY publisher to emit a visibility warning when publishing is disabled.
      *
      * @return count of rows with b_scheduler_managed = true
      */

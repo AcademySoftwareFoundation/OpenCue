@@ -228,41 +228,24 @@ impl MatchingService {
         let initial_attempts = attempts;
 
         // E-PVM live-usage snapshot taken once at permit entry (design Branch 2a).
-        // Locally incremented per dispatched frame within the while-loop.
-        // Redis read failures degrade to 0, leaving the cap unbounded by live usage
-        // but still bounded by `job_max_cores`.
-        let initial_job_cores_in_use = match self
-            .accounting
-            .redis()
-            .read_job_cores_in_use(dispatch_layer.job_id)
-            .await
-        {
-            // Redis accounting counters are already stored in cores (the
-            // centicore→core conversion happens once at the reseed/recompute
-            // write boundaries — see `lua.rs` unit invariant), so do NOT apply
-            // `from_multiplied` here or the value is divided by the multiplier
-            // a second time.
-            Ok(cores) => cores as i32,
-            Err(err) => {
-                debug!(
-                    "read_job_cores_in_use failed for job {}: {}; defaulting to 0",
-                    dispatch_layer.job_id, err
-                );
-                0
-            }
-        };
+        // Locally incremented per dispatched frame within the while-loop. The store
+        // returns booked cores directly (already in cores, not centicores), so do NOT
+        // apply `from_multiplied` here. A non-managed/unseen job reads 0, leaving the cap
+        // unbounded by live usage but still bounded by `job_max_cores`.
+        let initial_job_cores_in_use =
+            self.accounting.job_cores_in_use(dispatch_layer.job_id) as i32;
         let mut local_job_cores_booked: i32 = 0;
 
         // Job-level at-cap pre-check. The job's core cap is enforced
-        // authoritatively by the Lua BOOK_OR_FORCE call in the dispatcher, but a
+        // authoritatively by the accounting check in the dispatcher, but a
         // job sitting at its cap would otherwise be re-checked-out and re-rejected
         // up to host_candidate_attempts_per_layer times every pass (see the retry
         // loop below). Skip it cheaply here, reusing the live `initial_job_cores_in_use`
         // snapshot read above. Unlike the subscription skip below, we do NOT sleep
         // the cluster: the job cap is per-job and sibling jobs in this cluster may
-        // still be dispatchable. Fail-open: a failed Redis read left
+        // still be dispatchable. Fail-open: a failed store read left
         // `initial_job_cores_in_use` at 0, so the guard simply won't fire and the
-        // Lua call stays authoritative.
+        // booking call stays authoritative.
         if placement::job_at_core_cap(
             initial_job_cores_in_use,
             dispatch_layer.cores_min.value(),
@@ -305,27 +288,13 @@ impl MatchingService {
             None
         };
         let (initial_show_cores_in_use, show_burst): (i32, i32) = match alloc_id_opt {
-            Some(alloc_id) => match self
-                .accounting
-                .redis()
-                .read_sub_counters(dispatch_layer.show_id, alloc_id)
-                .await
-            {
-                // Both counters are already in cores (see `lua.rs` unit
-                // invariant); the conversion from PG centicores happened at the
-                // reseed write boundary. Applying `from_multiplied` here would
-                // divide by the multiplier a second time (e.g. a burst of 200
-                // would read back as 2).
-                Ok((booked, burst)) => (booked as i32, burst as i32),
-                Err(err) => {
-                    debug!(
-                        "read_sub_counters failed for show={} alloc={}: {}; \
-                         leaving burst unbounded, Lua will decide",
-                        dispatch_layer.show_id, alloc_id, err
-                    );
-                    (0, 0)
-                }
-            },
+            Some(alloc_id) => {
+                // Both counters are already in cores (the conversion from PG centicores
+                // happens at the store-seed boundary), so do NOT apply `from_multiplied`
+                // here. The booking call remains authoritative on the actual decision.
+                let (booked, burst) = self.accounting.sub_counters(dispatch_layer.show_id, alloc_id);
+                (booked as i32, burst as i32)
+            }
             None => (0, 0),
         };
 
@@ -334,7 +303,7 @@ impl MatchingService {
         // as the empty-cluster back-off and return without scanning the host
         // cache or pinging the dispatcher. A stale "over burst" read costs at
         // most a single cluster_empty_sleep window of latency on this cluster
-        // and self-corrects on the next wake; the Lua booking call remains
+        // and self-corrects on the next wake; the booking call remains
         // authoritative on the actual booking.
         if show_burst > 0
             && initial_show_cores_in_use.saturating_add(dispatch_layer.cores_min.value())
@@ -394,14 +363,14 @@ impl MatchingService {
                 layer.show_id
             );
 
-            // Subscription burst pre-check was removed in PR-C: the Lua booking call inside
+            // Subscription burst pre-check was removed in PR-C: the booking call inside
             // `dispatch_virtual_proc` is now the authoritative gate. An over-burst (show, alloc)
             // produces a single wasted dispatch attempt - design accepts that trade-off (see
             // §2.1 and the PR-C plan; restoring the optimization would require an async
             // validation hook on the host_cache actor or a per-process subscription mirror).
             //
             // TODO: if over-burst attempts become a measurable perf drag, add a precomputed
-            // per-layer Redis snapshot of (show, alloc) → bookable and consult it here.
+            // per-layer store snapshot of (show, alloc) → bookable and consult it here.
             let cores_requested = layer.cores_min;
             let (gate, weights) = match CONFIG.queue.host_booking_strategy {
                 crate::config::HostBookingStrategy::Epvm { weights, .. } => (
@@ -414,12 +383,12 @@ impl MatchingService {
                 ),
             };
             // `show_burst` / `show_cores_in_use` come from the per-(show, alloc)
-            // Redis snapshot taken above. They're populated for managed shows on
+            // store snapshot taken above. They're populated for managed shows on
             // Alloc clusters (where the chosen host's allocation is deterministic
             // from the cluster's single Tag), and 0 otherwise — in which case
             // `compute_max_more`'s `> 0` guards treat the cap as "unlimited" and
             // E-PVM scoring loses the show-burst component of `maxMore`. The
-            // authoritative cap remains the Lua `BOOK_OR_FORCE` call inside the
+            // authoritative cap remains the accounting check inside the
             // dispatcher; this snapshot is an optimistic input to scoring.
             let profile = LayerProfile {
                 cores_min: layer.cores_min,

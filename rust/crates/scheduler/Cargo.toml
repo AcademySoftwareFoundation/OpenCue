@@ -60,15 +60,12 @@ time = { workspace = true }
 axum = "0.7"
 tower-http = { version = "0.5", features = ["trace"] }
 urlencoding = "2.1"
-redis = { version = "0.27", features = ["tokio-comp", "script", "connection-manager"] }
 
 [features]
 default = []
 smoke-tests = []
-redis-tests = []
 # End-to-end booking + accounting stress/benchmark suite (tests/stress_tests.rs).
-# Requires a migrated local Postgres (docker compose up -d flyway) and Docker for
-# the throwaway Redis container.
+# Requires a migrated local Postgres (docker compose up -d flyway).
 stress-tests = []
 
 [dev-dependencies]
@@ -77,5 +74,3 @@ tracing-test = "0.2"
 serial_test = "3.0"
 rand = "0.8"
 proptest = "1.5"
-testcontainers = "0.23"
-testcontainers-modules = { version = "0.11", features = ["redis"] }

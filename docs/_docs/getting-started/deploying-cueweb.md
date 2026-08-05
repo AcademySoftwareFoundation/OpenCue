@@ -1,14 +1,14 @@
 ---
 layout: default
-title: Deploying CueWeb
+title: Deploying OpenCueWeb
 parent: Getting Started
 nav_order: 31
 ---
 
-# Deploying CueWeb
+# Deploying OpenCueWeb
 {: .no_toc }
 
-Deploy and configure CueWeb for production use in your OpenCue render farm.
+Deploy and configure OpenCueWeb for production use in your OpenCue render farm.
 
 <details open markdown="block">
   <summary>
@@ -23,11 +23,11 @@ Deploy and configure CueWeb for production use in your OpenCue render farm.
 
 ## Overview
 
-CueWeb is a web-based interface for OpenCue that provides job management, monitoring, and control capabilities through a browser. This guide covers production deployment options for CueWeb.
+OpenCueWeb is a web-based interface for OpenCue that provides job management, monitoring, and control capabilities through a browser. This guide covers production deployment options for OpenCueWeb.
 
 ### Prerequisites
 
-Before deploying CueWeb, ensure you have:
+Before deploying OpenCueWeb, ensure you have:
 
 - **OpenCue REST Gateway** deployed and accessible
 - **Node.js** (version 18 or later) for building from source
@@ -39,20 +39,20 @@ Before deploying CueWeb, ensure you have:
 
 ## Quick Deployment with Docker
 
-### Build CueWeb Image
+### Build OpenCueWeb Image
 
 ```bash
-# Navigate to CueWeb directory
+# Navigate to OpenCueWeb directory
 cd cueweb
 
 # Build Docker image
 docker build -t cueweb:latest .
 ```
 
-### Run CueWeb Container
+### Run OpenCueWeb Container
 
 ```bash
-# Run CueWeb with basic configuration
+# Run OpenCueWeb with basic configuration
 docker run -d \
   --name cueweb \
   -p 3000:3000 \
@@ -75,14 +75,14 @@ docker logs cueweb
 curl http://localhost:3000
 ```
 
-Open `http://localhost:3000` in a browser. With no authentication provider configured the login page shows a single **CueWeb Home** button; with providers enabled it shows the matching sign-in buttons.
+Open `http://localhost:3000` in a browser. With no authentication provider configured the login page shows a single **OpenCueWeb Home** button; with providers enabled it shows the matching sign-in buttons.
 
-![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+![OpenCueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
 
-After signing in (or clicking **CueWeb Home**), you land on the Dashboard, confirming the deployment is healthy.
+After signing in (or clicking **OpenCueWeb Home**), you land on the Dashboard, confirming the deployment is healthy.
 
-![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+![OpenCueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
 
 
 ---
@@ -98,7 +98,7 @@ Create a production environment file:
 NEXT_PUBLIC_OPENCUE_ENDPOINT=https://api.renderfarm.company.com
 # Leave empty if the UI and the API are served from the same origin
 # (the common case): the client will build same-origin relative URLs
-# and CueWeb works correctly when accessed from any host. Only set
+# and OpenCueWeb works correctly when accessed from any host. Only set
 # this to an absolute URL when the API really lives on a different
 # origin than the UI.
 NEXT_PUBLIC_URL=
@@ -110,7 +110,7 @@ NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
 # Comma-separated list of providers to enable on the /login page.
-# When empty, /login renders only a "CueWeb Home" button. The global
+# When empty, /login renders only an "OpenCueWeb Home" button. The global
 # header's Sign out button is always rendered regardless of this value;
 # clicking it routes to /login.
 NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
@@ -144,10 +144,10 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # hidden from non-admins.
 # CUEWEB_FACILITY_STORE=/data/cueweb/facilities.json
 
-# CueWeb Audit trail (optional)
-# Path to the append-only JSONL file where CueWeb records state-changing
+# OpenCueWeb Audit trail (optional)
+# Path to the append-only JSONL file where OpenCueWeb records state-changing
 # actions and sign in / sign out events (who, what, when, target, facility,
-# outcome) for the admin-only Admin -> CueWeb Audit page. It defaults to a
+# outcome) for the admin-only Admin -> OpenCueWeb Audit page. It defaults to a
 # file in the OS temp dir (cueweb-audit.jsonl); point it at a mounted volume
 # to keep the trail across container restarts. The file is written 0600 with
 # in-process write serialization.
@@ -164,16 +164,16 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # NEXT_PUBLIC_SUGGESTIONS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md
 # NEXT_PUBLIC_BUGS_URL=https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md
 
-# Build version shown in the bottom status bar and the About CueWeb dialog
+# Build version shown in the bottom status bar and the About OpenCueWeb dialog
 # (optional). When unset it is resolved at build time from
 # cueweb/OVERRIDE_CUEWEB_VERSION.in: the "VERSION.in" sentinel (default) tracks
 # the repo-root VERSION.in (OpenCue's shared version), and any other value pins
-# an explicit CueWeb version; package.json is the last-resort fallback. In CI
+# an explicit OpenCueWeb version; package.json is the last-resort fallback. In CI
 # you typically override it with the generated version or a release tag:
 # `docker build --build-arg NEXT_PUBLIC_APP_VERSION=$(cat VERSION.in)`.
 # NEXT_PUBLIC_APP_VERSION=1.25
 #
-# Short Git SHA shown in the About CueWeb dialog (optional, build-time only).
+# Short Git SHA shown in the About OpenCueWeb dialog (optional, build-time only).
 # CI injects `--build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)`;
 # empty renders as "unknown".
 # NEXT_PUBLIC_GIT_SHA=
@@ -197,9 +197,9 @@ NEXTAUTH_SECRET=nextauth-production-secret
 # Optional Loki log backend. When set, the frame log viewer queries this
 # Grafana Loki server (by frame_id) instead of reading the on-disk .rqlog
 # file, mirroring CueGUI's Loki log viewer. Leave unset to use the default
-# file-based viewer. Base URL only (no trailing path; CueWeb appends
+# file-based viewer. Base URL only (no trailing path; OpenCueWeb appends
 # /loki/api/v1/...). The query runs in the browser, so Loki must be reachable
-# from clients and allow CORS from the CueWeb origin. Inlined at build time, so
+# from clients and allow CORS from the OpenCueWeb origin. Inlined at build time, so
 # pass it as a Docker build arg:
 #   docker build --build-arg NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100 ...
 # NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
@@ -509,9 +509,9 @@ spec:
 
 LDAP authentication allows users to authenticate using their company directory credentials. This is useful for intranet deployments where OAuth providers may not be available.
 
-![CueWeb LDAP login button](/assets/images/cueweb/cueweb-ldap-button.png)
+![OpenCueWeb LDAP login button](/assets/images/cueweb/cueweb-ldap-button.png)
 
-![CueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
+![OpenCueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
 
 1. Configure the LDAP environment variables:
    ```bash
@@ -548,14 +548,14 @@ For development or internal deployments without authentication:
 # In .env file, comment out or remove:
 # NEXT_PUBLIC_AUTH_PROVIDER=okta,google
 
-# CueWeb will run without authentication requirements
+# OpenCueWeb will run without authentication requirements
 ```
 
-CueWeb runs unauthenticated in this mode.
+OpenCueWeb runs unauthenticated in this mode.
 
 ### Authorization (group-based access control)
 
-On top of authentication (*who* you are), CueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use CueWeb at all, and limit the entire CueCommander section, job submission (CueSubmit) and the Manage facilities… screen to specific groups.
+On top of authentication (*who* you are), OpenCueWeb supports an optional, opt-in group-based authorization gate (*what* you may do), enforced server-side in `middleware.ts`. It can restrict who may use OpenCueWeb at all, and limit the entire CueCommander section, job submission (CueSubmit) and the Manage facilities… screen to specific groups.
 
 The gate is **off by default** and all variables are optional, so behavior is unchanged unless you configure it:
 
@@ -563,7 +563,7 @@ The gate is **off by default** and all variables are optional, so behavior is un
 # Enable the gate (opt-in; default off)
 CUEWEB_AUTHZ_ENABLED=true
 
-# Groups allowed to use CueWeb at all (empty = every signed-in user)
+# Groups allowed to use OpenCueWeb at all (empty = every signed-in user)
 CUEWEB_ALLOWED_GROUPS=
 
 # Groups allowed on the entire CueCommander section + CueSubmit + Manage facilities (empty = every signed-in user)
@@ -581,11 +581,11 @@ Notes:
 
 ---
 
-## CueWeb Audit trail
+## OpenCueWeb Audit trail
 
-CueWeb records an audit trail of every state-changing action taken through the UI (job/layer/frame/host/group/proc operations such as Kill, Eat, Retry, Pause, Redirect, host lock/reboot, facility-override edits, and so on) plus each **sign in** and **sign out**. Each record captures **who** (the signed-in user), **what** (the action), **when** (timestamp), the **target** it acted on, the **facility** it ran against, and the **outcome** (success or failure). The trail is browsable on the admin-only **Admin -> CueWeb Audit** page (reachable from both the top menu and the left sidebar).
+OpenCueWeb records an audit trail of every state-changing action taken through the UI (job/layer/frame/host/group/proc operations such as Kill, Eat, Retry, Pause, Redirect, host lock/reboot, facility-override edits, and so on) plus each **sign in** and **sign out**. Each record captures **who** (the signed-in user), **what** (the action), **when** (timestamp), the **target** it acted on, the **facility** it ran against, and the **outcome** (success or failure). The trail is browsable on the admin-only **Admin -> OpenCueWeb Audit** page (reachable from both the top menu and the left sidebar).
 
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 ### Audit trail persistence
 
@@ -606,26 +606,26 @@ The file is written with mode `0600`.
 
 **Size bounding.** `CUEWEB_AUDIT_MAX_RECORDS` caps how many records the trail retains; once the cap is reached, the **oldest records are dropped** on each new write. It defaults to `50000`; set it to `0` for an unbounded trail (in which case you are responsible for rotating or archiving the file yourself).
 
-**Access control.** The CueWeb Audit page is admin-gated through the same [group-based authorization](#authorization-group-based-access-control) mechanism as the other admin pages - enable the gate with `CUEWEB_AUTHZ_ENABLED=true` and list the allowed groups in `CUEWEB_ADMIN_GROUPS`. With no group authorization configured (the gate off, or `CUEWEB_ADMIN_GROUPS` empty), the page is **visible to everyone** who can reach CueWeb, so configure the admin gate if the trail should be restricted.
+**Access control.** The OpenCueWeb Audit page is admin-gated through the same [group-based authorization](#authorization-group-based-access-control) mechanism as the other admin pages - enable the gate with `CUEWEB_AUTHZ_ENABLED=true` and list the allowed groups in `CUEWEB_ADMIN_GROUPS`. With no group authorization configured (the gate off, or `CUEWEB_ADMIN_GROUPS` empty), the page is **visible to everyone** who can reach OpenCueWeb, so configure the admin gate if the trail should be restricted.
 
-**Multi-instance caveat.** The single-file store assumes a **single CueWeb instance**: concurrent appends are kept from interleaving by **in-process** write serialization only. If you run multiple replicas (for example the `replicas: 3` deployment above) all pointed at the same file, that in-process lock does not span processes - you would need a shared store with a cross-process lock, or a separate `CUEWEB_AUDIT_STORE` per replica, to avoid corrupting the trail.
+**Multi-instance caveat.** The single-file store assumes a **single OpenCueWeb instance**: concurrent appends are kept from interleaving by **in-process** write serialization only. If you run multiple replicas (for example the `replicas: 3` deployment above) all pointed at the same file, that in-process lock does not span processes - you would need a shared store with a cross-process lock, or a separate `CUEWEB_AUDIT_STORE` per replica, to avoid corrupting the trail.
 
 ---
 
 ## CueSubmit (browser-based job submission)
 
-The `/cuesubmit` route is a TypeScript port of the standalone CueSubmit CLI tool. It reuses the same REST gateway + cuebot path as the rest of CueWeb, so no extra services or env vars are needed.
+The `/cuesubmit` route is a TypeScript port of the standalone CueSubmit CLI tool. It reuses the same REST gateway + cuebot path as the rest of OpenCueWeb, so no extra services or env vars are needed.
 
 **Submit path**:
 1. Browser POSTs the form payload to `/api/job/submit` (the Next.js Node route).
 2. The route validates with zod, builds the OpenCue cjsl XML job spec server-side (same format pyoutline emits), and forwards it to `job.JobInterface/LaunchSpecAndWait` on the REST gateway.
-3. Cuebot creates the job and returns the resolved `JobSeq`. CueWeb redirects the browser to `/jobs/<name>` so the user can watch frames dispatch live.
+3. Cuebot creates the job and returns the resolved `JobSeq`. OpenCueWeb redirects the browser to `/jobs/<name>` so the user can watch frames dispatch live.
 
 **Sandbox-tuned defaults**: the form chooses values that produce a runnable job against the seeded sandbox out of the box:
 
 - **Memory** default `256m`. The seeded `default` service has a 3.2 GB minimum which most sandbox RQDs can't satisfy; without a smaller request, trivial test jobs sit in WAITING forever.
 - **Facility** default `local` (when the user picks `[Default]` in the form). Cuebot's internal fallback is `cloud`, which doesn't match the seeded sandbox RQD's `local.general` allocation.
-- **Per-user deterministic UID** in the range 1000-65000. Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so CueWeb never emits zero.
+- **Per-user deterministic UID** in the range 1000-65000. Cuebot rejects `uid=0` with `Cannot launch jobs as root`, so OpenCueWeb never emits zero.
 
 **Production deployments**: change Memory to whatever the real services expect, override Facility from the dropdown if your deployment has more than one, and confirm `NEXT_PUBLIC_CUEBOT_FACILITIES` enumerates every facility the user should be able to pick.
 
@@ -635,9 +635,9 @@ The form auto-saves a draft to `localStorage` on every keystroke and keeps per-f
 
 ## Redirect tool
 
-The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with CueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
+The `/redirect` route (CueCommander &rarr; Redirect) reassigns the cores of busy procs to a target job. It ships with OpenCueWeb and needs **no extra services or env vars** - it uses the same REST gateway + cuebot path as the rest of the app (RPCs `ProcInterface/GetProcs`, `HostInterface/FindHost`, `JobInterface/GetJobs` for the search, and `HostInterface/RedirectToJob` for the action).
 
-**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. Treat access to CueWeb accordingly - anyone who can reach the UI can issue redirects. If your deployment needs to restrict who can perform farm-wide actions, gate it at the authentication / reverse-proxy layer (CueWeb does not implement per-action role checks).
+**It is a destructive administrative tool**: redirecting kills the frames currently running on the selected procs so their cores can be handed to the target job. When the optional group-authorization gate is active (`CUEWEB_AUTHZ_ENABLED`), `/redirect` is covered by the admin gate - like the rest of the CueCommander section, it is restricted to members of `CUEWEB_ADMIN_GROUPS`. When that gate is not configured, OpenCueWeb's "everyone is an admin" default applies and anyone who can reach the UI can issue redirects. The gate is section-level, not per-action, so if you need finer-grained control over who can perform farm-wide actions, additionally gate it at the authentication / reverse-proxy layer.
 
 ---
 
@@ -651,15 +651,15 @@ The `/monitor-cue` route (CueCommander &rarr; Monitor Cue) needs **no extra serv
 
 The `/hosts` route (CueCommander &rarr; Monitor Hosts) and its bottom proc panel need **no extra services or env vars** - all host and proc operations go through the same REST gateway + cuebot path as the rest of the app (`HostInterface` for lock/unlock, reboot, tags, allocation, hardware/repair state, comments, and delete; `ProcInterface` for the proc list, unbook, and kill).
 
-Several of these are **destructive administrative actions** (Reboot kills running frames, Delete Host removes the record, Kill/Unbook stop procs). As with the Redirect tool, CueWeb does not implement per-action role checks, so if you need to limit who can perform them, gate access at the authentication / reverse-proxy layer or with the optional [group-based authorization](#authorization-group-based-access-control) admin gate (`/hosts` is one of the CueCommander admin pages). Predefined host-comment macros are stored per browser in `localStorage`, so they need no server-side storage.
+Several of these are **destructive administrative actions** (Reboot kills running frames, Delete Host removes the record, Kill/Unbook stop procs). As with the Redirect tool, OpenCueWeb does not implement per-action role checks, so if you need to limit who can perform them, gate access at the authentication / reverse-proxy layer or with the optional [group-based authorization](#authorization-group-based-access-control) admin gate (`/hosts` is one of the CueCommander admin pages). Predefined host-comment macros are stored per browser in `localStorage`, so they need no server-side storage.
 
 ---
 
 ## Stuck Frames page (log access)
 
-The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with CueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.
+The `/stuck-frames` route (CueCommander &rarr; Stuck Frame) finds running frames that have stopped writing to their logs. It ships with OpenCueWeb and needs no extra services - it reads running frames through the same REST gateway + cuebot path as the rest of the app. The one deployment-specific concern is **frame-log access**, which powers the page's **Last Line** column and the Tail/View Log actions.
 
-**Mount the render log directory into the CueWeb container, read-only.** CueWeb's server reads frame logs from its own filesystem, so the directory where RQD writes logs (the sandbox uses `/tmp/rqd/logs`, matching cuebot's `CUE_FRAME_LOG_DIR`) must be visible to the CueWeb container at the same path:
+**Mount the render log directory into the OpenCueWeb container, read-only.** OpenCueWeb's server reads frame logs from its own filesystem, so the directory where RQD writes logs (the sandbox uses `/tmp/rqd/logs`, matching cuebot's `CUE_FRAME_LOG_DIR`) must be visible to the OpenCueWeb container at the same path:
 
 ```yaml
 # docker-compose.yml (cueweb service)
@@ -683,30 +683,30 @@ If the log directory is not mounted, the page still lists stuck frames, but the 
 CUEWEB_LOG_ROOTS=/net/render/logs
 ```
 
-**Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
+**Using the page**: open **CueCommander &rarr; Stuck Frame**, tune the filter bar (Min LLU, % of Run Since LLU, Total Runtime) or add a per-service filter with **+**, then right-click a frame for Retry / Eat / Kill / View Log / **Core Up**. See the [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide/#stuck-frames) for the full walkthrough.
 
 ## Frame log viewing (file-based or Loki)
 
 The frame log viewer has two backends, selected at deploy time:
 
-- **File-based (default):** CueWeb's server reads the `.rqlog` from its own filesystem, so mount the render-log directory into the container read-only - the **same mount described above** for the Stuck Frames page (`-v /path/to/logs:/tmp/rqd/logs:ro`). No other configuration is needed.
-- **Loki (optional):** if your studio centralizes logs in [Grafana Loki](https://grafana.com/oss/loki/), set `NEXT_PUBLIC_LOKI_URL` to the Loki HTTP API base URL (no trailing path; CueWeb appends `/loki/api/v1/...`). CueWeb then queries Loki for each frame's lines instead of reading a file, mirroring CueGUI's Loki log viewer. RQD must be configured to ship frame logs to Loki tagged with `frame_id` and `session_start_time` labels.
+- **File-based (default):** OpenCueWeb's server reads the `.rqlog` from its own filesystem, so mount the render-log directory into the container read-only - the **same mount described above** for the Stuck Frames page (`-v /path/to/logs:/tmp/rqd/logs:ro`). No other configuration is needed.
+- **Loki (optional):** if your studio centralizes logs in [Grafana Loki](https://grafana.com/oss/loki/), set `NEXT_PUBLIC_LOKI_URL` to the Loki HTTP API base URL (no trailing path; OpenCueWeb appends `/loki/api/v1/...`). OpenCueWeb then queries Loki for each frame's lines instead of reading a file, mirroring CueGUI's Loki log viewer. RQD must be configured to ship frame logs to Loki tagged with `frame_id` and `session_start_time` labels.
 
 ```bash
-# Loki backend: point CueWeb at your Loki HTTP API
+# Loki backend: point OpenCueWeb at your Loki HTTP API
 NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 ```
 
 Two deployment notes for the Loki backend:
 
-- **It's a build-time, browser-read variable.** `NEXT_PUBLIC_LOKI_URL` is baked into the client bundle, so set it as a Docker build arg (like the other `NEXT_PUBLIC_*` vars), not only at runtime. The Loki query runs **in the browser**, so the Loki host must be reachable from clients (not just from the CueWeb server) and must allow **CORS** from the CueWeb origin.
+- **It's a build-time, browser-read variable.** `NEXT_PUBLIC_LOKI_URL` is baked into the client bundle, so set it as a Docker build arg (like the other `NEXT_PUBLIC_*` vars), not only at runtime. The Loki query runs **in the browser**, so the Loki host must be reachable from clients (not just from the OpenCueWeb server) and must allow **CORS** from the OpenCueWeb origin.
 - **The log mount becomes optional.** With Loki configured, log viewing no longer reads from disk, so the render-log volume mount is not required for the viewer. (The Stuck Frames **Last Line** column still tails `.rqlog` files server-side, so keep the mount if you rely on that column.)
 
-When `NEXT_PUBLIC_LOKI_URL` is unset, CueWeb falls back to the file-based viewer with no other change.
+When `NEXT_PUBLIC_LOKI_URL` is unset, OpenCueWeb falls back to the file-based viewer with no other change.
 
 ## Plugins
 
-CueWeb's plugin system needs **no extra services or configuration**. Plugins are registered in the code (`cueweb/lib/plugins.ts`) and built into the image, so the only way to add or remove a plugin is at **build time** - there is no runtime plugin directory to mount and nothing to deploy alongside CueWeb. The bundled samples (Hello OpenCue, Cue Progress Bar) ship enabled per their manifest defaults.
+OpenCueWeb's plugin system needs **no extra services or configuration**. Plugins are registered in the code (`cueweb/lib/plugins.ts`) and built into the image, so the only way to add or remove a plugin is at **build time** - there is no runtime plugin directory to mount and nothing to deploy alongside OpenCueWeb. The bundled samples (Hello OpenCue, Cue Progress Bar) ship enabled per their manifest defaults.
 
 What a user does at **runtime** - which plugins show in the Plugins menu and each plugin's settings - is stored **client-side** in the browser's `localStorage` (`cueweb.plugin-menu.enabled`, `cueweb.plugin-settings.<key>`). It is per-user and per-browser, so it requires no server-side persistence and is not shared between users. To ship a custom plugin, add it to `app/plugins/<name>/`, register it, and rebuild the image (see the developer guide).
 
@@ -714,9 +714,9 @@ What a user does at **runtime** - which plugins show in the Plugins menu and eac
 
 ## Workspace layout (presets, immersive, split view)
 
-The workspace-layout features - saveable **view presets**, **immersive (full-screen) mode**, and the **split view** - need **no server-side configuration**. Like the rest of CueWeb's personalization, all state is per-user, per-browser `localStorage` (`cueweb.views.<page>`, `cueweb.layout.immersive`, `cueweb.split.ratio`); nothing is persisted on the server and nothing is shared between users.
+The workspace-layout features - saveable **view presets**, **immersive (full-screen) mode**, and the **split view** - need **no server-side configuration**. Like the rest of OpenCueWeb's personalization, all state is per-user, per-browser `localStorage` (`cueweb.views.<page>`, `cueweb.layout.immersive`, `cueweb.split.ratio`); nothing is persisted on the server and nothing is shared between users.
 
-One deployment detail to be aware of: **split view renders each pane as a same-origin `<iframe>`** of another CueWeb page (`/split?left=…&right=…`). For this to work behind a reverse proxy, the proxy and the app must allow CueWeb to frame **itself**:
+One deployment detail to be aware of: **split view renders each pane as a same-origin `<iframe>`** of another OpenCueWeb page (`/split?left=…&right=…`). For this to work behind a reverse proxy, the proxy and the app must allow OpenCueWeb to frame **itself**:
 
 - Don't send `X-Frame-Options: DENY`. If you set it, use `SAMEORIGIN`.
 - If you use a Content-Security-Policy, allow same-origin framing, e.g. `frame-ancestors 'self'`.
@@ -876,7 +876,7 @@ spec:
 
 ### Health Checks
 
-CueWeb provides health check endpoints:
+OpenCueWeb provides health check endpoints:
 
 ```bash
 # Basic health check
@@ -888,20 +888,20 @@ curl https://cueweb.company.com/api/health/detailed
 
 ### Prometheus Metrics (user usage)
 
-CueWeb exposes Prometheus usage metrics at **`GET /api/metrics`** (plain text,
+OpenCueWeb exposes Prometheus usage metrics at **`GET /api/metrics`** (plain text,
 never gated by the authorization gate). They answer *who uses what, how often,
 and how fast* - per user, per page/module, per action - with bounded
 cardinality. No setup beyond pointing Prometheus at the endpoint.
 
 The `/api/metrics` endpoint returns the metrics in Prometheus text format:
 
-![CueWeb /api/metrics endpoint - page view and action counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
+![OpenCueWeb /api/metrics endpoint - page view and action counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint1.png)
 
-![CueWeb /api/metrics endpoint - per-endpoint API request counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint2.png)
+![OpenCueWeb /api/metrics endpoint - per-endpoint API request counters](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint2.png)
 
-![CueWeb /api/metrics endpoint - API request duration histogram](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint3.png)
+![OpenCueWeb /api/metrics endpoint - API request duration histogram](/assets/images/cueweb/cueweb_user_usage_metrics_api_metrics_endpoint3.png)
 
-**1. Scrape CueWeb from Prometheus.** Add a job to your Prometheus config (the
+**1. Scrape OpenCueWeb from Prometheus.** Add a job to your Prometheus config (the
 sandbox already does this in `sandbox/config/prometheus-monitoring.yml`):
 
 ```yaml
@@ -916,15 +916,15 @@ Once scraped, the `cueweb_*` series are queryable in Prometheus:
 ![Querying a cueweb usage metric in Prometheus](/assets/images/cueweb/cueweb_user_usage_metrics_prometheus_query.png)
 
 **2. Import the Grafana dashboard.** The sandbox auto-provisions
-`sandbox/config/grafana/dashboards/cueweb-usage.json` ("CueWeb User Usage"):
+`sandbox/config/grafana/dashboards/cueweb-usage.json` ("OpenCueWeb User Usage"):
 overview stats, page/module views, actions, per-endpoint API latency
 (p50/p90/p99), and Top-N users, all filterable by a `$user` template variable.
 
-![CueWeb User Usage Grafana dashboard - overview and pages/modules](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
+![OpenCueWeb User Usage Grafana dashboard - overview and pages/modules](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts1.png)
 
-![CueWeb User Usage Grafana dashboard - actions and API latency](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts2.png)
+![OpenCueWeb User Usage Grafana dashboard - actions and API latency](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts2.png)
 
-![CueWeb User Usage Grafana dashboard - per-user panels](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts3.png)
+![OpenCueWeb User Usage Grafana dashboard - per-user panels](/assets/images/cueweb/cueweb_user_usage_metrics_grafana_charts3.png)
 
 **Metrics exposed:**
 
@@ -1047,7 +1047,7 @@ echo "your-jwt-secret" | docker secret create jwt_secret -
 ### Common Issues
 
 #### 502 Bad Gateway
-- Check if CueWeb container is running
+- Check if OpenCueWeb container is running
 - Verify port configuration
 - Check REST Gateway connectivity
 
@@ -1092,7 +1092,7 @@ kubectl logs -f -l app=cueweb -n opencue
 ### Updates
 
 ```bash
-# Update CueWeb
+# Update OpenCueWeb
 git pull origin master
 npm install
 npm run build
@@ -1123,7 +1123,7 @@ Monitor these metrics:
 
 ## Next Steps
 
-After deploying CueWeb:
+After deploying OpenCueWeb:
 
 1. **Configure Authentication**: Set up OAuth providers for user access
 2. **Train Users**: Provide training on the web interface
@@ -1131,6 +1131,6 @@ After deploying CueWeb:
 4. **Customize Interface**: Adapt UI for your workflow needs
 5. **Integration**: Connect with existing pipeline tools
 
-For detailed usage instructions, see the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide).
+For detailed usage instructions, see the [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide).
 
-For development and customization, see the [CueWeb Developer Guide](/docs/developer-guide/cueweb-development).
+For development and customization, see the [OpenCueWeb Developer Guide](/docs/developer-guide/cueweb-development).

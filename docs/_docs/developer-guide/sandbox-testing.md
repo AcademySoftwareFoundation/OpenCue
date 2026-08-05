@@ -6,7 +6,7 @@ layout: default
 date: 2025-08-06
 description: >
   Learn how to quickly set up and use the OpenCue sandbox environment
-  for local testing and development with Cuebot, RQD, CueGUI, CueSubmit, CueWeb, REST Gateway,
+  for local testing and development with Cuebot, RQD, CueGUI, CueSubmit, OpenCueWeb, REST Gateway,
   CueAdmin, CueCmd, CueMan, CueNimby, PyCue, and PyOutline.
 ---
 
@@ -133,7 +133,7 @@ The full stack deployment includes:
 
 Once deployed, access the services at:
 
-- **CueWeb UI**: [http://localhost:3000](http://localhost:3000)
+- **OpenCueWeb UI**: [http://localhost:3000](http://localhost:3000)
 - **REST Gateway**: [http://localhost:8448](http://localhost:8448)
 - **Cuebot gRPC**: localhost:8443
 - **PostgreSQL**: localhost:5432
@@ -142,7 +142,7 @@ Once deployed, access the services at:
 
 ### Using Desktop Client Tools
 
-The full stack deployment works with all OpenCue desktop client tools. To use them alongside CueWeb, install the client packages in a Python virtual environment:
+The full stack deployment works with all OpenCue desktop client tools. To use them alongside OpenCueWeb, install the client packages in a Python virtual environment:
 
 ```bash
 # Create and activate virtual environment
@@ -261,7 +261,7 @@ To verify your sandbox is working correctly:
 
 2. Click "Submit" to send the job to Cuebot
 
-3. Monitor the job in CueGUI or CueWeb:
+3. Monitor the job in CueGUI or OpenCueWeb:
    - You should see your job appear in the Jobs panel
    - The frames should begin processing on the RQD host
    - Each frame will sleep for 5 seconds then complete
@@ -270,9 +270,9 @@ To verify your sandbox is working correctly:
 
 Your sandbox is working correctly if:
 - Docker containers are running without errors
-- CueGUI/CueWeb connects to Cuebot and shows the RQD host
+- CueGUI/OpenCueWeb connects to Cuebot and shows the RQD host
 - CueSubmit can submit jobs successfully
-- Jobs appear in CueGUI/CueWeb and frames complete
+- Jobs appear in CueGUI/OpenCueWeb and frames complete
 
 ## Common Use Cases
 
@@ -335,7 +335,7 @@ If you encounter port conflicts, check these default ports:
 | PostgreSQL | 5432 |
 | RQD | 8444 |
 | REST Gateway | 8448 |
-| CueWeb | 3000 |
+| OpenCueWeb | 3000 |
 
 Ensure these ports are not in use by other applications.
 
@@ -355,12 +355,12 @@ If CueGUI cannot connect to Cuebot:
 - Check the Cuebot logs for errors
 - Ensure you're using the correct config file
 
-### CueWeb Not Loading
+### OpenCueWeb Not Loading
 
-If CueWeb is not responding:
+If OpenCueWeb is not responding:
 - Check that rest-gateway is healthy: `docker compose ps`
 - Verify the JWT secret is set correctly
-- Check CueWeb logs: `docker compose logs -f cueweb`
+- Check OpenCueWeb logs: `docker compose logs -f cueweb`
 
 ### REST Gateway Authentication Errors
 

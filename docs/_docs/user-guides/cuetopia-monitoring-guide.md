@@ -273,7 +273,11 @@ Shows detailed frame information with filtering controls:
    - Limited to 500 frames per page
 
 4. **Select Status Dropdown**: Quick selection by frame state
-5. **Filter Layers Dropdown**: Filter frames by specific layers
+5. **Filter Layers Dropdown**: Filter frames by specific layers. The
+   dropdown has a search box at the top and a scrollable list, so you can
+   quickly find a layer even when a job has hundreds or thousands of them:
+   type part of a layer name to narrow the list, then check the layers you
+   want to filter by. Use **Clear** to remove all layer filters.
 6. **Filter Status Dropdown**: Filter by frame status
 
 ##### Frame Table Columns

@@ -1,14 +1,14 @@
 ---
 layout: default
-title: CueWeb Development
+title: OpenCueWeb Development
 parent: Developer Guide
 nav_order: 97
 ---
 
-# CueWeb Development Guide
+# OpenCueWeb Development Guide
 {: .no_toc }
 
-Complete guide for developing, customizing, and deploying CueWeb.
+Complete guide for developing, customizing, and deploying OpenCueWeb.
 
 <details open markdown="block">
   <summary>
@@ -127,7 +127,7 @@ cueweb/
 │   │   ├── mobile-nav-sheet.tsx # Mobile drawer mirroring every sidebar group
 │   │   ├── sheet.tsx            # Side-slide panel primitive (Radix Dialog-based)
 │   │   ├── row-actions-cell.tsx # Per-row "⋮" Actions button (touch equivalent of right-click)
-│   │   ├── about-dialog.tsx     # "About CueWeb" dialog (Help → About)
+│   │   ├── about-dialog.tsx     # "About OpenCueWeb" dialog (Help → About)
 │   │   ├── attributes-panel.tsx # Docked Attributes drawer
 │   │   ├── breadcrumbs.tsx      # Detail-view breadcrumb primitive
 │   │   ├── read-only-banner.tsx # Amber strip when safety flag is on
@@ -138,7 +138,7 @@ cueweb/
 │   │   ├── job-details-inline.tsx # Inline Layers + Frames panel under the Jobs grid
 │   │   ├── simple-data-table.tsx # Shared TanStack-table wrapper for Layers/Frames
 │   │   ├── subscribe-bell.tsx   # Per-row bell in the Jobs Notify column
-│   │   ├── cuewebicon.tsx       # OpenCue icon + "CueWeb" wordmark
+│   │   ├── cuewebicon.tsx       # OpenCue icon + "OpenCueWeb" wordmark
 │   │   ├── theme-toggle.tsx     # Light/dark toggle
 │   │   ├── theme-provider.tsx   # next-themes wrapper
 │   │   └── ...                  # button, dialog, dropdown-menu, etc.
@@ -164,7 +164,7 @@ cueweb/
 
 The OpenCue brand assets that drive the icon/wordmark live at the repo
 root in `images/` (icon, horizontal, stacked × PNG + SVG × black + white)
-so other OpenCue projects can re-use them. The two PNGs CueWeb actually
+so other OpenCue projects can re-use them. The two PNGs OpenCueWeb actually
 loads at runtime are copies under `cueweb/public/`.
 
 ### Key Components
@@ -172,7 +172,7 @@ loads at runtime are copies under `cueweb/public/`.
 #### Core Components
 
 - **`AppHeader`** (`components/ui/app-header.tsx`): Persistent global header mounted by `app/layout.tsx`. Hidden on `/login*`. Composes:
-  - The OpenCue logo (theme-aware via Tailwind `block dark:hidden` / `hidden dark:block`) + the **CueWeb** wordmark.
+  - The OpenCue logo (theme-aware via Tailwind `block dark:hidden` / `hidden dark:block`) + the **OpenCueWeb** wordmark.
   - Six `DropdownMenu`s that mirror the CueGUI menu bar - **File** (Disable Job Interaction), **Cuebot Facility** (one item per facility), **Cuetopia**, **CueCommander** (both built from `NAV_MENUS` imported from `app/utils/menus.ts`), **Other** (Attributes toggle, Show Shortcuts launcher, Notify on Shortcut toggle), and a custom **Help** dropdown with a search input that searches the full `useMenuRegistry` list and renders matches as `Group > Label`.
   - The "Show Shortcuts" item dispatches a `cueweb:open-shortcuts` `CustomEvent` on `window` that `KeyboardShortcuts` (in `components/ui/shortcuts-overlay.tsx`) listens for; "Notify on Shortcut" reads/writes the `cueweb.shortcutNotifications` pref via `useShortcutNotifications()`.
   - The existing `ThemeToggle`.
@@ -185,7 +185,7 @@ loads at runtime are copies under `cueweb/public/`.
   - The companion route `app/api/health/route.ts` is a cheap JWT-signed reachability probe of the REST gateway (POST `show.ShowInterface/GetActiveShows` with a 5s `AbortController` timeout). It returns 200 in both healthy and unhealthy cases so the UI never sees an error response while polling.
   - The jobs data table dispatches `window.dispatchEvent(new CustomEvent("cueweb:jobs-refreshed", { detail: { at: ISO } }))` after each 5s reload tick; the status bar listens and updates the "last refresh" timer.
 - **`AppSessionProvider`** (`app/providers/session-provider.tsx`): Thin client wrapper around `next-auth/react`'s `SessionProvider` so `useSession()` works inside the header and any other client component.
-- **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **CueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
+- **`CueWebIcon`** (`components/ui/cuewebicon.tsx`): OpenCue icon + **OpenCueWeb** wordmark, sized off a single `height` prop. Used by the login page, LDAP login page, frame log page, and comments page. Reads the brand assets from `cueweb/public/opencue-icon-{black,white}.png`.
 - **`JobsTable`** (`app/jobs/data-table.tsx`): Main jobs dashboard table (no longer renders its own inline header - the global `AppHeader` owns that chrome). Each `TableRow` left-click dispatches `setAttributeSelection(...)` so the Attributes panel updates as the user inspects rows and also surfaces the inline Layers + Frames panel below the grid via `JobDetailsInline`. Destructive toolbar actions (Eat / Retry / Pause / Unpause / Kill) consume `useDisableJobInteraction()` and dim themselves when the safety flag is on. Wires TanStack's `columnVisibility`, `columnOrder`, and `globalFilter` state into the reducer State so each is persisted to `localStorage` (`columnVisibility`, `columnOrder`); the per-table substring filter is purely component-state.
 - **`JobDetailsInline`** (`components/ui/job-details-inline.tsx`): Inline Layers + Frames panel rendered below the Jobs table when a row is selected. Polls layers and frames every 5s with cancellation guards. Layer-row clicks toggle a frames-table filter to that layer and push the layer's attributes into the docked Attributes panel. When `useShowDependencyGraph()` is on, it also mounts `JobDependencyGraph` as a third stacked panel (`id="job-dependency-graph-panel"`) below Frames, with a header naming the focus job plus show/hide and close controls.
 - **`JobDependencyGraph`** (`components/ui/job-dependency-graph.tsx`): Read-only, interactive node graph of a job's dependency tree, built with React Flow (`@xyflow/react`) + dagre. Mirrors CueGUI's `JobMonitorGraph`. A breadth-first walk from the focus job follows both `GetDepends` (downstream) and `GetWhatDependsOnThis` (upstream, active-only), bounded by `maxDepth` (default 4) and a visited-set to break cycles. Each hop resolves a job name to its UUID via `/api/job/getjobs` anchored-regex (Cuebot rejects name-only depend lookups), memoized in a `Map` so the whole walk costs ~one lookup per distinct job. All BFS fetches go through a `silentPost` helper that bypasses `accessGetApi`, so jobs in other shows / unmonitored + pruned don't cascade into red toasts. The custom `DependencyNode` renderer truncates long names (full name in a `title` tooltip), color-codes the left border by kind (JOB/LAYER/FRAME), rings the focus job, and shows hierarchical labels for layer/frame nodes. dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so flipping the theme doesn't re-walk the tree, and the crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute. It also fetches the focus job's layers (`ingestFocusLayers`) so a job with no cross-job depends still shows its layers. **Double-clicking** a node navigates (`onNodeNavigate(jobName)` or `router.push("/jobs/<jobName>?tab=overview")`); **right-clicking a layer node** opens a menu reusing the Layers-table actions (Auto Layout Nodes, View Dependencies / Dependency Wizard / Mark done, Reorder / Stagger, Properties, Kill / Eat / Retry / Retry Dead Frames).
@@ -194,7 +194,7 @@ loads at runtime are copies under `cueweb/public/`.
 - **`JobProgressBar` / `LayerProgressBar`** (`components/ui/{job,layer}-progress-bar.tsx`): Stacked progress bars with a hover tooltip showing per-state counts and percentages. Both delegate to the shared `<ProgressBar/>` renderer in `components/ui/progressbar.tsx`. Segment colors and ordering come from `app/utils/{job,layer}_progress_utils.ts`.
 - **`KeyboardShortcuts`** (`components/ui/shortcuts-overlay.tsx`): Global keyboard handler + cheat-sheet `Dialog` mounted once from `app/layout.tsx`. Exports `CUEWEB_REFRESH_NOW_EVENT`, `CUEWEB_FOCUS_SEARCH_EVENT`, and `CUEWEB_OPEN_SHORTCUTS_EVENT` so menu items / pages can subscribe without prop drilling. Fires a `toastSuccess(...)` on every triggered shortcut when `getShortcutNotificationsEnabled()` returns true (read imperatively so the latest pref applies on the next keypress).
 
-- **`AboutDialog`** (`components/ui/about-dialog.tsx`): CueGUI parity for Help → About. A `Dialog` mounted once from `app/layout.tsx`, opened via the exported `CUEWEB_OPEN_ABOUT_EVENT` (dispatched by the About CueWeb command in `useMenuRegistry`). Shows the build version (`NEXT_PUBLIC_APP_VERSION`) and SHA (`NEXT_PUBLIC_GIT_SHA`), the active facility (`useCuebotFacility`), the REST gateway URL masked by `maskGatewayUrl()` (scheme + port + first/last host chars, path/userinfo stripped), the Apache-2.0 license link, and credits. **Copy diagnostics** writes the fields (incl. the *masked* gateway) as JSON to the clipboard. The version is resolved at build time in `next.config.js`: `NEXT_PUBLIC_APP_VERSION` env wins, else `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel reads the repo-root `VERSION.in`, supplied to the Docker build via the `project_root` named context; any other value pins an explicit version), else `package.json`.
+- **`AboutDialog`** (`components/ui/about-dialog.tsx`): CueGUI parity for Help → About. A `Dialog` mounted once from `app/layout.tsx`, opened via the exported `CUEWEB_OPEN_ABOUT_EVENT` (dispatched by the About OpenCueWeb command in `useMenuRegistry`). Shows the build version (`NEXT_PUBLIC_APP_VERSION`) and SHA (`NEXT_PUBLIC_GIT_SHA`), the active facility (`useCuebotFacility`), the REST gateway URL masked by `maskGatewayUrl()` (scheme + port + first/last host chars, path/userinfo stripped), the Apache-2.0 license link, and credits. **Copy diagnostics** writes the fields (incl. the *masked* gateway) as JSON to the clipboard. The version is resolved at build time in `next.config.js`: `NEXT_PUBLIC_APP_VERSION` env wins, else `cueweb/OVERRIDE_CUEWEB_VERSION.in` (the `VERSION.in` sentinel reads the repo-root `VERSION.in`, supplied to the Docker build via the `project_root` named context; any other value pins an explicit version), else `package.json`.
 - **`FrameViewer`**: Frame log viewer component. The frame log page (`app/frames/[frame-name]/page.tsx`) branches on `isLokiEnabled()`: by default it reads the on-disk `.rqlog` inline; when `NEXT_PUBLIC_LOKI_URL` is set it renders `LokiLogView` (`app/frames/[frame-name]/loki-log-view.tsx`) instead, which reuses the same Monaco editor, **Log versions** dropdown, and empty/loading states. See [Frame log backends](#frame-log-backends-file-based-and-loki).
 - **`SearchBar`**: Job search and filtering
 - **`ThemeProvider`**: Dark/light theme management
@@ -215,7 +215,7 @@ Subscriptions are stored as a `Record<jobId, JobSubscription>` under the `localS
 
 #### Application state hooks
 
-CueWeb keeps global UI state (which menus you toggled, which facility you
+OpenCueWeb keeps global UI state (which menus you toggled, which facility you
 picked, where you docked the Attributes panel) outside of React Context.
 Each piece of state lives in its own `localStorage` key with a module-level
 helper that broadcasts changes via a `CustomEvent` (same tab) and the
@@ -272,7 +272,7 @@ provider tree.
   &mdash; returns a flat `MenuCommand[]` aggregated from every menu in the
   app, plus a `filterMenuCommands(commands, query)` helper used by the
   Help search box. The Help group includes the external links from
-  `help_menu.ts` plus an **About CueWeb** command whose `run()` dispatches
+  `help_menu.ts` plus an **About OpenCueWeb** command whose `run()` dispatches
   `CUEWEB_OPEN_ABOUT_EVENT` to open the About dialog.
 - **`useShortcutNotifications`** (`app/utils/use_shortcut_notifications.ts`)
   &mdash; `{ enabled, setEnabled, toggle }`. Controls whether triggered
@@ -299,7 +299,7 @@ links and their env-var overrides live in `app/utils/help_menu.ts`.
 
 ### Cross-component window events
 
-CueWeb keeps cross-component wiring decoupled by dispatching `CustomEvent`s
+OpenCueWeb keeps cross-component wiring decoupled by dispatching `CustomEvent`s
 on `window` instead of prop-drilling shared state. Existing events:
 
 | Event | Dispatched by | Listened to by | Purpose |
@@ -324,7 +324,7 @@ cover the same-tab case.
 
 ### Table `meta` extensions
 
-TanStack tables thread shared callbacks to cell renderers via `useReactTable({ meta })`. CueWeb attaches the following keys:
+TanStack tables thread shared callbacks to cell renderers via `useReactTable({ meta })`. OpenCueWeb attaches the following keys:
 
 | Key | Type | Producer | Consumer | Purpose |
 |-----|------|----------|----------|---------|
@@ -366,24 +366,24 @@ graph TD
 <div class="mermaid">
 sequenceDiagram
     participant User
-    participant CueWeb
+    participant OpenCueWeb
     participant NextAuth
     participant OAuth
     participant API
 
-    User->>CueWeb: Access protected page
-    CueWeb->>NextAuth: Check auth status
+    User->>OpenCueWeb: Access protected page
+    OpenCueWeb->>NextAuth: Check auth status
     NextAuth->>OAuth: Redirect for login
     OAuth->>NextAuth: Return auth token
-    NextAuth->>CueWeb: Set session
-    CueWeb->>API: Generate JWT token
-    API->>CueWeb: Return API access token
-    CueWeb->>User: Show authenticated UI
+    NextAuth->>OpenCueWeb: Set session
+    OpenCueWeb->>API: Generate JWT token
+    API->>OpenCueWeb: Return API access token
+    OpenCueWeb->>User: Show authenticated UI
 </div>
 
 ### Authorization (group-based access gate)
 
-On top of authentication, CueWeb has an optional, opt-in authorization layer that restricts access by group membership. Files involved:
+On top of authentication, OpenCueWeb has an optional, opt-in authorization layer that restricts access by group membership. Files involved:
 
 ```text
 lib/authz.ts                 # pure, Edge-safe policy helpers + group extraction
@@ -411,9 +411,9 @@ Middleware flow: when the gate is inactive (disabled, or no auth provider) it is
 
 ---
 
-## CueWeb Audit (web action audit trail)
+## OpenCueWeb Audit (web action audit trail)
 
-CueWeb records **who** did **what**, **when**, against **which** target, and with **what outcome**, and surfaces the trail in an admin-only screen (**Admin &rarr; CueWeb Audit**). The whole feature is built on top of two pieces that already exist in the codebase - the single gateway chokepoint (`handleRoute`) and the group-based authorization layer (see [Authorization](#authorization-group-based-access-gate)) - so it adds **no** new infrastructure (no database, no ORM) and requires **no** changes to the ~120 individual route files.
+OpenCueWeb records **who** did **what**, **when**, against **which** target, and with **what outcome**, and surfaces the trail in an admin-only screen (**Admin &rarr; OpenCueWeb Audit**). The whole feature is built on top of two pieces that already exist in the codebase - the single gateway chokepoint (`handleRoute`) and the group-based authorization layer (see [Authorization](#authorization-group-based-access-gate)) - so it adds **no** new infrastructure (no database, no ORM) and requires **no** changes to the ~120 individual route files.
 
 ### File layout
 
@@ -432,11 +432,11 @@ cueweb/
 └── app/__tests__/lib/authz-admin.test.ts    # Effective-admin gating unit tests
 ```
 
-The store deliberately mirrors the JSONL pattern already proven by `lib/facility-store.ts`, so CueWeb stays stateless and the feature is just a file to operate.
+The store deliberately mirrors the JSONL pattern already proven by `lib/facility-store.ts`, so OpenCueWeb stays stateless and the feature is just a file to operate.
 
 ### Where events are captured (the chokepoint)
 
-Every state-changing CueWeb action is proxied to the OpenCue REST gateway through exactly one function - `handleRoute()` in `app/utils/gateway_server.ts` (used by ~120 routes). After each proxied call it invokes `auditGatewayCall(endpoint, method, body, ok, error)` from `lib/audit.ts`. Instrumenting that single function captures all ~40 mutating action routes (`/api/job/action/*`, `/api/host/action/*`, show/allocation/limit/subscription edits, job submit, ...) **with zero changes to the route files**, because `handleRoute` is the one place where the signed-in user (NextAuth `getServerSession`), the selected facility (the `cueweb.facility` cookie), and the gRPC endpoint are all available together.
+Every state-changing OpenCueWeb action is proxied to the OpenCue REST gateway through exactly one function - `handleRoute()` in `app/utils/gateway_server.ts` (used by ~120 routes). After each proxied call it invokes `auditGatewayCall(endpoint, method, body, ok, error)` from `lib/audit.ts`. Instrumenting that single function captures all ~40 mutating action routes (`/api/job/action/*`, `/api/host/action/*`, show/allocation/limit/subscription edits, job submit, ...) **with zero changes to the route files**, because `handleRoute` is the one place where the signed-in user (NextAuth `getServerSession`), the selected facility (the `cueweb.facility` cookie), and the gRPC endpoint are all available together.
 
 ```
             Next.js Route Handler (e.g. app/api/job/action/kill/route.ts)
@@ -473,7 +473,7 @@ Append-only JSONL, one JSON record per line, newest appended last:
 
 `GET /api/admin/audit` (`app/api/admin/audit/route.ts`, admin-gated) accepts filters (`actor`, `category`, `result`, `since`, `until`, `search`) plus pagination (`limit`, `offset`) and returns `{ records, total, facets: { actors, categories } }`. The page `app/admin/audit/page.tsx` is an admin-gated server component that does the access check and renders SSR initial data into the client table `app/admin/audit/audit-table.tsx`, which provides the filter controls, page-based pagination, auto-refresh, expandable per-row details, and CSV export.
 
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 ### Auth events (`lib/auth.ts`)
 
@@ -508,9 +508,9 @@ Each JSONL line is one record:
 ### Where to extend
 
 - **Capture a new action.** No route change is needed - adjust the classifier in `lib/audit.ts` (the read-skip predicate, the category/action mapping, or the target extractor).
-- **Swap the storage backend (future).** The page and API are structured so the storage behind `readAudit()` can be replaced - for example a Cuebot `audit_log` table (Flyway migration) plus a query RPC, with the REST gateway forwarding the JWT subject as gRPC metadata. The CueWeb Audit page could then read from that API instead of (or in addition to) the JSONL file.
+- **Swap the storage backend (future).** The page and API are structured so the storage behind `readAudit()` can be replaced - for example a Cuebot `audit_log` table (Flyway migration) plus a query RPC, with the REST gateway forwarding the JWT subject as gRPC metadata. The OpenCueWeb Audit page could then read from that API instead of (or in addition to) the JSONL file.
 
-**Limitations.** This captures **CueWeb actions only** - actions performed from CueGUI, `cueman`, or `pycue` are not seen. The store is single-process; multiple CueWeb replicas sharing one file would want a cross-process lock or a shared store (the same caveat as `facility-store.ts`).
+**Limitations.** This captures **OpenCueWeb actions only** - actions performed from CueGUI, `cueman`, or `pycue` are not seen. The store is single-process; multiple OpenCueWeb replicas sharing one file would want a cross-process lock or a shared store (the same caveat as `facility-store.ts`).
 
 ### Tests
 
@@ -526,7 +526,7 @@ npx jest app/__tests__/lib/audit-store.test.ts app/__tests__/lib/authz-admin.tes
 
 ## CueSubmit (browser-based job submission)
 
-CueWeb implements a TypeScript port of the standalone CueSubmit CLI tool under `/cuesubmit`. The form layout mirrors the dialog one-for-one; everything that ran inside `cuesubmit.ui.Submit` now lives in React components, and everything that ran inside `cuesubmit.Submission` + `outline.backend.cue.serialize` now lives in `app/cuesubmit/lib/*.ts`.
+OpenCueWeb implements a TypeScript port of the standalone CueSubmit CLI tool under `/cuesubmit`. The form layout mirrors the dialog one-for-one; everything that ran inside `cuesubmit.ui.Submit` now lives in React components, and everything that ran inside `cuesubmit.Submission` + `outline.backend.cue.serialize` now lives in `app/cuesubmit/lib/*.ts`.
 
 ### File layout
 
@@ -660,7 +660,7 @@ Both env vars are read at module scope: `NEXT_PUBLIC_EMAIL_DOMAIN` defaults to `
 
 `handleSend` builds a `mailto:` URL with `to`, `cc`, `bcc`, `subject`, and `body` via `URLSearchParams` (and `encodeURIComponent` on the `to` part) and assigns it to `window.location.href`. The OS hands the URL off to the user's default mail client.
 
-Browsers don't let `mailto:` override the user's mail account's `From:` header, so the dialog's **From** field is informational only. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; CueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with. The dialog's `DialogDescription` calls this out so the user isn't surprised.
+Browsers don't let `mailto:` override the user's mail account's `From:` header, so the dialog's **From** field is informational only. CueGUI's `EmailDialog` can spoof From because it sends through CueGUI's own SMTP relay; OpenCueWeb's mailto-based equivalent uses whatever account the user's mail client is configured with. The dialog's `DialogDescription` calls this out so the user isn't surprised.
 
 The **Send** button is disabled when `to.trim()` is empty.
 
@@ -778,7 +778,7 @@ Two completely different lifecycles:
 | State lives on | Cuebot (persisted across browsers / users / machines) | The browser (`localStorage`) |
 | Notification channel | Email sent by Cuebot | In-app toast + optional desktop popup |
 | Trigger | `AddSubscriber` RPC | Polling loop in `JobSubscriptionPoller` |
-| Cancel | Outside CueWeb (whatever Cuebot supports) | Click the bell again |
+| Cancel | Outside OpenCueWeb (whatever Cuebot supports) | Click the bell again |
 | Survives reinstall | Yes | No (per-browser store) |
 
 They can be used together: a user can both click the bell to get a
@@ -922,7 +922,7 @@ mis-picked confirm step is a no-op rather than a hang.
 `JFBF` doesn't map to a single RPC. CueGUI's `Cuedepend.createHardDepend`
 iterates source/target layer pairs that share a layer type and fires
 `LayerInterface.CreateFrameByFrameDependency` once per pair. The
-CueWeb wrapper does the same and now scales to multi-picked target
+OpenCueWeb wrapper does the same and now scales to multi-picked target
 jobs: on **Done** the wizard runs one `getLayersForJob` for this job
 plus one per picked target job in parallel, then `createHardDepend`
 walks each target job's layer list, pairs them with this job's layers
@@ -1177,7 +1177,7 @@ The dialog is mounted once at the bottom of `DataTable`, decoupled from the menu
 
 ## Unbook job dialog (CueGUI parity)
 
-The Jobs table's right-click **Unbook...** entry opens a dialog that unbooks every proc the job currently holds, with an optional **Kill unbooked frames?** checkbox that adds a second kill-confirmation phase. It is the first CueWeb action to route through `ProcInterface`. Files involved:
+The Jobs table's right-click **Unbook...** entry opens a dialog that unbooks every proc the job currently holds, with an optional **Kill unbooked frames?** checkbox that adds a second kill-confirmation phase. It is the first OpenCueWeb action to route through `ProcInterface`. Files involved:
 
 ```
 cueweb/
@@ -1564,7 +1564,7 @@ app/api/layer/action/{getdepends,getoutputpaths,markdone,reorderframes,staggerfr
 
 The frame log page (`app/frames/[frame-name]/page.tsx`) supports two backends.
 By default it reads the `.rqlog` from the render-log directory mounted into the
-CueWeb server; when `NEXT_PUBLIC_LOKI_URL` is set it pulls the log from a
+OpenCueWeb server; when `NEXT_PUBLIC_LOKI_URL` is set it pulls the log from a
 [Grafana Loki](https://grafana.com/oss/loki/) server instead, mirroring CueGUI's
 `LokiViewPlugin` (`cuegui/cuegui/plugins/LokiViewPlugin.py`). Files involved:
 
@@ -1619,7 +1619,7 @@ for the current attempt.
 
 Because `NEXT_PUBLIC_LOKI_URL` is a `NEXT_PUBLIC_*` var, the fetches run in the
 browser: the Loki host must be reachable from clients and must allow CORS from
-the CueWeb origin. RQD must be configured to ship frame logs to Loki tagged with
+the OpenCueWeb origin. RQD must be configured to ship frame logs to Loki tagged with
 `frame_id` and `session_start_time` labels.
 
 ---
@@ -1806,7 +1806,7 @@ rather than unqualified success.
 
 ## Plugin system
 
-CueWeb has a minimal plugin architecture - the browser counterpart of the CueGUI
+OpenCueWeb has a minimal plugin architecture - the browser counterpart of the CueGUI
 plugin system (`cuegui/cuegui/Plugins.py`, `cuegui/cuegui/cueguiplugin/loader.py`).
 A plugin is a **manifest** plus a **lazily-loaded React component** that mounts on
 its own route under `/plugins/<name>`. Files involved:
@@ -1997,7 +1997,7 @@ npm run build -- --analyze
 
 ### OpenCue REST Gateway
 
-CueWeb communicates with OpenCue through the REST Gateway using JWT authentication.
+OpenCueWeb communicates with OpenCue through the REST Gateway using JWT authentication.
 
 #### API Client Setup
 
@@ -2055,7 +2055,7 @@ export function createJWTToken(secret: string, userId: string): string {
 
 ### Job Comments
 
-CueWeb implements the CueGUI Comments dialog (`cuegui/cuegui/Comments.py`) via four proxy routes that wrap the underlying gRPC services.
+OpenCueWeb implements the CueGUI Comments dialog (`cuegui/cuegui/Comments.py`) via four proxy routes that wrap the underlying gRPC services.
 
 #### Proxy routes
 
@@ -2483,7 +2483,7 @@ export function Button({ className, variant, size, ...props }: ButtonProps) {
 
 ## Usage metrics (Prometheus + Grafana)
 
-CueWeb exposes per-user usage metrics at `GET /api/metrics` (Prometheus text)
+OpenCueWeb exposes per-user usage metrics at `GET /api/metrics` (Prometheus text)
 so operators can see *who uses what, how often, and how fast*. Bounded
 cardinality is the design constraint: `page` / `action` label values come from
 fixed allow-lists, and the API counters carry no `user` label. Files involved:
@@ -2533,7 +2533,7 @@ app/utils/api_utils.ts            # accessActionApi calls trackActionEndpoint (p
 
 Prometheus scrapes `cueweb:3000/api/metrics`
 (`sandbox/config/prometheus-monitoring.yml`); Grafana auto-provisions
-`sandbox/config/grafana/dashboards/cueweb-usage.json` ("CueWeb User Usage", with
+`sandbox/config/grafana/dashboards/cueweb-usage.json` ("OpenCueWeb User Usage", with
 a `$user` variable). Use a fixed `[5m]` rate window for the latency percentile
 panels. Opt out of the client beacon with `NEXT_PUBLIC_USAGE_TRACKING=off`.
 

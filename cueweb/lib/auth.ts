@@ -145,9 +145,16 @@ const providers = providerConfigs.map(({ type, provider, envKeys }) => {
     
     if (type === "Okta") {
         return OktaProvider({
-            clientId: settings.clientId,
-            clientSecret: settings.clientSecret,
-            issuer: settings.issuer
+          clientId: settings.clientId,
+          clientSecret: settings.clientSecret,
+          issuer: settings.issuer,
+          // Request the `groups` claim alongside the standard OIDC scopes so
+          // the ID token carries the user's group memberships (consumed by
+          // extractGroups in lib/authz.ts). Note: with Okta's Org
+          // Authorization Server, groups are emitted by the app's ID-token
+          // "Groups claim" filter and this scope is a no-op; it becomes
+          // required only when using a custom Okta Authorization Server.
+          authorization: { params: { scope: "openid email profile groups" } },
         });
     } else if (type === "Google") {
         return GoogleProvider({

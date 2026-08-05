@@ -1,14 +1,14 @@
 ---
 layout: default
-title: CueWeb Quick Start
+title: OpenCueWeb Quick Start
 parent: Quick Starts
 nav_order: 9
 ---
 
-# CueWeb Quick Start
+# OpenCueWeb Quick Start
 {: .no_toc }
 
-Get up and running with CueWeb, the web-based interface for OpenCue.
+Get up and running with OpenCueWeb, the web-based interface for OpenCue.
 
 <details open markdown="block">
   <summary>
@@ -23,13 +23,13 @@ Get up and running with CueWeb, the web-based interface for OpenCue.
 
 ## Overview
 
-CueWeb is a web-based application that brings the core functionality of CueGUI to your browser. It provides an intuitive interface for managing rendering jobs, monitoring frame status, and interacting with your OpenCue render farm from anywhere.
+OpenCueWeb is a web-based application that brings the core functionality of CueGUI to your browser. It provides an intuitive interface for managing rendering jobs, monitoring frame status, and interacting with your OpenCue render farm from anywhere.
 
 ### What you'll learn
 
-- How to set up and run CueWeb locally
+- How to set up and run OpenCueWeb locally
 - How to configure the REST Gateway dependency
-- How to access and navigate the CueWeb interface
+- How to access and navigate the OpenCueWeb interface
 - Basic job management operations
 
 ### Prerequisites
@@ -46,7 +46,7 @@ Before you begin, ensure you have:
 
 ## Step 1: Set up the REST Gateway
 
-CueWeb requires the OpenCue REST Gateway to communicate with Cuebot. The REST Gateway is **not included** in the main OpenCue Docker Compose stack and must be deployed separately.
+OpenCueWeb requires the OpenCue REST Gateway to communicate with Cuebot. The REST Gateway is **not included** in the main OpenCue Docker Compose stack and must be deployed separately.
 
 ### Build the REST Gateway
 
@@ -78,9 +78,9 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8448/
 
 ---
 
-## Step 2: Configure CueWeb
+## Step 2: Configure OpenCueWeb
 
-Navigate to the CueWeb directory and set up the environment configuration.
+Navigate to the OpenCueWeb directory and set up the environment configuration.
 
 ```bash
 cd cueweb
@@ -95,7 +95,7 @@ Create a `.env` file with the following configuration:
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://localhost:8448
 
 # Leave empty so the client builds same-origin relative API URLs.
-# That way CueWeb works from any host the browser reached it at:
+# That way OpenCueWeb works from any host the browser reached it at:
 # http://localhost:3000 on this machine, or http://<lan-ip>:3000
 # from another device on the same network (useful for testing on a
 # phone). Only set this to an absolute URL if the API is served on
@@ -121,9 +121,9 @@ NEXTAUTH_SECRET=canbeanything
 
 # Optional: read frame logs from a Grafana Loki server instead of the
 # on-disk .rqlog file (mirrors CueGUI's Loki log viewer). Leave unset to
-# use the default file-based viewer. Base URL only - CueWeb appends
+# use the default file-based viewer. Base URL only - OpenCueWeb appends
 # /loki/api/v1/... The query runs in the browser, so Loki must be
-# reachable from clients and allow CORS from the CueWeb origin.
+# reachable from clients and allow CORS from the OpenCueWeb origin.
 # NEXT_PUBLIC_LOKI_URL=http://your-loki-host:3100
 
 # Optional: command shown by the job menu's "Show Progress Bar" ({job} is
@@ -134,7 +134,7 @@ NEXTAUTH_SECRET=canbeanything
 # NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
 # NEXT_PUBLIC_PREVIEW_URL=
 
-# Optional: tune the CueWeb Audit trail (see "Review the audit trail" in
+# Optional: tune the OpenCueWeb Audit trail (see "Review the audit trail" in
 # Step 5). CUEWEB_AUDIT_STORE is the path to the append-only JSONL log
 # (default: cueweb-audit.jsonl in the OS temp dir) - point it at a mounted
 # volume to persist across restarts. CUEWEB_AUDIT_MAX_RECORDS caps how many
@@ -152,12 +152,12 @@ NEXTAUTH_SECRET=canbeanything
 
 ### Restrict access by group (optional)
 
-By default every signed-in user can use CueWeb. To limit access by **group membership**, opt in with these env vars (all off/empty by default):
+By default every signed-in user can use OpenCueWeb. To limit access by **group membership**, opt in with these env vars (all off/empty by default):
 
 ```bash
 # Turn the gate on (off by default — leave unset for an open deployment)
 CUEWEB_AUTHZ_ENABLED=true
-# Groups allowed to use CueWeb at all (empty = everyone signed in)
+# Groups allowed to use OpenCueWeb at all (empty = everyone signed in)
 CUEWEB_ALLOWED_GROUPS=renderwranglers,supervisors
 # Groups allowed on the entire CueCommander section + CueSubmit + Manage facilities (empty = everyone)
 CUEWEB_ADMIN_GROUPS=supervisors
@@ -169,7 +169,7 @@ The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an
 
 ---
 
-## Step 3: Install Dependencies and Run CueWeb
+## Step 3: Install Dependencies and Run OpenCueWeb
 
 ### Install Dependencies
 
@@ -177,7 +177,7 @@ The gate is enforced server-side: a user outside `CUEWEB_ALLOWED_GROUPS` sees an
 npm install
 ```
 
-### Start CueWeb in Development Mode
+### Start OpenCueWeb in Development Mode
 
 ```bash
 npm run dev
@@ -195,17 +195,17 @@ You should see output similar to:
 
 ---
 
-## Step 4: Access CueWeb
+## Step 4: Access OpenCueWeb
 
 1. Open your web browser
 2. Navigate to: **http://localhost:3000**
-3. You should see the CueWeb interface
+3. You should see the OpenCueWeb interface
 
 ### Expected Interface
 
-The CueWeb interface includes:
+The OpenCueWeb interface includes:
 
-- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **CueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows a **CueWeb Home** button.
+- **Global Header**: Persistent across every page. Shows the OpenCue logo (theme-aware: black in light mode, white in dark mode) + the **OpenCueWeb** wordmark on the left, six dropdown menus mirroring the CueGUI menu bar — **File**, **Cuebot Facility**, **Cuetopia**, **CueCommander**, **Other** (Attributes, Immersive (full-screen), Split view, Show Shortcuts, Notify on Shortcut), **Help** (with a search box that finds commands across every menu) — a theme toggle on the right, and an always-visible **Sign out** button. With auth disabled (`NEXT_PUBLIC_AUTH_PROVIDER=`), the Sign out button still appears — clicking it just navigates to `/login`, which shows an **OpenCueWeb Home** button.
 - **Left Sidebar**: Same six groups as the header, organized as accordion sections. Click **Collapse** at the bottom to shrink to an icon-only rail.
 - **Jobs Dashboard**: View and manage rendering jobs, with CueGUI-parity columns (Launched, Eligible, Finished, User Color, ...).
 - **Layers / Frames panels**: Inline below the jobs table. Click a job row to reveal them; click a layer to filter the frames panel; double-click a frame row to open the log viewer.
@@ -219,23 +219,23 @@ The CueWeb interface includes:
 - **Job-finished Notifications**: Two channels - a per-row **Notify bell** for browser notifications (in-app toast + optional desktop popup) and a right-click **Subscribe to Job** entry for *email* notifications sent by Cuebot. Independent of each other.
 - **Disable Job Interaction**: Read-only safety toggle in File ▸ Disable Job Interaction (header or sidebar). When on, an amber banner appears under the header and destructive actions (Pause / Unpause / Retry / Eat / Kill) — in the toolbar and in the right-click menus — are dim and inert.
 - **Attributes Panel**: Other ▸ Attributes opens a docked drawer with a collapsible key/value tree of the selected entity. Click a row in the jobs table to populate it; pick the dock position (right / bottom / left / top) from the panel's title bar.
-- **Bottom Status Bar**: a fixed 24-pixel bar at the bottom of every page shows REST gateway status (a colored dot + Online/Offline + the last round-trip latency), the time since the jobs table last refreshed, and the CueWeb build version. The whole bar turns red when the gateway is unreachable.
+- **Bottom Status Bar**: a fixed 24-pixel bar at the bottom of every page shows REST gateway status (a colored dot + Online/Offline + the last round-trip latency), the time since the jobs table last refreshed, and the OpenCueWeb build version. The whole bar turns red when the gateway is unreachable.
 - **Breadcrumb Navigation**: detail views (frame log page, per-job comments page) render a small "Home > Jobs > ..." breadcrumb above the content so you can navigate back to the index. Long labels truncate with an ellipsis and the full text appears in a tooltip on hover.
 - **Keyboard shortcuts**: Press `?` anywhere (or use **Other ▸ Show Shortcuts**) to open the cheat-sheet. A small toast appears on every triggered shortcut so you know it registered; turn it off via **Other ▸ Notify on Shortcut** if you prefer silence.
 
-The login page (or the **CueWeb Home** button when authentication is disabled):
+The login page (or the **OpenCueWeb Home** button when authentication is disabled):
 
-![CueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
+![OpenCueWeb login page](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_login.png)
 
 
 The Dashboard you land on after signing in:
 
-![CueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
+![OpenCueWeb dashboard](/assets/images/cueweb/cueweb_dashboard.png)
 
 
 The Cuetopia Monitor Jobs view with the jobs table:
 
-![CueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
+![OpenCueWeb Monitor Jobs](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_mainpage.png)
 
 
 ---
@@ -250,7 +250,7 @@ The Cuetopia Monitor Jobs view with the jobs table:
 
 Click a job row to reveal the inline Layers and Frames panels below the jobs table:
 
-![CueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
+![OpenCueWeb inline layers and frames](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layersframes.png)
 
 
 ### Job Management
@@ -272,10 +272,10 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
 The job right-click menu, and the tabbed Job Details page it can open:
 
-![CueWeb job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
+![OpenCueWeb job context menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_job_context_menu_open.png)
 
 
-![CueWeb Job Details overview](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
+![OpenCueWeb Job Details overview](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_job_details_page_overview.png)
 
 
 ### Frame Operations
@@ -288,8 +288,8 @@ The job right-click menu, and the tabbed Job Details page it can open:
 6. **Job Progress Tooltip**: Hover the stacked progress bar in the Jobs table to see exact frame counts and percentages for each state.
 7. **Subscribe to Completion - in browser**: Click the bell in the **Notify** column of the Jobs table to subscribe to a notification when the job reaches `FINISHED`. The subscription always succeeds; the browser's notification permission is an optional upgrade (granted = in-app toast + desktop popup; denied = in-app toast only). Subscriptions are saved in your browser and survive page reloads, and a background check runs on each subscribed job every 15 seconds. When the same job is open in several tabs, only one tab shows the notification.
 8. **Subscribe to Completion - by email**: For notifications that should survive a browser close, follow you between machines, or fan out to a team alias, right-click the job and pick **Subscribe to Job**. A dialog opens with the job name and an editable **To** address; Save registers the address with Cuebot so Cuebot emails the subscriber when the job finishes. Independent of the Notify bell.
-9. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing CueWeb at a LAN IP over plain HTTP.
-10. **Mobile**: load CueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
+9. **Copy actions**: every row's context menu has copy items - **Copy Job Name** / **Copy Layer Name** / **Copy Frame Name** / **Copy Log Path** - that push the value to the clipboard with a confirmation toast. Works on `http://localhost:3000` and also when accessing OpenCueWeb at a LAN IP over plain HTTP.
+10. **Mobile**: load OpenCueWeb on a phone via `http://<lan-ip>:3000` from the same network (e.g. `ipconfig getifaddr en0` on the Mac shows the IP). The hamburger button at the top-left opens a nav drawer with every menu group; each row's leftmost `⋮` button replaces the right-click menu on touch.
 
 ### Search Functionality
 
@@ -297,30 +297,30 @@ The job right-click menu, and the tabbed Job Details page it can open:
 - **Regex Search**: Prefix with `!` for advanced patterns (e.g., "!.*test.*")
 - **Dropdown Suggestions**: Shows matching jobs as you type
 
-![CueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
+![OpenCueWeb job search](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_search_jobs.png)
 
 ### Redirect cores to a job
 
 Open **CueCommander &rarr; Redirect** to hand cores to a job that needs them. The tool finds procs currently busy on other work and reassigns them to a **Target** job - the frames on those procs are killed and the freed cores are booked onto your target, so use it deliberately.
 
-![CueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
+![OpenCueWeb Redirect page](/assets/images/cueweb/cueweb_cuecommander_redirect.png)
 
 1. Type the **Target** job name (this auto-fills the Show and minimum cores/memory from its layers).
 2. Adjust the filters (Allocations, Minimum/Max Cores, Minimum Memory, Proc Hour Cutoff) and click **Search**.
-3. Tick the hosts to take from (or **Select All**) and click **Redirect**. CueWeb refuses if the target has no waiting frames or is at max cores, and warns before a paused-target or cross-show redirect.
+3. Tick the hosts to take from (or **Select All**) and click **Redirect**. OpenCueWeb refuses if the target has no waiting frames or is at max cores, and warns before a paused-target or cross-show redirect.
 
 ### Find stuck frames
 
 Open **CueCommander &rarr; Stuck Frame** to find running frames that look hung - frames that keep running but have stopped writing to their log. The page scans every running frame and lists the ones that cross the detection thresholds (Last Log Update vs. runtime), grouped by job.
 
-![CueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
+![OpenCueWeb Stuck Frames page](/assets/images/cueweb/cueweb_cuecommander_stuck_frame.png)
 
 - Tune the filter bar (**Min LLU**, **% of Run Since LLU**, **Total Runtime**) to control how aggressively frames are flagged; the **+** button adds a per-service filter row so long-running services (e.g. Arnold) can use looser limits than quicker ones.
 - Right-click a frame for **Retry / Eat / Kill**, **View Log**, or **Core Up** (raise the layer's minimum cores - a common fix when a frame is starved for resources). Right-click a job header for job-wide actions.
 
 ### Monitor the cue
 
-Open **CueCommander &rarr; Monitor Cue** to watch every job for the shows you pick, grouped under their show and groups (the CueWeb version of CueGUI's Monitor Cue window). Choose shows from the **Shows** menu to populate the tree.
+Open **CueCommander &rarr; Monitor Cue** to watch every job for the shows you pick, grouped under their show and groups (the OpenCueWeb version of CueGUI's Monitor Cue window). Choose shows from the **Shows** menu to populate the tree.
 
 - Full CueGUI columns (Run, Cores, Gpus, Wait, Depend, Total, a **Booking** bar with min/max core markers, Min/Max cores & GPUs, Pri, MaxRss, Age, Progress, …); sort by any header, show/hide & reorder via the **Columns** dropdown, and narrow with the **Filter jobs...** box. Rows are tinted by condition (blue = paused, red = dead, green = waiting, purple = all-depend).
 - Select jobs (checkboxes, Shift+click ranges, or the live **Select:** name/regex box) and act on them from the toolbar: **Eat / Retry / Pause / Unpause / Kill**. Right-click a job for the full menu, including **Send To Group...** and the resource/priority setters.
@@ -329,7 +329,7 @@ Open **CueCommander &rarr; Monitor Cue** to watch every job for the shows you pi
 
 Open **CueCommander &rarr; Monitor Hosts** to see every render host with the full CueGUI column set (Load %, Swap / Physical / GPU Memory / Temp usage bars, cores, GPUs, hardware/lock state, OS, tags). Rows are tinted by condition - red for a non-`UP` host, amber for one waiting to reboot when idle, yellow for an `UP` but locked host.
 
-![CueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
+![OpenCueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
 
 - Narrow the list with the **name/regex** box and the **Filter Allocation / HardwareState / LockState / OS** dropdowns (the filters are reflected in the URL, so a view is shareable).
 - Right-click a host for **Comments**, **View Procs**, **Lock / Unlock**, **Edit Tags / Rename Tag / Change Allocation**, **Reboot / Reboot when idle / Delete Host**, and **Set / Clear Repair State**.
@@ -337,33 +337,33 @@ Open **CueCommander &rarr; Monitor Hosts** to see every render host with the ful
 
 ### Switch Cuebot facilities
 
-If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. CueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
+If your render farm spans more than one **facility** (each with its own Cuebot), use the **Cuebot Facility** menu in the header to switch between them. OpenCueWeb shows **one facility at a time** - the same behavior as CueGUI's Cuebot Facility menu.
 
 ![Cuebot Facility menu](/assets/images/cueweb/cueweb_cuebot_facility_menu.png)
 
-- Pick a facility from the menu; CueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
+- Pick a facility from the menu; OpenCueWeb re-routes to that facility's Cuebot and reloads whatever you are viewing. The active facility shows as a chip on the menu and in the bottom status bar, and your choice is remembered for the session.
 - Each facility shows a **green/red health dot** - green when its REST gateway is reachable, red when it is down (polled every 30s). A facility whose gateway is down is **disabled**, so you can't switch into it.
 - The list of facilities comes from `NEXT_PUBLIC_CUEBOT_FACILITIES` (default `local,dev,cloud,external`). To point a facility at its own gateway, set the server-only pair `CUEBOT_<NAME>_REST_GATEWAY_URL` and `CUEBOT_<NAME>_JWT_SECRET` (e.g. `CUEBOT_DEV_REST_GATEWAY_URL`); a facility with no override falls back to `NEXT_PUBLIC_OPENCUE_ENDPOINT` / `NEXT_JWT_SECRET`. The single-facility sandbox works with just `local`.
 - To change a facility's gateway URL or JWT secret **without a redeploy**, choose **Manage facilities…** from the menu. The admin screen edits each facility's connection at runtime (applied immediately, layered over the env defaults) and keeps a change-history log. Persist these overrides across container restarts by pointing `CUEWEB_FACILITY_STORE` at a mounted volume.
 
-### Check the CueWeb version (About CueWeb)
+### Check the OpenCueWeb version (About OpenCueWeb)
 
-The build version is always visible at the right of the bottom status bar. For full build details, open **Help &rarr; About CueWeb**.
+The build version is always visible at the right of the bottom status bar. For full build details, open **Help &rarr; About OpenCueWeb**.
 
-![About CueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
+![About OpenCueWeb in the Help menu](/assets/images/cueweb/cueweb_help_about_cueweb_menu.png)
 
 The dialog shows the **Version**, the **Build SHA**, and a license link, with a **Copy diagnostics** button that copies all fields as JSON (handy for bug reports).
 
-![About CueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
+![About OpenCueWeb dialog](/assets/images/cueweb/cueweb_help_about_cueweb.png)
 
-- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as a CueWeb-specific override; `package.json` is the last-resort fallback.
+- The **Version** is resolved at build time: an explicit `NEXT_PUBLIC_APP_VERSION` build-arg wins; otherwise `cueweb/OVERRIDE_CUEWEB_VERSION.in` decides - the default value `VERSION.in` means "track the repo-root `VERSION.in`" (OpenCue's shared version), while any other value is used verbatim as an OpenCueWeb-specific override; `package.json` is the last-resort fallback.
 - The **Build SHA** comes from the `NEXT_PUBLIC_GIT_SHA` build-arg (CI injects `git rev-parse --short HEAD`); it shows `unknown` when not provided.
 
 ### Try a plugin
 
-CueWeb ships a small **plugin system** with two sample add-ons. Open the **Plugins** page (the **Plugins** menu sits to the right of CueSubmit in the header) to see the registered plugins.
+OpenCueWeb ships a small **plugin system** with two sample add-ons. Open the **Plugins** page (the **Plugins** menu sits to the right of CueSubmit in the header) to see the registered plugins.
 
-![CueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
+![OpenCueWeb Plugins page](/assets/images/cueweb/cueweb_plugins.png)
 
 - Each plugin has a **checkbox** that controls whether it appears in the **Plugins** menu; your choice is saved in your browser. Open a plugin to use it, and use its **Open plugin settings** control to tweak its options (also saved per browser).
 - **Cue Progress Bar** (on by default) draws a live frame-state bar for a job with pause / unpause / kill / retry-dead controls; **Hello OpenCue** (off by default) is a minimal example. Developers can add their own under `cueweb/app/plugins/<name>/`.
@@ -377,30 +377,30 @@ Three quick ways to shape the workspace (all saved in your browser):
   ![Views dropdown with saved presets](/assets/images/cueweb/cueweb_saveable_view_presets.png)
 - **Go full-screen:** press **`F`** (or use **Other &rarr; Immersive (full-screen)**) to hide the header, sidebar, and status bar so a table fills the screen. A floating **Exit immersive** button brings the chrome back.
 
-  ![CueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
+  ![OpenCueWeb in immersive (full-screen) mode](/assets/images/cueweb/cueweb_full_screen_activated.png)
 
 - **Split the view:** open **Other &rarr; Split view** to see two pages side-by-side in resizable panes (e.g. Monitor Jobs next to a host). The layout lives in the URL (`/split?left=…&right=…`), so it's bookmarkable and reload-safe.
 
-  ![CueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
+  ![OpenCueWeb split view](/assets/images/cueweb/cueweb_split_view_activated.png)
 
 ### Review the audit trail
 
-Open **Admin &rarr; CueWeb Audit** (in the top header or the left sidebar) to see who changed what. CueWeb records every **state-changing** action - who did it, the action, the timestamp, the target entity, the Cuebot facility, and whether it succeeded or errored - plus sign in / sign out. Read-only views are not recorded.
+Open **Admin &rarr; OpenCueWeb Audit** (in the top header or the left sidebar) to see who changed what. OpenCueWeb records every **state-changing** action - who did it, the action, the timestamp, the target entity, the Cuebot facility, and whether it succeeded or errored - plus sign in / sign out. Read-only views are not recorded.
 
-![CueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
+![OpenCueWeb Audit menu](/assets/images/cueweb/cueweb_admin_cueweb_audit_menu.png)
 
-![CueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
+![OpenCueWeb Audit page](/assets/images/cueweb/cueweb_admin_cueweb_audit.png)
 
 - Filter by actor, category, or result, set a From/To time window, or type in the free-text search; expand a row to see sanitized details.
 - Page through results (First / Prev / Next / Last, "Page X of N", with a rows-per-page selector that defaults to 10), flip on **auto-refresh**, and use **Export CSV** to download the current view.
-- Access follows the same group gate as the rest of CueWeb: with no group authorization configured (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` set) the page is open to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can reach it. See **Restrict access by group** in Step 2.
+- Access follows the same group gate as the rest of OpenCueWeb: with no group authorization configured (no auth provider, `CUEWEB_AUTHZ_ENABLED` off, or no `CUEWEB_ADMIN_GROUPS` set) the page is open to everyone; when the gate is active, only members of `CUEWEB_ADMIN_GROUPS` can reach it. See **Restrict access by group** in Step 2.
 - The trail lives at `CUEWEB_AUDIT_STORE` and is bounded by `CUEWEB_AUDIT_MAX_RECORDS` (both shown in Step 2).
 
 ---
 
 ## Step 6 (optional): Submit a job from the browser (CueSubmit)
 
-CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so you don't need a separate desktop install just to launch a test job:
+OpenCueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so you don't need a separate desktop install just to launch a test job:
 
 ![CueSubmit menu options](/assets/images/cueweb/cueweb_cuesubmit_menu_options.png)
 
@@ -410,7 +410,7 @@ CueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool so 
 2. In **Job Info** fill in a Job Name (e.g. `quickstart_test`), pick `testing` for Show, type a Shot like `test_shot`, leave Facility as `[Default]`, and confirm Username.
 3. In **Layer Info** fill in a Layer Name (e.g. `layer1`), set Frame Spec to `1-3`, leave Chunk Size at `1` and Memory at the `256m` default, and keep Job Type set to **Shell**.
 4. In **Shell options** type `sleep 5` for Command To Run. Watch the **Final command** field at the bottom update per-keystroke.
-5. Click **Submit**. CueWeb redirects you to the job's detail page where the three frames will go WAITING -> RUNNING -> SUCCEEDED in a few seconds.
+5. Click **Submit**. OpenCueWeb redirects you to the job's detail page where the three frames will go WAITING -> RUNNING -> SUCCEEDED in a few seconds.
 6. Click **View in Monitor Jobs** in the detail-page header to open Cuetopia with the new job already loaded.
 
 The form keeps an autocomplete history (per browser) for Job Name, Shot, and Layer Name across submissions, and auto-saves a draft on every keystroke so an accidental refresh never wipes a multi-layer setup. Click **Reset** to clear the form back to a blank canvas.
@@ -419,7 +419,7 @@ The form keeps an autocomplete history (per browser) for Job Name, Shot, and Lay
 
 ## Troubleshooting
 
-### CueWeb won't start
+### OpenCueWeb won't start
 
 **Problem**: npm run dev fails
 ```bash
@@ -484,19 +484,19 @@ npm install
 ## Production Deployment
 
 For production deployment, see:
-- [CueWeb User Guide](/docs/user-guides/cueweb-user-guide) - Complete user documentation
-- [CueWeb Developer Guide](/docs/developer-guide/cueweb-development) - Development and deployment guide
+- [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide) - Complete user documentation
+- [OpenCueWeb Developer Guide](/docs/developer-guide/cueweb-development) - Development and deployment guide
 - [REST API Reference](/docs/reference/rest-api-reference/) - API documentation
 
 ---
 
 ## Next Steps
 
-Now that CueWeb is running:
+Now that OpenCueWeb is running:
 
 1. **Explore the Interface**: Familiarize yourself with job management features
 2. **Configure Authentication**: Set up OAuth providers for multi-user access
 3. **Customize Settings**: Adjust table columns and refresh intervals
 4. **Monitor Production**: Set up alerts and monitoring for your render farm
 
-For detailed usage instructions, see the [CueWeb User Guide](/docs/user-guides/cueweb-user-guide).
+For detailed usage instructions, see the [OpenCueWeb User Guide](/docs/user-guides/cueweb-user-guide).
