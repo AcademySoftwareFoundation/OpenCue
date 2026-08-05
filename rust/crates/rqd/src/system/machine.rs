@@ -11,6 +11,7 @@
 // the License.
 
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use crate::{
     config::CONFIG,
@@ -53,7 +54,7 @@ use crate::{
 
 #[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
 use super::linux::LinuxSystem;
-use super::manager::SystemManagerType;
+use super::manager::{HostMemSnapshot, PeerMem, SystemManagerType};
 #[cfg(feature = "nimby")]
 use crate::system::nimby::Nimby;
 
@@ -461,6 +462,33 @@ impl MachineMonitor {
                 // Proc finished but frame is waiting for the lock on `is_finished` to update the status
                 // keep frame around for another round
                 running_frame.mark_dangling();
+            }
+        }
+
+        // Build a host-wide memory snapshot from the freshly-updated running frames and
+        // share it (same Arc) into each of them. A frame that later fails renders this in
+        // its footer to expose whether a co-tenant may have starved it of memory.
+        {
+            let (total_memory, available_memory) = {
+                let host_state = self.last_host_state.read().await;
+                host_state
+                    .as_ref()
+                    .map(|hs| ((hs.total_mem as u64) * KIB, (hs.free_mem as u64) * KIB))
+                    .unwrap_or((0, 0))
+            };
+            let mut peers: Vec<PeerMem> = running_frames
+                .iter()
+                .map(|(running_frame, _)| running_frame.to_peer_mem())
+                .collect();
+            peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+            let snapshot = Arc::new(HostMemSnapshot {
+                captured_at: SystemTime::now(),
+                total_memory,
+                available_memory,
+                peers,
+            });
+            for (running_frame, _) in &running_frames {
+                running_frame.set_host_mem_snapshot(Arc::clone(&snapshot));
             }
         }
 
