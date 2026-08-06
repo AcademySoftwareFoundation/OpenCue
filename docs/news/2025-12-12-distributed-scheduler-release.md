@@ -2,7 +2,7 @@
 layout: default
 title: "December 12, 2025: Distributed Scheduler Release"
 parent: News
-nav_order: 2
+nav_order: 3
 ---
 
 # Distributed Scheduler Release
