@@ -203,9 +203,9 @@ public class MaintenanceManagerSupport {
                     // Budget exhausted: there is no time left to confirm death. Still send a
                     // best-effort, non-blocking kill so the render is at least asked to stop
                     // instead of being left alive, then fail the frame closed (DEAD) since we
-                    // cannot confirm it died.
-                    killFrameBestEffort(frame);
-                    dead = false;
+                    // cannot confirm it died. A frame that never ran (null host) has no render
+                    // to confirm and stays safe to retry.
+                    dead = killFrameBestEffort(frame) == null;
                 } else {
                     dead = killAndConfirmDead(frame, phaseDeadlineMs);
                 }

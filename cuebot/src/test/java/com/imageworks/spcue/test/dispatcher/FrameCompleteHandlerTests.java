@@ -619,7 +619,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     /**
      * Bundles mock collaborators for the handler. The managers delegate to the real beans so only
      * individual methods need stubbing, while the queues, JMS mover and redirect manager are plain
-     * mocks so no asynchronous work escapes the test thread.
+     * mocks so no asynchronous work escapes the test thread. Run the code under test through
+     * {@link #runWith} so installation is always paired with restoration of the real beans.
      */
     private class HandlerMocks {
         final DispatchSupport origDispatchSupport = frameCompleteHandler.getDispatchSupport();
@@ -639,7 +640,17 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         final JmsMover jmsMover = mock(JmsMover.class);
         final RedirectManager redirectManager = mock(RedirectManager.class);
 
-        void install() {
+        /** Installs the mocks on the handler, runs the task, and always restores the real beans. */
+        void runWith(Runnable task) {
+            install();
+            try {
+                task.run();
+            } finally {
+                restore();
+            }
+        }
+
+        private void install() {
             frameCompleteHandler.setDispatchSupport(dispatchSupport);
             frameCompleteHandler.setHostManager(hostManager);
             frameCompleteHandler.setJobManager(jobManager);
@@ -649,7 +660,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
             frameCompleteHandler.setRedirectManager(redirectManager);
         }
 
-        void restore() {
+        private void restore() {
             frameCompleteHandler.setDispatchSupport(origDispatchSupport);
             frameCompleteHandler.setHostManager(origHostManager);
             frameCompleteHandler.setJobManager(origJobManager);
@@ -696,13 +707,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, newFrameState, report.getExitStatus(),
                 report.getFrame().getMaxRss());
-        mocks.install();
-        try {
-            frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
-                    dispatchFrame, newFrameState, frameDetail);
-        } finally {
-            mocks.restore();
-        }
+        mocks.runWith(() -> frameCompleteHandler.handlePostFrameCompleteOperations(proc, report,
+                dispatchJob, dispatchFrame, newFrameState, frameDetail));
     }
 
     @Test
@@ -910,13 +916,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
             return null;
         }).when(mocks.dispatchQueue).execute(any(KeyRunnable.class));
 
-        mocks.install();
-        try {
-            frameCompleteHandler
-                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
-        } finally {
-            mocks.restore();
-        }
+        mocks.runWith(() -> frameCompleteHandler
+                .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0)));
 
         // The stale branch must go through the dispatch queue, never run inline.
         verify(mocks.dispatchQueue).execute(any(KeyRunnable.class));
@@ -939,13 +940,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
             return null;
         }).when(mocks.dispatchQueue).execute(any(KeyRunnable.class));
 
-        mocks.install();
-        try {
-            frameCompleteHandler
-                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
-        } finally {
-            mocks.restore();
-        }
+        mocks.runWith(() -> frameCompleteHandler
+                .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0)));
 
         // The stale branch must go through the dispatch queue, never run inline.
         verify(mocks.dispatchQueue).execute(any(KeyRunnable.class));
@@ -996,13 +992,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         dispatchSupport.unbookProc(proc);
 
         HandlerMocks mocks = new HandlerMocks();
-        mocks.install();
-        try {
-            frameCompleteHandler
-                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
-        } finally {
-            mocks.restore();
-        }
+        mocks.runWith(() -> frameCompleteHandler
+                .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0)));
 
         // The stale report must be dropped without touching the frame or its counters.
         verify(mocks.dispatchSupport, never()).stopFrame(any(DispatchFrame.class),

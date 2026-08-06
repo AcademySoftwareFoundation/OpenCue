@@ -43,6 +43,7 @@ public class FrameCompleteHandlerFrameStateTests {
     private DispatchJob job;
     private LayerDetail layer;
     private DispatchFrame frame;
+    private FrameDetail frameDetail;
 
     public FrameCompleteHandlerFrameStateTests() {
         job = new DispatchJob();
@@ -56,6 +57,9 @@ public class FrameCompleteHandlerFrameStateTests {
         frame = new DispatchFrame();
         frame.state = FrameState.RUNNING;
         frame.retries = 0;
+
+        frameDetail = new FrameDetail();
+        frameDetail.exitStatus = 0;
     }
 
     private FrameCompleteReport report(int exitStatus, int exitSignal) {
@@ -66,7 +70,7 @@ public class FrameCompleteHandlerFrameStateTests {
     }
 
     private FrameState determine(FrameCompleteReport report) {
-        return FrameCompleteHandler.determineFrameState(job, layer, frame, report);
+        return FrameCompleteHandler.determineFrameState(job, layer, frame, report, frameDetail);
     }
 
     @Test
@@ -207,6 +211,15 @@ public class FrameCompleteHandlerFrameStateTests {
         frame.retries = job.maxRetries;
         assertEquals(FrameState.WAITING,
                 determine(report(Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE, 0)));
+    }
+
+    @Test
+    public void testStoredMemoryFailureWaitsEvenWhenRetriesExhausted() {
+        // A Cuebot-initiated memory kill stores the memory failure status on the frame while rqd
+        // reports a plain kill; it must get the same retry exemption as an rqd-reported OOM.
+        frame.retries = job.maxRetries;
+        frameDetail.exitStatus = Dispatcher.EXIT_STATUS_MEMORY_FAILURE;
+        assertEquals(FrameState.WAITING, determine(report(1, EXIT_SIGNAL_SIGTERM)));
     }
 
     @Test

@@ -133,4 +133,22 @@ public class MaintenanceManagerOrphanFrameTests {
         verify(frameDao).updateFrameStopped(frame, FrameState.WAITING,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
     }
+
+    @Test
+    public void budgetExhaustedNeverRanFrameStaysRetryable() {
+        // Zero budget and empty lastResource: no render can exist, so even without time to
+        // confirm anything the frame must stay retryable (WAITING), not be failed closed.
+        when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
+                anyLong())).thenReturn(0L);
+        FrameDetail frame = orphanFrame("frame-5", "");
+        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(rqdClient, never()).killFrame(anyString(), anyString(), anyString());
+        verify(frameDao).updateFrameStopped(frame, FrameState.WAITING,
+                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        verify(frameDao, never()).updateFrameStopped(frame, FrameState.DEAD,
+                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+    }
 }

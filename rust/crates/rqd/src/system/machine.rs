@@ -605,7 +605,8 @@ impl MachineMonitor {
         // per cycle, not per individual retry below, carrying the backlog size and the age of
         // its oldest entry, so the condition is observable before it grows unbounded. Only entries
         // that have already survived at least one monitor cycle count as a backlog; freshly
-        // finished frames delivered in this same cycle have ~zero age and must not warn.
+        // finished frames delivered in this same cycle have ~zero age and must not warn. Entries
+        // without a usable age (FailedBeforeStart) always warn since their age cannot be gated.
         let backlog = self.pending_completions.len();
         let oldest_age = self
             .pending_completions
@@ -615,13 +616,25 @@ impl MachineMonitor {
                 _ => None,
             })
             .max();
-        if let Some(age) = oldest_age {
-            if age >= self.maching_config.monitor_interval {
+        match oldest_age {
+            Some(age) => {
+                if age >= self.maching_config.monitor_interval {
+                    warn!(
+                        "{} pending frame completion(s) still awaiting delivery to Cuebot after \
+                         retries; oldest is {}s old",
+                        backlog,
+                        age.as_secs()
+                    );
+                }
+            }
+            None => {
+                // No entry carries a usable age: FailedBeforeStart has no end_time and elapsed()
+                // fails when the clock steps backwards. Still surface the backlog rather than
+                // staying silent.
                 warn!(
-                    "{} pending frame completion(s) still awaiting delivery to Cuebot after \
-                     retries; oldest is {}s old",
-                    backlog,
-                    age.as_secs()
+                    "{} pending frame completion(s) awaiting delivery to Cuebot (no delivery age \
+                     available)",
+                    backlog
                 );
             }
         }

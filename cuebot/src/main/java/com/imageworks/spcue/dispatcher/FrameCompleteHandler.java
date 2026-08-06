@@ -175,7 +175,8 @@ public class FrameCompleteHandler {
             final FrameDetail frameDetail =
                     jobManager.getFrameDetail(report.getFrame().getFrameId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
-            final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+            final FrameState newFrameState =
+                    determineFrameState(job, layer, frame, report, frameDetail);
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
                     + report.getFrame().getFrameId();
 
@@ -339,9 +340,14 @@ public class FrameCompleteHandler {
      * complete, so nothing has mutated the layer state read here.
      */
     private void publishLayerCompletedTelemetry(DispatchFrame frame) {
+        boolean kafkaEnabled = kafkaEventPublisher != null && kafkaEventPublisher.isEnabled();
+        if (prometheusMetrics == null && !kafkaEnabled) {
+            return;
+        }
+        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+
         if (prometheusMetrics != null) {
             ExecutionSummary layerSummary = jobManager.getExecutionSummary((LayerInterface) frame);
-            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
             prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec, frame.show,
                     frame.shot, layerDetail.type.toString());
             if (layerSummary.highMemoryKb > 0) {
@@ -350,8 +356,7 @@ public class FrameCompleteHandler {
             }
         }
 
-        if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
-            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+        if (kafkaEnabled) {
             LayerEvent layerEvent = monitoringEventBuilder.buildLayerEvent(
                     EventType.LAYER_COMPLETED, layerDetail, frame.getName(), frame.show);
             kafkaEventPublisher.publishLayerEvent(layerEvent);
@@ -616,7 +621,8 @@ public class FrameCompleteHandler {
         }
 
         int exitStatus = resolveExitStatus(report, frameDetail);
-        final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+        final FrameState newFrameState =
+                determineFrameState(job, layer, frame, report, frameDetail);
 
         if (!dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                 report.getFrame().getMaxRss())) {
@@ -749,17 +755,19 @@ public class FrameCompleteHandler {
      *
      * For a non-zero exit status, the frame goes back to Waiting for a retry unless it is out of
      * retries or timed out, in which case it is Dead, or the job has auto-eat enabled, in which
-     * case it is Eaten. Skip-retry frames, frames killed by a NIMBY lock, and memory failures are
-     * retried even when the retry count is exhausted.
+     * case it is Eaten. Skip-retry frames, frames killed by a NIMBY lock, and memory failures
+     * (reported by rqd or stored on the frame by a Cuebot-initiated memory kill, see
+     * {@link #resolveExitStatus}) are retried even when the retry count is exhausted.
      *
      * @param job
      * @param layer
      * @param frame
      * @param report
+     * @param frameDetail
      * @return
      */
     public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer,
-            DispatchFrame frame, FrameCompleteReport report) {
+            DispatchFrame frame, FrameCompleteReport report, FrameDetail frameDetail) {
         if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(frame.state)) {
             return frame.state;
         }
@@ -801,7 +809,7 @@ public class FrameCompleteHandler {
             return FrameState.DEAD;
         }
 
-        if (frame.retries >= job.maxRetries && !isMemoryFailure(report)) {
+        if (frame.retries >= job.maxRetries && !isMemoryFailure(report, frameDetail)) {
             return FrameState.DEAD;
         }
         return FrameState.WAITING;
