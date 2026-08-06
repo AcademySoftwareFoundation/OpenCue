@@ -73,7 +73,7 @@ const LOG_SCAN_CHUNK_BYTES: u64 = 16 * 1024; // 16 KiB
 struct CompiledExitStatusRule {
     name: String,
     regex: Regex,
-    exit_status: u32,
+    exit_status: i32,
 }
 
 /// Compiles the configured rules, skipping (with a warning) any whose regex is invalid so a
@@ -102,7 +102,7 @@ fn compile_exit_status_rules(rules: &[LogExitStatusRule]) -> Vec<CompiledExitSta
 fn match_exit_status_rules(
     log_tail: &str,
     rules: &[CompiledExitStatusRule],
-) -> Option<(String, u32)> {
+) -> Option<(String, i32)> {
     rules
         .iter()
         .find(|rule| rule.regex.is_match(log_tail))
@@ -692,7 +692,7 @@ impl RunningFrame {
                     "Frame {}: log matched rule '{}'; overriding exit status {} -> {}",
                     self, name, exit_code, exit_status
                 );
-                Some(exit_status as i32)
+                Some(exit_status)
             }
             None => None,
         }
@@ -1948,7 +1948,7 @@ mod tests {
 [12:40:14] Process completed with exit status: 3
 ";
 
-    fn rule(name: &str, regex: &str, exit_status: u32) -> LogExitStatusRule {
+    fn rule(name: &str, regex: &str, exit_status: i32) -> LogExitStatusRule {
         LogExitStatusRule {
             name: name.to_string(),
             regex: regex.to_string(),

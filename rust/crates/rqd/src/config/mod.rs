@@ -205,7 +205,7 @@ pub struct LogExitStatusRule {
     /// (with a warning) at scan time so a single typo can't disable the whole feature.
     pub regex: String,
     /// Exit status reported to Cuebot when `regex` matches.
-    pub exit_status: u32,
+    pub exit_status: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
