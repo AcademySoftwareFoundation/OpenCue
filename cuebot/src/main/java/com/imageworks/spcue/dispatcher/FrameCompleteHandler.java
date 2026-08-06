@@ -567,7 +567,7 @@ public class FrameCompleteHandler {
     /**
      * Finalize a frame whose backing proc no longer exists.
      *
-     * Only acts when the frame is genuinely orphaned -- still RUNNING with no proc assigned -- in
+     * Only acts when the frame is genuinely orphaned, still RUNNING with no proc assigned, in
      * which case this report reflects the authoritative end state of the run and must not be lost.
      * Two guards keep this safe: the "no proc assigned" check ensures we never stop a frame a newer
      * proc has since picked up, and stopFrame is version-fenced so a concurrent reset/rebook
@@ -723,12 +723,21 @@ public class FrameCompleteHandler {
     /**
      * Selects the exit status to record for a completed frame.
      *
-     * rqd is currently not able to report exit_signal=9 when a frame is killed by the OOM logic.
-     * The current solution sets exitStatus to {@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} before
-     * killing the frame, which enables auto-retrying frames affected by the logic when they report
-     * with a FrameCompleteReport. This status retouch ensures a frame complete report is not able
-     * to override what has been set by the previous logic: when that stored status is present it
-     * wins, otherwise the status reported by rqd is used.
+     * This retouch covers the Cuebot-initiated memory kill path
+     * ({@link com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrameMemory}, driven by
+     * {@link HostReportHandler}). There, Cuebot asks rqd to kill the frame via a generic kill
+     * request, so rqd reports it as an ordinary termination (e.g. SIGTERM/SIGKILL), not as a memory
+     * failure. To preserve the memory-kill intent across the report, Cuebot stores
+     * {@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} on the frame before sending the kill; this
+     * retouch makes that stored status win over whatever rqd reports so the frame can be
+     * auto-retried with raised memory. When the stored status is present it wins, otherwise the
+     * status reported by rqd is used.
+     *
+     * Note: rqd-initiated OOM kills are a separate path and do NOT rely on this retouch. When rqd's
+     * own memory-pressure logic kills a frame, it reports exit_signal={@link
+     * Dispatcher#EXIT_STATUS_MEMORY_FAILURE} directly, which the memory-retry logic picks up from
+     * the report (see the exitSignal checks in {@link #determineFrameState} and
+     * {@link #handlePostFrameCompleteOperations}).
      */
     private static int resolveExitStatus(FrameCompleteReport report, FrameDetail frameDetail) {
         if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {

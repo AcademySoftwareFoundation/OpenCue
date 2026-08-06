@@ -478,7 +478,8 @@ impl MachineMonitor {
         // cores exactly once), then attempt to deliver every pending completion. Entries survive
         // delivery failures and are retried on subsequent cycles, so a finished frame's completion
         // is never lost.
-        self.enqueue_finished_frames(finished_frames).await;
+        self.enqueue_and_release_finished_frames_cores(finished_frames)
+            .await;
         self.flush_pending_completions().await;
 
         // Build a host-wide memory snapshot from the freshly-updated running frames and
@@ -566,7 +567,10 @@ impl MachineMonitor {
     /// pending-completion store. Cores are released here, exactly once per frame, because the frame
     /// is done locally regardless of whether Cuebot has acknowledged the completion yet. The actual
     /// delivery (and its retries) is handled by [`Self::flush_pending_completions`].
-    async fn enqueue_finished_frames(&self, finished_frames: Vec<Arc<RunningFrame>>) {
+    async fn enqueue_and_release_finished_frames_cores(
+        &self,
+        finished_frames: Vec<Arc<RunningFrame>>,
+    ) {
         for frame in finished_frames {
             if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
                 warn!(
@@ -580,9 +584,9 @@ impl MachineMonitor {
     }
 
     /// Attempt to deliver every pending frame-complete report to Cuebot. An entry is only removed
-    /// from the pending store once Cuebot acknowledges it (Ok response). Any failure — transport
+    /// from the pending store once Cuebot acknowledges it (Ok response). Any failure, transport
     /// error, exhausted 5xx retries, or a gRPC application error such as RqdRetryReportException
-    /// (which surfaces here as an `Err`) — leaves the entry in place to be retried on the next
+    /// (which surfaces here as an `Err`) leaves the entry in place to be retried on the next
     /// monitor cycle. This guarantees at-least-once delivery so a completed (including successfully
     /// rendered) frame is never silently dropped, which would otherwise let Cuebot rebook it onto a
     /// second host.
@@ -598,7 +602,7 @@ impl MachineMonitor {
 
         // Surface a genuine backlog: completions that could not be delivered pile up here across
         // monitor cycles (Cuebot unreachable or rejecting reports). Emit a single summary warning
-        // per cycle -- not per individual retry below -- carrying the backlog size and the age of
+        // per cycle, not per individual retry below, carrying the backlog size and the age of
         // its oldest entry, so the condition is observable before it grows unbounded. Only entries
         // that have already survived at least one monitor cycle count as a backlog; freshly
         // finished frames delivered in this same cycle have ~zero age and must not warn.
