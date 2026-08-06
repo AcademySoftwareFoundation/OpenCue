@@ -131,8 +131,7 @@ public class CoreUnitDispatcherTests extends TransactionalTest {
         DispatchHost host = getHost();
 
         List<VirtualProc> procs = dispatcher.dispatchHostToAllShows(host);
-        // The first show is removed. findDispatchJobs: shows.remove(0).
-        assertEquals(0, procs.size());
+        assertEquals(1, procs.size());
     }
 
     @Test

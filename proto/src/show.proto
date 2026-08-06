@@ -108,6 +108,11 @@ service ShowInterface {
     // sets a show's default min Gpus
     rpc SetDefaultMinGpus(ShowSetDefaultMinGpusRequest) returns (ShowSetDefaultMinGpusResponse);
 
+    // Sets whether accounting for this show is owned by the Rust scheduler.
+    // When true, Cuebot stops updating accounting tables transactionally for this show;
+    // the Rust scheduler reconciles them from `proc`.
+    rpc SetSchedulerManaged(ShowSetSchedulerManagedRequest) returns (ShowSetSchedulerManagedResponse);
+
     // Archives a show by creating an alias to another show and renaming the original show
     rpc Archive(ShowArchiveRequest) returns (ShowArchiveResponse);
 }
@@ -127,6 +132,7 @@ message Show {
     ShowStats show_stats = 9;
     float default_min_gpus = 10;
     float default_max_gpus = 11;
+    bool scheduler_managed = 12;
 }
 
 message ShowSeq {
@@ -405,6 +411,14 @@ message ShowSetDefaultMinGpusRequest {
 }
 
 message ShowSetDefaultMinGpusResponse {} // Empty
+
+// SetSchedulerManaged
+message ShowSetSchedulerManagedRequest {
+    Show show = 1;
+    bool enabled = 2;
+}
+
+message ShowSetSchedulerManagedResponse {} // Empty
 
 // Archive
 message ShowArchiveRequest {

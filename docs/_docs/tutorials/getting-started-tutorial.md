@@ -33,14 +33,14 @@ OpenCue consists of several key components:
 
 - **Cuebot**: The central server that manages all jobs and distributes work
 - **RQD**: The daemon running on render nodes that executes jobs
-- **CueGUI/CueWeb**: User interfaces for monitoring and managing jobs
+- **CueGUI/OpenCueWeb**: User interfaces for monitoring and managing jobs
 - **CueSubmit**: Tool for submitting jobs to the render queue
 
 ## Step 2: Accessing the OpenCue Interface
 
 If you're using the sandbox environment, you can access OpenCue through:
 
-### Web Interface (CueWeb)
+### Web Interface (OpenCueWeb)
 1. Open your browser and navigate to `http://localhost:8080`
 2. You should see the OpenCue web interface with an empty job list
 

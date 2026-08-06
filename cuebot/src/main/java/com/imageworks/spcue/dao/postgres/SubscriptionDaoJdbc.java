@@ -18,6 +18,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
@@ -29,14 +30,32 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionDao {
 
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingNotifier accountingNotifier;
+
+    // spotless:off
     private static final String IS_SHOW_OVER_SIZE =
-            "SELECT " + "COUNT(1) " + "FROM " + "subscription s " + "WHERE " + "s.pk_show = ? "
-                    + "AND " + "s.pk_alloc = ? " + "AND " + "s.int_cores > s.int_size ";
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "subscription s "
+            + "WHERE "
+                + "s.pk_show = ? "
+            + "AND "
+                + "s.pk_alloc = ? "
+            + "AND "
+                + "s.int_cores > s.int_size ";
+    // spotless:on
 
     public boolean isShowOverSize(ShowInterface show, AllocationInterface alloc) {
         try {
@@ -56,9 +75,19 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     }
 
+    // spotless:off
     private static final String IS_SHOW_AT_OR_OVER_SIZE =
-            "SELECT " + "COUNT(1) " + "FROM " + "subscription s " + "WHERE " + "s.pk_show = ? "
-                    + "AND " + "s.pk_alloc = ? " + "AND " + "s.int_cores >= s.int_size ";
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "subscription s "
+            + "WHERE "
+                + "s.pk_show = ? "
+            + "AND "
+                + "s.pk_alloc = ? "
+            + "AND "
+                + "s.int_cores >= s.int_size ";
+    // spotless:on
 
     public boolean isShowAtOrOverSize(ShowInterface show, AllocationInterface alloc) {
         try {
@@ -69,9 +98,19 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     }
 
+    // spotless:off
     private static final String IS_SHOW_OVER_BURST =
-            "SELECT " + "COUNT(1) " + "FROM " + "subscription s " + "WHERE " + "s.pk_show = ? "
-                    + "AND " + "s.pk_alloc = ? " + "AND " + "s.int_cores + ? > s.int_burst";
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "subscription s "
+            + "WHERE "
+                + "s.pk_show = ? "
+            + "AND "
+                + "s.pk_alloc = ? "
+            + "AND "
+                + "s.int_cores + ? > s.int_burst";
+    // spotless:on
 
     @Override
     public boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits) {
@@ -83,9 +122,19 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     }
 
+    // spotless:off
     private static final String IS_SHOW_AT_OR_OVER_BURST =
-            "SELECT " + "COUNT(1) " + "FROM " + "subscription s " + "WHERE " + "s.pk_show = ? "
-                    + "AND " + "s.pk_alloc = ? " + "AND " + "s.int_cores >= s.int_burst";
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "subscription s "
+            + "WHERE "
+                + "s.pk_show = ? "
+            + "AND "
+                + "s.pk_alloc = ? "
+            + "AND "
+                + "s.int_cores >= s.int_burst";
+    // spotless:on
 
     @Override
     public boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc) {
@@ -97,13 +146,27 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     }
 
-    private static final String GET_SUB = "SELECT " + "subscription.pk_alloc,"
-            + "subscription.pk_show," + "subscription.int_size," + "subscription.int_burst,"
-            + "subscription.pk_subscription,"
-            + "(alloc.str_name || '.' || show.str_name) AS str_name " + "FROM " + "subscription,"
-            + "alloc," + "show," + "facility " + "WHERE " + "subscription.pk_show = show.pk_show "
-            + "AND " + "subscription.pk_alloc = alloc.pk_alloc " + "AND "
-            + "alloc.pk_facility = facility.pk_facility ";
+    // spotless:off
+    private static final String GET_SUB =
+            "SELECT "
+                + "subscription.pk_alloc,"
+                + "subscription.pk_show,"
+                + "subscription.int_size,"
+                + "subscription.int_burst,"
+                + "subscription.pk_subscription,"
+                + "(alloc.str_name || '.' || show.str_name) AS str_name "
+            + "FROM "
+                + "subscription,"
+                + "alloc,"
+                + "show,"
+                + "facility "
+            + "WHERE "
+                + "subscription.pk_show = show.pk_show "
+            + "AND "
+                + "subscription.pk_alloc = alloc.pk_alloc "
+            + "AND "
+                + "alloc.pk_facility = facility.pk_facility ";
+    // spotless:on
 
     public static RowMapper<SubscriptionEntity> SUB_MAPPER = new RowMapper<SubscriptionEntity>() {
         public SubscriptionEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -122,9 +185,17 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         return getJdbcTemplate().queryForObject(GET_SUB + " AND pk_subscription=?", SUB_MAPPER, id);
     }
 
-    private static final String INSERT_SUBSCRIPTION = "INSERT INTO " + "subscription " + "( "
-            + "pk_subscription, pk_alloc, pk_show, int_size, int_burst" + ") "
+    // spotless:off
+    private static final String INSERT_SUBSCRIPTION =
+            "INSERT INTO subscription ( "
+                + "pk_subscription, "
+                + "pk_alloc, "
+                + "pk_show, "
+                + "int_size, "
+                + "int_burst"
+            + ") "
             + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     public void insertSubscription(SubscriptionEntity detail) {
         detail.id = SqlUtil.genKeyRandom();
@@ -132,8 +203,17 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
                 detail.size, detail.burst);
     }
 
-    private static final String HAS_RUNNING_PROCS = "SELECT " + "COUNT(1) " + "FROM "
-            + "subscription s " + "WHERE " + "s.pk_subscription=? " + "AND " + "s.int_cores > 0 ";
+    // spotless:off
+    private static final String HAS_RUNNING_PROCS =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "subscription s "
+            + "WHERE "
+                + "s.pk_subscription=? "
+            + "AND "
+                + "s.int_cores > 0 ";
+    // spotless:on
 
     public boolean hasRunningProcs(SubscriptionInterface sub) {
         try {
@@ -161,5 +241,13 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
     public void updateSubscriptionBurst(SubscriptionInterface sub, int size) {
         getJdbcTemplate().update("UPDATE subscription SET int_burst=? WHERE pk_subscription=?",
                 size, sub.getSubscriptionId());
+
+        // SubscriptionInterface extends both ShowInterface and AllocationInterface, so the show and
+        // alloc ids are available directly (the gRPC path passes a fully-hydrated
+        // SubscriptionEntity). Emit the burst cap change in this transaction for managed shows.
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(sub.getShowId())) {
+            accountingNotifier.notifySubscriptionBurst(sub.getShowId(), sub.getAllocationId(),
+                    size);
+        }
     }
 }

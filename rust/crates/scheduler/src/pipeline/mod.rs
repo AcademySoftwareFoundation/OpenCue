@@ -14,6 +14,7 @@ mod dispatcher;
 pub mod entrypoint;
 mod layer_permit;
 mod matcher;
+pub mod placement;
 
 pub use entrypoint::run;
 pub use matcher::MatchingService;

@@ -113,6 +113,18 @@ elif lock_state == host_pb2.LockState.Value('OPEN'):
     print("Host is unlocked")
 ```
 
+From the command line, filter the host list by lock state with `cueadmin`:
+```bash
+cueadmin -lh -lock-state NIMBY_LOCKED    # Hosts locked by user activity
+cueadmin -lh -lock-state OPEN -sort-idle # Available hosts, most idle first
+```
+
+This is useful for spotting idle workstations: `-lock-state OPEN -sort-idle`
+lists hosts that are available to OpenCue and doing the least work, while
+`NIMBY_LOCKED` indicates a user is active on the machine. `cueadmin -lh` reports
+current state only, so to track how long hosts have been idle over time, poll it
+on an interval and store the results.
+
 ## Desktop allocation architecture
 
 ### The `local.desktop` allocation

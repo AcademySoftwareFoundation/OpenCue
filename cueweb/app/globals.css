@@ -1,3 +1,19 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,4 +89,65 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/*
+ * react-toastify token overrides. The library uses a `--toastify-*` palette
+ * sourced from its bundled stylesheet; mapping each surface/status onto our
+ * shadcn tokens means toasts inherit the CueWeb palette (and dark mode) for
+ * free, without forking the library's CSS. See ToastHost for the container
+ * options and notify_utils.ts for the public API (`toastSuccess`,
+ * `toastWarning`, `handleError`).
+ */
+:root {
+  --toastify-color-light: hsl(var(--card));
+  --toastify-color-dark: hsl(var(--card));
+  --toastify-text-color-light: hsl(var(--foreground));
+  --toastify-text-color-dark: hsl(var(--foreground));
+  --toastify-color-info: hsl(var(--primary));
+  --toastify-color-success: rgb(16 185 129);     /* emerald-500 */
+  --toastify-color-warning: rgb(245 158 11);     /* amber-500 */
+  --toastify-color-error: hsl(var(--destructive));
+  --toastify-color-progress-light: hsl(var(--primary));
+  --toastify-color-progress-dark: hsl(var(--primary));
+  --toastify-toast-bd-radius: 0.5rem;
+  --toastify-toast-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.dark {
+  --toastify-color-light: hsl(var(--card));
+  --toastify-color-dark: hsl(var(--card));
+  --toastify-text-color-light: hsl(var(--foreground));
+  --toastify-text-color-dark: hsl(var(--foreground));
+  --toastify-toast-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Frame log viewer search highlight (Monaco inline decorations). Monaco
+   renders into the document, so these global classes apply to match ranges. */
+.cueweb-log-match {
+  background-color: rgba(250, 204, 21, 0.35); /* amber-400 @ 35% */
+  border-radius: 2px;
+}
+.cueweb-log-match-current {
+  background-color: rgba(249, 115, 22, 0.75); /* orange-500 @ 75% */
+  border-radius: 2px;
+}
+
+/* Per-line copy affordance in the frame log viewer's glyph margin. The icon
+   is hidden until its margin row is hovered, then click-to-copy that line. */
+.cueweb-copy-line-glyph {
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+.cueweb-copy-line-glyph::before {
+  content: "\29C9"; /* ⧉ copy-ish glyph */
+  font-size: 12px;
+  color: #9aa0a6;
+}
+.monaco-editor .margin-view-overlays > div:hover .cueweb-copy-line-glyph {
+  opacity: 1;
+}
+.cueweb-copy-line-glyph:hover::before {
+  color: #ffffff;
 }

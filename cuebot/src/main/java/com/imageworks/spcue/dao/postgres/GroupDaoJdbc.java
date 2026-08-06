@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
@@ -36,13 +37,21 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.GroupDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
     private static final int MAX_NESTING_LEVEL = 10;
+
+    @Autowired
+    private ShowDao showDao;
+
+    @Autowired
+    private AccountingNotifier accountingNotifier;
 
     @Override
     public String getRootGroupId(ShowInterface show) {
@@ -73,9 +82,17 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 group.getId());
     }
 
+    // spotless:off
     public static final String INSERT_GROUP =
-            "INSERT INTO " + "folder " + "( " + "pk_folder," + "pk_parent_folder," + "pk_show, "
-                    + "pk_dept," + "str_name " + ") " + "VALUES (?,?,?,?,?)";
+            "INSERT INTO folder ( "
+                + "pk_folder,"
+                + "pk_parent_folder,"
+                + "pk_show, "
+                + "pk_dept,"
+                + "str_name "
+            + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertGroup(GroupDetail group) {
@@ -192,6 +209,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
         getJdbcTemplate().update("UPDATE folder_resource SET int_max_cores=? WHERE pk_folder=?",
                 value, group.getId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(group.getShowId())) {
+            accountingNotifier.notifyFolderMaxCores(group.getId(), value);
+        }
     }
 
     @Override
@@ -203,9 +224,20 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 value, group.getId());
     }
 
-    private static final String IS_OVER_MIN_CORES = "SELECT " + "COUNT(1) " + "FROM " + "job,"
-            + "folder_resource fr " + "WHERE " + "job.pk_folder = fr.pk_folder " + "AND "
-            + "fr.int_cores > fr.int_min_cores " + "AND " + "job.pk_job = ?";
+    // spotless:off
+    private static final String IS_OVER_MIN_CORES =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "job,"
+                + "folder_resource fr "
+            + "WHERE "
+                + "job.pk_folder = fr.pk_folder "
+            + "AND "
+                + "fr.int_cores > fr.int_min_cores "
+            + "AND "
+                + "job.pk_job = ?";
+    // spotless:on
 
     @Override
     public boolean isOverMinCores(JobInterface job) {
@@ -239,6 +271,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
 
         getJdbcTemplate().update("UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
                 value, group.getId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(group.getShowId())) {
+            accountingNotifier.notifyFolderMaxGpus(group.getId(), value);
+        }
     }
 
     @Override
@@ -263,26 +299,66 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
         }
     }
 
-    private static final String GET_GROUP_DETAIL = "SELECT " + "folder.pk_folder, "
-            + "folder.int_job_max_cores," + "folder.int_job_min_cores," + "folder.int_job_max_gpus,"
-            + "folder.int_job_min_gpus," + "folder.int_job_priority," + "folder.str_name,"
-            + "folder.pk_parent_folder," + "folder.pk_show," + "folder.pk_dept,"
-            + "folder_level.int_level, " + "folder_resource.int_min_cores,"
-            + "folder_resource.int_max_cores," + "folder_resource.int_min_gpus,"
-            + "folder_resource.int_max_gpus " + "FROM " + "folder, " + "folder_level, "
-            + "folder_resource " + "WHERE " + "folder.pk_folder = folder_level.pk_folder " + "AND "
-            + "folder.pk_folder = folder_resource.pk_folder";
+    // spotless:off
+    private static final String GET_GROUP_DETAIL =
+            "SELECT "
+                + "folder.pk_folder, "
+                + "folder.int_job_max_cores,"
+                + "folder.int_job_min_cores,"
+                + "folder.int_job_max_gpus,"
+                + "folder.int_job_min_gpus,"
+                + "folder.int_job_priority,"
+                + "folder.str_name,"
+                + "folder.pk_parent_folder,"
+                + "folder.pk_show,"
+                + "folder.pk_dept,"
+                + "folder_level.int_level, "
+                + "folder_resource.int_min_cores,"
+                + "folder_resource.int_max_cores,"
+                + "folder_resource.int_min_gpus,"
+                + "folder_resource.int_max_gpus "
+            + "FROM "
+                + "folder, "
+                + "folder_level, "
+                + "folder_resource "
+            + "WHERE "
+                + "folder.pk_folder = folder_level.pk_folder "
+            + "AND "
+                + "folder.pk_folder = folder_resource.pk_folder";
+    // spotless:on
 
-    private static final String GET_GROUP_DETAIL_BY_JOB = "SELECT " + "folder.pk_folder, "
-            + "folder.int_job_max_cores," + "folder.int_job_min_cores," + "folder.int_job_max_gpus,"
-            + "folder.int_job_min_gpus," + "folder.int_job_priority," + "folder.str_name,"
-            + "folder.pk_parent_folder," + "folder.pk_show," + "folder.pk_dept,"
-            + "folder_level.int_level, " + "folder_resource.int_min_cores,"
-            + "folder_resource.int_max_cores," + "folder_resource.int_min_gpus,"
-            + "folder_resource.int_max_gpus " + "FROM " + "folder, " + "folder_level, "
-            + "folder_resource, " + "job " + "WHERE " + "folder.pk_folder = folder_level.pk_folder "
-            + "AND " + "folder.pk_folder = folder_resource.pk_folder " + "AND "
-            + "job.pk_folder = folder.pk_folder " + "AND " + "job.pk_job = ?";
+    // spotless:off
+    private static final String GET_GROUP_DETAIL_BY_JOB =
+            "SELECT "
+                + "folder.pk_folder, "
+                + "folder.int_job_max_cores,"
+                + "folder.int_job_min_cores,"
+                + "folder.int_job_max_gpus,"
+                + "folder.int_job_min_gpus,"
+                + "folder.int_job_priority,"
+                + "folder.str_name,"
+                + "folder.pk_parent_folder,"
+                + "folder.pk_show,"
+                + "folder.pk_dept,"
+                + "folder_level.int_level, "
+                + "folder_resource.int_min_cores,"
+                + "folder_resource.int_max_cores,"
+                + "folder_resource.int_min_gpus,"
+                + "folder_resource.int_max_gpus "
+            + "FROM "
+                + "folder, "
+                + "folder_level, "
+                + "folder_resource, "
+                + "job "
+            + "WHERE "
+                + "folder.pk_folder = folder_level.pk_folder "
+            + "AND "
+                + "folder.pk_folder = folder_resource.pk_folder "
+            + "AND "
+                + "job.pk_folder = folder.pk_folder "
+            + "AND "
+                + "job.pk_job = ?";
+    // spotless:on
 
     @Override
     public GroupDetail getGroupDetail(String id) {
@@ -337,10 +413,24 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 GROUP_MAPPER, group.getGroupId());
     }
 
-    private static final String IS_MANAGED = "SELECT " + "COUNT(1) " + "FROM " + "folder, "
-            + "point " + "WHERE " + "folder.pk_show = point.pk_show " + "AND "
-            + "folder.pk_dept = point.pk_dept " + "AND " + "folder.b_exclude_managed = false "
-            + "AND " + "point.b_managed = true " + "AND " + "folder.pk_folder = ?";
+    // spotless:off
+    private static final String IS_MANAGED =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "folder, "
+                + "point "
+            + "WHERE "
+                + "folder.pk_show = point.pk_show "
+            + "AND "
+                + "folder.pk_dept = point.pk_dept "
+            + "AND "
+                + "folder.b_exclude_managed = false "
+            + "AND "
+                + "point.b_managed = true "
+            + "AND "
+                + "folder.pk_folder = ?";
+    // spotless:on
 
     @Override
     public boolean isManaged(GroupInterface group) {

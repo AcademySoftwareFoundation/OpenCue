@@ -26,7 +26,7 @@ pub struct DispatchFrame {
 
     // LayerEntity fields
     pub show_id: Uuid,
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub job_id: Uuid,
 
     // FrameEntity fields

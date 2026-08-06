@@ -4,7 +4,7 @@ nav_order: 100
 parent: Reference
 layout: default
 linkTitle: "Distributed Scheduler"
-date: 2025-12-12
+date: 2026-05-29
 description: >
   Technical reference for the OpenCue Distributed Scheduler architecture and implementation
 ---
@@ -18,6 +18,10 @@ description: >
 ## Overview
 
 The **Distributed Scheduler** (`rust/crates/scheduler/`) is a standalone Rust service that fundamentally reimagines OpenCue's frame dispatching architecture. Rather than reacting to host reports like Cuebot's traditional booking system, the scheduler operates through an internal proactive loop that continuously searches for pending work and intelligently matches it with cached host availability.
+
+Conceptually, every dispatch is an instance of **multi-dimensional bin packing**: the scheduler must fit a frame (an item with `(cores, memory, gpus)` requirements) into a host (a bin with `(idle_cores, idle_memory, idle_gpus)` capacity). The host cache's B-tree index turns this into an O(log n) lookup, and the [`HostBookingStrategy`](#booking-strategies-bin-packing-heuristics) flags select between classical heuristics (Best-Fit vs. Worst-Fit) on each dimension independently.
+
+Per-show resource accounting (subscription burst, folder caps, job caps) is enforced on the hot path through an **in-memory accounting store** inside the scheduler, kept fresh by a PostgreSQL `LISTEN/NOTIFY` feed from Cuebot - see the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/) for the full design.
 
 This document provides technical details for developers, operators, and contributors working with the scheduler's internals.
 
@@ -40,10 +44,18 @@ The scheduler inverts this model:
 
 1. **Continuous loop** → Query pending jobs from database
 2. **Host cache** → In-memory view of available hosts (indexed by resources)
-3. **Intelligent matching** → Find hosts for frames (not frames for hosts)
-4. **Parallel dispatch** → Execute multiple dispatches concurrently
+3. **Intelligent matching** → Find hosts for frames (not frames for hosts) a 2D
+   bin-packing lookup against the host B-tree
+4. **Atomic accounting** → Enforce per-show / per-folder / per-job limits via a single
+   lock-guarded check-and-increment in an in-memory store on the hot path
+5. **Parallel dispatch** → Execute multiple dispatches concurrently
 
-**Key Insight**: By caching host state in memory and querying jobs (not hosts), the scheduler dramatically reduces database load and enables horizontal scaling.
+**Key Insight**: By caching host state in memory and querying jobs (not hosts), the
+scheduler dramatically reduces database load. Moving the accounting hot path off
+Postgres into an in-process store removes the remaining lock-contention bottleneck.
+The host-side placement becomes a tunable bin-packing heuristic (see
+[Booking Strategies](#booking-strategies-bin-packing-heuristics)) rather than a
+hard-coded scan.
 
 ## Core Components
 
@@ -176,24 +188,136 @@ where
 }
 ```
 
-#### Booking Strategies
+#### Booking Strategies: Bin-Packing Heuristics
 
-**Core Saturation** (`core_saturation: true`):
-- Searches from minimum cores upward
-- Prefers hosts with fewer idle cores
-- Maximizes core utilization, leaves larger hosts for bigger jobs
+The host cache's dual-indexed B-tree is not just an implementation detail it is a
+deliberate encoding of a **two-dimensional bin-packing problem** that lets the scheduler
+select between classical packing heuristics with a single config flip.
 
-**Memory Saturation** (`memory_saturation: true`):
-- Searches from minimum memory upward
-- Prefers hosts with less idle memory
-- Packs memory efficiently
+##### Framing the problem
 
-**Default Strategy**:
-```yaml
-host_booking_strategy:
-  core_saturation: true
-  memory_saturation: false
+At any moment the scheduler holds a collection of bins (hosts) of varying capacity, and
+must place items (frames) into them. A frame's requirement is a vector
+`(cores_min, mem_min, gpus_min, gpu_mem_min)`; a host's free capacity is the vector
+`(idle_cores, idle_memory, idle_gpus, idle_gpu_mem)`. A placement is feasible only if
+the item vector is component-wise ≤ the bin vector. Among the feasible bins, the
+scheduler must choose one and that choice is what `HostBookingStrategy` controls.
+
+This is the classic **Vector Bin Packing (VBP)** problem: NP-hard in general, but very
+well-studied with online heuristics that are cheap to compute and produce near-optimal
+packings on real workloads. The scheduler does not attempt to solve VBP optimally; it
+applies a per-dimension heuristic at each booking, which is both fast and incremental
+(no replanning when a host arrives or leaves).
+
+##### The four canonical heuristics
+
+The bin-packing literature names four primary online strategies. The scheduler exposes
+two of them, applied independently per dimension:
+
+| Heuristic | What it does | Effect |
+|---|---|---|
+| **First-Fit (FF)** | Place item in the first bin where it fits, in arrival order | Cheap; fragmentation depends on host arrival order |
+| **Best-Fit (BF)** | Place item in the bin where remaining slack after placement is minimal | Tight packing; preserves large bins for large items; lower fragmentation |
+| **Worst-Fit (WF)** | Place item in the bin with the most free space | Maximum slack for the item; spreads load; lower per-item failure rate at runtime |
+| **Next-Fit (NF)** | Place in the currently-open bin; open a new one if it doesn't fit | Useful for streaming; not relevant here (hosts pre-exist) |
+
+The scheduler implements **Best-Fit** (`*_saturation: true`) and **Worst-Fit**
+(`*_saturation: false`), per dimension. First-Fit and Next-Fit are not exposed the
+B-tree indexing makes Best-Fit / Worst-Fit as cheap as First-Fit while giving better
+packings on heterogeneous host fleets.
+
+##### How the B-tree encodes the heuristic
+
+The host index is `BTreeMap<CoreKey, BTreeMap<MemoryKey, HashSet<HostId>>>`. To find
+a feasible host for `(cores, memory)`, the cache walks the outer tree starting at
+`range(core_key..)` (ascending core capacities) this is the standard "find smallest
+≥ requirement" B-tree query, O(log n).
+
+The strategy flips then control the **direction of iteration** on each axis:
+
+```rust
+// src/host_cache/cache.rs (paraphrased)
+let mut iter = if !self.strategy.core_saturation {
+    // Worst-Fit on cores: walk from largest core capacity downward
+    Box::new(host_index_lock.range(core_key..).rev())
+} else {
+    // Best-Fit on cores: walk from smallest sufficient capacity upward
+    Box::new(host_index_lock.range(core_key..))
+};
+
+iter.find_map(|(_, hosts_by_memory)| {
+    if self.strategy.memory_saturation {
+        // Best-Fit on memory: smallest sufficient memory bucket first
+        hosts_by_memory.range(memory_key..).find_map(find_fn)
+    } else {
+        // Worst-Fit on memory: largest memory bucket first
+        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
+    }
+})
 ```
+
+The flag's name (`*_saturation`) describes the operator intent "saturate (fill up)
+this dimension before opening fresh capacity" which is exactly what Best-Fit does.
+Worst-Fit (`*_saturation: false`) leaves the dimension as slack as possible.
+
+##### The four strategy combinations
+
+Because the flags are independent, the scheduler supports four distinct packings:
+
+| `core_saturation` | `memory_saturation` | Packing strategy | When to use |
+|---|---|---|---|
+| `true` | `false` | **Best-Fit cores, Worst-Fit memory** (default) | Render farms where most frames are core-bound but spike in memory. Tight core packing keeps big hosts free for big jobs; generous memory headroom prevents OOM kills on under-estimated frames. |
+| `true` | `true` | **Best-Fit on both** classical 2D Best-Fit Decreasing | Maximum density. Best when frame memory estimates are reliable (e.g., re-rendering known sequences). Minimises fragmentation; risks tight memory if estimates are off. |
+| `false` | `false` | **Worst-Fit on both** | Spreads load aggressively. Good for interactive / preview workloads where you want each frame to land on the least-loaded host available. Leaves the most slack for runtime growth. |
+| `false` | `true` | **Worst-Fit cores, Best-Fit memory** | Niche: memory-constrained pools where you want to pack memory tightly but keep core headroom (e.g., compositing layers that hyperthread well). |
+
+The default Best-Fit cores, Worst-Fit memory is the production choice at SPI and
+encodes a well-known render-farm heuristic: **CPU is the constrained resource you want
+to keep dense; RAM is the resource you want to keep loose because frame memory is
+notoriously hard to estimate.** Flipping `memory_saturation` to `true` makes sense only
+when memory estimates are trustworthy.
+
+##### Configuration
+
+```yaml
+queue:
+  host_booking_strategy:
+    core_saturation: true        # Best-Fit on cores
+    memory_saturation: false     # Worst-Fit on memory
+```
+
+Default in `HostBookingStrategy::default()` (`config/mod.rs:211`):
+```rust
+core_saturation: true
+memory_saturation: false
+```
+
+##### Why this is cheap
+
+A naive Best-Fit / Worst-Fit on N hosts is O(N) per dispatch. The B-tree gives O(log N)
+because the index is pre-sorted on both keys. The `range(key..)` and `.rev()` operations
+walk only as far as the first feasible host that passes the validation closure
+(allocation limits, tags, OS) typically the very first one, since the index is sorted
+exactly the way the heuristic wants to scan it.
+
+The validation closure (`fn validate_match`) runs inside the iterator, so unsuitable
+hosts (wrong tag, allocation over burst, OS mismatch) are skipped without removing them
+from the cache. The atomic check-and-remove (`atomic_remove_if_valid`, see
+[Checkout/Checkin Flow](#checkoutcheckin-flow)) then commits the placement.
+
+##### Caveats
+
+- **Memory is bucketed.** The `memory_key_divisor` (default 2 GiB) means hosts with
+  10 GiB and 11 GiB land in the same memory bucket. Within a bucket, ordering is by
+  `HashSet` iteration order (effectively undefined). For most workloads the bucket
+  granularity is fine; if you need finer placement, lower the divisor at the cost of
+  more B-tree nodes.
+- **GPU is not indexed.** GPUs are validated in the closure, not indexed in the B-tree.
+  GPU-heavy fleets fall back to scanning candidates; if this becomes a bottleneck, a
+  third B-tree dimension would be the fix.
+- **Strategy is global.** The flag is set once for the whole scheduler instance, not
+  per show or per layer. Mixed-strategy deployments today require running separate
+  scheduler instances pinned to different cluster sets.
 
 #### Cache Expiration
 
@@ -474,7 +598,126 @@ database:
 - Prepared statement caching
 - Transaction support
 
-### 6. Metrics and Observability
+### 6. In-Memory Accounting Subsystem
+
+**Location**: `src/accounting/`
+
+The accounting subsystem tracks how much of each resource pool (subscription, folder,
+job) is currently booked. Every dispatch decision the scheduler makes is gated on these
+counters if a job is already at its `int_max_cores`, the scheduler must not book another
+frame against it.
+
+Historically these counters lived only in PostgreSQL and were updated transactionally
+by Cuebot on every booking and release. As the Rust scheduler took over dispatch, the
+hot path was hammering the same accounting rows Cuebot's `HostReportHandler` writes to,
+and lock waits on `subscription`, `folder_resource`, and `job_resource` started
+limiting throughput.
+
+The current design moves the hot path off PG locks with an **in-memory `Store`** that is the single source
+of truth for booked counters: there is exactly one writer and reader, and the booking
+check-and-increment is atomic under one lock. PostgreSQL remains the durable record (the
+`proc` rows), and Cuebot feeds live releases and cap changes via `LISTEN/NOTIFY`.
+
+#### Per-show ownership
+
+The `show.b_scheduler_managed` boolean (added in migration `V45__show_scheduler_managed.sql`)
+selects who owns the accounting write path for a given show:
+
+- `false` (default): **Cuebot-managed**. Cuebot's dispatcher books and releases against
+  PG accounting tables transactionally, exactly as before. The scheduler's store is not
+  consulted.
+- `true`: **Scheduler-managed**. The Rust scheduler books against its in-memory store on
+  the hot path; Cuebot's release path only deletes the `proc` row and emits an
+  `acct_release` notification. PG accounting tables for this show are refreshed by the
+  scheduler's recompute loop (so CueGUI stays current).
+
+The flag replaces the older `dispatcher.exclusion_list` and
+`dispatcher.scheduler_manages_resources` properties in `opencue.properties` (both
+removed). Operators toggle ownership via:
+
+```bash
+cueadmin -show <name> -setSchedulerManaged true
+cueadmin -show <name> -setSchedulerManaged false
+```
+
+#### Hot path: lock-guarded check-and-increment
+
+The per-frame booking is an in-process atomic operation in `Store::book`, under a single
+lock:
+
+```text
+1. If cores > 0: check subscription burst, folder int_max_cores, job int_max_cores
+2. If gpus  > 0: check folder int_max_gpus, job int_max_gpus
+3. If OK: increment the three enforced vertices, record the delta as `pending`, return Applied
+4. If over a limit: return LimitExceeded { table, current, limit }
+5. Then transactionally INSERT proc in Postgres (outside the lock)
+```
+
+Only the three enforced vertices are tracked (subscription, folder, job); layer and
+point have no hot-path cap and are not kept in the store. On limit-check failure the
+rejection is attributed to the responsible table via
+`scheduler_accounting_limit_exceeded_total{table=...}` metrics.
+
+After the `proc` transaction commits and RQD launches, the dispatcher calls `confirm`
+(drops the `pending` portion, keeps the booked increment). If the INSERT or launch
+fails, it calls `rollback` (undoes both). Exactly one runs per successful booking.
+
+#### Live feed: PostgreSQL LISTEN/NOTIFY
+
+Cuebot emits two notifications, each `pg_notify` in the **same transaction** as the PG
+write it describes (delivered iff that write commits no partial-failure window):
+
+- `acct_release`: a per-proc release delta on `procDestroyed` for scheduler-managed
+  shows. The scheduler decrements the three vertices.
+- `acct_limit_change`: an enforced cap change (subscription burst, folder/job max
+  cores/gpus) from a cueadmin operation. The scheduler updates the cap in the store.
+
+The scheduler listens on a dedicated connection and reconnects on drop; anything missed
+during the gap is healed by the backstop loops below.
+
+#### Backstop loops
+
+- **Recompute (every 15 s)**: overwrites the store's booked counters from `SUM(proc)`,
+  carrying each key's in-flight `pending` delta forward so a just-booked frame is never
+  erased (the one way an absolute overwrite could under-count and over-book). Also
+  rewrites the PG accounting tables for CueGUI. **No CAS, no retry** the live store is
+  the primary record.
+- **Limit reseed (every 5 min)**: re-reads the enforced caps from PG into the store
+  the backstop for any missed `acct_limit_change`.
+- **Bootstrap reseed (blocking at startup)**: seeds caps then counters from PG before
+  the pipeline accepts work. The store is the only copy, so this gate is mandatory.
+
+#### Cuebot integration
+
+`ProcDaoJdbc.procDestroyed` checks `b_scheduler_managed` on every release. For
+scheduler-managed shows it `DELETE`s the proc row and issues
+`AccountingNotifier.notifyRelease` in the same transaction. A kill-switch property
+`accounting.notify.enabled` (default true) disables the notifications; flag-off degrades
+to recompute-only, which is the **safe** direction (no decrements → counters read high →
+under-book → healed by recompute), so there is no startup guardrail only a WARN and a
+`cuebot_accounting_notify_disabled` metric for ops visibility.
+
+#### Source files
+
+| Path | Purpose |
+|---|---|
+| `accounting/mod.rs` | Module root; `apply_booking` / `confirm_booking` / `rollback_booking` facade |
+| `accounting/store.rs` | In-memory counters + caps; the locked atomic `book` / `confirm` / `rollback` |
+| `accounting/listener.rs` | `PgListener` on `acct_release` + `acct_limit_change` |
+| `accounting/recompute.rs` | 15 s `SUM(proc)` → PG tables + store overwrite with pending carry-forward |
+| `accounting/limit_reseed.rs` | 5 min caps → store |
+| `accounting/bootstrap.rs` | Blocking startup reseed |
+| `accounting/managed_shows.rs` | Cached lookup of scheduler-managed shows + managed-flip seed |
+| `accounting/booking_delta.rs` | Per-booking delta carried through the dispatch pipeline |
+| `accounting/dao.rs` | PG queries used by the reseeds |
+| `accounting/error.rs` | `AccountingError::LimitExceeded` |
+
+**For the full design** source-of-truth model, the pending carry-forward and the
+straddle-window race it closes, NOTIFY payload shapes, failure modes, the kill-switch,
+and the N=1 assumption see the
+[Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/).
+
+### 7. Metrics and Observability
 
 **Location**: `src/metrics/`
 
@@ -530,28 +773,20 @@ scheduler_host_cache_hits_total
 
 ### Cluster Configuration
 
-**Allocation Tags**:
+**Show selection** is driven solely by the `show.b_scheduler_managed` boolean DB column
+(toggled with `cueadmin -scheduler-managed <show> on|off`). The scheduler automatically
+loads *all* clusters — allocation, manual-tag, hostname-tag, and hardware host-tag — for
+every show where `b_scheduler_managed = true`. There is no per-show, per-allocation, or
+per-tag selection in the config; a show is wholly scheduler-managed or wholly
+Cuebot-managed.
+
+**Facility**:
 ```yaml
 scheduler:
-  alloc_tags:
-    - show: myshow
-      tag: general
+  facility: spi
 ```
 
-Loads one cluster per entry: `(facility_id, show_id, "general")`
-
-**Manual Tags**:
-```yaml
-scheduler:
-  manual_tags:
-    - urgent
-    - desktop
-    - workstation
-```
-
-Chunks into groups (default: 100 tags per cluster):
-- Cluster 1: `(facility_id, [urgent, desktop, workstation])`
-- If more than 100 tags, splits into multiple clusters
+Optionally scopes the instance to one facility's scheduler-managed clusters.
 
 **Ignore Tags**:
 ```yaml
@@ -560,7 +795,22 @@ scheduler:
     - deprecated_tag
 ```
 
-Filters out specified tags from all cluster types before processing.
+Filters out specified tags from all loaded clusters before processing.
+
+**Cluster Reload Interval**:
+```yaml
+queue:
+  cluster_reload_interval: 120s
+```
+
+Interval between full reloads of the cluster set from the DB. The scheduler periodically
+rebuilds the set of clusters from all currently-managed shows and swaps the live set only
+when it actually changed, so flipping `b_scheduler_managed` (and host-tag / subscription
+changes) is picked up without a restart. Default: 120s.
+
+The manual-tag and hostname-tag chunk sizes (`queue.manual_tags_chunk_size`,
+`queue.hostname_tags_chunk_size`) control how DB-loaded host-tags are grouped into
+clusters (see [Cluster System](#1-cluster-system)).
 
 ### Performance Tuning
 
@@ -631,28 +881,71 @@ host_cache:
 - Higher: Faster cache refresh, more DB load
 - Lower: Slower refresh, less DB load
 
+### Booking Strategy (Bin-Packing)
+
+```yaml
+queue:
+  host_booking_strategy:
+    core_saturation: true        # Best-Fit on cores; false = Worst-Fit
+    memory_saturation: false     # Worst-Fit on memory; true = Best-Fit
+```
+
+See [Booking Strategies: Bin-Packing Heuristics](#booking-strategies-bin-packing-heuristics)
+for the full mapping from flag values to packing strategies and the workloads each fits.
+The default (Best-Fit cores, Worst-Fit memory) is the right choice for most render
+farms only flip `memory_saturation` if frame memory estimates are trustworthy.
+
+### Accounting
+
+```yaml
+accounting:
+  recompute_interval: 15s
+  limit_reseed_interval: 300s
+  managed_shows_ttl: 30s
+```
+
+- **`recompute_interval`** (default 15s): how often to overwrite the in-memory booked
+  counters from `SUM(proc)` (carrying in-flight bookings forward) and refresh the PG
+  accounting tables CueGUI reads. This is the primary utilization backstop now that
+  releases arrive live via NOTIFY, so it runs frequently. Lower = tighter convergence;
+  higher = less DB load.
+- **`limit_reseed_interval`** (default 300s): how often to re-read the enforced caps
+  (subscription burst, folder/job max cores/gpus) from PG into the store. The
+  `acct_limit_change` NOTIFY propagates cueadmin changes immediately; this is the
+  backstop for any missed notification.
+- **`managed_shows_ttl`** (default 30s): how often the cache of `b_scheduler_managed`
+  shows is refreshed.
+
+The accounting store needs only PostgreSQL; no other external store is required. The
+matching Cuebot side emits the live feed when `accounting.notify.enabled=true` (default),
+riding the existing PG connection.
+
 ## Distributed Operation
 
 ### Current Architecture (v1.0)
 
-The scheduler supports distributed operation via manual cluster assignment:
+The scheduler supports distributed operation by scoping each instance to a facility with
+`--facility`. Show ownership is selected by the per-show `b_scheduler_managed` flag, and
+each instance automatically loads all clusters (allocation, manual, hostname, and
+hardware host-tags) for every scheduler-managed show in its facility:
 
 **Instance 1**:
 ```bash
-cue-scheduler --alloc_tags=show1:general,show1:priority
+cue-scheduler --facility spi
 ```
 
 **Instance 2**:
 ```bash
-cue-scheduler --alloc_tags=show2:general,show2:priority
+cue-scheduler --facility lax
 ```
 
-**Instance 3**:
-```bash
-cue-scheduler --manual_tags=urgent,desktop
-```
+There is no hand-listing of tags or clusters. To move work onto (or off) the scheduler,
+toggle the show with `cueadmin -scheduler-managed <show> on|off`; the change is picked up
+on the next cluster reload (`queue.cluster_reload_interval`, default 120s) with no
+restart.
 
-**Critical**: Ensure no cluster overlap between instances to prevent race conditions.
+**Critical**: When running multiple instances, scope them to non-overlapping facilities
+to prevent two instances from owning the same clusters.
 
 ### Coordination Mechanisms
 
@@ -666,6 +959,17 @@ cue-scheduler --manual_tags=urgent,desktop
 - Optimistic locking via `frame.int_version`
 - Database-level conflict resolution
 - Prevents double-booking even if permits overlap
+
+**In-Memory Accounting (N=1)**:
+- The accounting store is in-process and **not shared**, so it assumes a single
+  scheduler instance: exactly one process owns the booked counters, which is what makes
+  the atomic check-and-increment and the absolute recompute correct.
+- This is a deliberate trade for the structural elimination of the accounting-drift bug
+  class. Running more than one scheduler that could book the same show would let two
+  processes enforce against separate copies and jointly over-book a hard cap. Crossing
+  N>1 requires a shared/coordinated counter (or a non-overlapping partitioning scheme)
+  plus leader election for the recompute and limit-reseed loops none of which is in
+  place. See the [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/#the-n1-assumption-and-the-revisit-trigger-for-n1).
 
 ### Future Architecture (Planned)
 
@@ -709,18 +1013,19 @@ cargo build --release -p scheduler
 cargo test -p scheduler
 ```
 
-**Integration tests** (requires database):
+**Smoke tests** (requires a migrated local Postgres, see `docker compose up -d flyway`):
 ```bash
-# Set up test database
-export DATABASE_URL=postgresql://user:pass@localhost/test_db
-
-# Run integration tests
-cargo test -p scheduler --test integration_tests
+cargo test -p scheduler --features smoke-tests --test smoke_tests
 ```
 
-**Stress tests**:
+**Stress tests** (requires a migrated local Postgres; see the
+[Scheduler Stress Testing](/docs/developer-guide/scheduler-stress-testing/)
+guide for tuning, CI behavior, and how to read the report):
 ```bash
-cargo test -p scheduler --test stress_tests --release -- --nocapture
+cargo test -p scheduler --features stress-tests --test stress_tests -- --nocapture
+
+# Release mode for representative benchmark numbers
+cargo test -p scheduler --release --features stress-tests --test stress_tests -- --nocapture
 ```
 
 ### Code Quality
@@ -748,7 +1053,23 @@ The scheduler:
 - Uses the same PostgreSQL database schema as Cuebot
 - Communicates with RQD via the same gRPC protocol
 - Produces the same proc/frame state transitions
-- Can coexist with Cuebot (with exclusion list configured)
+- Coexists with Cuebot via the per-show `b_scheduler_managed` flag see the
+  [Scheduler Accounting Reference](/docs/developer-guide/scheduler-accounting/) for the
+  ownership model
+
+### Handing a show to the scheduler
+
+The legacy `dispatcher.exclusion_list` / `dispatcher.scheduler_manages_resources`
+properties are removed. Show ownership is now a per-show database flag, toggled live:
+
+```bash
+cueadmin -show <name> -setSchedulerManaged true    # move to scheduler
+cueadmin -show <name> -setSchedulerManaged false   # move back to Cuebot
+```
+
+No drain or quiesce is needed in-flight bookings continue executing through whichever
+release path is active at release time, and transient PG drift heals via the next
+recompute (≤ 2 min). The `ShowDao` cache picks up the flag change within ~30 s.
 
 ### Differences
 
@@ -823,7 +1144,7 @@ INFO scheduler: Host cache size: 50000 hosts
 **CPU profiling**:
 ```bash
 cargo install samply
-samply record cargo test --test stress_tests --release -- --nocapture
+samply record cargo test -p scheduler --release --features stress-tests --test stress_tests -- --nocapture
 ```
 
 ## API and Extensibility
@@ -887,3 +1208,24 @@ metrics::set_custom_gauge("custom_gauge", value);
 - **Proc (Virtual Proc)**: Booking record linking frame to host
 - **Tag**: Label for allocation, manual override, or hostname targeting
 - **Frame Set**: Group of frames dispatched together to a host
+- **Vector Bin Packing (VBP)**: Generalisation of bin packing where each item and bin
+  is described by a multi-dimensional capacity vector (cores, memory, GPUs). The
+  scheduler's placement problem is an instance of online VBP.
+- **Best-Fit / Worst-Fit**: Classical bin-packing heuristics. Best-Fit places an item
+  in the bin where the post-placement slack is minimal (tightest fit); Worst-Fit picks
+  the bin with the most free capacity.
+- **HostBookingStrategy**: Per-dimension flag controlling which heuristic (Best-Fit or
+  Worst-Fit) the host cache uses when scanning the B-tree for a candidate.
+- **Scheduler-managed show**: A show with `b_scheduler_managed = true` dispatch and
+  hot-path accounting are owned by the Rust scheduler via its in-memory store.
+- **Cuebot-managed show**: A show with `b_scheduler_managed = false` legacy
+  behaviour; Cuebot dispatches and updates PG accounting transactionally.
+- **Pending delta**: the portion of a booked counter still in flight (proc row maybe
+  not yet visible to the recompute snapshot); carried forward across a recompute so the
+  absolute overwrite cannot erase a just-booked frame.
+- **Recompute loop**: 15-second job that overwrites the in-memory booked counters from
+  `SUM(proc) + pending` and refreshes the PG accounting tables for CueGUI.
+- **Limit reseed**: 5-min job that re-reads enforced caps (burst, folder/job max
+  cores/gpus) from PG into the store.
+- **`acct_release` / `acct_limit_change`**: the two PG `LISTEN/NOTIFY` channels Cuebot
+  emits transactionally for releases and cap changes.

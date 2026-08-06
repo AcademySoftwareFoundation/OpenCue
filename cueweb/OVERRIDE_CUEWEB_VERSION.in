@@ -1,0 +1,21 @@
+# OVERRIDE_CUEWEB_VERSION.in
+#
+# Controls the version string CueWeb displays (bottom status bar + the
+# "About CueWeb" dialog). The value is resolved at build time in
+# next.config.js and exposed to the client as NEXT_PUBLIC_APP_VERSION.
+#
+# How to use:
+#   - Leave the value line below as exactly "VERSION.in" (the default) to track
+#     the OpenCue version from the repo-root VERSION.in -- the shared source of
+#     truth also read by cuebot, cuegui and the docs. This keeps CueWeb's
+#     version in lock-step with the rest of OpenCue.
+#   - Replace it with an explicit version (e.g. "0.1.0") to pin/override
+#     CueWeb's version independently of VERSION.in.
+#
+# Precedence: a NEXT_PUBLIC_APP_VERSION env / --build-arg always wins over this
+# file (CI injects the generated OpenCue version or a Git SHA). If neither this
+# file nor VERSION.in resolves, CueWeb falls back to package.json's "version".
+#
+# Lines starting with "#" and blank lines are ignored; the first remaining line
+# is the value.
+VERSION.in

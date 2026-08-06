@@ -64,8 +64,16 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
         }
     }
 
-    private static final String INSERT_TASK = "INSERT INTO " + "task " + "( " + "pk_task,"
-            + "pk_point," + "str_shot," + "int_min_cores" + ") " + "VALUES (?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_TASK =
+            "INSERT INTO task ( "
+                + "pk_task,"
+                + "pk_point,"
+                + "str_shot,"
+                + "int_min_cores"
+            + ") "
+            + "VALUES (?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertTask(TaskEntity task) {
@@ -74,12 +82,28 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
                 task.minCoreUnits);
     }
 
-    private static final String GET_TASK_DETAIL = "SELECT " + "point.pk_dept," + "point.pk_show,"
-            + "point.pk_point," + "task.pk_task,"
-            + "task.int_min_cores + task.int_adjust_cores AS int_min_cores," + "task.str_shot,"
-            + "(task.str_shot || '.' || dept.str_name) AS str_name " + "FROM " + "point," + "task,"
-            + "dept, " + "show " + "WHERE " + "point.pk_dept = dept.pk_dept " + "AND "
-            + "point.pk_show = show.pk_show " + "AND " + "point.pk_point = task.pk_point ";
+    // spotless:off
+    private static final String GET_TASK_DETAIL =
+            "SELECT "
+                + "point.pk_dept,"
+                + "point.pk_show,"
+                + "point.pk_point,"
+                + "task.pk_task,"
+                + "task.int_min_cores + task.int_adjust_cores AS int_min_cores,"
+                + "task.str_shot,"
+                + "(task.str_shot || '.' || dept.str_name) AS str_name "
+            + "FROM "
+                + "point,"
+                + "task,"
+                + "dept, "
+                + "show "
+            + "WHERE "
+                + "point.pk_dept = dept.pk_dept "
+            + "AND "
+                + "point.pk_show = show.pk_show "
+            + "AND "
+                + "point.pk_point = task.pk_point ";
+    // spotless:on
 
     public static final RowMapper<TaskEntity> TASK_DETAIL_MAPPER = new RowMapper<TaskEntity>() {
         public TaskEntity mapRow(ResultSet rs, int row) throws SQLException {
@@ -168,8 +192,17 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
         }
     }
 
-    private static final String CLEAR_TASK_ADJUSTMENTS = "UPDATE " + "task " + "SET "
-            + "int_adjust_cores = 0 " + "WHERE " + "pk_show=? " + "AND " + "pk_dept = ? ";
+    // spotless:off
+    private static final String CLEAR_TASK_ADJUSTMENTS =
+            "UPDATE "
+                + "task "
+            + "SET "
+                + "int_adjust_cores = 0 "
+            + "WHERE "
+                + "pk_show=? "
+            + "AND "
+                + "pk_dept = ? ";
+    // spotless:on
 
     @Override
     public void clearTaskAdjustments(PointInterface cdept) {
@@ -177,18 +210,40 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
                 cdept.getDepartmentId());
     }
 
+    // spotless:off
     private static final String CLEAR_TASK_ADJUSTMENT =
-            "UPDATE " + "task " + "SET " + "int_adjust_cores = 0 " + "WHERE " + "pk_task=?";
+            "UPDATE "
+                + "task "
+            + "SET "
+                + "int_adjust_cores = 0 "
+            + "WHERE "
+                + "pk_task=?";
+    // spotless:on
 
     @Override
     public void clearTaskAdjustment(TaskInterface t) {
         getJdbcTemplate().update(CLEAR_TASK_ADJUSTMENT, t.getTaskId());
     }
 
-    private static final String IS_JOB_MANAGED = "SELECT " + "COUNT(1) " + "FROM " + "job,"
-            + "task," + "point " + "WHERE " + "job.pk_show = point.pk_show " + "AND "
-            + "job.pk_dept = point.pk_dept " + "AND " + "task.pk_point = point.pk_point " + "AND "
-            + "task.str_shot = job.str_shot " + "AND " + "job.pk_job = ?";
+    // spotless:off
+    private static final String IS_JOB_MANAGED =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "job,"
+                + "task,"
+                + "point "
+            + "WHERE "
+                + "job.pk_show = point.pk_show "
+            + "AND "
+                + "job.pk_dept = point.pk_dept "
+            + "AND "
+                + "task.pk_point = point.pk_point "
+            + "AND "
+                + "task.str_shot = job.str_shot "
+            + "AND "
+                + "job.pk_job = ?";
+    // spotless:on
 
     @Override
     public boolean isManaged(JobInterface j) {

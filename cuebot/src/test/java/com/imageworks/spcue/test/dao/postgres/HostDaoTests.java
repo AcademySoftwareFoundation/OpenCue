@@ -15,6 +15,7 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
 
@@ -34,6 +35,7 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -530,6 +532,45 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 CueUtil.GB, host.getHostId());
 
         assertEquals(100, hostDao.getStrandedCoreUnits(host));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetStrandedCoreStats() {
+        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
+
+        String allocName = jdbcTemplate.queryForObject(
+                "SELECT alloc.str_name FROM host JOIN alloc ON host.pk_alloc = alloc.pk_alloc "
+                        + "WHERE host.pk_host = ?",
+                String.class, host.getHostId());
+
+        // Host has insufficient idle memory: its idle cores are stranded.
+        jdbcTemplate.update("UPDATE host SET int_mem_idle = ? WHERE pk_host = ?", CueUtil.GB,
+                host.getHostId());
+
+        StrandedCoreStats stranded = findAllocStats(hostDao.getStrandedCoreStats(), allocName);
+        assertEquals(host.cores, stranded.totalCores);
+        assertEquals(host.idleCores, stranded.idleCores);
+        assertEquals(host.idleCores, stranded.strandedCores);
+        assertEquals(allocName, stranded.allocName);
+
+        // Host now has plenty of idle memory: its idle cores are no longer stranded, but they
+        // still count toward total and idle cores.
+        jdbcTemplate.update("UPDATE host SET int_mem_idle = ? WHERE pk_host = ?", CueUtil.GB2,
+                host.getHostId());
+
+        StrandedCoreStats notStranded = findAllocStats(hostDao.getStrandedCoreStats(), allocName);
+        assertEquals(host.cores, notStranded.totalCores);
+        assertEquals(host.idleCores, notStranded.idleCores);
+        assertEquals(0, notStranded.strandedCores);
+    }
+
+    private static StrandedCoreStats findAllocStats(List<StrandedCoreStats> stats,
+            String allocName) {
+        return stats.stream().filter(s -> allocName.equals(s.allocName)).findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "No StrandedCoreStats returned for allocation " + allocName));
     }
 
     @Test

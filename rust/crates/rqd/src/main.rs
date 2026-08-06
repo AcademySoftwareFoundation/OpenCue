@@ -19,7 +19,10 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 #[cfg(target_os = "macos")]
 use crate::frame::manager;
-use crate::{config::CONFIG, system::machine};
+use crate::{
+    config::CONFIG,
+    system::{capabilities, machine},
+};
 
 mod config;
 mod frame;
@@ -60,6 +63,10 @@ async fn async_main() -> miette::Result<()> {
     } else {
         log_builder.init();
     }
+
+    // Fail fast if the config requires elevated privileges the process does not hold,
+    // instead of letting every frame fail later with an opaque error.
+    capabilities::preflight(&CONFIG.runner)?;
 
     // Start a channel for communitating when machine_monitor fully started
     let (tx, rx) = oneshot::channel::<()>();

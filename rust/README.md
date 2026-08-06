@@ -89,12 +89,16 @@ env OPENCUE_SCHEDULER_CONFIG=/PATH-TO-OPENCUE/OpenCue/rust/config/scheduler.yaml
 Or specify scheduling parameters via command-line arguments:
 
 ```bash
-target/release/cue-scheduler --facility <facility> --alloc_tags=<show:tag> --manual_tags=<tag>
+target/release/cue-scheduler --facility <facility>
 ```
 
 **Notes:**
 - Configuration is loaded from `config/scheduler.yaml` or the path specified by `OPENCUE_SCHEDULER_CONFIG`
 - Command-line arguments override configuration file values
+- Which shows the scheduler owns is controlled by the `show.b_scheduler_managed`
+  database column (`cueadmin -scheduler-managed <show> on|off`), not by flags. The
+  scheduler auto-loads every cluster for scheduler-managed shows and refreshes
+  that set periodically, so toggling a show takes effect without a restart.
 - The scheduler can be run in dry-run mode for testing (set `rqd.dry_run_mode: true` in config)
 
 2. Run the scheduler using Docker:

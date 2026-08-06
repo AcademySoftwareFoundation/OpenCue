@@ -69,6 +69,7 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setKilledOffenderProcs(DispatchSupport.killedOffenderProcs.get())
                 .setKilledOomProcs(DispatchSupport.killedOomProcs.get())
                 .setClearedProcs(DispatchSupport.clearedProcs.get())
+                .setDeferredReleaseProcs(DispatchSupport.deferredReleaseProcs.get())
                 .setBookingRetries(DispatchSupport.bookingRetries.get())
                 .setBookingErrors(DispatchSupport.bookingErrors.get())
                 .setBookedProcs(DispatchSupport.bookedProcs.get())

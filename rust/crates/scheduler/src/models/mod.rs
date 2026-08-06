@@ -15,7 +15,6 @@ mod frame;
 mod host;
 mod job;
 mod layer;
-mod subscription;
 mod virtual_proc;
 
 pub use core_size::{CoreSize, CoreSizeWithMultiplier};
@@ -23,7 +22,6 @@ pub use frame::DispatchFrame;
 pub use host::Host;
 pub use job::DispatchJob;
 pub use layer::DispatchLayer;
-pub use subscription::Subscription;
 pub use virtual_proc::VirtualProc;
 
 use uuid::Uuid;

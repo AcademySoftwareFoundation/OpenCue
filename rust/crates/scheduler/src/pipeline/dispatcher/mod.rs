@@ -61,6 +61,7 @@ pub async fn rqd_dispatcher_service() -> Result<Addr<RqdDispatcherService>, miet
     RQD_DISPATCHER
         .get_or_try_init(|| async {
             use crate::{
+                accounting::accounting_service,
                 config::CONFIG,
                 dao::{FrameDao, HostDao},
             };
@@ -69,12 +70,14 @@ pub async fn rqd_dispatcher_service() -> Result<Addr<RqdDispatcherService>, miet
             let layer_dao = Arc::new(LayerDao::new().await?);
             let host_dao = Arc::new(HostDao::new().await?);
             let proc_dao = Arc::new(ProcDao::new().await?);
+            let accounting = accounting_service().await?;
 
             let service = RqdDispatcherService::new(
                 frame_dao,
                 layer_dao,
                 host_dao,
                 proc_dao,
+                accounting,
                 CONFIG.rqd.dry_run_mode,
             )
             .await?;

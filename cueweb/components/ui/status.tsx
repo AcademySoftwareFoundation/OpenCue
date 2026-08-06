@@ -1,3 +1,19 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 type StatusProps = {
   status: string;
 };
@@ -20,7 +36,7 @@ export function Status({ status }: StatusProps) {
   const colors = STATUS_COLORS[status.toUpperCase() as keyof typeof STATUS_COLORS] || STATUS_COLORS.DEFAULT;
 
   return (
-    <span className={`flex flex-row justify-center text-xs mr-2 px-1.5 py-0.5 rounded hover:cursor-pointer ${colors}`}>
+    <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded hover:cursor-pointer ${colors}`}>
       {status}
     </span>
   );

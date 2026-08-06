@@ -45,8 +45,14 @@ public class OwnerDaoJdbc extends JdbcDaoSupport implements OwnerDao {
         return getJdbcTemplate().update("DELETE FROM owner WHERE pk_owner = ?", owner.getId()) > 0;
     }
 
+    // spotless:off
     private static final String QUERY_FOR_OWNER =
-            "SELECT " + "owner.pk_owner," + "owner.str_username " + "FROM " + "owner ";
+            "SELECT "
+                + "owner.pk_owner,"
+                + "owner.str_username "
+            + "FROM "
+                + "owner ";
+    // spotless:on
 
     @Override
     public OwnerEntity findOwner(String name) {
@@ -80,8 +86,15 @@ public class OwnerDaoJdbc extends JdbcDaoSupport implements OwnerDao {
                 Integer.class, owner.getId()) > 0;
     }
 
-    private static final String INSERT_OWNER = "INSERT INTO " + "owner " + "(" + "pk_owner,"
-            + "pk_show," + "str_username " + ") " + "VALUES (?,?,?)";
+    // spotless:off
+    private static final String INSERT_OWNER =
+            "INSERT INTO owner ("
+                + "pk_owner,"
+                + "pk_show,"
+                + "str_username "
+            + ") "
+            + "VALUES (?,?,?)";
+    // spotless:on
 
     @Override
     public void insertOwner(OwnerEntity owner, ShowInterface show) {

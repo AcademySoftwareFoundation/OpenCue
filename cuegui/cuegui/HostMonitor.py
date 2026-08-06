@@ -47,6 +47,10 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostNameLastInput = None
         self.__filterOSList = []
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
+        # The tree emits this from its worker-thread _getUpdate; routing it
+        # through a signal puts updateOSFilterList (and its QAction creations)
+        # back on the GUI thread via AutoConnection.
+        self.hostMonitorTree.osValuesUpdated.connect(self.updateOSFilterList)
 
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()

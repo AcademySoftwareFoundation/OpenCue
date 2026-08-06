@@ -25,8 +25,12 @@ import com.imageworks.spcue.grpc.job.JobState;
 
 public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
 
-    private static final String GET_FINISHED_JOBS = JobDaoJdbc.GET_JOB + "WHERE "
-            + "job.str_state = ? " + "AND " + "current_timestamp - job.ts_stopped > ";
+    // spotless:off
+    private static final String GET_FINISHED_JOBS =
+            JobDaoJdbc.GET_JOB
+            + "WHERE job.str_state = ? "
+            + "AND current_timestamp - job.ts_stopped > ";
+    // spotless:on
 
     public List<JobInterface> getFinishedJobs(int cutoffHours) {
         String interval = "interval '" + cutoffHours + "' hour";

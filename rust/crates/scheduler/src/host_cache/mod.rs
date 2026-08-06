@@ -11,7 +11,7 @@
 // the License.
 
 mod actor;
-mod cache;
+pub(crate) mod cache;
 pub mod messages;
 mod store;
 

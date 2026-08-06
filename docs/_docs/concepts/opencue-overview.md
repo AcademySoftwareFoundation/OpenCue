@@ -59,7 +59,7 @@ OpenCue components:
 
 *   **CueGUI** - The desktop graphical user interface divided into two main workspaces: Cuetopia (artist-focused job monitoring) and CueCommander (administrator-focused system management). Provides comprehensive tools for job monitoring, frame inspection, host management, and system administration.
 
-*   **CueWeb** - A web-based interface that brings CueGUI's core functionality to the browser. Offers job management, frame monitoring, real-time updates, and collaborative features accessible from anywhere on the network without requiring client installation.
+*   **OpenCueWeb** - A web-based interface that brings CueGUI's core functionality to the browser. Offers job management, frame monitoring, real-time updates, and collaborative features accessible from anywhere on the network without requiring client installation.
 
 *   **CueSubmit** - A graphical user interface for configuring and launching rendering jobs. Typically runs as a plug-in within 3D software like Maya, Blender, or Nuke, allowing artists to submit jobs directly from their creative applications.
 

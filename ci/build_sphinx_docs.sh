@@ -12,9 +12,9 @@ else
 fi
 
 # Sphinx has some additional requirements
-pip install ${PIP_OPT} -r api_docs/requirements.txt
+python -m pip install ${PIP_OPT} -r api_docs/requirements.txt
 
-pip install ${PIP_OPT} proto/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
+python -m pip install ${PIP_OPT} proto/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
 # ci/build_proto.sh
 
 # Build the docs and treat warnings as errors

@@ -182,6 +182,7 @@ public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfac
         responseObserver.onCompleted();
     }
 
+    @Override
     public void setManagedCores(DeptSetManagedCoresRequest request,
             StreamObserver<DeptSetManagedCoresResponse> responseObserver) {
         PointDetail deptConfig =

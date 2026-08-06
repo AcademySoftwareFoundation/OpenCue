@@ -1,13 +1,37 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { styled, TextField, Tooltip, TooltipProps, Typography } from "@mui/material";
 import { useTheme } from "next-themes";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { handleError } from "@/app/utils/notify_utils";
+import { CUEWEB_FOCUS_SEARCH_EVENT } from "@/components/ui/shortcuts-overlay";
 
 interface SearchboxProps {
   searchQuery: string;
   handleInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   tooltipTitle: string;
   hidden: boolean;
+  // Fired when the user presses Enter inside the search box. Optional
+  // because callers in "Pick from list" mode don't use a submit action -
+  // they rely on the live-search dropdown driven by handleInputChange.
+  onSubmit?: (query: string) => void;
+  // Override for the default placeholder so the caller can hint at the
+  // current mode (e.g. "press Enter to load" vs "live results").
+  placeholder?: string;
 }
 
 // Styled tooltip component to customize its appearance
@@ -23,9 +47,30 @@ const StyledTooltip = styled(({ className, ...props }: TooltipProps & { classNam
 }));
 
 // Searchbox component with tooltip for job search
-const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, tooltipTitle, hidden }) => {
+const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, tooltipTitle, hidden, onSubmit, placeholder }) => {
   const { theme } = useTheme();
   const [open, setOpen] = useState<boolean>(false);
+  // Used by the global `/` shortcut to focus the search input. We hold a ref
+  // to the underlying <input> so KeyboardShortcuts can fire a CustomEvent
+  // and this component will move focus without prop drilling.
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Listen for the global "focus search" CustomEvent fired when the user
+  // presses `/`. Defined here so the focus call stays scoped to the actual
+  // input element this component owns.
+  useEffect(() => {
+    const handler = () => {
+      inputRef.current?.focus();
+      // Move the caret to the end if there's existing text so the user can
+      // keep typing without their next keystroke selecting+replacing.
+      inputRef.current?.setSelectionRange(
+        inputRef.current.value.length,
+        inputRef.current.value.length,
+      );
+    };
+    window.addEventListener(CUEWEB_FOCUS_SEARCH_EVENT, handler);
+    return () => window.removeEventListener(CUEWEB_FOCUS_SEARCH_EVENT, handler);
+  }, []);
 
   // Handle focus event to close tooltip
   const handleFocus = useCallback(() => {
@@ -57,6 +102,25 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
     setOpen(false);
   }, []);
 
+  // Enter key triggers the CueGUI-style "load matches into the table"
+  // submit when a handler is wired. Default mode in CueWeb relies on
+  // this; "Pick from list" mode leaves onSubmit undefined and uses the
+  // live dropdown instead.
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      // While the user is composing text with an IME (most CJK input
+      // flows), the Enter key commits the in-progress glyph rather than
+      // signalling "submit". Skipping the handler here avoids firing a
+      // premature search before the user has finished typing.
+      if ((event.nativeEvent as KeyboardEvent).isComposing) return;
+      if (event.key !== "Enter") return;
+      if (!onSubmit) return;
+      event.preventDefault();
+      onSubmit(searchQuery);
+    },
+    [onSubmit, searchQuery],
+  );
+
   return (
     <div onMouseOver={handleMouseOver} onMouseLeave={handleMouseLeave}>
       <StyledTooltip
@@ -72,9 +136,15 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
           variant="outlined"
           value={searchQuery}
           onChange={handleChange}
-          placeholder="Search Jobs: add '!' after queries for regex"
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder ?? "Search Jobs: add '!' after queries for regex"}
           size="small"
           autoComplete="off"
+          inputRef={inputRef}
+          // Stable hook for the global `/` shortcut handler to locate this
+          // input element via document.querySelector if a ref ever fails to
+          // mount (defensive; the inputRef above is the primary path).
+          inputProps={{ "data-cueweb-search-input": "true" }}
           sx={{
             mb: 2,
             width: "100%",

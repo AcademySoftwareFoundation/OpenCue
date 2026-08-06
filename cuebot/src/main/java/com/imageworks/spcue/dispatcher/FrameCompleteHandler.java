@@ -530,6 +530,17 @@ public class FrameCompleteHandler {
                     || newFrameState.equals(FrameState.SUCCEEDED)) {
 
                 /*
+                 * Scheduler-managed shows: the standalone Rust scheduler owns dispatch. Don't
+                 * reuse/rebook the proc here (that races the scheduler and strands pk_frame=NULL
+                 * procs with reserved cores). Release it so its cores return to idle and let the
+                 * scheduler own rebooking. Local dispatches are always Cuebot-managed.
+                 */
+                if (!proc.isLocalDispatch && showDao.isSchedulerManaged(proc.getShowId())) {
+                    dispatchSupport.unbookProc(proc, "scheduler-managed show, releasing proc");
+                    return;
+                }
+
+                /*
                  * Check for stranded cores on the host.
                  */
                 if (!proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)

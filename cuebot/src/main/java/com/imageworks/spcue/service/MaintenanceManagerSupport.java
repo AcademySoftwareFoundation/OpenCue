@@ -144,15 +144,17 @@ public class MaintenanceManagerSupport {
         List<VirtualProc> procs = procDao.findOrphanedVirtualProcs(100);
         for (VirtualProc proc : procs) {
             try {
-                dispatchSupport.lostProc(proc, "Removed by maintenance, orphaned",
-                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
-
-                Sentry.configureScope(scope -> {
-                    scope.setExtra("frame_id", proc.getFrameId());
-                    scope.setExtra("host_id", proc.getHostId());
-                    scope.setExtra("name", proc.getName());
-                    Sentry.captureMessage("Manager cleaning orphan procs");
-                });
+                // Only report a cleanup when the proc was actually released; lostProc may defer the
+                // release (leaving the proc intact) to avoid double-booking a flapping host.
+                if (dispatchSupport.lostProc(proc, "Removed by maintenance, orphaned",
+                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN)) {
+                    Sentry.withScope(scope -> {
+                        scope.setExtra("frame_id", proc.getFrameId());
+                        scope.setExtra("host_id", proc.getHostId());
+                        scope.setExtra("name", proc.getName());
+                        Sentry.captureMessage("Manager cleaning orphan procs");
+                    });
+                }
             } catch (Exception e) {
                 logger.info("failed to clear orphaned proc: " + proc.getName() + " " + e);
             }
@@ -161,8 +163,25 @@ public class MaintenanceManagerSupport {
         List<FrameInterface> frames = frameDao.getOrphanedFrames();
         for (FrameInterface frame : frames) {
             try {
-                frameDao.updateFrameStopped(frame, FrameState.WAITING,
-                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+                if (frameDao.updateFrameStopped(frame, FrameState.WAITING,
+                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN)) {
+                    /*
+                     * The proc row is already gone, so the host<->frame link is lost and RQD cannot
+                     * be killed from here. Reaching this point means a zombie may have been
+                     * produced upstream (a proc was deleted without confirming the frame stopped).
+                     * Report it so the residual rate is observable after the kill-before-release
+                     * and defer-release fixes.
+                     */
+                    logger.warn("Reset orphaned frame " + frame.getName() + " (frameId="
+                            + frame.getFrameId() + ") to WAITING; its proc was already gone so RQD "
+                            + "could not be killed. If RQD is still rendering it this is a "
+                            + "double-booking risk.");
+                    Sentry.withScope(scope -> {
+                        scope.setExtra("frame_id", frame.getFrameId());
+                        scope.setExtra("frame_name", frame.getName());
+                        Sentry.captureMessage("Maintenance reset orphaned frame with no proc");
+                    });
+                }
             } catch (Exception e) {
                 logger.info("failed to clear orphaned frame: " + frame.getName() + " " + e);
             }
@@ -272,9 +291,14 @@ public class MaintenanceManagerSupport {
         try {
             int batchSize = env.getProperty("maintenance.stuck_dependency_recovery_batch_size",
                     Integer.class, 1000);
+            // Mirror FrameCompleteHandler's runtime behavior: when this flag is true (default)
+            // EATEN frames must not satisfy dependencies, so they are excluded from the sweep.
+            boolean satisfyOnlyOnFrameSuccess =
+                    env.getProperty("depend.satisfy_only_on_frame_success", Boolean.class, true);
 
             // Phase 1: Satisfy stale active depends through normal code path
-            List<String> staleDependIds = maintenanceDao.findStaleDependIds(batchSize);
+            List<String> staleDependIds =
+                    maintenanceDao.findStaleDependIds(batchSize, !satisfyOnlyOnFrameSuccess);
             int satisfiedCount = 0;
             for (String dependId : staleDependIds) {
                 try {

@@ -312,6 +312,37 @@ class Frame(object):
         """
         return self.data.stop_time
 
+    def eligibleTime(self):
+        """Returns the epoch timestamp of the frame's eligible time.
+
+        This is the moment the frame became eligible to run - i.e. when its
+        state transitioned out of DEPEND into WAITING. Frames that were never
+        blocked by a dependency report the job's submission time instead, so
+        the value is always meaningful.
+
+        Subtract from ``startTime()`` to measure how long a frame waited to be
+        picked up by a render proc:
+
+            wait_for_pickup = frame.startTime() - frame.eligibleTime()
+
+        :rtype:  int
+        :return: frame eligible time as an epoch
+        """
+        return self.data.eligible_time
+
+    def submissionTime(self):
+        """Returns the epoch timestamp of the parent job's submission time.
+
+        A frame's ``startTime()`` reflects when it began executing on a render
+        proc, not when its job was submitted. This accessor exposes the job's
+        submission time directly so callers don't have to fetch the parent job
+        or reason about dependency state to recover it.
+
+        :rtype:  int
+        :return: parent job submission time as an epoch
+        """
+        return self.data.submission_time
+
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
 

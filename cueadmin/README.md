@@ -39,6 +39,8 @@ cueadmin -lji
 
 # List hosts
 cueadmin -lh
+cueadmin -lh -lock-state NIMBY_LOCKED       # Only NIMBY-locked hosts
+cueadmin -lh -lock-state OPEN -sort-idle     # Unlocked hosts, most idle first
 
 # Job management
 cueadmin -pause JOB_NAME                    # Pause a job

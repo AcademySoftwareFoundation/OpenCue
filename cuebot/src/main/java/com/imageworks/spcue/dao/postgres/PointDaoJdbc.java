@@ -68,18 +68,34 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
                 show.getShowId(), dept.getDepartmentId()) > 0;
     }
 
+    // spotless:off
     private static final String UPDATE_TI_MANAGED =
-            "UPDATE " + "point " + "SET " + "b_managed = true," + "str_ti_task=?, "
-                    + "int_min_cores=? " + "WHERE " + "pk_point=?";
+            "UPDATE "
+                + "point "
+            + "SET "
+                + "b_managed = true,"
+                + "str_ti_task=?, "
+                + "int_min_cores=? "
+            + "WHERE "
+                + "pk_point=?";
+    // spotless:on
 
     @Override
     public void updateEnableManaged(PointInterface p, String task, int coreUnits) {
         getJdbcTemplate().update(UPDATE_TI_MANAGED, task, coreUnits, p.getPointId());
     }
 
+    // spotless:off
     private static final String UPDATE_DISABLE_TI_MANAGED =
-            "UPDATE " + "point " + "SET " + "b_managed = false," + "str_ti_task=null, "
-                    + "int_min_cores=0 " + "WHERE " + "pk_point=?";
+            "UPDATE "
+                + "point "
+            + "SET "
+                + "b_managed = false,"
+                + "str_ti_task=null, "
+                + "int_min_cores=0 "
+            + "WHERE "
+                + "pk_point=?";
+    // spotless:on
 
     @Override
     public void updateDisableManaged(PointInterface p) {
@@ -99,9 +115,19 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
                 }
             };
 
+    // spotless:off
     private static final String GET_DEPARTMENT_CONFIG_DETAIL =
-            "SELECT " + "pk_point," + "pk_dept," + "pk_show," + "str_ti_task," + "int_min_cores "
-                    + "FROM " + "point " + "WHERE " + "pk_point = ?";
+            "SELECT "
+                + "pk_point,"
+                + "pk_dept,"
+                + "pk_show,"
+                + "str_ti_task,"
+                + "int_min_cores "
+            + "FROM "
+                + "point "
+            + "WHERE "
+                + "pk_point = ?";
+    // spotless:on
 
     @Override
     public PointDetail getPointConfDetail(String id) {
@@ -109,9 +135,22 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
                 DEPARTMENT_CONFIG_DETAIL_MAPPER, id);
     }
 
-    private static final String GET_POINT_CONFIG_DETAIL_BY_SHOW_DEPT = "SELECT " + "pk_point,"
-            + "pk_dept," + "pk_show," + "str_ti_task," + "int_min_cores, " + "b_managed " + "FROM "
-            + "point " + "WHERE " + "pk_show = ? " + "AND " + "pk_dept = ? ";
+    // spotless:off
+    private static final String GET_POINT_CONFIG_DETAIL_BY_SHOW_DEPT =
+            "SELECT "
+                + "pk_point,"
+                + "pk_dept,"
+                + "pk_show,"
+                + "str_ti_task,"
+                + "int_min_cores, "
+                + "b_managed "
+            + "FROM "
+                + "point "
+            + "WHERE "
+                + "pk_show = ? "
+            + "AND "
+                + "pk_dept = ? ";
+    // spotless:on
 
     @Override
     public PointDetail getPointConfigDetail(ShowInterface show, DepartmentInterface dept) {
@@ -119,8 +158,15 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
                 DEPARTMENT_CONFIG_DETAIL_MAPPER, show.getShowId(), dept.getDepartmentId());
     }
 
+    // spotless:off
     private static final String UPDATE_TI_MANAGED_CORES =
-            "UPDATE " + "point " + "SET " + "int_min_cores=? " + "WHERE " + "pk_point=?";
+            "UPDATE "
+                + "point "
+            + "SET "
+                + "int_min_cores=? "
+            + "WHERE "
+                + "pk_point=?";
+    // spotless:on
 
     @Override
     public void updateManagedCores(PointInterface cdept, int cores) {
@@ -128,9 +174,20 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
 
     }
 
+    // spotless:off
     private static final String GET_MANAGED_POINT_CONFS =
-            "SELECT " + "pk_point," + "pk_dept," + "pk_show," + "str_ti_task," + "int_min_cores, "
-                    + "b_managed " + "FROM " + "point " + "WHERE " + "b_managed = true ";
+            "SELECT "
+                + "pk_point,"
+                + "pk_dept,"
+                + "pk_show,"
+                + "str_ti_task,"
+                + "int_min_cores, "
+                + "b_managed "
+            + "FROM "
+                + "point "
+            + "WHERE "
+                + "b_managed = true ";
+    // spotless:on
 
     @Override
     public List<PointDetail> getManagedPointConfs() {
@@ -143,10 +200,22 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
                 t.getPointId());
     }
 
+    // spotless:off
     private static final String IS_OVER_MIN_CORES =
-            "SELECT " + "COUNT(1) " + "FROM " + "job," + "point p " + "WHERE "
-                    + "job.pk_show = p.pk_show " + "AND " + "job.pk_dept = p.pk_dept " + "AND "
-                    + "p.int_cores > p.int_min_cores " + "AND " + "job.pk_job = ?";
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "job,"
+                + "point p "
+            + "WHERE "
+                + "job.pk_show = p.pk_show "
+            + "AND "
+                + "job.pk_dept = p.pk_dept "
+            + "AND "
+                + "p.int_cores > p.int_min_cores "
+            + "AND "
+                + "job.pk_job = ?";
+    // spotless:on
 
     @Override
     public boolean isOverMinCores(JobInterface job) {

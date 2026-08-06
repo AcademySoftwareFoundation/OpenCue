@@ -17,9 +17,8 @@ use itertools::Itertools;
 use miette::IntoDiagnostic;
 use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
 use std::{
-    cmp::Ordering,
     sync::{
-        atomic::{self, AtomicU64},
+        atomic::{self, AtomicBool, AtomicU64},
         Arc,
     },
     time::{Duration, SystemTime},
@@ -34,8 +33,9 @@ use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
     config::CONFIG,
     dao::HostDao,
-    host_cache::{messages::*, store, *},
+    host_cache::{cache::Gate, messages::*, store, *},
     models::{CoreSize, Host},
+    pipeline::placement::LayerProfile,
 };
 
 #[derive(Clone)]
@@ -46,6 +46,18 @@ pub struct HostCacheService {
     cache_hit: Arc<AtomicU64>,
     cache_miss: Arc<AtomicU64>,
     concurrency_semaphore: Arc<Semaphore>,
+    /// Set while a `refresh_cache` task is in flight. Skips overlapping ticks
+    /// when the previous refresh hasn't completed (e.g. under DB pressure).
+    refresh_in_progress: Arc<AtomicBool>,
+}
+
+/// RAII guard that resets `refresh_in_progress` on drop, including on panic.
+struct RefreshGuard(Arc<AtomicBool>);
+
+impl Drop for RefreshGuard {
+    fn drop(&mut self) {
+        self.0.store(false, atomic::Ordering::Release);
+    }
 }
 
 /// Use a reservation system to prevent race conditions when trying to book a host
@@ -75,8 +87,25 @@ impl Actor for HostCacheService {
 
         ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
             let service = service_for_monitor.clone();
+            // Skip this tick if the previous refresh is still running. Under DB
+            // pressure, refreshes can take longer than the monitoring interval,
+            // and stacking spawns multiplies PG load.
+            if service
+                .refresh_in_progress
+                .swap(true, atomic::Ordering::AcqRel)
+            {
+                debug!("host_cache refresh skipped: previous run still in flight");
+                return;
+            }
             let actor_clone = service.clone();
-            ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
+            let flag = service.refresh_in_progress.clone();
+            ctx.spawn(
+                async move {
+                    let _guard = RefreshGuard(flag);
+                    service.refresh_cache().await;
+                }
+                .into_actor(&actor_clone),
+            );
         });
 
         ctx.run_interval(CONFIG.host_cache.clean_up_interval, move |_act, _ctx| {
@@ -94,20 +123,18 @@ impl Actor for HostCacheService {
     }
 }
 
-impl<F> Handler<CheckOut<F>> for HostCacheService
-where
-    F: Fn(&Host) -> bool + 'static,
-{
+impl Handler<CheckOut> for HostCacheService {
     type Result = ResponseActFuture<Self, Result<CheckedOutHost, HostCacheError>>;
 
-    fn handle(&mut self, msg: CheckOut<F>, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: CheckOut, _ctx: &mut Self::Context) -> Self::Result {
         let CheckOut {
             facility_id,
             show_id,
             tags,
             cores,
             memory,
-            validation,
+            profile,
+            gate,
         } = msg;
 
         let service = self.clone();
@@ -115,7 +142,7 @@ where
         Box::pin(
             async move {
                 let out = service
-                    .check_out(facility_id, show_id, tags, cores, memory, validation)
+                    .check_out(facility_id, show_id, tags, cores, memory, profile, gate)
                     .await;
                 if let Ok(host) = &out {
                     debug!("Checked out {}", host.1);
@@ -154,8 +181,6 @@ impl Handler<CacheRatio> for HostCacheService {
 
     fn handle(&mut self, _msg: CacheRatio, _ctx: &mut Self::Context) -> Self::Result {
         CacheRatioResponse {
-            hit: self.cache_hit.load(atomic::Ordering::Relaxed),
-            miss: self.cache_miss.load(atomic::Ordering::Relaxed),
             hit_ratio: self.cache_hit_ratio(),
         }
     }
@@ -181,6 +206,7 @@ impl HostCacheService {
                 CONFIG.host_cache.concurrent_fetch_permit,
             )),
             reserved_hosts: Arc::new(HashMap::new()),
+            refresh_in_progress: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -203,65 +229,81 @@ impl HostCacheService {
     ///
     /// * `Ok(CheckedOutHost)` - Host with cluster key
     /// * `Err(HostCacheError)` - No suitable host found or database error
-    async fn check_out<F>(
+    #[allow(clippy::too_many_arguments)]
+    async fn check_out(
         &self,
-        facility_id: Uuid,
+        facility_id: String,
         show_id: Uuid,
         tags: Vec<Tag>,
         cores: CoreSize,
         memory: ByteSize,
-        validation: F,
-    ) -> Result<CheckedOutHost, HostCacheError>
-    where
-        F: Fn(&Host) -> bool,
-    {
+        profile: LayerProfile,
+        gate: Gate,
+    ) -> Result<CheckedOutHost, HostCacheError> {
         let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
 
-        // Extend validation to also check for hosts that are already reserved
-        let validation = |host: &Host| {
-            let available = self
-                .reserved_hosts
+        // Per-actor reservation availability check. ANDed with the gate inside
+        // the cache so reserved hosts are skipped during scan/score.
+        let reserved_check = |host: &Host| {
+            self.reserved_hosts
                 .read_sync(&host.id, |_, reservation| reservation.expired())
-                .unwrap_or(true);
-            validation(host) && available
+                .unwrap_or(true)
         };
+
+        /// Outcome of probing a cached group during checkout. Distinguishes a
+        /// fresh group that simply has no matching host (move on to the next
+        /// tag) from a group that needs a database fetch (absent or expired).
+        enum GroupOutcome {
+            Found(Host),
+            NoCandidate,
+            Expired,
+        }
 
         for cache_key in cache_keys {
             // Attempt to read from the cache
-            let cached_candidate = self
+            let outcome = self
                 .cluster_index
                 // Using the async counterpart here to prevent blocking during checkout.
                 // As the number of groups is not very large, consumers are eventually going to
                 // fight for the same rows.
                 .read_async(&cache_key, |_, cached_group| {
-                    if !cached_group.expired() {
-                        cached_group
-                            // Checkout host from a group
-                            .check_out(cores, memory, validation)
-                            .map(|host| (cache_key.clone(), host.clone()))
-                            .ok()
+                    if cached_group.expired() {
+                        GroupOutcome::Expired
                     } else {
-                        None
+                        match cached_group.check_out(cores, memory, &profile, gate, reserved_check)
+                        {
+                            Ok(host) => GroupOutcome::Found(host),
+                            Err(_) => GroupOutcome::NoCandidate,
+                        }
                     }
                 })
-                .await
-                .flatten();
+                .await;
 
-            // Fetch form the database if not found on cache
-            match cached_candidate {
-                Some(cached) => {
-                    self.reserve_host(cached.1.id, true);
-                    return Ok(CheckedOutHost(cached.0, cached.1));
+            match outcome {
+                Some(GroupOutcome::Found(host)) => {
+                    self.reserve_host(host.id, true);
+                    return Ok(CheckedOutHost(cache_key, host));
                 }
-                None => {
+                Some(GroupOutcome::NoCandidate) => {
+                    // The group is cached and fresh, it just has no host that
+                    // fits this layer right now. Refetching from the database
+                    // here would add a full host-list query to every failed
+                    // checkout; the periodic refresh loop keeps the group up to
+                    // date instead. Try the next tag.
+                    debug!(
+                        "Wasn't able to find suitable hosts for group {:?}",
+                        &cache_key
+                    );
+                }
+                // Group is absent or its data expired: fetch from the database
+                Some(GroupOutcome::Expired) | None => {
                     let group = self
                         .fetch_group_data(&cache_key)
                         .await
                         .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
                     let checked_out_host = group
-                        // Checkout host from a group
-                        .check_out(cores, memory, validation)
-                        .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
+                        .check_out(cores, memory, &profile, gate, reserved_check)
+                        .map(|host| CheckedOutHost(cache_key.clone(), host));
 
                     if let Ok(checked_out_host) = checked_out_host {
                         self.reserve_host(checked_out_host.1.id, false);
@@ -294,10 +336,12 @@ impl HostCacheService {
         } else {
             self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
         }
-        // Mark host as reserved
+        // Mark host as reserved. Upsert so a leftover expired reservation (e.g.
+        // from a dispatch that never checked the host back in) is refreshed
+        // rather than silently keeping its old timestamp.
         let _ = self
             .reserved_hosts
-            .insert_sync(host_id, HostReservation::new());
+            .upsert_sync(host_id, HostReservation::new());
     }
 
     /// Returns a host to the cache group after use.
@@ -365,27 +409,23 @@ impl HostCacheService {
     #[allow(clippy::map_entry)]
     fn gen_cache_keys(
         &self,
-        facility_id: Uuid,
+        facility_id: String,
         show_id: Uuid,
         tags: Vec<Tag>,
     ) -> impl IntoIterator<Item = ClusterKey> {
         tags.into_iter()
-            .map(|tag| ClusterKey {
-                facility_id,
+            .map(move |tag| ClusterKey {
+                facility_id: facility_id.clone(),
                 show_id,
                 tag,
             })
             // Make sure tags are evaluated in this order:
             // MANUAL -> HOSTNAME -> HARDWARE -> ALLOC
-            .sorted_by(|l, r| match (&l.tag.ttype, &r.tag.ttype) {
-                (TagType::Alloc, TagType::Alloc)
-                | (TagType::HostName, TagType::HostName)
-                | (TagType::Hardware, TagType::Hardware)
-                | (TagType::Manual, TagType::Manual) => Ordering::Equal,
-                (TagType::Manual, _) => Ordering::Less,
-                (TagType::HostName, _) => Ordering::Less,
-                (TagType::Hardware, _) => Ordering::Less,
-                (TagType::Alloc, _) => Ordering::Greater,
+            .sorted_by_key(|key| match key.tag.ttype {
+                TagType::Manual => 0u8,
+                TagType::HostName => 1,
+                TagType::Hardware => 2,
+                TagType::Alloc => 3,
             })
     }
 
@@ -444,6 +484,17 @@ impl HostCacheService {
         if removed_count > 0 {
             info!("Cleaned up {} stale hosts from store", removed_count);
         }
+
+        // Drop index entries referencing hosts that are no longer in the store
+        // (removed by the staleness cleanup above or by lazy removal on get).
+        let mut swept = 0;
+        self.cluster_index.iter_sync(|_, cache| {
+            swept += cache.sweep_dead_entries(|host_id| store::HOST_STORE.contains(host_id));
+            true
+        });
+        if swept > 0 {
+            info!("Swept {} dead host entries from cache indexes", swept);
+        }
     }
 
     /// Fetches host data from the database and populates a cache group.
@@ -472,7 +523,7 @@ impl HostCacheService {
         let tag = key.tag.to_string();
         let hosts = self
             .host_dao
-            .fetch_hosts_by_show_facility_tag(key.show_id, key.facility_id, &tag)
+            .fetch_hosts_by_show_facility_tag(key.show_id, &key.facility_id, &tag)
             .await
             .into_diagnostic()?;
 
@@ -485,9 +536,20 @@ impl HostCacheService {
             );
         }
 
+        // Track the ids the fresh query returned so we can drop index entries
+        // the database no longer reports. `entry_sync(..).or_default()` reuses
+        // the existing group on refresh/expiry, so without this prune a host
+        // omitted by the query (newly locked, down, re-tagged, or
+        // unsubscribed) would linger in the group until staleness cleanup.
+        let mut live_ids = std::collections::HashSet::with_capacity(hosts.len());
         for host in hosts {
             let h: Host = host.into();
+            live_ids.insert(h.id);
             cache.check_in(h, false);
+        }
+        let pruned = cache.prune_absent(&live_ids);
+        if pruned > 0 {
+            debug!("Pruned {} stale host(s) from group {:?}", pruned, key);
         }
         cache.ping_fetch();
         Ok(cache)

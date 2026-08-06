@@ -2,7 +2,7 @@
 layout: default
 title: "January 21, 2026: OpenCue Project Update: Major Releases and 2026 Roadmap"
 parent: News
-nav_order: 0
+nav_order: 1
 ---
 
 # OpenCue Project Update: Major Releases and 2026 Roadmap
@@ -39,13 +39,13 @@ Diego Tavares ([DiegoTavares](https://github.com/DiegoTavares)), Ramon Figueired
 
 **200 commits** - A very productive year with major new features.
 
-2024 focused on OpenCue's modernization, introducing web-based interfaces and containerization support. CueWeb brought CueGUI functionality to the browser, alongside a new REST API Gateway that opens OpenCue to modern integration patterns. Docker Jobs support enabled running frames in containerized environments, significantly improving reproducibility and isolation. On the infrastructure side, Cuebot gained Prometheus metrics and HTTP healthchecks for better observability, while RQD received hard/soft memory limits for finer resource control. CueGUI was enhanced with an output viewer, job dependency visualization through the Node Graph plugin, and numerous usability improvements. The year also saw important CI/CD modernization, including dropping CY2022 support and migrating from CentOS 7.
+2024 focused on OpenCue's modernization, introducing web-based interfaces and containerization support. OpenCueWeb brought CueGUI functionality to the browser, alongside a new REST API Gateway that opens OpenCue to modern integration patterns. Docker Jobs support enabled running frames in containerized environments, significantly improving reproducibility and isolation. On the infrastructure side, Cuebot gained Prometheus metrics and HTTP healthchecks for better observability, while RQD received hard/soft memory limits for finer resource control. CueGUI was enhanced with an output viewer, job dependency visualization through the Node Graph plugin, and numerous usability improvements. The year also saw important CI/CD modernization, including dropping CY2022 support and migrating from CentOS 7.
 
 ### Major Features (2024)
 
 | Feature | PR | Description |
 |---------|-----|-------------|
-| **CueWeb** | [#1596](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1596) | First web-based release of CueGUI with Cuetopia features |
+| **OpenCueWeb** | [#1596](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1596) | First web-based release of CueGUI with Cuetopia features |
 | **REST Gateway** | [#1355](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1355) | REST API gateway for OpenCue |
 | **Docker Jobs** | [#1549](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1549) | Run frames in containerized Docker environments |
 | **Hard/Soft Memory Limits** | [#1589](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1589) | Memory limit controls for RQD |
@@ -128,7 +128,7 @@ Diego Tavares ([DiegoTavares](https://github.com/DiegoTavares)), Ramon Figueired
 
 **287 commits** - Focused on architectural changes and new tooling.
 
-2025 focused on architectural changes to improve performance and scalability. RQD was completely rewritten in Rust, delivering a 5x smaller binary with 50% reduced CPU usage. A new Rust-based Distributed Scheduler was introduced to eliminate database bottlenecks in large-scale deployments. Observability improved with Loki integration for centralized log aggregation and event-driven monitoring with dashboards. New tools like CueNimby (system tray NIMBY control) and Cueman (advanced CLI for job management) were introduced, while CueWeb gained LDAP authentication for enterprise environments. The documentation was migrated into the main repository with a Jekyll-based site featuring dark mode support. All Python modules were published to PyPI for the first time, simplifying installation and dependency management.
+2025 focused on architectural changes to improve performance and scalability. RQD was completely rewritten in Rust, delivering a 5x smaller binary with 50% reduced CPU usage. A new Rust-based Distributed Scheduler was introduced to eliminate database bottlenecks in large-scale deployments. Observability improved with Loki integration for centralized log aggregation and event-driven monitoring with dashboards. New tools like CueNimby (system tray NIMBY control) and Cueman (advanced CLI for job management) were introduced, while OpenCueWeb gained LDAP authentication for enterprise environments. The documentation was migrated into the main repository with a Jekyll-based site featuring dark mode support. All Python modules were published to PyPI for the first time, simplifying installation and dependency management.
 
 ### Major Features (2025)
 
@@ -140,7 +140,7 @@ Diego Tavares ([DiegoTavares](https://github.com/DiegoTavares)), Ramon Figueired
 | **Cueman** | [#1791](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1791) | CLI for advanced job and batch management |
 | **Cuecmd** | [#2028](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2028) | Module for batch command execution |
 | **Loki Integration** | [#1577](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1577) | Log aggregation for frame logs |
-| **CueWeb LDAP** | [#2096](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2096) | LDAP authentication for CueWeb |
+| **OpenCueWeb LDAP** | [#2096](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2096) | LDAP authentication for OpenCueWeb |
 | **Show Archive Automation** | [#2024](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2024) | Automated show archiving |
 | **PyPI Packages** | [#1681](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1681) | Split proto and packages for all Python modules |
 | **Event-Driven Monitoring** | [#2086](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2086) | Full metrics, dashboards, and documentation |
@@ -168,7 +168,7 @@ Complete ground-up rewrite with extensive features:
 
 Major migration and modernization:
 - Migrate docs into main repo with Jekyll, GitHub Pages, modern UI, dark mode ([#1784](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1784))
-- Comprehensive CueWeb documentation ([#1955](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1955))
+- Comprehensive OpenCueWeb documentation ([#1955](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1955))
 - REST Gateway documentation ([#1940](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1940))
 - Cuetopia monitoring system docs ([#1805](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1805))
 - Cueman documentation and tutorials ([#1801](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1801))
@@ -248,7 +248,7 @@ Major migration and modernization:
 - Docker build jobs ([#2098](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2098))
 - Full stack sandbox deployment ([#2103](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2103))
 
-### CueWeb (2025)
+### OpenCueWeb (2025)
 
 - LDAP Authentication ([#2096](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2096))
 - Professional Toolbar with grouped actions ([#1906](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1906))
@@ -276,7 +276,7 @@ Major migration and modernization:
 
 ### 2026 Goals
 
-In 2026, our focus shifts to completing the Rust migration, advancing distributed scheduling capabilities, and expanding the platform's reach. We aim to finalize the transition to Rust RQD across all platforms for improved performance and reliability, while evolving the Distributed Scheduler with automatic cluster coordination and self-healing capabilities. On the user experience front, CueWeb will achieve feature parity with the desktop applications, enabling full web-based studio adoption. We're also investing heavily in observability through CueInsight, a new monitoring system with AI-driven analytics, and delivering production-grade GPU support for the growing demand in GPU-accelerated rendering workflows.
+In 2026, our focus shifts to completing the Rust migration, advancing distributed scheduling capabilities, and expanding the platform's reach. We aim to finalize the transition to Rust RQD across all platforms for improved performance and reliability, while evolving the Distributed Scheduler with automatic cluster coordination and self-healing capabilities. On the user experience front, OpenCueWeb will achieve feature parity with the desktop applications, enabling full web-based studio adoption. We're also investing heavily in observability through CueInsight, a new monitoring system with AI-driven analytics, and delivering production-grade GPU support for the growing demand in GPU-accelerated rendering workflows.
 
 1. **Complete Rust RQD Migration**: Full transition to the Rust-based RQD across all platforms
 2. **Distributed Scheduler v2**: Automatic cluster distribution with:
@@ -286,7 +286,7 @@ In 2026, our focus shifts to completing the Rust migration, advancing distribute
    - Load balancing across schedulers
 
 3. **Farm Auto-scaling**: Native autoscaling capabilities for cloud infrastructure optimization
-4. **Enhanced CueWeb**: Complete feature parity with CueGUI (Cuetopia/CueCommander), professional UI/UX redesign, and production-ready interface for full studio adoption
+4. **Enhanced OpenCueWeb**: Complete feature parity with CueGUI (Cuetopia/CueCommander), professional UI/UX redesign, and production-ready interface for full studio adoption
 5. **CueInsight**: Event-driven monitoring system with real-time dashboards, automated job grading, proactive alerting, and AI-driven analytics for render farm intelligence
 6. **Production-Grade GPU Support**: Cross-platform GPU discovery (NVIDIA/Apple Metal), vendor-aware scheduling, per-device telemetry, frame isolation, and comprehensive documentation ([#2036](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2036))
 

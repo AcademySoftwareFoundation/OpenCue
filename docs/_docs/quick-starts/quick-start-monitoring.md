@@ -83,7 +83,7 @@ opencue.proc.events
 
 ### Step 3: Access Grafana
 
-1. Open Grafana at [http://localhost:3001](http://localhost:3001) (port 3001 to avoid conflict with CueWeb)
+1. Open Grafana at [http://localhost:3001](http://localhost:3001) (port 3001 to avoid conflict with OpenCueWeb)
 2. Log in with:
    - Username: `admin`
    - Password: `admin`

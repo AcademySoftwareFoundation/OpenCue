@@ -23,8 +23,10 @@ use crate::models::{core_size::CoreSize, fmt_uuid, DispatchFrame};
 pub struct DispatchLayer {
     pub id: Uuid,
     pub job_id: Uuid,
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
+    pub folder_id: Uuid,
+    pub dept_id: Uuid,
     pub job_name: String,
     pub layer_name: String,
     pub str_os: Option<String>,
@@ -35,6 +37,11 @@ pub struct DispatchLayer {
     pub gpu_mem_min: ByteSize,
     pub tags: HashSet<String>,
     pub frames: Vec<DispatchFrame>,
+    /// Job-level core cap (`job_resource.int_max_cores`). `<= 0` means
+    /// unlimited; the E-PVM cap check (`compute_max_more`) skips this dim
+    /// when not positive. Slow-moving admin field; refreshed each time the
+    /// matcher re-queries the job's layers (design Branch 2b).
+    pub job_max_cores: i32,
 }
 
 impl fmt::Display for DispatchLayer {

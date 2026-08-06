@@ -28,6 +28,12 @@ opencue.wrappers.deed module
 .. automodule:: opencue.wrappers.deed
     :members:
 
+opencue.wrappers.department module
+----------------------------------
+
+.. automodule:: opencue.wrappers.department
+    :members:
+
 opencue.wrappers.depend module
 ------------------------------
 

@@ -411,7 +411,9 @@ jobs:
       - name: Build CueWeb Docker image
         working-directory: cueweb
         run: |
-          docker buildx build . -f Dockerfile -t opencue/cueweb:test --load
+          docker buildx build . -f Dockerfile -t opencue/cueweb:test --load \
+            --build-context project_root=.. \
+            --build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)
           echo "CueWeb Docker image built successfully"
 
   build_rest_gateway:

@@ -24,6 +24,7 @@ public class ShowEntity extends Entity implements ShowInterface {
     public int defaultMinGpus;
     public int defaultMaxGpus;
     public String[] commentMail;
+    public boolean schedulerManaged;
 
     public String getShowId() {
         return id;

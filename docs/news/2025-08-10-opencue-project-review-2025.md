@@ -2,7 +2,7 @@
 layout: default
 title: "August 10, 2025: OpenCue Project Review 2025"
 parent: News
-nav_order: 2
+nav_order: 3
 ---
 
 # OpenCue Project Review 2025
@@ -35,8 +35,8 @@ OpenCue is an open-source render farm management system that distributes workloa
 
 ## Major Announcements
 
-### CueWeb Release
-Official announcement and release of CueWeb, our new browser-based visual interface featuring:
+### OpenCueWeb Release
+Official announcement and release of OpenCueWeb, our new browser-based visual interface featuring:
 - Modern login integration
 - Comprehensive job monitoring
 - Advanced filtering capabilities
@@ -87,7 +87,7 @@ pip install opencue-proto opencue-pycue opencue-pyoutline opencue-rqd opencue-cu
 - [opencue-cuegui](https://pypi.org/project/opencue-cuegui/)
   - `pip install opencue-cuegui`
 
-**Note:** Cuebot, Opencue REST Gateway, and CueWeb are deployed using Docker. For more information, see the Opencue's docker compose file (PostgreSQL, Cuebot, Flyway, RQD, OpenCue REST Gateway, and CueWeb): [docker-compose.yml](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/docker-compose.yml). 
+**Note:** Cuebot, Opencue REST Gateway, and OpenCueWeb are deployed using Docker. For more information, see the Opencue's docker compose file (PostgreSQL, Cuebot, Flyway, RQD, OpenCue REST Gateway, and OpenCueWeb): [docker-compose.yml](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/docker-compose.yml). 
 
 #### Getting Started
 - [Using the OpenCue Sandbox for Testing](https://docs.opencue.io/docs/developer-guide/sandbox-testing/)

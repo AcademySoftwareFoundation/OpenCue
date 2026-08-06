@@ -40,20 +40,28 @@ def _makeHost(free_mcp, total_mcp):
 
 class TempCellHelpersTests(unittest.TestCase):
 
-    def test_formatIncludesPercentWhenTotalKnown(self):
+    def test_freeAmountIsHumanReadable(self):
+        host = _makeHost(free_mcp=10 * 1024 * 1024, total_mcp=20 * 1024 * 1024)
+        self.assertEqual("10.0G", cuegui.HostMonitorTree._formatTempFreeAmount(host))
+
+    def test_freeAmountRendersWhenTotalUnknown(self):
+        # Total is not required for the amount column.
+        host = _makeHost(free_mcp=5 * 1024 * 1024, total_mcp=0)
+        self.assertEqual("5.0G", cuegui.HostMonitorTree._formatTempFreeAmount(host))
+
+    def test_percentIncludesPercentSign(self):
         # 50% free.
         host = _makeHost(free_mcp=10 * 1024 * 1024, total_mcp=20 * 1024 * 1024)
-        self.assertEqual("10.0G (50%)", cuegui.HostMonitorTree._formatTempCell(host))
+        self.assertEqual("50%", cuegui.HostMonitorTree._formatTempFreePercent(host))
 
-    def test_formatRoundsPercentToNearestInteger(self):
+    def test_percentRoundsToNearestInteger(self):
         # 1/3 free -> 33%.
         host = _makeHost(free_mcp=1 * 1024 * 1024, total_mcp=3 * 1024 * 1024)
-        self.assertEqual("1.0G (33%)", cuegui.HostMonitorTree._formatTempCell(host))
+        self.assertEqual("33%", cuegui.HostMonitorTree._formatTempFreePercent(host))
 
-    def test_formatFallsBackWhenTotalUnknown(self):
+    def test_percentIsEmptyWhenTotalUnknown(self):
         host = _makeHost(free_mcp=5 * 1024 * 1024, total_mcp=0)
-        # No percent suffix when total is unknown.
-        self.assertEqual("5.0G", cuegui.HostMonitorTree._formatTempCell(host))
+        self.assertEqual("", cuegui.HostMonitorTree._formatTempFreePercent(host))
 
     def test_ratioIsFractionOfFreeOverTotal(self):
         host = _makeHost(free_mcp=25, total_mcp=100)
@@ -97,9 +105,17 @@ class HostWidgetItemTempBarDataTests(unittest.TestCase):
 
     def test_tempFreeColumnHasNoBarDelegate(self):
         # "Temp Free" sits right after "Temp" at index 9. It's a plain text
-        # column — no bar delegate, only the formatted "<free> (NN%)" text.
+        # column showing the absolute free amount (e.g. "23.5G") — no bar.
         temp_free_col_index = 9
         delegate = self.tree.itemDelegateForColumn(temp_free_col_index)
+
+        self.assertNotIsInstance(delegate, cuegui.ItemDelegate.HostTempBarDelegate)
+
+    def test_tempFreePercentColumnHasNoBarDelegate(self):
+        # "Temp Free %" sits at index 10, after "Temp Free". Plain text only
+        # ("50%"), sorted by ratio to mirror the bar at index 8.
+        temp_free_pct_col_index = 10
+        delegate = self.tree.itemDelegateForColumn(temp_free_pct_col_index)
 
         self.assertNotIsInstance(delegate, cuegui.ItemDelegate.HostTempBarDelegate)
 

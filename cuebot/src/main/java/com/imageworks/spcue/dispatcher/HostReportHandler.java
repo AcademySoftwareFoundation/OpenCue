@@ -981,20 +981,30 @@ public class HostReportHandler {
     }
 
     /**
-     * Number of seconds before running frames have to exist before being verified against the DB.
+     * Default number of seconds running frames must exist before being verified against the DB.
+     * Overridable via the dispatcher.frame_verification_grace_period_seconds property.
      */
     private static final long FRAME_VERIFICATION_GRACE_PERIOD_SECONDS = 120;
 
     /**
-     * Verify all running frames in the given report against the DB. Frames that have not been
-     * running for at least FRAME_VERIFICATION_GRACE_PERIOD_SECONDS are skipped.
+     * Verify all running frames in the given report against the DB.
      *
-     * If a frame->proc mapping is not verified then the record for the proc is pulled from the DB.
-     * If the proc doesn't exist at all, then the frame is killed with the message: "but the DB did
-     * not reflect this"
+     * A running frame is "verified" when its resource_id (the proc UUID, regenerated per booking)
+     * still maps to a proc assigned to exactly that frame. When the mapping does not hold, the
+     * reported frame may be a zombie left behind by a free-then-rebook: a free path reset the frame
+     * back to a bookable state and it was re-dispatched elsewhere while this RQD kept rendering.
      *
-     * The main reason why a proc no longer exists is that the cue though the host went down and
-     * cleared out all running frames.
+     * - If resource_id maps to a proc assigned to a *different* frame, the reported frame is
+     * demonstrably no longer owned by this resource, so it is killed immediately (strict fencing),
+     * skipping the grace period and the isOrphan ping wait. The proc and its current frame are
+     * never touched: proc ids are reused when a host picks up its next frame, so that proc may be
+     * validly rendering another frame, and the RQD kill is frame-scoped so it cannot harm it.
+     *
+     * - If resource_id maps to no proc at all, it is either a deleted-proc zombie or a freshly
+     * booked proc whose row is not yet visible to this (possibly different) Cuebot. The grace
+     * period applies only here, to shield the legitimate book first-report propagation window; past
+     * the grace period the frame is killed. Orphaned procs themselves are reclaimed by
+     * MaintenanceManagerSupport (which now kills RQD before releasing), not by this method.
      *
      * @param report
      */
@@ -1002,12 +1012,62 @@ public class HostReportHandler {
         List<RunningFrameInfo> runningFrames =
                 new ArrayList<RunningFrameInfo>(report.getFramesCount());
 
+        long gracePeriodSeconds =
+                env.getProperty("dispatcher.frame_verification_grace_period_seconds", Long.class,
+                        FRAME_VERIFICATION_GRACE_PERIOD_SECONDS);
+        boolean strictFencingEnabled = env.getProperty(
+                "dispatcher.frame_verification_strict_fencing_enabled", Boolean.class, true);
+
         for (RunningFrameInfo runningFrame : report.getFramesList()) {
             long runtimeSeconds =
                     (System.currentTimeMillis() - runningFrame.getStartTime()) / 1000l;
 
-            // Don't test frames that haven't been running long enough.
-            if (runtimeSeconds < FRAME_VERIFICATION_GRACE_PERIOD_SECONDS) {
+            // The proc still owns exactly this frame: verified.
+            if (hostManager.verifyRunningProc(runningFrame.getResourceId(),
+                    runningFrame.getFrameId())) {
+                runningFrames.add(runningFrame);
+                continue;
+            }
+
+            // The proc->frame mapping is not verified. Resolve the proc by resource_id.
+            String msg;
+            VirtualProc proc = null;
+            try {
+                proc = hostManager.getVirtualProc(runningFrame.getResourceId());
+                msg = "Virtual proc " + proc.getProcId() + " is assigned to " + proc.getFrameId()
+                        + " not " + runningFrame.getFrameId();
+            } catch (EmptyResultDataAccessException e) {
+                // resource_id maps to no proc row.
+                msg = "Virtual proc did not exist.";
+            } catch (Exception e) {
+                // Transient lookup failure: do not treat it as a missing proc, which (past grace)
+                // would trigger a false kill. Skip this frame and re-verify on the next report.
+                logger.warn("Failed to verify proc " + runningFrame.getResourceId() + " on host "
+                        + report.getHost().getName() + ", skipping verification this report: " + e);
+                continue;
+            }
+
+            if (proc != null) {
+                /*
+                 * Strict fencing: resource_id maps to a proc that owns a different frame, so the
+                 * reported frame is demonstrably running under a stale resource. Kill it
+                 * immediately, skipping the grace period. Never touch the proc or its current
+                 * frame.
+                 */
+                DispatchSupport.accountingErrors.incrementAndGet();
+                if (strictFencingEnabled) {
+                    killUnverifiedRunningFrame(runningFrame, report, runtimeSeconds,
+                            "FrameFencingError", msg);
+                }
+                continue;
+            }
+
+            /*
+             * resource_id maps to no proc. Apply the grace period here only: this is the window
+             * where a just-booked proc's row may not yet be visible (book->first-report
+             * propagation).
+             */
+            if (runtimeSeconds < gracePeriodSeconds) {
                 logger.info("verified " + runningFrame.getJobName() + "/"
                         + runningFrame.getFrameName() + " on " + report.getHost().getName()
                         + " by grace period " + runtimeSeconds + " seconds.");
@@ -1015,63 +1075,48 @@ public class HostReportHandler {
                 continue;
             }
 
-            if (hostManager.verifyRunningProc(runningFrame.getResourceId(),
-                    runningFrame.getFrameId())) {
-                runningFrames.add(runningFrame);
-                continue;
-            }
-
-            /*
-             * The frame this proc is running is no longer assigned to this proc. Don't ever touch
-             * the frame record. If we make it here that means the proc has been running for over 2
-             * min.
-             */
-            String msg;
-            VirtualProc proc = null;
-
-            try {
-                proc = hostManager.getVirtualProc(runningFrame.getResourceId());
-                msg = "Virtual proc " + proc.getProcId() + "is assigned to " + proc.getFrameId()
-                        + " not " + runningFrame.getFrameId();
-            } catch (Exception e) {
-                /*
-                 * This will happen if the host goes offline and then comes back. In this case, we
-                 * don't touch the frame since it might already be running somewhere else. We do
-                 * however kill the proc.
-                 */
-                msg = "Virtual proc did not exist.";
-            }
-
             DispatchSupport.accountingErrors.incrementAndGet();
-            if (proc != null && hostManager.isOprhan(proc)) {
-                dispatchSupport.clearVirtualProcAssignement(proc);
-                dispatchSupport.unbookProc(proc);
-                proc = null;
-            }
-            if (proc == null) {
-                // A frameCompleteReport might have been delivered before this report was
-                // processed
-                FrameDetail frameLatestVersion =
-                        jobManager.getFrameDetail(runningFrame.getFrameId());
-                if (frameLatestVersion.state != FrameState.RUNNING) {
-                    logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
-                            + " on host " + report.getHost().getName() + " has already Completed "
-                            + runningFrame.getJobName() + "/" + runningFrame.getFrameName());
-                } else if (killFrame(runningFrame.getFrameId(), report.getHost().getName(),
-                        KillCause.FrameVerificationFailure)) {
-                    logger.info("FrameVerificationError, the proc " + runningFrame.getResourceId()
-                            + " on host " + report.getHost().getName() + " was running for "
-                            + (runtimeSeconds / 60.0f) + " minutes " + runningFrame.getJobName()
-                            + "/" + runningFrame.getFrameName() + " but the DB did not "
-                            + "reflect this. " + msg);
-                } else {
-                    logger.warn("FrameStuckWarning: frameId=" + runningFrame.getFrameId()
-                            + " render_node=" + report.getHost().getName() + " - "
-                            + runningFrame.getJobName() + "/" + runningFrame.getFrameName());
-                }
-            }
+            killUnverifiedRunningFrame(runningFrame, report, runtimeSeconds,
+                    "FrameVerificationError", msg);
         }
         return runningFrames;
+    }
+
+    /**
+     * Kill a running frame whose proc->frame mapping could not be verified, unless a
+     * FrameCompleteReport has already moved it out of RUNNING (a late/reordered report), in which
+     * case it is only logged. The kill targets the reported frame on the reporting host; it never
+     * touches any proc record.
+     */
+    private void killUnverifiedRunningFrame(RunningFrameInfo runningFrame, HostReport report,
+            long runtimeSeconds, String errorLabel, String msg) {
+        // A frameCompleteReport might have been delivered before this report was processed.
+        FrameDetail frameLatestVersion;
+        try {
+            frameLatestVersion = jobManager.getFrameDetail(runningFrame.getFrameId());
+        } catch (EmptyResultDataAccessException e) {
+            // The frame no longer exists in the DB (e.g. the job was removed); nothing to verify or
+            // kill. Don't let a single stale frame abort processing of the rest of the report.
+            logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
+                    + " on host " + report.getHost().getName() + " reported frame "
+                    + runningFrame.getFrameId() + " which no longer exists in the DB.");
+            return;
+        }
+        if (frameLatestVersion.state != FrameState.RUNNING) {
+            logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
+                    + " on host " + report.getHost().getName() + " has already Completed "
+                    + runningFrame.getJobName() + "/" + runningFrame.getFrameName());
+        } else if (killFrame(runningFrame.getFrameId(), report.getHost().getName(),
+                KillCause.FrameVerificationFailure)) {
+            logger.info(errorLabel + ", the proc " + runningFrame.getResourceId() + " on host "
+                    + report.getHost().getName() + " was running for " + (runtimeSeconds / 60.0f)
+                    + " minutes " + runningFrame.getJobName() + "/" + runningFrame.getFrameName()
+                    + " but the DB did not reflect this. " + msg);
+        } else {
+            logger.warn("FrameStuckWarning: frameId=" + runningFrame.getFrameId() + " render_node="
+                    + report.getHost().getName() + " - " + runningFrame.getJobName() + "/"
+                    + runningFrame.getFrameName());
+        }
     }
 
     public HostManager getHostManager() {

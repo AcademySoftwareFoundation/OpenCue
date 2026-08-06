@@ -1,7 +1,25 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
  
 import {
     eatJobsDeadFrames,
     killJobs,
+    reparentGroups,
+    reparentJobs,
     unpauseJobs
 } from '@/app/utils/action_utils';
 import { accessActionApi } from '@/app/utils/api_utils';
@@ -119,6 +137,94 @@ describe('action_utils', () => {
                 new Error('Partial failure'),
                 `Error performing action for: /api/job/action/eatframes`
             );
+        });
+    });
+
+    // Reparent groups under a new parent group
+    describe('reparentGroups', () => {
+        it('posts a single ReparentGroups request with the new parent and group ids', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            await reparentGroups('parent-1', ['g1', 'g2']);
+
+            expect(accessActionApi).toHaveBeenCalledWith(
+                '/api/group/action/reparentgroups',
+                [JSON.stringify({
+                    group: { id: 'parent-1' },
+                    groups: { groups: [{ id: 'g1' }, { id: 'g2' }] },
+                })]
+            );
+        });
+
+        it('returns true on success (the group tree relies on this to refetch)', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            const result = await reparentGroups('parent-1', ['g1']);
+
+            expect(result).toBe(true);
+        });
+
+        it('handles API errors gracefully', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            await reparentGroups('parent-1', ['g1']);
+
+            expect(handleError).toHaveBeenCalledWith(
+                new Error('API Error'),
+                `Error performing action for: /api/group/action/reparentgroups`
+            );
+        });
+
+        it('returns false on failure (the group tree relies on this to roll back)', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            const result = await reparentGroups('parent-1', ['g1']);
+
+            expect(result).toBe(false);
+        });
+    });
+
+    // Reparent jobs under a new parent group
+    describe('reparentJobs', () => {
+        it('posts a single ReparentJobs request with the new parent and job ids', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            await reparentJobs('parent-1', ['j1', 'j2']);
+
+            expect(accessActionApi).toHaveBeenCalledWith(
+                '/api/group/action/reparentjobs',
+                [JSON.stringify({
+                    group: { id: 'parent-1' },
+                    jobs: { jobs: [{ id: 'j1' }, { id: 'j2' }] },
+                })]
+            );
+        });
+
+        it('returns true on success (the group tree relies on this to refetch)', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            const result = await reparentJobs('parent-1', ['j1']);
+
+            expect(result).toBe(true);
+        });
+
+        it('handles API errors gracefully', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            await reparentJobs('parent-1', ['j1']);
+
+            expect(handleError).toHaveBeenCalledWith(
+                new Error('API Error'),
+                `Error performing action for: /api/group/action/reparentjobs`
+            );
+        });
+
+        it('returns false on failure (the group tree relies on this to roll back)', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            const result = await reparentJobs('parent-1', ['j1']);
+
+            expect(result).toBe(false);
         });
     });
 

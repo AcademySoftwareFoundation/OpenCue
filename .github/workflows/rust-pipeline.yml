@@ -8,47 +8,98 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Incremental compilation hurts CI clean builds (extra disk I/O, larger
+  # target dirs, no benefit since each runner is ephemeral) — turn it off.
+  CARGO_INCREMENTAL: 0
+  # Be more tolerant of registry hiccups on Windows.
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  # CI never runs a debugger, so full debug symbols (`debug=2`) are wasted
+  # compile + link time. `line-tables-only` keeps panic backtraces (file:line)
+  # so test failures stay readable, while cutting most debuginfo generation.
+  # Set via env (CI-only) rather than Cargo.toml so local dev keeps full symbols.
+  # Applies to every job, Windows included. `test` inherits from `dev`, but we
+  # set both explicitly so the override sticks regardless of inheritance.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev
+          # `mold` is a fast linker — cuts a large slice off Rust link time
+          # (609 deps to link). Invoked below via `mold -run`, which redirects
+          # the linker through LD_PRELOAD, so it needs no .cargo/config.toml
+          # (which would force mold on every local dev too) and works with the
+          # runner's default gcc regardless of version.
+          sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev mold
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
           bash ./rust-install.sh -y
-      - name: Build
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
+      # Build + test share a SINGLE (debug) profile so artifacts are reused —
+      # previously `cargo build --release` then `cargo test` compiled the whole
+      # workspace + all deps twice (release then debug), roughly doubling the
+      # job. CI only needs to prove it compiles and passes tests, which debug
+      # does. `--no-run` splits compile-vs-run timing; `--verbose` dropped to
+      # cut log I/O.
+      - name: Build tests
         run: |
           cd rust
-          cargo build --release --verbose
+          mold -run cargo test --no-run
       - name: Run tests
         run: |
           cd rust
-          cargo test --verbose
+          cargo test
 
   clippy:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev
+          sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev mold
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
           bash ./rust-install.sh -y
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
       - name: Run Clippy
         run: |
           cd rust
-          cargo clippy --verbose
+          mold -run cargo clippy --verbose
 
   windows-clippy:
     runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
+      - name: Speed up Windows build (exclude build dirs from Defender)
+        shell: pwsh
+        run: |
+          # Real-time AV scanning of every compiler artifact (rustc writes
+          # thousands of .rlib/.o/.exe files) is the dominant hidden cost on
+          # Windows Rust CI. Exclude the workspace + cargo dirs and disable
+          # realtime monitoring outright — typically a 30-50% speedup. All
+          # calls are best-effort (Tamper Protection may block some).
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "cargo.exe" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "rustc.exe" -ErrorAction SilentlyContinue
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -57,21 +108,49 @@ jobs:
         run: choco install protoc -y
       - name: Export PROTOC path
         run: echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
       - name: Run Clippy
         working-directory: rust
-        run: cargo clippy -p rqd --verbose
+        run: cargo clippy -p rqd
 
   windows-tests:
     runs-on: windows-latest
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
+      - name: Speed up Windows build (exclude build dirs from Defender)
+        shell: pwsh
+        run: |
+          # See windows-clippy for rationale — AV scanning dominates Windows
+          # Rust CI time; excluding build dirs is a 30-50% win. Best-effort.
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "cargo.exe" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "rustc.exe" -ErrorAction SilentlyContinue
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install Protobuf
         run: choco install protoc -y
       - name: Export PROTOC path
         run: echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+      - name: Cache cargo deps
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-on-failure: true
+      # Build tests first so we see compile-vs-run timing separately and the
+      # cache is populated even if a test later fails. `--verbose` is dropped
+      # — log volume noticeably slows Windows runners and the failure output
+      # is enough for triage.
+      - name: Build tests
+        working-directory: rust
+        run: cargo test -p rqd --no-run
       - name: Run tests
         working-directory: rust
-        run: cargo test -p rqd --verbose
+        run: cargo test -p rqd

@@ -10,11 +10,11 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
+use bytesize::KB;
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, Transaction};
 use std::sync::Arc;
 use uuid::Uuid;
-use bytesize::{KB};
 
 use crate::{config::CONFIG, models::VirtualProc, pgpool::connection_pool};
 
