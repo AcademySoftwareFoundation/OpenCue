@@ -38,16 +38,26 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.dispatcher.RedirectManager;
+import com.imageworks.spcue.dispatcher.RqdRetryReportException;
+import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JmsMover;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.ServiceManager;
@@ -59,10 +69,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -72,7 +85,10 @@ import static org.mockito.Mockito.verify;
 import org.springframework.transaction.CannotCreateTransactionException;
 
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.Source;
 import com.imageworks.spcue.service.JobManagerSupport;
 
 @ContextConfiguration
@@ -325,7 +341,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(true);
     }
 
-    private void executeMinMemIncrease(int expected, boolean override) {
+    private void executeMinMemIncrease(int expected, boolean override, int exitStatus) {
         if (override) {
             ServiceOverrideEntity soe = new ServiceOverrideEntity();
             soe.showId = "00000000-0000-0000-0000-000000000000";
@@ -357,58 +373,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
                 .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
                 .setResourceId(proc.getProcId()).build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
-                .setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
-
-        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
-        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
-        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
-        dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
-                report.getFrame().getMaxRss());
-        frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
-                dispatchFrame, FrameState.WAITING, frameDetail);
-
-        assertFalse(jobManager.isLayerComplete(layer));
-
-        JobDetail ujob = jobManager.findJobDetail(jobName);
-        LayerDetail ulayer = layerDao.findLayerDetail(ujob, "test_layer");
-        assertEquals(expected, ulayer.getMinimumMemory());
-    }
-
-    private void executeMinMemIncreaseDocker(int expected, boolean override) {
-        if (override) {
-            ServiceOverrideEntity soe = new ServiceOverrideEntity();
-            soe.showId = "00000000-0000-0000-0000-000000000000";
-            soe.name = "apitest";
-            soe.threadable = false;
-            soe.minCores = 10;
-            soe.minMemory = (int) CueUtil.GB2;
-            soe.tags = new LinkedHashSet<>();
-            soe.tags.add("general");
-            soe.minMemoryIncrease = (int) CueUtil.GB8;
-
-            serviceManager.createService(soe);
-        }
-
-        String jobName = "pipe-default-testuser_min_mem_test";
-        JobDetail job = jobManager.findJobDetail(jobName);
-        LayerDetail layer = layerDao.findLayerDetail(job, "test_layer");
-        FrameDetail frame = frameDao.findFrameDetail(job, "0000-test_layer");
-        jobManager.setJobPaused(job, false);
-
-        DispatchHost host = getHost(HOSTNAME2);
-        List<VirtualProc> procs = dispatcher.dispatchHost(host);
-        assertEquals(1, procs.size());
-        VirtualProc proc = procs.get(0);
-        assertEquals(job.getId(), proc.getJobId());
-        assertEquals(layer.getId(), proc.getLayerId());
-        assertEquals(frame.getId(), proc.getFrameId());
-
-        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId()).build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
-                .setExitStatus(Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(exitStatus).build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
@@ -429,14 +395,21 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     @Transactional
     @Rollback(true)
     public void testMinMemIncrease() {
-        executeMinMemIncrease(6291456, false);
+        executeMinMemIncrease(6291456, false, Dispatcher.EXIT_STATUS_MEMORY_FAILURE);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testMinMemIncreaseShowOverride() {
-        executeMinMemIncrease(10485760, true);
+        executeMinMemIncrease(10485760, true, Dispatcher.EXIT_STATUS_MEMORY_FAILURE);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMinMemIncreaseDocker() {
+        executeMinMemIncrease(6291456, false, Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE);
     }
 
     /**
@@ -641,5 +614,431 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     public void testNonSchedulerManagedShowReusesProcWaiting() {
         // Control, WAITING: the scheduler-managed release branch must not fire.
         executeProcReuseGate(false, FrameState.WAITING);
+    }
+
+    /**
+     * Bundles mock collaborators for the handler. The managers delegate to the real beans so only
+     * individual methods need stubbing, while the queues, JMS mover and redirect manager are plain
+     * mocks so no asynchronous work escapes the test thread.
+     */
+    private class HandlerMocks {
+        final DispatchSupport origDispatchSupport = frameCompleteHandler.getDispatchSupport();
+        final HostManager origHostManager = frameCompleteHandler.getHostManager();
+        final JobManager origJobManager = frameCompleteHandler.getJobManager();
+        final DispatchQueue origDispatchQueue = frameCompleteHandler.getDispatchQueue();
+        final BookingQueue origBookingQueue = frameCompleteHandler.getBookingQueue();
+        final JmsMover origJmsMover = frameCompleteHandler.getJmsMover();
+        final RedirectManager origRedirectManager = frameCompleteHandler.getRedirectManager();
+
+        final DispatchSupport dispatchSupport =
+                mock(DispatchSupport.class, delegatesTo(origDispatchSupport));
+        final HostManager hostManager = mock(HostManager.class, delegatesTo(origHostManager));
+        final JobManager jobManager = mock(JobManager.class, delegatesTo(origJobManager));
+        final DispatchQueue dispatchQueue = mock(DispatchQueue.class);
+        final BookingQueue bookingQueue = mock(BookingQueue.class);
+        final JmsMover jmsMover = mock(JmsMover.class);
+        final RedirectManager redirectManager = mock(RedirectManager.class);
+
+        void install() {
+            frameCompleteHandler.setDispatchSupport(dispatchSupport);
+            frameCompleteHandler.setHostManager(hostManager);
+            frameCompleteHandler.setJobManager(jobManager);
+            frameCompleteHandler.setDispatchQueue(dispatchQueue);
+            frameCompleteHandler.setBookingQueue(bookingQueue);
+            frameCompleteHandler.setJmsMover(jmsMover);
+            frameCompleteHandler.setRedirectManager(redirectManager);
+        }
+
+        void restore() {
+            frameCompleteHandler.setDispatchSupport(origDispatchSupport);
+            frameCompleteHandler.setHostManager(origHostManager);
+            frameCompleteHandler.setJobManager(origJobManager);
+            frameCompleteHandler.setDispatchQueue(origDispatchQueue);
+            frameCompleteHandler.setBookingQueue(origBookingQueue);
+            frameCompleteHandler.setJmsMover(origJmsMover);
+            frameCompleteHandler.setRedirectManager(origRedirectManager);
+        }
+    }
+
+    private RenderHost.Builder healthyReportHost() {
+        return RenderHost.newBuilder().setName(HOSTNAME).setFreeMem((int) CueUtil.GB8)
+                .setNimbyEnabled(false).setState(HardwareState.UP);
+    }
+
+    private VirtualProc dispatchTestDependProc() {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        jobManager.setJobPaused(job, false);
+        List<VirtualProc> procs = dispatcher.dispatchHost(getHost(HOSTNAME));
+        assertEquals(1, procs.size());
+        return procs.get(0);
+    }
+
+    private FrameCompleteReport buildReport(VirtualProc proc, String resourceId, RenderHost host,
+            int exitStatus) {
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(resourceId).build();
+        return FrameCompleteReport.newBuilder().setFrame(info).setHost(host)
+                .setExitStatus(exitStatus).build();
+    }
+
+    private FrameCompleteReport buildReport(VirtualProc proc, RenderHost host, int exitStatus) {
+        return buildReport(proc, proc.getProcId(), host, exitStatus);
+    }
+
+    /**
+     * Stops the proc's frame with the given state, then runs handlePostFrameCompleteOperations with
+     * the mocks installed.
+     */
+    private void runPostFrameComplete(HandlerMocks mocks, VirtualProc proc,
+            FrameCompleteReport report, FrameState newFrameState, DispatchJob dispatchJob) {
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, newFrameState, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+        mocks.install();
+        try {
+            frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                    dispatchFrame, newFrameState, frameDetail);
+        } finally {
+            mocks.restore();
+        }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFailedLaunchUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc,
+                buildReport(proc, healthyReportHost().build(), FrameExitStatus.FAILED_LAUNCH_VALUE),
+                FrameState.WAITING, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNimbyLockedHostUnbooksProcAndSetsHostLock() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc,
+                buildReport(proc, healthyReportHost().setNimbyLocked(true).build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.hostManager).setHostLock(eq(proc), eq(LockState.NIMBY_LOCKED),
+                any(Source.class));
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testLowMemoryHostUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc,
+                buildReport(proc, healthyReportHost().setFreeMem(1000).build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testShowOverBurstUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.dispatchSupport).isShowOverBurst(any(VirtualProc.class));
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDownHostUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(false).when(mocks.hostManager).isHostUp(any(HostInterface.class));
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testLockedHostUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.hostManager).isLocked(any(HostInterface.class));
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testLocalDispatchWithoutAssignmentUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        proc.isLocalDispatch = true;
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFinishedJobUnbooksProcAndSendsJmsUpdate() {
+        VirtualProc proc = dispatchTestDependProc();
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        dispatchJob.state = JobState.FINISHED;
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, dispatchJob);
+
+        verify(mocks.dispatchSupport).unbookProc(proc);
+        verify(mocks.jmsMover).send(dispatchJob);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStrandedCoresRebookHost() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.dispatchSupport).hasStrandedCores(any(HostInterface.class));
+        doReturn(true).when(mocks.dispatchSupport).isJobBookable(any(JobInterface.class));
+        doReturn(true).when(mocks.jobManager).isLayerThreadable(any(LayerInterface.class));
+        doReturn(200).when(mocks.hostManager).getStrandedCoreUnits(any(HostInterface.class));
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).strandCores(any(DispatchHost.class), eq(200));
+        verify(mocks.dispatchSupport).unbookProc(proc);
+        verify(mocks.bookingQueue).execute(any(KeyRunnable.class));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testTerminalFrameStateUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        // A DEAD frame leaves this job with no waiting frames, which would divert the flow into
+        // the undispatchable-job branch before the terminal-state check this test pins down.
+        doReturn(true).when(mocks.dispatchSupport).isJobDispatchable(any(JobInterface.class),
+                anyBoolean());
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 1),
+                FrameState.DEAD, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchSupport).unbookProc(proc, "frame state was DEAD");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryFailureFollowsSuccessfulRedirect() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.redirectManager).hasRedirect(any(VirtualProc.class));
+        doReturn(true).when(mocks.redirectManager).redirect(any(VirtualProc.class));
+        runPostFrameComplete(mocks, proc,
+                buildReport(proc, healthyReportHost().build(),
+                        Dispatcher.EXIT_STATUS_MEMORY_FAILURE),
+                FrameState.WAITING, jobManager.getDispatchJob(proc.getJobId()));
+
+        // A successful redirect must win over the unbook flag set by the memory failure.
+        verify(mocks.redirectManager).redirect(any(VirtualProc.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFailedRedirectFallsThroughToNextFrame() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.redirectManager).hasRedirect(any(VirtualProc.class));
+        doReturn(false).when(mocks.redirectManager).redirect(any(VirtualProc.class));
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        // A failed redirect must not strand the proc; the next frame is booked as usual.
+        verify(mocks.dispatchQueue).execute(any(DispatchNextFrame.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHealthyProcBooksNextFrame() {
+        VirtualProc proc = dispatchTestDependProc();
+        HandlerMocks mocks = new HandlerMocks();
+        runPostFrameComplete(mocks, proc, buildReport(proc, healthyReportHost().build(), 0),
+                FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
+
+        verify(mocks.dispatchQueue).execute(any(DispatchNextFrame.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStaleReportUnbooksProc() {
+        VirtualProc proc = dispatchTestDependProc();
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(proc.getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.WAITING, 1, 0);
+
+        HandlerMocks mocks = new HandlerMocks();
+        doAnswer(invocation -> {
+            ((KeyRunnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(mocks.dispatchQueue).execute(any(KeyRunnable.class));
+
+        mocks.install();
+        try {
+            frameCompleteHandler
+                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
+        } finally {
+            mocks.restore();
+        }
+
+        // The stale branch must go through the dispatch queue, never run inline.
+        verify(mocks.dispatchQueue).execute(any(KeyRunnable.class));
+        verify(mocks.dispatchSupport).unbookProc(any(VirtualProc.class));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStaleReportFollowsRedirect() {
+        VirtualProc proc = dispatchTestDependProc();
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(proc.getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.WAITING, 1, 0);
+
+        HandlerMocks mocks = new HandlerMocks();
+        doReturn(true).when(mocks.redirectManager).hasRedirect(any(VirtualProc.class));
+        doReturn(true).when(mocks.redirectManager).redirect(any(VirtualProc.class));
+        doAnswer(invocation -> {
+            ((KeyRunnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(mocks.dispatchQueue).execute(any(KeyRunnable.class));
+
+        mocks.install();
+        try {
+            frameCompleteHandler
+                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
+        } finally {
+            mocks.restore();
+        }
+
+        // The stale branch must go through the dispatch queue, never run inline.
+        verify(mocks.dispatchQueue).execute(any(KeyRunnable.class));
+        verify(mocks.redirectManager).redirect(any(VirtualProc.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+    }
+
+    @Test(expected = RqdRetryReportException.class)
+    public void testShutdownRejectsNewReports() {
+        FrameCompleteHandler handler =
+                new FrameCompleteHandler(applicationContext.getEnvironment());
+        handler.shutdown();
+        handler.handleFrameCompleteReport(FrameCompleteReport.getDefaultInstance());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOrphanedReportFinalizesRunningFrame() {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        LayerDetail layerFirst = layerDao.findLayerDetail(job, "layer_first");
+        VirtualProc proc = dispatchTestDependProc();
+
+        // Remove the proc while the frame is still RUNNING, orphaning it.
+        dispatchSupport.unbookProc(proc);
+        assertEquals(FrameState.RUNNING, frameDao.findFrameDetail(job, "0000-layer_first").state);
+
+        frameCompleteHandler
+                .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
+
+        assertEquals(FrameState.SUCCEEDED, frameDao.findFrameDetail(job, "0000-layer_first").state);
+        assertTrue(jobManager.isLayerComplete(layerFirst));
+
+        FrameDetail frameSecond = frameDao.findFrameDetail(job, "0000-layer_second");
+        assertEquals(0, frameSecond.dependCount);
+        assertEquals(FrameState.WAITING, frameSecond.state);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOrphanedReportIgnoredWhenFrameNotRunning() {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        VirtualProc proc = dispatchTestDependProc();
+
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(proc.getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.EATEN, 0, 0);
+        dispatchSupport.unbookProc(proc);
+
+        HandlerMocks mocks = new HandlerMocks();
+        mocks.install();
+        try {
+            frameCompleteHandler
+                    .handleFrameCompleteReport(buildReport(proc, healthyReportHost().build(), 0));
+        } finally {
+            mocks.restore();
+        }
+
+        // The stale report must be dropped without touching the frame or its counters.
+        verify(mocks.dispatchSupport, never()).stopFrame(any(DispatchFrame.class),
+                any(FrameState.class), anyInt(), anyLong());
+        verify(mocks.dispatchSupport, never()).updateUsageCounters(any(DispatchFrame.class),
+                anyInt());
+        assertEquals(FrameState.EATEN, frameDao.findFrameDetail(job, "0000-layer_first").state);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOrphanedReportIgnoredWhenFrameOwnedByAnotherProc() {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        VirtualProc proc = dispatchTestDependProc();
+
+        // Report from a proc id that no longer exists, while the live proc still owns the frame.
+        frameCompleteHandler.handleFrameCompleteReport(buildReport(proc,
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", healthyReportHost().build(), 0));
+
+        assertEquals(FrameState.RUNNING, frameDao.findFrameDetail(job, "0000-layer_first").state);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOrphanedReportForUnknownFrameIsDropped() {
+        RunningFrameInfo info =
+                RunningFrameInfo.newBuilder().setJobId("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                        .setLayerId("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                        .setFrameId("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                        .setResourceId("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
+                .setHost(healthyReportHost().build()).setExitStatus(0).build();
+
+        // Both the proc and the frame are gone; the report must be dropped without retrying RQD.
+        frameCompleteHandler.handleFrameCompleteReport(report);
     }
 }
