@@ -2,7 +2,7 @@
 layout: default
 title: "July 7, 2026: Announcing OpenCueWeb: The Complete Web-Based OpenCue GUI"
 parent: News
-nav_order: 0
+nav_order: 1
 ---
 
 # Announcing OpenCueWeb: The Complete Web-Based OpenCue GUI

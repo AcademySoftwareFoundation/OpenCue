@@ -2,7 +2,7 @@
 layout: default
 title: "May 24, 2024: OpenCue Project Review 2024"
 parent: News
-nav_order: 4
+nav_order: 5
 ---
 
 # OpenCue Project Review 2024

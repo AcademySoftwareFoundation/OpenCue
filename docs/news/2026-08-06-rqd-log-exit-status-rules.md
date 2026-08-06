@@ -2,7 +2,7 @@
 layout: default
 title: "August 6, 2026: Log-Based Exit-Status Rules in Rust RQD"
 parent: News
-nav_order: -1
+nav_order: 0
 ---
 
 # Log-Based Exit-Status Rules in Rust RQD
