@@ -52,10 +52,8 @@ use miette::{miette, Context, IntoDiagnostic, Result};
 use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
-use regex::Regex;
-
 use super::logging::{FrameLogger, FrameLoggerBuilder};
-use crate::config::{LogExitStatusRule, RunnerConfig};
+use crate::config::{CompiledExitStatusRule, RunnerConfig};
 
 /// Maximum number of bytes read from the tail of a frame log when scanning for
 /// exit-status-override patterns. Bounds the IO regardless of the configured line count so a
@@ -68,35 +66,6 @@ const LOG_SCAN_MAX_BYTES: u64 = 1024 * 1024; // 1 MiB
 /// default 50-line tail of a frame log (~4 KiB, including the multi-line process footer) fits in
 /// a single read with headroom.
 const LOG_SCAN_CHUNK_BYTES: u64 = 16 * 1024; // 16 KiB
-
-/// A [`LogExitStatusRule`] with its regex compiled, ready for matching.
-struct CompiledExitStatusRule {
-    name: String,
-    regex: Regex,
-    exit_status: i32,
-}
-
-/// Compiles the configured rules, skipping (with a warning) any whose regex is invalid so a
-/// single bad pattern can neither disable the whole feature nor fail frame completion.
-fn compile_exit_status_rules(rules: &[LogExitStatusRule]) -> Vec<CompiledExitStatusRule> {
-    rules
-        .iter()
-        .filter_map(|rule| match Regex::new(&rule.regex) {
-            Ok(regex) => Some(CompiledExitStatusRule {
-                name: rule.name.clone(),
-                regex,
-                exit_status: rule.exit_status,
-            }),
-            Err(err) => {
-                warn!(
-                    "Ignoring invalid log_exit_status_rule '{}' (regex {:?}): {}",
-                    rule.name, rule.regex, err
-                );
-                None
-            }
-        })
-        .collect()
-}
 
 /// Returns the `(name, exit_status)` of the first rule that matches anywhere in `log_tail`.
 fn match_exit_status_rules(
@@ -650,13 +619,18 @@ impl RunningFrame {
     /// Only failed frames are scanned (`exit_code != 0`), so a successful frame is never
     /// reclassified. Any error like a missing/unreadable log, a Loki-only frame with no local
     /// log file is treated as "no override" and never blocks or fails frame completion.
-    pub(super) async fn scan_log_for_exit_status_override(&self, exit_code: i32) -> Option<i32> {
+    ///
+    /// On a match returns the matching rule's name alongside the override status, so the caller
+    /// can record the reclassification in the frame log for artists debugging the frame.
+    pub(super) async fn scan_log_for_exit_status_override(
+        &self,
+        exit_code: i32,
+    ) -> Option<(String, i32)> {
         // A successful frame keeps its status; only failures are reinterpreted.
         if exit_code == 0 {
             return None;
         }
-        let rules = &self.config.log_exit_status_rules;
-        if rules.is_empty() || self.config.log_scan_last_lines == 0 {
+        if self.config.log_exit_status_rules.is_empty() || self.config.log_scan_last_lines == 0 {
             return None;
         }
         // If RQD itself killed this frame (OOM, NIMBY, timeout, manual kill), that reason is
@@ -669,7 +643,7 @@ impl RunningFrame {
         if !self.request.loki_url.is_empty() {
             return None;
         }
-        let compiled = compile_exit_status_rules(rules);
+        let compiled = self.config.compiled_exit_status_rules();
         if compiled.is_empty() {
             return None;
         }
@@ -686,13 +660,13 @@ impl RunningFrame {
         };
 
         let log_tail = lines.join("\n");
-        match match_exit_status_rules(&log_tail, &compiled) {
+        match match_exit_status_rules(&log_tail, compiled) {
             Some((name, exit_status)) => {
                 info!(
                     "Frame {}: log matched rule '{}'; overriding exit status {} -> {}",
                     self, name, exit_code, exit_status
                 );
-                Some(exit_status)
+                Some((name, exit_status))
             }
             None => None,
         }
@@ -733,10 +707,18 @@ impl RunningFrame {
             Ok((exit_code, exit_signal)) => {
                 // Reclassify known failures (e.g. license shortages) before persisting the
                 // finished state, so both the footer and the report to Cuebot see the override.
-                let exit_code = self
-                    .scan_log_for_exit_status_override(exit_code)
-                    .await
-                    .unwrap_or(exit_code);
+                let exit_code = match self.scan_log_for_exit_status_override(exit_code).await {
+                    Some((name, override_code)) => {
+                        // Record the reclassification in the frame log itself; otherwise the
+                        // footer would show only the overridden status and the original exit
+                        // code the process actually returned would appear nowhere artists look.
+                        logger.writeln(&format!(
+                            "Exit status {exit_code} overridden to {override_code} by rule '{name}'"
+                        ));
+                        override_code
+                    }
+                    None => exit_code,
+                };
                 if let Err(err) = self.finish(exit_code, exit_signal, None) {
                     error!("Failed to mark frame {} as finished. {}", self, err);
                 }
@@ -1839,14 +1821,11 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    use crate::config::{Config, LogExitStatusRule, RunnerConfig};
+    use crate::config::{compile_exit_status_rules, Config, LogExitStatusRule, RunnerConfig};
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
-    use super::{
-        compile_exit_status_rules, match_exit_status_rules, read_last_lines, RunningFrame,
-        LOG_SCAN_MAX_BYTES,
-    };
+    use super::{match_exit_status_rules, read_last_lines, RunningFrame, LOG_SCAN_MAX_BYTES};
 
     fn create_running_frame(
         command: &str,
@@ -2109,7 +2088,10 @@ mod tests {
     async fn test_scan_overrides_on_license_match() {
         // End-to-end: a failed frame whose log contains the license message is reclassified.
         let frame = frame_with_license_rule("", LICENSE_LOG);
-        assert_eq!(frame.scan_log_for_exit_status_override(3).await, Some(330));
+        assert_eq!(
+            frame.scan_log_for_exit_status_override(3).await,
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
         let _ = std::fs::remove_file(&frame.log_path);
     }
 
