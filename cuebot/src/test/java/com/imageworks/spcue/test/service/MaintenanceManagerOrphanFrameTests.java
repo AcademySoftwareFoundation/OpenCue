@@ -104,9 +104,10 @@ public class MaintenanceManagerOrphanFrameTests {
     }
 
     @Test
-    public void budgetExhaustedMarksDeadWithoutKill() {
-        // Zero budget: the pass deadline is already reached, so no kill is attempted and the frame
-        // is failed closed.
+    public void budgetExhaustedSendsBestEffortKillThenMarksDead() {
+        // Zero budget: the pass deadline is already reached, so death cannot be confirmed. A
+        // best-effort, non-blocking kill is still sent so the render is asked to stop, but no
+        // confirmation is polled and the frame is failed closed (DEAD).
         when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
                 anyLong())).thenReturn(0L);
         FrameDetail frame = orphanFrame("frame-3", "host3/100/0");
@@ -114,7 +115,8 @@ public class MaintenanceManagerOrphanFrameTests {
 
         maintenanceManager.clearOrphanedFrames();
 
-        verify(rqdClient, never()).killFrame(anyString(), anyString(), anyString());
+        verify(rqdClient).killFrame(eq("host3"), eq("frame-3"), anyString());
+        verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
         verify(frameDao).updateFrameStopped(frame, FrameState.DEAD,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
     }
