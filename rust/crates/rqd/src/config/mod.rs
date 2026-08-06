@@ -188,6 +188,26 @@ mod tests {
     }
 }
 
+/// A rule that reclassifies a failed frame's exit status based on its log output.
+///
+/// When a frame finishes with a non-zero exit code, RQD scans the tail of its log (see
+/// [`RunnerConfig::log_scan_last_lines`]). The first rule whose `regex` matches causes the
+/// frame to report `exit_status` to Cuebot instead of the process's real exit code. This lets
+/// operators single out failures that deserve special dispatcher handling, e.g. a Houdini
+/// license shortage that should be retried differently without the render wrapper needing to
+/// translate the error into an exit code itself.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LogExitStatusRule {
+    /// Human-readable identifier, used only in log messages (e.g. "HOUDINI_LICENSE_ERROR").
+    #[serde(default)]
+    pub name: String,
+    /// Regular expression tested against the scanned log tail. Invalid patterns are skipped
+    /// (with a warning) at scan time so a single typo can't disable the whole feature.
+    pub regex: String,
+    /// Exit status reported to Cuebot when `regex` matches.
+    pub exit_status: u32,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct RunnerConfig {
@@ -209,6 +229,12 @@ pub struct RunnerConfig {
     pub docker_mounts: Vec<DockerMountConfig>,
     pub docker_default_image: String,
     pub docker_images: HashMap<String, String>,
+    /// Number of trailing log lines scanned against `log_exit_status_rules` when a frame
+    /// fails. Set to 0, or leave `log_exit_status_rules` empty, to disable log scanning.
+    pub log_scan_last_lines: usize,
+    /// Ordered list of regex→exit-status rules applied to failed frames' logs. The first
+    /// matching rule wins. Empty by default, which disables the feature.
+    pub log_exit_status_rules: Vec<LogExitStatusRule>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -256,6 +282,8 @@ impl Default for RunnerConfig {
             docker_mounts: Vec::new(),
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),
+            log_scan_last_lines: 50,
+            log_exit_status_rules: Vec::new(),
         }
     }
 }
