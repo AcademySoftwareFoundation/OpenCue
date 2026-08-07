@@ -26,9 +26,14 @@ import org.apache.logging.log4j.LogManager;
 /**
  * A runnable to communicate with rqd requesting for a frame to be killed due to memory issues.
  * <p>
- * Before killing a frame, the database is updated to mark the frame status as
- * EXIT_STATUS_MEMORY_FAILURE, this allows the FrameCompleteHandler to possibly retry the frame
- * after increasing its memory requirements
+ * The kill is sent as a generic kill request, so rqd reports the resulting FrameCompleteReport as
+ * an ordinary termination (e.g. SIGTERM/SIGKILL) rather than as a memory failure -- rqd only stamps
+ * exit_signal=EXIT_STATUS_MEMORY_FAILURE for kills triggered by its own OOM-pressure logic, not for
+ * kills requested by Cuebot. To preserve the memory-kill intent across the report, the database is
+ * updated to mark the frame status as EXIT_STATUS_MEMORY_FAILURE <em>before</em> the kill is sent;
+ * FrameCompleteHandler then honors that stored status (see its resolveExitStatus) so the frame can
+ * be retried after increasing its memory requirements. Persisting the intent up front also keeps
+ * the retry robust if the report is lost, rqd restarts, or the fleet is mixed.
  */
 public class DispatchRqdKillFrameMemory extends KeyRunnable {
 

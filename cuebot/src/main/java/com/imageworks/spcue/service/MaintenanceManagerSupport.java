@@ -37,6 +37,8 @@ import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -66,9 +68,60 @@ public class MaintenanceManagerSupport {
 
     private DependManager dependManager;
 
+    private RqdClient rqdClient;
+
     private static final long WAIT_FOR_HOST_REPORTS_MS = 600000;
 
     private static final int CHECKPOINT_MAX_WAIT_SEC = 300;
+
+    /**
+     * Total wall-clock budget for killing and confirming the death of orphaned frames in a single
+     * maintenance pass. Once spent, remaining frames are deferred to the next pass. Kept well below
+     * the orphaned-frame check interval so a pass cannot overrun into the next one. Overridable via
+     * the {@code maintenance.orphaned_frame_kill_budget_ms} property.
+     */
+    private static final long DEFAULT_ORPHANED_FRAME_KILL_BUDGET_MS = 10000;
+
+    /**
+     * Per-frame ceiling on how long to wait for a single orphaned frame's render to confirm dead.
+     * Bounds one slow-to-exit render so it cannot monopolize the whole pass budget; the frame is
+     * deferred to the next pass instead. Overridable via the
+     * {@code maintenance.orphaned_frame_confirm_timeout_ms} property.
+     */
+    private static final long DEFAULT_ORPHANED_FRAME_CONFIRM_TIMEOUT_MS = 5000;
+
+    /**
+     * How long a frame may stay orphaned-and-unconfirmable (measured from its last update) before
+     * it is failed closed (DEAD) instead of being deferred again. This bounds deferral so a frame
+     * that can never be confirmed dead eventually surfaces for manual retry rather than lingering
+     * RUNNING forever. Overridable via the {@code maintenance.orphaned_frame_max_defer_ms}
+     * property.
+     */
+    private static final long DEFAULT_ORPHANED_FRAME_MAX_DEFER_MS = 3600000;
+
+    /**
+     * Maximum number of orphaned frames to process in a single pass. Bounds the work of a
+     * fleet-wide event; the remainder is picked up on subsequent passes. Overridable via the
+     * {@code maintenance.orphaned_frame_batch_size} property.
+     */
+    private static final int DEFAULT_ORPHANED_FRAME_BATCH_SIZE = 100;
+
+    /** How long to wait between polls of RQD while confirming an orphaned frame is dead. */
+    private static final long ORPHAN_KILL_POLL_INTERVAL_MS = 500;
+
+    /**
+     * Outcome of attempting to confirm an orphaned frame's render is dead.
+     */
+    private enum OrphanKillResult {
+        /** The render is confirmed gone (or the frame never ran): safe to reset to WAITING. */
+        CONFIRMED_DEAD,
+        /**
+         * The host could not be reached to confirm: fail closed (DEAD) rather than risk a rebook.
+         */
+        UNREACHABLE,
+        /** Reachable but still running within the per-frame timeout: defer to the next pass. */
+        STILL_RUNNING
+    }
 
     private long dbConnectionFailureTime = 0;
 
@@ -159,33 +212,243 @@ public class MaintenanceManagerSupport {
                 logger.info("failed to clear orphaned proc: " + proc.getName() + " " + e);
             }
         }
+    }
 
-        List<FrameInterface> frames = frameDao.getOrphanedFrames();
-        for (FrameInterface frame : frames) {
+    /**
+     * Clears orphaned frames (RUNNING with no proc).
+     *
+     * Runs on its own Quartz trigger under {@link MaintenanceTask#LOCK_ORPHANED_FRAME_CHECK} so it
+     * neither shares nor starves the hardware-state check's budget or lock. Gated by
+     * {@code maintenance.orphaned_frame_check_enabled} (default true).
+     */
+    public void clearOrphanedFrames() {
+        if (!env.getProperty("maintenance.orphaned_frame_check_enabled", Boolean.class, true)) {
+            return;
+        }
+        // Take a task lock so multiple Cuebots in a cluster don't run the sweep concurrently.
+        if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK)) {
+            return;
+        }
+        try {
+            doClearOrphanedFrames();
+        } catch (Exception e) {
+            logger.warn("failed to clear orphaned frames: " + e);
+        } finally {
+            maintenanceDao.unlockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK);
+        }
+    }
+
+    /**
+     * Kills and clears orphaned frames within this pass's budget.
+     *
+     * A frame is orphaned when its proc was removed while RQD was still rendering. Before clearing
+     * one we kill it on its last-known host and confirm the render is dead; only then is it reset
+     * to WAITING (auto-retry). We never reset an unconfirmed frame, because rebooking it while the
+     * original render may still be alive causes double booking. The outcomes are:
+     *
+     * <ul>
+     * <li><b>Confirmed dead</b> (or the frame never ran): reset to WAITING for auto-retry.</li>
+     * <li><b>Reachable but not dead yet</b>, or this pass's budget ran out before we could confirm:
+     * the frame is deferred -- left RUNNING after a best-effort kill -- so the next pass retries
+     * it. Because the kill was already sent, the next pass typically confirms death on its first
+     * poll. This is safe against double booking (the dispatcher never books a RUNNING frame) and,
+     * unlike DEAD, destroys no work. A single slow-to-exit render can no longer consume the whole
+     * pass: a per-frame timeout ({@code maintenance.orphaned_frame_confirm_timeout_ms}) caps its
+     * wait and defers it.</li>
+     * <li><b>Host unreachable</b>, or the frame has been orphaned-and-unconfirmable longer than
+     * {@code maintenance.orphaned_frame_max_defer_ms}: failed closed (DEAD) so it surfaces for a
+     * manual retry rather than lingering RUNNING forever.</li>
+     * </ul>
+     *
+     * The pass is bounded by {@code maintenance.orphaned_frame_kill_budget_ms} and
+     * {@code maintenance.orphaned_frame_batch_size} so a fleet-wide event cannot stall maintenance
+     * or be handled all at once.
+     */
+    private void doClearOrphanedFrames() {
+        long killBudgetMs = env.getProperty("maintenance.orphaned_frame_kill_budget_ms", Long.class,
+                DEFAULT_ORPHANED_FRAME_KILL_BUDGET_MS);
+        long confirmTimeoutMs = env.getProperty("maintenance.orphaned_frame_confirm_timeout_ms",
+                Long.class, DEFAULT_ORPHANED_FRAME_CONFIRM_TIMEOUT_MS);
+        long maxDeferMs = env.getProperty("maintenance.orphaned_frame_max_defer_ms", Long.class,
+                DEFAULT_ORPHANED_FRAME_MAX_DEFER_MS);
+        int batchSize = env.getProperty("maintenance.orphaned_frame_batch_size", Integer.class,
+                DEFAULT_ORPHANED_FRAME_BATCH_SIZE);
+        long phaseDeadlineMs = System.currentTimeMillis() + killBudgetMs;
+        int failedUnconfirmed = 0;
+        int deferred = 0;
+
+        List<FrameDetail> frames = frameDao.getOrphanedFrames(batchSize);
+        for (FrameDetail frame : frames) {
             try {
-                if (frameDao.updateFrameStopped(frame, FrameState.WAITING,
-                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN)) {
-                    /*
-                     * The proc row is already gone, so the host<->frame link is lost and RQD cannot
-                     * be killed from here. Reaching this point means a zombie may have been
-                     * produced upstream (a proc was deleted without confirming the frame stopped).
-                     * Report it so the residual rate is observable after the kill-before-release
-                     * and defer-release fixes.
-                     */
-                    logger.warn("Reset orphaned frame " + frame.getName() + " (frameId="
-                            + frame.getFrameId() + ") to WAITING; its proc was already gone so RQD "
-                            + "could not be killed. If RQD is still rendering it this is a "
-                            + "double-booking risk.");
-                    Sentry.withScope(scope -> {
-                        scope.setExtra("frame_id", frame.getFrameId());
-                        scope.setExtra("frame_name", frame.getName());
-                        Sentry.captureMessage("Maintenance reset orphaned frame with no proc");
-                    });
+                // Re-check orphanhood right before acting: between getOrphanedFrames() and this
+                // frame's turn in the batch, a late FrameCompleteReport can finalize the frame and
+                // the dispatcher can rebook it -- possibly onto the same host -- and the kill RPC
+                // is fenced only by frameId, so killing without re-checking could kill the new
+                // legitimate run.
+                if (!frameDao.isOrphan(frame)) {
+                    logger.info("frame " + frame.getName() + " is no longer orphaned; skipping.");
+                    continue;
+                }
+
+                if (System.currentTimeMillis() >= phaseDeadlineMs) {
+                    // Budget exhausted: no time to confirm death this pass. Still send a
+                    // best-effort, non-blocking kill so the render is asked to stop, then defer the
+                    // frame to the next pass. A frame that never ran (null host) has no render to
+                    // confirm and is safe to reset now.
+                    if (killFrameBestEffort(frame) == null) {
+                        resetOrphanedFrame(frame, FrameState.WAITING);
+                    } else if (isDeferExpired(frame, maxDeferMs)) {
+                        if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                            failedUnconfirmed++;
+                        }
+                    } else {
+                        deferred++;
+                    }
+                    continue;
+                }
+
+                // Cap this frame's confirm wait at the per-frame timeout, but never past the pass
+                // budget, so one slow render cannot starve the frames behind it.
+                long frameDeadlineMs =
+                        Math.min(System.currentTimeMillis() + confirmTimeoutMs, phaseDeadlineMs);
+                switch (killAndConfirmDead(frame, frameDeadlineMs)) {
+                    case CONFIRMED_DEAD:
+                        resetOrphanedFrame(frame, FrameState.WAITING);
+                        break;
+                    case UNREACHABLE:
+                        if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                            failedUnconfirmed++;
+                        }
+                        break;
+                    case STILL_RUNNING:
+                    default:
+                        // Reachable but not dead yet. Defer to the next pass unless it has been
+                        // orphaned-and-unconfirmable too long, in which case fail it closed.
+                        if (isDeferExpired(frame, maxDeferMs)) {
+                            if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                                failedUnconfirmed++;
+                            }
+                        } else {
+                            deferred++;
+                        }
+                        break;
                 }
             } catch (Exception e) {
                 logger.info("failed to clear orphaned frame: " + frame.getName() + " " + e);
             }
         }
+
+        if (deferred > 0) {
+            logger.info(deferred + " orphaned frame(s) could not be confirmed dead within this "
+                    + "pass's kill budget; they were left RUNNING (after a best-effort kill) and "
+                    + "will be retried next pass.");
+        }
+        if (failedUnconfirmed > 0) {
+            logger.warn(failedUnconfirmed + " orphaned frame(s) were marked DEAD because the "
+                    + "original render could not be confirmed dead (host unreachable, or still "
+                    + "unconfirmable after " + maxDeferMs
+                    + "ms); they need a manual retry. Marking "
+                    + "DEAD avoids double-booking them.");
+        }
+    }
+
+    /**
+     * Stops an orphaned frame into the given state. Returns whether the update actually applied:
+     * the update is version-fenced, so {@code false} means a concurrent
+     * {@code finalizeOrphanedFrameComplete} (or another actor) got to the frame first, in which
+     * case the frame is no longer this pass's responsibility and must not be counted as failed.
+     */
+    private boolean resetOrphanedFrame(FrameDetail frame, FrameState state) {
+        boolean applied =
+                frameDao.updateFrameStopped(frame, state, Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        if (!applied) {
+            logger.info("orphaned frame " + frame.getName()
+                    + " was concurrently finalized (version changed); not marking " + state + ".");
+        }
+        return applied;
+    }
+
+    /**
+     * Returns whether an orphaned frame has been unconfirmable long enough to be failed closed
+     * instead of deferred again. Age is measured from the frame's last update ({@code ts_updated}),
+     * which stops advancing once the render's proc is gone, so it tracks how long the frame has
+     * been orphaned. A frame with no recorded update timestamp is treated as not-yet-expired so the
+     * non-destructive deferral path is preferred.
+     */
+    private boolean isDeferExpired(FrameDetail frame, long maxDeferMs) {
+        if (frame.dateUpdated == null) {
+            return false;
+        }
+        return System.currentTimeMillis() - frame.dateUpdated.getTime() > maxDeferMs;
+    }
+
+    /**
+     * Kills an orphaned frame on its last-known host and waits, within the given deadline, for RQD
+     * to confirm the frame is no longer running.
+     *
+     * The frame has no proc, so the host is recovered from the frame's last resource string.
+     * Returns {@link OrphanKillResult#CONFIRMED_DEAD} when the render is gone (or the frame never
+     * ran, so there is nothing to kill), {@link OrphanKillResult#UNREACHABLE} when the host cannot
+     * be reached to confirm, and {@link OrphanKillResult#STILL_RUNNING} when the render is
+     * reachable but has not exited by the deadline.
+     */
+    private OrphanKillResult killAndConfirmDead(FrameDetail frame, long deadlineMs) {
+        String host = killFrameBestEffort(frame);
+        // A null host means the frame never ran, so there is no render alive to confirm dead.
+        if (host == null) {
+            return OrphanKillResult.CONFIRMED_DEAD;
+        }
+
+        // do/while so we always poll at least once even when the deadline is already tight.
+        do {
+            try {
+                if (!rqdClient.isFrameRunning(host, frame.getFrameId())) {
+                    return OrphanKillResult.CONFIRMED_DEAD;
+                }
+            } catch (RqdClientException e) {
+                logger.info("could not confirm orphaned frame " + frame.getName() + " is dead on "
+                        + host + ", " + e);
+                return OrphanKillResult.UNREACHABLE;
+            }
+            if (System.currentTimeMillis() >= deadlineMs) {
+                break;
+            }
+            try {
+                Thread.sleep(ORPHAN_KILL_POLL_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return OrphanKillResult.STILL_RUNNING;
+            }
+        } while (System.currentTimeMillis() < deadlineMs);
+        return OrphanKillResult.STILL_RUNNING;
+    }
+
+    /**
+     * Sends a best-effort, non-blocking kill for an orphaned frame on its last-known host. Does not
+     * wait for or confirm the render is dead, so it is safe to call even when the kill budget is
+     * exhausted. Returns the host the kill was sent to, or {@code null} when the frame never ran
+     * (nothing to kill).
+     */
+    private String killFrameBestEffort(FrameDetail frame) {
+        // lastResource is "host/cores/gpus" (see FrameDaoJdbc.FRAME_DETAIL_MAPPER); empty if the
+        // frame never ran, in which case there is no render alive to kill.
+        if (frame.lastResource == null || frame.lastResource.isEmpty()) {
+            return null;
+        }
+        String host = frame.lastResource.split("/")[0];
+        if (host.isEmpty()) {
+            return null;
+        }
+
+        try {
+            rqdClient.killFrame(host, frame.getFrameId(),
+                    "kill-before-reset: clearing orphaned frame");
+        } catch (Exception e) {
+            // Best effort: the host may already be gone. Any confirmation is left to the caller.
+            logger.info(
+                    "kill-before-reset failed for orphaned frame " + frame.getName() + ", " + e);
+        }
+        return host;
     }
 
     private void clearDownProcs() {
@@ -391,6 +654,14 @@ public class MaintenanceManagerSupport {
 
     public void setDependManager(DependManager dependManager) {
         this.dependManager = dependManager;
+    }
+
+    public RqdClient getRqdClient() {
+        return rqdClient;
+    }
+
+    public void setRqdClient(RqdClient rqdClient) {
+        this.rqdClient = rqdClient;
     }
 
 }

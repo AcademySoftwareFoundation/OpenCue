@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
 
@@ -209,20 +210,26 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void testgetOrphanedFrames() {
-        assertEquals(0, frameDao.getOrphanedFrames().size());
+        assertEquals(0, frameDao.getOrphanedFrames(100).size());
 
         JobDetail job = launchJob();
         FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
 
         /*
          * Update the first frame to the orphan state, which is a frame that is in the running
-         * state, has no corresponding proc entry and has not been updated in the last 5 min.
+         * state, has no corresponding proc entry and has not been updated in the last 5 min. Set a
+         * last-known host so getOrphanedFrames can surface it via lastResource.
          */
         jdbcTemplate.update("UPDATE frame SET str_state = 'RUNNING', "
+                + "str_host = 'testhost', int_cores = 100, int_gpus = 0, "
                 + "ts_updated = current_timestamp - interval '301' second WHERE pk_frame = ?",
                 f.getFrameId());
 
-        assertEquals(1, frameDao.getOrphanedFrames().size());
+        List<FrameDetail> orphans = frameDao.getOrphanedFrames(100);
+        assertEquals(1, orphans.size());
+        // lastResource is "host/cores/gpus"; the reaper parses the host from it without a second
+        // lookup.
+        assertEquals("testhost/100/0", orphans.get(0).lastResource);
         assertTrue(frameDao.isOrphan(f));
 
     }
