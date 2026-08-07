@@ -137,10 +137,10 @@ public class FrameCompleteHandler {
 
     /**
      * Exit statuses that defer the whole layer's booking instead of consuming a retry or killing
-     * the frame, mapped to how long the layer is deferred. Parsed once at startup from
+     * the frame, mapped to how long the layer is deferred. Parsed at startup from
      * dispatcher.layer_delay.rules; empty (the default) disables the automatic backoff.
      */
-    private final Map<Integer, Duration> delayRules;
+    private volatile Map<Integer, Duration> delayRules;
 
     public boolean getSatisfyDependOnlyOnFrameSuccess() {
         return satisfyDependOnlyOnFrameSuccess;
@@ -148,6 +148,19 @@ public class FrameCompleteHandler {
 
     public void setSatisfyDependOnlyOnFrameSuccess(boolean satisfyDependOnlyOnFrameSuccess) {
         this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
+    }
+
+    public Map<Integer, Duration> getDelayRules() {
+        return delayRules;
+    }
+
+    /**
+     * Replaces the parsed dispatcher.layer_delay.rules. Cuebot sets these once from configuration
+     * at startup; this exists so tests can exercise a rule set without standing up a second
+     * application context.
+     */
+    public void setDelayRules(Map<Integer, Duration> delayRules) {
+        this.delayRules = delayRules;
     }
 
     @Autowired
