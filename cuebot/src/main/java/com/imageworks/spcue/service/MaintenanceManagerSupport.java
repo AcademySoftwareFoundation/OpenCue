@@ -280,18 +280,27 @@ public class MaintenanceManagerSupport {
         List<FrameDetail> frames = frameDao.getOrphanedFrames(batchSize);
         for (FrameDetail frame : frames) {
             try {
+                // Re-check orphanhood right before acting: between getOrphanedFrames() and this
+                // frame's turn in the batch, a late FrameCompleteReport can finalize the frame and
+                // the dispatcher can rebook it -- possibly onto the same host -- and the kill RPC
+                // is fenced only by frameId, so killing without re-checking could kill the new
+                // legitimate run.
+                if (!frameDao.isOrphan(frame)) {
+                    logger.info("frame " + frame.getName() + " is no longer orphaned; skipping.");
+                    continue;
+                }
+
                 if (System.currentTimeMillis() >= phaseDeadlineMs) {
                     // Budget exhausted: no time to confirm death this pass. Still send a
                     // best-effort, non-blocking kill so the render is asked to stop, then defer the
                     // frame to the next pass. A frame that never ran (null host) has no render to
                     // confirm and is safe to reset now.
                     if (killFrameBestEffort(frame) == null) {
-                        frameDao.updateFrameStopped(frame, FrameState.WAITING,
-                                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+                        resetOrphanedFrame(frame, FrameState.WAITING);
                     } else if (isDeferExpired(frame, maxDeferMs)) {
-                        frameDao.updateFrameStopped(frame, FrameState.DEAD,
-                                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
-                        failedUnconfirmed++;
+                        if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                            failedUnconfirmed++;
+                        }
                     } else {
                         deferred++;
                     }
@@ -304,22 +313,21 @@ public class MaintenanceManagerSupport {
                         Math.min(System.currentTimeMillis() + confirmTimeoutMs, phaseDeadlineMs);
                 switch (killAndConfirmDead(frame, frameDeadlineMs)) {
                     case CONFIRMED_DEAD:
-                        frameDao.updateFrameStopped(frame, FrameState.WAITING,
-                                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+                        resetOrphanedFrame(frame, FrameState.WAITING);
                         break;
                     case UNREACHABLE:
-                        frameDao.updateFrameStopped(frame, FrameState.DEAD,
-                                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
-                        failedUnconfirmed++;
+                        if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                            failedUnconfirmed++;
+                        }
                         break;
                     case STILL_RUNNING:
                     default:
                         // Reachable but not dead yet. Defer to the next pass unless it has been
                         // orphaned-and-unconfirmable too long, in which case fail it closed.
                         if (isDeferExpired(frame, maxDeferMs)) {
-                            frameDao.updateFrameStopped(frame, FrameState.DEAD,
-                                    Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
-                            failedUnconfirmed++;
+                            if (resetOrphanedFrame(frame, FrameState.DEAD)) {
+                                failedUnconfirmed++;
+                            }
                         } else {
                             deferred++;
                         }
@@ -342,6 +350,22 @@ public class MaintenanceManagerSupport {
                     + "ms); they need a manual retry. Marking "
                     + "DEAD avoids double-booking them.");
         }
+    }
+
+    /**
+     * Stops an orphaned frame into the given state. Returns whether the update actually applied:
+     * the update is version-fenced, so {@code false} means a concurrent
+     * {@code finalizeOrphanedFrameComplete} (or another actor) got to the frame first, in which
+     * case the frame is no longer this pass's responsibility and must not be counted as failed.
+     */
+    private boolean resetOrphanedFrame(FrameDetail frame, FrameState state) {
+        boolean applied =
+                frameDao.updateFrameStopped(frame, state, Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        if (!applied) {
+            logger.info("orphaned frame " + frame.getName()
+                    + " was concurrently finalized (version changed); not marking " + state + ".");
+        }
+        return applied;
     }
 
     /**

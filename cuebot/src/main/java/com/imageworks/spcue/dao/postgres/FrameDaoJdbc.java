@@ -445,6 +445,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + "AND job.str_state = 'PENDING' "
             + "AND (SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 "
             + "AND current_timestamp - frame.ts_updated > interval '300' second "
+            + "ORDER BY frame.ts_updated ASC, frame.pk_frame ASC "
             + "LIMIT ?";
     // spotless:on
 

@@ -489,10 +489,11 @@ impl MachineMonitor {
             }
         }
 
-        // Move newly finished frames into the durable pending-completion store (releasing their
-        // cores exactly once), then attempt to deliver every pending completion. Entries survive
+        // Move newly finished frames into the pending-completion store (releasing their cores
+        // exactly once), then attempt to deliver every pending completion. Entries survive
         // delivery failures and are retried on subsequent cycles, so a finished frame's completion
-        // is never lost.
+        // is not lost while this RQD stays up (the store is in-memory, so it does not survive an
+        // RQD restart).
         self.enqueue_and_release_finished_frames_cores(finished_frames)
             .await;
         self.flush_pending_completions().await;
@@ -578,8 +579,9 @@ impl MachineMonitor {
         Ok(())
     }
 
-    /// Release the cores held by newly finished frames and move them into the durable
-    /// pending-completion store. Cores are released here, exactly once per frame, because the frame
+    /// Release the cores held by newly finished frames and move them into the in-memory
+    /// pending-completion store (entries are retried until acknowledged, but do not survive an RQD
+    /// restart). Cores are released here, exactly once per frame, because the frame
     /// is done locally regardless of whether Cuebot has acknowledged the completion yet. The actual
     /// delivery (and its retries) is handled by [`Self::flush_pending_completions`].
     async fn enqueue_and_release_finished_frames_cores(
@@ -709,9 +711,9 @@ impl MachineMonitor {
     /// dropping a completion is exactly what reintroduces double booking, so this store fails closed.
     /// The unbounded work is instead bounded by the caller ([`Self::flush_pending_completions`]),
     /// which runs this off the monitor loop under a time budget.
-    async fn deliver_pending_completions(
+    async fn deliver_pending_completions<T: ReportInterface + Send + Sync + 'static>(
         pending_completions: Arc<DashMap<Uuid, PendingCompletion>>,
-        report_client: Arc<ReportClient>,
+        report_client: Arc<T>,
         last_host_state: Arc<RwLock<Option<RenderHost>>>,
     ) {
         // Avoid holding a lock while reporting back to cuebot
@@ -877,6 +879,205 @@ mod tests {
             MachineMonitor::initial_nimby_state(&config),
             LockState::Open
         );
+    }
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    use std::collections::HashSet;
+    use std::sync::Mutex as StdMutex;
+    use std::time::{Duration, Instant};
+
+    use async_trait::async_trait;
+    use dashmap::DashMap;
+    use miette::{miette, Result};
+    use opencue_proto::report::{CoreDetail, HostReport, RenderHost, RunningFrameInfo};
+    use opencue_proto::rqd::RunFrame;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+    use uuid::Uuid;
+
+    use super::{MachineMonitor, PendingCompletion};
+    use crate::config::Config;
+    use crate::frame::running_frame::RunningFrame;
+    use crate::report::report_client::ReportInterface;
+
+    /// Scripted ReportInterface: records every frame-complete call and fails delivery for the
+    /// frame ids it was told to fail.
+    struct MockReportClient {
+        fail_ids: HashSet<String>,
+        calls: StdMutex<Vec<(String, u32, u32, u32)>>,
+    }
+
+    impl MockReportClient {
+        fn new(fail_ids: Vec<String>) -> Self {
+            Self {
+                fail_ids: fail_ids.into_iter().collect(),
+                calls: StdMutex::new(Vec::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ReportInterface for MockReportClient {
+        async fn send_start_up_report(
+            &self,
+            _render_host: RenderHost,
+            _core_detail: CoreDetail,
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        async fn send_frame_complete_report(
+            &self,
+            _host: RenderHost,
+            frame: RunningFrameInfo,
+            exit_status: u32,
+            exit_signal: u32,
+            run_time: u32,
+        ) -> Result<()> {
+            self.calls.lock().unwrap().push((
+                frame.frame_id.clone(),
+                exit_status,
+                exit_signal,
+                run_time,
+            ));
+            if self.fail_ids.contains(&frame.frame_id) {
+                Err(miette!("scripted delivery failure"))
+            } else {
+                Ok(())
+            }
+        }
+
+        async fn send_host_report(&self, _host_report: HostReport) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    fn frame_request_and_config() -> (RunFrame, crate::config::RunnerConfig) {
+        let general_config = Config::default();
+        general_config.setup().unwrap();
+        let mut config = general_config.runner;
+        config.run_as_user = false;
+
+        let request = RunFrame {
+            resource_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            job_name: "job_name".to_string(),
+            frame_id: Uuid::new_v4().to_string(),
+            frame_name: "frame_name".to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            command: "true".to_string(),
+            user_name: "username".to_string(),
+            log_dir: "/tmp".to_string(),
+            show: "show".to_string(),
+            shot: "shot".to_string(),
+            num_cores: 1,
+            gid: 10,
+            ..Default::default()
+        };
+        (request, config)
+    }
+
+    /// Builds a frame still in the Created state (never started).
+    fn make_frame() -> RunningFrame {
+        let (request, config) = frame_request_and_config();
+        RunningFrame::init(request, 1, config, None, None, "localhost".to_string(), 1)
+    }
+
+    /// Builds a frame in the Finished state (exit 0), as if its process just exited.
+    fn finished_frame() -> RunningFrame {
+        let (request, config) = frame_request_and_config();
+        let frame = RunningFrame::init_started_for_test(
+            request,
+            1,
+            config,
+            None,
+            None,
+            "localhost".to_string(),
+            Duration::from_secs(10),
+        );
+        frame.finish(0, None, None).unwrap();
+        frame
+    }
+
+    fn pending_map(frames: Vec<Arc<RunningFrame>>) -> Arc<DashMap<Uuid, PendingCompletion>> {
+        let map = DashMap::new();
+        for frame in frames {
+            map.insert(
+                frame.frame_id,
+                PendingCompletion {
+                    frame,
+                    enqueued_at: Instant::now(),
+                },
+            );
+        }
+        Arc::new(map)
+    }
+
+    async fn deliver(map: Arc<DashMap<Uuid, PendingCompletion>>, client: Arc<MockReportClient>) {
+        let host_state = Arc::new(RwLock::new(Some(RenderHost::default())));
+        MachineMonitor::deliver_pending_completions(map, client, host_state).await;
+    }
+
+    #[tokio::test]
+    async fn acknowledged_completion_is_removed() {
+        let frame = Arc::new(finished_frame());
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty(), "acknowledged entry must be removed");
+        let calls = client.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].1, 0, "exit_status");
+    }
+
+    #[tokio::test]
+    async fn failed_delivery_retains_entry() {
+        let frame = Arc::new(finished_frame());
+        let frame_id_str = frame.request.frame_id.clone();
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![frame_id_str]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert_eq!(map.len(), 1, "failed entry must be retained for retry");
+        assert_eq!(client.calls.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn non_terminal_entry_is_dropped_without_report() {
+        // A frame still in the Created state should never be in the pending store; delivery
+        // drops it instead of retrying it forever.
+        let frame = Arc::new(make_frame());
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty(), "non-terminal entry must be dropped");
+        assert!(client.calls.lock().unwrap().is_empty(), "no report sent");
+    }
+
+    #[tokio::test]
+    async fn failed_before_start_reports_synthetic_exit() {
+        let frame = make_frame();
+        frame.fail_before_start().unwrap();
+        let frame = Arc::new(frame);
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty());
+        let calls = client.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        let (_, exit_status, exit_signal, run_time) = calls[0].clone();
+        assert_eq!(exit_status, 1);
+        assert_eq!(exit_signal, 10);
+        assert_eq!(run_time, 0);
     }
 }
 

@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.service;
 
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.Collections;
 
 import org.junit.Before;
@@ -80,6 +81,10 @@ public class MaintenanceManagerOrphanFrameTests {
                 anyInt())).thenAnswer(inv -> inv.getArgument(2));
         // The sweep is gated on a cluster-wide task lock; grant it by default.
         when(maintenanceDao.lockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK)).thenReturn(true);
+        // Each frame's orphanhood is re-checked right before it is acted on; hold it true by
+        // default so tests exercise the kill/confirm paths. Individual tests override this to
+        // simulate a frame that was concurrently finalized.
+        when(frameDao.isOrphan(any(FrameDetail.class))).thenReturn(true);
         maintenanceManager.setFrameDao(frameDao);
         maintenanceManager.setMaintenanceDao(maintenanceDao);
         maintenanceManager.setRqdClient(rqdClient);
@@ -236,6 +241,47 @@ public class MaintenanceManagerOrphanFrameTests {
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
         verify(frameDao, never()).updateFrameStopped(frame, FrameState.DEAD,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+    }
+
+    @Test
+    public void slowFrameDoesNotStarveNextFrame() {
+        // A reachable-but-still-running frame hits its per-frame confirm timeout and is deferred;
+        // the frame behind it in the batch must still get its own kill/confirm turn within the
+        // pass budget instead of being starved.
+        setConfirmTimeoutMs(0L);
+        FrameDetail slowFrame = orphanFrame("frame-slow", "hostA/100/0");
+        FrameDetail nextFrame = orphanFrame("frame-next", "hostB/100/0");
+        when(frameDao.getOrphanedFrames(anyInt())).thenReturn(Arrays.asList(slowFrame, nextFrame));
+        when(rqdClient.isFrameRunning("hostA", "frame-slow")).thenReturn(true);
+        when(rqdClient.isFrameRunning("hostB", "frame-next")).thenReturn(false);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(rqdClient).killFrame(eq("hostA"), eq("frame-slow"), anyString());
+        verify(rqdClient).killFrame(eq("hostB"), eq("frame-next"), anyString());
+        // The slow frame is deferred with no state change; the next frame is confirmed dead and
+        // reset for auto-retry.
+        verify(frameDao, never()).updateFrameStopped(eq(slowFrame), any(FrameState.class),
+                anyInt());
+        verify(frameDao).updateFrameStopped(nextFrame, FrameState.WAITING,
+                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+    }
+
+    @Test
+    public void noLongerOrphanedFrameIsSkipped() {
+        // The frame stopped being an orphan between getOrphanedFrames() and its turn in the batch
+        // (e.g. a late FrameCompleteReport finalized it and it was rebooked): it must be skipped
+        // entirely -- no kill, no confirm, no state change -- or the kill could hit the new
+        // legitimate run.
+        FrameDetail frame = orphanFrame("frame-9", "host9/100/0");
+        setSingleOrphan(frame);
+        when(frameDao.isOrphan(frame)).thenReturn(false);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(rqdClient, never()).killFrame(anyString(), anyString(), anyString());
+        verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
+        verify(frameDao, never()).updateFrameStopped(eq(frame), any(FrameState.class), anyInt());
     }
 
     @Test
