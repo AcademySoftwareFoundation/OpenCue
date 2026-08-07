@@ -639,7 +639,7 @@
     -->
     <property name="startDelay" value="600000" />
     <!-- repeat every 60 seconds by default (configurable via maintenance.orphaned_frame_check_interval_ms) -->
-    <property name="repeatInterval" value="${maintenance.orphaned_frame_check_interval_ms}" />
+    <property name="repeatInterval" value="${maintenance.orphaned_frame_check_interval_ms:60000}" />
   </bean>
 
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
