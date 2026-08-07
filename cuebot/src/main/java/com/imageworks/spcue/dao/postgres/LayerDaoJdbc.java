@@ -17,6 +17,8 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -220,6 +222,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.services.addAll(Lists.newArrayList(rs.getString("str_services").split(",")));
             layer.timeout = rs.getInt("int_timeout");
             layer.timeout_llu = rs.getInt("int_timeout_llu");
+            layer.startAfter = rs.getTimestamp("ts_start_after");
+            layer.startAfterReason = rs.getString("str_start_after_reason");
             return layer;
         }
     };
@@ -700,6 +704,51 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     public void updateTimeoutLLU(LayerInterface layer, int timeout_llu) {
         getJdbcTemplate().update("UPDATE layer SET int_timeout_llu=? WHERE pk_layer=?", timeout_llu,
                 layer.getLayerId());
+    }
+
+    @Override
+    public void updateStartAfter(LayerInterface layer, Timestamp startAfter, String reason) {
+        if (startAfter == null) {
+            getJdbcTemplate()
+                    .update("UPDATE layer SET ts_start_after=NULL, str_start_after_reason=NULL "
+                            + "WHERE pk_layer=?", layer.getLayerId());
+        } else {
+            getJdbcTemplate().update(
+                    "UPDATE layer SET ts_start_after=?, str_start_after_reason=? WHERE pk_layer=?",
+                    startAfter, reason, layer.getLayerId());
+        }
+    }
+
+    // spotless:off
+    /**
+     * Conditional monotonic: writes only when it moves the gate later, so an operator-set later
+     * time survives, concurrent backoff reports collapse into one write, and a longer rule can
+     * extend a shorter active delay.
+     */
+    private static final String DELAY_LAYER_FOR_BACKOFF =
+            "UPDATE layer "
+            + "SET "
+                + "ts_start_after = current_timestamp + ?::interval, "
+                + "str_start_after_reason = ? "
+            + "WHERE pk_layer = ? "
+            + "AND ("
+                + "ts_start_after IS NULL "
+                + "OR ts_start_after < current_timestamp + ?::interval"
+            + ")";
+    // spotless:on
+
+    @Override
+    public boolean delayLayerForBackoff(LayerInterface layer, Duration backoff, String reason) {
+        String interval = backoff.getSeconds() + " seconds";
+        return getJdbcTemplate().update(DELAY_LAYER_FOR_BACKOFF, interval, reason,
+                layer.getLayerId(), interval) > 0;
+    }
+
+    @Override
+    public int getDelayedLayerCount() {
+        return getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM layer WHERE ts_start_after > current_timestamp",
+                Integer.class);
     }
 
     @Override

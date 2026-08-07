@@ -15,6 +15,10 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
+
 import org.junit.Test;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -44,6 +48,7 @@ public class FrameCompleteHandlerFrameStateTests {
     private LayerDetail layer;
     private DispatchFrame frame;
     private FrameDetail frameDetail;
+    private Map<Integer, Duration> delayRules = Collections.emptyMap();
 
     public FrameCompleteHandlerFrameStateTests() {
         job = new DispatchJob();
@@ -70,7 +75,8 @@ public class FrameCompleteHandlerFrameStateTests {
     }
 
     private FrameState determine(FrameCompleteReport report) {
-        return FrameCompleteHandler.determineFrameState(job, layer, frame, report, frameDetail);
+        return FrameCompleteHandler.determineFrameState(job, layer, frame, report, frameDetail,
+                delayRules);
     }
 
     @Test
@@ -220,6 +226,57 @@ public class FrameCompleteHandlerFrameStateTests {
         frame.retries = job.maxRetries;
         frameDetail.exitStatus = Dispatcher.EXIT_STATUS_MEMORY_FAILURE;
         assertEquals(FrameState.WAITING, determine(report(1, EXIT_SIGNAL_SIGTERM)));
+    }
+
+    private static final int LICENSE_EXIT_STATUS = 330;
+
+    @Test
+    public void testDelayRuleStatusWaits() {
+        delayRules = Collections.singletonMap(LICENSE_EXIT_STATUS, Duration.ofMinutes(5));
+        assertEquals(FrameState.WAITING, determine(report(LICENSE_EXIT_STATUS, 0)));
+    }
+
+    @Test
+    public void testDelayRuleStatusWaitsEvenWhenRetriesExhausted() {
+        delayRules = Collections.singletonMap(LICENSE_EXIT_STATUS, Duration.ofMinutes(5));
+        frame.retries = job.maxRetries;
+        assertEquals(FrameState.WAITING, determine(report(LICENSE_EXIT_STATUS, 0)));
+    }
+
+    @Test
+    public void testAutoEatWinsOverDelayRule() {
+        delayRules = Collections.singletonMap(LICENSE_EXIT_STATUS, Duration.ofMinutes(5));
+        job.autoEat = true;
+        assertEquals(FrameState.EATEN, determine(report(LICENSE_EXIT_STATUS, 0)));
+    }
+
+    @Test
+    public void testDelayRuleStatusImmuneToTimeouts() {
+        delayRules = Collections.singletonMap(LICENSE_EXIT_STATUS, Duration.ofMinutes(5));
+        layer.timeout = 10;
+        FrameCompleteReport report = FrameCompleteReport.newBuilder(report(LICENSE_EXIT_STATUS, 0))
+                .setRunTime(11 * 60).build();
+        assertEquals(FrameState.WAITING, determine(report));
+    }
+
+    @Test
+    public void testDelayRuleUsesResolvedExitStatus() {
+        // A stored memory-failure status wins over the reported status (resolveExitStatus), so a
+        // delay rule keyed on the reported status must not match. With the layer timeout exceeded
+        // the frame goes DEAD, proving the delay branch did not fire on the raw reported status.
+        delayRules = Collections.singletonMap(LICENSE_EXIT_STATUS, Duration.ofMinutes(5));
+        frameDetail.exitStatus = Dispatcher.EXIT_STATUS_MEMORY_FAILURE;
+        layer.timeout = 10;
+        FrameCompleteReport report = FrameCompleteReport.newBuilder(report(LICENSE_EXIT_STATUS, 0))
+                .setRunTime(11 * 60).build();
+        assertEquals(FrameState.DEAD, determine(report));
+    }
+
+    @Test
+    public void testUnconfiguredDelayStatusFollowsNormalPath() {
+        assertEquals(FrameState.WAITING, determine(report(LICENSE_EXIT_STATUS, 0)));
+        frame.retries = job.maxRetries;
+        assertEquals(FrameState.DEAD, determine(report(LICENSE_EXIT_STATUS, 0)));
     }
 
     @Test
