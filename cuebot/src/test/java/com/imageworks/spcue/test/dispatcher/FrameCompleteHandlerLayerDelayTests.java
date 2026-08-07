@@ -16,14 +16,15 @@
 package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Resource;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
@@ -35,6 +36,7 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.dispatcher.LayerDelayRules;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
@@ -57,12 +59,12 @@ import static org.junit.Assert.assertTrue;
  * configured in dispatcher.layer_delay.rules must write the reporting layer's start-after gate, and
  * nothing else must.
  *
- * The rules property is empty by default, so this class supplies its own value through
- * {@link TestPropertySource}; that makes it a separate Spring context from the other dispatcher
- * tests on purpose, since FrameCompleteHandler parses the property once at construction.
+ * The rules property is empty by default. Rather than start a second application context to
+ * override it -- the test harness supports only one, since the embedded database and the gRPC
+ * server's fixed port are both per-process -- these tests install the rule set directly on the
+ * shared FrameCompleteHandler and restore it afterwards. LayerDelayRulesTests covers the parsing of
+ * the property itself.
  */
-@ContextConfiguration
-@TestPropertySource(properties = {"dispatcher.layer_delay.rules=330:5"})
 public class FrameCompleteHandlerLayerDelayTests extends TransactionalTest {
 
     @Resource
@@ -94,14 +96,33 @@ public class FrameCompleteHandlerLayerDelayTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
 
-    /** Matches the exit status configured in this class's TestPropertySource. */
+    /** The exit status these tests configure a delay rule for. */
     private static final int LICENSE_EXIT_STATUS = 330;
 
     private static final int CONFIGURED_DELAY_MINUTES = 5;
 
+    private Map<Integer, Duration> originalDelayRules;
+
     @Before
     public void setTestMode() {
         dispatcher.setTestMode(true);
+    }
+
+    /**
+     * FrameCompleteHandler is a context-wide singleton, so the rules are restored in
+     * {@link #tearDown()} to keep the other dispatcher tests running against the configured default
+     * (no rules).
+     */
+    @Before
+    public void installDelayRules() {
+        originalDelayRules = frameCompleteHandler.getDelayRules();
+        frameCompleteHandler.setDelayRules(
+                LayerDelayRules.parse(LICENSE_EXIT_STATUS + ":" + CONFIGURED_DELAY_MINUTES));
+    }
+
+    @After
+    public void tearDown() {
+        frameCompleteHandler.setDelayRules(originalDelayRules);
     }
 
     @Before
