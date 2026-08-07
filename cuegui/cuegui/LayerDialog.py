@@ -513,6 +513,101 @@ class LayerLimitsWidget(QtWidgets.QWidget):
                     layer.dropLimit(limit.id())
 
 
+class LayerStartAfterDialog(QtWidgets.QDialog):
+    """Dialog for deferring booking of the selected layers until a chosen time.
+
+    Displays local time and sends UTC epoch seconds. The same field is written
+    automatically by Cuebot's exit-status backoff (e.g. a license shortage), so
+    a cleared layer may be delayed again automatically while the underlying
+    condition persists; a value set here replaces any automatic delay."""
+
+    def __init__(self, layers, parent=None):
+        QtWidgets.QDialog.__init__(self, parent)
+        self.__layers = layers
+        self.setWindowTitle("Set Start After")
+        self.setModal(True)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        if len(layers) > 1:
+            layout.addWidget(QtWidgets.QLabel('%d layers selected' % len(layers), self))
+
+        current = layers[0].data.start_after
+        if current:
+            seed = QtCore.QDateTime.fromSecsSinceEpoch(current)
+        else:
+            seed = QtCore.QDateTime.currentDateTime()
+        self.__dateTimeEdit = QtWidgets.QDateTimeEdit(seed, self)
+        self.__dateTimeEdit.setDisplayFormat('yyyy-MM-dd HH:mm')
+        self.__dateTimeEdit.setCalendarPopup(True)
+        pickerLayout = QtWidgets.QHBoxLayout()
+        pickerLayout.addWidget(self.__dateTimeEdit)
+        pickerLayout.addWidget(QtWidgets.QLabel('(local time)', self))
+        pickerLayout.addStretch()
+        layout.addLayout(pickerLayout)
+
+        # Presets fill the picker; they are not a separate input mode.
+        presetLayout = QtWidgets.QHBoxLayout()
+        for label, minutes in (('+15m', 15), ('+1h', 60), ('+4h', 240)):
+            button = QtWidgets.QPushButton(label, self)
+            button.clicked.connect(
+                lambda checked=False, m=minutes: self.__dateTimeEdit.setDateTime(
+                    QtCore.QDateTime.currentDateTime().addSecs(m * 60)))
+            presetLayout.addWidget(button)
+        tonightButton = QtWidgets.QPushButton('Tonight 18:00', self)
+        tonightButton.clicked.connect(self.__presetTonight)
+        presetLayout.addWidget(tonightButton)
+        presetLayout.addStretch()
+        layout.addLayout(presetLayout)
+
+        if current:
+            layout.addWidget(QtWidgets.QLabel(
+                'current: %s' % cuegui.Utils.dateToMMDDHHMM(current), self))
+            if layers[0].data.start_after_reason:
+                reasonLabel = QtWidgets.QLabel(layers[0].data.start_after_reason, self)
+                # The reason is free text that embeds a client-supplied username and is
+                # promised to be displayed verbatim; Qt's default AutoText format would
+                # otherwise render anything markup-shaped as HTML.
+                reasonLabel.setTextFormat(QtCore.Qt.PlainText)
+                layout.addWidget(reasonLabel)
+
+        note = QtWidgets.QLabel(
+            'A layer may be delayed again automatically while the underlying '
+            'failure condition (e.g. a license shortage) persists.', self)
+        note.setWordWrap(True)
+        layout.addWidget(note)
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel,
+                                             QtCore.Qt.Horizontal, self)
+        clearButton = buttons.addButton('Clear', QtWidgets.QDialogButtonBox.ResetRole)
+        setButton = buttons.addButton('Set', QtWidgets.QDialogButtonBox.AcceptRole)
+        # pylint: disable=no-member
+        clearButton.clicked.connect(self.__clear)
+        setButton.clicked.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
+        layout.addWidget(buttons)
+
+    def __presetTonight(self):
+        tonight = QtCore.QDateTime.currentDateTime()
+        tonight.setTime(QtCore.QTime(18, 0))
+        if tonight <= QtCore.QDateTime.currentDateTime():
+            tonight = tonight.addDays(1)
+        self.__dateTimeEdit.setDateTime(tonight)
+
+    def __clear(self):
+        for layer in self.__layers:
+            layer.clearStartAfter()
+        self.close()
+
+    def accept(self):
+        """Sends the picked time (as UTC epoch seconds) to every selected layer."""
+        epoch = self.__dateTimeEdit.dateTime().toSecsSinceEpoch()
+        for layer in self.__layers:
+            layer.setStartAfter(epoch)
+        self.close()
+
+
 class LayerTagsDialog(QtWidgets.QDialog):
     """Dialog for displaying a layer's tags."""
 

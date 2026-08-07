@@ -219,6 +219,8 @@ WITH dispatch_frames AS (
         AND ls.int_waiting_count > 0
         AND string_to_array(REPLACE($2, ' ', ''), '|') && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
         AND f.str_state = 'WAITING'
+        -- Deferred layer booking: skip layers whose start-after gate is in the future
+        AND (l.ts_start_after IS NULL OR l.ts_start_after <= current_timestamp)
 ),
 limited_frames AS (
     SELECT * FROM dispatch_frames

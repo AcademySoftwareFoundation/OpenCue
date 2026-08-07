@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.servant;
 
+import java.sql.Timestamp;
 import java.util.HashSet;
 
 import com.google.protobuf.Descriptors;
@@ -104,6 +105,8 @@ import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryResponse;
+import com.imageworks.spcue.grpc.job.LayerSetStartAfterRequest;
+import com.imageworks.spcue.grpc.job.LayerSetStartAfterResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
 import com.imageworks.spcue.grpc.job.LayerSetTagsResponse;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
@@ -140,6 +143,14 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private LocalBookingSupport localBookingSupport;
     private FrameSearchFactory frameSearchFactory;
     private final String property = "layer.finished_jobs_readonly";
+
+    /**
+     * Width of layer.str_start_after_reason (see V47__Add_layer_start_after.sql). The reason embeds
+     * a client-supplied username, so it is truncated here rather than letting an oversized value
+     * fail the UPDATE with an opaque DataAccessException.
+     */
+    private static final int START_AFTER_REASON_MAX_LENGTH = 255;
+
     @Autowired
     private Environment env;
 
@@ -441,6 +452,28 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
             layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
             responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setStartAfter(LayerSetStartAfterRequest request,
+            StreamObserver<LayerSetStartAfterResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            if (request.getStartAfter() == 0) {
+                layerDao.updateStartAfter(layer, null, null);
+            } else {
+                String username =
+                        request.getUsername().isEmpty() ? "unknown" : request.getUsername();
+                String reason = "Set by " + username;
+                if (reason.length() > START_AFTER_REASON_MAX_LENGTH) {
+                    reason = reason.substring(0, START_AFTER_REASON_MAX_LENGTH);
+                }
+                layerDao.updateStartAfter(layer, new Timestamp(request.getStartAfter() * 1000L),
+                        reason);
+            }
+            responseObserver.onNext(LayerSetStartAfterResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
     }

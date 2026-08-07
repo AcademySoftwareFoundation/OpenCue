@@ -198,6 +198,44 @@ class LayerTests(unittest.TestCase):
         stubMock.SetTags.assert_called_with(
             job_pb2.LayerSetTagsRequest(layer=layer.data, tags=tags), timeout=mock.ANY)
 
+    def testSetStartAfter(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetStartAfter.return_value = job_pb2.LayerSetStartAfterResponse()
+        getStubMock.return_value = stubMock
+
+        testEpoch = 1800000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.setStartAfter(testEpoch, username='testuser')
+
+        stubMock.SetStartAfter.assert_called_with(
+            job_pb2.LayerSetStartAfterRequest(
+                layer=layer.data, start_after=testEpoch, username='testuser'),
+            timeout=mock.ANY)
+
+    def testClearStartAfter(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetStartAfter.return_value = job_pb2.LayerSetStartAfterResponse()
+        getStubMock.return_value = stubMock
+
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.clearStartAfter(username='testuser')
+
+        stubMock.SetStartAfter.assert_called_with(
+            job_pb2.LayerSetStartAfterRequest(
+                layer=layer.data, start_after=0, username='testuser'),
+            timeout=mock.ANY)
+
+    def testStartAfter(self, getStubMock):
+        testEpoch = 1800000000
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, start_after=testEpoch,
+                          start_after_reason='Automatic backoff: exit status 330'))
+
+        self.assertEqual(layer.startAfter(), testEpoch)
+        self.assertEqual(layer.startAfterReason(), 'Automatic backoff: exit status 330')
+
     def testSetMaxCores(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.SetMaxCores.return_value = job_pb2.LayerSetMaxCoresResponse()

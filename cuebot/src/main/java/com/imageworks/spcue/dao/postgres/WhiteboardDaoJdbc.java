@@ -1226,6 +1226,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 }
             }
 
+            // Deferred-booking gate; 0 in the proto means not set.
+            Timestamp startAfter = rs.getTimestamp("ts_start_after");
+            if (startAfter != null) {
+                builder.setStartAfter((int) (startAfter.getTime() / 1000))
+                        .setStartAfterReason(SqlUtil.getString(rs, "str_start_after_reason"));
+            }
+
             LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                     .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))

@@ -21,6 +21,7 @@ from __future__ import print_function
 from __future__ import division
 
 import functools
+import time
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -36,9 +37,15 @@ import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.MenuActions
+import cuegui.Style
 import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
+
+# Index of the "Start After" column, used for its per-row tooltip. Columns are numbered by
+# the order of the addColumn() calls in LayerMonitorTree.__init__ below, so this must be kept
+# in step if a column is inserted ahead of "Start After".
+COLUMN_START_AFTER = 26
 
 
 def displayRange(layer):
@@ -180,6 +187,15 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The time the last frame of the layer finished. Blank while\n"
                            "any frame is still pending, running, or in DEPEND - mirroring\n"
                            "the job's Stop Time semantics.")
+        self.addColumn("Start After", 100, id=27,
+                       data=lambda layer: (
+                           cuegui.Utils.dateToMMDDHHMM(layer.data.start_after)
+                           if layer.data.start_after else ""),
+                       sort=lambda layer: layer.data.start_after,
+                       tip="The time before which no frame of this layer may start.\n"
+                           "Set by an operator (Set Start After...) or written\n"
+                           "automatically by Cuebot's exit-status backoff, e.g. a\n"
+                           "license shortage. Hover a delayed row for the reason.")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # pylint: disable=no-member
@@ -332,6 +348,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "setProperties").setEnabled(not readonly)
+        self.__menuActions.layers().addAction(menu, "setStartAfter").setEnabled(not readonly)
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "kill").setEnabled(not readonly)
         self.__menuActions.layers().addAction(menu, "eat").setEnabled(not readonly)
@@ -393,3 +410,19 @@ class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_LAYER, rpcObject, parent)
+
+    def data(self, col, role):
+        """Extends the base data with the delayed-layer treatment: a tinted
+        row while the layer's start-after gate is in the future (self-clearing
+        once the deadline passes) and the gate's reason as the Start After
+        column's tooltip."""
+        if role == QtCore.Qt.BackgroundRole and \
+                self.rpcObject.data.start_after > time.time():
+            if cuegui.Style.ColorTheme is None:
+                cuegui.Style.init()
+            return cuegui.Style.ColorTheme.COLOR_LAYER_DELAYED_BACKGROUND
+
+        if role == QtCore.Qt.ToolTipRole and col == COLUMN_START_AFTER:
+            return self.rpcObject.data.start_after_reason
+
+        return cuegui.AbstractWidgetItem.AbstractWidgetItem.data(self, col, role)

@@ -15,6 +15,8 @@
 
 package com.imageworks.spcue.dao;
 
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -329,6 +331,35 @@ public interface LayerDao {
      * @param timeout_llu
      */
     void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
+
+    /**
+     * Authoritatively set or clear the layer's start-after gate. No frame of the layer may start
+     * before the given time. A null timestamp clears the gate.
+     *
+     * @param layer
+     * @param startAfter time before which no frame of the layer may start, or null to clear
+     * @param reason free-text provenance, displayed verbatim; ignored when startAfter is null
+     */
+    void updateStartAfter(LayerInterface layer, Timestamp startAfter, String reason);
+
+    /**
+     * Push the layer's start-after gate into the future by the given backoff duration, but only if
+     * that moves the gate later than it currently is (conditional monotonic). Used by the automatic
+     * exit-status backoff so an operator-set later time survives and concurrent reports collapse
+     * into a single write.
+     *
+     * @param layer
+     * @param backoff how far past now to delay the layer
+     * @param reason free-text provenance, displayed verbatim
+     * @return true if a row was written, i.e. this call actually delayed the layer
+     */
+    boolean delayLayerForBackoff(LayerInterface layer, Duration backoff, String reason);
+
+    /**
+     * Count layers whose start-after gate is currently in the future. Feeds the
+     * cuebot_layers_delayed gauge.
+     */
+    int getDelayedLayerCount();
 
     /**
      * Lowers the minimum memory on a layer if the layer is using less memory and the currnet min
