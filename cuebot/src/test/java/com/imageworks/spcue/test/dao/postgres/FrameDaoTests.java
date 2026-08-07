@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
@@ -24,6 +25,9 @@ import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -45,8 +49,11 @@ import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.postgres.FrameDaoJdbc;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.FrameReservationException;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
@@ -64,6 +71,7 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 @Transactional
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
@@ -285,6 +293,152 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
         frameDao.updateFrameStarted(proc, fd);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStartedRefusesDelayedLayer() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        // The reservation update is the authoritative start-after gate: a layer delayed into the
+        // future must refuse to start frames even when reached outside the dispatch queries.
+        jdbcTemplate.update(
+                "UPDATE layer SET ts_start_after = current_timestamp + interval '5 minutes' "
+                        + "WHERE pk_layer=?",
+                frame.getLayerId());
+
+        try {
+            frameDao.updateFrameStarted(proc, fd);
+            fail("Expected FrameReservationException for a delayed layer");
+        } catch (FrameReservationException e) {
+            // Expected: the layer's start-after gate is in the future.
+        }
+
+        // Once the gate is in the past the same frame starts normally.
+        jdbcTemplate
+                .update("UPDATE layer SET ts_start_after = current_timestamp - interval '1 minute' "
+                        + "WHERE pk_layer=?", frame.getLayerId());
+        frameDao.updateFrameStarted(proc, fd);
+    }
+
+    /**
+     * Exit status conventionally emitted by RQD for a license shortage and used here as the status
+     * an operator would configure in dispatcher.layer_delay.rules.
+     */
+    private static final int LICENSE_EXIT_STATUS = 330;
+
+    private VirtualProc buildProc(DispatchHost host, JobDetail job, FrameDetail frame) {
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+        return proc;
+    }
+
+    /**
+     * Puts the frame back in WAITING carrying the given stored exit status, so the next
+     * updateFrameStarted exercises the retry-exclusion list against that status.
+     */
+    private void rewindFrameWithExitStatus(FrameInterface frame, int exitStatus) {
+        jdbcTemplate.update("UPDATE frame SET str_state=?, int_exit_status=? WHERE pk_frame=?",
+                FrameState.WAITING.toString(), exitStatus, frame.getFrameId());
+    }
+
+    private int getRetries(FrameInterface frame) {
+        return jdbcTemplate.queryForObject("SELECT int_retries FROM frame WHERE pk_frame=?",
+                Integer.class, frame.getFrameId());
+    }
+
+    private Environment environmentWithDelayRules(String rules) {
+        StandardEnvironment testEnv = new StandardEnvironment();
+        testEnv.getPropertySources().addFirst(new MapPropertySource("layerDelayRules",
+                Collections.<String, Object>singletonMap("dispatcher.layer_delay.rules", rules)));
+        return testEnv;
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStartedRetryExclusions() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        VirtualProc proc = buildProc(host, job, frame);
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        // An ordinary failure exit status consumes a retry.
+        rewindFrameWithExitStatus(frame, 1);
+        frameDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(1, getRetries(frame));
+
+        // A hardware/dispatch status on the exclusion list does not: the frame keeps its retry
+        // budget for genuine failures. Also covers the Integer[] <> ALL(?) array binding.
+        rewindFrameWithExitStatus(frame, Dispatcher.EXIT_STATUS_DOWN_HOST);
+        frameDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(1, getRetries(frame));
+
+        rewindFrameWithExitStatus(frame, Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        frameDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(1, getRetries(frame));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStartedRetryExcludesLayerDelayStatuses() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        VirtualProc proc = buildProc(host, job, frame);
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        // dispatcher.layer_delay.rules is empty by default, so the status is an ordinary failure
+        // and consumes a retry.
+        rewindFrameWithExitStatus(frame, LICENSE_EXIT_STATUS);
+        frameDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(1, getRetries(frame));
+
+        // Configuring the same status for automatic layer backoff adds it to the exclusion list:
+        // a delayed frame retries indefinitely instead of burning its retry budget.
+        FrameDaoJdbc delayAwareDao = new FrameDaoJdbc(environmentWithDelayRules("330:5"));
+        delayAwareDao.setJdbcTemplate(jdbcTemplate);
+
+        rewindFrameWithExitStatus(frame, LICENSE_EXIT_STATUS);
+        delayAwareDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(1, getRetries(frame));
+
+        // The configured status is the only addition; everything else still counts.
+        rewindFrameWithExitStatus(frame, 1);
+        delayAwareDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(2, getRetries(frame));
     }
 
     @Test

@@ -269,6 +269,26 @@ Behavior notes:
 - **Invalid regex is skipped** (with a warning) rather than disabling the whole rule set.
 - **Efficient tail read**: the log tail is read backward in fixed-size chunks and stops once enough lines are collected — typically only a few kilobytes are read even for large logs, with a hard 1 MiB cap so a pathologically large log is never read in full.
 
+#### Cuebot-side handling: automatic layer backoff
+
+A substitute exit status is most useful when Cuebot is told what to do with it. Cuebot's
+`dispatcher.layer_delay.rules` property (in `opencue.properties`) maps exit statuses to a number of
+minutes; when a frame reports a configured status, Cuebot defers booking of the frame's whole layer
+for that long (`layer.ts_start_after`) instead of consuming a retry or killing the frame — the
+right behavior for a shared-resource shortage like a license pool, where every frame of the layer
+would hit the same wall:
+
+```properties
+# Comma-separated exit_status:minutes pairs. Empty (default) disables the feature.
+# Must agree with the exit statuses configured in rqd.yaml log_exit_status_rules.
+dispatcher.layer_delay.rules=330:5
+```
+
+The exit status is an arbitrary number chosen in `rqd.yaml` and repeated in `opencue.properties`;
+`330` is the conventional license-shortage code. Delayed layers are visible in CueGUI (tinted row
+plus a *Start After* column) and in the `cuebot_layers_delayed` / `cuebot_layer_delays_total`
+Prometheus metrics.
+
 ## Testing
 
 ### Unit Tests
