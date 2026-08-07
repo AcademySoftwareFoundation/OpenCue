@@ -16,8 +16,16 @@ use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::HashMap, env, fs, path::Path, time::Duration};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::Path,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
+use tracing::warn;
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
@@ -188,6 +196,58 @@ mod tests {
     }
 }
 
+/// A rule that reclassifies a failed frame's exit status based on its log output.
+///
+/// When a frame finishes with a non-zero exit code, RQD scans the tail of its log (see
+/// [`RunnerConfig::log_scan_last_lines`]). The first rule whose `regex` matches causes the
+/// frame to report `exit_status` to Cuebot instead of the process's real exit code. This lets
+/// operators single out failures that deserve special dispatcher handling, e.g. a Houdini
+/// license shortage that should be retried differently without the render wrapper needing to
+/// translate the error into an exit code itself.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LogExitStatusRule {
+    /// Human-readable identifier, used only in log messages (e.g. "HOUDINI_LICENSE_ERROR").
+    #[serde(default)]
+    pub name: String,
+    /// Regular expression tested against the scanned log tail. Invalid patterns are skipped
+    /// (with a warning) at startup so a single typo can't disable the whole feature.
+    pub regex: String,
+    /// Exit status reported to Cuebot when `regex` matches.
+    pub exit_status: i32,
+}
+
+/// A [`LogExitStatusRule`] with its regex compiled, ready for matching.
+#[derive(Debug, Clone)]
+pub struct CompiledExitStatusRule {
+    pub name: String,
+    pub regex: Regex,
+    pub exit_status: i32,
+}
+
+/// Compiles the configured rules, skipping (with a warning) any whose regex is invalid so a
+/// single bad pattern can neither disable the whole feature nor fail frame completion.
+pub(crate) fn compile_exit_status_rules(
+    rules: &[LogExitStatusRule],
+) -> Vec<CompiledExitStatusRule> {
+    rules
+        .iter()
+        .filter_map(|rule| match Regex::new(&rule.regex) {
+            Ok(regex) => Some(CompiledExitStatusRule {
+                name: rule.name.clone(),
+                regex,
+                exit_status: rule.exit_status,
+            }),
+            Err(err) => {
+                warn!(
+                    "Ignoring invalid log_exit_status_rule '{}' (regex {:?}): {}",
+                    rule.name, rule.regex, err
+                );
+                None
+            }
+        })
+        .collect()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct RunnerConfig {
@@ -209,6 +269,17 @@ pub struct RunnerConfig {
     pub docker_mounts: Vec<DockerMountConfig>,
     pub docker_default_image: String,
     pub docker_images: HashMap<String, String>,
+    /// Number of trailing log lines scanned against `log_exit_status_rules` when a frame
+    /// fails. Set to 0, or leave `log_exit_status_rules` empty, to disable log scanning.
+    pub log_scan_last_lines: usize,
+    /// Ordered list of regex→exit-status rules applied to failed frames' logs. The first
+    /// matching rule wins. Empty by default, which disables the feature.
+    pub log_exit_status_rules: Vec<LogExitStatusRule>,
+    /// Compiled form of `log_exit_status_rules`, populated lazily on first access and cached
+    /// so the regexes are compiled once (at startup via [`RunnerConfig::compiled_exit_status_rules`])
+    /// rather than on every failed frame. Not part of the serialized config.
+    #[serde(skip)]
+    compiled_exit_status_rules: OnceLock<Arc<Vec<CompiledExitStatusRule>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -256,7 +327,23 @@ impl Default for RunnerConfig {
             docker_mounts: Vec::new(),
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),
+            log_scan_last_lines: 50,
+            log_exit_status_rules: Vec::new(),
+            compiled_exit_status_rules: OnceLock::new(),
         }
+    }
+}
+
+impl RunnerConfig {
+    /// Returns the compiled `log_exit_status_rules`, compiling and caching them on first call.
+    ///
+    /// Because compilation happens once (forced at startup, see `async_main`), the warning for
+    /// an invalid pattern is emitted a single time rather than repeating on every failed frame,
+    /// and no frame pays the cost of recompiling every regex when it fails.
+    pub fn compiled_exit_status_rules(&self) -> &[CompiledExitStatusRule] {
+        self.compiled_exit_status_rules
+            .get_or_init(|| Arc::new(compile_exit_status_rules(&self.log_exit_status_rules)))
+            .as_slice()
     }
 }
 

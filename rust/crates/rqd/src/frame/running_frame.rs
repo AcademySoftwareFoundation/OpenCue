@@ -53,7 +53,83 @@ use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
 use super::logging::{FrameLogger, FrameLoggerBuilder};
-use crate::config::RunnerConfig;
+use crate::config::{CompiledExitStatusRule, RunnerConfig};
+
+/// Maximum number of bytes read from the tail of a frame log when scanning for
+/// exit-status-override patterns. Bounds the IO regardless of the configured line count so a
+/// pathologically large log can never be read in full.
+const LOG_SCAN_MAX_BYTES: u64 = 1024 * 1024; // 1 MiB
+
+/// Granularity of the backward tail read in [`read_last_lines`]. The tail is read in chunks of
+/// this size, newest-first, stopping as soon as enough line breaks have been seen — so a typical
+/// scan touches only one chunk instead of the full [`LOG_SCAN_MAX_BYTES`] cap. Sized so the
+/// default 50-line tail of a frame log (~4 KiB, including the multi-line process footer) fits in
+/// a single read with headroom.
+const LOG_SCAN_CHUNK_BYTES: u64 = 16 * 1024; // 16 KiB
+
+/// Returns the `(name, exit_status)` of the first rule that matches anywhere in `log_tail`.
+fn match_exit_status_rules(
+    log_tail: &str,
+    rules: &[CompiledExitStatusRule],
+) -> Option<(String, i32)> {
+    rules
+        .iter()
+        .find(|rule| rule.regex.is_match(log_tail))
+        .map(|rule| (rule.name.clone(), rule.exit_status))
+}
+
+/// Reads up to `max_lines` from the end of `path`, reading at most [`LOG_SCAN_MAX_BYTES`] from
+/// the tail. When the byte cap truncates mid-line, the leading partial line is dropped so a
+/// rule can't match against half a line. (Consequence of that cap: a single trailing line
+/// longer than [`LOG_SCAN_MAX_BYTES`] is dropped entirely and won't be scanned — acceptable,
+/// since the patterns this feature targets are short diagnostic messages.)
+async fn read_last_lines(path: &str, max_lines: usize) -> Result<Vec<String>> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
+
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .into_diagnostic()
+        .wrap_err_with(|| format!("failed to open {path} for exit-status scan"))?;
+    let size = file.metadata().await.into_diagnostic()?.len();
+
+    // Read the tail backward in fixed-size chunks, stopping once we've seen one more newline than
+    // requested: `max_lines` lines are delimited by `max_lines` newlines, plus one extra whose
+    // trailing partial line is dropped below. `floor` keeps the total read within the byte cap.
+    let want_newlines = max_lines + 1;
+    let floor = size.saturating_sub(LOG_SCAN_MAX_BYTES);
+    let mut buf: Vec<u8> = Vec::new();
+    let mut newlines = 0usize;
+    let mut pos = size;
+    while pos > floor {
+        let chunk = LOG_SCAN_CHUNK_BYTES.min(pos - floor);
+        let chunk_start = pos - chunk;
+        file.seek(SeekFrom::Start(chunk_start))
+            .await
+            .into_diagnostic()?;
+        let mut chunk_buf = vec![0u8; chunk as usize];
+        file.read_exact(&mut chunk_buf).await.into_diagnostic()?;
+        newlines += chunk_buf.iter().filter(|&&b| b == b'\n').count();
+        // Prepend this earlier chunk in front of the tail collected so far.
+        chunk_buf.extend_from_slice(&buf);
+        buf = chunk_buf;
+        pos = chunk_start;
+        if newlines >= want_newlines {
+            break;
+        }
+    }
+    // `pos == 0` means we reached the real start of the file, so the first line is complete and
+    // must be kept. Otherwise the read began mid-file and the leading line is possibly truncated.
+    let at_file_start = pos == 0;
+
+    let text = String::from_utf8_lossy(&buf);
+    let mut lines = text.lines();
+    if !at_file_start {
+        lines.next();
+    }
+    let collected: Vec<String> = lines.map(|line| line.to_string()).collect();
+    let begin = collected.len().saturating_sub(max_lines);
+    Ok(collected[begin..].to_vec())
+}
 
 /// Wrapper around protobuf message RunningFrameInfo
 #[derive(Serialize, Deserialize)]
@@ -66,6 +142,11 @@ pub struct RunningFrame {
     pub log_path: String,
     pub(super) uid: u32,
     pub(super) gid: u32,
+    // The runner config is host-level policy, not per-frame state, and is always replaced from
+    // the live config on recovery (`from_snapshot`). Keeping it out of the snapshot avoids
+    // bloating every snapshot and, because bincode is positional, stops future additions to
+    // RunnerConfig from breaking the layout of previously written snapshots.
+    #[serde(skip)]
     pub(super) config: RunnerConfig,
     pub thread_ids: Option<Vec<u32>>,
     pub gpu_list: Option<Vec<u32>>,
@@ -523,6 +604,74 @@ impl RunningFrame {
         "bat"
     }
 
+    /// Returns the kill reason if RQD has requested this (still-running) frame be killed.
+    fn kill_reason(&self) -> Option<String> {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+        match &*state {
+            FrameState::Running(running_state) => running_state.kill_reason.clone(),
+            _ => None,
+        }
+    }
+
+    /// Scans the tail of the frame log for configured `log_exit_status_rules` and returns an
+    /// override exit status when one matches.
+    ///
+    /// Only failed frames are scanned (`exit_code != 0`), so a successful frame is never
+    /// reclassified. Any error like a missing/unreadable log, a Loki-only frame with no local
+    /// log file is treated as "no override" and never blocks or fails frame completion.
+    ///
+    /// On a match returns the matching rule's name alongside the override status, so the caller
+    /// can record the reclassification in the frame log for artists debugging the frame.
+    pub(super) async fn scan_log_for_exit_status_override(
+        &self,
+        exit_code: i32,
+    ) -> Option<(String, i32)> {
+        // A successful frame keeps its status; only failures are reinterpreted.
+        if exit_code == 0 {
+            return None;
+        }
+        if self.config.log_exit_status_rules.is_empty() || self.config.log_scan_last_lines == 0 {
+            return None;
+        }
+        // If RQD itself killed this frame (OOM, NIMBY, timeout, manual kill), that reason is
+        // authoritative and drives its own retry semantics (e.g. OOM -> exit_signal 33). Don't
+        // let an incidental log-pattern match reclassify it and hide why the frame really died.
+        if self.kill_reason().is_some() {
+            return None;
+        }
+        // Loki-backed frames don't write a local log file, so there is nothing to scan.
+        if !self.request.loki_url.is_empty() {
+            return None;
+        }
+        let compiled = self.config.compiled_exit_status_rules();
+        if compiled.is_empty() {
+            return None;
+        }
+
+        let lines = match read_last_lines(&self.log_path, self.config.log_scan_last_lines).await {
+            Ok(lines) => lines,
+            Err(err) => {
+                warn!(
+                    "Frame {}: skipping exit-status log scan, could not read {}: {}",
+                    self, self.log_path, err
+                );
+                return None;
+            }
+        };
+
+        let log_tail = lines.join("\n");
+        match match_exit_status_rules(&log_tail, compiled) {
+            Some((name, exit_status)) => {
+                info!(
+                    "Frame {}: log matched rule '{}'; overriding exit status {} -> {}",
+                    self, name, exit_code, exit_status
+                );
+                Some((name, exit_status))
+            }
+            None => None,
+        }
+    }
+
     /// Runs the frame as a subprocess.
     ///
     /// This method is the main entry point for executing a frame. It:
@@ -556,6 +705,20 @@ impl RunningFrame {
         };
         let was_spawned = match output {
             Ok((exit_code, exit_signal)) => {
+                // Reclassify known failures (e.g. license shortages) before persisting the
+                // finished state, so both the footer and the report to Cuebot see the override.
+                let exit_code = match self.scan_log_for_exit_status_override(exit_code).await {
+                    Some((name, override_code)) => {
+                        // Record the reclassification in the frame log itself; otherwise the
+                        // footer would show only the overridden status and the original exit
+                        // code the process actually returned would appear nowhere artists look.
+                        logger.writeln(&format!(
+                            "Exit status {exit_code} overridden to {override_code} by rule '{name}'"
+                        ));
+                        override_code
+                    }
+                    None => exit_code,
+                };
                 if let Err(err) = self.finish(exit_code, exit_signal, None) {
                     error!("Failed to mark frame {} as finished. {}", self, err);
                 }
@@ -1658,11 +1821,11 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    use crate::config::Config;
+    use crate::config::{compile_exit_status_rules, Config, LogExitStatusRule, RunnerConfig};
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
-    use super::RunningFrame;
+    use super::{match_exit_status_rules, read_last_lines, RunningFrame, LOG_SCAN_MAX_BYTES};
 
     fn create_running_frame(
         command: &str,
@@ -1670,11 +1833,25 @@ mod tests {
         uid: u32,
         environment: HashMap<String, String>,
     ) -> RunningFrame {
+        create_running_frame_cfg(command, num_cores, uid, environment, "", |_| {})
+    }
+
+    /// Like [`create_running_frame`], but allows setting a Loki URL and mutating the runner
+    /// config (e.g. to install `log_exit_status_rules`) before the frame is built.
+    fn create_running_frame_cfg<F: FnOnce(&mut RunnerConfig)>(
+        command: &str,
+        num_cores: u32,
+        uid: u32,
+        environment: HashMap<String, String>,
+        loki_url: &str,
+        configure: F,
+    ) -> RunningFrame {
         let frame_id = Uuid::new_v4().to_string();
         let general_config = Config::default();
         general_config.setup().unwrap();
         let mut config = general_config.runner;
         config.run_as_user = false;
+        configure(&mut config);
 
         RunningFrame::init(
             RunFrame {
@@ -1702,7 +1879,7 @@ mod tests {
                 soft_memory_limit: 0,
                 hard_memory_limit: 0,
                 pid: 0,
-                loki_url: "".to_string(),
+                loki_url: loki_url.to_string(),
 
                 #[allow(deprecated)]
                 job_temp_dir: "".to_string(),
@@ -1723,6 +1900,225 @@ mod tests {
             "localhost".to_string(),
             1,
         )
+    }
+
+    /// Builds a frame whose runner config has a single license-error rule (exit status 330) and
+    /// writes `log_contents` to a unique log file, ready for a scan. The frame's `log_path` is
+    /// repointed at that file so parallel tests never collide on the derived path.
+    fn frame_with_license_rule(loki_url: &str, log_contents: &str) -> RunningFrame {
+        let mut frame = create_running_frame_cfg("false", 1, 1, HashMap::new(), loki_url, |cfg| {
+            cfg.log_scan_last_lines = 50;
+            cfg.log_exit_status_rules = vec![rule(
+                "HOUDINI_LICENSE_ERROR",
+                "A usable license to run the application is installed but they are all in use",
+                330,
+            )];
+        });
+        let log_file = std::env::temp_dir().join(format!("rqd_scan_test_{}.rqlog", Uuid::new_v4()));
+        std::fs::write(&log_file, log_contents).unwrap();
+        frame.log_path = log_file.to_string_lossy().to_string();
+        frame
+    }
+
+    const LICENSE_LOG: &str = "\
+[12:40:13] Some earlier unrelated output
+[12:40:13] A usable license to run the application is installed but they are all in use.
+[12:40:13] Please contact your companies license administrator to create availability
+[12:40:14] Process completed with exit status: 3
+";
+
+    fn rule(name: &str, regex: &str, exit_status: i32) -> LogExitStatusRule {
+        LogExitStatusRule {
+            name: name.to_string(),
+            regex: regex.to_string(),
+            exit_status,
+        }
+    }
+
+    #[test]
+    fn test_match_exit_status_rules_first_match_wins() {
+        let rules = compile_exit_status_rules(&[
+            rule("LICENSE", "all in use", 330),
+            rule("GENERIC", "error", 331),
+        ]);
+        // Both patterns are present; the earlier rule in the list must win.
+        let tail = "some error occurred\nlicenses are all in use now";
+        assert_eq!(
+            match_exit_status_rules(tail, &rules),
+            Some(("LICENSE".to_string(), 330))
+        );
+    }
+
+    #[test]
+    fn test_match_exit_status_rules_no_match() {
+        let rules = compile_exit_status_rules(&[rule("LICENSE", "all in use", 330)]);
+        assert_eq!(match_exit_status_rules("frame rendered fine", &rules), None);
+    }
+
+    #[test]
+    fn test_compile_exit_status_rules_skips_invalid_regex() {
+        // The middle rule has an invalid pattern and must be dropped without failing the rest.
+        let compiled = compile_exit_status_rules(&[
+            rule("GOOD", "valid", 1),
+            rule("BAD", "(unclosed", 2),
+            rule("ALSO_GOOD", "also", 3),
+        ]);
+        assert_eq!(compiled.len(), 2);
+        assert_eq!(
+            match_exit_status_rules("also valid", &compiled),
+            Some(("GOOD".to_string(), 1))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_returns_tail() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        for i in 0..100 {
+            writeln!(file, "line {i}").unwrap();
+        }
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 5).await.unwrap();
+        assert_eq!(
+            lines,
+            vec!["line 95", "line 96", "line 97", "line 98", "line 99"]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_fewer_than_requested() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(file, "only line").unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 50).await.unwrap();
+        assert_eq!(lines, vec!["only line"]);
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_matches_license_error() {
+        // End-to-end: the exact license message from a real Houdini failure must match.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(file, "[12:40:13] Some earlier unrelated output").unwrap();
+        writeln!(
+            file,
+            "[12:40:13] A usable license to run the application is installed but they are all in use."
+        )
+        .unwrap();
+        writeln!(
+            file,
+            "[12:40:13] Please contact your companies license administrator to create availability"
+        )
+        .unwrap();
+        writeln!(file, "[12:40:14] Process completed with exit status: 3").unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 10).await.unwrap();
+        let tail = lines.join("\n");
+        let rules = compile_exit_status_rules(&[rule(
+            "HOUDINI_LICENSE_ERROR",
+            "A usable license to run the application is installed but they are all in use",
+            330,
+        )]);
+        assert_eq!(
+            match_exit_status_rules(&tail, &rules),
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_spans_multiple_chunks() {
+        // A file far larger than LOG_SCAN_CHUNK_BYTES forces the backward read to walk several
+        // chunks; the tail must still be exact and correctly ordered across chunk boundaries.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        // ~200 bytes/line * 2000 lines ≈ 400 KiB, well beyond the 16 KiB chunk.
+        let filler = "x".repeat(180);
+        for i in 0..2000 {
+            writeln!(file, "line {i:04} {filler}").unwrap();
+        }
+        file.flush().unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 3).await.unwrap();
+        assert_eq!(
+            lines,
+            vec![
+                format!("line 1997 {filler}"),
+                format!("line 1998 {filler}"),
+                format!("line 1999 {filler}"),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_respects_byte_cap() {
+        // A single line longer than LOG_SCAN_MAX_BYTES is dropped entirely (its leading partial
+        // is truncated at the floor and discarded), matching the documented cap behavior.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        let giant = "y".repeat((LOG_SCAN_MAX_BYTES as usize) + 4096);
+        writeln!(file, "{giant}").unwrap();
+        writeln!(file, "short tail line").unwrap();
+        file.flush().unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 10).await.unwrap();
+        assert_eq!(lines, vec!["short tail line"]);
+    }
+
+    #[tokio::test]
+    async fn test_scan_returns_none_on_success() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        // exit_code 0 must never trigger a scan/override, regardless of config.
+        assert_eq!(frame.scan_log_for_exit_status_override(0).await, None);
+    }
+
+    #[tokio::test]
+    async fn test_scan_returns_none_without_rules() {
+        // Default config has no rules configured, so a failure yields no override.
+        let frame = create_running_frame("false", 1, 1, HashMap::new());
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+    }
+
+    #[tokio::test]
+    async fn test_scan_overrides_on_license_match() {
+        // End-to-end: a failed frame whose log contains the license message is reclassified.
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        assert_eq!(
+            frame.scan_log_for_exit_status_override(3).await,
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_no_override_when_pattern_absent() {
+        // A failure whose log doesn't match any rule keeps its original exit status.
+        let frame = frame_with_license_rule("", "frame rendered fine\nexit status: 1\n");
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_skips_loki_frames() {
+        // Even with a matching local file, a Loki-backed frame must not be scanned.
+        let frame = frame_with_license_rule("http://loki.example.com", LICENSE_LOG);
+        assert_eq!(frame.scan_log_for_exit_status_override(3).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_skips_killed_frames() {
+        // A frame RQD killed keeps its kill-driven classification, even if the log matches.
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        frame.start(12345);
+        frame.get_pid_to_kill("manual kill").unwrap();
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
     }
 
     #[tokio::test]
