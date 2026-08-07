@@ -625,6 +625,23 @@
     <property name="repeatInterval" value="${maintenance.stuck_dependency_recovery_interval_ms}" />
   </bean>
 
+  <bean id="orphanedFrameCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="clearOrphanedFrames" />
+    <property name="concurrent" value="false" />
+  </bean>
+
+  <bean id="orphanedFrameCheckTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="orphanedFrameCheck" />
+    <!--
+      10 minute start delay We want to give procs a chance to report in when the host first
+      starts, otherwise valid running frames will be treated as orphans.
+    -->
+    <property name="startDelay" value="600000" />
+    <!-- repeat every 60 seconds by default (configurable via maintenance.orphaned_frame_check_interval_ms) -->
+    <property name="repeatInterval" value="${maintenance.orphaned_frame_check_interval_ms}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -643,6 +660,7 @@
         <ref bean="collectPrometheusMetricsTrigger" />
         <ref bean="subscriptionRecalculationTrigger" />
         <ref bean="stuckDependencyRecoveryTrigger" />
+        <ref bean="orphanedFrameCheckTrigger" />
       </list>
     </property>
   </bean>

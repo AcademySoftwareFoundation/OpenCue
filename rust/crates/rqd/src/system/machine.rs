@@ -11,7 +11,7 @@
 // the License.
 
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 use crate::{
     config::CONFIG,
@@ -89,7 +89,12 @@ pub struct MachineMonitor {
     /// failure (network blip, Cuebot GC pause, or an explicit RqdRetryReportException) would silently
     /// drop the completion and let Cuebot rebook an already-finished frame (double booking).
     /// Keyed by frame_id.
-    pending_completions: Arc<DashMap<Uuid, Arc<RunningFrame>>>,
+    pending_completions: Arc<DashMap<Uuid, PendingCompletion>>,
+    /// Ensures at most one [`MachineMonitor::deliver_pending_completions`] task runs at a time. The
+    /// flush is spawned off the monitor loop so a slow or unreachable Cuebot cannot stall host
+    /// reporting; this guard stops successive monitor cycles from piling up overlapping delivery
+    /// tasks against a Cuebot that is already struggling to keep up.
+    completion_flush_guard: Arc<Mutex<()>>,
     last_host_state: Arc<RwLock<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
@@ -97,6 +102,15 @@ pub struct MachineMonitor {
     nimby: Arc<Option<Nimby>>,
     #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
+}
+
+/// A locally-finished frame awaiting completion acknowledgement from Cuebot, tagged with the instant
+/// it entered the pending store. `enqueued_at` gives every entry a uniform delivery age regardless of
+/// its terminal state — a `FailedBeforeStart` frame carries no `end_time` — which the backlog warning
+/// uses to tell a genuine, cycle-surviving backlog apart from frames enqueued in the current cycle.
+struct PendingCompletion {
+    frame: Arc<RunningFrame>,
+    enqueued_at: Instant,
 }
 
 static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
@@ -194,6 +208,7 @@ impl MachineMonitor {
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
             pending_completions: Arc::new(DashMap::new()),
+            completion_flush_guard: Arc::new(Mutex::new(())),
             last_host_state: Arc::new(RwLock::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
@@ -546,9 +561,9 @@ impl MachineMonitor {
         }
 
         // Sanitize dangling reservations
-        // This mechanism is redundant as enqueue_finished_frames releases resources reserved to
-        // finished frames. But leaking core reservations would lead to waste of resoures, so
-        // having a safety check sounds reasonable even when reduntant.
+        // This mechanism is redundant as enqueue_and_release_finished_frames_cores releases
+        // resources reserved to finished frames. But leaking core reservations would lead to
+        // waste of resoures, so having a safety check sounds reasonable even when reduntant.
         {
             let running_resources: Vec<Uuid> = running_frames
                 .iter()
@@ -579,24 +594,29 @@ impl MachineMonitor {
                     err
                 );
             };
-            self.pending_completions.insert(frame.frame_id, frame);
+            self.pending_completions.insert(
+                frame.frame_id,
+                PendingCompletion {
+                    frame,
+                    enqueued_at: Instant::now(),
+                },
+            );
         }
     }
 
-    /// Attempt to deliver every pending frame-complete report to Cuebot. An entry is only removed
-    /// from the pending store once Cuebot acknowledges it (Ok response). Any failure, transport
-    /// error, exhausted 5xx retries, or a gRPC application error such as RqdRetryReportException
-    /// (which surfaces here as an `Err`) leaves the entry in place to be retried on the next
-    /// monitor cycle. This guarantees at-least-once delivery so a completed (including successfully
-    /// rendered) frame is never silently dropped, which would otherwise let Cuebot rebook it onto a
-    /// second host.
+    /// Schedule delivery of the pending frame-complete reports to Cuebot without blocking the monitor
+    /// loop.
     ///
-    /// Note: delivery is at-least-once, not exactly-once. A report whose response is lost in transit
-    /// is resent and Cuebot receives a duplicate. Cuebot tolerates duplicates rather than treating
-    /// them as a strict no-op: the frame stop is version-fenced, so a resent report whose frame is no
-    /// longer RUNNING at the reported version does not re-stop it, and if the proc has since been
-    /// rebooked onto its next frame the duplicate is dropped instead of unbooking that proc. A
-    /// duplicate therefore cannot re-complete a frame or orphan a running one.
+    /// Delivery runs in a spawned, time-bounded task rather than inline: a single
+    /// `send_frame_complete_report` against an unreachable Cuebot can spin through the gRPC retry
+    /// ladder (up to `grpc.backoff_retry_attempts` × `grpc.backoff_delay_max`, i.e. minutes), and with
+    /// a backlog of N entries an inline flush would stall the host-mem snapshot, OOM protection,
+    /// reservation sanitisation and the host report itself for roughly N × that. The
+    /// [`Self::completion_flush_guard`] ensures only one delivery task exists at a time, so successive
+    /// monitor cycles cannot pile up overlapping deliveries while Cuebot is slow.
+    ///
+    /// The backlog warning is emitted here, synchronously, every cycle — even when a previous delivery
+    /// task is still running — so the condition stays observable precisely when it matters most.
     async fn flush_pending_completions(&self) {
         if self.pending_completions.is_empty() {
             return;
@@ -604,61 +624,113 @@ impl MachineMonitor {
 
         // Surface a genuine backlog: completions that could not be delivered pile up here across
         // monitor cycles (Cuebot unreachable or rejecting reports). Emit a single summary warning
-        // per cycle, not per individual retry below, carrying the backlog size and the age of
-        // its oldest entry, so the condition is observable before it grows unbounded. Only entries
-        // that have already survived at least one monitor cycle count as a backlog; freshly
-        // finished frames delivered in this same cycle have ~zero age and must not warn. Entries
-        // without a usable age (FailedBeforeStart) always warn since their age cannot be gated.
+        // per cycle, carrying the backlog size and the age of its oldest entry, so the condition is
+        // observable before it grows unbounded. Age is measured from the instant each entry was
+        // enqueued, uniformly across terminal states, so only entries that have already survived at
+        // least one monitor cycle warn; frames enqueued in this same cycle have ~zero age and stay
+        // quiet.
         let backlog = self.pending_completions.len();
         let oldest_age = self
             .pending_completions
             .iter()
-            .filter_map(|entry| match entry.value().get_state_copy() {
-                FrameState::Finished(finished_state) => finished_state.end_time.elapsed().ok(),
-                _ => None,
-            })
+            .map(|entry| entry.value().enqueued_at.elapsed())
             .max();
-        match oldest_age {
-            Some(age) => {
-                if age >= self.maching_config.monitor_interval {
-                    warn!(
-                        "{} pending frame completion(s) still awaiting delivery to Cuebot after \
-                         retries; oldest is {}s old",
-                        backlog,
-                        age.as_secs()
-                    );
-                }
-            }
-            None => {
-                // No entry carries a usable age: FailedBeforeStart has no end_time and elapsed()
-                // fails when the clock steps backwards. Still surface the backlog rather than
-                // staying silent.
+        if let Some(age) = oldest_age {
+            if age >= self.maching_config.monitor_interval {
                 warn!(
-                    "{} pending frame completion(s) awaiting delivery to Cuebot (no delivery age \
-                     available)",
-                    backlog
+                    "{} pending frame completion(s) still awaiting delivery to Cuebot after \
+                     retries; oldest is {}s old",
+                    backlog,
+                    age.as_secs()
                 );
             }
         }
 
+        // Only one delivery task at a time. If a previous one is still draining the backlog (e.g.
+        // Cuebot is slow/unreachable) skip spawning another so cycles don't pile up.
+        let guard = match Arc::clone(&self.completion_flush_guard).try_lock_owned() {
+            Ok(guard) => guard,
+            Err(_) => {
+                debug!(
+                    "Skipping pending completion delivery: a previous flush is still in progress \
+                     ({} entries pending)",
+                    backlog
+                );
+                return;
+            }
+        };
+
+        let pending_completions = Arc::clone(&self.pending_completions);
+        let report_client = Arc::clone(&self.report_client);
+        let last_host_state = Arc::clone(&self.last_host_state);
+        // Bound a single delivery pass so a persistently unreachable Cuebot can't keep one flush task
+        // (and its guard) alive indefinitely: whatever is undelivered when the budget elapses is left
+        // in the store and retried on a later cycle. Delivery is cancel-safe, an entry is only
+        // removed after a successful Ok, so cancelling mid-send merely defers that entry.
+        let budget = self.maching_config.monitor_interval;
+        tokio::spawn(async move {
+            // Hold the guard for the task's lifetime; it releases on completion, cancellation or panic.
+            let _guard = guard;
+            if tokio::time::timeout(
+                budget,
+                Self::deliver_pending_completions(
+                    pending_completions,
+                    report_client,
+                    last_host_state,
+                ),
+            )
+            .await
+            .is_err()
+            {
+                warn!(
+                    "Pending completion delivery did not finish within {}s; remaining entries \
+                     deferred to the next monitor cycle",
+                    budget.as_secs()
+                );
+            }
+        });
+    }
+
+    /// Deliver every pending frame-complete report to Cuebot. An entry is only removed from the
+    /// pending store once Cuebot acknowledges it (Ok response). Any failure, transport error,
+    /// exhausted 5xx retries, or a gRPC application error such as RqdRetryReportException (which
+    /// surfaces here as an `Err`) leaves the entry in place to be retried on the next monitor cycle.
+    /// This guarantees at-least-once delivery so a completed (including successfully rendered) frame
+    /// is never silently dropped, which would otherwise let Cuebot rebook it onto a second host.
+    ///
+    /// Note: delivery is at-least-once, not exactly-once. A report whose response is lost in transit
+    /// is resent and Cuebot receives a duplicate. Cuebot tolerates duplicates rather than treating
+    /// them as a strict no-op: the frame stop is version-fenced, so a resent report whose frame is no
+    /// longer RUNNING at the reported version does not re-stop it, and if the proc has since been
+    /// rebooked onto its next frame the duplicate is dropped instead of unbooking that proc. A
+    /// duplicate therefore cannot re-complete a frame or orphan a running one.
+    ///
+    /// Undelivered entries are deliberately retained rather than dropped after some cap or max age:
+    /// dropping a completion is exactly what reintroduces double booking, so this store fails closed.
+    /// The unbounded work is instead bounded by the caller ([`Self::flush_pending_completions`]),
+    /// which runs this off the monitor loop under a time budget.
+    async fn deliver_pending_completions(
+        pending_completions: Arc<DashMap<Uuid, PendingCompletion>>,
+        report_client: Arc<ReportClient>,
+        last_host_state: Arc<RwLock<Option<RenderHost>>>,
+    ) {
         // Avoid holding a lock while reporting back to cuebot
-        let host_state = match self.last_host_state.read().await.clone() {
+        let host_state = match last_host_state.read().await.clone() {
             Some(state) => state,
             None => {
                 warn!(
                     "Invalid state. Could not find host state, deferring {} pending frame \
                      completion(s) to the next cycle",
-                    self.pending_completions.len()
+                    pending_completions.len()
                 );
                 return;
             }
         };
 
         // Snapshot the pending entries so we don't hold a DashMap iterator across awaits.
-        let pending: Vec<Arc<RunningFrame>> = self
-            .pending_completions
+        let pending: Vec<Arc<RunningFrame>> = pending_completions
             .iter()
-            .map(|entry| Arc::clone(entry.value()))
+            .map(|entry| Arc::clone(&entry.value().frame))
             .collect();
 
         for frame in pending {
@@ -688,7 +760,7 @@ impl MachineMonitor {
                         "Pending completion for {} is not in a terminal state, dropping",
                         frame
                     );
-                    self.pending_completions.remove(&frame.frame_id);
+                    pending_completions.remove(&frame.frame_id);
                     continue;
                 }
             };
@@ -696,8 +768,7 @@ impl MachineMonitor {
             let frame_report = frame.clone_into_running_frame_info();
             info!("Sending frame complete report: {}", frame);
 
-            match self
-                .report_client
+            match report_client
                 .send_frame_complete_report(
                     host_state.clone(),
                     frame_report,
@@ -708,7 +779,7 @@ impl MachineMonitor {
                 .await
             {
                 Ok(()) => {
-                    self.pending_completions.remove(&frame.frame_id);
+                    pending_completions.remove(&frame.frame_id);
                 }
                 Err(err) => {
                     warn!(

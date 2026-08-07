@@ -278,11 +278,13 @@ public interface FrameDao {
      * Returns a list of Running frames that have not had a proc assigned to them in over 5 min.
      * This can happen when an operation aborts due to a deadlock. The returned {@link FrameDetail}
      * carries the frame's last-known host (via {@code lastResource}) so callers can act on it
-     * without an additional lookup.
+     * without an additional lookup. The result is bounded by {@code limit} so a fleet-wide event
+     * that orphans many frames is cleared across several passes rather than in one unbounded scan.
      *
+     * @param limit the maximum number of orphaned frames to return
      * @return
      */
-    List<FrameDetail> getOrphanedFrames();
+    List<FrameDetail> getOrphanedFrames(int limit);
 
     /**
      * Return a list of all frames that have positive dependency counts for the specified

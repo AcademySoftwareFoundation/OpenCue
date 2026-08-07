@@ -210,7 +210,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void testgetOrphanedFrames() {
-        assertEquals(0, frameDao.getOrphanedFrames().size());
+        assertEquals(0, frameDao.getOrphanedFrames(100).size());
 
         JobDetail job = launchJob();
         FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
@@ -225,7 +225,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 + "ts_updated = current_timestamp - interval '301' second WHERE pk_frame = ?",
                 f.getFrameId());
 
-        List<FrameDetail> orphans = frameDao.getOrphanedFrames();
+        List<FrameDetail> orphans = frameDao.getOrphanedFrames(100);
         assertEquals(1, orphans.size());
         // lastResource is "host/cores/gpus"; the reaper parses the host from it without a second
         // lookup.

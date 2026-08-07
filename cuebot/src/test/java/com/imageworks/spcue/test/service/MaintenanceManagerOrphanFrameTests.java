@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.test.service;
 
+import java.sql.Timestamp;
 import java.util.Collections;
 
 import org.junit.Before;
@@ -23,13 +24,18 @@ import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.MaintenanceManagerSupport;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,8 +51,11 @@ import static org.mockito.Mockito.when;
  */
 public class MaintenanceManagerOrphanFrameTests {
 
+    private static final long HOUR_MS = 3600000L;
+
     private MaintenanceManagerSupport maintenanceManager;
     private FrameDao frameDao;
+    private MaintenanceDao maintenanceDao;
     private RqdClient rqdClient;
     private Environment env;
 
@@ -54,12 +63,25 @@ public class MaintenanceManagerOrphanFrameTests {
     public void setup() {
         maintenanceManager = new MaintenanceManagerSupport();
         frameDao = mock(FrameDao.class);
+        maintenanceDao = mock(MaintenanceDao.class);
         rqdClient = mock(RqdClient.class);
         env = mock(Environment.class);
-        // Generous default budget; individual tests override when they need budget exhaustion.
+        // Behave like a real Environment with no overrides: return the caller's default. Individual
+        // tests override specific properties by registering a more specific stub afterwards.
+        when(env.getProperty(eq("maintenance.orphaned_frame_check_enabled"), eq(Boolean.class),
+                anyBoolean())).thenAnswer(inv -> inv.getArgument(2));
         when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
-                anyLong())).thenReturn(5000L);
+                anyLong())).thenAnswer(inv -> inv.getArgument(2));
+        when(env.getProperty(eq("maintenance.orphaned_frame_confirm_timeout_ms"), eq(Long.class),
+                anyLong())).thenAnswer(inv -> inv.getArgument(2));
+        when(env.getProperty(eq("maintenance.orphaned_frame_max_defer_ms"), eq(Long.class),
+                anyLong())).thenAnswer(inv -> inv.getArgument(2));
+        when(env.getProperty(eq("maintenance.orphaned_frame_batch_size"), eq(Integer.class),
+                anyInt())).thenAnswer(inv -> inv.getArgument(2));
+        // The sweep is gated on a cluster-wide task lock; grant it by default.
+        when(maintenanceDao.lockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK)).thenReturn(true);
         maintenanceManager.setFrameDao(frameDao);
+        maintenanceManager.setMaintenanceDao(maintenanceDao);
         maintenanceManager.setRqdClient(rqdClient);
         ReflectionTestUtils.setField(maintenanceManager, "env", env);
     }
@@ -69,13 +91,29 @@ public class MaintenanceManagerOrphanFrameTests {
         frame.id = id;
         frame.name = "0001-render";
         frame.lastResource = lastResource;
+        // Recently updated so the frame is within the defer window unless a test ages it.
+        frame.dateUpdated = new Timestamp(System.currentTimeMillis());
         return frame;
+    }
+
+    private void setBudgetMs(long ms) {
+        when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
+                anyLong())).thenReturn(ms);
+    }
+
+    private void setConfirmTimeoutMs(long ms) {
+        when(env.getProperty(eq("maintenance.orphaned_frame_confirm_timeout_ms"), eq(Long.class),
+                anyLong())).thenReturn(ms);
+    }
+
+    private void setSingleOrphan(FrameDetail frame) {
+        when(frameDao.getOrphanedFrames(anyInt())).thenReturn(Collections.singletonList(frame));
     }
 
     @Test
     public void confirmedDeadResetsToWaiting() {
         FrameDetail frame = orphanFrame("frame-1", "host1/100/0");
-        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+        setSingleOrphan(frame);
         when(rqdClient.isFrameRunning("host1", "frame-1")).thenReturn(false);
 
         maintenanceManager.clearOrphanedFrames();
@@ -85,12 +123,13 @@ public class MaintenanceManagerOrphanFrameTests {
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
         verify(frameDao, never()).updateFrameStopped(frame, FrameState.DEAD,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        verify(maintenanceDao).unlockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK);
     }
 
     @Test
     public void hostUnreachableMarksDead() {
         FrameDetail frame = orphanFrame("frame-2", "host2/100/0");
-        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+        setSingleOrphan(frame);
         when(rqdClient.isFrameRunning("host2", "frame-2"))
                 .thenThrow(new RqdClientException("host unreachable"));
 
@@ -104,18 +143,66 @@ public class MaintenanceManagerOrphanFrameTests {
     }
 
     @Test
-    public void budgetExhaustedSendsBestEffortKillThenMarksDead() {
-        // Zero budget: the pass deadline is already reached, so death cannot be confirmed. A
-        // best-effort, non-blocking kill is still sent so the render is asked to stop, but no
-        // confirmation is polled and the frame is failed closed (DEAD).
-        when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
-                anyLong())).thenReturn(0L);
+    public void stillRunningReachableFrameIsDeferred() {
+        // Reachable but still running, with a zero per-frame confirm timeout: one poll then the
+        // per-frame deadline is hit, so the frame is deferred (left RUNNING) to the next pass.
+        setConfirmTimeoutMs(0L);
         FrameDetail frame = orphanFrame("frame-3", "host3/100/0");
-        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+        setSingleOrphan(frame);
+        when(rqdClient.isFrameRunning("host3", "frame-3")).thenReturn(true);
 
         maintenanceManager.clearOrphanedFrames();
 
         verify(rqdClient).killFrame(eq("host3"), eq("frame-3"), anyString());
+        verify(rqdClient).isFrameRunning("host3", "frame-3");
+        // Deferred means no state change at all: neither WAITING nor DEAD.
+        verify(frameDao, never()).updateFrameStopped(eq(frame), any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void stillRunningExpiredOrphanMarksDead() {
+        // Reachable but still running, and orphaned longer than the max defer window: fail closed.
+        setConfirmTimeoutMs(0L);
+        FrameDetail frame = orphanFrame("frame-4", "host4/100/0");
+        frame.dateUpdated = new Timestamp(System.currentTimeMillis() - 2 * HOUR_MS);
+        setSingleOrphan(frame);
+        when(rqdClient.isFrameRunning("host4", "frame-4")).thenReturn(true);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(frameDao).updateFrameStopped(frame, FrameState.DEAD,
+                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        verify(frameDao, never()).updateFrameStopped(frame, FrameState.WAITING,
+                Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+    }
+
+    @Test
+    public void budgetExhaustedSendsBestEffortKillThenDefers() {
+        // Zero budget: no time to confirm death this pass. A best-effort, non-blocking kill is
+        // still sent, but the frame is deferred (left RUNNING) rather than failed closed.
+        setBudgetMs(0L);
+        FrameDetail frame = orphanFrame("frame-5", "host5/100/0");
+        setSingleOrphan(frame);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(rqdClient).killFrame(eq("host5"), eq("frame-5"), anyString());
+        verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
+        verify(frameDao, never()).updateFrameStopped(eq(frame), any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void budgetExhaustedExpiredOrphanMarksDead() {
+        // Zero budget and orphaned longer than the max defer window: send a best-effort kill and
+        // fail closed so the frame surfaces for a manual retry instead of lingering RUNNING.
+        setBudgetMs(0L);
+        FrameDetail frame = orphanFrame("frame-6", "host6/100/0");
+        frame.dateUpdated = new Timestamp(System.currentTimeMillis() - 2 * HOUR_MS);
+        setSingleOrphan(frame);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(rqdClient).killFrame(eq("host6"), eq("frame-6"), anyString());
         verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
         verify(frameDao).updateFrameStopped(frame, FrameState.DEAD,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
@@ -124,8 +211,8 @@ public class MaintenanceManagerOrphanFrameTests {
     @Test
     public void neverRanResetsToWaitingWithoutKill() {
         // Empty lastResource: the frame never ran, so there is no render to kill or confirm.
-        FrameDetail frame = orphanFrame("frame-4", "");
-        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+        FrameDetail frame = orphanFrame("frame-7", "");
+        setSingleOrphan(frame);
 
         maintenanceManager.clearOrphanedFrames();
 
@@ -136,12 +223,11 @@ public class MaintenanceManagerOrphanFrameTests {
 
     @Test
     public void budgetExhaustedNeverRanFrameStaysRetryable() {
-        // Zero budget and empty lastResource: no render can exist, so even without time to
-        // confirm anything the frame must stay retryable (WAITING), not be failed closed.
-        when(env.getProperty(eq("maintenance.orphaned_frame_kill_budget_ms"), eq(Long.class),
-                anyLong())).thenReturn(0L);
-        FrameDetail frame = orphanFrame("frame-5", "");
-        when(frameDao.getOrphanedFrames()).thenReturn(Collections.singletonList(frame));
+        // Zero budget and empty lastResource: no render can exist, so even without time to confirm
+        // anything the frame must stay retryable (WAITING), not be deferred or failed closed.
+        setBudgetMs(0L);
+        FrameDetail frame = orphanFrame("frame-8", "");
+        setSingleOrphan(frame);
 
         maintenanceManager.clearOrphanedFrames();
 
@@ -150,5 +236,26 @@ public class MaintenanceManagerOrphanFrameTests {
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
         verify(frameDao, never()).updateFrameStopped(frame, FrameState.DEAD,
                 Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+    }
+
+    @Test
+    public void lockNotAcquiredSkipsSweep() {
+        when(maintenanceDao.lockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK)).thenReturn(false);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(frameDao, never()).getOrphanedFrames(anyInt());
+        verify(maintenanceDao, never()).unlockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK);
+    }
+
+    @Test
+    public void disabledSkipsSweep() {
+        when(env.getProperty(eq("maintenance.orphaned_frame_check_enabled"), eq(Boolean.class),
+                anyBoolean())).thenReturn(false);
+
+        maintenanceManager.clearOrphanedFrames();
+
+        verify(maintenanceDao, never()).lockTask(MaintenanceTask.LOCK_ORPHANED_FRAME_CHECK);
+        verify(frameDao, never()).getOrphanedFrames(anyInt());
     }
 }
