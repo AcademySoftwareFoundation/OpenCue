@@ -592,9 +592,11 @@ impl MachineMonitor {
     /// second host.
     ///
     /// Note: delivery is at-least-once, not exactly-once. A report whose response is lost in transit
-    /// is resent and Cuebot receives a duplicate; Cuebot's frame-complete handling is idempotent
-    /// (the stop is gated on the frame still being RUNNING at the reported version) so a duplicate is
-    /// a no-op.
+    /// is resent and Cuebot receives a duplicate. Cuebot tolerates duplicates rather than treating
+    /// them as a strict no-op: the frame stop is version-fenced, so a resent report whose frame is no
+    /// longer RUNNING at the reported version does not re-stop it, and if the proc has since been
+    /// rebooked onto its next frame the duplicate is dropped instead of unbooking that proc. A
+    /// duplicate therefore cannot re-complete a frame or orphan a running one.
     async fn flush_pending_completions(&self) {
         if self.pending_completions.is_empty() {
             return;

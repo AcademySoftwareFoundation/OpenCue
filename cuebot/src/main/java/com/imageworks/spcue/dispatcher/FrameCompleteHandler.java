@@ -194,7 +194,7 @@ public class FrameCompleteHandler {
                                     newFrameState, frameDetail));
                 }
             } else {
-                handleStaleReport(proc, key);
+                handleStaleReport(proc, report, key);
             }
         } catch (EmptyResultDataAccessException e) {
             /*
@@ -221,8 +221,21 @@ public class FrameCompleteHandler {
      * Handles a report whose frame was already stopped by another thread. When a user retries a
      * frame the proc is redirected back to the same job without checking any other properties;
      * otherwise the proc is unbooked.
+     *
+     * A proc already assigned to a different frame means the report is a resent duplicate of one
+     * that was fully processed, and the proc has since booked its next frame; unbooking it here
+     * would orphan that frame, so the report is dropped instead. A proc with no frame assignment
+     * still goes through redirect/unbook: stopping a frame clears its proc's assignment, so this is
+     * the normal state for a proc whose frame was stopped by another actor (eat, retry, kill) and
+     * that now needs to be released.
      */
-    private void handleStaleReport(VirtualProc proc, String key) {
+    private void handleStaleReport(VirtualProc proc, FrameCompleteReport report, String key) {
+        if (proc.frameId != null && !proc.frameId.equals(report.getFrame().getFrameId())) {
+            logger.info("Ignoring duplicate frame complete report for "
+                    + report.getFrame().getFrameName() + "; proc " + proc.getProcId()
+                    + " has already moved on to frame " + proc.frameId + ".");
+            return;
+        }
         if (redirectManager.hasRedirect(proc)) {
             queueDispatchTask(key, "redirect", () -> redirectManager.redirect(proc));
         } else {

@@ -37,6 +37,7 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -111,6 +112,9 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
     @Resource
     FrameDao frameDao;
+
+    @Resource
+    ProcDao procDao;
 
     @Resource
     LayerDao layerDao;
@@ -947,6 +951,43 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         verify(mocks.dispatchQueue).execute(any(KeyRunnable.class));
         verify(mocks.redirectManager).redirect(any(VirtualProc.class));
         verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDuplicateReportDroppedWhenProcMovedToNextFrame() {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        VirtualProc proc = dispatchTestDependProc();
+
+        // Snapshot report 1, which targets the frame the proc is currently running.
+        FrameCompleteReport report = buildReport(proc, healthyReportHost().build(), 0);
+        String firstFrameId = proc.getFrameId();
+
+        // Simulate report 1 having already been fully processed: its frame is stopped
+        // and the proc has been rebooked onto its next frame, keeping the same pk_proc.
+        DispatchFrame firstFrame = jobManager.getDispatchFrame(firstFrameId);
+        dispatchSupport.stopFrame(firstFrame, FrameState.SUCCEEDED, 0, 0);
+        FrameDetail secondFrame = frameDao.findFrameDetail(job, "0000-layer_second");
+        proc.frameId = secondFrame.getFrameId();
+        proc.layerId = secondFrame.getLayerId();
+        procDao.updateVirtualProcAssignment(proc);
+
+        HandlerMocks mocks = new HandlerMocks();
+        doAnswer(invocation -> {
+            ((KeyRunnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(mocks.dispatchQueue).execute(any(KeyRunnable.class));
+
+        // RQD resends report 1 after its ack was lost.
+        mocks.runWith(() -> frameCompleteHandler.handleFrameCompleteReport(report));
+
+        // The duplicate must be dropped: the proc is never unbooked and keeps the new
+        // frame, so frame N+1 is not orphaned.
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+        verify(mocks.dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
+        VirtualProc live = hostManager.getVirtualProc(proc.getProcId());
+        assertEquals(secondFrame.getFrameId(), live.getFrameId());
     }
 
     @Test(expected = RqdRetryReportException.class)
