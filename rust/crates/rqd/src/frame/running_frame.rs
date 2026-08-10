@@ -18,6 +18,7 @@ use std::os::fd::IntoRawFd;
 use std::os::fd::{FromRawFd, RawFd};
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
+use std::process::Stdio;
 use std::time::SystemTime;
 use std::{
     collections::HashMap,
@@ -28,7 +29,6 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, RwLock},
 };
-use std::{process::Stdio, thread};
 use tokio::time::{self, Duration};
 
 use bytesize::KIB;
@@ -189,6 +189,12 @@ pub struct CreatedState {
 pub struct RunningState {
     pub pid: u32,
     start_time: SystemTime,
+    /// OS-reported start time (seconds since epoch) of the spawned process, captured right
+    /// after spawn. Persisted in the snapshot so a recovering RQD can verify the pid still
+    /// belongs to the frame's process and not to an unrelated process that reused the pid.
+    /// `None` when the start time could not be captured; identity checks then fall back to
+    /// pid existence alone.
+    proc_start_epoch: Option<u64>,
     // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -327,6 +333,7 @@ impl RunningFrame {
                         start_time: SystemTime::now()
                             .checked_sub(duration)
                             .unwrap_or(SystemTime::now()),
+                        proc_start_epoch: None,
                         launch_thread_handle: created_state.launch_thread_handle.take(),
                         kill_reason: None,
                     });
@@ -383,6 +390,7 @@ impl RunningFrame {
             FrameState::Running(ref r) => FrameState::Running(RunningState {
                 pid: r.pid,
                 start_time: r.start_time,
+                proc_start_epoch: r.proc_start_epoch,
                 launch_thread_handle: None,
                 kill_reason: r.kill_reason.clone(),
             }),
@@ -505,6 +513,10 @@ impl RunningFrame {
     /// Returning an error is pointless as we want the frame that trigger this transition to finish
     /// regardless
     pub(super) fn start(&self, pid: u32) {
+        // Capture the OS-reported start time of the process before taking the state lock.
+        // Best effort: a process that exits immediately may already be gone, in which case
+        // recovery-time identity checks fall back to pid existence alone.
+        let proc_start_epoch = Self::process_start_epoch(pid);
         let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
 
         match &mut *state {
@@ -512,6 +524,7 @@ impl RunningFrame {
                 *state = FrameState::Running(RunningState {
                     pid,
                     start_time: SystemTime::now(),
+                    proc_start_epoch,
                     launch_thread_handle: created_state.launch_thread_handle.take(),
                     kill_reason: None,
                 });
@@ -1006,7 +1019,7 @@ impl RunningFrame {
         let (log_pipe_handle, logger_signal) = self.spawn_logger(logger).await;
 
         info!("Frame {self} recovered with pid {pid}");
-        self.wait()?;
+        self.wait().await?;
 
         // Send a signal to the logger thread
         if logger_signal.send(()).await.is_err() {
@@ -1045,6 +1058,16 @@ impl RunningFrame {
             FrameState::Running(ref running_state) => Some(running_state.pid),
             FrameState::Finished(ref finished_state) => Some(finished_state.pid),
             FrameState::FailedBeforeStart => None,
+        }
+    }
+
+    /// Returns the OS-reported start time recorded when the frame process was spawned.
+    /// Only available while the frame is in the Running state.
+    fn recorded_proc_start_epoch(&self) -> Option<u64> {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+        match *state {
+            FrameState::Running(ref running_state) => running_state.proc_start_epoch,
+            _ => None,
         }
     }
 
@@ -1114,72 +1137,61 @@ impl RunningFrame {
         }
     }
 
-    /// Waits for a process to exit by checking its status periodically
+    /// Waits for the frame process to exit by checking its status periodically.
     ///
     /// # Returns
-    /// Returns `Ok(())` if the process successfully exits or is already gone.
+    /// Returns `Ok(())` if the process exits or is already gone.
     ///
     /// # Errors
-    /// Returns an error if:
-    /// - There's no valid PID for the frame
-    /// - There's an error when checking the process status (not including ESRCH)
+    /// Returns an error if there's no valid PID for the frame.
     ///
     /// # Details
-    /// This function polls the process status every 500ms using the kill(2) syscall
-    /// with a null signal. When the process exits, the syscall will return ESRCH
-    /// (No such process) error, indicating the process has terminated.
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    pub fn wait(&self) -> Result<()> {
-        use nix::sys::signal;
-        use nix::unistd::Pid;
-
+    /// Used on the recovery path, where the process is not a child of this RQD instance and
+    /// therefore cannot be `wait(2)`ed on directly. The poll is async (tokio sleep) so a host
+    /// recovering many frames does not pin one runtime worker thread per frame for the frames'
+    /// entire lifetime.
+    ///
+    /// Each poll also verifies process identity: if the recorded process start time no longer
+    /// matches the process currently owning the pid, the pid was recycled by the OS for an
+    /// unrelated process and the frame's process is considered exited. Without this check a
+    /// recovered frame could latch onto a stranger process and "run" for hours.
+    pub async fn wait(&self) -> Result<()> {
         let pid = self.pid().ok_or(miette!(
             "Failed to wait for frame. Process have never started: {}",
             self
         ))?;
+        let recorded_start_epoch = self.recorded_proc_start_epoch();
 
-        // Convert to nix Pid
-        let nix_pid = Pid::from_raw(pid as i32);
-
-        // Poll process status periodically
-        loop {
-            // Check if process is still running
-            match signal::kill(nix_pid, None) {
-                Ok(_) => {
-                    // Process still running, wait a bit and check again
-                    thread::sleep(Duration::from_millis(1500));
-                }
-                Err(nix::Error::ESRCH) => {
-                    // Process has exited
-                    break;
-                }
-                Err(e) => {
-                    return Err(miette!("Error checking process status: {}", e));
-                }
-            }
+        while Self::process_matches(pid, recorded_start_epoch) {
+            time::sleep(Duration::from_millis(1500)).await;
         }
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
-    pub fn wait(&self) -> Result<()> {
-        let pid = self.pid().ok_or(miette!(
-            "Failed to wait for frame. Process have never started: {}",
-            self
-        ))?;
+    /// Returns the OS-reported start time (seconds since epoch) of `pid`, or `None` when no
+    /// such process is currently running.
+    fn process_start_epoch(pid: u32) -> Option<u64> {
+        let mut system = System::new();
+        system.refresh_processes(
+            sysinfo::ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
+            true,
+        );
+        system.process(Pid::from_u32(pid)).map(|p| p.start_time())
+    }
 
-        let mut sysinfo = System::new();
-        loop {
-            sysinfo.refresh_processes(
-                sysinfo::ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
-                true,
-            );
-            if sysinfo.process(Pid::from_u32(pid)).is_none() {
-                break;
-            }
-            thread::sleep(Duration::from_millis(1500));
+    /// Checks that `pid` is alive and still refers to the process the frame spawned.
+    ///
+    /// When `recorded_start_epoch` is known, the process currently owning the pid must have
+    /// started within 2 seconds of it (tolerance for clock/rounding differences between
+    /// capture points). When unknown, falls back to pid existence alone.
+    fn process_matches(pid: u32, recorded_start_epoch: Option<u64>) -> bool {
+        match Self::process_start_epoch(pid) {
+            None => false,
+            Some(actual_start) => match recorded_start_epoch {
+                None => true,
+                Some(recorded_start) => actual_start.abs_diff(recorded_start) <= 2,
+            },
         }
-        Ok(())
     }
 
     /// Retrieves the process ID (PID) that should be killed when terminating this frame
@@ -1405,20 +1417,19 @@ impl RunningFrame {
     /// Returns an error if:
     /// - The snapshot file cannot be opened or read
     /// - The snapshot data cannot be deserialized
-    /// - The frame's process is no longer running
     /// - The snapshot doesn't contain a valid PID
     ///
     /// # Details
-    /// This function loads a previously saved frame state from a snapshot file,
-    /// updates it with the provided configuration, and verifies that the process
-    /// is still running before returning the frame. This is primarily used for
-    /// recovering frames after RQD restarts.
-    ///
-    /// # Known issues:
-    /// This function relies on pid uniqueness, which is not ensured at the OS level.
-    /// TODO: Consider discarding old snapshots, or add additional checks to ensures
-    /// the snapshot is binding to the correct process
-    ///
+    /// This function loads a previously saved frame state from a snapshot file and updates it
+    /// with the provided configuration. The frame is returned for recovery in all of these
+    /// scenarios, so a frame's outcome is never silently lost across an RQD restart:
+    /// - The frame process is still running (verified by pid **and** recorded process start
+    ///   time, so a pid recycled by the OS is not mistaken for the frame).
+    /// - The process finished while RQD was down but left its exit status in the exit file;
+    ///   recovery reports the real exit status to Cuebot.
+    /// - The process is gone without a trace; recovery reports a failure (exit 1/SIGTERM)
+    ///   so Cuebot can immediately reschedule the frame instead of waiting for a stuck-frame
+    ///   timeout.
     pub async fn from_snapshot(path: &str, config: RunnerConfig) -> Result<Self> {
         let buff = tokio::fs::read(path).await.into_diagnostic()?;
 
@@ -1433,27 +1444,26 @@ impl RunningFrame {
         // Initialize host mem snapshot (skipped during deserialization)
         frame.latest_host_mem_snapshot = RwLock::new(None);
 
-        let pid = frame.pid();
+        let pid = frame
+            .pid()
+            .ok_or(miette!("Invalid snapshot. Pid not present. {}", frame))?;
 
-        // Check if pid is still active
-        match pid {
-            Some(pid) => Self::is_process_running(pid).then_some(pid).ok_or(miette!(
-                "Frame pid {} not found for this snapshot. {}",
-                pid,
-                frame.to_string()
-            )),
-            None => Err(miette!("Invalid snapshot. Pid not present. {}", frame)),
+        if Self::process_matches(pid, frame.recorded_proc_start_epoch()) {
+            info!("Snapshot {}: process {} is still running", frame, pid);
+        } else if Path::new(&frame.exit_file_path).exists() {
+            info!(
+                "Snapshot {}: process {} finished while RQD was down, recovering its exit \
+                status from {}",
+                frame, pid, frame.exit_file_path
+            );
+        } else {
+            warn!(
+                "Snapshot {}: process {} is gone and left no exit status. Frame will be \
+                reported as terminated so it can be rescheduled",
+                frame, pid
+            );
         }
-        .map(|_| frame)
-    }
-
-    fn is_process_running(pid: u32) -> bool {
-        let mut system = System::new_all();
-        system.refresh_processes(
-            sysinfo::ProcessesToUpdate::Some(&[Pid::from_u32(pid)]),
-            true,
-        );
-        system.process(Pid::from_u32(pid)).is_some()
+        Ok(frame)
     }
 
     pub(super) fn write_header(&self) -> String {
@@ -2579,4 +2589,236 @@ mod tests {
     //     assert!(status.is_ok());
     //     assert_eq!((0, None), status.unwrap());
     // }
+
+    // === Recovery tests ===
+    //
+    // These tests simulate an RQD restart: the task driving `run_inner` is aborted (standing in
+    // for the old RQD process dying) while the frame process itself keeps running in its own
+    // session, and a fresh `RunningFrame` deserialized from the on-disk snapshot takes over.
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    mod recovery {
+        use super::super::RunningFrame;
+        use super::create_running_frame;
+        use crate::frame::logging::{FrameLoggerT, TestLogger};
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use tokio::time::{sleep, timeout, Duration};
+
+        /// Spawns `run_inner` on a background task and waits until the frame has a pid and its
+        /// snapshot exists on disk. Returns the launch task handle to abort ("kill rqd") later.
+        async fn launch_and_snapshot(frame: &Arc<RunningFrame>) -> tokio::task::JoinHandle<()> {
+            let launch_frame = Arc::clone(frame);
+            let handle = tokio::spawn(async move {
+                let logger =
+                    Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+                let _ = launch_frame.run_inner(logger).await;
+            });
+
+            timeout(Duration::from_secs(10), async {
+                while frame.pid().is_none() {
+                    sleep(Duration::from_millis(50)).await;
+                }
+            })
+            .await
+            .expect("frame should reach the Running state");
+
+            frame
+                .create_snapshot()
+                .await
+                .expect("snapshot should be written");
+            handle
+        }
+
+        async fn recover_from_snapshot(frame: &RunningFrame) -> RunningFrame {
+            let snapshot_path = frame.snapshot_path().expect("snapshot path");
+            RunningFrame::from_snapshot(&snapshot_path, frame.config.clone())
+                .await
+                .expect("snapshot should be recoverable")
+        }
+
+        fn frame_pgid(frame: &RunningFrame) -> nix::unistd::Pid {
+            nix::unistd::Pid::from_raw(frame.pid().expect("pid") as i32)
+        }
+
+        async fn cleanup(frame: &RunningFrame) {
+            let _ = frame.clear_snapshot().await;
+            let _ = tokio::fs::remove_file(&frame.exit_file_path).await;
+        }
+
+        /// Waits until the wrapper's background command is visible in the frame's process
+        /// group. The wrapper installs its signal traps before starting the command, so once
+        /// the command's process exists it is safe to signal the group and expect the traps
+        /// to forward and record the exit status.
+        async fn wait_for_frame_child(pgid: nix::unistd::Pid) {
+            timeout(Duration::from_secs(10), async {
+                loop {
+                    let listed = std::process::Command::new("pgrep")
+                        .args(["-g", &pgid.to_string()])
+                        .output()
+                        .expect("pgrep should run");
+                    let count = String::from_utf8_lossy(&listed.stdout)
+                        .lines()
+                        .filter(|l| !l.trim().is_empty())
+                        .count();
+                    // wrapper + at least the background command
+                    if count >= 2 {
+                        break;
+                    }
+                    sleep(Duration::from_millis(50)).await;
+                }
+            })
+            .await
+            .expect("frame command should start within the timeout");
+        }
+
+        /// A frame still running across the restart must be re-attached and report the exit
+        /// code the process eventually returns, not a synthetic failure.
+        #[tokio::test]
+        async fn test_recover_running_frame_preserves_exit_code() {
+            let frame = Arc::new(create_running_frame(
+                "sleep 2 && exit 7",
+                1,
+                1,
+                HashMap::new(),
+            ));
+            let launch_handle = launch_and_snapshot(&frame).await;
+
+            let recovered = recover_from_snapshot(&frame).await;
+            // Identity data must survive the snapshot round-trip, otherwise the pid-reuse
+            // guard silently degrades to pid-existence checks.
+            assert_eq!(
+                recovered.recorded_proc_start_epoch(),
+                frame.recorded_proc_start_epoch(),
+                "proc start epoch must survive the snapshot round-trip"
+            );
+
+            // Old RQD dies. The frame process survives in its own session.
+            launch_handle.abort();
+
+            let logger =
+                Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+            let status = timeout(Duration::from_secs(30), recovered.recover_inner(logger))
+                .await
+                .expect("recovery should not hang")
+                .expect("recovery should succeed");
+            assert_eq!((7, None), status);
+
+            cleanup(&frame).await;
+        }
+
+        /// A frame whose process finished while RQD was down must report its real exit status,
+        /// read from the exit file, instead of being dropped or reported as killed.
+        #[tokio::test]
+        async fn test_recover_frame_finished_while_rqd_down() {
+            let frame = Arc::new(create_running_frame("exit 7", 1, 1, HashMap::new()));
+
+            // Run the frame to completion: state stays Running (only `run` finalizes it),
+            // the process is gone and the exit file holds the status - exactly the state a
+            // restarted RQD finds when the frame ended during the downtime window.
+            let logger =
+                Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+            let status = frame.run_inner(logger).await.expect("frame should run");
+            assert_eq!((7, None), status);
+            frame
+                .create_snapshot()
+                .await
+                .expect("snapshot should be written");
+
+            let recovered = recover_from_snapshot(&frame).await;
+            let logger =
+                Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+            let status = timeout(Duration::from_secs(30), recovered.recover_inner(logger))
+                .await
+                .expect("recovery should not hang")
+                .expect("recovery should succeed");
+            assert_eq!((7, None), status);
+
+            cleanup(&frame).await;
+        }
+
+        /// A frame whose whole session was SIGKILLed (no exit file written) must be reported
+        /// as terminated (exit 1, SIGTERM) so Cuebot can reschedule it, instead of hanging or
+        /// being silently dropped.
+        #[tokio::test]
+        async fn test_recover_frame_died_without_trace() {
+            let frame = Arc::new(create_running_frame("sleep 30", 1, 1, HashMap::new()));
+            let launch_handle = launch_and_snapshot(&frame).await;
+            let pgid = frame_pgid(&frame);
+
+            launch_handle.abort();
+            // SIGKILL the whole session: nothing gets the chance to write the exit file.
+            nix::sys::signal::killpg(pgid, nix::sys::signal::Signal::SIGKILL)
+                .expect("session should be killable");
+
+            let recovered = recover_from_snapshot(&frame).await;
+            let logger =
+                Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+            // No exit file exists, so recovery falls back to the "assume terminated" status
+            // (exit 1, code 143 = 128+SIGTERM) instead of hanging or dropping the frame.
+            let status = timeout(Duration::from_secs(30), recovered.recover_inner(logger))
+                .await
+                .expect("recovery should not hang")
+                .expect("recovery should succeed");
+            assert_eq!((1, Some(143)), status);
+
+            cleanup(&frame).await;
+        }
+
+        /// Killing a recovered frame (as `kill_session` does: SIGTERM to the process group)
+        /// must surface as exit 1 / signal 15 through the exit file.
+        #[tokio::test]
+        async fn test_recover_then_kill_reports_sigterm() {
+            let frame = Arc::new(create_running_frame("sleep 30", 1, 1, HashMap::new()));
+            let launch_handle = launch_and_snapshot(&frame).await;
+            let pgid = frame_pgid(&frame);
+
+            let recovered = recover_from_snapshot(&frame).await;
+            launch_handle.abort();
+
+            // Only signal the session once the wrapper's traps are provably in place.
+            wait_for_frame_child(pgid).await;
+            nix::sys::signal::killpg(pgid, nix::sys::signal::Signal::SIGTERM)
+                .expect("session should be killable");
+
+            let logger =
+                Arc::new(TestLogger::init()) as Arc<dyn FrameLoggerT + Send + Sync + 'static>;
+            let status = timeout(Duration::from_secs(30), recovered.recover_inner(logger))
+                .await
+                .expect("recovery should not hang")
+                .expect("recovery should succeed");
+            assert_eq!((1, Some(15)), status);
+
+            cleanup(&frame).await;
+        }
+
+        /// The identity check must accept the frame's own process and reject a pid whose
+        /// current owner started at a different time (pid recycled by the OS).
+        #[tokio::test]
+        async fn test_process_identity_guard() {
+            let my_pid = std::process::id();
+            let my_start =
+                RunningFrame::process_start_epoch(my_pid).expect("own process should be visible");
+
+            assert!(RunningFrame::process_matches(my_pid, Some(my_start)));
+            // Unknown recorded start time falls back to pid existence.
+            assert!(RunningFrame::process_matches(my_pid, None));
+            // Same pid, but owned by a process started at a very different time: recycled.
+            assert!(!RunningFrame::process_matches(
+                my_pid,
+                Some(my_start.saturating_sub(1000))
+            ));
+
+            // A reaped process must not match at all.
+            let dead_pid = {
+                let mut child = std::process::Command::new("true")
+                    .spawn()
+                    .expect("spawn true");
+                let pid = child.id();
+                child.wait().expect("wait true");
+                pid
+            };
+            assert!(!RunningFrame::process_matches(dead_pid, None));
+        }
+    }
 }

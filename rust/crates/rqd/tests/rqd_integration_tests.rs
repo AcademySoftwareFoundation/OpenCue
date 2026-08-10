@@ -136,11 +136,19 @@ fn memory_fork_script_path() -> &'static str {
 }
 
 fn timeout_secs() -> u64 {
-    if cfg!(windows) { 20 } else { 15 }
+    if cfg!(windows) {
+        20
+    } else {
+        15
+    }
 }
 
 fn wait_millis() -> u64 {
-    if cfg!(windows) { 10000 } else { 8000 }
+    if cfg!(windows) {
+        10000
+    } else {
+        8000
+    }
 }
 
 /// Helper function to monitor server output for frame completion
@@ -303,10 +311,11 @@ fn integration_test_lock() -> std::sync::MutexGuard<'static, ()> {
 // --- Test environment setup ---
 
 struct TestEnv {
-    _temp_dir: TempDir,
+    temp_dir: TempDir,
     dummy_server: std::process::Child,
     openrqd: std::process::Child,
     rqd_port: u16,
+    config_path: std::path::PathBuf,
 }
 
 fn make_test_config(
@@ -370,7 +379,13 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
     let config_path = temp_dir.path().join("test_config.yaml");
     let (rqd_port, cuebot_port) = get_two_free_ports();
 
-    let test_config = make_test_config(&temp_dir, rqd_port, cuebot_port, monitor_interval, worker_threads);
+    let test_config = make_test_config(
+        &temp_dir,
+        rqd_port,
+        cuebot_port,
+        monitor_interval,
+        worker_threads,
+    );
     std::fs::write(&config_path, test_config).unwrap();
 
     let mut dummy_server = Command::new(get_binary_path("dummy-cuebot"))
@@ -382,30 +397,53 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
 
     wait_for_port_open(&mut dummy_server, cuebot_port, "dummy-cuebot", 10);
 
-    let mut openrqd = Command::new(get_binary_path("openrqd"))
-        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("Failed to start openrqd");
+    let mut openrqd = start_openrqd(&config_path);
 
     wait_for_port_open(&mut openrqd, rqd_port, "openrqd", 20);
 
     TestEnv {
-        _temp_dir: temp_dir,
+        temp_dir,
         dummy_server,
         openrqd,
         rqd_port,
+        config_path,
     }
 }
 
+fn start_openrqd(config_path: &Path) -> std::process::Child {
+    Command::new(get_binary_path("openrqd"))
+        .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to start openrqd")
+}
+
+/// Returns true when a frame entrypoint wrapper spawned from `temp_dir` is still running.
+/// The wrapper's command line contains the entrypoint script path, which lives under the
+/// test's private temp dir, so matching on that path only sees this test's frame.
+#[cfg(unix)]
+fn frame_wrapper_running(temp_dir: &Path) -> bool {
+    let output = Command::new("pgrep")
+        .args(["-f", temp_dir.to_str().unwrap()])
+        .output()
+        .expect("pgrep should run");
+    !String::from_utf8_lossy(&output.stdout).trim().is_empty()
+}
+
+#[cfg(unix)]
+fn snapshot_count(temp_dir: &Path) -> usize {
+    std::fs::read_dir(temp_dir.join("snapshots"))
+        .map(|dir| {
+            dir.filter_map(|entry| entry.ok())
+                .filter(|entry| entry.file_name().to_string_lossy().ends_with(".bin"))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 fn launch_frame(rqd_port: u16, command: &str, extra_args: &[&str]) -> std::process::Output {
-    let mut args = vec![
-        "rqd-client",
-        "--hostname",
-        "127.0.0.1",
-        "--port",
-    ];
+    let mut args = vec!["rqd-client", "--hostname", "127.0.0.1", "--port"];
     let port_str = rqd_port.to_string();
     args.push(&port_str);
     args.push("launch-frame");
@@ -425,7 +463,12 @@ fn launch_frame(rqd_port: u16, command: &str, extra_args: &[&str]) -> std::proce
 async fn test_openrqd_frame_execution_with_completion() {
     let _guard = integration_test_lock();
     let env = setup_test_env("2s", 2);
-    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
+    let TestEnv {
+        dummy_server,
+        mut openrqd,
+        rqd_port,
+        ..
+    } = env;
 
     let frame_output = launch_frame(rqd_port, &sleep_and_echo_cmd("Test frame execution"), &[]);
 
@@ -435,7 +478,8 @@ async fn test_openrqd_frame_execution_with_completion() {
         String::from_utf8_lossy(&frame_output.stderr)
     );
 
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+    let server_handle =
+        thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
     sleep(Duration::from_millis(wait_millis())).await;
 
     let _ = openrqd.kill();
@@ -456,7 +500,12 @@ async fn test_openrqd_frame_execution_with_completion() {
 async fn test_frame_with_environment_variables_and_completion() {
     let _guard = integration_test_lock();
     let env = setup_test_env("2s", 2);
-    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
+    let TestEnv {
+        dummy_server,
+        mut openrqd,
+        rqd_port,
+        ..
+    } = env;
 
     let frame_output = launch_frame(
         rqd_port,
@@ -470,7 +519,8 @@ async fn test_frame_with_environment_variables_and_completion() {
         String::from_utf8_lossy(&frame_output.stderr)
     );
 
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+    let server_handle =
+        thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
     sleep(Duration::from_millis(wait_millis())).await;
 
     let _ = openrqd.kill();
@@ -492,7 +542,12 @@ async fn test_frame_with_environment_variables_and_completion() {
 async fn test_frame_run_as_user() {
     let _guard = integration_test_lock();
     let env = setup_test_env("5s", 2);
-    let TestEnv { mut dummy_server, mut openrqd, rqd_port, .. } = env;
+    let TestEnv {
+        mut dummy_server,
+        mut openrqd,
+        rqd_port,
+        ..
+    } = env;
 
     let frame_output = launch_frame(rqd_port, "whoami", &["--run-as-user"]);
 
@@ -515,7 +570,12 @@ async fn test_frame_run_as_user() {
 async fn test_memory_fork_script() {
     let _guard = integration_test_lock();
     let env = setup_test_env("5s", 2);
-    let TestEnv { mut dummy_server, mut openrqd, rqd_port, .. } = env;
+    let TestEnv {
+        mut dummy_server,
+        mut openrqd,
+        rqd_port,
+        ..
+    } = env;
 
     let script_path = memory_fork_script_path();
     let frame_output = launch_frame(rqd_port, &quoted_if_needed(script_path), &[]);
@@ -572,10 +632,19 @@ async fn test_connection_error_handling() {
 async fn test_multiple_frames_sequential_with_completion() {
     let _guard = integration_test_lock();
     let env = setup_test_env("2s", 4);
-    let TestEnv { dummy_server, mut openrqd, rqd_port, .. } = env;
+    let TestEnv {
+        dummy_server,
+        mut openrqd,
+        rqd_port,
+        ..
+    } = env;
 
     const NUM_FRAMES: usize = 3;
-    let frame_delay = if cfg!(windows) { Duration::from_secs(10) } else { Duration::from_millis(500) };
+    let frame_delay = if cfg!(windows) {
+        Duration::from_secs(10)
+    } else {
+        Duration::from_millis(500)
+    };
 
     for i in 1..=NUM_FRAMES {
         let frame_output = launch_frame(rqd_port, &echo_cmd(&format!("Frame {}", i)), &[]);
@@ -591,7 +660,8 @@ async fn test_multiple_frames_sequential_with_completion() {
     }
 
     let monitor_timeout = if cfg!(windows) { 25 } else { 20 };
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, monitor_timeout));
+    let server_handle =
+        thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, monitor_timeout));
 
     let post_launch_wait = if cfg!(windows) { 12000 } else { 10000 };
     sleep(Duration::from_millis(post_launch_wait)).await;
@@ -607,4 +677,122 @@ async fn test_multiple_frames_sequential_with_completion() {
     }
 
     println!("All {} frames completed successfully!", NUM_FRAMES);
+}
+
+/// Live-restart test: SIGKILL rqd while a frame is running, verify the frame process
+/// survives, then restart rqd with the same config and verify it recovers the frame and
+/// reports its successful completion to Cuebot.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_rqd_restart_recovers_running_frame() {
+    let _guard = integration_test_lock();
+    let mut env = setup_test_env("2s", 2);
+
+    let frame_output = launch_frame(env.rqd_port, "sleep 6 && echo 'survived rqd restart'", &[]);
+    assert!(
+        frame_output.status.success(),
+        "Frame launch failed: {}",
+        String::from_utf8_lossy(&frame_output.stderr)
+    );
+
+    // Let the frame start and its snapshot land on disk.
+    sleep(Duration::from_millis(2000)).await;
+    assert!(
+        snapshot_count(env.temp_dir.path()) > 0,
+        "expected a frame snapshot on disk before killing rqd"
+    );
+    assert!(
+        frame_wrapper_running(env.temp_dir.path()),
+        "expected the frame process to be running before killing rqd"
+    );
+
+    // Hard-kill rqd: no graceful shutdown, exactly like a crash or a live upgrade.
+    env.openrqd.kill().expect("openrqd should be killable");
+    let _ = env.openrqd.wait();
+
+    // The frame must not die with rqd.
+    assert!(
+        frame_wrapper_running(env.temp_dir.path()),
+        "frame process should survive rqd being SIGKILLed"
+    );
+
+    // Restart rqd with the same config; it must recover the frame from its snapshot.
+    let mut openrqd2 = start_openrqd(&env.config_path);
+    wait_for_port_open(&mut openrqd2, env.rqd_port, "openrqd (restarted)", 20);
+
+    let dummy_server = env.dummy_server;
+    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 40));
+    let (success, output) = server_handle.join().unwrap();
+
+    let _ = openrqd2.kill();
+    let _ = openrqd2.wait();
+
+    if !success {
+        println!("Server output:\n{}", output);
+        panic!("Recovered frame completion was not reported after rqd restart");
+    }
+    assert!(
+        output.contains("exit_status: 0"),
+        "recovered frame should complete successfully, server output:\n{}",
+        output
+    );
+
+    println!("Frame survived rqd restart and completed successfully!");
+}
+
+/// Downtime-completion test: the frame finishes while rqd is down. On restart, rqd must
+/// recover the frame's real exit status from the exit file and report it to Cuebot instead
+/// of losing the frame or reporting a synthetic failure.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_rqd_restart_reports_frame_finished_while_down() {
+    let _guard = integration_test_lock();
+    let mut env = setup_test_env("2s", 2);
+
+    // Distinctive non-zero exit code proves the status came from the exit file and not
+    // from a default success/failure path.
+    let frame_output = launch_frame(env.rqd_port, "sleep 3 && exit 3", &[]);
+    assert!(
+        frame_output.status.success(),
+        "Frame launch failed: {}",
+        String::from_utf8_lossy(&frame_output.stderr)
+    );
+
+    // Wait for the snapshot, then hard-kill rqd while the frame is still running.
+    sleep(Duration::from_millis(1500)).await;
+    assert!(
+        snapshot_count(env.temp_dir.path()) > 0,
+        "expected a frame snapshot on disk before killing rqd"
+    );
+    env.openrqd.kill().expect("openrqd should be killable");
+    let _ = env.openrqd.wait();
+
+    // Let the frame finish during the downtime window.
+    sleep(Duration::from_millis(4000)).await;
+    assert!(
+        !frame_wrapper_running(env.temp_dir.path()),
+        "frame should have finished while rqd was down"
+    );
+
+    let mut openrqd2 = start_openrqd(&env.config_path);
+    wait_for_port_open(&mut openrqd2, env.rqd_port, "openrqd (restarted)", 20);
+
+    let dummy_server = env.dummy_server;
+    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 40));
+    let (success, output) = server_handle.join().unwrap();
+
+    let _ = openrqd2.kill();
+    let _ = openrqd2.wait();
+
+    if !success {
+        println!("Server output:\n{}", output);
+        panic!("Completion of a frame that finished during rqd downtime was not reported");
+    }
+    assert!(
+        output.contains("exit_status: 3"),
+        "the frame's real exit code (3) should be recovered from the exit file, server output:\n{}",
+        output
+    );
+
+    println!("Frame that finished during rqd downtime was reported correctly!");
 }

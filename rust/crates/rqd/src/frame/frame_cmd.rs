@@ -93,44 +93,57 @@ impl FrameCmdBuilder {
         };
 
         // If an exit_file_path is passed, build a script that traps the inner command and write its
-        // output to the exit_file_path
+        // output to the exit_file_path.
+        //
+        // The wrapper runs the command in the background and `wait`s for it: bash only runs trap
+        // handlers between foreground commands, so a foreground child would make the wrapper deaf
+        // to signals until the command finished. The background+wait pattern lets a trapped signal
+        // interrupt `wait` immediately, get forwarded to the command, after which the wrapper
+        // resumes waiting for the command's real exit status.
+        //
+        // The exit status is written to the exit file with a write-then-rename so a recovering RQD
+        // can never observe a partially written file: either the file does not exist yet, or it
+        // holds the complete status.
         let script = match &self.exit_file_path {
             Some(exit_file_path) => format!(
-                r#"#!{}
-    wait_for_output() {{
-        # Wait for the command to complete
-        wait $command_pid
-        exit_code=$1
+                r#"#!{shell}
+# Forward a trapped signal to the command
+handle_signal() {{
+    local signal=$1
+    if [ -n "$command_pid" ] && kill -0 $command_pid 2>/dev/null; then
+        kill -$signal $command_pid 2>/dev/null
+    fi
+}}
 
-        # Write the exit code to the specified file
-        echo $exit_code > {}
-        exit $exit_code
-    }}
+# Set up signal handling
+trap 'handle_signal TERM' SIGTERM
+trap 'handle_signal INT' SIGINT
+trap 'handle_signal HUP' SIGHUP
+{add_user}
 
-    # Function to handle signals
-    handle_signal() {{
-        local signal=$1
-        # Forward the signal to the child process if it exists
-        if [ -n "$command_pid" ] && kill -0 $command_pid 2>/dev/null; then
-            kill -$signal $command_pid
-            wait_for_output $signal
-        fi
-    }}
+# Start the command in the background and wait for it, so traps fire promptly
+eval '{cmd_str}' &
+command_pid=$!
+wait $command_pid
+exit_code=$?
 
-    # Set up signal handling
-    trap 'handle_signal TERM' SIGTERM
-    trap 'handle_signal INT' SIGINT
-    trap 'handle_signal HUP' SIGHUP
-    {}
-
-    # Start the command and get its PID
-    eval '{}'
+# `wait` returns 128+signal when interrupted by a trapped signal while the command
+# is still alive; keep waiting until the command has really exited. `kill -0` also
+# succeeds while the command is an unreaped zombie, in which case the extra `wait`
+# reaps it and returns its real exit status.
+while [ $exit_code -gt 128 ] && kill -0 $command_pid 2>/dev/null; do
+    wait $command_pid
     exit_code=$?
-    command_pid=$!
+done
 
-    wait_for_output $exit_code
-    "#,
-                self.shell, exit_file_path, add_user, cmd_str
+# Atomically write the exit code to the exit file
+echo $exit_code > {exit_file_path}.tmp && mv {exit_file_path}.tmp {exit_file_path}
+exit $exit_code
+"#,
+                shell = self.shell,
+                exit_file_path = exit_file_path,
+                add_user = add_user,
+                cmd_str = cmd_str
             ),
             None => format!(
                 r#"#!{}
@@ -266,8 +279,7 @@ impl FrameCmdBuilder {
 
     #[cfg(target_os = "linux")]
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
-        // Meant for the recovery mode feature. Which is disabled on linux for not being stable
-        // self.exit_file_path = Some(exit_file_path);
+        self.exit_file_path = Some(exit_file_path);
         self
     }
 
@@ -282,5 +294,159 @@ impl FrameCmdBuilder {
     pub fn with_become_user(&mut self, uid: u32, gid: u32, username: String) -> &mut Self {
         self.become_user = Some(BecomeUser { uid, gid, username });
         self
+    }
+}
+
+#[cfg(test)]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod tests {
+    use super::FrameCmdBuilder;
+    use std::process::Command as StdCommand;
+
+    struct BuiltScript {
+        _temp: tempfile::TempDir,
+        entrypoint: String,
+        exit_file: String,
+        script: String,
+    }
+
+    fn build_script(frame_cmd: &str) -> BuiltScript {
+        let temp = tempfile::tempdir().unwrap();
+        let entrypoint = temp
+            .path()
+            .join("entrypoint.sh")
+            .to_string_lossy()
+            .to_string();
+        let exit_file = temp
+            .path()
+            .join("exit_status")
+            .to_string_lossy()
+            .to_string();
+        let shell = "/bin/bash".to_string();
+        let mut builder = FrameCmdBuilder::new(&shell, entrypoint.clone());
+        builder
+            .with_frame_cmd(frame_cmd.to_string())
+            .with_exit_file(exit_file.clone());
+        let (_cmd, script) = builder.build().unwrap();
+        BuiltScript {
+            _temp: temp,
+            entrypoint,
+            exit_file,
+            script,
+        }
+    }
+
+    /// The exit-file harness must be active on every unix platform. This is the regression
+    /// guard for the era when `with_exit_file` was a no-op on Linux, which silently disabled
+    /// frame recovery there.
+    #[test]
+    fn test_exit_file_enabled_on_this_platform() {
+        let built = build_script("echo hello");
+        assert!(
+            built.script.contains(&built.exit_file),
+            "generated script must reference the exit file: {}",
+            built.script
+        );
+    }
+
+    #[test]
+    fn test_script_structure() {
+        let built = build_script("echo hello");
+        let script = &built.script;
+
+        // The command must run in the background: bash defers trap handlers while a
+        // foreground child runs, so a foreground command would make the wrapper deaf to
+        // kill requests until the frame finished on its own.
+        assert!(
+            script.contains("eval 'echo hello' &"),
+            "command must run in the background: {script}"
+        );
+        assert!(
+            script.contains("wait $command_pid"),
+            "wrapper must wait for the background command: {script}"
+        );
+        // Signals must be forwarded to the frame process.
+        for trap in [
+            "trap 'handle_signal TERM' SIGTERM",
+            "trap 'handle_signal INT' SIGINT",
+            "trap 'handle_signal HUP' SIGHUP",
+        ] {
+            assert!(script.contains(trap), "missing {trap}: {script}");
+        }
+        // The exit status must be written atomically (write to temp + rename) so a
+        // recovering RQD can never read a partially written status.
+        assert!(
+            script.contains(&format!(
+                "echo $exit_code > {exit}.tmp && mv {exit}.tmp {exit}",
+                exit = built.exit_file
+            )),
+            "exit file must be written atomically: {script}"
+        );
+
+        // The entrypoint file must be executable.
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&built.entrypoint)
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o111, 0o111, "entrypoint must be executable");
+    }
+
+    /// Executes the generated wrapper and checks that a plain exit code is both propagated
+    /// as the wrapper's own exit status and persisted in the exit file.
+    #[test]
+    fn test_script_propagates_and_persists_exit_code() {
+        let built = build_script("exit 7");
+
+        let status = StdCommand::new(&built.entrypoint)
+            .status()
+            .expect("entrypoint should execute");
+        assert_eq!(status.code(), Some(7));
+
+        let persisted = std::fs::read_to_string(&built.exit_file).unwrap();
+        assert_eq!(persisted.trim(), "7");
+    }
+
+    /// SIGTERM delivered to the wrapper alone (not the whole process group) must be
+    /// forwarded to the frame command, and the resulting 128+15 status must be persisted.
+    /// This is what keeps kill requests working for frames that survived an RQD restart.
+    #[test]
+    fn test_script_forwards_sigterm_and_persists_status() {
+        let built = build_script("sleep 30");
+
+        let mut child = StdCommand::new(&built.entrypoint)
+            .spawn()
+            .expect("entrypoint should spawn");
+
+        // Wait until the wrapper's background command exists: traps are installed before
+        // the command is started, so its presence proves the wrapper is ready for signals.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let listed = StdCommand::new("pgrep")
+                .args(["-P", &child.id().to_string()])
+                .output()
+                .expect("pgrep should run");
+            if !String::from_utf8_lossy(&listed.stdout).trim().is_empty() {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "wrapper never started its background command"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        let pid = nix::unistd::Pid::from_raw(child.id() as i32);
+        nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM).unwrap();
+
+        let status = child.wait().unwrap();
+        assert_eq!(
+            status.code(),
+            Some(143),
+            "wrapper should exit with 128+SIGTERM after forwarding the signal"
+        );
+
+        let persisted = std::fs::read_to_string(&built.exit_file).unwrap();
+        assert_eq!(persisted.trim(), "143");
     }
 }
