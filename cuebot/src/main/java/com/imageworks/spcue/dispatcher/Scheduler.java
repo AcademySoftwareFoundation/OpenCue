@@ -1616,7 +1616,7 @@ public class Scheduler extends JdbcDaoSupport {
      * All schedulable hosts (UP + OPEN), busy or idle. The idle subset used for placement is
      * derived per group in doTick().
      */
-    private List<BookableHost> readAllHosts() {
+    /* package for tests */ List<BookableHost> readAllHosts() {
         return getJdbcTemplate().query(SELECT_ALL_HOSTS, HOST_MAPPER);
     }
 
@@ -1762,7 +1762,8 @@ public class Scheduler extends JdbcDaoSupport {
         return true;
     }
 
-    private List<LayerCandidate> readLayerCandidatesForGroup(HostSpecKey spec, int maxIdleInGroup) {
+    /* package for tests */ List<LayerCandidate> readLayerCandidatesForGroup(HostSpecKey spec,
+            int maxIdleInGroup) {
         int limit =
                 env.getProperty("scheduler.layer_candidates_per_group_max", Integer.class, 2000);
         LicenseSource ls = licenseSource;
