@@ -67,7 +67,9 @@ public final class LayerDelayRules {
                     throw new NumberFormatException("minutes must be positive");
                 }
                 parsed.put(exitStatus, Duration.ofMinutes(minutes));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException | ArithmeticException e) {
+                // ArithmeticException: a minute count that parses as a long but overflows
+                // when Duration converts it to seconds is malformed like any other bad entry.
                 logger.warn("Skipping malformed dispatcher.layer_delay.rules entry \"" + entry
                         + "\": " + e.getMessage());
             }

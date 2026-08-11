@@ -234,7 +234,18 @@ class LayerTests(unittest.TestCase):
                           start_after_reason='Automatic backoff: exit status 330'))
 
         self.assertEqual(layer.startAfter(), testEpoch)
+        self.assertEqual(layer.startAfter('%Y'),
+                         time.strftime('%Y', time.localtime(testEpoch)))
         self.assertEqual(layer.startAfterReason(), 'Automatic backoff: exit status 330')
+
+    def testStartAfterUnset(self, getStubMock):
+        # 0 means "no delay": raw callers still see 0, but a formatted call must not
+        # render the epoch as 1970.
+        layer = opencue.wrappers.layer.Layer(job_pb2.Layer(name=TEST_LAYER_NAME))
+
+        self.assertEqual(layer.startAfter(), 0)
+        self.assertEqual(layer.startAfter('%m/%d %H:%M'), '')
+        self.assertEqual(layer.startAfterReason(), '')
 
     def testSetMaxCores(self, getStubMock):
         stubMock = mock.Mock()

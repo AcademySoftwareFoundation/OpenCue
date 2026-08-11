@@ -21,6 +21,7 @@ from __future__ import print_function
 from __future__ import division
 
 import functools
+import html
 import time
 
 from qtpy import QtCore
@@ -423,6 +424,13 @@ class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return cuegui.Style.ColorTheme.COLOR_LAYER_DELAYED_BACKGROUND
 
         if role == QtCore.Qt.ToolTipRole and col == COLUMN_START_AFTER:
-            return self.rpcObject.data.start_after_reason
+            reason = self.rpcObject.data.start_after_reason
+            if not reason:
+                return reason
+            # The reason is free text embedding a client-supplied username and is
+            # promised to be displayed verbatim. Tooltips have no setTextFormat, so
+            # escape the text and force the rich-text path with an <html> wrapper;
+            # escaping alone would leave Qt in plain-text mode showing "&lt;".
+            return '<html>%s</html>' % html.escape(reason)
 
         return cuegui.AbstractWidgetItem.AbstractWidgetItem.data(self, col, role)

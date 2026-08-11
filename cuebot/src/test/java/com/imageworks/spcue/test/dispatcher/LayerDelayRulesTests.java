@@ -87,6 +87,17 @@ public class LayerDelayRulesTests {
     }
 
     @Test
+    public void testOverflowingMinutesSkipped() {
+        // Long.MAX_VALUE parses as a long but overflows when Duration converts minutes to
+        // seconds. The entry must be dropped like any other malformed one rather than throwing
+        // out of parse() and failing dispatcher startup.
+        Map<Integer, Duration> rules = LayerDelayRules.parse("330:" + Long.MAX_VALUE + ",332:5");
+        assertEquals(1, rules.size());
+        assertNull(rules.get(330));
+        assertEquals(Duration.ofMinutes(5), rules.get(332));
+    }
+
+    @Test
     public void testTrailingCommaTolerated() {
         assertEquals(1, LayerDelayRules.parse("330:5,").size());
     }

@@ -722,8 +722,10 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     // spotless:off
     /**
      * Conditional monotonic: writes only when it moves the gate later, so an operator-set later
-     * time survives, concurrent backoff reports collapse into one write, and a longer rule can
-     * extend a shorter active delay.
+     * time survives and a longer rule can extend a shorter active delay. Reports arriving in
+     * separate transactions each re-arm the backoff from their own transaction start, which is
+     * the intended semantic (wait N minutes after the most recent failure); only reports sharing
+     * a transaction collapse into one write, since current_timestamp is fixed per transaction.
      */
     private static final String DELAY_LAYER_FOR_BACKOFF =
             "UPDATE layer "

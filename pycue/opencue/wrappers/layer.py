@@ -749,9 +749,13 @@ class Layer(object):
         :param format: desired time format
         :rtype:  int/str
         :return: layer start-after time in epoch, or string version of that
-                 timestamp if format given"""
+                 timestamp if format given; an empty string when no delay is
+                 set and a format was given"""
         if not format:
             return self.data.start_after
+        if not self.data.start_after:
+            # 0 means "no delay", not the epoch; formatting it would show 1970.
+            return ''
         return time.strftime(format, time.localtime(self.data.start_after))
 
     def startAfterReason(self):

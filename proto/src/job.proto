@@ -733,7 +733,8 @@ message Layer {
     int32 start_time = 24;
     int32 stop_time = 25;
     // Do not book frames of this layer before this time. Epoch seconds; 0 = not set.
-    int32 start_after = 26;
+    // int64 because this is a future timestamp an operator may set past the int32 epoch limit.
+    int64 start_after = 26;
     // Free-text provenance for start_after, displayed verbatim.
     string start_after_reason = 27;
 }
@@ -1797,8 +1798,8 @@ message LayerSetMinMemoryResponse {} // Empty
 // SetStartAfter
 message LayerSetStartAfterRequest {
     Layer layer = 1;
-    // Epoch seconds; 0 clears the delay.
-    int32 start_after = 2;
+    // Epoch seconds; 0 clears the delay. See Layer.start_after for why this is int64.
+    int64 start_after = 2;
     // Recorded in the layer's start_after_reason for provenance.
     string username = 3;
 }
