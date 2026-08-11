@@ -43,12 +43,6 @@ import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
 
-# Index of the "Start After" column, used for its per-row tooltip. Columns are numbered by
-# the order of the addColumn() calls in LayerMonitorTree.__init__ below, so this must be kept
-# in step if a column is inserted ahead of "Start After".
-COLUMN_START_AFTER = 26
-
-
 def displayRange(layer):
     """Returns a string representation of a layer's frame range."""
     if layer.data.chunk_size != 1:
@@ -408,9 +402,17 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Widget item for displaying a single layer."""
 
+    # Index of the "Start After" column, resolved from the column definitions on
+    # first use so it survives columns being added or reordered above it.
+    __startAfterColumn = None
+
     def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_LAYER, rpcObject, parent)
+        if LayerWidgetItem.__startAfterColumn is None:
+            LayerWidgetItem.__startAfterColumn = next(
+                (col for col, info in enumerate(self.column_info)
+                 if info[cuegui.AbstractWidgetItem.NAME] == "Start After"), -1)
 
     def data(self, col, role):
         """Extends the base data with the delayed-layer treatment: a tinted
@@ -423,7 +425,7 @@ class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 cuegui.Style.init()
             return cuegui.Style.ColorTheme.COLOR_LAYER_DELAYED_BACKGROUND
 
-        if role == QtCore.Qt.ToolTipRole and col == COLUMN_START_AFTER:
+        if role == QtCore.Qt.ToolTipRole and col == LayerWidgetItem.__startAfterColumn:
             reason = self.rpcObject.data.start_after_reason
             if not reason:
                 return reason

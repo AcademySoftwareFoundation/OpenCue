@@ -151,6 +151,14 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
      */
     private static final int START_AFTER_REASON_MAX_LENGTH = 255;
 
+    /**
+     * Upper bound on how far in the future a start_after gate may be set. A value in milliseconds
+     * passed where seconds are expected lands around the year 58,000 - Postgres stores it and
+     * CueGUI renders it without a year, so the layer is silently gated forever. Anything beyond
+     * this bound (or negative) is rejected as INVALID_ARGUMENT instead.
+     */
+    private static final long START_AFTER_MAX_FUTURE_YEARS = 5;
+
     @Autowired
     private Environment env;
 
@@ -459,6 +467,18 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     @Override
     public void setStartAfter(LayerSetStartAfterRequest request,
             StreamObserver<LayerSetStartAfterResponse> responseObserver) {
+        long startAfter = request.getStartAfter();
+        long maxStartAfter = System.currentTimeMillis() / 1000L
+                + START_AFTER_MAX_FUTURE_YEARS * 365L * 24 * 3600;
+        if (startAfter < 0 || startAfter > maxStartAfter) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("start_after must be a Unix timestamp in seconds no more "
+                            + "than " + START_AFTER_MAX_FUTURE_YEARS + " years in the future, "
+                            + "or 0 to clear the gate; got " + startAfter
+                            + ". Was a milliseconds value passed where seconds are expected?")
+                    .asRuntimeException());
+            return;
+        }
         updateLayer(request.getLayer());
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
             if (request.getStartAfter() == 0) {
