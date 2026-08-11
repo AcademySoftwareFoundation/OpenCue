@@ -63,6 +63,8 @@ import com.imageworks.spcue.grpc.job.GroupSetGroupRequest;
 import com.imageworks.spcue.grpc.job.GroupSetGroupResponse;
 import com.imageworks.spcue.grpc.job.GroupSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetMaxSlotsRequest;
+import com.imageworks.spcue.grpc.job.GroupSetMaxSlotsResponse;
 import com.imageworks.spcue.grpc.job.GroupSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetMinCoresResponse;
 import com.imageworks.spcue.grpc.job.GroupSetMaxGpusRequest;
@@ -270,6 +272,16 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
         GroupInterface group = getGroupInterface(request.getGroup());
         groupManager.setGroupMaxCores(group, Convert.coresToWholeCoreUnits(request.getMaxCores()));
         responseObserver.onNext(GroupSetMaxCoresResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMaxSlots(GroupSetMaxSlotsRequest request,
+            StreamObserver<GroupSetMaxSlotsResponse> responseObserver) {
+        GroupInterface group = getGroupInterface(request.getGroup());
+        // Slots are whole counts, no core-unit conversion.
+        groupManager.setGroupMaxSlots(group, request.getMaxSlots());
+        responseObserver.onNext(GroupSetMaxSlotsResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

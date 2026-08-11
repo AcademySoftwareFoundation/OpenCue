@@ -77,6 +77,7 @@ pub struct DispatchFrameModel {
     pub int_version: i32,
     pub str_loki_url: Option<String>,
     pub ts_updated: Option<DateTime<Utc>>,
+    pub int_slots_required: i64,
 
     // Env fields
     pub job_env: HashMap<String, String>,
@@ -132,7 +133,9 @@ impl From<DispatchFrameModel> for DispatchFrame {
             layer_name: val.str_layer_name,
             job_name: val.str_job_name,
             min_cores: CoreSize::from_multiplied(val.int_min_cores),
-            threadable: val.b_threadable,
+            // Slot-based layers are forced non-threadable: a slot frame reserves
+            // exactly its declared slots, never a variable core count.
+            threadable: val.b_threadable && val.int_slots_required <= 0,
             min_gpus: val
                 .int_gpus_min
                 .try_into()
@@ -152,6 +155,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             version: val.int_version as u32,
             updated_at,
             env,
+            slots_required: val.int_slots_required.max(0) as u32,
         }
     }
 }

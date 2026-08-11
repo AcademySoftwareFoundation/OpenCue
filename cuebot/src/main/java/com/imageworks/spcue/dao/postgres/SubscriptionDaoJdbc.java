@@ -250,4 +250,19 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
                     size);
         }
     }
+
+    @Override
+    public void updateSubscriptionMaxSlots(SubscriptionInterface sub, int maxSlots) {
+        // Slots are whole counts: -1 unlimited, 0 reject-all, N cap.
+        if (maxSlots < 0) {
+            maxSlots = -1;
+        }
+        getJdbcTemplate().update("UPDATE subscription SET int_max_slots=? WHERE pk_subscription=?",
+                maxSlots, sub.getSubscriptionId());
+
+        if (accountingNotifier.isEnabled() && showDao.isSchedulerManaged(sub.getShowId())) {
+            accountingNotifier.notifySubscriptionMaxSlots(sub.getShowId(), sub.getAllocationId(),
+                    maxSlots);
+        }
+    }
 }

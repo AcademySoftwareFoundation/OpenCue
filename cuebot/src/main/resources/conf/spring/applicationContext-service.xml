@@ -361,6 +361,12 @@
     <property name="rqdClient" ref="rqdClient" />
   </bean>
 
+  <bean id="slotDispatcher" class="com.imageworks.spcue.dispatcher.SlotDispatcher">
+    <property name="dispatchSupport" ref="dispatchSupport" />
+    <property name="jobManager" ref="jobManager" />
+    <property name="rqdClient" ref="rqdClient" />
+  </bean>
+
   <bean id="redirectService" class="com.imageworks.spcue.service.RedirectService">
     <constructor-arg ref="redirectDao" />
   </bean>
@@ -388,6 +394,7 @@
     <property name="dispatchQueue" ref="dispatchQueue" />
     <property name="dispatcher" ref="dispatcher" />
     <property name="localDispatcher" ref="localDispatcher" />
+    <property name="slotDispatcher" ref="slotDispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="jmsMover" ref="jmsMover"/>
     <property name="whiteboardDao" ref="whiteboardDao" />
@@ -405,6 +412,7 @@
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="dispatcher" ref="dispatcher" />
     <property name="localDispatcher" ref="localDispatcher" />
+    <property name="slotDispatcher" ref="slotDispatcher" />
     <property name="rqdClient" ref="rqdClient" />
     <property name="jobManager" ref="jobManager" />
     <property name="bookingManager" ref="bookingManager" />

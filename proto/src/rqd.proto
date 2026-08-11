@@ -126,6 +126,10 @@ message RunFrame {
     int64 hard_memory_limit = 27;
     int32 pid = 28;
     string loki_url = 29;
+    // Concurrency slots required by this frame (<= 0 means not slot-based).
+    // Slot frames reserve 0 cores/memory and run unpinned; RQD does not track
+    // or report slot usage (the scheduler owns slot accounting).
+    int32 slots_required = 30;
 }
 
 message RunFrameSeq {

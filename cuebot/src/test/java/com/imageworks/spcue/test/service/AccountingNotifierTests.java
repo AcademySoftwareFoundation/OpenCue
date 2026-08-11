@@ -93,9 +93,25 @@ public class AccountingNotifierTests {
         notifier.notifyRelease(proc);
 
         // Cores converted to cores (400/100=4) then negated; gpus pass through then negated.
+        // Regular procs hold no slots, so the slot delta is 0.
         String expected = "{\"show\":\"show-uuid\",\"alloc\":\"alloc-uuid\","
                 + "\"folder\":\"folder-uuid\",\"job\":\"job-uuid\",\"layer\":\"layer-uuid\","
-                + "\"dept\":\"dept-uuid\",\"cores\":-4,\"gpus\":-2}";
+                + "\"dept\":\"dept-uuid\",\"cores\":-4,\"gpus\":-2,\"slots\":0}";
+        verify(jdbcTemplate).queryForList(eq(NOTIFY_SQL), eq(CHANNEL_RELEASE), eq(expected));
+    }
+
+    @Test
+    public void notifyReleaseEmitsNegatedSlotDelta() {
+        // A slot-based proc reserves 0 cores/gpus and a positive slot count.
+        proc.coresReserved = 0;
+        proc.gpusReserved = 0;
+        proc.slotsReserved = 3;
+
+        notifier.notifyRelease(proc);
+
+        String expected = "{\"show\":\"show-uuid\",\"alloc\":\"alloc-uuid\","
+                + "\"folder\":\"folder-uuid\",\"job\":\"job-uuid\",\"layer\":\"layer-uuid\","
+                + "\"dept\":\"dept-uuid\",\"cores\":0,\"gpus\":0,\"slots\":-3}";
         verify(jdbcTemplate).queryForList(eq(NOTIFY_SQL), eq(CHANNEL_RELEASE), eq(expected));
     }
 

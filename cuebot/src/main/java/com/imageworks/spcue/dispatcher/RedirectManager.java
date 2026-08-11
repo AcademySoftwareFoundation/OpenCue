@@ -115,6 +115,10 @@ public class RedirectManager {
         search.notGroups(groups);
 
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(search);
+
+        // Slot-based procs cannot be redirected; see addRedirect(ProcSearchCriteria, List...).
+        procs.removeIf(proc -> proc.slotsReserved > 0);
+
         if (procs.size() == 0) {
             return procs;
         }
@@ -153,6 +157,13 @@ public class RedirectManager {
         ProcSearchInterface procSearch = procSearchFactory.create(criteria);
         procSearch.notJobs(jobs);
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(procSearch);
+
+        /*
+         * Slot-based procs cannot be redirected: redirecting rebooks the host through the generic
+         * cores/memory dispatcher, which would break the strict slot host / slot layer pairing.
+         */
+        procs.removeIf(proc -> proc.slotsReserved > 0);
+
         if (procs.size() == 0) {
             return procs;
         }
@@ -194,6 +205,10 @@ public class RedirectManager {
         String redirectGroupId = SqlUtil.genKeyRandom();
 
         for (VirtualProc proc : procs) {
+            // Slot-based procs cannot be redirected; see addRedirect(ProcSearchCriteria...).
+            if (proc.slotsReserved > 0) {
+                continue;
+            }
             Redirect r = new Redirect(redirectGroupId, job);
             if (procDao.setRedirectTarget(proc, r)) {
                 redirectService.put(proc.getProcId(), r);
@@ -201,6 +216,9 @@ public class RedirectManager {
         }
 
         for (VirtualProc proc : procs) {
+            if (proc.slotsReserved > 0) {
+                continue;
+            }
             jobManagerSupport.kill(proc, source);
         }
 
@@ -217,6 +235,12 @@ public class RedirectManager {
      * @return true if the redirect succeeds.
      */
     public boolean addRedirect(VirtualProc proc, JobInterface job, boolean kill, Source source) {
+
+        // Slot-based procs cannot be redirected; see addRedirect(ProcSearchCriteria...).
+        if (proc.slotsReserved > 0) {
+            logger.info("Ignoring redirect of slot-based proc " + proc);
+            return false;
+        }
 
         if (dispatchSupport.findNextDispatchFrames(job, proc, 1).size() < 1) {
             return false;
@@ -245,6 +269,12 @@ public class RedirectManager {
      */
     public boolean addRedirect(VirtualProc proc, GroupInterface group, boolean kill,
             Source source) {
+
+        // Slot-based procs cannot be redirected; see addRedirect(ProcSearchCriteria...).
+        if (proc.slotsReserved > 0) {
+            logger.info("Ignoring redirect of slot-based proc " + proc);
+            return false;
+        }
 
         // Test a dispatch
         DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
@@ -279,6 +309,17 @@ public class RedirectManager {
     public boolean redirect(VirtualProc proc) {
 
         try {
+
+            /*
+             * Defensive: slot procs never get redirect targets (see the addRedirect guards), but if
+             * one slips through, release it instead of rebooking the slot host through the generic
+             * cores/memory dispatcher.
+             */
+            if (proc.slotsReserved > 0) {
+                redirectService.remove(proc.getProcId());
+                dispatchSupport.unbookProc(proc, "slot-based proc cannot be redirected");
+                return false;
+            }
 
             Redirect r = redirectService.remove(proc.getProcId());
             if (r == null) {

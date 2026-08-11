@@ -320,9 +320,10 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                     + "int_gpu_mem_min, "
                     + "str_services, "
                     + "int_timeout,"
-                    + "int_timeout_llu "
+                    + "int_timeout_llu, "
+                    + "int_slots_required "
                 + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     // spotless:on
 
     @Override
@@ -332,7 +333,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.chunkSize, l.dispatchOrder, StringUtils.join(l.tags, " | "), l.type.toString(),
                 l.minimumCores, l.maximumCores, l.isThreadable, l.minimumMemory, l.minimumGpus,
                 l.maximumGpus, l.minimumGpuMemory, StringUtils.join(l.services, ","), l.timeout,
-                l.timeout_llu);
+                l.timeout_llu, l.slotsRequired);
     }
 
     @Override

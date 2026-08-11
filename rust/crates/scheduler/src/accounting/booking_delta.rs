@@ -27,4 +27,8 @@ pub struct BookingDelta {
     pub job_id: Uuid,
     pub core_delta: i64,
     pub gpu_delta: i32,
+    /// Signed slot delta for slot-based frames (positive on booking, negative on
+    /// release). `0` for regular (cores/gpus) frames — the slot axis is fully
+    /// independent of the core/gpu axes.
+    pub slot_delta: i64,
 }

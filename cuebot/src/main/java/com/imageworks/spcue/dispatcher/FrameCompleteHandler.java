@@ -36,6 +36,7 @@ import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHostSlots;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -96,6 +97,7 @@ public class FrameCompleteHandler {
     private BookingQueue bookingQueue;
     private Dispatcher dispatcher;
     private Dispatcher localDispatcher;
+    private Dispatcher slotDispatcher;
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
     private JmsMover jmsMover;
@@ -292,7 +294,12 @@ public class FrameCompleteHandler {
                 publishLayerCompletedTelemetry(frame);
             }
 
-            if (isMemoryFailure(report, frameDetail)) {
+            /*
+             * Slot-based procs are excluded from the memory-failure retry path: they reserve 0
+             * memory by design, so raising the layer's memory requirement would only corrupt the
+             * layer record (slot dispatch ignores memory entirely).
+             */
+            if (proc.slotsReserved == 0 && isMemoryFailure(report, frameDetail)) {
                 retryFrameWithRaisedMemory(proc, frame);
                 unbookProc = true;
             }
@@ -560,6 +567,22 @@ public class FrameCompleteHandler {
      * rebooked through the booking queue so the extra cores can be picked up.
      */
     private void bookNextFrameOnProc(VirtualProc proc, DispatchJob job, DispatchFrame frame) {
+        /*
+         * Slot-based procs are never reused for the next frame: the generic proc-to-next-frame path
+         * books by cores/memory, which slot procs don't hold. Release the slots and requeue the
+         * host through the slot dispatcher so it can pick up its next slot frame immediately.
+         *
+         * Non-happy-path releases (DEAD/EATEN frames, failed launches, the generic unbook branches
+         * above) release the slots without this immediate requeue; the host's next report picks the
+         * slots back up.
+         */
+        if (proc.slotsReserved > 0) {
+            dispatchSupport.unbookProc(proc, "slot-based proc, releasing slots");
+            bookingQueue.execute(new DispatchBookHostSlots(
+                    hostManager.getDispatchHost(proc.getHostId()), slotDispatcher));
+            return;
+        }
+
         // Local dispatches are always Cuebot-managed.
         if (!proc.isLocalDispatch && showDao.isSchedulerManaged(proc.getShowId())) {
             dispatchSupport.unbookProc(proc, "scheduler-managed show, releasing proc");
@@ -976,6 +999,14 @@ public class FrameCompleteHandler {
 
     public void setLocalDispatcher(Dispatcher localDispatcher) {
         this.localDispatcher = localDispatcher;
+    }
+
+    public Dispatcher getSlotDispatcher() {
+        return slotDispatcher;
+    }
+
+    public void setSlotDispatcher(Dispatcher slotDispatcher) {
+        this.slotDispatcher = slotDispatcher;
     }
 
     public BookingManager getBookingManager() {

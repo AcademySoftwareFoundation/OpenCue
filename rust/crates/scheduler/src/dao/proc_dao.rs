@@ -85,9 +85,10 @@ static INSERT_PROC: &str = r#"
         int_gpu_mem_reserved,
         int_gpu_mem_pre_reserved,
         int_gpu_mem_used,
-        b_local
+        b_local,
+        int_slots_reserved
     ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
     )
     ON CONFLICT (pk_frame) DO NOTHING
 "#;
@@ -169,6 +170,7 @@ impl ProcDao {
             .bind((virtual_proc.gpu_memory_reserved.0 / KB) as i64)
             .bind(0)
             .bind(virtual_proc.is_local_dispatch)
+            .bind(virtual_proc.slots_required as i32)
             .execute(&mut **transaction)
             .await
             .map_err(|err| ProcDaoError::DbFailure {

@@ -75,6 +75,8 @@ import com.imageworks.spcue.grpc.host.HostSetHardwareStateRequest;
 import com.imageworks.spcue.grpc.host.HostSetHardwareStateResponse;
 import com.imageworks.spcue.grpc.host.HostSetOsRequest;
 import com.imageworks.spcue.grpc.host.HostSetOsResponse;
+import com.imageworks.spcue.grpc.host.HostSetConcurrentSlotsLimitRequest;
+import com.imageworks.spcue.grpc.host.HostSetConcurrentSlotsLimitResponse;
 import com.imageworks.spcue.grpc.host.HostSetThreadModeRequest;
 import com.imageworks.spcue.grpc.host.HostSetThreadModeResponse;
 import com.imageworks.spcue.grpc.host.HostUnlockRequest;
@@ -261,6 +263,15 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
         HostInterface host = getHostInterface(request.getHost());
         hostDao.updateThreadMode(host, request.getMode());
         responseObserver.onNext(HostSetThreadModeResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setConcurrentSlotsLimit(HostSetConcurrentSlotsLimitRequest request,
+            StreamObserver<HostSetConcurrentSlotsLimitResponse> responseObserver) {
+        HostInterface host = getHostInterface(request.getHost());
+        hostDao.updateConcurrentSlotsLimit(host, request.getConcurrentSlotsLimit());
+        responseObserver.onNext(HostSetConcurrentSlotsLimitResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

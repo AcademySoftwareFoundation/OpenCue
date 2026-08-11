@@ -60,6 +60,9 @@ pub struct DispatchFrame {
     pub version: u32,
     pub updated_at: SystemTime,
     pub env: HashMap<String, String>,
+    /// Concurrency slots this frame requires (from `layer.int_slots_required`).
+    /// `0` for regular (cores/memory) frames.
+    pub slots_required: u32,
 }
 
 impl Display for DispatchFrame {

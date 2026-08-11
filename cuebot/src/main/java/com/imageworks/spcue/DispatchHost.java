@@ -43,6 +43,19 @@ public class DispatchHost extends Entity
     // Basically an 0 = auto, 1 = all.
     public int threadMode;
 
+    /**
+     * Max concurrent frames (slots) this host may run. -1 marks a regular (cores/memory) host; >= 0
+     * marks a slot-based host that only runs slot-based layers, capped at this many concurrent
+     * slots.
+     */
+    public int concurrentSlotsLimit = -1;
+
+    /**
+     * Number of slots not currently reserved on this host (concurrentSlotsLimit minus
+     * SUM(proc.int_slots_reserved)). Only meaningful for slot-based hosts; -1 otherwise.
+     */
+    public int idleSlots = -1;
+
     public long memory;
     public long idleMemory;
     public long gpuMemory;
@@ -67,6 +80,14 @@ public class DispatchHost extends Entity
 
     public String getHostId() {
         return id;
+    }
+
+    /**
+     * True when this host is slot-based: it only runs slot-based layers, capped by
+     * concurrentSlotsLimit, and ignores cores/memory for booking decisions.
+     */
+    public boolean isSlotHost() {
+        return concurrentSlotsLimit >= 0;
     }
 
     public String getAllocationId() {

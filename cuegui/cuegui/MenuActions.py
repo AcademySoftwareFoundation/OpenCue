@@ -1859,6 +1859,44 @@ class HostActions(AbstractActions):
         if hosts:
             self.app.view_procs.emit(hosts)
 
+    setConcurrentSlotsLimit_info = ["Update Slot Limit...", None, "configure"]
+
+    def setConcurrentSlotsLimit(self, rpcObjects=None):
+        """Set the concurrent slots limit for selected hosts."""
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        if not hosts:
+            return
+
+        # Current value from the first selected host (proto field, -1 when unset).
+        current = hosts[0].data.concurrent_slots_limit if len(hosts) == 1 else -1
+
+        title = "Set Concurrent Slots Limit"
+        body = "Enter the maximum concurrent slots for this host.\n" \
+               "When >= 0 the host becomes slot-based: it only runs layers with a " \
+               "slots_required field (regular cores/memory/gpu booking is disabled).\n\n" \
+               "-1 = regular host (disable slot mode)\n" \
+               " 0 = slot host, but reject all slot work\n" \
+               " N = allow up to N concurrent slots"
+
+        (value, choice) = QtWidgets.QInputDialog.getInt(
+            self._caller,
+            title,
+            body,
+            current,  # current value
+            -1,  # minimum value (-1 disables slot mode)
+            10000,  # maximum value
+            1,  # step
+        )
+
+        if choice:
+            for host in hosts:
+                self.cuebotCall(
+                    host.setConcurrentSlotsLimit,
+                    "Set Concurrent Slots Limit on %s Failed" % host.data.name,
+                    int(value),
+                )
+            self._update()
+
     lock_info = ["Lock Host", None, "lock"]
 
     def lock(self, rpcObjects=None):

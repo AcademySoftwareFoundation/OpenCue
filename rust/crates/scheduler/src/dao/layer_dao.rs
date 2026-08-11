@@ -62,6 +62,8 @@ pub struct DispatchLayerModel {
     /// `job_resource.int_max_cores` (centicores). `-1` is the OpenCue
     /// "unlimited" sentinel — preserved through `from_multiplied_cap`.
     pub int_job_max_cores: i64,
+    /// `layer.int_slots_required`. `0` means not slot-based.
+    pub int_slots_required: i64,
 }
 
 /// Combined model for batched layer and frame queries.
@@ -88,6 +90,7 @@ pub struct LayerWithFramesModel {
     pub int_gpu_mem_min: i64,
     pub str_tags: String,
     pub int_job_max_cores: i64,
+    pub int_slots_required: i64,
     pub job_env: Json<HashMap<String, String>>,
     pub layer_env: Json<HashMap<String, String>>,
 
@@ -138,7 +141,8 @@ impl DispatchLayer {
             str_os: layer.str_os,
             cores_min: CoreSize::from_multiplied(layer.int_cores_min),
             mem_min: ByteSize::kb(layer.int_mem_min as u64),
-            threadable: layer.b_threadable,
+            // Slot-based layers are forced non-threadable.
+            threadable: layer.b_threadable && layer.int_slots_required <= 0,
             gpus_min: layer
                 .int_gpus_min
                 .try_into()
@@ -154,6 +158,7 @@ impl DispatchLayer {
             // Preserves the `-1` unlimited sentinel; `compute_max_more` skips
             // the job cap dim when `<= 0`.
             job_max_cores: CoreSize::from_multiplied_cap(layer.int_job_max_cores).value(),
+            slots_required: layer.int_slots_required.max(0) as u32,
         }
     }
 }
@@ -244,6 +249,7 @@ SELECT DISTINCT
     l.int_gpu_mem_min,
     l.str_tags,
     jr.int_max_cores::bigint AS int_job_max_cores,
+    l.int_slots_required::bigint AS int_slots_required,
     je.job_env,
     le.layer_env,
     l.int_dispatch_order,
@@ -392,6 +398,7 @@ impl LayerDao {
                         int_gpu_mem_min: model.int_gpu_mem_min,
                         str_tags: model.str_tags.clone(),
                         int_job_max_cores: model.int_job_max_cores,
+                        int_slots_required: model.int_slots_required,
                     };
                     layers.push((layer_model, vec![]));
                     let slot = layers.len() - 1;
@@ -430,6 +437,7 @@ impl LayerDao {
                     int_version: model.int_version.unwrap_or(1),
                     str_loki_url: model.str_loki_url,
                     ts_updated: model.ts_updated,
+                    int_slots_required: model.int_slots_required,
                     job_env: model.job_env.0,
                     layer_env: model.layer_env.0,
                 };

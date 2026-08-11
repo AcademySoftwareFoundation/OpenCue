@@ -154,6 +154,40 @@ public interface DispatcherDao {
     List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
     /**
+     * Return a list of jobs with pending slot-based work that could book on the specified
+     * slot-based host. Jobs over their job/folder/subscription max_slots caps are excluded.
+     *
+     * @param host a slot-based host (concurrentSlotsLimit >= 0)
+     * @param numJobs
+     * @return a set of unique job ids ordered by priority
+     */
+    Set<String> findSlotDispatchJobs(DispatchHost host, int numJobs);
+
+    /**
+     * Return the next slot-based frames in the given job bookable on the specified slot-based host.
+     * Only frames of slot-based layers whose slot requirement fits the host's idle slots and whose
+     * job/folder/subscription max_slots caps allow another booking are returned.
+     *
+     * @param job
+     * @param host a slot-based host (concurrentSlotsLimit >= 0)
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextSlotDispatchFrames(JobInterface job, DispatchHost host, int limit);
+
+    /**
+     * Return how many more slots the given job may book on the given host's allocation: the
+     * smallest remaining allowance across the job, folder and subscription max_slots caps.
+     * Integer.MAX_VALUE when all three caps are unlimited (-1); 0 when the job's show has no
+     * subscription to the host's allocation.
+     *
+     * @param job
+     * @param host
+     * @return
+     */
+    int getSlotCapacityRemaining(JobInterface job, DispatchHost host);
+
+    /**
      * Return Scheduling Mode selected
      *
      * @return

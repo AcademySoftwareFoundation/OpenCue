@@ -70,6 +70,7 @@ impl DummyRqdClient {
             hard_memory_limit: 0,
             pid: 0,
             loki_url: "".to_string(),
+            slots_required: 0,
 
             #[allow(deprecated)]
             job_temp_dir: "deprecated".to_string(),

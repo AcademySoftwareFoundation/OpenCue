@@ -126,6 +126,15 @@ public interface GroupDao {
     public void updateMaxCores(GroupInterface group, int value);
 
     /**
+     * Sets the max concurrent slots for slot-based layers in the group's folder. -1 unlimited, 0
+     * reject-all, N caps at N.
+     *
+     * @param group
+     * @param value
+     */
+    public void updateMaxSlots(GroupInterface group, int value);
+
+    /**
      * Set the minimum number of cores for this group
      *
      * @param group

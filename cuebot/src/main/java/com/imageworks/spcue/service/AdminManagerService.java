@@ -173,6 +173,10 @@ public class AdminManagerService implements AdminManager {
         subscriptionDao.updateSubscriptionBurst(sub, burst);
     }
 
+    public void setSubscriptionMaxSlots(SubscriptionInterface sub, int maxSlots) {
+        subscriptionDao.updateSubscriptionMaxSlots(sub, maxSlots);
+    }
+
     public void setSubscriptionSize(SubscriptionInterface sub, int size) {
         subscriptionDao.updateSubscriptionSize(sub, size);
     }
