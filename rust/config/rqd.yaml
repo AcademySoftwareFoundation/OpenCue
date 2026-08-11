@@ -74,6 +74,17 @@ machine:
   # Default: 10s
   # monitor_interval: 5s
 
+  # Retry heartbeat for the frame-completion delivery task. Freshly finished
+  # frames are delivered immediately; this interval only paces retries of
+  # reports Cuebot has not yet acknowledged.
+  # Default: 5s
+  # frame_complete_delivery_interval: 5s
+
+  # Per-report deadline when sending a FrameCompleteReport to Cuebot. Only
+  # meant to abandon a genuinely hung send; timed-out reports are retried.
+  # Default: 30s
+  # frame_complete_send_timeout: 30s
+
   # Use IP address instead of hostname for machine identification
   # Default: false
   # use_ip_as_hostname: false

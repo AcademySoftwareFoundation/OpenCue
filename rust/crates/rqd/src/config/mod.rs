@@ -110,6 +110,17 @@ impl Default for GrpcConfig {
 pub struct MachineConfig {
     #[serde(with = "humantime_serde")]
     pub monitor_interval: Duration,
+    /// Retry heartbeat of the dedicated frame-completion delivery task. First delivery attempts are
+    /// triggered immediately via a Notify signal; this interval only paces retries of entries that
+    /// failed or timed out on a previous pass.
+    #[serde(with = "humantime_serde")]
+    pub frame_complete_delivery_interval: Duration,
+    /// Per-report deadline when sending a FrameCompleteReport to Cuebot. Generous by design: it
+    /// exists only to abandon a genuinely hung send (no transport-level deadline is set on the
+    /// channel), never to cut short one that is making progress. A timed-out entry is retained and
+    /// retried on a later pass.
+    #[serde(with = "humantime_serde")]
+    pub frame_complete_send_timeout: Duration,
     pub use_ip_as_hostname: bool,
     pub override_real_values: Option<OverrideConfig>,
     pub custom_tags: Vec<String>,
@@ -136,6 +147,8 @@ impl Default for MachineConfig {
     fn default() -> MachineConfig {
         MachineConfig {
             monitor_interval: Duration::from_secs(5),
+            frame_complete_delivery_interval: Duration::from_secs(5),
+            frame_complete_send_timeout: Duration::from_secs(30),
             use_ip_as_hostname: false,
             override_real_values: None,
             custom_tags: vec![],
