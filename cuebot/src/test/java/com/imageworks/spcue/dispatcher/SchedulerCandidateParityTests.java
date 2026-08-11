@@ -37,6 +37,7 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -170,15 +171,49 @@ public class SchedulerCandidateParityTests extends AbstractTransactionalJUnit4Sp
                 candidatesContainJob(job.id));
     }
 
+    /** Non-threadable layer on a ThreadMode.ALL host: legacy refuses, scheduler must too. */
+    @Test
+    public void nonThreadableLayerOnAllModeHostIsRefusedByBothPaths() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
+
+        // NIMBY workstations register as ThreadMode.ALL (HostDaoJdbc), common in test farms.
+        jdbcTemplate.update("UPDATE host SET int_thread_mode=? WHERE pk_host=?",
+                ThreadMode.ALL_VALUE, host.id);
+        jdbcTemplate.update("UPDATE layer SET b_threadable=false WHERE pk_job=?", job.id);
+
+        DispatchHost fresh = getHost();
+        Set<String> legacy = dispatcherDao.findDispatchJobs(fresh, 10);
+        assertFalse("legacy refuses non-threadable work on an ALL host", legacy.contains(job.id));
+        assertFalse("scheduler must refuse non-threadable work on an ALL host",
+                candidatesContainJob(job.id));
+    }
+
+    /** Threadable layer on a ThreadMode.ALL host must still book in both paths. */
+    @Test
+    public void threadableLayerOnAllModeHostBooksInBothPaths() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
+
+        jdbcTemplate.update("UPDATE host SET int_thread_mode=? WHERE pk_host=?",
+                ThreadMode.ALL_VALUE, host.id);
+        jdbcTemplate.update("UPDATE layer SET b_threadable=true WHERE pk_job=?", job.id);
+
+        DispatchHost fresh = getHost();
+        Set<String> legacy = dispatcherDao.findDispatchJobs(fresh, 10);
+        assertTrue("legacy books threadable work on an ALL host", legacy.contains(job.id));
+        assertTrue("scheduler must book threadable work on an ALL host",
+                candidatesContainJob(job.id));
+    }
+
     /** A job from another facility must be refused by both paths. */
     @Test
     public void crossFacilityJobIsRefusedByBothPaths() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 
-        jdbcTemplate.update(
-                "INSERT INTO facility (pk_facility, str_name) VALUES "
-                        + "('AAAAAAAA-0000-0000-0000-000000000001', 'parity_lax')");
+        jdbcTemplate.update("INSERT INTO facility (pk_facility, str_name) VALUES "
+                + "('AAAAAAAA-0000-0000-0000-000000000001', 'parity_lax')");
         jdbcTemplate.update("UPDATE job SET pk_facility="
                 + "'AAAAAAAA-0000-0000-0000-000000000001' WHERE pk_job=?", job.id);
 

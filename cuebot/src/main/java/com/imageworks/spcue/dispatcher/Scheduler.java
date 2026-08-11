@@ -56,6 +56,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.JobManager;
@@ -518,12 +519,13 @@ public class Scheduler extends JdbcDaoSupport {
      * columns to compute the spec key and run the per-host fit check without a second lookup.
      */
     private static final String SELECT_ALL_HOSTS = "SELECT " + "  h.pk_host, " + "  h.str_name, "
-            + "  h.pk_alloc, " + "  a.pk_facility, " + "  h.int_cores, " + "  h.int_cores_idle, "
-            + "  h.int_mem, " + "  h.int_mem_idle, " + "  h.int_gpus, " + "  h.int_gpus_idle, "
-            + "  h.int_gpu_mem, " + "  h.int_gpu_mem_idle, " + "  h.int_procs, " + "  h.str_tags, "
-            + "  hs.str_os " + "FROM host h, host_stat hs, alloc a "
-            + "WHERE h.pk_host = hs.pk_host " + "  AND a.pk_alloc = h.pk_alloc "
-            + "  AND hs.str_state = 'UP' " + "  AND h.str_lock_state = 'OPEN' ";
+            + "  h.pk_alloc, " + "  a.pk_facility, " + "  h.int_thread_mode, " + "  h.int_cores, "
+            + "  h.int_cores_idle, " + "  h.int_mem, " + "  h.int_mem_idle, " + "  h.int_gpus, "
+            + "  h.int_gpus_idle, " + "  h.int_gpu_mem, " + "  h.int_gpu_mem_idle, "
+            + "  h.int_procs, " + "  h.str_tags, " + "  hs.str_os "
+            + "FROM host h, host_stat hs, alloc a " + "WHERE h.pk_host = hs.pk_host "
+            + "  AND a.pk_alloc = h.pk_alloc " + "  AND hs.str_state = 'UP' "
+            + "  AND h.str_lock_state = 'OPEN' ";
 
     /**
      * Candidate layers for a host spec group. One query per group. Filters: - job PENDING and
@@ -617,7 +619,14 @@ public class Scheduler extends JdbcDaoSupport {
             // job.pk_facility in every job-finding query; without this the
             // planner books cross-facility (PARITY's parity_facother archetype)
             // because the frame-level plan read never re-checks facility.
-            + "  AND  j.pk_facility = ? " + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
+            + "  AND  j.pk_facility = ? "
+            // ThreadMode.ALL hosts run ONLY threadable layers (bind 1 for ALL
+            // groups, 0 otherwise), exactly the legacy dispatcher's clause.
+            // Without it the planner parks non-threadable layers on ALL hosts
+            // (idle NIMBY workstations score best), planHost's re-check finds
+            // zero frames, and the layer burns its one commit per tick forever.
+            + "  AND  (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) >= ? "
+            + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
             + "  AND  jr.int_cores  < jr.int_max_cores " + "  AND  sub.int_cores < sub.int_burst "
             + "  AND  l.int_cores_min <= ? "
             // Dispatchable-frame test AND waiting_frame_count both come from
@@ -673,6 +682,7 @@ public class Scheduler extends JdbcDaoSupport {
             h.hostName = rs.getString("str_name");
             h.pkAlloc = rs.getString("pk_alloc");
             h.pkFacility = rs.getString("pk_facility");
+            h.threadMode = rs.getInt("int_thread_mode");
             h.coresTotal = rs.getInt("int_cores");
             h.coresIdle = rs.getInt("int_cores_idle");
             h.memTotal = rs.getLong("int_mem");
@@ -1656,6 +1666,7 @@ public class Scheduler extends JdbcDaoSupport {
             + "  (j.str_os IS NULL OR j.str_os = '' "
             + "   OR j.str_os = ANY(string_to_array(?, ',')))         AS os_ok, "
             + "  (j.pk_facility = ?)                                  AS fac_ok, "
+            + "  ((CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) >= ?) AS thread_ok, "
             + "  (sub.pk_subscription IS NOT NULL)                    AS has_sub, "
             + "  (sub.int_cores < sub.int_burst)                      AS under_burst, "
             + "  (jr.int_cores < jr.int_max_cores)                    AS under_job_cap, "
@@ -1691,14 +1702,14 @@ public class Scheduler extends JdbcDaoSupport {
                     + " layer=" + rs.getString("layer_name") + " prio=" + rs.getInt("int_priority")
                     + " tags='" + rs.getString("str_tags") + "' tagOk=" + rs.getBoolean("tag_ok")
                     + " osOk=" + rs.getBoolean("os_ok") + " facOk=" + rs.getBoolean("fac_ok")
-                    + " hasSub=" + rs.getBoolean("has_sub") + " underBurst="
-                    + rs.getBoolean("under_burst") + " underJobCap="
-                    + rs.getBoolean("under_job_cap") + " fitsCores=" + rs.getBoolean("fits_cores")
-                    + " hasWaiting=" + rs.getBoolean("has_waiting") + " limitOk="
-                    + rs.getBoolean("limit_ok") + " folderOk=" + rs.getBoolean("folder_ok")
-                    + " managedOk=" + rs.getBoolean("managed_ok"));
-        }, spec.tagsNormalized, spec.os, spec.pkFacility, maxCoresTotalInGroup,
-                SchedulerMode.facility(env), spec.pkAlloc);
+                    + " threadOk=" + rs.getBoolean("thread_ok") + " hasSub="
+                    + rs.getBoolean("has_sub") + " underBurst=" + rs.getBoolean("under_burst")
+                    + " underJobCap=" + rs.getBoolean("under_job_cap") + " fitsCores="
+                    + rs.getBoolean("fits_cores") + " hasWaiting=" + rs.getBoolean("has_waiting")
+                    + " limitOk=" + rs.getBoolean("limit_ok") + " folderOk="
+                    + rs.getBoolean("folder_ok") + " managedOk=" + rs.getBoolean("managed_ok"));
+        }, spec.tagsNormalized, spec.os, spec.pkFacility, spec.allThreadMode ? 1 : 0,
+                maxCoresTotalInGroup, SchedulerMode.facility(env), spec.pkAlloc);
     }
 
     /**
@@ -1768,9 +1779,10 @@ public class Scheduler extends JdbcDaoSupport {
                 env.getProperty("scheduler.layer_candidates_per_group_max", Integer.class, 2000);
         LicenseSource ls = licenseSource;
         String licenseKey = (ls != null) ? ls.getEnvKey() : "CUE_LICENSES";
-        List<LayerCandidate> rows = getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP,
-                CANDIDATE_MAPPER, spec.pkAlloc, licenseKey, spec.os, spec.pkFacility,
-                spec.tagsNormalized, maxIdleInGroup, SchedulerMode.facility(env), limit);
+        List<LayerCandidate> rows =
+                getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP, CANDIDATE_MAPPER, spec.pkAlloc,
+                        licenseKey, spec.os, spec.pkFacility, spec.allThreadMode ? 1 : 0,
+                        spec.tagsNormalized, maxIdleInGroup, SchedulerMode.facility(env), limit);
         // Defensive dedupe: nothing in the schema forbids two layer_env rows
         // with the same key, and a duplicated row would clone its candidate
         // (double placement per tick). First row per layer wins.
@@ -1858,7 +1870,7 @@ public class Scheduler extends JdbcDaoSupport {
                     // not idle. A fully-booked GPU host (gpusIdle == 0) must
                     // still group as a GPU host so its candidate query filters
                     // for GPU layers and the GPU-weighted score protects it.
-                    h.gpusTotal > 0 || h.gpuMemTotal > 0);
+                    h.gpusTotal > 0 || h.gpuMemTotal > 0, h.threadMode == ThreadMode.ALL_VALUE);
             groups.computeIfAbsent(k, x -> new ArrayList<>()).add(h);
         }
         return groups;
@@ -2764,6 +2776,7 @@ public class Scheduler extends JdbcDaoSupport {
         String hostName;
         String pkAlloc;
         String pkFacility;
+        int threadMode;
         // Total capacity. Used by pickReservationTarget to check whether the
         // host could fit a layer when fully idle, independent of the host's
         // current load.
@@ -2883,14 +2896,20 @@ public class Scheduler extends JdbcDaoSupport {
         final String tagsNormalized;
         final String os;
         final boolean hasGpu;
+        // ThreadMode.ALL hosts (NIMBY workstations by default) run ONLY
+        // threadable layers; the legacy dispatcher enforces that per host and
+        // the candidate query binds it per group, so mode must split the key.
+        // One bit suffices: legacy itself normalizes every other mode to AUTO.
+        final boolean allThreadMode;
 
         HostSpecKey(String pkAlloc, String pkFacility, String tagsNormalized, String os,
-                boolean hasGpu) {
+                boolean hasGpu, boolean allThreadMode) {
             this.pkAlloc = pkAlloc;
             this.pkFacility = pkFacility;
             this.tagsNormalized = tagsNormalized;
             this.os = os;
             this.hasGpu = hasGpu;
+            this.allThreadMode = allThreadMode;
         }
 
         @Override
@@ -2900,20 +2919,22 @@ public class Scheduler extends JdbcDaoSupport {
             if (!(o instanceof HostSpecKey))
                 return false;
             HostSpecKey k = (HostSpecKey) o;
-            return hasGpu == k.hasGpu && Objects.equals(pkAlloc, k.pkAlloc)
+            return hasGpu == k.hasGpu && allThreadMode == k.allThreadMode
+                    && Objects.equals(pkAlloc, k.pkAlloc)
                     && Objects.equals(pkFacility, k.pkFacility)
                     && Objects.equals(tagsNormalized, k.tagsNormalized) && Objects.equals(os, k.os);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(pkAlloc, pkFacility, tagsNormalized, os, hasGpu);
+            return Objects.hash(pkAlloc, pkFacility, tagsNormalized, os, hasGpu, allThreadMode);
         }
 
         @Override
         public String toString() {
             return "HostSpec(alloc=" + pkAlloc + ", facility=" + pkFacility + ", tags="
-                    + tagsNormalized + ", os=" + os + ", gpu=" + hasGpu + ")";
+                    + tagsNormalized + ", os=" + os + ", gpu=" + hasGpu + ", threadAll="
+                    + allThreadMode + ")";
         }
     }
 
