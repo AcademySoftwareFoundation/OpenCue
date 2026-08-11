@@ -170,6 +170,35 @@ public class FrameCompleteHandler {
                 finalizeOrphanedFrameComplete(report);
                 return;
             }
+
+            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
+                    + report.getFrame().getFrameId();
+
+            /*
+             * Ownership fence: a report may only stop the run of the frame it describes. Stopping a
+             * frame clears its proc's assignment in the same transaction, so a reporting proc that
+             * no longer holds the reported frame means that run has been superseded: the frame was
+             * freed by another actor (retry, eat, lostProc, orphan reaper) and may already be
+             * RUNNING again under a different proc. Applying the report anyway would stop the
+             * current run and free the frame for yet another booking, sustaining a kill -> report
+             * -> free -> rebook cascade. The int_version fence on stopFrame cannot catch this, as
+             * it is read fresh below and only covers concurrent writers, not a report from an older
+             * run.
+             */
+            if (proc.frameId == null || !proc.frameId.equals(report.getFrame().getFrameId())) {
+                logger.info("Diverting superseded frame complete report for "
+                        + report.getFrame().getFrameName() + "; proc " + proc.getProcId() + " on "
+                        + proc.hostName + " no longer owns the frame ("
+                        + (proc.frameId == null ? "no frame assigned" : "now on " + proc.frameId)
+                        + ").");
+                if (prometheusMetrics != null) {
+                    prometheusMetrics.incrementFrameCompleteSuperseded(
+                            proc.frameId == null ? "no_owner" : "other_frame");
+                }
+                handleStaleReport(proc, report, key);
+                return;
+            }
+
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final FrameDetail frameDetail =
@@ -177,8 +206,6 @@ public class FrameCompleteHandler {
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
             final FrameState newFrameState =
                     determineFrameState(job, layer, frame, report, frameDetail);
-            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
-                    + report.getFrame().getFrameId();
 
             int exitStatus = resolveExitStatus(report, frameDetail);
 
@@ -228,6 +255,12 @@ public class FrameCompleteHandler {
      * still goes through redirect/unbook: stopping a frame clears its proc's assignment, so this is
      * the normal state for a proc whose frame was stopped by another actor (eat, retry, kill) and
      * that now needs to be released.
+     *
+     * The proc is re-read before it is released: when the reported frame is RUNNING again on this
+     * same proc, a newer run of the frame has been dispatched onto it and the report is dropped
+     * instead, since unbooking would orphan the live run. A report that gets past the duplicate
+     * check is discarded on every path, so it is counted (and a successful report flagged as a lost
+     * render result) whether the proc is released or the report is dropped.
      */
     private void handleStaleReport(VirtualProc proc, FrameCompleteReport report, String key) {
         if (proc.frameId != null && !proc.frameId.equals(report.getFrame().getFrameId())) {
@@ -236,6 +269,53 @@ public class FrameCompleteHandler {
                     + " has already moved on to frame " + proc.frameId + ".");
             return;
         }
+
+        FrameDetail frameDetail = null;
+        try {
+            frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        } catch (EmptyResultDataAccessException e) {
+            // The frame row is gone; fall through and release the proc.
+        }
+
+        /*
+         * Past the duplicate check above the report is discarded without being applied to its
+         * frame, no matter which branch below disposes of the proc, so it is counted (and a
+         * successful result flagged as lost) before any of them return.
+         */
+        if (prometheusMetrics != null) {
+            prometheusMetrics.incrementFrameCompleteDropped(report.getExitStatus());
+        }
+        if (report.getExitStatus() == 0 && frameDetail != null
+                && frameDetail.state != FrameState.SUCCEEDED
+                && frameDetail.state != FrameState.EATEN) {
+            logger.warn("A successful frame complete report for " + report.getFrame().getFrameName()
+                    + " in job " + report.getFrame().getJobName() + " from host " + proc.hostName
+                    + " could not be applied; the frame is " + frameDetail.state
+                    + " and the result of this render is being discarded.");
+        }
+
+        /*
+         * Never unbook a live render. When the reported frame is RUNNING again and a fresh read
+         * shows this proc still assigned to it, the frame was stopped and re-dispatched onto this
+         * same proc between this report being generated and it being handled here. Unbooking the
+         * proc now would delete the row under the new run and orphan it; the new run's own report
+         * will release the proc when it ends.
+         */
+        if (frameDetail != null && frameDetail.state == FrameState.RUNNING) {
+            try {
+                VirtualProc currentProc = hostManager.getVirtualProc(proc.getProcId());
+                if (report.getFrame().getFrameId().equals(currentProc.frameId)) {
+                    logger.info("Dropping stale frame complete report for "
+                            + report.getFrame().getFrameName() + "; proc " + proc.getProcId()
+                            + " is running a newer instance of the same frame.");
+                    return;
+                }
+            } catch (EmptyResultDataAccessException e) {
+                // The proc row is gone; there is nothing left to redirect or unbook.
+                return;
+            }
+        }
+
         if (redirectManager.hasRedirect(proc)) {
             queueDispatchTask(key, "redirect", () -> redirectManager.redirect(proc));
         } else {

@@ -1103,6 +1103,13 @@ public class HostReportHandler {
             return;
         }
         if (frameLatestVersion.state != FrameState.RUNNING) {
+            // RQD still reporting a frame the DB no longer has RUNNING is a zombie render:
+            // its result can no longer be recorded, but it keeps burning the host. It is not
+            // killed here because the kill is frame-scoped and could hit a newer run of the
+            // same frame, but it is counted so the condition is visible.
+            if (prometheusMetrics != null) {
+                prometheusMetrics.incrementFrameZombieRender();
+            }
             logger.info("DelayedVerification, the proc " + runningFrame.getResourceId()
                     + " on host " + report.getHost().getName() + " has already Completed "
                     + runningFrame.getJobName() + "/" + runningFrame.getFrameName());
