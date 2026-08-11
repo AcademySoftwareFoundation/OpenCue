@@ -516,6 +516,7 @@ impl MachineMonitor {
         // stays up (the store is in-memory, so it does not survive an RQD restart).
         self.enqueue_and_release_finished_frames_cores(finished_frames)
             .await;
+        self.warn_if_completion_backlog();
 
         // Build a host-wide memory snapshot from the freshly-updated running frames and
         // share it (same Arc) into each of them. A frame that later fails renders this in
@@ -631,6 +632,31 @@ impl MachineMonitor {
         self.completion_notify.notify_one();
     }
 
+    /// Surface a genuine delivery backlog from the monitor loop, synchronously every cycle. The
+    /// delivery task only logs between passes, so while one pass grinds through a large backlog
+    /// (worst case ~`frame_complete_send_timeout` per hung entry) — or if that task ever exits —
+    /// this is the signal that keeps firing precisely when the condition matters most. Cheap by
+    /// construction: a `len()` and a `max()` over `enqueued_at`, no awaits. Age is measured from
+    /// the instant each entry was enqueued, so only entries that have already survived at least
+    /// one delivery pass warn; freshly enqueued frames have ~zero age and stay quiet.
+    fn warn_if_completion_backlog(&self) {
+        let oldest_age = self
+            .pending_completions
+            .iter()
+            .map(|entry| entry.value().enqueued_at.elapsed())
+            .max();
+        if let Some(age) = oldest_age {
+            if age >= self.maching_config.frame_complete_delivery_interval {
+                warn!(
+                    "{} pending frame completion(s) still awaiting delivery to Cuebot after \
+                     retries; oldest is {}s old",
+                    self.pending_completions.len(),
+                    age.as_secs()
+                );
+            }
+        }
+    }
+
     /// Spawn the dedicated frame-completion delivery task.
     ///
     /// Delivery gets its own task, decoupled from the monitor loop, for two reasons. First, a
@@ -671,27 +697,6 @@ impl MachineMonitor {
 
                 if pending_completions.is_empty() {
                     continue;
-                }
-
-                // Surface a genuine backlog: completions that could not be delivered pile up here
-                // across passes (Cuebot unreachable or rejecting reports). Age is measured from the
-                // instant each entry was enqueued, so only entries that have already survived at
-                // least one delivery pass warn; freshly enqueued frames have ~zero age and stay
-                // quiet.
-                let backlog = pending_completions.len();
-                let oldest_age = pending_completions
-                    .iter()
-                    .map(|entry| entry.value().enqueued_at.elapsed())
-                    .max();
-                if let Some(age) = oldest_age {
-                    if age >= delivery_interval {
-                        warn!(
-                            "{} pending frame completion(s) still awaiting delivery to Cuebot \
-                             after retries; oldest is {}s old",
-                            backlog,
-                            age.as_secs()
-                        );
-                    }
                 }
 
                 let started = Instant::now();
@@ -832,20 +837,41 @@ impl MachineMonitor {
                 }
                 Ok(Err(err)) => {
                     stats.failed += 1;
-                    warn!(
-                        "Failed to send frame_complete_report for {}, will retry on the next \
-                         delivery pass. {}",
-                        frame, err
-                    );
+                    // One warn per pass carries a concrete error; the rest go to debug. The pass
+                    // summary already reports the failed count, and during a Cuebot outage every
+                    // entry fails, which would otherwise emit O(backlog) warning lines per pass.
+                    if stats.failed == 1 {
+                        warn!(
+                            "Failed to send frame_complete_report for {}, will retry on the next \
+                             delivery pass. {}",
+                            frame, err
+                        );
+                    } else {
+                        debug!(
+                            "Failed to send frame_complete_report for {}, will retry on the next \
+                             delivery pass. {}",
+                            frame, err
+                        );
+                    }
                 }
                 Err(_) => {
                     stats.timed_out += 1;
-                    warn!(
-                        "Timed out after {}s sending frame_complete_report for {}, will retry on \
-                         the next delivery pass",
-                        send_timeout.as_secs(),
-                        frame
-                    );
+                    // Same first-per-pass capping as the failure arm above.
+                    if stats.timed_out == 1 {
+                        warn!(
+                            "Timed out after {}s sending frame_complete_report for {}, will retry \
+                             on the next delivery pass",
+                            send_timeout.as_secs(),
+                            frame
+                        );
+                    } else {
+                        debug!(
+                            "Timed out after {}s sending frame_complete_report for {}, will retry \
+                             on the next delivery pass",
+                            send_timeout.as_secs(),
+                            frame
+                        );
+                    }
                 }
             }
         }
