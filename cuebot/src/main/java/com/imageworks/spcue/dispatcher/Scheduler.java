@@ -258,6 +258,16 @@ public class Scheduler extends JdbcDaoSupport {
     // Per-tick placements to commit, grouped host id -> layer ids. Planner-thread
     // only; cleared each tick after the batch commit.
     private final Map<String, List<String>> plannedByHost = new LinkedHashMap<>();
+    // Consecutive ticks each layer was PLANNED onto a host but planHost's
+    // commit-time read returned ZERO frames. That combination is the silent
+    // starvation signature of a planner-vs-dispatch eligibility mismatch (a
+    // gate the legacy frame query enforces that the candidate query does not
+    // model: thread mode, a limit filling mid-tick, ...): the layer burns its
+    // one commit per tick forever while looking perfectly schedulable at
+    // DEBUG. Written from the plan pool (ConcurrentHashMap); entries are
+    // dropped for layers that stop being planned, so only live pathologies
+    // are tracked. WARNs at scheduler.plan_zero_warn_ticks (default 40).
+    private final Map<String, Integer> planZeroStreak = new ConcurrentHashMap<>();
     // Small pool for the post-commit RQD launches (runFrame gRPC), which are
     // inherently one call per frame. Bounded with caller-runs backpressure so a
     // slow RQD cannot let launches pile up unbounded.
@@ -1123,6 +1133,21 @@ public class Scheduler extends JdbcDaoSupport {
 
             List<LayerCandidate> candidates =
                     readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            // Log the per-group candidate summary BEFORE the empty-continue so a
+            // group that plans nothing (idle hosts, zero candidates: the classic
+            // "farm sits idle and nothing books" incident) is visible at DEBUG,
+            // with the per-gate explain naming what excluded each pending layer.
+            if (logger.isDebugEnabled()) {
+                int wideCount = 0;
+                for (LayerCandidate lc : candidates)
+                    if (lc.layerCoresMin > 100)
+                        wideCount++;
+                logger.debug("Scheduler group: " + spec + " hosts=" + fullGroup.size() + " idle="
+                        + idleGroup.size() + " maxCoresTotal=" + maxCoresTotalInGroup
+                        + " candidates=" + candidates.size() + " wide(>100cores)=" + wideCount);
+                if (candidates.isEmpty())
+                    explainGroupExclusions(spec, maxCoresTotalInGroup);
+            }
             if (candidates.isEmpty())
                 continue;
             // Record capped-folder ceilings + running cores for the exact post-plan
@@ -1141,17 +1166,6 @@ public class Scheduler extends JdbcDaoSupport {
             // group is not re-derived for the rest. layerLicenses is what the
             // commit-time trim below reads.
             resolveLicenseBudgets(candidates, layerLicenses, licenseBudgets);
-            // Log per-group candidate summary so we can verify wide-job layers
-            // are included (not cut by LIMIT or maxCores filter).
-            if (logger.isDebugEnabled()) {
-                int wideCount = 0;
-                for (LayerCandidate lc : candidates)
-                    if (lc.layerCoresMin > 100)
-                        wideCount++;
-                logger.debug("Scheduler group: " + spec + " hosts=" + fullGroup.size() + " idle="
-                        + idleGroup.size() + " maxCoresTotal=" + maxCoresTotalInGroup
-                        + " candidates=" + candidates.size() + " wide(>100cores)=" + wideCount);
-            }
 
             // 3b. DISPATCH AND RECONCILE (priority order). Placement uses the
             // idle subset; reservations use the full group (busy hosts too).
@@ -1223,9 +1237,14 @@ public class Scheduler extends JdbcDaoSupport {
         // earlier one took. Two threads on one host would double-book it and
         // abort the whole batch. Different hosts run concurrently.
         int placements = 0;
-        for (List<String> ls : plannedByHost.values())
+        Set<String> plannedLayerIds = new HashSet<>();
+        for (List<String> ls : plannedByHost.values()) {
             placements += ls.size();
+            plannedLayerIds.addAll(ls);
+        }
 
+        int planZeroWarnTicks =
+                env.getProperty("scheduler.plan_zero_warn_ticks", Integer.class, 40);
         List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
         for (Map.Entry<String, List<String>> e : plannedByHost.entrySet()) {
             final String hostId = e.getKey();
@@ -1235,7 +1254,26 @@ public class Scheduler extends JdbcDaoSupport {
                 DispatchHost host = hostManager.getDispatchHost(hostId);
                 for (String layerId : layerIds) {
                     LayerInterface layer = jobManager.getLayer(layerId);
-                    out.addAll(dispatcher.planHost(host, layer));
+                    List<FrameBooking> got = dispatcher.planHost(host, layer);
+                    // Planned but nothing to commit: score one strike. A layer
+                    // striking out planZeroWarnTicks ticks IN A ROW is being
+                    // rejected by a commit-time gate the planner does not
+                    // model, and would otherwise starve in silence.
+                    if (got.isEmpty()) {
+                        int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
+                        if (streak % planZeroWarnTicks == 0) {
+                            logger.warn("Scheduler: layer " + layerId + " planned " + streak
+                                    + " consecutive ticks (last host " + host.getName()
+                                    + ") but planHost found 0 bookable frames each time."
+                                    + " A dispatch-query gate the planner does not model is"
+                                    + " rejecting it (thread mode, limit, local booking, ...):"
+                                    + " enable DEBUG on this class and read the 'Scheduler"
+                                    + " unplaced'/'explain' lines for the candidate-side view.");
+                        }
+                    } else {
+                        planZeroStreak.remove(layerId);
+                    }
+                    out.addAll(got);
                 }
                 return out;
             });
@@ -1257,6 +1295,10 @@ public class Scheduler extends JdbcDaoSupport {
             Thread.currentThread().interrupt();
             return dispatched;
         }
+        // Streaks are meaningful only while the planner keeps choosing the
+        // layer; drop entries for layers not planned this tick so the map
+        // tracks live pathologies, not completed or vanished work.
+        planZeroStreak.keySet().retainAll(plannedLayerIds);
 
         // FOLDER CEILING (exact). The plan read has no folder clause, so the
         // batch can carry more of a capped folder than int_max_cores allows.
@@ -1573,6 +1615,69 @@ public class Scheduler extends JdbcDaoSupport {
                             .add(rs.getString("pk_layer"));
                 });
         return affinity;
+    }
+
+    /**
+     * DEBUG-only "why is nothing booking" explain: the candidate query's WHERE clauses recast as
+     * per-layer boolean columns, so when a group yields ZERO candidates one tick of DEBUG logging
+     * names the exact gate that excluded each pending layer (the first false column). Keeps every
+     * eligibility rule in one visible line instead of requiring hand-written SQL against a live
+     * incident. Top {@value #EXPLAIN_LIMIT} pending layers by priority. The subscription join is
+     * LEFT here (unlike the real query) precisely so a MISSING subscription shows up as
+     * hasSub=false instead of an invisible row; each column mirrors its production clause (os = ANY
+     * of the host's comma-separated list, facility bind, smallest-cap limit).
+     */
+    private static final int EXPLAIN_LIMIT = 20;
+
+    private static final String EXPLAIN_GROUP_EXCLUSIONS = "SELECT " + "  j.str_name AS job_name, "
+            + "  l.str_name AS layer_name, " + "  l.str_tags, " + "  jr.int_priority, "
+            + "  (? ~* ('(?x)' || l.str_tags || '\\y'))               AS tag_ok, "
+            + "  (j.str_os IS NULL OR j.str_os = '' "
+            + "   OR j.str_os = ANY(string_to_array(?, ',')))         AS os_ok, "
+            + "  (j.pk_facility = ?)                                  AS fac_ok, "
+            + "  (sub.pk_subscription IS NOT NULL)                    AS has_sub, "
+            + "  (sub.int_cores < sub.int_burst)                      AS under_burst, "
+            + "  (jr.int_cores < jr.int_max_cores)                    AS under_job_cap, "
+            + "  (l.int_cores_min <= ?)                               AS fits_cores, "
+            + "  (COALESCE(ls.int_waiting_count, 0) > 0)              AS has_waiting, "
+            + "  (NOT EXISTS (" + "     SELECT 1 FROM layer_limit ll "
+            + "     JOIN limit_record lr ON lr.pk_limit_record = ll.pk_limit_record "
+            + "     WHERE ll.pk_layer = l.pk_layer "
+            + "       AND (SELECT COALESCE(SUM(ls2.int_running_count), 0) FROM layer_limit ll2 "
+            + "            JOIN layer_stat ls2 ON ls2.pk_layer = ll2.pk_layer "
+            + "            WHERE ll2.pk_limit_record = lr.pk_limit_record) >= lr.int_max_value)) "
+            + "                                                       AS limit_ok, "
+            + "  (COALESCE(fr.int_max_cores, -1) = -1 "
+            + "   OR (SELECT COALESCE(SUM(ls3.int_running_count * l3.int_cores_min), 0) "
+            + "       FROM job j3 JOIN layer l3 ON l3.pk_job = j3.pk_job "
+            + "       JOIN layer_stat ls3 ON ls3.pk_layer = l3.pk_layer "
+            + "       WHERE j3.pk_folder = j.pk_folder AND j3.str_state = 'PENDING') "
+            + "      + l.int_cores_min <= fr.int_max_cores)           AS folder_ok, "
+            + "  (? OR sh.b_scheduler_managed = true)                 AS managed_ok "
+            + "FROM layer l " + "JOIN job j            ON j.pk_job = l.pk_job "
+            + "JOIN job_resource jr  ON jr.pk_job = j.pk_job "
+            + "JOIN show sh          ON sh.pk_show = j.pk_show "
+            + "LEFT JOIN subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = ? "
+            + "LEFT JOIN layer_stat ls    ON ls.pk_layer = l.pk_layer "
+            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
+            + "WHERE j.str_state = 'PENDING' AND j.b_paused = false "
+            + "ORDER BY jr.int_priority DESC " + "LIMIT " + EXPLAIN_LIMIT;
+
+    /** Log the explain rows for a group that produced no candidates. DEBUG-gated by the caller. */
+    private void explainGroupExclusions(HostSpecKey spec, int maxCoresTotalInGroup) {
+        getJdbcTemplate().query(EXPLAIN_GROUP_EXCLUSIONS, rs -> {
+            logger.debug("Scheduler explain " + spec + ": job=" + rs.getString("job_name")
+                    + " layer=" + rs.getString("layer_name") + " prio=" + rs.getInt("int_priority")
+                    + " tags='" + rs.getString("str_tags") + "' tagOk=" + rs.getBoolean("tag_ok")
+                    + " osOk=" + rs.getBoolean("os_ok") + " facOk=" + rs.getBoolean("fac_ok")
+                    + " hasSub=" + rs.getBoolean("has_sub") + " underBurst="
+                    + rs.getBoolean("under_burst") + " underJobCap="
+                    + rs.getBoolean("under_job_cap") + " fitsCores=" + rs.getBoolean("fits_cores")
+                    + " hasWaiting=" + rs.getBoolean("has_waiting") + " limitOk="
+                    + rs.getBoolean("limit_ok") + " folderOk=" + rs.getBoolean("folder_ok")
+                    + " managedOk=" + rs.getBoolean("managed_ok"));
+        }, spec.tagsNormalized, spec.os, spec.pkFacility, maxCoresTotalInGroup,
+                SchedulerMode.facility(env), spec.pkAlloc);
     }
 
     /**
@@ -2032,6 +2137,34 @@ public class Scheduler extends JdbcDaoSupport {
                 // would otherwise grab the SAME frames (version collisions).
                 // A layer spreads across hosts over a few ticks instead.
                 break;
+            }
+
+            // Why-not trace: one DEBUG line per candidate that wanted work but
+            // placed nothing this tick, naming the binding constraint in the
+            // same precedence the cap check uses. With the group summary and
+            // the zero-candidate explain, one DEBUG tick tells the whole story
+            // of a layer that books under the legacy dispatcher but not here.
+            if (logger.isDebugEnabled() && !placed && c.waitingFrameCount > 0) {
+                String why;
+                if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores)
+                    why = "jobMaxCores";
+                else if (c.showCoresInUse + c.layerCoresMin > c.showBurstCores)
+                    why = "showBurst";
+                else if (c.limitId != null && limitInUse >= c.limitMax)
+                    why = "limitFull(" + limitInUse + "/" + c.limitMax + ")";
+                else if (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax)
+                    why = "folderCap(" + folderInUse + "/" + c.folderMax + ")";
+                else if (licenseHeld)
+                    why = "licenseHeld(stale or unreported pool: " + c.licenses + ")";
+                else if (licenseUsable <= 0)
+                    why = "licenseNoFloatingSeats(" + c.licenses + ")";
+                else if (licenseSeatPools != null)
+                    why = "noFittingIdleHost(seat-gated pools present)";
+                else
+                    why = "noFittingIdleHost";
+                logger.debug("Scheduler unplaced: layer=" + c.layerId + " prio=" + c.priority
+                        + " cores=" + c.layerCoresMin + " memKb=" + c.layerMemMin + " waiting="
+                        + c.waitingFrameCount + " why=" + why);
             }
 
             if (reservationsEnabled) {
