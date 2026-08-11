@@ -407,6 +407,8 @@ public class Scheduler extends JdbcDaoSupport {
     private static final int GROUP_COUNT_WARN_THRESHOLD = 100;
     private static final long GROUP_WARN_INTERVAL_MS = 300_000; // at most every 5 min
     private long lastGroupWarnMs = 0;
+    // Throttle for the candidate-query-failure WARN below (same 5 min policy).
+    private long lastCandidateErrWarnMs = 0;
 
     // ---- batched resource accounting --------------------------------------
     //
@@ -1131,8 +1133,27 @@ public class Scheduler extends JdbcDaoSupport {
             int maxCoresTotalInGroup =
                     fullGroup.stream().mapToInt(h -> h.coresTotal).max().orElse(0);
 
-            List<LayerCandidate> candidates =
-                    readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            // Layer tags are regex fragments typed by USERS, and the candidate
+            // query compiles every pending layer's tags in one statement: one
+            // malformed tag ("comp(") would otherwise throw here and abort the
+            // whole tick, every tick, farm-wide. The legacy dispatcher runs the
+            // same regex per show, so a bad tag only poisons that show. Match
+            // that blast radius: fail THIS GROUP's query, warn (throttled), and
+            // keep planning the other groups.
+            List<LayerCandidate> candidates;
+            try {
+                candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            } catch (RuntimeException e) {
+                long nowMs = System.currentTimeMillis();
+                if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
+                    lastCandidateErrWarnMs = nowMs;
+                    logger.warn("Scheduler: candidate query failed for " + spec
+                            + "; skipping the group this tick. A malformed layer tag regex is"
+                            + " the usual cause; the database error names the layer's tags: "
+                            + e.getMessage());
+                }
+                continue;
+            }
             // Log the per-group candidate summary BEFORE the empty-continue so a
             // group that plans nothing (idle hosts, zero candidates: the classic
             // "farm sits idle and nothing books" incident) is visible at DEBUG,
