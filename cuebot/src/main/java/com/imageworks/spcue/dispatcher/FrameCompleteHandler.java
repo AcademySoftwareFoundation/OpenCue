@@ -256,11 +256,12 @@ public class FrameCompleteHandler {
      * the normal state for a proc whose frame was stopped by another actor (eat, retry, kill) and
      * that now needs to be released.
      *
-     * The proc is re-read before it is released: when the reported frame is RUNNING again on this
-     * same proc, a newer run of the frame has been dispatched onto it and the report is dropped
-     * instead, since unbooking would orphan the live run. A report that gets past the duplicate
-     * check is discarded on every path, so it is counted (and a successful report flagged as a lost
-     * render result) whether the proc is released or the report is dropped.
+     * The proc is re-read immediately before it is released: any frame assignment on the fresh read
+     * — the reported frame again, or a different frame booked in the meantime — means a newer run
+     * is live on this proc, and the report is dropped instead, since releasing the proc would
+     * orphan that run. A report that gets past the duplicate check is discarded on every path, so
+     * it is counted (and a successful report flagged as a lost render result) whether the proc is
+     * released or the report is dropped.
      */
     private void handleStaleReport(VirtualProc proc, FrameCompleteReport report, String key) {
         if (proc.frameId != null && !proc.frameId.equals(report.getFrame().getFrameId())) {
@@ -295,25 +296,29 @@ public class FrameCompleteHandler {
         }
 
         /*
-         * Never unbook a live render. When the reported frame is RUNNING again and a fresh read
-         * shows this proc still assigned to it, the frame was stopped and re-dispatched onto this
-         * same proc between this report being generated and it being handled here. Unbooking the
-         * proc now would delete the row under the new run and orphan it; the new run's own report
-         * will release the proc when it ends.
+         * Never unbook a live render. The proc snapshot this method was handed can be stale by the
+         * time the release decision is made: the dispatcher may since have assigned the proc a
+         * newer run, either the reported frame again (stopped and re-dispatched onto this same proc
+         * between this report being generated and handled) or a different frame entirely. Releasing
+         * the proc deletes its row with no fence on the current assignment, which would orphan that
+         * live run, so the proc is re-read here and the report is dropped whenever the fresh read
+         * shows any frame assigned; the newer run's own report will release the proc when it ends.
+         * Only a proc confirmed idle by the fresh read is redirected or unbooked.
          */
-        if (frameDetail != null && frameDetail.state == FrameState.RUNNING) {
-            try {
-                VirtualProc currentProc = hostManager.getVirtualProc(proc.getProcId());
-                if (report.getFrame().getFrameId().equals(currentProc.frameId)) {
-                    logger.info("Dropping stale frame complete report for "
-                            + report.getFrame().getFrameName() + "; proc " + proc.getProcId()
-                            + " is running a newer instance of the same frame.");
-                    return;
-                }
-            } catch (EmptyResultDataAccessException e) {
-                // The proc row is gone; there is nothing left to redirect or unbook.
-                return;
-            }
+        VirtualProc currentProc;
+        try {
+            currentProc = hostManager.getVirtualProc(proc.getProcId());
+        } catch (EmptyResultDataAccessException e) {
+            // The proc row is gone; there is nothing left to redirect or unbook.
+            return;
+        }
+        if (currentProc.frameId != null) {
+            logger.info("Dropping stale frame complete report for "
+                    + report.getFrame().getFrameName() + "; proc " + proc.getProcId()
+                    + (report.getFrame().getFrameId().equals(currentProc.frameId)
+                            ? " is running a newer instance of the same frame."
+                            : " has moved on to frame " + currentProc.frameId + "."));
+            return;
         }
 
         if (redirectManager.hasRedirect(proc)) {

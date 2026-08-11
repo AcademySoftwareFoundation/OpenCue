@@ -352,10 +352,64 @@ public class FrameCompleteHandlerOwnershipTests {
         when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
                 .thenReturn(false);
         when(redirectManager.hasRedirect(proc)).thenReturn(false);
+        // The concurrent stop cleared the proc's assignment; the fresh read confirms it idle.
+        VirtualProc idleProc = new VirtualProc();
+        idleProc.id = RESOURCE_ID;
+        idleProc.jobId = JOB_ID;
+        idleProc.frameId = null;
+        idleProc.hostName = proc.hostName;
+        when(hostManager.getVirtualProc(RESOURCE_ID)).thenReturn(proc, idleProc);
 
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, times(1)).unbookProc(proc);
+    }
+
+    /**
+     * The frame was stopped by another actor and this proc was then booked onto a different frame
+     * before the stale report was disposed of. The pre-release fresh read must catch the newer
+     * assignment and drop the report; releasing the proc would delete the row under the live run of
+     * the other frame and orphan it.
+     */
+    @Test
+    public void staleReportDoesNotReleaseProcReassignedToAnotherFrame() {
+        DispatchJob job = new DispatchJob();
+        job.id = JOB_ID;
+        job.state = JobState.PENDING;
+        job.maxRetries = 3;
+
+        LayerDetail layer = new LayerDetail();
+        layer.id = LAYER_ID;
+
+        FrameDetail frameDetail = new FrameDetail();
+        frameDetail.id = FRAME_ID;
+        frameDetail.state = FrameState.WAITING;
+        frameDetail.exitStatus = 1;
+
+        DispatchFrame frame = new DispatchFrame();
+        frame.id = FRAME_ID;
+        frame.state = FrameState.RUNNING;
+        frame.layerId = LAYER_ID;
+        frame.jobId = JOB_ID;
+
+        when(jobManager.getDispatchJob(JOB_ID)).thenReturn(job);
+        when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
+        when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
+        when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
+                .thenReturn(false);
+        // A fresh read shows the proc booked onto a different frame in the meantime.
+        VirtualProc currentProc = new VirtualProc();
+        currentProc.id = RESOURCE_ID;
+        currentProc.jobId = JOB_ID;
+        currentProc.frameId = OTHER_FRAME_ID;
+        currentProc.hostName = proc.hostName;
+        when(hostManager.getVirtualProc(RESOURCE_ID)).thenReturn(proc, currentProc);
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+        verify(redirectManager, never()).redirect(any(VirtualProc.class));
     }
 
     /**
