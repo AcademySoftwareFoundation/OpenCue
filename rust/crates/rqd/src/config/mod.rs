@@ -22,10 +22,10 @@ use std::{
     collections::HashMap,
     env, fs,
     path::Path,
-    sync::{Arc, OnceLock},
+    sync::{Arc, RwLock},
     time::Duration,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
@@ -207,6 +207,73 @@ mod tests {
         assert!(config.machine.nimby_mode);
         assert!(config.machine.nimby_lock_by_default);
     }
+
+    #[test]
+    fn compiled_exit_status_rules_seed_lazily_from_raw_fields() {
+        let mut config = super::RunnerConfig::default();
+        config.log_scan_last_lines = 25;
+        config.log_exit_status_rules = vec![super::LogExitStatusRule {
+            name: "LICENSE".to_string(),
+            regex: "all in use".to_string(),
+            exit_status: 330,
+        }];
+
+        let rule_set = config.compiled_exit_status_rules();
+        assert_eq!(rule_set.scan_last_lines, 25);
+        assert_eq!(rule_set.rules.len(), 1);
+        assert_eq!(rule_set.rules[0].name, "LICENSE");
+    }
+
+    #[test]
+    fn reload_exit_status_rules_reaches_previously_made_clones() {
+        // A clone taken before the reload (as every RunningFrame holds) must observe the new
+        // rules — the compiled-rules cell is shared across clones, not copied.
+        let config = super::RunnerConfig::default();
+        let clone_before_reload = config.clone();
+        // Seed the cell from the (empty) raw fields first, as startup does.
+        assert!(clone_before_reload
+            .compiled_exit_status_rules()
+            .rules
+            .is_empty());
+
+        config.reload_exit_status_rules(
+            10,
+            &[super::LogExitStatusRule {
+                name: "NEW_RULE".to_string(),
+                regex: "added later".to_string(),
+                exit_status: 331,
+            }],
+        );
+
+        let rule_set = clone_before_reload.compiled_exit_status_rules();
+        assert_eq!(rule_set.scan_last_lines, 10);
+        assert_eq!(rule_set.rules.len(), 1);
+        assert_eq!(rule_set.rules[0].name, "NEW_RULE");
+    }
+
+    #[test]
+    fn reload_exit_status_rules_skips_invalid_regex() {
+        let config = super::RunnerConfig::default();
+        config.reload_exit_status_rules(
+            50,
+            &[
+                super::LogExitStatusRule {
+                    name: "BAD".to_string(),
+                    regex: "(unclosed".to_string(),
+                    exit_status: 1,
+                },
+                super::LogExitStatusRule {
+                    name: "GOOD".to_string(),
+                    regex: "valid".to_string(),
+                    exit_status: 2,
+                },
+            ],
+        );
+
+        let rule_set = config.compiled_exit_status_rules();
+        assert_eq!(rule_set.rules.len(), 1);
+        assert_eq!(rule_set.rules[0].name, "GOOD");
+    }
 }
 
 /// A rule that reclassifies a failed frame's exit status based on its log output.
@@ -217,7 +284,7 @@ mod tests {
 /// operators single out failures that deserve special dispatcher handling, e.g. a Houdini
 /// license shortage that should be retried differently without the render wrapper needing to
 /// translate the error into an exit code itself.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct LogExitStatusRule {
     /// Human-readable identifier, used only in log messages (e.g. "HOUDINI_LICENSE_ERROR").
     #[serde(default)]
@@ -235,6 +302,16 @@ pub struct CompiledExitStatusRule {
     pub name: String,
     pub regex: Regex,
     pub exit_status: i32,
+}
+
+/// A compiled snapshot of the exit-status scanning knobs: the rules together with the scan
+/// depth they were configured with. Handed out as one `Arc` so a frame completing mid-reload
+/// sees a consistent pair instead of new rules with an old scan depth.
+#[derive(Debug)]
+pub struct ExitStatusRuleSet {
+    /// Number of trailing log lines to scan (`log_scan_last_lines`); 0 disables scanning.
+    pub scan_last_lines: usize,
+    pub rules: Vec<CompiledExitStatusRule>,
 }
 
 /// Compiles the configured rules, skipping (with a warning) any whose regex is invalid so a
@@ -288,11 +365,22 @@ pub struct RunnerConfig {
     /// Ordered list of regex→exit-status rules applied to failed frames' logs. The first
     /// matching rule wins. Empty by default, which disables the feature.
     pub log_exit_status_rules: Vec<LogExitStatusRule>,
-    /// Compiled form of `log_exit_status_rules`, populated lazily on first access and cached
-    /// so the regexes are compiled once (at startup via [`RunnerConfig::compiled_exit_status_rules`])
-    /// rather than on every failed frame. Not part of the serialized config.
+    /// How often the watcher re-reads the config file to pick up changes to
+    /// `log_exit_status_rules`/`log_scan_last_lines` without a restart (restarting RQD kills
+    /// running frames on Linux, where recover mode is not available). Set to 0 to disable
+    /// live reloading. Only these two keys are live-reloaded; every other config change still
+    /// requires a restart.
+    #[serde(with = "humantime_serde")]
+    pub log_exit_status_rules_reload_interval: Duration,
+    /// Compiled form of `log_exit_status_rules`, seeded lazily on first access (forced at
+    /// startup, see `async_main`) and replaced live by the config watcher on reload.
+    ///
+    /// The outer `Arc` is shared by every clone of this config — each `RunningFrame` holds a
+    /// clone frozen at frame creation, so this cell is what lets a reload reach frames that
+    /// were already running. Not part of the serialized config: a frame recovered from a
+    /// snapshot gets the live cell back when its config is replaced in `from_snapshot`.
     #[serde(skip)]
-    compiled_exit_status_rules: OnceLock<Arc<Vec<CompiledExitStatusRule>>>,
+    compiled_exit_status_rules: Arc<RwLock<Option<Arc<ExitStatusRuleSet>>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -342,21 +430,58 @@ impl Default for RunnerConfig {
             docker_images: HashMap::new(),
             log_scan_last_lines: 50,
             log_exit_status_rules: Vec::new(),
-            compiled_exit_status_rules: OnceLock::new(),
+            log_exit_status_rules_reload_interval: Duration::from_secs(300), // 5 min
+            compiled_exit_status_rules: Arc::new(RwLock::new(None)),
         }
     }
 }
 
 impl RunnerConfig {
-    /// Returns the compiled `log_exit_status_rules`, compiling and caching them on first call.
+    /// Returns the current compiled `log_exit_status_rules`, seeding the shared cell from this
+    /// config's raw fields on first call.
     ///
-    /// Because compilation happens once (forced at startup, see `async_main`), the warning for
-    /// an invalid pattern is emitted a single time rather than repeating on every failed frame,
-    /// and no frame pays the cost of recompiling every regex when it fails.
-    pub fn compiled_exit_status_rules(&self) -> &[CompiledExitStatusRule] {
-        self.compiled_exit_status_rules
-            .get_or_init(|| Arc::new(compile_exit_status_rules(&self.log_exit_status_rules)))
-            .as_slice()
+    /// Because compilation happens once per rule set (forced at startup, see `async_main`, and
+    /// again only when the watcher applies a reload), the warning for an invalid pattern is
+    /// emitted once per load rather than repeating on every failed frame, and no frame pays the
+    /// cost of recompiling every regex when it fails.
+    pub fn compiled_exit_status_rules(&self) -> Arc<ExitStatusRuleSet> {
+        let guard = self
+            .compiled_exit_status_rules
+            .read()
+            .unwrap_or_else(|err| err.into_inner());
+        if let Some(rule_set) = guard.as_ref() {
+            return Arc::clone(rule_set);
+        }
+        drop(guard);
+
+        let mut guard = self
+            .compiled_exit_status_rules
+            .write()
+            .unwrap_or_else(|err| err.into_inner());
+        // Another thread may have seeded the cell between the read and write locks.
+        if let Some(rule_set) = guard.as_ref() {
+            return Arc::clone(rule_set);
+        }
+        let rule_set = Arc::new(ExitStatusRuleSet {
+            scan_last_lines: self.log_scan_last_lines,
+            rules: compile_exit_status_rules(&self.log_exit_status_rules),
+        });
+        *guard = Some(Arc::clone(&rule_set));
+        rule_set
+    }
+
+    /// Compiles `rules` and swaps them into the shared cell, making them the set every frame —
+    /// including frames launched before this call — scans on failure from now on. Rules with
+    /// invalid regexes are skipped with a warning, same as at startup.
+    pub fn reload_exit_status_rules(&self, scan_last_lines: usize, rules: &[LogExitStatusRule]) {
+        let rule_set = Arc::new(ExitStatusRuleSet {
+            scan_last_lines,
+            rules: compile_exit_status_rules(rules),
+        });
+        *self
+            .compiled_exit_status_rules
+            .write()
+            .unwrap_or_else(|err| err.into_inner()) = Some(rule_set);
     }
 }
 
@@ -394,18 +519,20 @@ pub struct Config {
 }
 
 impl Config {
-    // load the current config from the system config and environment variables
-    fn load() -> Result<Self, RqdConfigError> {
-        let mut required = false;
-        let config_file = match env::var("OPENCUE_RQD_CONFIG") {
-            Ok(v) => {
-                required = true;
-                v
-            }
-            Err(_) => DEFAULT_CONFIG_FILE.to_string(),
-        };
+    /// Returns the config file path and whether its presence is required (it is when the
+    /// operator pointed at it explicitly via `OPENCUE_RQD_CONFIG`).
+    fn config_file_source() -> (String, bool) {
+        match env::var("OPENCUE_RQD_CONFIG") {
+            Ok(v) => (v, true),
+            Err(_) => (DEFAULT_CONFIG_FILE.to_string(), false),
+        }
+    }
 
-        println!(" INFO Config::load: using config file: {:?}", config_file);
+    /// Reads and deserializes the config from its sources (config file + `OPENRQD` environment
+    /// variables) without performing any filesystem setup. Used both by the initial [`load`]
+    /// and by the watcher re-reading the file at runtime.
+    fn read_sources() -> Result<Self, RqdConfigError> {
+        let (config_file, required) = Self::config_file_source();
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
@@ -422,12 +549,20 @@ impl Config {
                 ))
             })?;
 
-        let deserialized_config = Config::deserialize(config).map_err(|err| {
+        Config::deserialize(config).map_err(|err| {
             RqdConfigError::LoadConfigError(format!(
                 "{:?} config could not be deserialized. {}",
                 &config_file, err
             ))
-        })?;
+        })
+    }
+
+    // load the current config from the system config and environment variables
+    fn load() -> Result<Self, RqdConfigError> {
+        let (config_file, _) = Self::config_file_source();
+        println!(" INFO Config::load: using config file: {:?}", config_file);
+
+        let deserialized_config = Self::read_sources()?;
 
         Self::setup(&deserialized_config)?;
 
@@ -501,5 +636,70 @@ impl Config {
             )));
         }
         Ok(())
+    }
+}
+
+/// Periodically re-reads the config sources and applies changes to `log_exit_status_rules` and
+/// `log_scan_last_lines` to the live rule set, so operators can register new license-error
+/// patterns without restarting RQD.
+///
+/// Only those two keys are live-reloaded; changes to anything else in the file are ignored
+/// until the next restart. A file that is missing, unreadable, or fails to parse leaves the
+/// current rules untouched (with a warning), so a half-written edit can never wipe the rules
+/// out from under running frames.
+///
+/// Runs forever; spawn it as a background task. Returns immediately when
+/// `log_exit_status_rules_reload_interval` is 0.
+pub async fn watch_exit_status_rules() {
+    let interval = CONFIG.runner.log_exit_status_rules_reload_interval;
+    if interval.is_zero() {
+        info!("log_exit_status_rules live reload is disabled (reload interval = 0)");
+        return;
+    }
+
+    let mut last_applied = (
+        CONFIG.runner.log_scan_last_lines,
+        CONFIG.runner.log_exit_status_rules.clone(),
+    );
+    let mut ticker = tokio::time::interval(interval);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // The first tick of a tokio interval fires immediately; skip it, startup already
+    // compiled the initial rules.
+    ticker.tick().await;
+
+    loop {
+        ticker.tick().await;
+
+        let new_config = match Config::read_sources() {
+            Ok(config) => config,
+            Err(err) => {
+                warn!("Skipping log_exit_status_rules reload, config re-read failed: {err}");
+                continue;
+            }
+        };
+
+        let candidate = (
+            new_config.runner.log_scan_last_lines,
+            new_config.runner.log_exit_status_rules,
+        );
+        if candidate == last_applied {
+            continue;
+        }
+
+        CONFIG
+            .runner
+            .reload_exit_status_rules(candidate.0, &candidate.1);
+        info!(
+            "Reloaded log_exit_status_rules: {} rule(s) [{}], log_scan_last_lines={}",
+            candidate.1.len(),
+            candidate
+                .1
+                .iter()
+                .map(|rule| rule.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            candidate.0,
+        );
+        last_applied = candidate;
     }
 }

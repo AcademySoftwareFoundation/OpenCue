@@ -69,6 +69,11 @@ async fn async_main() -> miette::Result<()> {
     // frame (and no frame later pays to recompile them).
     let _ = CONFIG.runner.compiled_exit_status_rules();
 
+    // Keep the exit-status rules editable without a restart (which would kill running frames
+    // on Linux): a watcher re-reads the config file periodically and swaps changed rules into
+    // the live set that all frames — including already-running ones — scan against.
+    tokio::spawn(config::watch_exit_status_rules());
+
     // Fail fast if the config requires elevated privileges the process does not hold,
     // instead of letting every frame fail later with an opaque error.
     capabilities::preflight(&CONFIG.runner)?;

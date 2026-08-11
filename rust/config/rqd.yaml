@@ -239,8 +239,17 @@ runner:
   # retry differently (e.g. license shortages). Rules are evaluated top-to-bottom; first match
   # wins. Leave `log_exit_status_rules` empty to disable. Not applied to Loki-only frames.
   #
+  # `log_scan_last_lines` and `log_exit_status_rules` are reloaded live: RQD re-reads this
+  # file every `log_exit_status_rules_reload_interval` and applies changes to these two keys
+  # without a restart, including to frames that were already running. Changes to any other
+  # key in this file still require a restart.
+  #
   # Number of trailing log lines to scan on failure (Default: 50)
   # log_scan_last_lines: 50
+  #
+  # How often to re-read this file for rule changes. 0 disables live reloading.
+  # (Default: 5m)
+  # log_exit_status_rules_reload_interval: 5m
   #
   # log_exit_status_rules:
   #   - name: "HOUDINI_LICENSE_ERROR"
