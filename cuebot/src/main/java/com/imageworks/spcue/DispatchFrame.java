@@ -44,6 +44,11 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public int maxGpus;
     public long minGpuMemory;
 
+    // Concurrency slots each frame of this layer requires (slot-based scheduling).
+    // 0 = not slot-based. Only populated by the slot dispatch queries; the generic
+    // dispatch queries never return slot-based frames.
+    public int slotsRequired;
+
     // A comma separated list of services
     public String services;
 

@@ -20,9 +20,12 @@ A slot-based frame ignores cores and memory entirely: it reserves **0 cores and 
 memory** and runs unpinned on the host. The only thing that limits it is a **slot
 budget**.
 
-> **Note:** Slot-based booking is implemented in the standalone Rust scheduler. Cuebot
-> does not make slot-based booking decisions; it stores the configuration and publishes
-> slot release/limit deltas to the scheduler.
+> **Note:** Slot-based booking is implemented both in the standalone Rust scheduler and
+> in Cuebot's dispatcher. In Cuebot, host reports from slot-based hosts are deviated to a
+> dedicated slot dispatcher that books by slots only; the generic cores/memory dispatch
+> queries are untouched and never see slot-based layers. On shows managed by the Rust
+> scheduler, the scheduler owns slot booking and Cuebot only stores the configuration and
+> publishes slot release/limit deltas.
 
 ## The two slot axes
 
@@ -60,6 +63,19 @@ An unseeded limit is treated as `0` (reject-all) — the scheduler **fails close
 slot axis: a seeding bug manifests as "slot work won't book," never as overrunning a hard
 cap. Regular (cores/memory) layers are unaffected by `max_slots`, and slot layers are
 unaffected by the cores/GPUs limits.
+
+### Enforcement strength (Cuebot dispatcher)
+
+When Cuebot dispatches slot work, the two axes are enforced with different strength:
+
+- **Per-host cap** — **hard**. A database trigger on proc insert takes a row lock on the
+  host and verifies `SUM(proc.int_slots_reserved) + new slots <= concurrent_slots_limit`,
+  so concurrent bookings (including from the Rust scheduler) can never exceed a host's cap.
+- **Subscription / folder / job `max_slots`** — **best-effort**. The caps are checked in
+  the dispatch queries at query time and re-checked against the bookings made within the
+  same dispatch pass, but two Cuebot instances (or two hosts dispatched concurrently) can
+  jointly overrun a cap by up to one pass's bookings each. The overrun self-corrects as
+  frames complete; treat these caps as strong steering, not invariants.
 
 ## Making a layer slot-based
 

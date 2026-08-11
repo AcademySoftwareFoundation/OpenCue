@@ -34,6 +34,7 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHostSlots;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrameMemory;
@@ -85,6 +86,7 @@ public class HostReportHandler {
     private DispatchSupport dispatchSupport;
     private Dispatcher dispatcher;
     private Dispatcher localDispatcher;
+    private Dispatcher slotDispatcher;
     private RqdClient rqdClient;
     private JobManager jobManager;
     private JobDao jobDao;
@@ -271,6 +273,17 @@ public class HostReportHandler {
             handleMemoryUsage(host, report.getHost(), runningFrames);
 
             /*
+             * Slot-based hosts (concurrentSlotsLimit >= 0) only run slot-based layers and book
+             * purely by concurrency slots. Their booking flow is deviated to the slot dispatcher
+             * and never enters the generic cores/memory dispatch pipeline. Cores/memory checks are
+             * intentionally skipped: slot bookings reserve neither.
+             */
+            if (host.isSlotHost()) {
+                handleSlotHostBooking(host, report);
+                return;
+            }
+
+            /*
              * The checks are done in order of least CPU intensive to most CPU intensive, saving
              * checks that hit the DB for last.
              *
@@ -362,6 +375,44 @@ public class HostReportHandler {
                                 + report.getFramesCount() + " running frames, waiting: "
                                 + reportQueue.getQueue().size());
             }
+        }
+    }
+
+    /**
+     * Queue a slot-based host for booking through the slot dispatcher if it passes the slot host
+     * bookability checks: enough temp storage, hardware UP, not locked or NIMBY locked, at least
+     * one idle slot and pending work on the cue. Cores/memory checks are skipped by design - slot
+     * bookings reserve neither.
+     *
+     * @param host a slot-based host (isSlotHost() == true)
+     * @param report
+     */
+    private void handleSlotHostBooking(DispatchHost host, HostReport report) {
+        String msg = null;
+        if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(),
+                host.getOs())) {
+            msg = String.format(
+                    "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
+                    host.name, (report.getHost().getFreeMcp() / 1024));
+        } else if (!host.hardwareState.equals(HardwareState.UP)) {
+            msg = host + " is not in the Up state.";
+        } else if (host.lockState.equals(LockState.LOCKED)) {
+            msg = host + " is locked.";
+        } else if (report.getHost().getNimbyLocked()) {
+            msg = host + " is NIMBY locked.";
+        } else if (host.idleSlots <= 0) {
+            msg = String.format("%s doesn't have any idle slots, %d of %d in use.", host.name,
+                    host.concurrentSlotsLimit - host.idleSlots, host.concurrentSlotsLimit);
+        } else if (!dispatchSupport.isCueBookable(host)) {
+            msg = "The cue has no pending jobs";
+        }
+
+        if (msg != null) {
+            logger.trace(msg);
+        } else if (env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)) {
+            logger.debug("Booking has been turned off on Cuebot's configuration");
+        } else {
+            bookingQueue.execute(new DispatchBookHostSlots(host, slotDispatcher));
         }
     }
 
@@ -777,6 +828,12 @@ public class HostReportHandler {
 
         try {
             VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
+
+            // Slot-based procs reserve 0 memory by design; the overboard check is meaningless
+            // for them and would kill every slot frame.
+            if (proc.slotsReserved > 0) {
+                return false;
+            }
             double reserved = (double) proc.memoryReserved;
 
             // Last memory report is higher than the threshold
@@ -817,6 +874,12 @@ public class HostReportHandler {
             proc = hostManager.getVirtualProc(frame.getResourceId());
 
             if (proc.isLocalDispatch) {
+                return;
+            }
+
+            // Slot-based procs reserve 0 memory by design; don't grow their reservation (that
+            // would corrupt the host's idle memory accounting).
+            if (proc.slotsReserved > 0) {
                 return;
             }
 
@@ -1205,6 +1268,14 @@ public class HostReportHandler {
 
     public void setLocalDispatcher(Dispatcher localDispatcher) {
         this.localDispatcher = localDispatcher;
+    }
+
+    public Dispatcher getSlotDispatcher() {
+        return slotDispatcher;
+    }
+
+    public void setSlotDispatcher(Dispatcher slotDispatcher) {
+        this.slotDispatcher = slotDispatcher;
     }
 
     public ThreadPoolExecutor getKillQueue() {

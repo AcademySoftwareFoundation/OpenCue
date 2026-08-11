@@ -363,11 +363,13 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         long lastTime = System.currentTimeMillis();
         List<DispatchFrame> frames;
         if (proc.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.memoryReserved, proc.gpuMemoryReserved,
                     job.getJobId(), limit);
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_PROC_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.coresReserved, proc.memoryReserved,
                     proc.gpusReserved, (proc.gpuMemoryReserved > 0) ? 1 : 0, proc.gpuMemoryReserved,
                     job.getJobId(), proc.hostName, job.getJobId(), limit);
@@ -386,12 +388,14 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleMemory, host.idleGpuMemory,
                     job.getJobId(), limit);
 
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
                     threadMode(host.threadMode), host.idleGpus, (host.idleGpuMemory > 0) ? 1 : 0,
                     host.idleGpuMemory, job.getJobId(), host.getName(), job.getJobId(), limit);
@@ -409,11 +413,13 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (proc.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(), limit);
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.coresReserved, proc.memoryReserved,
                     proc.gpusReserved, proc.gpuMemoryReserved, layer.getLayerId(),
                     layer.getLayerId(), proc.hostName, limit);
@@ -432,12 +438,14 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleMemory, host.idleGpuMemory,
                     layer.getLayerId(), limit);
 
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
+            frames = getJdbcTemplate().query(
+                    SlotDispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_EXCLUDE_SLOT,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
                     threadMode(host.threadMode), host.idleGpus, host.idleGpuMemory,
                     layer.getLayerId(), layer.getLayerId(), host.getName(), limit);
@@ -447,6 +455,77 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 System.currentTimeMillis() - lastTime);
 
         return frames;
+    }
+
+    /**
+     * Maps rows of the slot dispatch frame queries; delegates to the generic mapper and adds the
+     * slot requirement column.
+     */
+    public static final RowMapper<DispatchFrame> SLOT_DISPATCH_FRAME_MAPPER =
+            new RowMapper<DispatchFrame>() {
+                public DispatchFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    DispatchFrame frame = FrameDaoJdbc.DISPATCH_FRAME_MAPPER.mapRow(rs, rowNum);
+                    frame.slotsRequired = rs.getInt("int_slots_required");
+                    return frame;
+                }
+            };
+
+    @Override
+    public Set<String> findSlotDispatchJobs(DispatchHost host, int numJobs) {
+        long lastTime = System.currentTimeMillis();
+        LinkedHashSet<String> result = new LinkedHashSet<String>();
+
+        result.addAll(getJdbcTemplate().query(new PreparedStatementCreator() {
+            @Override
+            public PreparedStatement createPreparedStatement(Connection conn) throws SQLException {
+                String query = handleInClause("str_os", SlotDispatchQuery.FIND_SLOT_DISPATCH_JOBS,
+                        host.getOs().length);
+                PreparedStatement findJobsStmt = conn.prepareStatement(query);
+                int index = 1;
+                findJobsStmt.setString(index++, host.getFacilityId());
+                for (String item : host.getOs()) {
+                    findJobsStmt.setString(index++, item);
+                }
+                findJobsStmt.setInt(index++, host.idleSlots);
+                findJobsStmt.setString(index++, host.getName());
+                findJobsStmt.setString(index++, host.getAllocationId());
+                findJobsStmt.setInt(index++, numJobs);
+                return findJobsStmt;
+            }
+        }, PKJOB_MAPPER));
+
+        prometheusMetrics.setBookingDurationMetric("findSlotDispatchJobs query",
+                System.currentTimeMillis() - lastTime);
+        return result;
+    }
+
+    @Override
+    public List<DispatchFrame> findNextSlotDispatchFrames(JobInterface job, DispatchHost host,
+            int limit) {
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames =
+                getJdbcTemplate().query(SlotDispatchQuery.FIND_SLOT_DISPATCH_FRAMES_BY_JOB_AND_HOST,
+                        SLOT_DISPATCH_FRAME_MAPPER, host.idleSlots, job.getJobId(), host.getName(),
+                        job.getJobId(), host.getAllocationId(), limit);
+        prometheusMetrics.setBookingDurationMetric("findNextSlotDispatchFrames query",
+                System.currentTimeMillis() - lastTime);
+        return frames;
+    }
+
+    @Override
+    public int getSlotCapacityRemaining(JobInterface job, DispatchHost host) {
+        try {
+            Integer capacity =
+                    getJdbcTemplate().queryForObject(SlotDispatchQuery.GET_SLOT_CAPACITY_REMAINING,
+                            Integer.class, host.getAllocationId(), job.getJobId());
+            if (capacity == null) {
+                return Integer.MAX_VALUE;
+            }
+            return Math.max(capacity, 0);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            // No subscription between the job's show and the host's allocation.
+            return 0;
+        }
     }
 
     @Override

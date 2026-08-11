@@ -561,13 +561,17 @@ impl MachineMonitor {
                 let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
-                if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
-                    warn!(
-                        "Failed to release cores reserved by {}: {}",
-                        frame.request.resource_id(),
-                        err
-                    );
-                };
+                // Slot-based frames reserve 0 cores and therefore have no core booking to
+                // release; skip the release to avoid a spurious ReservationNotFound warning.
+                if frame.request.num_cores > 0 {
+                    if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
+                        warn!(
+                            "Failed to release cores reserved by {}: {}",
+                            frame.request.resource_id(),
+                            err
+                        );
+                    };
+                }
 
                 // Send complete report
                 if let Err(err) = self

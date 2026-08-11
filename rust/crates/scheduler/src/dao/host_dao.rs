@@ -170,7 +170,7 @@ SELECT DISTINCT
     a.pk_alloc,
     a.str_name as str_alloc_name,
     hs.ts_ping,
-    h.int_concurrent_slots_limit,
+    h.int_concurrent_slots_limit::bigint as int_concurrent_slots_limit,
     COALESCE((
         SELECT SUM(p.int_slots_reserved) FROM proc p WHERE p.pk_host = h.pk_host
     ), 0)::bigint as int_running_slots

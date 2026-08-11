@@ -447,6 +447,18 @@ public class JobSpec {
             String slotsRequired = layerTag.getChildTextTrim("slots_required");
             if (slotsRequired != null && !slotsRequired.isEmpty()) {
                 layer.slotsRequired = Integer.parseInt(slotsRequired);
+                if (layer.slotsRequired < 0) {
+                    // A negative value would match neither the generic nor the slot dispatch
+                    // queries, silently stranding every frame of the layer.
+                    throw new SpecBuilderException("Error, invalid slots_required "
+                            + layer.slotsRequired + " on layer " + layer.name
+                            + ", must be 0 (not slot-based) or a positive slot count.");
+                }
+                if (layer.slotsRequired > 0) {
+                    // Slot-based layers are forced non-threadable: a slot frame reserves
+                    // exactly its declared slots, never a variable core count.
+                    layer.isThreadable = false;
+                }
             }
 
             /*

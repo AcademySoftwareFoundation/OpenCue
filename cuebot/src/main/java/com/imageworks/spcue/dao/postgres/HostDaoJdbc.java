@@ -231,6 +231,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     host.idleGpus = rs.getInt("int_gpus_idle");
                     host.isNimby = rs.getBoolean("b_nimby");
                     host.threadMode = rs.getInt("int_thread_mode");
+                    host.concurrentSlotsLimit = rs.getInt("int_concurrent_slots_limit");
+                    host.idleSlots = rs.getInt("int_slots_idle");
                     host.tags = rs.getString("str_tags");
                     host.setOs(rs.getString("str_os"));
                     host.hardwareState = HardwareState.valueOf(rs.getString("str_state"));
@@ -256,6 +258,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             + "  host.int_gpu_mem_idle, "
             + "  host.b_nimby, "
             + "  host.int_thread_mode, "
+            + "  host.int_concurrent_slots_limit, "
+            + "  CASE WHEN host.int_concurrent_slots_limit >= 0 THEN "
+            + "    (host.int_concurrent_slots_limit - COALESCE("
+            + "      (SELECT SUM(proc.int_slots_reserved) FROM proc "
+            + "        WHERE proc.pk_host = host.pk_host), 0)) "
+            + "    ELSE -1 END AS int_slots_idle, "
             + "  host.str_tags, "
             + "  host_stat.str_os, "
             + "  host_stat.str_state, "

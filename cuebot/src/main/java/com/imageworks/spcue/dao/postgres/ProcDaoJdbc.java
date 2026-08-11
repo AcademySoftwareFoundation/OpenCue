@@ -146,9 +146,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "int_gpu_mem_reserved, "
                 + "int_gpu_mem_pre_reserved, "
                 + "int_gpu_mem_used, "
-                + "b_local "
+                + "b_local, "
+                + "int_slots_reserved "
                 + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ";
     // spotless:on
 
     public void insertVirtualProc(VirtualProc proc) {
@@ -163,7 +164,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     proc.getHostId(), proc.getShowId(), proc.getLayerId(), proc.getJobId(),
                     proc.getFrameId(), proc.coresReserved, proc.memoryReserved, proc.memoryReserved,
                     memReservedMin, proc.gpusReserved, proc.gpuMemoryReserved,
-                    proc.gpuMemoryReserved, memGpuReservedMin, proc.isLocalDispatch);
+                    proc.gpuMemoryReserved, memGpuReservedMin, proc.isLocalDispatch,
+                    proc.slotsReserved);
 
             // Update all of the resource counts
             procCreated(proc);

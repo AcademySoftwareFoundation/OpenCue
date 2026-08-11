@@ -37,6 +37,7 @@ import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHostSlots;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -86,6 +87,7 @@ public class FrameCompleteHandler {
     private BookingQueue bookingQueue;
     private Dispatcher dispatcher;
     private Dispatcher localDispatcher;
+    private Dispatcher slotDispatcher;
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
     private JmsMover jsmMover;
@@ -347,10 +349,16 @@ public class FrameCompleteHandler {
              * memory issue and should be retried. In this case, disable the optimizer and raise the
              * memory by what is specified in the show's service override, service or 2GB.
              */
-            if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+            if (proc.slotsReserved == 0 && (report
+                    .getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE) {
+                    || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE)) {
+                /*
+                 * Slot-based procs are excluded: they reserve 0 memory by design, so raising the
+                 * layer's memory requirement would only corrupt the layer record (slot dispatch
+                 * ignores memory entirely).
+                 */
                 long increase = CueUtil.GB2;
 
                 // since there can be multiple services, just going for the
@@ -528,6 +536,23 @@ public class FrameCompleteHandler {
 
             if (newFrameState.equals(FrameState.WAITING)
                     || newFrameState.equals(FrameState.SUCCEEDED)) {
+
+                /*
+                 * Slot-based procs are never reused for the next frame: the generic
+                 * proc-to-next-frame path books by cores/memory, which slot procs don't hold.
+                 * Release the slots and requeue the host through the slot dispatcher so it can pick
+                 * up its next slot frame immediately.
+                 *
+                 * Non-happy-path releases (DEAD/EATEN frames, failed launches, the generic unbook
+                 * branches above) release the slots without this immediate requeue; the host's next
+                 * report picks the slots back up.
+                 */
+                if (proc.slotsReserved > 0) {
+                    dispatchSupport.unbookProc(proc, "slot-based proc, releasing slots");
+                    bookingQueue.execute(new DispatchBookHostSlots(
+                            hostManager.getDispatchHost(proc.getHostId()), slotDispatcher));
+                    return;
+                }
 
                 /*
                  * Scheduler-managed shows: the standalone Rust scheduler owns dispatch. Don't
@@ -785,6 +810,14 @@ public class FrameCompleteHandler {
 
     public Dispatcher getLocalDispatcher() {
         return localDispatcher;
+    }
+
+    public Dispatcher getSlotDispatcher() {
+        return slotDispatcher;
+    }
+
+    public void setSlotDispatcher(Dispatcher slotDispatcher) {
+        this.slotDispatcher = slotDispatcher;
     }
 
     public void setLocalDispatcher(Dispatcher localDispatcher) {

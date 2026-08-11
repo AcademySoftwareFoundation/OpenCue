@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.EntityException;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobDetail;
@@ -151,21 +152,35 @@ public class BookingManagerService implements BookingManager {
      * Create LocalHostAssignments
      */
 
+    /**
+     * Slot-based hosts only run slot-based layers; a local (cores/memory) booking on one would
+     * break the strict slot host / slot layer pairing.
+     */
+    private void checkNotSlotHost(DispatchHost host) {
+        if (host.isSlotHost()) {
+            throw new EntityException("Cannot create a local host assignment on slot-based host "
+                    + host.getName() + ", slot-based hosts only run slot-based layers.");
+        }
+    }
+
     @Override
     public void createLocalHostAssignment(DispatchHost host, JobInterface job,
             LocalHostAssignment lja) {
+        checkNotSlotHost(host);
         bookingDao.insertLocalHostAssignment(host, job, lja);
     }
 
     @Override
     public void createLocalHostAssignment(DispatchHost host, LayerInterface layer,
             LocalHostAssignment lja) {
+        checkNotSlotHost(host);
         bookingDao.insertLocalHostAssignment(host, layer, lja);
     }
 
     @Override
     public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
             LocalHostAssignment lja) {
+        checkNotSlotHost(host);
         bookingDao.insertLocalHostAssignment(host, frame, lja);
     }
 

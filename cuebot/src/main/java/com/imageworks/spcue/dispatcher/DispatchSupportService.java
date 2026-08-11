@@ -187,6 +187,25 @@ public class DispatchSupportService implements DispatchSupport {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Set<String> findSlotDispatchJobs(DispatchHost host, int numJobs) {
+        return dispatcherDao.findSlotDispatchJobs(host, numJobs);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DispatchFrame> findNextSlotDispatchFrames(JobInterface job, DispatchHost host,
+            int limit) {
+        return dispatcherDao.findNextSlotDispatchFrames(job, host, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int getSlotCapacityRemaining(JobInterface job, DispatchHost host) {
+        return dispatcherDao.getSlotCapacityRemaining(job, host);
+    }
+
     @Transactional(propagation = Propagation.REQUIRED)
     public boolean increaseReservedMemory(ProcInterface p, long value) {
         return procDao.increaseReservedMemory(p, value);
@@ -395,8 +414,9 @@ public class DispatchSupportService implements DispatchSupport {
                 .setJobName(frame.jobName).setFrameId(frame.id).setFrameName(frame.name)
                 .setLayerId(frame.getLayerId()).setResourceId(proc.getProcId())
                 .setNumCores(proc.coresReserved).setNumGpus(proc.gpusReserved)
-                .setStartTime(System.currentTimeMillis()).setIgnoreNimby(proc.isLocalDispatch)
-                .setOs(proc.os).setSoftMemoryLimit(frame.softMemoryLimit).setLokiUrl(frame.lokiURL)
+                .setSlotsRequired(proc.slotsReserved).setStartTime(System.currentTimeMillis())
+                .setIgnoreNimby(proc.isLocalDispatch).setOs(proc.os)
+                .setSoftMemoryLimit(frame.softMemoryLimit).setLokiUrl(frame.lokiURL)
                 .setHardMemoryLimit(frame.hardMemoryLimit)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame)).putEnvironment("CUE3", "1")

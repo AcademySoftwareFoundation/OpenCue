@@ -510,6 +510,36 @@ public interface DispatchSupport {
     Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
     /**
+     * Return a set of job IDs with pending slot-based work bookable on the given slot-based host.
+     *
+     * @param host a slot-based host (concurrentSlotsLimit >= 0)
+     * @param numJobs
+     * @return
+     */
+    Set<String> findSlotDispatchJobs(DispatchHost host, int numJobs);
+
+    /**
+     * Return the next slot-based frames of the given job bookable on the given slot-based host.
+     *
+     * @param job
+     * @param host a slot-based host (concurrentSlotsLimit >= 0)
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextSlotDispatchFrames(JobInterface job, DispatchHost host, int limit);
+
+    /**
+     * Return how many more slots the given job may book on the given host's allocation (smallest
+     * remaining allowance across the job/folder/subscription max_slots caps; Integer.MAX_VALUE =
+     * unlimited).
+     *
+     * @param job
+     * @param host
+     * @return
+     */
+    int getSlotCapacityRemaining(JobInterface job, DispatchHost host);
+
+    /**
      * Return true of the job has pending frames.
      *
      * @param job

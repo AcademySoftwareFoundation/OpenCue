@@ -210,6 +210,45 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         return proc;
     }
 
+    /**
+     * Build a proc for a slot-based booking. Slot procs reserve 0 cores, 0 memory and 0 gpus - the
+     * only resource they consume is the frame's slot requirement, which counts against the host's
+     * concurrent slots limit and the subscription/folder/job max_slots caps.
+     *
+     * @param host a slot-based host (isSlotHost() == true)
+     * @param frame a slot-based frame (slotsRequired > 0)
+     * @return
+     */
+    public static final VirtualProc buildSlotProc(DispatchHost host, DispatchFrame frame) {
+        if (frame.slotsRequired <= 0) {
+            throw new EntityException(
+                    "Cannot build a slot proc for a frame that requires no slots.");
+        }
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.getAllocationId();
+        proc.hostId = host.getHostId();
+        proc.frameId = null;
+        proc.layerId = frame.getLayerId();
+        proc.jobId = frame.getJobId();
+        proc.showId = frame.getShowId();
+        proc.facilityId = frame.getFacilityId();
+        proc.os = frame.os;
+
+        proc.hostName = host.getName();
+        proc.unbooked = false;
+        proc.isLocalDispatch = false;
+        proc.canHandleNegativeCoresRequest = false;
+
+        proc.coresReserved = 0;
+        proc.memoryReserved = 0;
+        proc.gpusReserved = 0;
+        proc.gpuMemoryReserved = 0;
+        proc.slotsReserved = frame.slotsRequired;
+
+        return proc;
+    }
+
     private static final boolean containsSelfishService(String[] frameServices,
             String[] selfishServices) {
         for (String frameService : frameServices) {
