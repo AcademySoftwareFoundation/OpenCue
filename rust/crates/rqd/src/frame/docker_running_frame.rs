@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-use std::{cmp, sync::Arc};
+use std::{cmp, sync::Arc, time::Duration};
 
 use bollard::{
     container::{
@@ -64,6 +64,10 @@ impl RunningFrame {
         let exit_code = if recover_mode {
             match self.recover_inner(Arc::clone(&logger)).await {
                 Ok((exit_code, exit_signal)) => {
+                    let exit_code = self
+                        .scan_log_for_exit_status_override(exit_code)
+                        .await
+                        .unwrap_or(exit_code);
                     if let Err(err) = self.finish(exit_code, exit_signal, None) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
@@ -81,6 +85,10 @@ impl RunningFrame {
             let run_result = self.run_docker_inner(Arc::clone(&logger)).await;
             match run_result {
                 Ok((exit_code, exit_signal)) => {
+                    let exit_code = self
+                        .scan_log_for_exit_status_override(exit_code)
+                        .await
+                        .unwrap_or(exit_code);
                     if let Err(err) = self.finish(exit_code, exit_signal, None) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
@@ -243,7 +251,7 @@ impl RunningFrame {
         );
 
         let _ = self.create_snapshot().await;
-        let log_watcher_handle = tokio::task::spawn(async move {
+        let mut log_watcher_handle = tokio::task::spawn(async move {
             while let Some(Ok(output)) = log_stream.next().await {
                 logger.write(output.into_bytes().as_ref());
             }
@@ -256,7 +264,16 @@ impl RunningFrame {
         if let Some(Ok(output)) = output_stream.take(1).next().await {
             (exit_code, exit_signal) = Self::interprete_output_docker(Either::Right(output));
         }
-        log_watcher_handle.abort();
+        // Once the container has exited, its log stream reaches EOF and the watcher finishes on
+        // its own. Give it a bounded moment to drain any buffered tail into the log file before
+        // stopping it — the exit-status scan reads that tail, and the lines it needs (e.g. a
+        // license error) are typically the very last ones. Only abort if it overstays.
+        if tokio::time::timeout(Duration::from_secs(5), &mut log_watcher_handle)
+            .await
+            .is_err()
+        {
+            log_watcher_handle.abort();
+        }
 
         let msg = match exit_code {
             0 => format!("Frame {}(pid={}) finished successfully", self, pid),

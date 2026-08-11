@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -36,6 +37,7 @@ import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.grpc.rqd.RqdInterfaceGrpc;
 import com.imageworks.spcue.grpc.rqd.RqdStaticGetRunFrameRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticGetRunFrameResponse;
+import com.imageworks.spcue.grpc.rqd.RqdStaticGetRunningFrameStatusRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticKillRunningFrameRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticLockAllRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticUnlockAllRequest;
@@ -181,6 +183,28 @@ public final class RqdClientGrpc implements RqdClient {
             getStub(host).killRunningFrame(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to kill frame " + frameId, e);
+        }
+    }
+
+    public boolean isFrameRunning(String host, String frameId) {
+        if (testMode) {
+            return false;
+        }
+
+        try {
+            getStub(host).getRunningFrameStatus(
+                    RqdStaticGetRunningFrameStatusRequest.newBuilder().setFrameId(frameId).build());
+            return true;
+        } catch (StatusRuntimeException e) {
+            // RQD returns NOT_FOUND once it has reaped the frame: the render is confirmed gone.
+            if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                return false;
+            }
+            // Any other failure (host unreachable, deadline, etc.) leaves the frame's state
+            // unknown; surface it so callers do not treat "could not reach" as "confirmed gone".
+            throw new RqdClientException("failed to obtain status for frame " + frameId, e);
+        } catch (ExecutionException e) {
+            throw new RqdClientException("failed to obtain status for frame " + frameId, e);
         }
     }
 

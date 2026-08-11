@@ -37,6 +37,11 @@ public enum MaintenanceTask {
     LOCK_ORPHANED_PROC_CHECK,
 
     /**
+     * Lock the orphaned frame check
+     */
+    LOCK_ORPHANED_FRAME_CHECK,
+
+    /**
      * Lock for task updates
      */
     LOCK_TASK_UPDATE,

@@ -220,3 +220,18 @@ runner:
   #     source: "/shared/storage"   # Source path on host
   #     typ: "bind"                # Mount type (bind, volume, tmpfs)
   #     bind_propagation: "rprivate" # Bind propagation mode
+
+  # Log-based exit-status reclassification.
+  # When a frame fails (non-zero exit), RQD scans the last `log_scan_last_lines` lines of the
+  # frame log and, on the first rule whose `regex` matches, reports `exit_status` to Cuebot
+  # instead of the process's real exit code. Useful for flagging failures that Cuebot should
+  # retry differently (e.g. license shortages). Rules are evaluated top-to-bottom; first match
+  # wins. Leave `log_exit_status_rules` empty to disable. Not applied to Loki-only frames.
+  #
+  # Number of trailing log lines to scan on failure (Default: 50)
+  # log_scan_last_lines: 50
+  #
+  # log_exit_status_rules:
+  #   - name: "HOUDINI_LICENSE_ERROR"
+  #     regex: "A usable license to run the application is installed but they are all in use"
+  #     exit_status: 330

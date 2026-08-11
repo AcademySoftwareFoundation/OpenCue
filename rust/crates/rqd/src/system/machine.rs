@@ -11,6 +11,7 @@
 // the License.
 
 use std::sync::Arc;
+use std::time::{Instant, SystemTime};
 
 use crate::{
     config::CONFIG,
@@ -20,6 +21,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bytesize::KIB;
+use dashmap::DashMap;
 use itertools::Either;
 use miette::Result;
 use opencue_proto::{
@@ -53,7 +55,7 @@ use crate::{
 
 #[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
 use super::linux::LinuxSystem;
-use super::manager::SystemManagerType;
+use super::manager::{HostMemSnapshot, PeerMem, SystemManagerType};
 #[cfg(feature = "nimby")]
 use crate::system::nimby::Nimby;
 
@@ -81,6 +83,18 @@ pub struct MachineMonitor {
     pub system_manager: Mutex<SystemManagerType>,
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
+    /// Frames that have finished locally but whose completion has not yet been acknowledged by
+    /// Cuebot. Entries are retried on every monitor cycle and only removed once Cuebot accepts the
+    /// FrameCompleteReport, guaranteeing at-least-once delivery. Without this, a transient delivery
+    /// failure (network blip, Cuebot GC pause, or an explicit RqdRetryReportException) would silently
+    /// drop the completion and let Cuebot rebook an already-finished frame (double booking).
+    /// Keyed by frame_id.
+    pending_completions: Arc<DashMap<Uuid, PendingCompletion>>,
+    /// Ensures at most one [`MachineMonitor::deliver_pending_completions`] task runs at a time. The
+    /// flush is spawned off the monitor loop so a slow or unreachable Cuebot cannot stall host
+    /// reporting; this guard stops successive monitor cycles from piling up overlapping delivery
+    /// tasks against a Cuebot that is already struggling to keep up.
+    completion_flush_guard: Arc<Mutex<()>>,
     last_host_state: Arc<RwLock<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
@@ -88,6 +102,15 @@ pub struct MachineMonitor {
     nimby: Arc<Option<Nimby>>,
     #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
+}
+
+/// A locally-finished frame awaiting completion acknowledgement from Cuebot, tagged with the instant
+/// it entered the pending store. `enqueued_at` gives every entry a uniform delivery age regardless of
+/// its terminal state — a `FailedBeforeStart` frame carries no `end_time` — which the backlog warning
+/// uses to tell a genuine, cycle-surviving backlog apart from frames enqueued in the current cycle.
+struct PendingCompletion {
+    frame: Arc<RunningFrame>,
+    enqueued_at: Instant,
 }
 
 static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
@@ -184,6 +207,8 @@ impl MachineMonitor {
             report_client,
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
+            pending_completions: Arc::new(DashMap::new()),
+            completion_flush_guard: Arc::new(Mutex::new(())),
             last_host_state: Arc::new(RwLock::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
@@ -464,7 +489,41 @@ impl MachineMonitor {
             }
         }
 
-        self.handle_finished_frames(finished_frames).await;
+        // Move newly finished frames into the pending-completion store (releasing their cores
+        // exactly once), then attempt to deliver every pending completion. Entries survive
+        // delivery failures and are retried on subsequent cycles, so a finished frame's completion
+        // is not lost while this RQD stays up (the store is in-memory, so it does not survive an
+        // RQD restart).
+        self.enqueue_and_release_finished_frames_cores(finished_frames)
+            .await;
+        self.flush_pending_completions().await;
+
+        // Build a host-wide memory snapshot from the freshly-updated running frames and
+        // share it (same Arc) into each of them. A frame that later fails renders this in
+        // its footer to expose whether a co-tenant may have starved it of memory.
+        {
+            let (total_memory, available_memory) = {
+                let host_state = self.last_host_state.read().await;
+                host_state
+                    .as_ref()
+                    .map(|hs| ((hs.total_mem as u64) * KIB, (hs.free_mem as u64) * KIB))
+                    .unwrap_or((0, 0))
+            };
+            let mut peers: Vec<PeerMem> = running_frames
+                .iter()
+                .map(|(running_frame, _)| running_frame.to_peer_mem())
+                .collect();
+            peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+            let snapshot = Arc::new(HostMemSnapshot {
+                captured_at: SystemTime::now(),
+                total_memory,
+                available_memory,
+                peers,
+            });
+            for (running_frame, _) in &running_frames {
+                running_frame.set_host_mem_snapshot(Arc::clone(&snapshot));
+            }
+        }
 
         match self.memory_usage().await {
             Some((memory_usage, total_memory))
@@ -503,9 +562,9 @@ impl MachineMonitor {
         }
 
         // Sanitize dangling reservations
-        // This mechanism is redundant as handle_finished_frames releases resources reserved to
-        // finished frames. But leaking core reservations would lead to waste of resoures, so
-        // having a safety check sounds reasonable even when reduntant.
+        // This mechanism is redundant as enqueue_and_release_finished_frames_cores releases
+        // resources reserved to finished frames. But leaking core reservations would lead to
+        // waste of resoures, so having a safety check sounds reasonable even when reduntant.
         {
             let running_resources: Vec<Uuid> = running_frames
                 .iter()
@@ -520,76 +579,232 @@ impl MachineMonitor {
         Ok(())
     }
 
-    async fn handle_finished_frames(&self, finished_frames: Vec<Arc<RunningFrame>>) {
-        if finished_frames.is_empty() {
+    /// Release the cores held by newly finished frames and move them into the in-memory
+    /// pending-completion store (entries are retried until acknowledged, but do not survive an RQD
+    /// restart). Cores are released here, exactly once per frame, because the frame
+    /// is done locally regardless of whether Cuebot has acknowledged the completion yet. The actual
+    /// delivery (and its retries) is handled by [`Self::flush_pending_completions`].
+    async fn enqueue_and_release_finished_frames_cores(
+        &self,
+        finished_frames: Vec<Arc<RunningFrame>>,
+    ) {
+        for frame in finished_frames {
+            // Slot-based frames reserve 0 cores and therefore have no core booking to
+            // release; skip the release to avoid a spurious ReservationNotFound warning.
+            if frame.request.num_cores > 0 {
+                if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
+                    warn!(
+                        "Failed to release cores reserved by {}: {}",
+                        frame.request.resource_id(),
+                        err
+                    );
+                };
+            }
+            self.pending_completions.insert(
+                frame.frame_id,
+                PendingCompletion {
+                    frame,
+                    enqueued_at: Instant::now(),
+                },
+            );
+        }
+    }
+
+    /// Schedule delivery of the pending frame-complete reports to Cuebot without blocking the monitor
+    /// loop.
+    ///
+    /// Delivery runs in a spawned, time-bounded task rather than inline: a single
+    /// `send_frame_complete_report` against an unreachable Cuebot can spin through the gRPC retry
+    /// ladder (up to `grpc.backoff_retry_attempts` × `grpc.backoff_delay_max`, i.e. minutes), and with
+    /// a backlog of N entries an inline flush would stall the host-mem snapshot, OOM protection,
+    /// reservation sanitisation and the host report itself for roughly N × that. The
+    /// [`Self::completion_flush_guard`] ensures only one delivery task exists at a time, so successive
+    /// monitor cycles cannot pile up overlapping deliveries while Cuebot is slow.
+    ///
+    /// The backlog warning is emitted here, synchronously, every cycle — even when a previous delivery
+    /// task is still running — so the condition stays observable precisely when it matters most.
+    async fn flush_pending_completions(&self) {
+        if self.pending_completions.is_empty() {
             return;
         }
 
-        // Avoid holding a lock while reporting back to cuebot
-        let host_state_opt = {
-            let host_state_lock = self.last_host_state.read().await;
-            host_state_lock.clone()
-        };
+        // Surface a genuine backlog: completions that could not be delivered pile up here across
+        // monitor cycles (Cuebot unreachable or rejecting reports). Emit a single summary warning
+        // per cycle, carrying the backlog size and the age of its oldest entry, so the condition is
+        // observable before it grows unbounded. Age is measured from the instant each entry was
+        // enqueued, uniformly across terminal states, so only entries that have already survived at
+        // least one monitor cycle warn; frames enqueued in this same cycle have ~zero age and stay
+        // quiet.
+        let backlog = self.pending_completions.len();
+        let oldest_age = self
+            .pending_completions
+            .iter()
+            .map(|entry| entry.value().enqueued_at.elapsed())
+            .max();
+        if let Some(age) = oldest_age {
+            if age >= self.maching_config.monitor_interval {
+                warn!(
+                    "{} pending frame completion(s) still awaiting delivery to Cuebot after \
+                     retries; oldest is {}s old",
+                    backlog,
+                    age.as_secs()
+                );
+            }
+        }
 
-        let host_state = match host_state_opt {
-            Some(state) => state,
-            None => {
-                warn!("Invalid state. Could not find host state");
+        // Only one delivery task at a time. If a previous one is still draining the backlog (e.g.
+        // Cuebot is slow/unreachable) skip spawning another so cycles don't pile up.
+        let guard = match Arc::clone(&self.completion_flush_guard).try_lock_owned() {
+            Ok(guard) => guard,
+            Err(_) => {
+                debug!(
+                    "Skipping pending completion delivery: a previous flush is still in progress \
+                     ({} entries pending)",
+                    backlog
+                );
                 return;
             }
         };
 
-        for frame in finished_frames {
-            let exit_code_and_signal: Option<(u32, u32)> = match frame.get_state_copy() {
+        let pending_completions = Arc::clone(&self.pending_completions);
+        let report_client = Arc::clone(&self.report_client);
+        let last_host_state = Arc::clone(&self.last_host_state);
+        // Bound a single delivery pass so a persistently unreachable Cuebot can't keep one flush task
+        // (and its guard) alive indefinitely: whatever is undelivered when the budget elapses is left
+        // in the store and retried on a later cycle. Delivery is cancel-safe, an entry is only
+        // removed after a successful Ok, so cancelling mid-send merely defers that entry.
+        let budget = self.maching_config.monitor_interval;
+        tokio::spawn(async move {
+            // Hold the guard for the task's lifetime; it releases on completion, cancellation or panic.
+            let _guard = guard;
+            if tokio::time::timeout(
+                budget,
+                Self::deliver_pending_completions(
+                    pending_completions,
+                    report_client,
+                    last_host_state,
+                ),
+            )
+            .await
+            .is_err()
+            {
+                warn!(
+                    "Pending completion delivery did not finish within {}s; remaining entries \
+                     deferred to the next monitor cycle",
+                    budget.as_secs()
+                );
+            }
+        });
+    }
+
+    /// Deliver every pending frame-complete report to Cuebot. An entry is only removed from the
+    /// pending store once Cuebot acknowledges it (Ok response). Any failure, transport error,
+    /// exhausted 5xx retries, or a gRPC application error such as RqdRetryReportException (which
+    /// surfaces here as an `Err`) leaves the entry in place to be retried on the next monitor cycle.
+    /// This guarantees at-least-once delivery so a completed (including successfully rendered) frame
+    /// is never silently dropped, which would otherwise let Cuebot rebook it onto a second host.
+    ///
+    /// Note: delivery is at-least-once, not exactly-once. A report whose response is lost in transit
+    /// is resent and Cuebot receives a duplicate. Cuebot tolerates duplicates rather than treating
+    /// them as a strict no-op: the frame stop is version-fenced, so a resent report whose frame is no
+    /// longer RUNNING at the reported version does not re-stop it, and if the proc has since been
+    /// rebooked onto its next frame the duplicate is dropped instead of unbooking that proc. A
+    /// duplicate therefore cannot re-complete a frame or orphan a running one.
+    ///
+    /// Undelivered entries are deliberately retained rather than dropped after some cap or max age:
+    /// dropping a completion is exactly what reintroduces double booking, so this store fails closed.
+    /// The unbounded work is instead bounded by the caller ([`Self::flush_pending_completions`]),
+    /// which runs this off the monitor loop under a time budget.
+    async fn deliver_pending_completions<T: ReportInterface + Send + Sync + 'static>(
+        pending_completions: Arc<DashMap<Uuid, PendingCompletion>>,
+        report_client: Arc<T>,
+        last_host_state: Arc<RwLock<Option<RenderHost>>>,
+    ) {
+        // Avoid holding a lock while reporting back to cuebot
+        let host_state = match last_host_state.read().await.clone() {
+            Some(state) => state,
+            None => {
+                warn!(
+                    "Invalid state. Could not find host state, deferring {} pending frame \
+                     completion(s) to the next cycle",
+                    pending_completions.len()
+                );
+                return;
+            }
+        };
+
+        // Snapshot the pending entries so we don't hold a DashMap iterator across awaits.
+        let pending: Vec<Arc<RunningFrame>> = pending_completions
+            .iter()
+            .map(|entry| Arc::clone(&entry.value().frame))
+            .collect();
+
+        for frame in pending {
+            // (exit_code, exit_signal, run_time_seconds)
+            let exit_report: Option<(u32, u32, u32)> = match frame.get_state_copy() {
                 FrameState::Finished(finished_state) => {
                     let exit_signal = match finished_state.exit_signal {
                         Some(signal) => signal as u32,
                         None => 0,
                     };
-                    Some((finished_state.exit_code as u32, exit_signal))
+                    // Wall-clock runtime of the frame in seconds. Cuebot relies on run_time
+                    // to enforce layer runtime timeouts and the 12h no-retry cap
+                    // (see Dispatcher.FRAME_TIME_NO_RETRY / determineFrameState). Sending 0
+                    // disables those timeout-based DEAD decisions and skews usage counters.
+                    let run_time = finished_state
+                        .end_time
+                        .duration_since(finished_state.start_time)
+                        .map(|d| d.as_secs() as u32)
+                        .unwrap_or(0);
+                    Some((finished_state.exit_code as u32, exit_signal, run_time))
                 }
                 FrameState::FailedBeforeStart => {
                     Some((
                         1,  // Mark frame as failed
                         10, // Use signal to indicate it failed before starting
+                        0,  // Never ran, so no runtime
                     ))
                 }
                 _ => None,
             };
 
-            if let Some((exit_code, exit_signal)) = exit_code_and_signal {
-                let frame_report = frame.clone_into_running_frame_info();
-                info!("Sending frame complete report: {}", frame);
-
-                // Slot-based frames reserve 0 cores and therefore have no core booking to
-                // release; skip the release to avoid a spurious ReservationNotFound warning.
-                if frame.request.num_cores > 0 {
-                    if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
-                        warn!(
-                            "Failed to release cores reserved by {}: {}",
-                            frame.request.resource_id(),
-                            err
-                        );
-                    };
-                }
-
-                // Send complete report
-                if let Err(err) = self
-                    .report_client
-                    .send_frame_complete_report(
-                        host_state.clone(),
-                        frame_report,
-                        exit_code,
-                        exit_signal,
-                        0,
-                    )
-                    .await
-                {
+            let (exit_code, exit_signal, run_time) = match exit_report {
+                Some(values) => values,
+                None => {
+                    // A pending entry should always be in a terminal state. If it isn't, drop it to
+                    // avoid retaining it (and retrying it) forever.
                     error!(
-                        "Failed to send frame_complete_report for {}. {}",
+                        "Pending completion for {} is not in a terminal state, dropping",
+                        frame
+                    );
+                    pending_completions.remove(&frame.frame_id);
+                    continue;
+                }
+            };
+
+            let frame_report = frame.clone_into_running_frame_info();
+            info!("Sending frame complete report: {}", frame);
+
+            match report_client
+                .send_frame_complete_report(
+                    host_state.clone(),
+                    frame_report,
+                    exit_code,
+                    exit_signal,
+                    run_time,
+                )
+                .await
+            {
+                Ok(()) => {
+                    pending_completions.remove(&frame.frame_id);
+                }
+                Err(err) => {
+                    warn!(
+                        "Failed to send frame_complete_report for {}, will retry on the next \
+                         monitor cycle. {}",
                         frame, err
                     );
-                };
+                }
             }
         }
     }
@@ -668,6 +883,205 @@ mod tests {
             MachineMonitor::initial_nimby_state(&config),
             LockState::Open
         );
+    }
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    use std::collections::HashSet;
+    use std::sync::Mutex as StdMutex;
+    use std::time::{Duration, Instant};
+
+    use async_trait::async_trait;
+    use dashmap::DashMap;
+    use miette::{miette, Result};
+    use opencue_proto::report::{CoreDetail, HostReport, RenderHost, RunningFrameInfo};
+    use opencue_proto::rqd::RunFrame;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+    use uuid::Uuid;
+
+    use super::{MachineMonitor, PendingCompletion};
+    use crate::config::Config;
+    use crate::frame::running_frame::RunningFrame;
+    use crate::report::report_client::ReportInterface;
+
+    /// Scripted ReportInterface: records every frame-complete call and fails delivery for the
+    /// frame ids it was told to fail.
+    struct MockReportClient {
+        fail_ids: HashSet<String>,
+        calls: StdMutex<Vec<(String, u32, u32, u32)>>,
+    }
+
+    impl MockReportClient {
+        fn new(fail_ids: Vec<String>) -> Self {
+            Self {
+                fail_ids: fail_ids.into_iter().collect(),
+                calls: StdMutex::new(Vec::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ReportInterface for MockReportClient {
+        async fn send_start_up_report(
+            &self,
+            _render_host: RenderHost,
+            _core_detail: CoreDetail,
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        async fn send_frame_complete_report(
+            &self,
+            _host: RenderHost,
+            frame: RunningFrameInfo,
+            exit_status: u32,
+            exit_signal: u32,
+            run_time: u32,
+        ) -> Result<()> {
+            self.calls.lock().unwrap().push((
+                frame.frame_id.clone(),
+                exit_status,
+                exit_signal,
+                run_time,
+            ));
+            if self.fail_ids.contains(&frame.frame_id) {
+                Err(miette!("scripted delivery failure"))
+            } else {
+                Ok(())
+            }
+        }
+
+        async fn send_host_report(&self, _host_report: HostReport) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    fn frame_request_and_config() -> (RunFrame, crate::config::RunnerConfig) {
+        let general_config = Config::default();
+        general_config.setup().unwrap();
+        let mut config = general_config.runner;
+        config.run_as_user = false;
+
+        let request = RunFrame {
+            resource_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            job_name: "job_name".to_string(),
+            frame_id: Uuid::new_v4().to_string(),
+            frame_name: "frame_name".to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            command: "true".to_string(),
+            user_name: "username".to_string(),
+            log_dir: "/tmp".to_string(),
+            show: "show".to_string(),
+            shot: "shot".to_string(),
+            num_cores: 1,
+            gid: 10,
+            ..Default::default()
+        };
+        (request, config)
+    }
+
+    /// Builds a frame still in the Created state (never started).
+    fn make_frame() -> RunningFrame {
+        let (request, config) = frame_request_and_config();
+        RunningFrame::init(request, 1, config, None, None, "localhost".to_string(), 1)
+    }
+
+    /// Builds a frame in the Finished state (exit 0), as if its process just exited.
+    fn finished_frame() -> RunningFrame {
+        let (request, config) = frame_request_and_config();
+        let frame = RunningFrame::init_started_for_test(
+            request,
+            1,
+            config,
+            None,
+            None,
+            "localhost".to_string(),
+            Duration::from_secs(10),
+        );
+        frame.finish(0, None, None).unwrap();
+        frame
+    }
+
+    fn pending_map(frames: Vec<Arc<RunningFrame>>) -> Arc<DashMap<Uuid, PendingCompletion>> {
+        let map = DashMap::new();
+        for frame in frames {
+            map.insert(
+                frame.frame_id,
+                PendingCompletion {
+                    frame,
+                    enqueued_at: Instant::now(),
+                },
+            );
+        }
+        Arc::new(map)
+    }
+
+    async fn deliver(map: Arc<DashMap<Uuid, PendingCompletion>>, client: Arc<MockReportClient>) {
+        let host_state = Arc::new(RwLock::new(Some(RenderHost::default())));
+        MachineMonitor::deliver_pending_completions(map, client, host_state).await;
+    }
+
+    #[tokio::test]
+    async fn acknowledged_completion_is_removed() {
+        let frame = Arc::new(finished_frame());
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty(), "acknowledged entry must be removed");
+        let calls = client.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].1, 0, "exit_status");
+    }
+
+    #[tokio::test]
+    async fn failed_delivery_retains_entry() {
+        let frame = Arc::new(finished_frame());
+        let frame_id_str = frame.request.frame_id.clone();
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![frame_id_str]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert_eq!(map.len(), 1, "failed entry must be retained for retry");
+        assert_eq!(client.calls.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn non_terminal_entry_is_dropped_without_report() {
+        // A frame still in the Created state should never be in the pending store; delivery
+        // drops it instead of retrying it forever.
+        let frame = Arc::new(make_frame());
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty(), "non-terminal entry must be dropped");
+        assert!(client.calls.lock().unwrap().is_empty(), "no report sent");
+    }
+
+    #[tokio::test]
+    async fn failed_before_start_reports_synthetic_exit() {
+        let frame = make_frame();
+        frame.fail_before_start().unwrap();
+        let frame = Arc::new(frame);
+        let map = pending_map(vec![Arc::clone(&frame)]);
+        let client = Arc::new(MockReportClient::new(vec![]));
+
+        deliver(Arc::clone(&map), Arc::clone(&client)).await;
+
+        assert!(map.is_empty());
+        let calls = client.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        let (_, exit_status, exit_signal, run_time) = calls[0].clone();
+        assert_eq!(exit_status, 1);
+        assert_eq!(exit_signal, 10);
+        assert_eq!(run_time, 0);
     }
 }
 

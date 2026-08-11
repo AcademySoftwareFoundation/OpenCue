@@ -15,7 +15,6 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import java.sql.Timestamp;
 import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -62,7 +61,6 @@ import com.imageworks.spcue.monitoring.KafkaEventPublisher;
 import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.FrameEvent;
-import com.imageworks.spcue.grpc.monitoring.JobEvent;
 import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 
@@ -79,6 +77,18 @@ public class FrameCompleteHandler {
     private static final int DEPEND_MAX_RETRIES = 3;
     private static final long DEPEND_INITIAL_BACKOFF_MS = 100;
 
+    /**
+     * What should happen to the proc once the completed frame has been accounted for.
+     */
+    private enum ProcHealth {
+        /** The proc is healthy and can keep running frames. */
+        KEEP,
+        /** The proc must be unbooked. */
+        UNBOOK,
+        /** The proc was redirected to another job; nothing else to do. */
+        REDIRECTED
+    }
+
     private HostManager hostManager;
     private JobManager jobManager;
     private RedirectManager redirectManager;
@@ -90,7 +100,7 @@ public class FrameCompleteHandler {
     private Dispatcher slotDispatcher;
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
-    private JmsMover jsmMover;
+    private JmsMover jmsMover;
 
     private WhiteboardDao whiteboardDao;
     private ServiceDao serviceDao;
@@ -141,39 +151,38 @@ public class FrameCompleteHandler {
     /**
      * Handle the given FrameCompleteReport from RQD.
      *
+     * Stops the frame and queues the post-completion bookkeeping. When the frame was already
+     * stopped by another thread the report is stale, and the proc is redirected or unbooked
+     * instead. When the proc itself no longer exists the frame may be orphaned; see
+     * {@link #finalizeOrphanedFrameComplete}.
+     *
      * @param report
      */
     public void handleFrameCompleteReport(final FrameCompleteReport report) {
-
-        /*
-         * A boolean we're going to set to true if we can detect a corrupted data block in Oracle.
-         */
         if (isShutdown()) {
             throw new RqdRetryReportException("Error processing the frame complete report, "
                     + "cuebot not accepting packets.");
         }
 
         try {
-            final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            final VirtualProc proc;
+            try {
+                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            } catch (EmptyResultDataAccessException e) {
+                finalizeOrphanedFrameComplete(report);
+                return;
+            }
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final FrameDetail frameDetail =
                     jobManager.getFrameDetail(report.getFrame().getFrameId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
-            final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+            final FrameState newFrameState =
+                    determineFrameState(job, layer, frame, report, frameDetail);
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
                     + report.getFrame().getFrameId();
 
-            // rqd is currently not able to report exit_signal=9 when a frame is killed by
-            // the OOM logic. The current solution sets exitStatus to
-            // Dispatcher.EXIT_STATUS_MEMORY_FAILURE before killing the frame, this enables
-            // auto-retrying frames affected by the logic when they report with a
-            // frameCompleteReport. This status retouch ensures a frame complete report is
-            // not able to override what has been set by the previous logic.
-            int exitStatus = report.getExitStatus();
-            if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
-                exitStatus = frameDetail.exitStatus;
-            }
+            int exitStatus = resolveExitStatus(report, frameDetail);
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
@@ -182,51 +191,12 @@ public class FrameCompleteHandler {
                     handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
                             frameDetail);
                 } else {
-                    dispatchQueue.execute(new KeyRunnable(key) {
-                        @Override
-                        public void run() {
-                            try {
-                                handlePostFrameCompleteOperations(proc, report, job, frame,
-                                        newFrameState, frameDetail);
-                            } catch (Exception e) {
-                                logger.warn("Exception during handlePostFrameCompleteOperations "
-                                        + "in handleFrameCompleteReport"
-                                        + CueExceptionUtil.getStackTrace(e));
-                            }
-                        }
-                    });
+                    queueDispatchTask(key, "handlePostFrameCompleteOperations",
+                            () -> handlePostFrameCompleteOperations(proc, report, job, frame,
+                                    newFrameState, frameDetail));
                 }
             } else {
-                /*
-                 * First check if we have a redirect. When a user retries a frame the proc is
-                 * redirected back to the same job without checking any other properties.
-                 */
-                if (redirectManager.hasRedirect(proc)) {
-                    dispatchQueue.execute(new KeyRunnable(key) {
-                        @Override
-                        public void run() {
-                            try {
-                                redirectManager.redirect(proc);
-                            } catch (Exception e) {
-                                logger.warn("Exception during redirect in handleFrameCompleteReport"
-                                        + CueExceptionUtil.getStackTrace(e));
-                            }
-                        }
-                    });
-                } else {
-                    dispatchQueue.execute(new KeyRunnable(key) {
-                        @Override
-                        public void run() {
-                            try {
-                                dispatchSupport.unbookProc(proc);
-                            } catch (Exception e) {
-                                logger.warn(
-                                        "Exception during unbookProc in handleFrameCompleteReport"
-                                                + CueExceptionUtil.getStackTrace(e));
-                            }
-                        }
-                    });
-                }
+                handleStaleReport(proc, report, key);
             }
         } catch (EmptyResultDataAccessException e) {
             /*
@@ -234,21 +204,62 @@ public class FrameCompleteHandler {
              * to the host and cleared out the record of the proc. If this is propagated back to
              * RQD, RQD will keep retrying the operation forever.
              */
-            logger.info("failed to acquire data needed to " + "process completed frame: "
+            logger.info("failed to acquire data needed to process completed frame: "
                     + report.getFrame().getFrameName() + " in job " + report.getFrame().getJobName()
                     + "," + e);
         } catch (Exception e) {
-
             /*
              * Everything else we kick back to RQD.
              */
-            logger.info("failed to acquire data needed " + "to process completed frame: "
+            logger.info("failed to acquire data needed to process completed frame: "
                     + report.getFrame().getFrameName() + " in job " + report.getFrame().getJobName()
                     + "," + e);
-
             throw new RqdRetryReportException("error processing the frame complete "
                     + "report, sending retry message to RQD " + e, e);
         }
+    }
+
+    /**
+     * Handles a report whose frame was already stopped by another thread. When a user retries a
+     * frame the proc is redirected back to the same job without checking any other properties;
+     * otherwise the proc is unbooked.
+     *
+     * A proc already assigned to a different frame means the report is a resent duplicate of one
+     * that was fully processed, and the proc has since booked its next frame; unbooking it here
+     * would orphan that frame, so the report is dropped instead. A proc with no frame assignment
+     * still goes through redirect/unbook: stopping a frame clears its proc's assignment, so this is
+     * the normal state for a proc whose frame was stopped by another actor (eat, retry, kill) and
+     * that now needs to be released.
+     */
+    private void handleStaleReport(VirtualProc proc, FrameCompleteReport report, String key) {
+        if (proc.frameId != null && !proc.frameId.equals(report.getFrame().getFrameId())) {
+            logger.info("Ignoring duplicate frame complete report for "
+                    + report.getFrame().getFrameName() + "; proc " + proc.getProcId()
+                    + " has already moved on to frame " + proc.frameId + ".");
+            return;
+        }
+        if (redirectManager.hasRedirect(proc)) {
+            queueDispatchTask(key, "redirect", () -> redirectManager.redirect(proc));
+        } else {
+            queueDispatchTask(key, "unbookProc", () -> dispatchSupport.unbookProc(proc));
+        }
+    }
+
+    /**
+     * Runs the given task on the dispatch queue, logging instead of propagating any failure.
+     */
+    private void queueDispatchTask(String key, String taskName, Runnable task) {
+        dispatchQueue.execute(new KeyRunnable(key) {
+            @Override
+            public void run() {
+                try {
+                    task.run();
+                } catch (Exception e) {
+                    logger.warn("Exception during " + taskName + " in handleFrameCompleteReport"
+                            + CueExceptionUtil.getStackTrace(e));
+                }
+            }
+        });
     }
 
     /**
@@ -270,10 +281,6 @@ public class FrameCompleteHandler {
             DispatchJob job, DispatchFrame frame, FrameState newFrameState,
             FrameDetail frameDetail) {
         try {
-
-            /*
-             * Publish frame complete event to Kafka for monitoring
-             */
             publishFrameCompleteEvent(report, frame, frameDetail, newFrameState, proc);
 
             /*
@@ -283,312 +290,48 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            boolean isLayerComplete = false;
-
-            if (newFrameState.equals(FrameState.SUCCEEDED) || (!satisfyDependOnlyOnFrameSuccess
-                    && newFrameState.equals(FrameState.EATEN))) {
-                satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
-                        "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")",
-                        job.getName(), job.getJobId());
-
-                isLayerComplete = jobManager.isLayerComplete(frame);
-                if (isLayerComplete) {
-                    satisfyDependsWithRetry(
-                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
-                            "layer " + frame.getLayerId(), job.getName(), job.getJobId());
-
-                    // Record layer max runtime and memory metrics
-                    if (prometheusMetrics != null) {
-                        ExecutionSummary layerSummary =
-                                jobManager.getExecutionSummary((LayerInterface) frame);
-                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                        prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
-                                frame.show, frame.shot, layerDetail.type.toString());
-                        if (layerSummary.highMemoryKb > 0) {
-                            prometheusMetrics.recordLayerMaxMemory(
-                                    layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
-                                    layerDetail.type.toString());
-                        }
-                    }
-
-                    // Publish layer completed event to Kafka
-                    if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
-                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                        LayerEvent layerEvent =
-                                monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
-                                        layerDetail, frame.getName(), frame.show);
-                        kafkaEventPublisher.publishLayerEvent(layerEvent);
-                    }
-                }
-            }
-
-            if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
-                /*
-                 * If the layer meets some specific criteria then try to update the minimum memory
-                 * and tags so it can run on a wider variety of cores, namely older hardware.
-                 */
-                jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                        report.getFrame().getMaxRss(), report.getRunTime());
+            if (satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState)) {
+                publishLayerCompletedTelemetry(frame);
             }
 
             /*
-             * The final frame can either be Succeeded or Eaten. If you only check if the frame is
-             * Succeeded before doing an isJobComplete check, then jobs that finish with the
-             * auto-eat flag enabled will not leave the cue.
+             * Slot-based procs are excluded from the memory-failure retry path: they reserve 0
+             * memory by design, so raising the layer's memory requirement would only corrupt the
+             * layer record (slot dispatch ignores memory entirely).
              */
-            if (newFrameState.equals(FrameState.SUCCEEDED)
-                    || newFrameState.equals(FrameState.EATEN)) {
-                if (jobManager.isJobComplete(job)) {
-                    job.state = JobState.FINISHED;
-                    jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
-                }
-            }
-
-            /*
-             * Some exit statuses indicate that a frame was killed by the application due to a
-             * memory issue and should be retried. In this case, disable the optimizer and raise the
-             * memory by what is specified in the show's service override, service or 2GB.
-             */
-            if (proc.slotsReserved == 0 && (report
-                    .getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE)) {
-                /*
-                 * Slot-based procs are excluded: they reserve 0 memory by design, so raising the
-                 * layer's memory requirement would only corrupt the layer record (slot dispatch
-                 * ignores memory entirely).
-                 */
-                long increase = CueUtil.GB2;
-
-                // since there can be multiple services, just going for the
-                // first service (primary)
-                String serviceName = "";
-                try {
-                    serviceName = frame.services.split(",")[0];
-                    ServiceOverride showService = whiteboardDao
-                            .getServiceOverride(showDao.findShowDetail(frame.show), serviceName);
-                    // increase override is stored in Kb format so convert to Mb
-                    // for easier reading. Note: Kb->Mb conversion uses 1024 blocks
-                    increase = showService.getData().getMinMemoryIncrease();
-                    logger.info("Using " + serviceName + " service show "
-                            + "override for memory increase: " + Math.floor(increase / 1024)
-                            + "Mb.");
-                } catch (NullPointerException e) {
-                    logger.info("Frame has no associated services");
-                } catch (EmptyResultDataAccessException e) {
-                    logger.info(frame.show + " has no service override for " + serviceName + ".");
-                    Service service = whiteboardDao.findService(serviceName);
-                    increase = service.getMinMemoryIncrease();
-                    logger.info("Using service default for mem increase: "
-                            + Math.floor(increase / 1024) + "Mb.");
-                }
-
-                unbookProc = true;
-                jobManager.enableMemoryOptimizer(frame, false);
-                jobManager.increaseLayerMemoryRequirement(frame, proc.memoryReserved + increase);
-                logger.info("Increased mem usage to: " + (proc.memoryReserved + increase));
-            }
-
-            /*
-             * Check for local dispatching.
-             */
-
-            if (proc.isLocalDispatch) {
-
-                if (!bookingManager.hasLocalHostAssignment(proc)) {
-                    logger.info("the proc " + proc + " no longer has a local assignment.");
-                    unbookProc = true;
-                }
-            }
-
-            /*
-             * An exit status of FAILED_LAUNCH (256) indicates that the frame could not be launched
-             * due to some unforeseen unrecoverable error that is not checked when the launch
-             * command is given. The most common cause of this is when the job log directory is
-             * removed before the job is complete.
-             *
-             * Frames that return a 256 are put Frame back into WAITING status
-             */
-
-            else if (report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE) {
-                logger.info("unbooking " + proc + " frame status was failed frame launch.");
+            if (proc.slotsReserved == 0 && isMemoryFailure(report, frameDetail)) {
+                retryFrameWithRaisedMemory(proc, frame);
                 unbookProc = true;
             }
 
-            else if (report.getHost().getNimbyLocked()) {
-
-                if (!proc.isLocalDispatch) {
-                    logger.info("unbooking " + proc + " was NIMBY locked.");
-                    unbookProc = true;
-                }
-
-                /* Update the NIMBY locked state */
-                hostManager.setHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
-            } else if (report.getHost().getFreeMem() < CueUtil.MB512) {
-                /*
-                 * Unbook anything on a proc that has only 512MB of free memory left.
-                 */
-                logger.info("unbooking" + proc + " was low was memory ");
-                unbookProc = true;
-            } else if (dispatchSupport.isShowOverBurst(proc)) {
-                /*
-                 * Unbook the proc if the show is over burst.
-                 */
-                logger.info("show using proc " + proc + " is over burst.");
-                unbookProc = true;
-            } else if (!hostManager.isHostUp(proc)) {
-
-                logger.info("the proc " + proc + " is not in the update state.");
-                unbookProc = true;
-            } else if (hostManager.isLocked(proc)) {
-                if (!proc.isLocalDispatch) {
-                    logger.info("the proc " + proc + " is not in the open state.");
-                    unbookProc = true;
-                }
-            } else if (redirectManager.hasRedirect(proc)) {
-
-                logger.info("the proc " + proc + " has been redirected.");
-
-                if (redirectManager.redirect(proc)) {
+            switch (evaluateProcHealth(proc, report)) {
+                case REDIRECTED:
                     return;
-                }
+                case UNBOOK:
+                    unbookProc = true;
+                    break;
+                case KEEP:
+                    break;
             }
 
-            /*
-             * If the proc is unbooked at this point, then unbook it and return.
-             */
             if (unbookProc) {
                 dispatchSupport.unbookProc(proc);
                 return;
             }
 
-            /*
-             * Check to see if the job the proc is currently assigned is still dispatchable.
-             */
             if (job.state.equals(JobState.FINISHED)
                     || !dispatchSupport.isJobDispatchable(job, proc.isLocalDispatch)) {
-
-                logger.info("The " + job + " is no longer dispatchable.");
-                dispatchSupport.unbookProc(proc);
-
-                /*
-                 * Only rebook whole cores that have not been locally dispatched. Rebooking
-                 * fractional can cause storms of booking requests that don't have a chance of
-                 * finding a suitable frame to run.
-                 */
-                if (!proc.isLocalDispatch && proc.coresReserved >= 100
-                        && dispatchSupport.isCueBookable(job)) {
-
-                    bookingQueue.execute(new DispatchBookHost(
-                            hostManager.getDispatchHost(proc.getHostId()), dispatcher, env));
-                }
-
-                if (job.state.equals(JobState.FINISHED)) {
-                    jsmMover.send(job);
-                }
+                releaseProcFromUndispatchableJob(proc, job);
                 return;
             }
 
-            /*
-             * If the job is marked unbookable and its over its minimum value, we check to see if
-             * the proc can be moved to a job that hasn't reached its minimum proc yet.
-             *
-             * This will handle show balancing in the future.
-             */
-
-            if (!proc.isLocalDispatch && randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
-                    && System.currentTimeMillis() > lastUnbook.get()) {
-
-                // First make sure all jobs have their min cores
-                // Then check for higher priority jobs
-                // If not, rebook this job
-                if (job.autoUnbook && proc.coresReserved >= 100) {
-                    if (jobManager.isOverMinCores(job)) {
-                        try {
-
-                            boolean unbook = dispatchSupport.findUnderProcedJob(job, proc);
-
-                            if (!unbook) {
-                                JobDetail jobDetail = jobManager.getJobDetail(job.id);
-                                unbook = dispatchSupport.higherPriorityJobExists(jobDetail, proc);
-                            }
-
-                            if (unbook) {
-
-                                // Set a new time to allow unbooking.
-                                lastUnbook.set(System.currentTimeMillis() + UNBOOK_EXPIRE_MS);
-
-                                logger.info("Transfering " + proc);
-                                dispatchSupport.unbookProc(proc);
-
-                                DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
-
-                                bookingQueue.execute(new DispatchBookHost(host, dispatcher, env));
-                                return;
-                            }
-                        } catch (JobLookupException e) {
-                            // wasn't able to find new job
-                        }
-                    }
-                }
+            if (maybeTransferProcToNeedierJob(proc, job)) {
+                return;
             }
 
             if (newFrameState.equals(FrameState.WAITING)
                     || newFrameState.equals(FrameState.SUCCEEDED)) {
-
-                /*
-                 * Slot-based procs are never reused for the next frame: the generic
-                 * proc-to-next-frame path books by cores/memory, which slot procs don't hold.
-                 * Release the slots and requeue the host through the slot dispatcher so it can pick
-                 * up its next slot frame immediately.
-                 *
-                 * Non-happy-path releases (DEAD/EATEN frames, failed launches, the generic unbook
-                 * branches above) release the slots without this immediate requeue; the host's next
-                 * report picks the slots back up.
-                 */
-                if (proc.slotsReserved > 0) {
-                    dispatchSupport.unbookProc(proc, "slot-based proc, releasing slots");
-                    bookingQueue.execute(new DispatchBookHostSlots(
-                            hostManager.getDispatchHost(proc.getHostId()), slotDispatcher));
-                    return;
-                }
-
-                /*
-                 * Scheduler-managed shows: the standalone Rust scheduler owns dispatch. Don't
-                 * reuse/rebook the proc here (that races the scheduler and strands pk_frame=NULL
-                 * procs with reserved cores). Release it so its cores return to idle and let the
-                 * scheduler own rebooking. Local dispatches are always Cuebot-managed.
-                 */
-                if (!proc.isLocalDispatch && showDao.isSchedulerManaged(proc.getShowId())) {
-                    dispatchSupport.unbookProc(proc, "scheduler-managed show, releasing proc");
-                    return;
-                }
-
-                /*
-                 * Check for stranded cores on the host.
-                 */
-                if (!proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
-                        && jobManager.isLayerThreadable(frame)
-                        && dispatchSupport.isJobBookable(job)) {
-
-                    int stranded_cores = hostManager.getStrandedCoreUnits(proc);
-                    if (stranded_cores >= 100) {
-
-                        DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
-                        dispatchSupport.strandCores(host, stranded_cores);
-                        dispatchSupport.unbookProc(proc);
-                        bookingQueue.execute(new DispatchBookHost(host, job, dispatcher, env));
-                        return;
-                    }
-                }
-
-                // Book the next frame of this job on the same proc
-                if (proc.isLocalDispatch) {
-                    dispatchQueue.execute(new DispatchNextFrame(job, proc, localDispatcher));
-                } else {
-                    dispatchQueue.execute(new DispatchNextFrame(job, proc, dispatcher));
-                }
+                bookNextFrameOnProc(proc, job, frame);
             } else {
                 dispatchSupport.unbookProc(proc, "frame state was " + newFrameState.toString());
             }
@@ -598,100 +341,521 @@ public class FrameCompleteHandler {
              * just unbook it. You can't handle this with a roll back because the record existed
              * before any transactions started.
              */
-            logger.warn("An error occured when procssing " + "frame complete message, "
+            logger.warn("An error occurred when processing frame complete message, "
                     + CueExceptionUtil.getStackTrace(e));
             try {
                 dispatchSupport.unbookProc(proc,
-                        "an error occured when procssing frame complete message.");
+                        "an error occurred when processing frame complete message.");
             } catch (EmptyResultDataAccessException ee) {
-                logger.info("Failed to find proc to unbook after frame " + "complete message "
+                logger.info("Failed to find proc to unbook after frame complete message "
                         + CueExceptionUtil.getStackTrace(ee));
             }
         }
     }
 
     /**
+     * Publishes layer-completion metrics and events. Called only on the proc-backed path; the
+     * orphaned path intentionally omits it. Safe to run after
+     * {@link #satisfyDependsAndCompleteLayerAndJob}: optimizeLayer is skipped when the layer is
+     * complete, so nothing has mutated the layer state read here.
+     */
+    private void publishLayerCompletedTelemetry(DispatchFrame frame) {
+        boolean kafkaEnabled = kafkaEventPublisher != null && kafkaEventPublisher.isEnabled();
+        if (prometheusMetrics == null && !kafkaEnabled) {
+            return;
+        }
+        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+
+        if (prometheusMetrics != null) {
+            ExecutionSummary layerSummary = jobManager.getExecutionSummary((LayerInterface) frame);
+            prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec, frame.show,
+                    frame.shot, layerDetail.type.toString());
+            if (layerSummary.highMemoryKb > 0) {
+                prometheusMetrics.recordLayerMaxMemory(layerSummary.highMemoryKb * 1024L,
+                        frame.show, frame.shot, layerDetail.type.toString());
+            }
+        }
+
+        if (kafkaEnabled) {
+            LayerEvent layerEvent = monitoringEventBuilder.buildLayerEvent(
+                    EventType.LAYER_COMPLETED, layerDetail, frame.getName(), frame.show);
+            kafkaEventPublisher.publishLayerEvent(layerEvent);
+        }
+    }
+
+    /**
+     * Whether the reported exit indicates the frame was killed by the application due to a memory
+     * issue and should be retried with more memory.
+     */
+    private static boolean isMemoryFailure(FrameCompleteReport report) {
+        return report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE;
+    }
+
+    /**
+     * Same as {@link #isMemoryFailure(FrameCompleteReport)}, but also honors a memory failure
+     * status stored on the frame by a Cuebot-initiated memory kill (see
+     * {@link #resolveExitStatus}).
+     */
+    private static boolean isMemoryFailure(FrameCompleteReport report, FrameDetail frameDetail) {
+        return isMemoryFailure(report)
+                || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE;
+    }
+
+    /**
+     * Prepares a memory-killed frame for retry: disables the memory optimizer and raises the layer
+     * memory requirement by the amount from the show's service override, the service default, or
+     * 2GB.
+     */
+    private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
+        long increase = getMemoryIncrease(frame);
+        jobManager.enableMemoryOptimizer(frame, false);
+        jobManager.increaseLayerMemoryRequirement(frame, proc.memoryReserved + increase);
+        logger.info("Increased mem usage to: " + (proc.memoryReserved + increase));
+    }
+
+    private long getMemoryIncrease(DispatchFrame frame) {
+        long increase = CueUtil.GB2;
+        // Since there can be multiple services, just going for the first service (primary).
+        String serviceName = "";
+        try {
+            serviceName = frame.services.split(",")[0];
+            ServiceOverride showService = whiteboardDao
+                    .getServiceOverride(showDao.findShowDetail(frame.show), serviceName);
+            // The increase is stored in Kb; convert to Mb for easier reading.
+            increase = showService.getData().getMinMemoryIncrease();
+            logger.info("Using " + serviceName + " service show " + "override for memory increase: "
+                    + Math.floor(increase / 1024) + "Mb.");
+        } catch (NullPointerException e) {
+            logger.info("Frame has no associated services");
+        } catch (EmptyResultDataAccessException e) {
+            logger.info(frame.show + " has no service override for " + serviceName + ".");
+            Service service = whiteboardDao.findService(serviceName);
+            increase = service.getMinMemoryIncrease();
+            logger.info("Using service default for mem increase: " + Math.floor(increase / 1024)
+                    + "Mb.");
+        }
+        return increase;
+    }
+
+    /**
+     * Decides whether the proc can keep running frames or must be unbooked, and applies any host
+     * side effects (NIMBY lock state, redirects) along the way.
+     *
+     * A local dispatch proc is only checked for a valid local host assignment. All other procs are
+     * unbooked when the frame failed to launch, the host is NIMBY locked, low on memory, down or
+     * locked, or the show is over burst. As a last resort a pending redirect is honored.
+     */
+    private ProcHealth evaluateProcHealth(VirtualProc proc, FrameCompleteReport report) {
+        if (proc.isLocalDispatch) {
+            if (!bookingManager.hasLocalHostAssignment(proc)) {
+                logger.info("the proc " + proc + " no longer has a local assignment.");
+                return ProcHealth.UNBOOK;
+            }
+            return ProcHealth.KEEP;
+        }
+
+        /*
+         * An exit status of FAILED_LAUNCH (256) indicates that the frame could not be launched due
+         * to some unforeseen unrecoverable error that is not checked when the launch command is
+         * given. The most common cause of this is when the job log directory is removed before the
+         * job is complete. Frames that return a 256 are put back into WAITING status.
+         */
+        if (report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE) {
+            logger.info("unbooking " + proc + " frame status was failed frame launch.");
+            return ProcHealth.UNBOOK;
+        }
+        if (report.getHost().getNimbyLocked()) {
+            logger.info("unbooking " + proc + " was NIMBY locked.");
+            hostManager.setHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
+            return ProcHealth.UNBOOK;
+        }
+        if (report.getHost().getFreeMem() < CueUtil.MB512) {
+            logger.info("unbooking " + proc + " was low on memory.");
+            return ProcHealth.UNBOOK;
+        }
+        if (dispatchSupport.isShowOverBurst(proc)) {
+            logger.info("show using proc " + proc + " is over burst.");
+            return ProcHealth.UNBOOK;
+        }
+        if (!hostManager.isHostUp(proc)) {
+            logger.info("the proc " + proc + " is not in the update state.");
+            return ProcHealth.UNBOOK;
+        }
+        if (hostManager.isLocked(proc)) {
+            logger.info("the proc " + proc + " is not in the open state.");
+            return ProcHealth.UNBOOK;
+        }
+        if (redirectManager.hasRedirect(proc)) {
+            logger.info("the proc " + proc + " has been redirected.");
+            if (redirectManager.redirect(proc)) {
+                return ProcHealth.REDIRECTED;
+            }
+        }
+        return ProcHealth.KEEP;
+    }
+
+    /**
+     * Unbooks a proc whose job is finished or no longer dispatchable, rebooks the host onto other
+     * work when possible, and notifies JMS listeners of a finished job.
+     */
+    private void releaseProcFromUndispatchableJob(VirtualProc proc, DispatchJob job) {
+        logger.info("The " + job + " is no longer dispatchable.");
+        dispatchSupport.unbookProc(proc);
+
+        /*
+         * Only rebook whole cores that have not been locally dispatched. Rebooking fractional cores
+         * can cause storms of booking requests that don't have a chance of finding a suitable frame
+         * to run.
+         */
+        if (!proc.isLocalDispatch && proc.coresReserved >= 100
+                && dispatchSupport.isCueBookable(job)) {
+            bookingQueue.execute(new DispatchBookHost(hostManager.getDispatchHost(proc.getHostId()),
+                    dispatcher, env));
+        }
+
+        if (job.state.equals(JobState.FINISHED)) {
+            jmsMover.send(job);
+        }
+    }
+
+    /**
+     * Occasionally moves the proc to a job that is under its minimum cores or has higher priority.
+     * Throttled through lastUnbook because there are many more dispatch threads than booking
+     * threads, and unbooking too aggressively would thrash procs that are better left in place.
+     *
+     * @return true if the proc was unbooked and its host queued for rebooking.
+     */
+    private boolean maybeTransferProcToNeedierJob(VirtualProc proc, DispatchJob job) {
+        if (proc.isLocalDispatch || randomNumber.nextInt(100) > Dispatcher.UNBOOK_FREQUENCY
+                || System.currentTimeMillis() <= lastUnbook.get()) {
+            return false;
+        }
+        if (!job.autoUnbook || proc.coresReserved < 100 || !jobManager.isOverMinCores(job)) {
+            return false;
+        }
+        try {
+            // First make sure all jobs have their min cores, then check for higher priority jobs.
+            boolean unbook = dispatchSupport.findUnderProcedJob(job, proc);
+            if (!unbook) {
+                JobDetail jobDetail = jobManager.getJobDetail(job.id);
+                unbook = dispatchSupport.higherPriorityJobExists(jobDetail, proc);
+            }
+            if (!unbook) {
+                return false;
+            }
+
+            // Set a new time to allow unbooking.
+            lastUnbook.set(System.currentTimeMillis() + UNBOOK_EXPIRE_MS);
+
+            logger.info("Transferring " + proc);
+            dispatchSupport.unbookProc(proc);
+            bookingQueue.execute(new DispatchBookHost(hostManager.getDispatchHost(proc.getHostId()),
+                    dispatcher, env));
+            return true;
+        } catch (JobLookupException e) {
+            // Wasn't able to find a new job; keep the proc where it is.
+            return false;
+        }
+    }
+
+    /**
+     * Books the next frame of the same job on the proc, unless the proc should be released first:
+     * on scheduler-managed shows the standalone scheduler owns dispatch, and rebooking here would
+     * race it and strand procs with reserved cores; and a host with a whole stranded core is
+     * rebooked through the booking queue so the extra cores can be picked up.
+     */
+    private void bookNextFrameOnProc(VirtualProc proc, DispatchJob job, DispatchFrame frame) {
+        /*
+         * Slot-based procs are never reused for the next frame: the generic proc-to-next-frame path
+         * books by cores/memory, which slot procs don't hold. Release the slots and requeue the
+         * host through the slot dispatcher so it can pick up its next slot frame immediately.
+         *
+         * Non-happy-path releases (DEAD/EATEN frames, failed launches, the generic unbook branches
+         * above) release the slots without this immediate requeue; the host's next report picks the
+         * slots back up.
+         */
+        if (proc.slotsReserved > 0) {
+            dispatchSupport.unbookProc(proc, "slot-based proc, releasing slots");
+            bookingQueue.execute(new DispatchBookHostSlots(
+                    hostManager.getDispatchHost(proc.getHostId()), slotDispatcher));
+            return;
+        }
+
+        // Local dispatches are always Cuebot-managed.
+        if (!proc.isLocalDispatch && showDao.isSchedulerManaged(proc.getShowId())) {
+            dispatchSupport.unbookProc(proc, "scheduler-managed show, releasing proc");
+            return;
+        }
+
+        if (!proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
+                && jobManager.isLayerThreadable(frame) && dispatchSupport.isJobBookable(job)) {
+            int strandedCores = hostManager.getStrandedCoreUnits(proc);
+            if (strandedCores >= 100) {
+                DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
+                dispatchSupport.strandCores(host, strandedCores);
+                dispatchSupport.unbookProc(proc);
+                bookingQueue.execute(new DispatchBookHost(host, job, dispatcher, env));
+                return;
+            }
+        }
+
+        Dispatcher procDispatcher = proc.isLocalDispatch ? localDispatcher : dispatcher;
+        dispatchQueue.execute(new DispatchNextFrame(job, proc, procDispatcher));
+    }
+
+    /**
+     * Finalize a frame whose backing proc no longer exists.
+     *
+     * This happens when the proc was removed (unbooked/cleared) while RQD was still finishing the
+     * frame, or when a delayed/duplicate report arrives after the run already ended. If the frame
+     * is genuinely orphaned, still RUNNING with no proc, this report reflects the authoritative end
+     * state of the run and must not be lost. Finalizing it directly records the completion instead
+     * of silently dropping it and letting the orphaned-frame reaper reset a successful frame to
+     * WAITING to be re-rendered. Otherwise the report is stale and is ignored.
+     *
+     * Two guards keep this safe: the "no proc assigned" check ensures we never stop a frame a newer
+     * proc has since picked up, and stopFrame is version-fenced so a concurrent reset/rebook
+     * between our read and our write results in a no-op rather than clobbering the live run.
+     *
+     * @param report
+     */
+    private void finalizeOrphanedFrameComplete(FrameCompleteReport report) {
+        final DispatchFrame frame;
+        final FrameDetail frameDetail;
+        final DispatchJob job;
+        final LayerDetail layer;
+        try {
+            frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+            frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+            job = jobManager.getDispatchJob(frame.getJobId());
+            layer = jobManager.getLayerDetail(frame.getLayerId());
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("Dropping frame complete report for " + report.getFrame().getFrameName()
+                    + "; proc and frame/job/layer no longer exist.");
+            return;
+        }
+
+        if (!frame.state.equals(FrameState.RUNNING)) {
+            logger.info("Ignoring stale frame complete report for " + frame.getName()
+                    + "; frame is no longer RUNNING (" + frame.state + ").");
+            return;
+        }
+
+        /*
+         * If a proc currently owns this frame, a newer run has already picked it up; this report is
+         * from a superseded run and must not stop the live frame.
+         */
+        try {
+            hostManager.findVirtualProc(frame);
+            logger.info("Ignoring superseded frame complete report for " + frame.getName()
+                    + "; frame is now assigned to another proc.");
+            return;
+        } catch (EmptyResultDataAccessException e) {
+            // No proc owns the frame: it is genuinely orphaned, proceed with finalizing it.
+        }
+
+        int exitStatus = resolveExitStatus(report, frameDetail);
+        final FrameState newFrameState =
+                determineFrameState(job, layer, frame, report, frameDetail);
+
+        if (!dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
+                report.getFrame().getMaxRss())) {
+            logger.info("Orphaned frame " + frame.getName()
+                    + " was already finalized by another thread (version changed).");
+            return;
+        }
+
+        logger.info("Finalized orphaned frame " + frame.getName() + " (proc was gone) to state "
+                + newFrameState + ".");
+
+        final String key = job.getJobId() + "_" + report.getFrame().getLayerId() + "_"
+                + report.getFrame().getFrameId();
+        if (dispatcher.isTestMode()) {
+            handleOrphanedPostFrameComplete(report, job, frame, newFrameState);
+        } else {
+            queueDispatchTask(key, "handleOrphanedPostFrameComplete",
+                    () -> handleOrphanedPostFrameComplete(report, job, frame, newFrameState));
+        }
+    }
+
+    /**
+     * Post-completion work for a frame finalized without a proc (see
+     * {@link #finalizeOrphanedFrameComplete}). Covers only the proc-independent steps: usage
+     * counters, dependency satisfaction, layer/job completion and layer optimization. Proc-specific
+     * steps (unbook/rebook, memory growth, and Kafka events that require the proc) are
+     * intentionally skipped since there is no proc to act on. In particular, a memory-failure frame
+     * finalized here does not get its layer minimum memory raised, because the increase is based on
+     * the memory the proc had reserved; the frame still auto-retries, just at the same memory
+     * reservation.
+     */
+    private void handleOrphanedPostFrameComplete(FrameCompleteReport report, DispatchJob job,
+            DispatchFrame frame, FrameState newFrameState) {
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
+        }
+
+        dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+
+        satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState);
+    }
+
+    /**
+     * Proc-independent frame-completion bookkeeping shared by the normal and orphaned paths:
+     * satisfies frame- and layer-level dependencies, optimizes the layer's resource requirements on
+     * success, and shuts the job down once it has fully completed. Proc-dependent work (usage
+     * counters, unbook/rebook, memory growth, and Kafka/Prometheus telemetry) is intentionally left
+     * to the callers.
+     *
+     * @return whether the frame's layer is now complete, so a caller can run any additional
+     *         layer-completion side effects it owns.
+     */
+    private boolean satisfyDependsAndCompleteLayerAndJob(DispatchJob job, DispatchFrame frame,
+            FrameCompleteReport report, FrameState newFrameState) {
+        boolean isLayerComplete = false;
+
+        if (newFrameState.equals(FrameState.SUCCEEDED)
+                || (!satisfyDependOnlyOnFrameSuccess && newFrameState.equals(FrameState.EATEN))) {
+            satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(frame),
+                    "frame " + frame.getName() + " (id=" + frame.getFrameId() + ")", job.getName(),
+                    job.getJobId());
+
+            isLayerComplete = jobManager.isLayerComplete(frame);
+            if (isLayerComplete) {
+                satisfyDependsWithRetry(
+                        () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame),
+                        "layer " + frame.getLayerId(), job.getName(), job.getJobId());
+            }
+        }
+
+        if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+            /*
+             * If the layer meets some specific criteria then try to update the minimum memory and
+             * tags so it can run on a wider variety of cores, namely older hardware.
+             */
+            jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                    report.getFrame().getMaxRss(), report.getRunTime());
+        }
+
+        /*
+         * The final frame can either be Succeeded or Eaten. If you only check if the frame is
+         * Succeeded before doing an isJobComplete check, then jobs that finish with the auto-eat
+         * flag enabled will not leave the cue.
+         */
+        if (newFrameState.equals(FrameState.SUCCEEDED) || newFrameState.equals(FrameState.EATEN)) {
+            if (jobManager.isJobComplete(job)) {
+                job.state = JobState.FINISHED;
+                jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
+            }
+        }
+
+        return isLayerComplete;
+    }
+
+    /**
+     * Selects the exit status to record for a completed frame.
+     *
+     * This retouch covers the Cuebot-initiated memory kill path
+     * ({@link com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrameMemory}, driven by
+     * {@link HostReportHandler}). There, Cuebot asks rqd to kill the frame via a generic kill
+     * request, so rqd reports it as an ordinary termination (e.g. SIGTERM/SIGKILL), not as a memory
+     * failure. To preserve the memory-kill intent across the report, Cuebot stores
+     * {@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} on the frame before sending the kill; this
+     * retouch makes that stored status win over whatever rqd reports so the frame can be
+     * auto-retried with raised memory. When the stored status is present it wins, otherwise the
+     * status reported by rqd is used.
+     *
+     * Note: rqd-initiated OOM kills are a separate path and do NOT rely on this retouch. When rqd's
+     * own memory-pressure logic kills a frame, it reports
+     * exit_signal={@link Dispatcher#EXIT_STATUS_MEMORY_FAILURE} directly, which the memory-retry
+     * logic picks up from the report (see {@link #determineFrameState} and
+     * {@link #isMemoryFailure(FrameCompleteReport)}).
+     */
+    public static int resolveExitStatus(FrameCompleteReport report, FrameDetail frameDetail) {
+        if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+            return frameDetail.exitStatus;
+        }
+        return report.getExitStatus();
+    }
+
+    /**
      * Determines the new FrameState for a frame based on values contained in the
-     * FrameCompleteReport
+     * FrameCompleteReport.
      *
      * If the frame is Waiting or Eaten, then it was manually set to that status before the frame
      * was killed. In that case whatever the current state in the DB is the one we want to use.
      *
-     * If the frame status is dead or the frame.exitStatus is a non-zero value, and the frame has
-     * been retried job.maxRetries times, then the frame is Dead. If the frame has an exit status of
-     * 256, that is a non-retry status, the frame is dead.
+     * A frame already marked Dead reached max retries and moves on as Eaten (with auto-eat) or
+     * Depend. A zero exit status means the frame Succeeded.
      *
-     * Assuming the two previous checks are not true, then a non-zero exit status sets the frame
-     * back to Waiting, while a zero status sets the frame to Succeeded.
+     * For a non-zero exit status, the frame goes back to Waiting for a retry unless it is out of
+     * retries or timed out, in which case it is Dead, or the job has auto-eat enabled, in which
+     * case it is Eaten. Skip-retry frames, frames killed by a NIMBY lock, and memory failures
+     * (reported by rqd or stored on the frame by a Cuebot-initiated memory kill, see
+     * {@link #resolveExitStatus}) are retried even when the retry count is exhausted.
      *
      * @param job
+     * @param layer
      * @param frame
      * @param report
+     * @param frameDetail
      * @return
      */
     public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer,
-            DispatchFrame frame, FrameCompleteReport report) {
-
+            DispatchFrame frame, FrameCompleteReport report, FrameDetail frameDetail) {
         if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(frame.state)) {
             return frame.state;
         }
-        // Checks for frames that have reached max retries.
-        else if (frame.state.equals(FrameState.DEAD)) {
-            if (job.autoEat) {
-                return FrameState.EATEN;
-            } else {
-                return FrameState.DEPEND;
-            }
-        } else if (report.getExitStatus() != 0) {
-
-            long r = System.currentTimeMillis() / 1000;
-            long lastUpdate = (r - report.getFrame().getLluTime()) / 60;
-
-            FrameState newState = FrameState.WAITING;
-            if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
-                    || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
-                report = FrameCompleteReport.newBuilder(report)
-                        .setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
-                newState = FrameState.WAITING;
-            } else if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE
-                    || report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE)
-                    && (frame.retries < job.maxRetries)) {
-                // exemption code 256
-                report = FrameCompleteReport.newBuilder(report)
-                        .setExitStatus(report.getExitStatus()).build();
-                newState = FrameState.WAITING;
-            } else if (report.getHost().getNimbyLocked() && report.getExitSignal() == 15) {
-                // If frame got killed because the host was nimby locked,
-                // retry even if retry count is higher than maxretrycount
-                newState = FrameState.WAITING;
-            } else if (job.autoEat) {
-                newState = FrameState.EATEN;
-                // ETC Time out and LLU timeout
-            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0
-                    && lastUpdate > (layer.timeout_llu - 1)) {
-                newState = FrameState.DEAD;
-            } else if (layer.timeout != 0 && report.getRunTime() > layer.timeout * 60) {
-                newState = FrameState.DEAD;
-            } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
-                newState = FrameState.DEAD;
-            } else if (frame.retries >= job.maxRetries) {
-                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                        || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE))
-                    newState = FrameState.DEAD;
-            }
-
-            return newState;
-        } else {
+        if (frame.state.equals(FrameState.DEAD)) {
+            return job.autoEat ? FrameState.EATEN : FrameState.DEPEND;
+        }
+        if (report.getExitStatus() == 0) {
             return FrameState.SUCCEEDED;
         }
+
+        if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
+                || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
+            return FrameState.WAITING;
+        }
+        if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE
+                || report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE)
+                && frame.retries < job.maxRetries) {
+            return FrameState.WAITING;
+        }
+        if (report.getHost().getNimbyLocked() && report.getExitSignal() == 15) {
+            // The frame was killed by a NIMBY lock; retry even past the max retry count.
+            return FrameState.WAITING;
+        }
+        if (job.autoEat) {
+            return FrameState.EATEN;
+        }
+
+        // Log update (LLU) and run time timeouts.
+        long minutesSinceLogUpdate =
+                (System.currentTimeMillis() / 1000 - report.getFrame().getLluTime()) / 60;
+        if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0
+                && minutesSinceLogUpdate > (layer.timeout_llu - 1)) {
+            return FrameState.DEAD;
+        }
+        if (layer.timeout != 0 && report.getRunTime() > layer.timeout * 60) {
+            return FrameState.DEAD;
+        }
+        if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
+            return FrameState.DEAD;
+        }
+
+        if (frame.retries >= job.maxRetries && !isMemoryFailure(report, frameDetail)) {
+            return FrameState.DEAD;
+        }
+        return FrameState.WAITING;
     }
 
     /**
      * Retries a dependency satisfaction operation up to DEPEND_MAX_RETRIES times with exponential
      * backoff (100ms, 200ms, 400ms).
      *
-     * Dependency satisfaction is critical — a transient failure (e.g. connection pool exhaustion)
+     * Dependency satisfaction is critical: a transient failure (e.g. connection pool exhaustion)
      * can leave downstream frames permanently stuck in DEPEND state.
      */
     private void satisfyDependsWithRetry(Runnable operation, String entityDesc, String jobName,
@@ -733,6 +897,27 @@ public class FrameCompleteHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
+     * asynchronously to avoid blocking the dispatch thread.
+     */
+    private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
+            FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
+        // Record Prometheus metrics for frame completion
+        if (prometheusMetrics != null) {
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
+        }
+
+        // Publish to Kafka if enabled
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
+                frameDetail.state, frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 
     public boolean isShutdown() {
@@ -812,16 +997,16 @@ public class FrameCompleteHandler {
         return localDispatcher;
     }
 
+    public void setLocalDispatcher(Dispatcher localDispatcher) {
+        this.localDispatcher = localDispatcher;
+    }
+
     public Dispatcher getSlotDispatcher() {
         return slotDispatcher;
     }
 
     public void setSlotDispatcher(Dispatcher slotDispatcher) {
         this.slotDispatcher = slotDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
     }
 
     public BookingManager getBookingManager() {
@@ -833,11 +1018,11 @@ public class FrameCompleteHandler {
     }
 
     public JmsMover getJmsMover() {
-        return jsmMover;
+        return jmsMover;
     }
 
-    public void setJmsMover(JmsMover jsmMover) {
-        this.jsmMover = jsmMover;
+    public void setJmsMover(JmsMover jmsMover) {
+        this.jmsMover = jmsMover;
     }
 
     public WhiteboardDao getWhiteboardDao() {
@@ -883,26 +1068,4 @@ public class FrameCompleteHandler {
     public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
         this.prometheusMetrics = prometheusMetrics;
     }
-
-    /**
-     * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
-     * asynchronously to avoid blocking the dispatch thread.
-     */
-    private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
-            FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
-        // Record Prometheus metrics for frame completion
-        if (prometheusMetrics != null) {
-            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
-        }
-
-        // Publish to Kafka if enabled
-        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
-            return;
-        }
-
-        FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
-                frameDetail.state, frame, proc);
-        kafkaEventPublisher.publishFrameEvent(event);
-    }
-
 }

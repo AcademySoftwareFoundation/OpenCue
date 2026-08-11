@@ -40,7 +40,10 @@ use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
 use crate::system::OOM_REASON_MSG;
-use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
+use crate::{
+    frame::frame_cmd::FrameCmdBuilder,
+    system::manager::{HostMemSnapshot, PeerMem, ProcessStats},
+};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
@@ -50,7 +53,83 @@ use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
 use super::logging::{FrameLogger, FrameLoggerBuilder};
-use crate::config::RunnerConfig;
+use crate::config::{CompiledExitStatusRule, RunnerConfig};
+
+/// Maximum number of bytes read from the tail of a frame log when scanning for
+/// exit-status-override patterns. Bounds the IO regardless of the configured line count so a
+/// pathologically large log can never be read in full.
+const LOG_SCAN_MAX_BYTES: u64 = 1024 * 1024; // 1 MiB
+
+/// Granularity of the backward tail read in [`read_last_lines`]. The tail is read in chunks of
+/// this size, newest-first, stopping as soon as enough line breaks have been seen — so a typical
+/// scan touches only one chunk instead of the full [`LOG_SCAN_MAX_BYTES`] cap. Sized so the
+/// default 50-line tail of a frame log (~4 KiB, including the multi-line process footer) fits in
+/// a single read with headroom.
+const LOG_SCAN_CHUNK_BYTES: u64 = 16 * 1024; // 16 KiB
+
+/// Returns the `(name, exit_status)` of the first rule that matches anywhere in `log_tail`.
+fn match_exit_status_rules(
+    log_tail: &str,
+    rules: &[CompiledExitStatusRule],
+) -> Option<(String, i32)> {
+    rules
+        .iter()
+        .find(|rule| rule.regex.is_match(log_tail))
+        .map(|rule| (rule.name.clone(), rule.exit_status))
+}
+
+/// Reads up to `max_lines` from the end of `path`, reading at most [`LOG_SCAN_MAX_BYTES`] from
+/// the tail. When the byte cap truncates mid-line, the leading partial line is dropped so a
+/// rule can't match against half a line. (Consequence of that cap: a single trailing line
+/// longer than [`LOG_SCAN_MAX_BYTES`] is dropped entirely and won't be scanned — acceptable,
+/// since the patterns this feature targets are short diagnostic messages.)
+async fn read_last_lines(path: &str, max_lines: usize) -> Result<Vec<String>> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
+
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .into_diagnostic()
+        .wrap_err_with(|| format!("failed to open {path} for exit-status scan"))?;
+    let size = file.metadata().await.into_diagnostic()?.len();
+
+    // Read the tail backward in fixed-size chunks, stopping once we've seen one more newline than
+    // requested: `max_lines` lines are delimited by `max_lines` newlines, plus one extra whose
+    // trailing partial line is dropped below. `floor` keeps the total read within the byte cap.
+    let want_newlines = max_lines + 1;
+    let floor = size.saturating_sub(LOG_SCAN_MAX_BYTES);
+    let mut buf: Vec<u8> = Vec::new();
+    let mut newlines = 0usize;
+    let mut pos = size;
+    while pos > floor {
+        let chunk = LOG_SCAN_CHUNK_BYTES.min(pos - floor);
+        let chunk_start = pos - chunk;
+        file.seek(SeekFrom::Start(chunk_start))
+            .await
+            .into_diagnostic()?;
+        let mut chunk_buf = vec![0u8; chunk as usize];
+        file.read_exact(&mut chunk_buf).await.into_diagnostic()?;
+        newlines += chunk_buf.iter().filter(|&&b| b == b'\n').count();
+        // Prepend this earlier chunk in front of the tail collected so far.
+        chunk_buf.extend_from_slice(&buf);
+        buf = chunk_buf;
+        pos = chunk_start;
+        if newlines >= want_newlines {
+            break;
+        }
+    }
+    // `pos == 0` means we reached the real start of the file, so the first line is complete and
+    // must be kept. Otherwise the read began mid-file and the leading line is possibly truncated.
+    let at_file_start = pos == 0;
+
+    let text = String::from_utf8_lossy(&buf);
+    let mut lines = text.lines();
+    if !at_file_start {
+        lines.next();
+    }
+    let collected: Vec<String> = lines.map(|line| line.to_string()).collect();
+    let begin = collected.len().saturating_sub(max_lines);
+    Ok(collected[begin..].to_vec())
+}
 
 /// Wrapper around protobuf message RunningFrameInfo
 #[derive(Serialize, Deserialize)]
@@ -63,6 +142,11 @@ pub struct RunningFrame {
     pub log_path: String,
     pub(super) uid: u32,
     pub(super) gid: u32,
+    // The runner config is host-level policy, not per-frame state, and is always replaced from
+    // the live config on recovery (`from_snapshot`). Keeping it out of the snapshot avoids
+    // bloating every snapshot and, because bincode is positional, stops future additions to
+    // RunnerConfig from breaking the layout of previously written snapshots.
+    #[serde(skip)]
     pub(super) config: RunnerConfig,
     pub thread_ids: Option<Vec<u32>>,
     pub gpu_list: Option<Vec<u32>>,
@@ -77,6 +161,12 @@ pub struct RunningFrame {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     stats_frozen: AtomicBool,
+    /// Latest host-wide memory distribution, refreshed each monitor cycle. Read by the log
+    /// footer of a failing frame to expose potential memory starvation from co-tenants.
+    /// Transient host state, never persisted in frame snapshots.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    latest_host_mem_snapshot: RwLock<Option<Arc<HostMemSnapshot>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -208,6 +298,7 @@ impl RunningFrame {
             })),
             dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
+            latest_host_mem_snapshot: RwLock::new(None),
         }
     }
 
@@ -513,6 +604,74 @@ impl RunningFrame {
         "bat"
     }
 
+    /// Returns the kill reason if RQD has requested this (still-running) frame be killed.
+    fn kill_reason(&self) -> Option<String> {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+        match &*state {
+            FrameState::Running(running_state) => running_state.kill_reason.clone(),
+            _ => None,
+        }
+    }
+
+    /// Scans the tail of the frame log for configured `log_exit_status_rules` and returns an
+    /// override exit status when one matches.
+    ///
+    /// Only failed frames are scanned (`exit_code != 0`), so a successful frame is never
+    /// reclassified. Any error like a missing/unreadable log, a Loki-only frame with no local
+    /// log file is treated as "no override" and never blocks or fails frame completion.
+    ///
+    /// On a match returns the matching rule's name alongside the override status, so the caller
+    /// can record the reclassification in the frame log for artists debugging the frame.
+    pub(super) async fn scan_log_for_exit_status_override(
+        &self,
+        exit_code: i32,
+    ) -> Option<(String, i32)> {
+        // A successful frame keeps its status; only failures are reinterpreted.
+        if exit_code == 0 {
+            return None;
+        }
+        if self.config.log_exit_status_rules.is_empty() || self.config.log_scan_last_lines == 0 {
+            return None;
+        }
+        // If RQD itself killed this frame (OOM, NIMBY, timeout, manual kill), that reason is
+        // authoritative and drives its own retry semantics (e.g. OOM -> exit_signal 33). Don't
+        // let an incidental log-pattern match reclassify it and hide why the frame really died.
+        if self.kill_reason().is_some() {
+            return None;
+        }
+        // Loki-backed frames don't write a local log file, so there is nothing to scan.
+        if !self.request.loki_url.is_empty() {
+            return None;
+        }
+        let compiled = self.config.compiled_exit_status_rules();
+        if compiled.is_empty() {
+            return None;
+        }
+
+        let lines = match read_last_lines(&self.log_path, self.config.log_scan_last_lines).await {
+            Ok(lines) => lines,
+            Err(err) => {
+                warn!(
+                    "Frame {}: skipping exit-status log scan, could not read {}: {}",
+                    self, self.log_path, err
+                );
+                return None;
+            }
+        };
+
+        let log_tail = lines.join("\n");
+        match match_exit_status_rules(&log_tail, compiled) {
+            Some((name, exit_status)) => {
+                info!(
+                    "Frame {}: log matched rule '{}'; overriding exit status {} -> {}",
+                    self, name, exit_code, exit_status
+                );
+                Some((name, exit_status))
+            }
+            None => None,
+        }
+    }
+
     /// Runs the frame as a subprocess.
     ///
     /// This method is the main entry point for executing a frame. It:
@@ -546,6 +705,20 @@ impl RunningFrame {
         };
         let was_spawned = match output {
             Ok((exit_code, exit_signal)) => {
+                // Reclassify known failures (e.g. license shortages) before persisting the
+                // finished state, so both the footer and the report to Cuebot see the override.
+                let exit_code = match self.scan_log_for_exit_status_override(exit_code).await {
+                    Some((name, override_code)) => {
+                        // Record the reclassification in the frame log itself; otherwise the
+                        // footer would show only the overridden status and the original exit
+                        // code the process actually returned would appear nowhere artists look.
+                        logger.writeln(&format!(
+                            "Exit status {exit_code} overridden to {override_code} by rule '{name}'"
+                        ));
+                        override_code
+                    }
+                    None => exit_code,
+                };
                 if let Err(err) = self.finish(exit_code, exit_signal, None) {
                     error!("Failed to mark frame {} as finished. {}", self, err);
                 }
@@ -1257,6 +1430,8 @@ impl RunningFrame {
         frame.config = config;
         // Initialize stats_frozen (skipped during deserialization)
         frame.stats_frozen = AtomicBool::new(false);
+        // Initialize host mem snapshot (skipped during deserialization)
+        frame.latest_host_mem_snapshot = RwLock::new(None);
 
         let pid = frame.pid();
 
@@ -1388,6 +1563,14 @@ Environment Variables:
                     })
                     .unwrap_or("".to_string());
 
+                // Only failed frames get the host memory distribution, to keep it a
+                // diagnostic signal rather than noise on every successful frame.
+                let host_mem_section = if exit_status != 0 {
+                    self.render_host_mem_distribution(finished_state.end_time)
+                } else {
+                    String::new()
+                };
+
                 format!(
                     r#"
 
@@ -1402,7 +1585,7 @@ maxUsedGpuMemory    {max_gpu_memory}
 runTime             {run_time}
 
 Processes:
-{children}
+{children}{host_mem_section}
 ===================================================================================================="#
                 )
             }
@@ -1503,6 +1686,132 @@ Render Frame Completed
     pub fn freeze_stats(&self) {
         self.stats_frozen.store(true, Ordering::SeqCst);
     }
+
+    /// Stores the latest host-wide memory snapshot, shared from the monitor loop.
+    ///
+    /// The same `Arc` is pushed into every running frame each monitor cycle so that a
+    /// failing frame's footer can render the host memory distribution without touching
+    /// the machine singleton or any global lock on the failure path.
+    pub fn set_host_mem_snapshot(&self, snapshot: Arc<HostMemSnapshot>) {
+        let mut lock = self
+            .latest_host_mem_snapshot
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *lock = Some(snapshot);
+    }
+
+    /// Builds this frame's contribution to the host memory snapshot from its current stats.
+    ///
+    /// Memory values are in bytes. `reserved` is `None` when the frame declares no soft
+    /// memory limit, in which case it is never flagged as overusing memory.
+    pub fn to_peer_mem(&self) -> PeerMem {
+        let stats = self
+            .frame_stats
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let reserved = if self.request.soft_memory_limit > 0 {
+            Some(self.request.soft_memory_limit as u64)
+        } else {
+            None
+        };
+        PeerMem {
+            frame_id: self.frame_id,
+            label: format!("{}.{}", self.request.job_name, self.request.frame_name),
+            current_rss: stats.rss,
+            max_rss: stats.max_rss,
+            reserved,
+        }
+    }
+
+    /// Renders the host memory distribution block for the footer of a failed frame.
+    ///
+    /// Lists co-tenant frames (top 15 by current RSS) with current/peak session RSS and
+    /// their reservation, flagging any frame using more than it reserved. Helps pinpoint
+    /// whether the frame may have been starved by a memory-overusing neighbor.
+    ///
+    /// This frame's own row is always shown, even when 15 other frames outrank it by
+    /// current RSS: in that case it takes the last displayed slot.
+    fn render_host_mem_distribution(&self, end_time: SystemTime) -> String {
+        const TOP_N: usize = 15;
+        // Bytes -> GiB as a float, for compact human-readable sizes.
+        let gib = |bytes: u64| bytes as f64 / bytesize::GIB as f64;
+
+        let snapshot = self
+            .latest_host_mem_snapshot
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+
+        let snapshot = match snapshot {
+            Some(snapshot) => snapshot,
+            None => {
+                return "\n\nHost Memory Distribution: unavailable (no sample captured)".to_string()
+            }
+        };
+
+        // Snapshot was captured before the frame exited; guard against clock skew.
+        let age_secs = end_time
+            .duration_since(snapshot.captured_at)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let mut out = format!(
+            "\n\nHost Memory Distribution   (captured {age_secs}s before exit)\n\
+             host: {:.1} GiB total, {:.1} GiB available\n\
+             \x20  RSS now |    peak  | reserved |\n",
+            gib(snapshot.total_memory),
+            gib(snapshot.available_memory),
+        );
+
+        // Display the top-N peers by current RSS, but always keep this frame's own row:
+        // if it falls outside the natural top-N, reserve the last slot for it. Peers are
+        // already sorted by current RSS descending, so appending self preserves ordering.
+        let self_pos = snapshot
+            .peers
+            .iter()
+            .position(|peer| peer.frame_id == self.frame_id);
+        let display: Vec<&PeerMem> = match self_pos {
+            Some(pos) if pos >= TOP_N => {
+                let mut peers: Vec<&PeerMem> = snapshot.peers.iter().take(TOP_N - 1).collect();
+                peers.push(&snapshot.peers[pos]);
+                peers
+            }
+            _ => snapshot.peers.iter().take(TOP_N).collect(),
+        };
+
+        for peer in display {
+            let reserved_str = match peer.reserved {
+                Some(reserved) => format!("{:.1}G", gib(reserved)),
+                None => "—".to_string(),
+            };
+            let over_flag = match peer.reserved {
+                Some(reserved) if peer.current_rss > reserved => {
+                    format!("OVER +{:.1}G", gib(peer.current_rss - reserved))
+                }
+                _ => String::new(),
+            };
+            let self_marker = if peer.frame_id == self.frame_id {
+                " ◀ this frame"
+            } else {
+                ""
+            };
+            out.push_str(&format!(
+                "  {:>7} {:>8} {:>8}   {:<12} {}{}\n",
+                format!("{:.1}G", gib(peer.current_rss)),
+                format!("{:.1}G", gib(peer.max_rss)),
+                reserved_str,
+                over_flag,
+                peer.label,
+                self_marker,
+            ));
+        }
+
+        if snapshot.peers.len() > TOP_N {
+            out.push_str(&format!("  … +{} more\n", snapshot.peers.len() - TOP_N));
+        }
+
+        out.trim_end().to_string()
+    }
 }
 
 #[cfg(test)]
@@ -1512,11 +1821,11 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    use crate::config::Config;
+    use crate::config::{compile_exit_status_rules, Config, LogExitStatusRule, RunnerConfig};
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
-    use super::RunningFrame;
+    use super::{match_exit_status_rules, read_last_lines, RunningFrame, LOG_SCAN_MAX_BYTES};
 
     fn create_running_frame(
         command: &str,
@@ -1524,11 +1833,25 @@ mod tests {
         uid: u32,
         environment: HashMap<String, String>,
     ) -> RunningFrame {
+        create_running_frame_cfg(command, num_cores, uid, environment, "", |_| {})
+    }
+
+    /// Like [`create_running_frame`], but allows setting a Loki URL and mutating the runner
+    /// config (e.g. to install `log_exit_status_rules`) before the frame is built.
+    fn create_running_frame_cfg<F: FnOnce(&mut RunnerConfig)>(
+        command: &str,
+        num_cores: u32,
+        uid: u32,
+        environment: HashMap<String, String>,
+        loki_url: &str,
+        configure: F,
+    ) -> RunningFrame {
         let frame_id = Uuid::new_v4().to_string();
         let general_config = Config::default();
         general_config.setup().unwrap();
         let mut config = general_config.runner;
         config.run_as_user = false;
+        configure(&mut config);
 
         RunningFrame::init(
             RunFrame {
@@ -1556,7 +1879,7 @@ mod tests {
                 soft_memory_limit: 0,
                 hard_memory_limit: 0,
                 pid: 0,
-                loki_url: "".to_string(),
+                loki_url: loki_url.to_string(),
                 slots_required: 0,
 
                 #[allow(deprecated)]
@@ -1578,6 +1901,225 @@ mod tests {
             "localhost".to_string(),
             1,
         )
+    }
+
+    /// Builds a frame whose runner config has a single license-error rule (exit status 330) and
+    /// writes `log_contents` to a unique log file, ready for a scan. The frame's `log_path` is
+    /// repointed at that file so parallel tests never collide on the derived path.
+    fn frame_with_license_rule(loki_url: &str, log_contents: &str) -> RunningFrame {
+        let mut frame = create_running_frame_cfg("false", 1, 1, HashMap::new(), loki_url, |cfg| {
+            cfg.log_scan_last_lines = 50;
+            cfg.log_exit_status_rules = vec![rule(
+                "HOUDINI_LICENSE_ERROR",
+                "A usable license to run the application is installed but they are all in use",
+                330,
+            )];
+        });
+        let log_file = std::env::temp_dir().join(format!("rqd_scan_test_{}.rqlog", Uuid::new_v4()));
+        std::fs::write(&log_file, log_contents).unwrap();
+        frame.log_path = log_file.to_string_lossy().to_string();
+        frame
+    }
+
+    const LICENSE_LOG: &str = "\
+[12:40:13] Some earlier unrelated output
+[12:40:13] A usable license to run the application is installed but they are all in use.
+[12:40:13] Please contact your companies license administrator to create availability
+[12:40:14] Process completed with exit status: 3
+";
+
+    fn rule(name: &str, regex: &str, exit_status: i32) -> LogExitStatusRule {
+        LogExitStatusRule {
+            name: name.to_string(),
+            regex: regex.to_string(),
+            exit_status,
+        }
+    }
+
+    #[test]
+    fn test_match_exit_status_rules_first_match_wins() {
+        let rules = compile_exit_status_rules(&[
+            rule("LICENSE", "all in use", 330),
+            rule("GENERIC", "error", 331),
+        ]);
+        // Both patterns are present; the earlier rule in the list must win.
+        let tail = "some error occurred\nlicenses are all in use now";
+        assert_eq!(
+            match_exit_status_rules(tail, &rules),
+            Some(("LICENSE".to_string(), 330))
+        );
+    }
+
+    #[test]
+    fn test_match_exit_status_rules_no_match() {
+        let rules = compile_exit_status_rules(&[rule("LICENSE", "all in use", 330)]);
+        assert_eq!(match_exit_status_rules("frame rendered fine", &rules), None);
+    }
+
+    #[test]
+    fn test_compile_exit_status_rules_skips_invalid_regex() {
+        // The middle rule has an invalid pattern and must be dropped without failing the rest.
+        let compiled = compile_exit_status_rules(&[
+            rule("GOOD", "valid", 1),
+            rule("BAD", "(unclosed", 2),
+            rule("ALSO_GOOD", "also", 3),
+        ]);
+        assert_eq!(compiled.len(), 2);
+        assert_eq!(
+            match_exit_status_rules("also valid", &compiled),
+            Some(("GOOD".to_string(), 1))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_returns_tail() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        for i in 0..100 {
+            writeln!(file, "line {i}").unwrap();
+        }
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 5).await.unwrap();
+        assert_eq!(
+            lines,
+            vec!["line 95", "line 96", "line 97", "line 98", "line 99"]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_fewer_than_requested() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(file, "only line").unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 50).await.unwrap();
+        assert_eq!(lines, vec!["only line"]);
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_matches_license_error() {
+        // End-to-end: the exact license message from a real Houdini failure must match.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        writeln!(file, "[12:40:13] Some earlier unrelated output").unwrap();
+        writeln!(
+            file,
+            "[12:40:13] A usable license to run the application is installed but they are all in use."
+        )
+        .unwrap();
+        writeln!(
+            file,
+            "[12:40:13] Please contact your companies license administrator to create availability"
+        )
+        .unwrap();
+        writeln!(file, "[12:40:14] Process completed with exit status: 3").unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 10).await.unwrap();
+        let tail = lines.join("\n");
+        let rules = compile_exit_status_rules(&[rule(
+            "HOUDINI_LICENSE_ERROR",
+            "A usable license to run the application is installed but they are all in use",
+            330,
+        )]);
+        assert_eq!(
+            match_exit_status_rules(&tail, &rules),
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_spans_multiple_chunks() {
+        // A file far larger than LOG_SCAN_CHUNK_BYTES forces the backward read to walk several
+        // chunks; the tail must still be exact and correctly ordered across chunk boundaries.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        // ~200 bytes/line * 2000 lines ≈ 400 KiB, well beyond the 16 KiB chunk.
+        let filler = "x".repeat(180);
+        for i in 0..2000 {
+            writeln!(file, "line {i:04} {filler}").unwrap();
+        }
+        file.flush().unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 3).await.unwrap();
+        assert_eq!(
+            lines,
+            vec![
+                format!("line 1997 {filler}"),
+                format!("line 1998 {filler}"),
+                format!("line 1999 {filler}"),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_last_lines_respects_byte_cap() {
+        // A single line longer than LOG_SCAN_MAX_BYTES is dropped entirely (its leading partial
+        // is truncated at the floor and discarded), matching the documented cap behavior.
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        let giant = "y".repeat((LOG_SCAN_MAX_BYTES as usize) + 4096);
+        writeln!(file, "{giant}").unwrap();
+        writeln!(file, "short tail line").unwrap();
+        file.flush().unwrap();
+        let path = file.path().to_string_lossy().to_string();
+
+        let lines = read_last_lines(&path, 10).await.unwrap();
+        assert_eq!(lines, vec!["short tail line"]);
+    }
+
+    #[tokio::test]
+    async fn test_scan_returns_none_on_success() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        // exit_code 0 must never trigger a scan/override, regardless of config.
+        assert_eq!(frame.scan_log_for_exit_status_override(0).await, None);
+    }
+
+    #[tokio::test]
+    async fn test_scan_returns_none_without_rules() {
+        // Default config has no rules configured, so a failure yields no override.
+        let frame = create_running_frame("false", 1, 1, HashMap::new());
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+    }
+
+    #[tokio::test]
+    async fn test_scan_overrides_on_license_match() {
+        // End-to-end: a failed frame whose log contains the license message is reclassified.
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        assert_eq!(
+            frame.scan_log_for_exit_status_override(3).await,
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_no_override_when_pattern_absent() {
+        // A failure whose log doesn't match any rule keeps its original exit status.
+        let frame = frame_with_license_rule("", "frame rendered fine\nexit status: 1\n");
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_skips_loki_frames() {
+        // Even with a matching local file, a Loki-backed frame must not be scanned.
+        let frame = frame_with_license_rule("http://loki.example.com", LICENSE_LOG);
+        assert_eq!(frame.scan_log_for_exit_status_override(3).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_skips_killed_frames() {
+        // A frame RQD killed keeps its kill-driven classification, even if the log matches.
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        frame.start(12345);
+        frame.get_pid_to_kill("manual kill").unwrap();
+        assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
     }
 
     #[tokio::test]
@@ -1721,6 +2263,227 @@ mod tests {
         if let Ok(status) = running_frame.read_exit_file().await {
             assert_eq!((0, None), status);
         }
+    }
+
+    fn set_test_snapshot(frame: &RunningFrame, include_self: bool, extra_peers: usize) {
+        use crate::system::manager::{HostMemSnapshot, PeerMem};
+        use std::sync::Arc;
+        use std::time::SystemTime;
+
+        let gib = bytesize::GIB;
+        let mut peers = vec![
+            // Over-reserved co-tenant: biggest current RSS, should top the list + be flagged.
+            PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: "bigshow-sq010.comp_v3".to_string(),
+                current_rss: 180 * gib,
+                max_rss: 190 * gib,
+                reserved: Some(16 * gib),
+            },
+            // Innocent whale: within its reservation, no flag.
+            PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: "bigshow-sq010.light_v1".to_string(),
+                current_rss: 58 * gib,
+                max_rss: 60 * gib,
+                reserved: Some(60 * gib),
+            },
+        ];
+        if include_self {
+            // Unreserved frame (soft limit unset) -> reserved shown as dash, never flagged.
+            peers.push(PeerMem {
+                frame_id: frame.frame_id,
+                label: "othershow-sh05.sim".to_string(),
+                current_rss: 40 * gib,
+                max_rss: 41 * gib,
+                reserved: None,
+            });
+        }
+        for i in 0..extra_peers {
+            peers.push(PeerMem {
+                frame_id: Uuid::new_v4(),
+                label: format!("filler.frame_{i}"),
+                current_rss: (1 + i as u64) * gib,
+                max_rss: (1 + i as u64) * gib,
+                reserved: Some(gib),
+            });
+        }
+        peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+
+        frame.set_host_mem_snapshot(Arc::new(HostMemSnapshot {
+            captured_at: SystemTime::now(),
+            total_memory: 512 * gib,
+            available_memory: 8 * gib,
+            peers,
+        }));
+    }
+
+    #[test]
+    fn test_to_peer_mem_maps_stats_and_reservation() {
+        use crate::system::manager::ProcessStats;
+        let gib = bytesize::GIB;
+
+        // Unreserved frame (soft_memory_limit == 0) -> reserved is None.
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.update_frame_stats(ProcessStats {
+            rss: 10 * gib,
+            max_rss: 12 * gib,
+            ..Default::default()
+        });
+        let peer = frame.to_peer_mem();
+        assert_eq!(peer.frame_id, frame.frame_id);
+        assert_eq!(peer.label, "job_name.frame_name");
+        assert_eq!(peer.current_rss, 10 * gib);
+        assert_eq!(peer.max_rss, 12 * gib);
+        assert_eq!(peer.reserved, None);
+
+        // Reserved frame (soft_memory_limit > 0) -> reserved is Some(limit as bytes).
+        let mut reserved_frame = create_running_frame("true", 1, 1, HashMap::new());
+        reserved_frame.request.soft_memory_limit = (8 * gib) as i64;
+        reserved_frame.update_frame_stats(ProcessStats {
+            rss: 4 * gib,
+            max_rss: 5 * gib,
+            ..Default::default()
+        });
+        let reserved_peer = reserved_frame.to_peer_mem();
+        assert_eq!(reserved_peer.reserved, Some(8 * gib));
+        assert_eq!(reserved_peer.current_rss, 4 * gib);
+        assert_eq!(reserved_peer.max_rss, 5 * gib);
+    }
+
+    #[test]
+    fn test_footer_host_mem_on_failure() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        set_test_snapshot(&frame, true, 0);
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("Host Memory Distribution"),
+            "failed frame should render the memory distribution: {footer}"
+        );
+        assert!(
+            footer.contains("512.0 GiB total, 8.0 GiB available"),
+            "host header line missing: {footer}"
+        );
+        // Over-reserved frame (180G used vs 16G reserved) flagged with the overage.
+        assert!(
+            footer.contains("OVER +164.0G"),
+            "over-reservation flag missing/incorrect: {footer}"
+        );
+        // Unreserved self frame: dash for reserved, no OVER, marked as this frame.
+        assert!(footer.contains("—"), "unreserved dash missing: {footer}");
+        assert!(
+            footer.contains("◀ this frame"),
+            "self marker missing: {footer}"
+        );
+        // Innocent whale within reservation is not flagged.
+        assert!(
+            footer.contains("bigshow-sq010.light_v1"),
+            "within-reservation peer missing: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_no_host_mem_on_success() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        set_test_snapshot(&frame, true, 0);
+        frame.finish(0, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            !footer.contains("Host Memory Distribution"),
+            "successful frame must not render the memory distribution: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_host_mem_unavailable() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        // No snapshot set.
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("Host Memory Distribution: unavailable (no sample captured)"),
+            "missing-snapshot case should be reported: {footer}"
+        );
+    }
+
+    #[test]
+    fn test_footer_host_mem_top_n_cap() {
+        let frame = create_running_frame("true", 1, 1, HashMap::new());
+        frame.start(1234);
+        // 2 base peers + self + 16 fillers = 19 peers, cap is 15 -> "+4 more".
+        set_test_snapshot(&frame, true, 16);
+        frame.finish(1, None, None).unwrap();
+
+        let footer = frame.write_footer();
+
+        assert!(
+            footer.contains("… +4 more"),
+            "top-N truncation summary missing/incorrect: {footer}"
+        );
+
+        // Now the case where 15 peers all outrank this frame by current RSS: the self
+        // row must still be shown, taking the last displayed slot, displacing the
+        // lowest-RSS non-self peer from the top-15.
+        let outranked = create_running_frame("true", 1, 1, HashMap::new());
+        outranked.start(1234);
+        {
+            use crate::system::manager::{HostMemSnapshot, PeerMem};
+            use std::sync::Arc;
+            use std::time::SystemTime;
+
+            let gib = bytesize::GIB;
+            let mut peers: Vec<PeerMem> = (0..15)
+                .map(|i| PeerMem {
+                    frame_id: Uuid::new_v4(),
+                    label: format!("bigshow.frame_{i}"),
+                    current_rss: (100 + i as u64) * gib, // all above self's 40G
+                    max_rss: (100 + i as u64) * gib,
+                    reserved: Some(200 * gib),
+                })
+                .collect();
+            peers.push(PeerMem {
+                frame_id: outranked.frame_id,
+                label: "othershow.sim".to_string(),
+                current_rss: 40 * gib,
+                max_rss: 41 * gib,
+                reserved: None,
+            });
+            peers.sort_by(|a, b| b.current_rss.cmp(&a.current_rss));
+            outranked.set_host_mem_snapshot(Arc::new(HostMemSnapshot {
+                captured_at: SystemTime::now(),
+                total_memory: 512 * gib,
+                available_memory: 8 * gib,
+                peers,
+            }));
+        }
+        outranked.finish(1, None, None).unwrap();
+
+        let footer = outranked.write_footer();
+        assert!(
+            footer.contains("◀ this frame"),
+            "self row must be retained even when outside the natural top-15: {footer}"
+        );
+        // 16 peers, 15 displayed (14 top + self) -> exactly one hidden.
+        assert!(
+            footer.contains("… +1 more"),
+            "hidden count should be '+1 more' with self reserved: {footer}"
+        );
+        // The displaced peer is the lowest-RSS non-self one (frame_0 @ 100G); it must
+        // not be displayed, proving self took a reserved slot rather than a 16th row.
+        assert!(
+            !footer.contains("bigshow.frame_0"),
+            "lowest non-self peer should be hidden to make room for self: {footer}"
+        );
     }
 
     #[test]

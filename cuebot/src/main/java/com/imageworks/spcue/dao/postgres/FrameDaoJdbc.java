@@ -435,13 +435,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     // spotless:off
     public static final String FIND_ORPHANED_FRAMES =
             "SELECT "
-                + "frame.pk_frame, "
-                + "frame.pk_layer, "
-                + "frame.str_name, "
-                + "frame.int_version, "
-                + "job.pk_job, "
-                + "job.pk_show, "
-                + "job.pk_facility "
+                + "frame.*, "
+                + "job.pk_show "
             + "FROM "
                 + "frame, "
                 + "job "
@@ -449,12 +444,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + "AND frame.str_state = 'RUNNING' "
             + "AND job.str_state = 'PENDING' "
             + "AND (SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 "
-            + "AND current_timestamp - frame.ts_updated > interval '300' second";
+            + "AND current_timestamp - frame.ts_updated > interval '300' second "
+            + "ORDER BY frame.ts_updated ASC, frame.pk_frame ASC "
+            + "LIMIT ?";
     // spotless:on
 
     @Override
-    public List<FrameInterface> getOrphanedFrames() {
-        return getJdbcTemplate().query(FIND_ORPHANED_FRAMES, FRAME_MAPPER);
+    public List<FrameDetail> getOrphanedFrames(int limit) {
+        return getJdbcTemplate().query(FIND_ORPHANED_FRAMES, FRAME_DETAIL_MAPPER, limit);
     }
 
     // spotless:off
