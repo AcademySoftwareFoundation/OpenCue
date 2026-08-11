@@ -102,7 +102,8 @@ def render_host(name, cores, mem_kb, free_mem_kb, total_swap_kb, free_swap_kb,
         total_mcp=100 * spec.GB_KB, free_mcp=100 * spec.GB_KB,
         num_gpus=gpus, total_gpu_mem=gpu_mem_kb, free_gpu_mem=free_gpu_mem_kb,
         load=0, boot_time=1, nimby_enabled=False,
-        state=host_pb2.UP, tags=spec.host_tags(name))
+        state=host_pb2.UP, tags=spec.host_tags(name),
+        attributes=spec.os_attrs())
 
 
 def frame_info(rec, rss_kb, used_swap_kb, now):

@@ -44,6 +44,7 @@ public class SchedulerTests {
         h.hostId = "host";
         h.hostName = "host";
         h.pkAlloc = alloc;
+        h.pkFacility = "facility0";
         h.tagsRaw = tags;
         h.os = os;
         h.coresIdle = coresIdle;
@@ -171,6 +172,21 @@ public class SchedulerTests {
 
         assertEquals(1, groups.size());
         assertEquals(2, groups.values().iterator().next().size());
+    }
+
+    @Test
+    public void groupByHostSpecSeparatesFacility() {
+        // The candidate query binds the group's facility (jobs run only in
+        // their own facility, like the legacy job.pk_facility clause), so the
+        // key must honor it even though in practice facility follows alloc.
+        Scheduler.BookableHost facA = host("a1", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
+        Scheduler.BookableHost facB = host("a1", "t", "Linux", 100, GB, 0, 0, 100, GB, 0, 0);
+        facB.pkFacility = "facility1";
+
+        Map<Scheduler.HostSpecKey, List<Scheduler.BookableHost>> groups =
+                Scheduler.groupByHostSpec(Arrays.asList(facA, facB));
+
+        assertEquals(2, groups.size());
     }
 
     @Test

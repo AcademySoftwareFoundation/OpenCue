@@ -30,7 +30,8 @@ def render_host(name, cores, mem_kb):
         total_swap=8 * spec.GB_KB, free_swap=8 * spec.GB_KB,
         total_mcp=100 * spec.GB_KB, free_mcp=100 * spec.GB_KB,
         load=0, boot_time=1, nimby_enabled=False,
-        state=host_pb2.UP, tags=spec.host_tags(name))
+        state=host_pb2.UP, tags=spec.host_tags(name),
+        attributes=spec.os_attrs())
 
 
 def ping_round(stub, hosts):

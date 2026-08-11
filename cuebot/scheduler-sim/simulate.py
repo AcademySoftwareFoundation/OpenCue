@@ -1132,6 +1132,12 @@ def start_folder_injector(duration):
     spawn(["inject_folder.py", str(duration)], f"{FARM}/inject_folder.log")
 
 
+def start_parity_injector(duration, mode):
+    log(f"starting PARITY injector (archetype battery, mode={mode}, hosts "
+        f"advertise SP_OS='{os.environ.get('SIM_HOST_OS','')}', for {duration}s) ...")
+    spawn(["inject_parity.py", str(duration), mode], f"{FARM}/inject_parity.log")
+
+
 # ------------------------------------------------------- Rust scheduler (rust)
 def start_redis():
     """Start a throwaway Redis for the Rust scheduler's accounting (no
@@ -1457,6 +1463,36 @@ def _verify_check(name, gdir, logp, cblog):
         peak = int(pm.group(1)) if pm else -1
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, f"peak folder running {peak} vs cap {cap} cores"
+    if name in ("PARITY_OLD", "PARITY_NEW"):
+        # inject_parity.py wrote the per-mode booked sets to files that outlive
+        # the scenario teardown; parse both back.
+        def read_sets(mode):
+            try:
+                txt = open(f"/tmp/scheduler-sim/parity_booked_{mode}.txt").read()
+            except Exception:
+                return None, None
+            b = re.search(r"(?m)^booked=(.*)$", txt)
+            n = re.search(r"(?m)^notbooked=(.*)$", txt)
+            split = lambda m: set(x for x in m.group(1).split(",") if x) if m else set()
+            return split(b), split(n)
+        if name == "PARITY_OLD":
+            booked, notbooked = read_sets("old")
+            if booked is None:
+                return False, "no parity result written (injector died?)"
+            # Legacy baseline: everything books EXCEPT the other-facility job.
+            want = {"parity_plain", "parity_os", "parity_alt"}
+            ok = want <= booked and "parity_facother" not in booked
+            return ok, (f"legacy booked {sorted(booked)}; expected {sorted(want)}"
+                        f" and NOT parity_facother")
+        booked_old, _ = read_sets("old")
+        booked_new, _ = read_sets("new")
+        if booked_old is None or booked_new is None:
+            return False, "missing old/new parity result files"
+        old_only = sorted(booked_old - booked_new)
+        new_only = sorted(booked_new - booked_old)
+        ok = not old_only and not new_only
+        return ok, (f"booked sets equal: {sorted(booked_old)}" if ok else
+                    f"DRIFT old-only={old_only} new-only={new_only}")
     if name == "LOCALITY":
         # Refill affinity: freed capacity must be refilled by the same layer.
         # Gate on locality_watch.py's verdict.
@@ -1616,6 +1652,22 @@ def run_verify():
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
         ("FOLDER", ["--hosts", "3,4,10", "--folder-test", str(D)]),
+        # PARITY: the legacy-vs-scheduler eligibility drift detector. The same
+        # archetype battery (plain / os-pinned on multi-OS hosts / tag
+        # alternation / other-facility) runs once under the LEGACY dispatcher
+        # and once under the scheduler; PARITY_OLD gates the legacy baseline
+        # (everything books except the other-facility job), PARITY_NEW fails
+        # on ANY difference between the two booked sets -- a job the old path
+        # renders and the new one starves (or the reverse) can no longer land
+        # silently. --mode old overrides the base's --mode new (last wins).
+        # The feeder runs alongside for two reasons: the per-scenario
+        # throughput floor demands a demonstrably working farm (a dead farm
+        # also "refuses" the other-facility job, proving nothing), and the
+        # archetypes must book UNDER CONTENTION, the way production jobs do.
+        ("PARITY_OLD", ["--hosts", "2,3,5", "--mode", "old",
+                        "--parity-test", str(D), "--feed", str(D)]),
+        ("PARITY_NEW", ["--hosts", "2,3,5", "--parity-test", str(D),
+                        "--feed", str(D)]),
         # LOCALITY: the same-layer locality bonus must steer refills, measured
         # on the FULL farm (1553 hosts, all three host classes) under the
         # standard sustained feed -- the realistic regime, like OOM and
@@ -1904,6 +1956,15 @@ def main():
                          "(folder_resource.int_max_cores) and flood work into it; "
                          "check the scheduler never runs more than the cap. FAILs if "
                          "folder running cores exceed the cap (dept/group core ceiling).")
+    ap.add_argument("--parity-test", type=int, default=0, metavar="SECS",
+                    help="PARITY test: hosts advertise a multi-OS SP_OS "
+                         "(SIM_HOST_OS, default rhel7,rhel9) and inject_parity.py "
+                         "submits one job per eligibility ARCHETYPE (plain, "
+                         "os-pinned, tag-alternation, other-facility); which of "
+                         "them ever book is written per mode. Run once with "
+                         "--mode old and once with --mode new: the verify layer "
+                         "fails if the booked sets differ in EITHER direction -- "
+                         "the legacy-vs-scheduler eligibility drift detector.")
     ap.add_argument("--priority-interval", type=int, default=20, metavar="SECS",
                     help="seconds between PRIORITY_STARVING top-up submissions "
                          "(default 20)")
@@ -1973,6 +2034,13 @@ def main():
         # the requeue path is exercised for real: those frames must come back
         # WAITING with no retry spent, and none may end DEAD.
         os.environ.setdefault("SIM_LIC_DENY_RATE", "0.05")
+
+    # PARITY: hosts must advertise a multi-OS SP_OS BEFORE the farm registers /
+    # pingers spawn (children read SIM_HOST_OS at import, see farm_spec.HOST_OS).
+    # The multi-OS string is the archetype the legacy dispatcher handles by
+    # expanding str_os IN (...) -- exactly the surface the scenario probes.
+    if args.parity_test:
+        os.environ.setdefault("SIM_HOST_OS", "rhel7,rhel9")
 
     # TAGS_GPU: uniform tag demand. farm_spec's default TAG_SKEW (0.3) is a
     # steep, deliberate starvation profile for stranding studies -- cold pools
@@ -2144,6 +2212,8 @@ def main():
         start_license_injector(lic_secs)
     if args.folder_test:
         start_folder_injector(args.folder_test)
+    if args.parity_test:
+        start_parity_injector(args.parity_test, args.mode)
 
     log(f"stack is UP and fresh in {time.time()-t0:.0f}s  "
         f"(mode={args.mode}).")
@@ -2163,7 +2233,7 @@ def main():
              or args.limit_test or args.license_test or args.poison_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
-             or args.stats or args.metrics or args.feed)
+             or args.parity_test or args.stats or args.metrics or args.feed)
     if watch:
         # This run owns the stack for a bounded, watched lifetime: tear it down on
         # a normal exit too (signals always tear down). A non-watch bring-up is
@@ -2200,6 +2270,13 @@ def main():
         csv = f"{graph_dir}/run_folder.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "folder_watch.py", str(args.folder_test), "3"],
                        cwd=FARM, env=dict(os.environ, SIM_FOLDER_CSV=csv))
+    elif args.parity_test:
+        # The injector does the watching (polls bookings, writes the per-mode
+        # result file); the run just has to stay alive for the window.
+        log(f"watching PARITY (archetype battery, mode={args.mode}) for "
+            f"{args.parity_test}s ...")
+        subprocess.run([VENV_PY, "live_stats.py", str(args.parity_test), "5"],
+                       cwd=FARM)
     elif args.locality_test:
         log(f"watching LOCALITY (refill affinity vs floor) for {args.locality_test}s ...")
         csv = f"{graph_dir}/run_locality.csv" if graph_dir else ""

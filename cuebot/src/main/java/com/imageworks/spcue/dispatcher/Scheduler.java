@@ -506,10 +506,11 @@ public class Scheduler extends JdbcDaoSupport {
      * columns to compute the spec key and run the per-host fit check without a second lookup.
      */
     private static final String SELECT_ALL_HOSTS = "SELECT " + "  h.pk_host, " + "  h.str_name, "
-            + "  h.pk_alloc, " + "  h.int_cores, " + "  h.int_cores_idle, " + "  h.int_mem, "
-            + "  h.int_mem_idle, " + "  h.int_gpus, " + "  h.int_gpus_idle, " + "  h.int_gpu_mem, "
-            + "  h.int_gpu_mem_idle, " + "  h.int_procs, " + "  h.str_tags, " + "  hs.str_os "
-            + "FROM host h, host_stat hs " + "WHERE h.pk_host = hs.pk_host "
+            + "  h.pk_alloc, " + "  a.pk_facility, " + "  h.int_cores, " + "  h.int_cores_idle, "
+            + "  h.int_mem, " + "  h.int_mem_idle, " + "  h.int_gpus, " + "  h.int_gpus_idle, "
+            + "  h.int_gpu_mem, " + "  h.int_gpu_mem_idle, " + "  h.int_procs, " + "  h.str_tags, "
+            + "  hs.str_os " + "FROM host h, host_stat hs, alloc a "
+            + "WHERE h.pk_host = hs.pk_host " + "  AND a.pk_alloc = h.pk_alloc "
             + "  AND hs.str_state = 'UP' " + "  AND h.str_lock_state = 'OPEN' ";
 
     /**
@@ -592,8 +593,19 @@ public class Scheduler extends JdbcDaoSupport {
             // candidates or disturb the ranking below.
             + "LEFT JOIN layer_env le ON le.pk_layer = l.pk_layer AND le.str_key = ? "
             + "WHERE  j.str_state = 'PENDING' " + "  AND  j.b_paused  = false "
-            + "  AND  (j.str_os IS NULL OR j.str_os = '' OR j.str_os = ?) "
-            + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
+            // A host may advertise SEVERAL OSes, comma-separated in
+            // host_stat.str_os ("rhel7,rhel9" on mid-migration boxes). The
+            // legacy dispatcher expands that into str_os IN ('rhel7','rhel9');
+            // an exact string compare here silently starved every os-pinned
+            // job on such hosts (the PARITY verify scenario's parity_os
+            // archetype). Match any advertised value, exactly like legacy.
+            + "  AND  (j.str_os IS NULL OR j.str_os = '' "
+            + "        OR j.str_os = ANY(string_to_array(?, ','))) "
+            // Jobs run only in their own facility. The legacy dispatcher binds
+            // job.pk_facility in every job-finding query; without this the
+            // planner books cross-facility (PARITY's parity_facother archetype)
+            // because the frame-level plan read never re-checks facility.
+            + "  AND  j.pk_facility = ? " + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
             + "  AND  jr.int_cores  < jr.int_max_cores " + "  AND  sub.int_cores < sub.int_burst "
             + "  AND  l.int_cores_min <= ? "
             // Dispatchable-frame test AND waiting_frame_count both come from
@@ -648,6 +660,7 @@ public class Scheduler extends JdbcDaoSupport {
             h.hostId = rs.getString("pk_host");
             h.hostName = rs.getString("str_name");
             h.pkAlloc = rs.getString("pk_alloc");
+            h.pkFacility = rs.getString("pk_facility");
             h.coresTotal = rs.getInt("int_cores");
             h.coresIdle = rs.getInt("int_cores_idle");
             h.memTotal = rs.getLong("int_mem");
@@ -1629,8 +1642,8 @@ public class Scheduler extends JdbcDaoSupport {
         LicenseSource ls = licenseSource;
         String licenseKey = (ls != null) ? ls.getEnvKey() : "CUE_LICENSES";
         List<LayerCandidate> rows = getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP,
-                CANDIDATE_MAPPER, spec.pkAlloc, licenseKey, spec.os, spec.tagsNormalized,
-                maxIdleInGroup, SchedulerMode.facility(env), limit);
+                CANDIDATE_MAPPER, spec.pkAlloc, licenseKey, spec.os, spec.pkFacility,
+                spec.tagsNormalized, maxIdleInGroup, SchedulerMode.facility(env), limit);
         // Defensive dedupe: nothing in the schema forbids two layer_env rows
         // with the same key, and a duplicated row would clone its candidate
         // (double placement per tick). First row per layer wins.
@@ -1708,7 +1721,7 @@ public class Scheduler extends JdbcDaoSupport {
     static Map<HostSpecKey, List<BookableHost>> groupByHostSpec(List<BookableHost> hosts) {
         Map<HostSpecKey, List<BookableHost>> groups = new LinkedHashMap<>();
         for (BookableHost h : hosts) {
-            HostSpecKey k = new HostSpecKey(h.pkAlloc,
+            HostSpecKey k = new HostSpecKey(h.pkAlloc, h.pkFacility,
                     // Cuebot auto-adds each host's own name as a tag. Drop it
                     // from the grouping key, otherwise every host falls into a
                     // group of one and the per-group candidate query runs once
@@ -2595,6 +2608,7 @@ public class Scheduler extends JdbcDaoSupport {
         String hostId;
         String hostName;
         String pkAlloc;
+        String pkFacility;
         // Total capacity. Used by pickReservationTarget to check whether the
         // host could fit a layer when fully idle, independent of the host's
         // current load.
@@ -2706,12 +2720,19 @@ public class Scheduler extends JdbcDaoSupport {
 
     static final class HostSpecKey {
         final String pkAlloc;
+        // The alloc's facility. Part of the key because the candidate query
+        // binds it (jobs may only run in their own facility, like the legacy
+        // dispatcher's job.pk_facility clause); in practice it never splits a
+        // group beyond pkAlloc, since an alloc belongs to exactly one facility.
+        final String pkFacility;
         final String tagsNormalized;
         final String os;
         final boolean hasGpu;
 
-        HostSpecKey(String pkAlloc, String tagsNormalized, String os, boolean hasGpu) {
+        HostSpecKey(String pkAlloc, String pkFacility, String tagsNormalized, String os,
+                boolean hasGpu) {
             this.pkAlloc = pkAlloc;
+            this.pkFacility = pkFacility;
             this.tagsNormalized = tagsNormalized;
             this.os = os;
             this.hasGpu = hasGpu;
@@ -2725,18 +2746,19 @@ public class Scheduler extends JdbcDaoSupport {
                 return false;
             HostSpecKey k = (HostSpecKey) o;
             return hasGpu == k.hasGpu && Objects.equals(pkAlloc, k.pkAlloc)
+                    && Objects.equals(pkFacility, k.pkFacility)
                     && Objects.equals(tagsNormalized, k.tagsNormalized) && Objects.equals(os, k.os);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(pkAlloc, tagsNormalized, os, hasGpu);
+            return Objects.hash(pkAlloc, pkFacility, tagsNormalized, os, hasGpu);
         }
 
         @Override
         public String toString() {
-            return "HostSpec(alloc=" + pkAlloc + ", tags=" + tagsNormalized + ", os=" + os
-                    + ", gpu=" + hasGpu + ")";
+            return "HostSpec(alloc=" + pkAlloc + ", facility=" + pkFacility + ", tags="
+                    + tagsNormalized + ", os=" + os + ", gpu=" + hasGpu + ")";
         }
     }
 

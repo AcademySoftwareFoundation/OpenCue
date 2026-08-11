@@ -87,6 +87,7 @@ def register_hosts(chan):
             nimby_enabled=False,
             state=host_pb2.UP,
             tags=spec.host_tags(name),
+            attributes=spec.os_attrs(),
         )
         core_detail = report_pb2.CoreDetail(
             total_cores=core_points, idle_cores=core_points,

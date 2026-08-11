@@ -32,6 +32,21 @@ DB_USER = os.environ.get("SIM_DB_USER", "cue")
 DB_NAME = os.environ.get("SIM_DB_NAME", "cuebot")
 
 
+# Host OS string reported to cuebot (RenderHost attribute SP_OS ->
+# host_stat.str_os, read on EVERY report). Comma-separated = a multi-OS host,
+# the way mid-migration boxes advertise both ("rhel7,rhel9"): the LEGACY
+# dispatcher expands it into str_os IN ('rhel7','rhel9') and books jobs asking
+# for either. Empty (default) = don't send the attribute at all, preserving
+# each script's old behavior. The PARITY verify scenario sets it to prove the
+# scheduler books exactly what legacy books on such hosts.
+HOST_OS = os.environ.get("SIM_HOST_OS", "")
+
+
+def os_attrs():
+    """RenderHost attributes carrying SP_OS; empty dict when SIM_HOST_OS unset."""
+    return {"SP_OS": HOST_OS} if HOST_OS else {}
+
+
 def psql_cmd(tab=False):
     """psql argv for read-only queries. No sudo (runs as the current user);
     host/port/user/db come from SIM_* env so it matches simulate.py. tab=True
