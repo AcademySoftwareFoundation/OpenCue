@@ -954,7 +954,7 @@ public class DispatchQuery {
                 + "AND "
                     + "frame.str_state='WAITING' "
                 + "AND "
-                    + "job.pk_layer=? "
+                    + "layer.pk_layer=? "
                 + "AND layer.pk_layer IN ( "
                     + "SELECT /*+ index (h i_str_host_tag) */ "
                         + "l.pk_layer "
@@ -979,7 +979,7 @@ public class DispatchQuery {
                         + "sum_running.int_sum_running < limit_record.int_max_value "
                         + "OR sum_running.int_sum_running IS NULL "
                 + ")"
-            + ") WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 
     /**
@@ -1072,7 +1072,7 @@ public class DispatchQuery {
                             + "sum_running.int_sum_running < limit_record.int_max_value "
                             + "OR sum_running.int_sum_running IS NULL "
                     + ") "
-            + ") WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 
 
