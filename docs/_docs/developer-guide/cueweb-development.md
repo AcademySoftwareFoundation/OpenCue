@@ -1597,7 +1597,7 @@ table context menu and the Job Dependency Graph's layer-node menu). The picker
 is a `datetime-local` input, so it reads and writes the browser's local time;
 `apply()` converts to UTC epoch seconds. The `+15m` / `+1h` / `+4h` /
 `Tonight 18:00` buttons only fill the picker - they are not a separate input
-mode, and the value stays editable afterwards. **Clear** sends
+mode, and the value stays editable afterward. **Clear** sends
 `start_after: 0`.
 
 **Provenance and validation.** Cuebot stores `Set by <user>` as the layer's

@@ -815,7 +815,7 @@ To set or change the time, right-click the layer and choose **Set Start After…
 In the dialog:
 
 - Pick a date and time. The picker shows and accepts **your local time**.
-- The **+15m**, **+1h**, **+4h** and **Tonight 18:00** buttons fill the picker for you; you can still adjust the value afterwards.
+- The **+15m**, **+1h**, **+4h** and **Tonight 18:00** buttons fill the picker for you; you can still adjust the value afterward.
 - When the layer is already delayed, the dialog shows the current time and the reason it was set.
 - **Set** applies the time; **Clear** removes the delay and makes the layer bookable immediately.
 

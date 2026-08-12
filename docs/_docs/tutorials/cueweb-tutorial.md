@@ -342,7 +342,7 @@ A layer with no delay leaves the **Start After** column blank. Scroll the Layers
 
    ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
 
-2. **Pick a time.** The picker uses **your local time**. Use **+15m**, **+1h**, **+4h** or **Tonight 18:00** to fill it quickly - you can still adjust the value afterwards. If the layer is already delayed, the dialog shows the current time and why it was set.
+2. **Pick a time.** The picker uses **your local time**. Use **+15m**, **+1h**, **+4h** or **Tonight 18:00** to fill it quickly - you can still adjust the value afterward. If the layer is already delayed, the dialog shows the current time and why it was set.
 
    ![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
 

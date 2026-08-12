@@ -93,9 +93,9 @@ OpenCueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/
    ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
 
    ![Dependency Wizard - type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
-   - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, **Set Start After...** (defer booking of the layer until a chosen time, with +15m / +1h / +4h / Tonight 18:00 presets and a Clear button; delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why), Kill, Eat, Retry, Retry Dead Frames. The Set Start After flow is shown in Figures 74-78.
+   - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, **Set Start After...** (defer booking of the layer until a chosen time, with +15m / +1h / +4h / Tonight 18:00 presets and a Clear button that drops the current delay, though an automatic one can return while the underlying condition persists; delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why), Kill, Eat, Retry, Retry Dead Frames. The Set Start After flow is shown in Figures 74-78.
 
-   **Figure 74: ftart After column is blank**
+   **Figure 74: A layer with no delay - the Start After column is blank**
    ![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
 
    **Figure 75: Set Start After... in the layer right-click menu**

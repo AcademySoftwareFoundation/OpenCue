@@ -263,7 +263,7 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
   ![Dependency Wizard type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
 - **Kill Jobs**: Use the stop button to terminate jobs
-- **Set Start After**: Right-click a *layer* and pick **Set Start After...** to defer its booking until a time you choose - no frame of the layer starts before then. The picker uses your local time and offers **+15m** / **+1h** / **+4h** / **Tonight 18:00** presets; **Clear** removes the delay. OpenCue also sets this itself when a frame fails in a way worth waiting out (such as a license shortage). Delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why.
+- **Set Start After**: Right-click a *layer* and pick **Set Start After...** to defer its booking until a time you choose - no frame of the layer starts before then. The picker uses your local time and offers **+15m** / **+1h** / **+4h** / **Tonight 18:00** presets. OpenCue also sets this itself when a frame fails in a way worth waiting out (such as a license shortage), so **Clear** removes the delay the layer currently has, but a new one can be applied automatically while that condition persists. Delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why.
 
   ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
 
