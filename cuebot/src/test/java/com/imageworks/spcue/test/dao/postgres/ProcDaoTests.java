@@ -502,6 +502,70 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testIsPingOlderThan() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = PK_ALLOC;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+        procDao.insertVirtualProc(proc);
+
+        assertFalse(procDao.isPingOlderThan(proc, 3600000L));
+
+        jdbcTemplate.update("UPDATE proc SET ts_ping = (current_timestamp - interval '2' hour)");
+
+        assertTrue(procDao.isPingOlderThan(proc, 3600000L));
+        // Still younger than a 3-hour bound.
+        assertFalse(procDao.isPingOlderThan(proc, 10800000L));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsHostRebootedSinceDispatch() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = PK_ALLOC;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+        procDao.insertVirtualProc(proc);
+
+        // Host booted before the proc was dispatched: no proof the render is dead.
+        assertFalse(procDao.isHostRebootedSinceDispatch(proc));
+
+        // A boot only slightly after dispatch stays within the clock-skew safety margin.
+        jdbcTemplate.update(
+                "UPDATE host_stat SET ts_booted = (current_timestamp + interval '1' minute) "
+                        + "WHERE pk_host = ?",
+                host.id);
+        assertFalse(procDao.isHostRebootedSinceDispatch(proc));
+
+        // A boot well after dispatch proves the render died with the reboot.
+        jdbcTemplate
+                .update("UPDATE host_stat SET ts_booted = (current_timestamp + interval '1' hour) "
+                        + "WHERE pk_host = ?", host.id);
+        assertTrue(procDao.isHostRebootedSinceDispatch(proc));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUnbookProc() {
 
         DispatchHost host = createHost();

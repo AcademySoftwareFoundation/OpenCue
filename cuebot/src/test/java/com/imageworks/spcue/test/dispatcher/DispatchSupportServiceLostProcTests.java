@@ -24,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -36,8 +37,11 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.rqd.RqdClient;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -61,6 +65,8 @@ public class DispatchSupportServiceLostProcTests {
             "dispatcher.kill_running_frame_before_release_enabled";
     private static final String DEFER_RELEASE_PROPERTY =
             "dispatcher.defer_release_on_failed_kill_enabled";
+    private static final String MAX_DEFER_PROPERTY = "dispatcher.lost_proc_max_defer_ms";
+    private static final long MAX_DEFER_DEFAULT = 1200000L;
 
     private DispatchSupportService dispatchSupport;
     private RqdClient rqdClient;
@@ -93,9 +99,17 @@ public class DispatchSupportServiceLostProcTests {
                 .thenReturn(true);
         when(env.getProperty(eq(DEFER_RELEASE_PROPERTY), eq(Boolean.class), eq(true)))
                 .thenReturn(true);
+        when(env.getProperty(eq(MAX_DEFER_PROPERTY), eq(Long.class), eq(MAX_DEFER_DEFAULT)))
+                .thenReturn(MAX_DEFER_DEFAULT);
 
         // Default: the host still looks Up in the DB (the dangerous flapping case).
         when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(true);
+
+        // Default: the proc's deferral bound has not expired yet.
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(false);
+
+        // Default: the host has not been rebooted since the proc was dispatched.
+        when(procDao.isHostRebootedSinceDispatch(any(ProcInterface.class))).thenReturn(false);
 
         proc = new VirtualProc();
         proc.id = "00000000-0000-0000-0000-000000000001";
@@ -220,6 +234,74 @@ public class DispatchSupportServiceLostProcTests {
         verify(procDao, times(1)).deleteVirtualProc(proc);
         verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
                 eq(FrameState.WAITING), anyInt());
+    }
+
+    @Test
+    public void releasesWhenHostRebootedSinceDispatch() {
+        // The kill cannot confirm the frame stopped and the host still looks Up, but the host
+        // reports a boot time later than the proc's dispatch: the render died with the reboot, so
+        // release is safe and the frame goes back to WAITING (auto-retry), not deferred.
+        doThrow(new RuntimeException("transient unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+        when(procDao.isHostRebootedSinceDispatch(any(ProcInterface.class))).thenReturn(true);
+
+        assertTrue(dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
+
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
+    }
+
+    @Test
+    public void failsClosedToDeadWhenDeferralBoundExceeded() {
+        // The kill still cannot confirm the frame stopped and the host still looks Up, but the
+        // proc has gone unpinged longer than the deferral bound: instead of deferring forever the
+        // proc is released and the frame is parked DEAD (manual retry), never WAITING, so it
+        // cannot be auto-rebooked while the original render's fate is unknown.
+        doThrow(new RuntimeException("transient unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
+
+        assertTrue(dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
+
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.DEAD), anyInt());
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.WAITING), anyInt());
+    }
+
+    @Test
+    public void failsClosedToDeadForFailedKillExitStatusWhenBoundExceeded() {
+        // Same bound applies to the upstream-failed-kill path (EXIT_STATUS_FAILED_KILL), which
+        // never re-issues the kill but otherwise defers identically.
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
+
+        assertTrue(
+                dispatchSupport.lostProc(proc, "failed kill", Dispatcher.EXIT_STATUS_FAILED_KILL));
+
+        verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.DEAD), anyInt());
+    }
+
+    @Test
+    public void defersIndefinitelyWhenBoundDisabledByProperty() {
+        // A negative bound disables the fail-closed path entirely: deferral never expires, and
+        // the ping-age query is not even consulted.
+        when(env.getProperty(eq(MAX_DEFER_PROPERTY), eq(Long.class), eq(MAX_DEFER_DEFAULT)))
+                .thenReturn(-1L);
+        doThrow(new RuntimeException("transient unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+
+        assertFalse(
+                dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
+
+        verify(procDao, never()).isPingOlderThan(any(ProcInterface.class), anyLong());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
     }
 
     @Test
