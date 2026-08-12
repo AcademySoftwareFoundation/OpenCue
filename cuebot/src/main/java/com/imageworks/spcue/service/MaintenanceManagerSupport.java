@@ -110,6 +110,15 @@ public class MaintenanceManagerSupport {
     private static final long ORPHAN_KILL_POLL_INTERVAL_MS = 500;
 
     /**
+     * Maximum number of orphaned procs to process in a single hardware-state pass. The orphan query
+     * returns oldest-ping first, so when the orphan set exceeds this batch the longest-stale procs
+     * are always the ones retried; procs whose release keeps being deferred occupy the batch until
+     * they are released or hit the deferral bound ({@code dispatcher.lost_proc_max_defer_ms}).
+     * Overridable via the {@code maintenance.orphaned_proc_batch_size} property.
+     */
+    private static final int DEFAULT_ORPHANED_PROC_BATCH_SIZE = 100;
+
+    /**
      * Outcome of attempting to confirm an orphaned frame's render is dead.
      */
     private enum OrphanKillResult {
@@ -194,7 +203,9 @@ public class MaintenanceManagerSupport {
     }
 
     private void clearOrphanedProcs() {
-        List<VirtualProc> procs = procDao.findOrphanedVirtualProcs(100);
+        int batchSize = env.getProperty("maintenance.orphaned_proc_batch_size", Integer.class,
+                DEFAULT_ORPHANED_PROC_BATCH_SIZE);
+        List<VirtualProc> procs = procDao.findOrphanedVirtualProcs(batchSize);
         for (VirtualProc proc : procs) {
             try {
                 // Only report a cleanup when the proc was actually released; lostProc may defer the

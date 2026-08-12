@@ -71,6 +71,15 @@ import com.imageworks.spcue.util.FrameSet;
 public class DispatchSupportService implements DispatchSupport {
     private static final Logger logger = LogManager.getLogger(DispatchSupportService.class);
 
+    /**
+     * How long a lost proc's release may stay deferred -- measured as time since the proc's last
+     * ping proved its frame alive -- before {@link #lostProc} fails closed (frame DEAD, manual
+     * retry) instead of deferring again. Mirrors {@code maintenance.orphaned_frame_max_defer_ms}.
+     * Overridable via the {@code dispatcher.lost_proc_max_defer_ms} property; negative disables the
+     * bound.
+     */
+    private static final long DEFAULT_LOST_PROC_MAX_DEFER_MS = 1200000;
+
     private JobDao jobDao;
     private FrameDao frameDao;
     private LayerDao layerDao;
@@ -559,19 +568,47 @@ public class DispatchSupportService implements DispatchSupport {
          * reclaimed later, once the host is confirmed DOWN (clearDownProcs) or the frame completes
          * naturally. A genuinely dead host (marked DOWN, or no longer Up) leaves no live RQD, so
          * release is safe. See design/frame_double_booking_v2.md.
+         *
+         * The deferral is bounded: a proc whose frame has gone unproven-alive (no ping) for longer
+         * than dispatcher.lost_proc_max_defer_ms is failed closed instead -- the proc is released
+         * but the frame is parked DEAD (manual retry), never WAITING, so an unconfirmable render
+         * can neither linger RUNNING forever nor be auto-rebooked. This mirrors
+         * maintenance.orphaned_frame_max_defer_ms on the orphaned-frame side.
          */
+        FrameState stopState = FrameState.WAITING;
         boolean deferReleaseEnabled = env.getProperty(
                 "dispatcher.defer_release_on_failed_kill_enabled", Boolean.class, true);
         if (deferReleaseEnabled && !frameKilled && proc.frameId != null) {
             boolean hostConfirmedDead =
                     exitStatus == Dispatcher.EXIT_STATUS_DOWN_HOST || !hostDao.isHostUp(proc);
+            /*
+             * A host that booted after this proc was dispatched cannot still be running the render
+             * -- it died with the reboot -- so the release is safe even though the kill could not
+             * confirm it (e.g. the restarted host is not reachable yet).
+             */
+            if (!hostConfirmedDead && procDao.isHostRebootedSinceDispatch(proc)) {
+                logger.info("Releasing lost proc " + proc.getName() + ": its host reports a boot "
+                        + "time later than the proc's dispatch, so frame " + proc.frameId
+                        + " cannot still be running there.");
+                hostConfirmedDead = true;
+            }
             if (!hostConfirmedDead) {
-                DispatchSupport.deferredReleaseProcs.incrementAndGet();
-                logger.warn("Deferring release of lost proc " + proc.getName()
-                        + ": kill-before-release could not confirm the frame stopped and the host "
-                        + "is not confirmed dead. Leaving frame " + proc.frameId
-                        + " RUNNING to avoid double-booking. reason=" + reason);
-                return false;
+                long maxDeferMs = env.getProperty("dispatcher.lost_proc_max_defer_ms", Long.class,
+                        DEFAULT_LOST_PROC_MAX_DEFER_MS);
+                if (maxDeferMs < 0 || !procDao.isPingOlderThan(proc, maxDeferMs)) {
+                    DispatchSupport.deferredReleaseProcs.incrementAndGet();
+                    logger.warn("Deferring release of lost proc " + proc.getName()
+                            + ": kill-before-release could not confirm the frame stopped and the "
+                            + "host is not confirmed dead. Leaving frame " + proc.frameId
+                            + " RUNNING to avoid double-booking. reason=" + reason);
+                    return false;
+                }
+                logger.warn("Releasing lost proc " + proc.getName() + " after " + maxDeferMs
+                        + "ms without a ping proving frame " + proc.frameId + " alive; the kill "
+                        + "still could not confirm the frame stopped, so the frame is marked DEAD "
+                        + "(manual retry) instead of WAITING to avoid double-booking. reason="
+                        + reason);
+                stopState = FrameState.DEAD;
             }
         }
 
@@ -591,7 +628,7 @@ public class DispatchSupportService implements DispatchSupport {
             /*
              * If the proc has a frame, stop the frame. Frames can only be stopped that are running.
              */
-            if (frameDao.updateFrameStopped(f, FrameState.WAITING, exitStatus)) {
+            if (frameDao.updateFrameStopped(f, stopState, exitStatus)) {
                 updateUsageCounters(proc, exitStatus);
             }
             /*

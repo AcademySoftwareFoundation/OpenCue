@@ -181,7 +181,19 @@ public final class RqdClientGrpc implements RqdClient {
         try {
             logger.info("killing frame on " + host + ", source: " + message);
             getStub(host).killRunningFrame(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
+        } catch (StatusRuntimeException e) {
+            // RQD returns NOT_FOUND when the frame is not in its cache (already reaped, or the
+            // host restarted since the frame was dispatched): the render is confirmed not running
+            // there, which is the state the kill was meant to reach. Treat it as success so
+            // callers do not mistake the strongest possible "not running" proof for a failed
+            // kill (and, e.g., defer releasing a provably dead frame).
+            if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                logger.info("frame " + frameId + " is not running on " + host
+                        + " (NOT_FOUND), nothing to kill");
+                return;
+            }
+            throw new RqdClientException("failed to kill frame " + frameId, e);
+        } catch (ExecutionException e) {
             throw new RqdClientException("failed to kill frame " + frameId, e);
         }
     }

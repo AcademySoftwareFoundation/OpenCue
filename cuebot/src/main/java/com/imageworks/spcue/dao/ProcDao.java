@@ -199,6 +199,29 @@ public interface ProcDao {
     List<VirtualProc> findOrphanedVirtualProcs(int limit);
 
     /**
+     * Returns true if the proc's last ping ({@code ts_ping}, the last time a host report proved the
+     * proc's frame was still running on its host) is older than the given age. Measured against the
+     * database clock. A proc that no longer exists returns false.
+     *
+     * @param proc
+     * @param ageMs
+     * @return
+     */
+    boolean isPingOlderThan(ProcInterface proc, long ageMs);
+
+    /**
+     * Returns true if the proc's host reports a boot time later than the proc's dispatch time (by a
+     * safety margin covering host/database clock skew). A host that booted after the proc was
+     * dispatched cannot still be running the proc's frame -- the render died with the reboot -- so
+     * this is definitive proof the frame is not running, even when the host cannot be reached to
+     * confirm. Returns false when the proc or its host stats no longer exist.
+     *
+     * @param proc
+     * @return
+     */
+    boolean isHostRebootedSinceDispatch(ProcInterface proc);
+
+    /**
      * Returns procs with a host in a particular hardware state.
      *
      * @param state

@@ -86,12 +86,21 @@ public interface RqdClient {
     /**
      * Kills a running frame by resource
      *
+     * Returning normally means the frame is no longer running on the host: either the kill was
+     * delivered, or RQD answered NOT_FOUND (it does not track the frame, e.g. after a host
+     * restart), which is definitive proof the render is not running there. An
+     * {@link RqdClientException} is raised only when the frame's state remains unknown (host
+     * unreachable, deadline exceeded, etc.).
+     *
      * @param resource
      */
     void killFrame(VirtualProc Proc, String message);
 
     /**
      * Kills a running frame
+     *
+     * Same contract as {@link #killFrame(VirtualProc, String)}: NOT_FOUND counts as
+     * confirmed-stopped, only an unknown outcome throws.
      *
      * @param hostName
      * @param frameId
