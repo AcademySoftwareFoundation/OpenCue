@@ -213,7 +213,7 @@ The OpenCueWeb interface includes:
 - **Per-table Filter**: Small substring filter input on each table (Jobs, Layers, Frames) that narrows the rows already loaded.
 - **Customizable + reorderable columns**: Every table has a **Columns** dropdown where each column has a visibility checkbox plus `←` / `→` reorder buttons, and a pinned **Reset to Default** button.
 - **Frame Management**: Monitor frame status and logs (CueGUI-parity columns include LLU, Memory (RSS), Memory (PSS), Eligible Time, Submission Time, Last Line).
-- **Layer Operations**: Manage job layers and dependencies (CueGUI-parity columns include Eligible and a stacked Progress bar).
+- **Layer Operations**: Manage job layers and dependencies (CueGUI-parity columns include Eligible, Start After and a stacked Progress bar).
 - **Dark/Light Mode**: Toggle between themes via the sun/moon button in the header
 - **Real-time Updates**: Automatic refresh of job status
 - **Job-finished Notifications**: Two channels - a per-row **Notify bell** for browser notifications (in-app toast + optional desktop popup) and a right-click **Subscribe to Job** entry for *email* notifications sent by Cuebot. Independent of each other.
@@ -263,9 +263,14 @@ Click a job row to reveal the inline Layers and Frames panels below the jobs tab
 
   ![Dependency Wizard type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
 - **Kill Jobs**: Use the stop button to terminate jobs
+- **Set Start After**: Right-click a *layer* and pick **Set Start After...** to defer its booking until a time you choose - no frame of the layer starts before then. The picker uses your local time and offers **+15m** / **+1h** / **+4h** / **Tonight 18:00** presets. OpenCue also sets this itself when a frame fails in a way worth waiting out (such as a license shortage), so **Clear** removes the delay the layer currently has, but a new one can be applied automatically while that condition persists. Delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why.
+
+  ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+  ![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
 - **Job Details (inline)**: Click on a job row to reveal the inline Layers + Frames panel below the Jobs table.
 - **Job Details (tabbed page)**: Right-click a job and choose **View Job Details** to open the tabbed `/jobs/<jobName>` page with Overview / Layers / Frames / Comments / Dependencies tabs. The active tab is stored in the URL so the page is bookmarkable.
-- **Job Dependency Graph**: Toggle **Cuetopia &rarr; View Job Graph**, then click a job to mount a read-only, interactive node graph below the inline Layers + Frames panels. It shows the focus job with its **layers** (so even a job with no cross-job dependencies renders its structure) plus any cross-job depends, color-coded by kind (JOB / LAYER / FRAME) with the focus job ringed. **Double-click** a node to open that job's detail page; **right-click a layer node** for the Layers-table actions (Auto Layout Nodes, View/Wizard dependencies, Mark done, Reorder/Stagger, Properties, Kill/Eat/Retry/Retry Dead).
+- **Job Dependency Graph**: Toggle **Cuetopia &rarr; View Job Graph**, then click a job to mount a read-only, interactive node graph below the inline Layers + Frames panels. It shows the focus job with its **layers** (so even a job with no cross-job dependencies renders its structure) plus any cross-job depends, color-coded by kind (JOB / LAYER / FRAME) with the focus job ringed. **Double-click** a node to open that job's detail page; **right-click a layer node** for the Layers-table actions (Auto Layout Nodes, View/Wizard dependencies, Mark done, Reorder/Stagger, Properties, Set Start After, Kill/Eat/Retry/Retry Dead).
 
   ![Dependency graph panel below Layers and Frames](/assets/images/cueweb/cueweb_cuetopia_view_job_graph_monitor_jobs_dependency_graph_only.png)
 - **Job Comments**: Right-click a job and choose **Comments**, or click the sticky-note icon in the Jobs table's **Comments** column (sortable, sits right after Name), to open the Comments page where you can list / add / edit / delete comments and manage predefined-comment macros.

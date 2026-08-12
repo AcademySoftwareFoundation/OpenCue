@@ -243,6 +243,7 @@ The inline Layers table (`cueweb/app/layers/layer-columns.tsx`, rendered by `Sim
 | **Timeout** | Layer timeout (`HHH:MM`). |
 | **Timeout LLU** | Last-log-update timeout (`HHH:MM`). |
 | **Eligible** | `layer.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Start After** | `layer.startAfter` formatted `YYYY-MM-DD HH:MM`; blank when unset. The proto field is an `int64`, so the gateway marshals it as a JSON string - `layerStartAfterSeconds` (`cueweb/app/utils/layer_start_after_utils.ts`) normalizes both shapes, and the column sorts on that number rather than the formatted text. The cell's `title` carries `layer.startAfterReason` verbatim, as plain text. While the gate is in the future, `layerRowClassName` tints the whole row (`SimpleDataTable`'s `getRowClassName` hook, the same mechanism the Hosts table uses); the tint self-clears on the first render after the deadline passes. |
 
 ### Frames Table
 
@@ -402,7 +403,7 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 | **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
 | **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. Layer nodes also get a structural "contains" edge from the job node. |
 | **Navigation** | **Double-clicking** a node (`onNodeDoubleClick`) calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. A single click only selects the node. |
-| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
+| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Set Start After…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The mutating entries honour the **Disable Job Interaction** safety flag, gated exactly as their Layers-table counterparts are (`useDisableJobInteraction`), so the flag does not stop applying when an operator right-clicks a node instead of a row. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
 | **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
 | **Empty / loading states** | `Loading dependency graph...` while walking; `No layers or dependencies found for this job.` only when there are zero nodes. |
 
@@ -869,6 +870,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Dependencies** / **Dependency Wizard** / **Drop depends** | Manage layer-level dependencies (`layer-extra-dialogs.tsx`; the wizard opens with `LAYER_ON_LAYER` pre-selected; `/api/layer/action/getdepends`). |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs (`/api/layer/action/reorderframes` / `staggerframes`). |
 | **Properties** | Edit the layer's min cores / min memory / min GPU memory, threadable flag, and tags (`/api/layer/action/{setmincores,setminmemory,setmingpumemory,setthreadable,settags}`). |
+| **Set Start After** | Defer booking of the layer until a chosen time, or clear the delay (`/api/layer/action/setstartafter` &rarr; `/job.LayerInterface/SetStartAfter`). The dialog (`layer-extra-dialogs.tsx`) picks local time and sends UTC epoch seconds, with `+15m` / `+1h` / `+4h` / `Tonight 18:00` presets that fill the picker; **Clear** sends `start_after: 0`. The request body carries no username - the route resolves the signed-in identity server-side (`getServerSession`, the same source the audit trail uses) and Cuebot records it as the layer's `startAfterReason`, so a caller cannot attribute a delay to someone else. Both the route and Cuebot reject a negative value or one more than five years out, which is how a milliseconds-for-seconds mistake is caught. |
 | **Mark done** / **Eat and Mark done** | Mark the layer's frames done, optionally eating first (`/api/layer/action/markdone`). |
 | **View Processes** | List the procs running the layer's frames in the proc panel. |
 | **Kill** | Kill every frame in the layer. |
@@ -1201,6 +1203,34 @@ The screenshots below show the screen flow for each dependency type. Every picke
 ![Layer On Simulation Frame step 2 - pick the source layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step2_select_source_layers_in_this_job.png)
 ![Layer On Simulation Frame step 3 - pick the target job(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step3_select_jobs_to_depend_on.png)
 ![Layer On Simulation Frame step 4 - pick the target sim layer(s)](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_layer_on_simulation_frame_step4_select_target_layers_to_depend_on.png)
+
+---
+
+### Set Start After dialog
+
+The layer context menu's **Set Start After...** entry defers booking of a layer: no frame of it starts before the chosen time. Mounted with the other layer dialogs via `<LayerExtraDialogs />`; opens on a `cueweb:open-layer-start-after` CustomEvent that `setLayerStartAfterGivenRow(row)` (`cueweb/app/utils/action_utils.ts`) dispatches with `{ layer }`. Lives in `cueweb/components/ui/layer-extra-dialogs.tsx`. The same entry appears on layer nodes in the Job Dependency Graph, so both routes open this one dialog.
+
+The gate has two writers: an operator here, and Cuebot's exit-status backoff (`dispatcher.layer_delay.rules`), which pushes the layer out automatically when a frame exits with a configured status such as a license shortage. A layer with no delay leaves the **Start After** column blank.
+
+![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
+
+![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+The picker is a `datetime-local` input, so it reads and writes the browser's local time while the RPC carries UTC epoch seconds. The **+15m** / **+1h** / **+4h** / **Tonight 18:00** buttons only fill the picker - they are not a separate input mode, and the value stays editable. When the layer is already delayed the dialog shows the current time and its reason.
+
+![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
+
+After **Set** (or **Clear**, which sends `start_after: 0`):
+
+- `setLayerStartAfter(layers, startAfter)` / `clearLayerStartAfter(layers)` from `action_utils.ts` post `{ layer, start_after }` to `/api/layer/action/setstartafter`, which forwards to `/job.LayerInterface/SetStartAfter` on the REST gateway.
+- The body carries no username: the route resolves the signed-in identity server-side (`getServerSession`, the same source the audit trail uses) and Cuebot records it as the layer's `startAfterReason`, so a caller cannot attribute a delay to someone else.
+- A success toast confirms the change.
+
+![Confirmation that the start-after time was set](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_4_set_start_after_confirmation.png)
+
+While the gate is in the future the row is tinted (`layerRowClassName`), and the **Start After** column shows the time. The cell's `title` carries the reason verbatim as plain text, so a username embedded in it can never render as markup.
+
+![The delayed layer tinted, with the time shown in the Start After column](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_5_layer_after.png)
 
 ---
 

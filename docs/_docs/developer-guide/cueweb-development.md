@@ -1560,6 +1560,61 @@ app/api/layer/action/{getdepends,getoutputpaths,markdone,reorderframes,staggerfr
 
 ---
 
+## Layer Start After (deferred booking)
+
+A layer can carry a *start-after* gate: no frame of the layer is booked before
+that time. Cuebot writes it automatically when a frame reports an exit status
+configured in `dispatcher.layer_delay.rules` (a license shortage, typically);
+operators write it through `job.LayerInterface/SetStartAfter`. CueWeb surfaces
+both. Files involved:
+
+```text
+app/api/layer/action/setstartafter/route.ts  # POST -> /job.LayerInterface/SetStartAfter
+app/utils/layer_start_after_utils.ts         # layerStartAfterSeconds / isLayerDelayed / layerRowClassName
+app/utils/action_utils.ts                    # setLayerStartAfter() / clearLayerStartAfter()
+app/layers/layer-columns.tsx                 # Layer.startAfter + startAfterReason, "Start After" column
+components/ui/layer-extra-dialogs.tsx        # LayerStartAfterDialog
+```
+
+**int64 on the wire.** `Layer.start_after` is a proto `int64`, so the gateway's
+protojson marshaller emits it as a JSON *string* (the same treatment
+`minMemory` and `maxRss` already get), while an older Cuebot omits it
+entirely. `layerStartAfterSeconds()` is the single place that normalizes
+`string | number | undefined` to a number, and every consumer goes through it -
+including the column's `accessorFn`, so the column sorts numerically rather
+than lexically on the formatted date.
+
+**Row tint.** `layerRowClassName()` feeds `SimpleDataTable`'s
+`getRowClassName` hook (the mechanism the Hosts table uses for its state tint)
+from both layer tables - the job detail page and `job-details-inline.tsx`. It
+compares against `Date.now()`, so the tint self-clears on the first render after
+the deadline passes; the pages already re-fetch layers on a 5s interval, which
+is also what refreshes the column after a Set or Clear.
+
+**Dialog.** `LayerStartAfterDialog` opens on the `cueweb:open-layer-start-after`
+event (dispatched by `setLayerStartAfterGivenRow`, wired into both the Layers
+table context menu and the Job Dependency Graph's layer-node menu). The picker
+is a `datetime-local` input, so it reads and writes the browser's local time;
+`apply()` converts to UTC epoch seconds. The `+15m` / `+1h` / `+4h` /
+`Tonight 18:00` buttons only fill the picker - they are not a separate input
+mode, and the value stays editable afterward. **Clear** sends
+`start_after: 0`.
+
+**Provenance and validation.** Cuebot stores `Set by <user>` as the layer's
+`startAfterReason`, which every client displays as the provenance of the delay -
+so the route resolves the username from the session (`getServerSession`, the
+same source `lib/audit.ts` uses for its actor) and ignores any `username` in the
+request body. The browser never sends one. With no auth provider configured
+there is no session and no identity to forge either; the name goes empty and
+Cuebot records `Set by unknown`. The reason renders as a `title` tooltip in the
+column and as text in the dialog - both plain-text paths, so a username can
+never be interpreted as markup. The route rejects a
+non-integer, negative, or more-than-five-years-out `start_after` before it
+reaches the gateway, mirroring the `INVALID_ARGUMENT` Cuebot raises for a
+milliseconds-for-seconds mistake.
+
+---
+
 ## Frame log backends (file-based and Loki)
 
 The frame log page (`app/frames/[frame-name]/page.tsx`) supports two backends.

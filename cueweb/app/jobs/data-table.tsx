@@ -702,7 +702,9 @@ export function DataTable({ columns, username }: DataTableProps) {
     let refreshHandler: (() => void) | undefined;
     try{
       // Worker to update table data on a separate thread every 5 seconds
-      worker = new Worker(new URL('/public/workers/updateJobsTableDataWorker.tsx', import.meta.url));
+      // Path is relative to this file, not the project root: Next 16 dropped
+      // support for server-relative worker URLs ("/public/...").
+      worker = new Worker(new URL('../../public/workers/updateJobsTableDataWorker.tsx', import.meta.url));
       const updateData = () => {
         if (worker) {
           worker.postMessage({ jobs: state.tableDataUnfiltered });
@@ -825,7 +827,7 @@ export function DataTable({ columns, username }: DataTableProps) {
 
   // Use a worker thread to filter and return the filtered jobs based on the query
   useEffect(() => {
-    filterWorkerRef.current = new Worker(new URL("/public/workers/searchFilterWorker.tsx", import.meta.url));
+    filterWorkerRef.current = new Worker(new URL("../../public/workers/searchFilterWorker.tsx", import.meta.url));
 
     if (filterWorkerRef.current) {
       filterWorkerRef.current.onmessage = (e: MessageEvent<any>) => {

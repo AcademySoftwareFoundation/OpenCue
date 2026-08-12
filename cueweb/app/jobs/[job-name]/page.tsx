@@ -19,6 +19,7 @@
 import { Frame, frameColumns } from "@/app/frames/frame-columns";
 import { Job, getState } from "@/app/jobs/columns";
 import { Layer, layerColumns } from "@/app/layers/layer-columns";
+import { layerRowClassName } from "@/app/utils/layer_start_after_utils";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import {
   JobComment,
@@ -339,6 +340,7 @@ export default function JobDetailPage() {
                   columns={layerColumns}
                   username={currentUser}
                   viewsPageKey="layers"
+                  getRowClassName={layerRowClassName}
                   onRowClick={(row) => {
                     const layer = row as Layer;
                     setSelectedLayerId(layer.id);

@@ -271,7 +271,7 @@ When you want to *see* a render chain rather than read a table of depends, turn 
 
    ![The Job Dependency Graph showing the focus job and its layer](/assets/images/cueweb/cueweb_dependency_graph.png)
 
-4. **Navigate and act.** **Double-click** a node to open that job's detail page (a single click only selects it). **Right-click a layer node** for the same actions as the Layers table - **Auto Layout Nodes**; **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done); **Reorder Frames…**; **Stagger Frames…**; **Properties…**; **Kill / Eat / Retry / Retry Dead Frames**.
+4. **Navigate and act.** **Double-click** a node to open that job's detail page (a single click only selects it). **Right-click a layer node** for the same actions as the Layers table - **Auto Layout Nodes**; **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done); **Reorder Frames…**; **Stagger Frames…**; **Properties…**; **Set Start After…**; **Kill / Eat / Retry / Retry Dead Frames**.
 
    ![Right-click layer-node menu in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
 
@@ -328,6 +328,33 @@ Each job contains one or more layers representing different render passes:
    - Kill all frames in layer
    - Retry failed frames
    - View frame details
+   - Defer the layer's start (see below)
+
+### Deferring a layer with Set Start After
+
+Sometimes a layer should not start yet - a license pool is exhausted, or you want the work to run tonight rather than now. A layer can carry a **start-after time**: no frame of it starts before that moment. OpenCue also sets this itself when a frame fails in a way worth waiting out rather than retrying immediately.
+
+A layer with no delay leaves the **Start After** column blank. Scroll the Layers table right if that column is off screen.
+
+![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
+
+1. **Open the menu.** Right-click the layer and choose **Set Start After...**.
+
+   ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+2. **Pick a time.** The picker uses **your local time**. Use **+15m**, **+1h**, **+4h** or **Tonight 18:00** to fill it quickly - you can still adjust the value afterward. If the layer is already delayed, the dialog shows the current time and why it was set.
+
+   ![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
+
+3. **Apply it.** Choose **Set** to defer the layer, or **Clear** to make it bookable immediately. A notification confirms the change.
+
+   ![Confirmation that the start-after time was set](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_4_set_start_after_confirmation.png)
+
+4. **Check it.** The layer is now tinted, so you can spot it at a glance, and the **Start After** column shows what it is waiting for. Hover that value to see the reason.
+
+   ![The delayed layer tinted, with the time shown in the Start After column](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_5_layer_after.png)
+
+A layer you clear can be delayed again automatically while the underlying problem persists. A time you set yourself wins: an automatic delay can only push a layer further out, never pull it earlier.
 
 ### Working with Frames
 
