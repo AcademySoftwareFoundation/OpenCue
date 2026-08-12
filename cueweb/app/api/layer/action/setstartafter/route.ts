@@ -15,11 +15,22 @@
  */
 
 import { handleRoute } from '@/app/utils/gateway_server';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 // Defer booking of a layer until a chosen time (CueGUI LayerStartAfterDialog).
 // RPC: /job.LayerInterface/SetStartAfter.
-// Request: { layer, start_after: number (UTC epoch seconds, 0 clears), username }.
+// Request: { layer, start_after: number (UTC epoch seconds, 0 clears) }.
+//
+// Cuebot stores the username as the layer's start_after_reason ("Set by
+// <user>"), which every client then displays as the provenance of the delay.
+// That has to be worth something, so it is resolved from the session here and
+// a `username` in the request body is ignored - otherwise any caller could
+// attribute a delay to someone else. Resolved the same way the audit trail
+// resolves its actor (`lib/audit.ts`). With no auth provider configured (the
+// sandbox) there is no session and no identity to forge either; the name goes
+// empty and Cuebot records "Set by unknown".
 //
 // Cuebot rejects anything negative or more than five years out as
 // INVALID_ARGUMENT, on the theory that such a value is milliseconds passed
@@ -57,7 +68,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const response = await handleRoute(request.method, endpoint, JSON.stringify(jsonBody), true);
+  let username = "";
+  try {
+    const session = await getServerSession(authOptions);
+    username = session?.user?.name || session?.user?.email?.split("@")[0] || "";
+  } catch {
+    // No session to derive from; Cuebot falls back to "unknown".
+  }
+  const body = JSON.stringify({ ...jsonBody, username });
+
+  const response = await handleRoute(request.method, endpoint, body, true);
   const responseData = await response.json();
   if (!response.ok) return NextResponse.json({ error: responseData.error }, { status: response.status });
   return NextResponse.json({ data: responseData.data }, { status: response.status });

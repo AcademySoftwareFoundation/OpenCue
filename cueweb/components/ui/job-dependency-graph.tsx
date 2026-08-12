@@ -62,6 +62,7 @@ import {
   retryLayerFramesGivenRow,
   retryLayerDeadFramesGivenRow,
 } from "@/app/utils/action_utils";
+import { useDisableJobInteraction } from "@/app/utils/use_disable_job_interaction";
 
 // Silent POST that intentionally bypasses accessGetApi - the BFS below
 // expects partial failure (some jobs in the tree may have been
@@ -613,6 +614,13 @@ function NodeContextMenu({
   // The action helpers only read `row.original`, so a shim row is enough.
   const row = layer ? ({ original: layer } as any) : null;
 
+  // These entries are the Layers-table actions reached a different way, so the
+  // "Disable Job Interaction" safety flag has to gate them the same way it does
+  // there (LayerContextMenu) - otherwise the flag silently stops applying the
+  // moment an operator right-clicks a node in the graph instead of a table row.
+  const { disabled: jobInteractionDisabled } = useDisableJobInteraction();
+  const active = !jobInteractionDisabled;
+
   function run(fn: () => void) {
     fn();
     onClose();
@@ -623,17 +631,22 @@ function NodeContextMenu({
     icon,
     onClick,
     danger,
+    isActive = true,
   }: {
     label: string;
     icon: React.ReactNode;
     onClick: () => void;
     danger?: boolean;
+    isActive?: boolean;
   }) => (
     <button
       type="button"
+      disabled={!isActive}
       onClick={() => run(onClick)}
-      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
-        danger ? "text-red-500" : ""
+      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+        isActive
+          ? `hover:bg-accent hover:text-accent-foreground ${danger ? "text-red-500" : ""}`
+          : "cursor-not-allowed text-muted-foreground opacity-60"
       }`}
     >
       {icon}
@@ -661,19 +674,19 @@ function NodeContextMenu({
             Dependencies
           </div>
           <Item label="View Dependencies..." icon={<TbLink className="h-3.5 w-3.5" />} onClick={() => viewLayerDependenciesGivenRow(row)} />
-          <Item label="Dependency Wizard..." icon={<TbHelp className="h-3.5 w-3.5" />} onClick={() => layerDependencyWizardGivenRow(row)} />
-          <Item label="Mark done" icon={<TbCheck className="h-3.5 w-3.5" />} onClick={() => markdoneLayerGivenRow(row)} />
+          <Item label="Dependency Wizard..." icon={<TbHelp className="h-3.5 w-3.5" />} isActive={active} onClick={() => layerDependencyWizardGivenRow(row)} />
+          <Item label="Mark done" icon={<TbCheck className="h-3.5 w-3.5" />} isActive={active} onClick={() => markdoneLayerGivenRow(row)} />
           <Sep />
-          <Item label="Reorder Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => reorderLayerFramesGivenRow(row)} />
-          <Item label="Stagger Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => staggerLayerFramesGivenRow(row)} />
+          <Item label="Reorder Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} isActive={active} onClick={() => reorderLayerFramesGivenRow(row)} />
+          <Item label="Stagger Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} isActive={active} onClick={() => staggerLayerFramesGivenRow(row)} />
           <Sep />
           <Item label="Properties..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => layerPropertiesGivenRow(row)} />
-          <Item label="Set Start After..." icon={<TbClock className="h-3.5 w-3.5" />} onClick={() => setLayerStartAfterGivenRow(row)} />
+          <Item label="Set Start After..." icon={<TbClock className="h-3.5 w-3.5" />} isActive={active} onClick={() => setLayerStartAfterGivenRow(row)} />
           <Sep />
-          <Item label="Kill" icon={<MdOutlineCancel className="h-3.5 w-3.5 text-red-500" />} danger onClick={() => killLayerGivenRow(row, username)} />
-          <Item label="Eat" icon={<TbPacman className="h-3.5 w-3.5 text-orange-500" />} onClick={() => eatLayerFramesGivenRow(row)} />
-          <Item label="Retry" icon={<TbReload className="h-3.5 w-3.5" />} onClick={() => retryLayerFramesGivenRow(row)} />
-          <Item label="Retry Dead Frames" icon={<TbReload className="h-3.5 w-3.5 text-red-500" />} onClick={() => retryLayerDeadFramesGivenRow(row)} />
+          <Item label="Kill" icon={<MdOutlineCancel className="h-3.5 w-3.5 text-red-500" />} danger isActive={active} onClick={() => killLayerGivenRow(row, username)} />
+          <Item label="Eat" icon={<TbPacman className="h-3.5 w-3.5 text-orange-500" />} isActive={active} onClick={() => eatLayerFramesGivenRow(row)} />
+          <Item label="Retry" icon={<TbReload className="h-3.5 w-3.5" />} isActive={active} onClick={() => retryLayerFramesGivenRow(row)} />
+          <Item label="Retry Dead Frames" icon={<TbReload className="h-3.5 w-3.5 text-red-500" />} isActive={active} onClick={() => retryLayerDeadFramesGivenRow(row)} />
         </>
       )}
     </div>

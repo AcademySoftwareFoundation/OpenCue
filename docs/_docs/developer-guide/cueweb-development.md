@@ -1600,10 +1600,15 @@ is a `datetime-local` input, so it reads and writes the browser's local time;
 mode, and the value stays editable afterwards. **Clear** sends
 `start_after: 0`.
 
-**Provenance and validation.** The signed-in username travels with the request
-and Cuebot stores `Set by <user>` as the layer's `startAfterReason`, which the
-column renders as a `title` tooltip and the dialog as text - both plain-text
-paths, so a username can never be interpreted as markup. The route rejects a
+**Provenance and validation.** Cuebot stores `Set by <user>` as the layer's
+`startAfterReason`, which every client displays as the provenance of the delay -
+so the route resolves the username from the session (`getServerSession`, the
+same source `lib/audit.ts` uses for its actor) and ignores any `username` in the
+request body. The browser never sends one. With no auth provider configured
+there is no session and no identity to forge either; the name goes empty and
+Cuebot records `Set by unknown`. The reason renders as a `title` tooltip in the
+column and as text in the dialog - both plain-text paths, so a username can
+never be interpreted as markup. The route rejects a
 non-integer, negative, or more-than-five-years-out `start_after` before it
 reaches the gateway, mirroring the `INVALID_ARGUMENT` Cuebot raises for a
 milliseconds-for-seconds mistake.

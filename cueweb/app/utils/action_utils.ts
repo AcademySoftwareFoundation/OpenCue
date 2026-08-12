@@ -337,14 +337,16 @@ export async function setLayerTags(layer: Layer, tags: string[]): Promise<boolea
 }
 
 // Defer booking of the given layers until `startAfter` (UTC epoch seconds);
-// 0 clears the delay (CueGUI LayerStartAfterDialog). The username is recorded
-// by Cuebot as the start_after_reason for provenance.
+// 0 clears the delay (CueGUI LayerStartAfterDialog).
+//
+// No username is sent: Cuebot records it as the delay's provenance, so the
+// route resolves it from the session rather than trusting the browser.
 //
 // The same field is written automatically by Cuebot's exit-status backoff
 // (e.g. a license shortage), so a cleared layer may be delayed again while the
 // underlying condition persists; a value set here replaces any automatic delay.
-export async function setLayerStartAfter(layers: Layer[], startAfter: number, username: string): Promise<boolean> {
-  const bodyAr = layers.map((layer) => JSON.stringify({ layer, start_after: startAfter, username }));
+export async function setLayerStartAfter(layers: Layer[], startAfter: number): Promise<boolean> {
+  const bodyAr = layers.map((layer) => JSON.stringify({ layer, start_after: startAfter }));
   const message =
     startAfter === 0
       ? `Cleared start after on ${layers.length} layer(s)`
@@ -352,8 +354,8 @@ export async function setLayerStartAfter(layers: Layer[], startAfter: number, us
   return performAction("/api/layer/action/setstartafter", bodyAr, message);
 }
 
-export async function clearLayerStartAfter(layers: Layer[], username: string): Promise<boolean> {
-  return setLayerStartAfter(layers, 0, username);
+export async function clearLayerStartAfter(layers: Layer[]): Promise<boolean> {
+  return setLayerStartAfter(layers, 0);
 }
 
 /**************************************/

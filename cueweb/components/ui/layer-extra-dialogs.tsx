@@ -17,7 +17,6 @@
  */
 
 import * as React from "react";
-import { useSession } from "next-auth/react";
 
 import type { Frame } from "@/app/frames/frame-columns";
 import type { Job } from "@/app/jobs/columns";
@@ -455,9 +454,6 @@ function toLocalInputValue(date: Date): string {
 // delayed again automatically while the underlying condition persists; a value
 // set here replaces any automatic delay.
 function LayerStartAfterDialog() {
-  const { data: session } = useSession();
-  const username = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "";
-
   const [open, setOpen] = React.useState(false);
   const [layer, setLayer] = React.useState<Layer | null>(null);
   const [value, setValue] = React.useState("");
@@ -495,7 +491,7 @@ function LayerStartAfterDialog() {
     if (Number.isNaN(picked.getTime())) return;
     setBusy(true);
     try {
-      if (await setLayerStartAfter([layer], Math.floor(picked.getTime() / 1000), username)) setOpen(false);
+      if (await setLayerStartAfter([layer], Math.floor(picked.getTime() / 1000))) setOpen(false);
     } finally {
       setBusy(false);
     }
@@ -505,7 +501,7 @@ function LayerStartAfterDialog() {
     if (!layer) return;
     setBusy(true);
     try {
-      if (await clearLayerStartAfter([layer], username)) setOpen(false);
+      if (await clearLayerStartAfter([layer])) setOpen(false);
     } finally {
       setBusy(false);
     }

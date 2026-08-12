@@ -80,31 +80,33 @@ describe('setLayerStartAfter', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('posts the epoch seconds and username per layer', async () => {
+  // No username in the payload: the route resolves it from the session, so a
+  // caller cannot attribute a delay to someone else.
+  it('posts the epoch seconds per layer and no username', async () => {
     (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
-    const ok = await setLayerStartAfter([layer], 1893456000, 'testuser');
+    const ok = await setLayerStartAfter([layer], 1893456000);
     expect(ok).toBe(true);
     expect(accessActionApi).toHaveBeenCalledWith(
       '/api/layer/action/setstartafter',
-      [JSON.stringify({ layer, start_after: 1893456000, username: 'testuser' })],
+      [JSON.stringify({ layer, start_after: 1893456000 })],
     );
     expect(toastSuccess).toHaveBeenCalledWith('Set start after on 1 layer(s)');
   });
 
   it('clears with start_after 0 and says so in the toast', async () => {
     (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
-    const ok = await clearLayerStartAfter([layer], 'testuser');
+    const ok = await clearLayerStartAfter([layer]);
     expect(ok).toBe(true);
     expect(accessActionApi).toHaveBeenCalledWith(
       '/api/layer/action/setstartafter',
-      [JSON.stringify({ layer, start_after: 0, username: 'testuser' })],
+      [JSON.stringify({ layer, start_after: 0 })],
     );
     expect(toastSuccess).toHaveBeenCalledWith('Cleared start after on 1 layer(s)');
   });
 
   it('surfaces a backend rejection without toasting success', async () => {
     (accessActionApi as jest.Mock).mockResolvedValue({ success: false, error: 'INVALID_ARGUMENT' });
-    const ok = await setLayerStartAfter([layer], 1893456000, 'testuser');
+    const ok = await setLayerStartAfter([layer], 1893456000);
     expect(ok).toBe(false);
     expect(handleError).toHaveBeenCalled();
     expect(toastSuccess).not.toHaveBeenCalled();
