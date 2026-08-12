@@ -142,6 +142,29 @@ public class PrometheusMetricsCollector {
             .name("cue_frames_completed_total").help("Total number of frames completed")
             .labelNames("env", "cuebot_host", "state", "show", "shot").register();
 
+    private static final Counter frameCompleteSupersededCounter = Counter.build()
+            .name("cue_frame_complete_superseded_total")
+            .help("Frame complete reports diverted because the reporting proc no longer owns "
+                    + "the reported frame (the run was superseded)")
+            .labelNames("env", "cuebot_host", "reason").register();
+
+    private static final Counter frameCompleteDroppedCounter =
+            Counter.build().name("cue_frame_complete_dropped_total")
+                    .help("Frame complete reports that could not be applied to their frame; "
+                            + "exit_status=\"0\" means a successful render result was discarded")
+                    .labelNames("env", "cuebot_host", "exit_status").register();
+
+    private static final Counter frameRetryDeferredCounter = Counter.build()
+            .name("cue_frame_retry_deferred_total")
+            .help("Frame retries deferred because the running render could not be confirmed dead")
+            .labelNames("env", "cuebot_host").register();
+
+    private static final Counter frameZombieRenderCounter = Counter.build()
+            .name("cue_frame_zombie_render_total")
+            .help("Host reports carrying a frame the DB no longer has RUNNING: RQD is rendering "
+                    + "something Cuebot has forgotten")
+            .labelNames("env", "cuebot_host").register();
+
     private static final Counter jobCompletedCounter =
             Counter.build().name("cue_jobs_completed_total").help("Total number of jobs completed")
                     .labelNames("env", "cuebot_host", "state", "show", "shot").register();
@@ -383,6 +406,42 @@ public class PrometheusMetricsCollector {
             String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
                 jobName, frameName, frameId).inc();
+    }
+
+    /**
+     * Increment cue_frame_complete_superseded_total metric
+     *
+     * @param reason why the report was considered superseded ("no_owner" when the reporting proc
+     *        has no frame assigned, "other_frame" when it has moved on to a different frame)
+     */
+    public void incrementFrameCompleteSuperseded(String reason) {
+        frameCompleteSupersededCounter.labels(this.deployment_environment, this.cuebot_host, reason)
+                .inc();
+    }
+
+    /**
+     * Increment cue_frame_complete_dropped_total metric
+     *
+     * @param exitStatus the exit status of the report that could not be applied
+     */
+    public void incrementFrameCompleteDropped(int exitStatus) {
+        frameCompleteDroppedCounter
+                .labels(this.deployment_environment, this.cuebot_host, String.valueOf(exitStatus))
+                .inc();
+    }
+
+    /**
+     * Increment cue_frame_retry_deferred_total metric
+     */
+    public void incrementFrameRetryDeferred() {
+        frameRetryDeferredCounter.labels(this.deployment_environment, this.cuebot_host).inc();
+    }
+
+    /**
+     * Increment cue_frame_zombie_render_total metric
+     */
+    public void incrementFrameZombieRender() {
+        frameZombieRenderCounter.labels(this.deployment_environment, this.cuebot_host).inc();
     }
 
     /**

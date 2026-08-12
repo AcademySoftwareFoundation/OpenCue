@@ -20,11 +20,14 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import io.sentry.Sentry;
 
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobDetail;
@@ -63,6 +66,15 @@ import com.imageworks.spcue.grpc.monitoring.JobEvent;
  */
 public class JobManagerSupport {
     private static final Logger logger = LogManager.getLogger(JobManagerSupport.class);
+
+    /**
+     * How often to poll RQD for confirmation that a killed render has exited, while within the kill
+     * budget of {@code dispatcher.retry_frame_kill_budget_ms}.
+     */
+    private static final long RETRY_KILL_POLL_INTERVAL_MS = 500;
+
+    @Autowired
+    private Environment env;
 
     private JobManager jobManager;
     private DependManager dependManager;
@@ -417,13 +429,24 @@ public class JobManagerSupport {
     /**
      * Retry frames that match the specified FrameSearch request.
      *
+     * The kill-confirmation budget ({@code dispatcher.retry_frame_kill_budget_ms}) is shared by the
+     * whole request rather than granted per frame, so a bulk retry of many running frames cannot
+     * spend the budget once per frame waiting on confirmations. Frames reached after the budget is
+     * spent still get their kill, but are not confirmed and so are deferred (left RUNNING).
+     *
+     * The budget bounds the confirmation waiting, not the whole request: every frame still costs
+     * one kill RPC on the calling thread, and that RPC carries {@code grpc.rqd_task_deadline}, so a
+     * bulk retry against unreachable hosts costs up to the budget plus one RQD deadline per frame.
+     * Size bulk retry requests against that, not against the budget alone.
+     *
      * @param request
      * @param source
      */
     public void retryFrames(FrameSearchInterface request, Source source) {
+        long killDeadlineMs = System.currentTimeMillis() + retryKillBudgetMs();
         for (FrameInterface frame : jobManager.findFrames(request)) {
             try {
-                retryFrame(frame, source);
+                retryFrame(frame, source, killDeadlineMs);
             } catch (Exception e) {
                 CueExceptionUtil.logStackTrace(
                         "Failed to retry frame " + frame + " from source " + source, e);
@@ -434,10 +457,26 @@ public class JobManagerSupport {
     /**
      * Retry a single frame.
      *
+     * When the frame is running, the render is killed and confirmed dead before the frame is
+     * released back to the dispatcher. Releasing first (the legacy order) makes the frame
+     * immediately dispatchable while the original render is still alive, so another host can book
+     * it and the frame ends up rendering on two hosts at once. This fails closed: when the render
+     * cannot be confirmed dead within the kill budget the frame is left RUNNING, to be reclaimed
+     * when the render completes or its host is confirmed DOWN, and the retry can be re-issued.
+     *
      * @param frame
      * @param source
      */
     public void retryFrame(FrameInterface frame, Source source) {
+        retryFrame(frame, source, System.currentTimeMillis() + retryKillBudgetMs());
+    }
+
+    /**
+     * Retry a single frame against an externally supplied kill-confirmation deadline, so a bulk
+     * retry can share one budget across all of its frames. See
+     * {@link #retryFrame(FrameInterface, Source)} for the kill-before-release semantics.
+     */
+    private void retryFrame(FrameInterface frame, Source source, long killDeadlineMs) {
         /**
          * Have to find the proc before we stop the frame.
          */
@@ -448,13 +487,76 @@ public class JobManagerSupport {
             logger.info("failed to obtain information for " + "proc running on frame: " + frame);
         }
 
+        boolean killBeforeRelease = env == null || env.getProperty(
+                "dispatcher.kill_running_frame_before_release_enabled", Boolean.class, true);
+
+        boolean redirected = false;
+
+        if (proc != null && killBeforeRelease) {
+            /*
+             * A first attempt at the redirect is made before the kill: the killed render's
+             * completion report can arrive at any point during the confirmation polling below, and
+             * handleStaleReport must find the redirect already in place to steer the proc back to
+             * this job instead of unbooking it. On a deferred retry the redirect lingers, which is
+             * benign; it only redirects the proc to its own job later.
+             *
+             * This attempt only registers when the job has some other dispatchable frame:
+             * addRedirect requires a WAITING frame for the proc, and the frame being retried is
+             * still RUNNING at this point. The attempt after the stop below covers the rest,
+             * including a job whose only remaining work is the frame being retried.
+             */
+            redirected = redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
+            if (!killAndConfirmDead(proc, frame, source, killDeadlineMs)) {
+                if (prometheusMetrics != null) {
+                    prometheusMetrics.incrementFrameRetryDeferred();
+                }
+                logger.warn("Deferring retry of frame " + frame.getName() + ": the render could "
+                        + "not be confirmed stopped on " + proc.getName() + ". The frame is left "
+                        + "RUNNING so it is not booked onto a second host while the original "
+                        + "render is still alive.");
+                return;
+            }
+        }
+
         if (manualStopFrame(frame, FrameState.WAITING)) {
-            if (proc != null) {
+            if (proc != null && !killBeforeRelease) {
                 redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
                 kill(proc, source);
+            } else if (proc != null && killBeforeRelease) {
+                /*
+                 * The retried frame is WAITING now, so it is itself dispatchable to this proc: this
+                 * is the attempt that registers when the frame is the job's only remaining work.
+                 * Re-registering an existing redirect is harmless, it rewrites the same target on
+                 * the proc row.
+                 */
+                redirected = redirectManager.addRedirect(proc, (JobInterface) proc, false, source)
+                        || redirected;
+                if (!redirected) {
+                    logger.info("No redirect could be registered for " + proc.getName()
+                            + " while retrying frame " + frame.getName() + "; the proc will be "
+                            + "unbooked rather than steered back to its job when the killed "
+                            + "render's completion report arrives.");
+                }
             }
         } else {
-            jobManager.updateFrameState(frame, FrameState.WAITING);
+            /*
+             * The frame was not RUNNING at the version read when the retry was issued. Usually this
+             * is a retry of an already-finished frame, but it also covers the killed render's own
+             * completion report landing between the kill confirmation above and this stop, which
+             * may have failed the frame (or exhausted its retries). Re-read the frame so the
+             * version fence reflects that stop, and only force the state when the frame is not
+             * RUNNING again: a RUNNING frame has already been re-dispatched, and forcing it to
+             * WAITING would free it while that render is alive.
+             */
+            FrameDetail currentFrame = jobManager.getFrameDetail(frame.getFrameId());
+            if (currentFrame.state != FrameState.RUNNING) {
+                jobManager.updateFrameState(currentFrame, FrameState.WAITING);
+            } else {
+                logger.info("Retry of frame " + frame.getName() + " did not change its state: the "
+                        + "frame is " + currentFrame.state + " again at version "
+                        + currentFrame.version + ", so it has already been re-dispatched and is "
+                        + "left alone. Retry it again to interrupt that render.");
+            }
         }
 
         /**
@@ -476,6 +578,62 @@ public class JobManagerSupport {
         // set the job back to pending.
         jobManager.updateJobState(jobManager.getJob(frame.getJobId()), JobState.PENDING);
 
+    }
+
+    /**
+     * Reads the kill-confirmation budget for a retry request from
+     * {@code dispatcher.retry_frame_kill_budget_ms}.
+     */
+    private long retryKillBudgetMs() {
+        return env == null ? 10000L
+                : env.getProperty("dispatcher.retry_frame_kill_budget_ms", Long.class, 10000L);
+    }
+
+    /**
+     * Kills the render backing the given proc and waits, up to the given deadline, for RQD to
+     * confirm the render is no longer running.
+     *
+     * The kill RPC failing does not by itself mean the render is alive (the host may have just
+     * finished or dropped the frame), so confirmation always comes from polling
+     * {@code isFrameRunning}. Returns false when the render is still running at the deadline or the
+     * host cannot be reached to confirm; the caller must then leave the frame RUNNING rather than
+     * release it for re-dispatch.
+     *
+     * The deadline bounds the confirmation polling, including the first poll: once it has passed,
+     * the kill is still delivered but the render is not confirmed and the frame is deferred. Each
+     * confirmation poll is a gRPC call carrying {@code grpc.rqd_task_deadline}, so polling past the
+     * deadline would let one bulk retry spend that deadline per frame on top of the budget.
+     */
+    private boolean killAndConfirmDead(VirtualProc proc, FrameInterface frame, Source source,
+            long deadlineMs) {
+        try {
+            rqdClient.killFrame(proc, source.toString());
+        } catch (java.lang.Throwable e) {
+            logger.info("kill for retry of frame " + frame.getName() + " on " + proc.getName()
+                    + " could not be delivered, " + e);
+        }
+
+        while (System.currentTimeMillis() < deadlineMs) {
+            try {
+                if (!rqdClient.isFrameRunning(proc.hostName, frame.getFrameId())) {
+                    return true;
+                }
+            } catch (Exception e) {
+                logger.warn("could not confirm frame " + frame.getName() + " is dead on "
+                        + proc.hostName + ", " + e);
+                return false;
+            }
+            if (System.currentTimeMillis() >= deadlineMs) {
+                break;
+            }
+            try {
+                Thread.sleep(RETRY_KILL_POLL_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
     }
 
     /**
