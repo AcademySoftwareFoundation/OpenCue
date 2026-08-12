@@ -169,9 +169,11 @@ public interface FrameDao {
 
     /**
      * Batch variant of {@link #updateFrameStarted}: marks many frames RUNNING in one round-trip
-     * with the same per-row optimistic version+state guard. No SELECT ... FOR UPDATE is taken; a
-     * frame whose state/version changed since planning simply updates zero rows and is reported as
-     * a loser.
+     * with the same per-row optimistic version+state guard. Frame rows are never locked: a frame
+     * whose state/version changed since planning simply updates zero rows and is reported as a
+     * loser. The layer_stat and job_stat counter rows the start triggers touch ARE pre-locked
+     * (SELECT ... FOR UPDATE in sorted order) to keep the batch deadlock-free; see the
+     * implementation's lockStatRowsForBatch.
      *
      * @param bookings the planned (frame, proc) pairs to start
      * @return a mask, aligned to {@code bookings}, true where the frame was won (transitioned

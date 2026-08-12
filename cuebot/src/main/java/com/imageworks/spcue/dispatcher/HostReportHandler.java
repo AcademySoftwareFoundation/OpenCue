@@ -321,8 +321,8 @@ public class HostReportHandler {
             // When the Scheduler owns the whole facility it owns dispatch:
             // suppress the legacy per-host BookingQueue enqueue so the two paths
             // never both run. In 'managed' (per-show) mode the legacy dispatcher
-            // still runs for non-managed shows -- its query already excludes
-            // b_scheduler_managed shows -- so we do NOT suppress it globally there.
+            // still runs for non-managed shows (its query already excludes
+            // b_scheduler_managed shows), so we do NOT suppress it globally there.
             boolean bookingOff =
                     env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
                             || SchedulerMode.facility(env);

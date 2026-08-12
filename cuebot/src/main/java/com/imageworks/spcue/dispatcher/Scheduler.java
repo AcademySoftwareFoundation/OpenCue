@@ -161,8 +161,8 @@ public class Scheduler extends JdbcDaoSupport {
     // bonus to pack licensed work onto the fewest hosts instead of spreading a
     // seat onto every host it merely fits on. Sized ABOVE the maximum possible
     // E-PVM score spread (7*(e-1) ~= 12, see the dimension weights above) so
-    // among fitting hosts a seated host always wins -- effectively
-    // lexicographic -- while fit and reservations are still filtered BEFORE
+    // among fitting hosts a seated host always wins (effectively
+    // lexicographic), while fit and reservations are still filtered BEFORE
     // scoring and can never be overridden by it. Applied ONCE PER POOL the host
     // is seated in, so a host that already holds every license the layer needs
     // (costing zero new seats) outranks one that holds only some.
@@ -216,9 +216,9 @@ public class Scheduler extends JdbcDaoSupport {
      * The dedicated connection that holds this Cuebot's planning-leadership advisory lock, or null
      * when this Cuebot is a standby. Leadership is STICKY: the leader acquires the lock once and
      * holds it for its whole life (not re-taken per tick), so one Cuebot plans continuously and the
-     * others idle as warm backups -- no leadership churn, no farm-wide planning redone in N places.
+     * others idle as warm backups: no leadership churn, no farm-wide planning redone in N places.
      * A standby only becomes leader when the holder's session dies (Postgres auto-releases the
-     * session-scoped lock) -- i.e. real failover, never load-sharing.
+     * session-scoped lock). That is real failover, never load-sharing.
      *
      * Deliberately NOT a pooled connection: HikariCP would reap it on idle-timeout or warn on the
      * 30s leak-detection threshold, and either silently drops the lock. It is a raw DriverManager
@@ -578,7 +578,7 @@ public class Scheduler extends JdbcDaoSupport {
             + "    GROUP BY ll2.pk_limit_record) lu2 "
             + "  ON lu2.pk_limit_record = lim.pk_limit_record "
             // Folder core ceiling + the folder's current running cores. Derived from
-            // layer_stat.int_running_count (running frames x per-frame cores) -- the
+            // layer_stat.int_running_count (running frames x per-frame cores), the
             // same trigger-maintained counter the limit cap uses. It is robust to frame
             // completion (int_running_count drops automatically) and, at a tick
             // boundary, equals SUM(job_resource.int_cores) (one proc per running
@@ -640,16 +640,16 @@ public class Scheduler extends JdbcDaoSupport {
             // frames get filtered out downstream by findNextDispatchFrames anyway, so
             // scoring a host + running the plan read for them only burns a cycle that
             // returns nothing (it surfaces as raceLost). A limit-less layer (NULL)
-            // always passes. Not a correctness gate -- the downstream query still
-            // enforces the cap -- purely an efficiency filter.
+            // always passes. Not a correctness gate, purely an efficiency
+            // filter: the downstream query still enforces the cap.
             + "  AND (lim.pk_limit_record IS NULL "
             + "       OR COALESCE(lu2.int_sum_running, 0) < lim.int_max_value) "
-            // Skip jobs whose FOLDER (group/dept) core ceiling is already reached --
-            // folder_resource.int_max_cores, another core cap the legacy dispatcher
-            // enforces. -1 = unlimited. Same rationale as the limit filter: purely an
+            // Skip jobs whose FOLDER (group/dept) core ceiling is already reached
+            // (folder_resource.int_max_cores, another core cap the legacy dispatcher
+            // enforces; -1 = unlimited). Same rationale as the limit filter: purely an
             // efficiency gate (don't plan bookings a full folder can't take). The exact
-            // ceiling is enforced by the post-plan folder trim in doTick, which --
-            // unlike this filter -- also binds the frames planHost books in the tick
+            // ceiling is enforced by the post-plan folder trim in doTick, which,
+            // unlike this filter, also binds the frames planHost books in the tick
             // that crosses the cap.
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
             + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
@@ -659,13 +659,13 @@ public class Scheduler extends JdbcDaoSupport {
             // is true and this short-circuits to plan every show.
             + "  AND (? OR sh.b_scheduler_managed = true) "
             // Priority-WEIGHTED LOTTERY, not a strict priority sort. Each eligible
-            // layer gets a random key random()^(1/priority) -- Efraimidis-Spirakis
-            // weighted reservoir sampling -- and we take the top-LIMIT by that key.
+            // layer gets a random key random()^(1/priority) (Efraimidis-Spirakis
+            // weighted reservoir sampling) and we take the top-LIMIT by that key.
             // ORDER BY ranks the WHOLE eligible set before LIMIT (sort-then-limit),
             // so a low-priority layer always keeps a real, smaller chance of being
             // selected: its expected share is proportional to its priority, so it is
             // never starved by a sustained higher-priority stream. The old strict
-            // "int_priority DESC" starved it outright -- pri-100 work never ran while
+            // "int_priority DESC" starved it outright: pri-100 work never ran while
             // a pri-300 backlog kept the farm saturated. GREATEST(...,1) floors the
             // weight so priority 0/negative still gets the minimum (nonzero) share
             // rather than divide-by-zero or starvation. Reservation GRANTING stays
@@ -825,14 +825,14 @@ public class Scheduler extends JdbcDaoSupport {
             // STICKY leadership. We hold the advisory lock across ticks on a
             // dedicated connection (leaderConn) rather than re-taking it every
             // tick. If we are not the leader this returns false and we idle as a
-            // standby -- one Cuebot plans, the rest back it up, so the farm-wide
+            // standby: one Cuebot plans, the rest back it up, so the farm-wide
             // planning is never redone in parallel by several Cuebots.
             if (!ensureLeadership()) {
                 logger.debug("Scheduler: another Cuebot holds the planning lock");
                 summaryLockLost++;
                 return;
             }
-            // We are the sticky leader. Note: no per-tick lock release -- we keep
+            // We are the sticky leader. Note: no per-tick lock release; we keep
             // leadership even if this tick throws, and only give it up on death
             // (connection drop, detected next tick) or shutdown.
             int dispatched = doTick();
@@ -1512,7 +1512,7 @@ public class Scheduler extends JdbcDaoSupport {
      *
      * <ul>
      * <li>Already leader (leaderConn set): confirm the lock connection is still alive. If it is, we
-     * still hold the session-scoped advisory lock -- do NOT re-acquire (it is re-entrant and would
+     * still hold the session-scoped advisory lock; do NOT re-acquire (it is re-entrant and would
      * need matching unlocks). If the connection died, Postgres already auto-released the lock, so
      * demote to standby and re-probe next tick.</li>
      * <li>Standby (leaderConn null): try to take the lock on a fresh dedicated connection. Win ->
@@ -2494,7 +2494,7 @@ public class Scheduler extends JdbcDaoSupport {
      *
      * - Proportional balancing. Because the exponent is used/total, the same frame is a smaller
      * fraction of a large host, so a fresh big host has a lower marginal cost than a fresh small
-     * one and is filled first -- but only until its fraction catches up. Under a sustained backlog
+     * one and is filled first, but only until its fraction catches up. Under a sustained backlog
      * e^x's convexity drives every host toward the SAME fractional utilization, so a 128-core host
      * ends up carrying ~8x the frames of a 16-core host instead of sitting idle. The old
      * absolute-stranding score did the opposite: it consolidated memory-light work onto small hosts

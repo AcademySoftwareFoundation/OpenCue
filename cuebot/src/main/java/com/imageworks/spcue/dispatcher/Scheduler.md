@@ -124,6 +124,18 @@ score(h) = sum_D  W_D * ( e^(after_D/total_D) - e^(before_D/total_D) )
            after_D  = before_D + layer.min_D  (with this frame added)
 ```
 
+Legend, where `D` ranges over the resource dimensions (cores, memory, gpus,
+gpu memory):
+
+| Symbol | Meaning |
+|---|---|
+| `W_D` | weight of dimension `D`; defaults `W_CORES=1`, `W_MEM=1`, `W_GPUS=4`, `W_GPU_MEM=1` |
+| `total_D` | the host's total capacity in `D` |
+| `idle_D` | the host's capacity in `D` not reserved yet |
+| `before_D`, `after_D` | reserved amount in `D` before / after adding this frame |
+| `layer.min_D` | the layer's minimum requirement in `D` (`minCores`, `minMemory`, ...) |
+| `C` | the farm-wide potential; `score(h)` is the marginal increase of `C` if the frame lands on host `h` |
+
 We pick the host with the smallest score. Because the exponent is the
 **utilization fraction** `used_D/total_D`, the score is dimensionless and
 free of host-size bias, and the convex `e^x` makes a dimension that is
@@ -256,6 +268,14 @@ starts with an empty reservation map and no persistent state to migrate;
 placement resumes immediately. One caveat: the block-time bucket is in-memory
 too, so after a failover reservations re-arm only as blocked layers re-accrue
 `reservation_block_seconds` — over that window, not a tick or two.
+
+Why an advisory lock and not a lease row like Cuebot's existing
+`task_lock`/MaintenanceTask pattern: a lease row survives its holder's crash,
+so planning would stall until the lease timed out, and shortening the lease to
+compensate risks two simultaneous leaders whenever a slow tick or GC pause
+outlives it. The advisory lock is released by Postgres the instant the
+leader's session dies, needs no timeout tuning, is immune to clock skew
+between Cuebots, and its only cost is one mostly idle connection per Cuebot.
 
 ### 3.5 Priority: a weighted lottery (rate, not rank)
 
@@ -515,7 +535,7 @@ already takes most of the load off it.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `scheduler.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (planner owns all shows, legacy BookingQueue globally suppressed), or `managed` (planner owns only shows flagged `b_scheduler_managed=true` -- set per show via the show API -- legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
+| `scheduler.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (planner owns all shows, legacy BookingQueue globally suppressed), or `managed` (planner owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
 | `scheduler.read_pool_size` | = launch pool size | Threads for the parallel per-host plan reads (read-only, DB-bound). |
 | `scheduler.launch_pool_size` | `8` | Threads for the fire-and-forget RQD launches after the batched commit. |
 | `scheduler.launch_queue_size` | `16384` | Bound on queued launches; on overflow a launch is dropped and recovered by RQD report reconciliation. |

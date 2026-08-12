@@ -72,12 +72,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * old, and between the sample and a real checkout seats move. Two terms correct for that:
  *
  * <ul>
- * <li><b>in-flight</b> -- frames WE booked since the sample was taken. The server has not seen them
+ * <li><b>in-flight</b>: frames WE booked since the sample was taken. The server has not seen them
  * yet, so they are not in {@code available} and must be subtracted, otherwise one tick happily
  * books fifty frames against ten free seats. It is derived from the database rather than from a
  * counter in this process, so a Cuebot that takes over after a failover computes the same number as
  * the one it replaced.</li>
- * <li><b>headroom</b> -- seats deliberately left for interactive users, per license.</li>
+ * <li><b>headroom</b>: seats deliberately left for interactive users, per license.</li>
  * </ul>
  *
  * When the sample goes older than {@code stale_seconds} this fails CLOSED: budgets go to zero and
@@ -338,7 +338,7 @@ public class LicenseSource {
         // query, an exporter scrape), and one that stamps the result when it
         // FINISHES advertises a sample fresher than it is. Frames we booked during
         // that collection then fall outside the window and outside `available`,
-        // and go uncounted twice over -- which is exactly how a tick over-books.
+        // and go uncounted twice over, which is exactly how a tick over-books.
         // Widening the window can only over-count in-flight, whose consequence is
         // booking slightly less; getting it wrong the other way fails frames at
         // checkout on the farm.
@@ -414,7 +414,7 @@ public class LicenseSource {
      *
      * Two different windows, because the two license kinds count different things:
      * <ul>
-     * <li>floating: frames started WITHIN the sample's age -- exactly the bookings the license
+     * <li>floating: frames started WITHIN the sample's age, exactly the bookings the license
      * server has not observed yet.</li>
      * <li>host-based: ALL hosts currently running the license, any age. Seats are a set, so
      * unioning our full host list with the provider's is idempotent and covers providers that
@@ -542,7 +542,7 @@ public class LicenseSource {
             return fetchScript(provider.substring("script:".length()).trim());
         }
         throw new IOException(
-                "provider must start with http:, https: or script: -- got " + provider);
+                "provider must start with http:, https: or script: (got " + provider + ")");
     }
 
     private String fetchHttp(String url) throws IOException {

@@ -163,9 +163,9 @@ public interface ProcDao {
 
     /**
      * Batched unbook for the scheduler's completion flush: deletes many procs in one round-trip and
-     * applies every release-side resource credit coalesced -- host idle refunds summed per host,
-     * and the subscription/layer_resource/job_resource/folder_resource/point decrements summed per
-     * key -- instead of ~7 single-row updates per proc. Semantically a batched
+     * applies every release-side resource credit coalesced (host idle refunds summed per host, and
+     * the subscription/layer_resource/job_resource/folder_resource/point decrements summed per
+     * key) instead of ~7 single-row updates per proc. Semantically a batched
      * {@code deleteVirtualProc}: reserved amounts are taken from the DELETE's RETURNING clause (the
      * live database values, immune to the stale-reservation race), a proc already deleted by
      * someone else is skipped entirely, and scheduler-managed shows keep their NOTIFY-based
@@ -182,7 +182,7 @@ public interface ProcDao {
      * inside the current transaction. The scheduler's completion flush calls this before anything
      * else: every single-proc writer (the OOM memory bump's UPDATE proc, whose trigger then locks
      * the host row) acquires "proc, then host", so the flush must lock its proc rows BEFORE its
-     * host rows too or the two directions deadlock -- observed live as the memory bump holding a
+     * host rows too or the two directions deadlock; observed live as the memory bump holding a
      * proc row and waiting on a host the flush had pre-locked, while the flush's batched DELETE
      * waited on that proc row. Procs already deleted simply don't match and are skipped.
      *
@@ -194,9 +194,9 @@ public interface ProcDao {
      * Pre-acquire (SELECT ... FOR UPDATE, sorted by pk_host) the host rows of the given procs
      * inside the current transaction. The scheduler's completion flush calls this after
      * {@link #lockProcsForBatch} and before it touches any frame or stat-counter row, so its lock
-     * order is "procs, then hosts, then stats" -- hosts-then-stats being the same global order the
-     * booking commit uses (reserveHostResourcesBatch, then the frame-start stat pre-locks) --
-     * making the batched transactions incapable of deadlocking each other or the single-row
+     * order is "procs, then hosts, then stats". Hosts-then-stats is the same global order the
+     * booking commit uses (reserveHostResourcesBatch, then the frame-start stat pre-locks), which
+     * makes the batched transactions incapable of deadlocking each other or the single-row
      * writers.
      *
      * @param procs the procs whose host rows to lock

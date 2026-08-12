@@ -247,6 +247,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
      * would hold job_stat[J] (taken for an early frame) while still acquiring layer_stat rows for
      * later frames of the same job, and a concurrent single-frame transaction holding one of those
      * layer_stat rows and reaching for job_stat[J] closes the deadlock cycle.
+     *
+     * Callers must already hold a transaction (both batch entry points in DispatchSupportService
+     * are Transactional REQUIRED). Called without one, each SELECT autocommits, the locks release
+     * per statement and the pre-lock silently protects nothing.
      */
     private void lockStatRowsForBatch(
             java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings) {

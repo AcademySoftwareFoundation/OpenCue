@@ -188,6 +188,18 @@ public class FrameCompleteHandler {
     /**
      * Handle the given FrameCompleteReport from RQD.
      *
+     * Shows owned by the in-process Scheduler use a completion drain: this report thread only
+     * resolves the report (pure reads) and queues it, and the scheduler tick applies every queued
+     * completion single-threaded, in tick order. One writer ends the races that happened when
+     * dozens of report threads processed completions concurrently: two duplicate reports
+     * interleaving with a job shutdown could throw mid-way and leave an orphaned proc behind, and
+     * one orphaned proc wedges the planner's batch commit permanently. The resolve stays on the
+     * report threads because spread across them it is free, while done serially in the tick it
+     * would multiply tick time by the completion rate; in managed mode the ownership check also
+     * needs the resolved proc's show id, so the resolve must come first. There is deliberately no
+     * off switch (it would bring the orphan races back). Legacy-owned shows skip the drain and
+     * process the report to the end right here, on this thread.
+     *
      * @param report
      */
     public void handleFrameCompleteReport(final FrameCompleteReport report) {
@@ -197,19 +209,7 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        /*
-         * The completion drain: for any show the in-process Scheduler owns, this thread only ACKS,
-         * RESOLVES (pure reads) and QUEUES; the scheduler tick drains the queue single-threaded
-         * before planning. Dozens of report threads used to process completions concurrently,
-         * racing each other and the planner; two duplicate reports interleaving with a job shutdown
-         * could throw mid-way and leave an orphaned proc behind, and one orphan wedges the
-         * planner's batch commit. One WRITER in tick order removes that whole class; the resolve
-         * stays here because spread across the report threads it is free, while done serially in
-         * the tick it multiplies the tick time by the completion rate. Not optional: an off switch
-         * would silently bring the orphan factory back. Per-show like the rest of the rollout: in
-         * managed mode the resolved proc carries the show id and the ownership check is the same
-         * read processReportNow always did; legacy-owned shows keep the inline path.
-         */
+        // Scheduler-owned show: resolve here, apply in the tick (see header).
         if (SchedulerMode.enabled(env)) {
             QueuedFrameCompletion resolved = resolveForDrain(report);
             if (resolved == null) {
@@ -252,7 +252,7 @@ public class FrameCompleteHandler {
         } catch (EmptyResultDataAccessException e) {
             // Duplicate or stale report: the proc (or frame) is already gone.
             // The single-threaded drain makes this the ONLY way a duplicate
-            // shows up -- there is no concurrent twin to race.
+            // shows up; there is no concurrent twin to race.
             logger.debug("drain: stale/duplicate completion report for frame "
                     + report.getFrame().getFrameName() + ": " + e.getMessage());
             return null;
@@ -324,8 +324,18 @@ public class FrameCompleteHandler {
     }
 
     /**
-     * Process one completion report to the end. Called inline by the report thread when the drain
-     * is off (or for legacy shows), and by the Scheduler's per-tick drain otherwise.
+     * Process one completion report to the end: stop the frame, then run the post-complete
+     * operations. Legacy-owned shows enter here straight from the report thread; for
+     * scheduler-owned shows the drain calls this only as its per-report retry after a failed
+     * batch chunk.
+     *
+     * Post-complete work runs INLINE for scheduler-owned shows, and in test mode (the test
+     * thread's transaction must observe the writes). There is no rebook decision to defer, the
+     * Scheduler simply plans the freed cores next tick, and an async hop would leave the proc in
+     * limbo holding cores until the queued task ran. If the post-complete work throws, the proc
+     * is released anyway: an orphaned proc (proc row alive, frame back to WAITING) wedges the
+     * planner's batch commit permanently. Legacy shows and Rust (dispatcher.turn_off_booking)
+     * keep the async dispatchQueue hop, which defers the rebook-or-release decision.
      */
     public void processReportNow(final FrameCompleteReport report) {
 
@@ -361,22 +371,14 @@ public class FrameCompleteHandler {
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
-                // Scheduler-owned shows run post-complete INLINE: there is no
-                // rebook decision to defer (the Scheduler rebooks next tick),
-                // and the async hop would leave the proc in limbo holding
-                // cores until the queued task runs. Legacy shows and Rust
-                // (dispatcher.turn_off_booking) stay on the async path.
+                // Scheduler-owned show or test mode: inline (see header).
                 boolean schedulerOwnsShow = SchedulerMode.schedules(env, showDao, proc.getShowId());
                 if (dispatcher.isTestMode() || schedulerOwnsShow) {
-                    // Database modifications on a threadpool cannot be captured by the test thread
                     try {
                         handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
                                 frameDetail);
                     } catch (Exception e) {
-                        // The frame is already stopped; whatever else failed, the
-                        // proc must not survive it. An orphaned proc (proc row
-                        // alive, frame back to WAITING) wedges the planner's
-                        // batch commit on c_proc_uk, permanently.
+                        // Release the proc even on failure (see header).
                         logger.warn("post-complete processing failed for frame " + frame.getName()
                                 + "; releasing the proc anyway: " + e);
                         try {
@@ -568,8 +570,8 @@ public class FrameCompleteHandler {
             /*
              * Some exit statuses indicate that a frame was killed by the application due to a
              * memory issue and should be retried, by raising the memory (service override, service,
-             * or 2GB). The legacy dispatcher raises the whole LAYER and disables its optimizer --
-             * the original behavior, kept unchanged. The in-process Scheduler instead bumps per
+             * or 2GB). The legacy dispatcher raises the whole LAYER and disables its optimizer
+             * (the original behavior, kept unchanged). The in-process Scheduler instead bumps per
              * FRAME so one hungry or spuriously-killed frame does not inflate every other frame and
              * strand cores, escalating to the layer only after repeated OOMs in a row (see
              * OomMemoryTracker).
@@ -621,7 +623,7 @@ public class FrameCompleteHandler {
                                 + newReserved);
                     }
                 } else {
-                    // Legacy dispatcher: original behavior, unchanged -- disable the layer
+                    // Legacy dispatcher: original behavior, unchanged; disable the layer
                     // optimizer and raise the whole layer.
                     jobManager.enableMemoryOptimizer(frame, false);
                     jobManager.increaseLayerMemoryRequirement(frame, newReserved);
