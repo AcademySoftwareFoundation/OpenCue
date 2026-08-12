@@ -16,6 +16,8 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,6 +65,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -779,5 +782,79 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         LayerInterface layerResultB = layerDao.getLayer(layer.getLayerId());
         List<LimitEntity> limitsB = layerDao.getLimits(layerResultB);
         assertEquals(limitsB.size(), 0);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateStartAfter() {
+        LayerDetail layer = getLayer();
+        assertNull(layerDao.getLayerDetail(layer.getLayerId()).startAfter);
+
+        Timestamp startAfter = new Timestamp(System.currentTimeMillis() + 3600 * 1000L);
+        layerDao.updateStartAfter(layer, startAfter, "Set by testuser");
+
+        LayerDetail updated = layerDao.getLayerDetail(layer.getLayerId());
+        assertEquals(startAfter.getTime() / 1000, updated.startAfter.getTime() / 1000);
+        assertEquals("Set by testuser", updated.startAfterReason);
+
+        layerDao.updateStartAfter(layer, null, null);
+        updated = layerDao.getLayerDetail(layer.getLayerId());
+        assertNull(updated.startAfter);
+        assertNull(updated.startAfterReason);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDelayLayerForBackoffIsConditionalMonotonic() {
+        LayerDetail layer = getLayer();
+
+        // First write from NULL delays the layer.
+        assertTrue(layerDao.delayLayerForBackoff(layer, Duration.ofMinutes(5),
+                "Automatic backoff: exit status 330"));
+        LayerDetail updated = layerDao.getLayerDetail(layer.getLayerId());
+        assertNotNull(updated.startAfter);
+        assertEquals("Automatic backoff: exit status 330", updated.startAfterReason);
+
+        // A second, equal-or-shorter delay is a no-op (the in-flight report burst).
+        assertFalse(layerDao.delayLayerForBackoff(layer, Duration.ofMinutes(5),
+                "Automatic backoff: exit status 330"));
+
+        // A longer rule extends the active delay.
+        assertTrue(layerDao.delayLayerForBackoff(layer, Duration.ofMinutes(60),
+                "Automatic backoff: exit status 332"));
+        assertEquals("Automatic backoff: exit status 332",
+                layerDao.getLayerDetail(layer.getLayerId()).startAfterReason);
+
+        // An operator-set later time survives a backoff write...
+        Timestamp tonight = new Timestamp(System.currentTimeMillis() + 8 * 3600 * 1000L);
+        layerDao.updateStartAfter(layer, tonight, "Set by testuser");
+        assertFalse(layerDao.delayLayerForBackoff(layer, Duration.ofMinutes(5),
+                "Automatic backoff: exit status 330"));
+        updated = layerDao.getLayerDetail(layer.getLayerId());
+        assertEquals(tonight.getTime() / 1000, updated.startAfter.getTime() / 1000);
+        assertEquals("Set by testuser", updated.startAfterReason);
+
+        // ...but the authoritative write may move the gate earlier or clear it.
+        layerDao.updateStartAfter(layer, null, null);
+        assertNull(layerDao.getLayerDetail(layer.getLayerId()).startAfter);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDelayedLayerCount() {
+        LayerDetail layer = getLayer();
+        int baseline = layerDao.getDelayedLayerCount();
+
+        layerDao.delayLayerForBackoff(layer, Duration.ofMinutes(5),
+                "Automatic backoff: exit status 330");
+        assertEquals(baseline + 1, layerDao.getDelayedLayerCount());
+
+        // A gate in the past does not count as delayed.
+        layerDao.updateStartAfter(layer, new Timestamp(System.currentTimeMillis() - 60 * 1000L),
+                "Set by testuser");
+        assertEquals(baseline, layerDao.getDelayedLayerCount());
     }
 }

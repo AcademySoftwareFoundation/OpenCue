@@ -630,7 +630,11 @@ impl RunningFrame {
         if exit_code == 0 {
             return None;
         }
-        if self.config.log_exit_status_rules.is_empty() || self.config.log_scan_last_lines == 0 {
+        // Read the rules through the live cell rather than this frame's frozen raw config, so
+        // rules added by a config reload apply to frames that were already running when the
+        // reload happened.
+        let rule_set = self.config.compiled_exit_status_rules();
+        if rule_set.rules.is_empty() || rule_set.scan_last_lines == 0 {
             return None;
         }
         // If RQD itself killed this frame (OOM, NIMBY, timeout, manual kill), that reason is
@@ -643,12 +647,8 @@ impl RunningFrame {
         if !self.request.loki_url.is_empty() {
             return None;
         }
-        let compiled = self.config.compiled_exit_status_rules();
-        if compiled.is_empty() {
-            return None;
-        }
 
-        let lines = match read_last_lines(&self.log_path, self.config.log_scan_last_lines).await {
+        let lines = match read_last_lines(&self.log_path, rule_set.scan_last_lines).await {
             Ok(lines) => lines,
             Err(err) => {
                 warn!(
@@ -660,7 +660,7 @@ impl RunningFrame {
         };
 
         let log_tail = lines.join("\n");
-        match match_exit_status_rules(&log_tail, compiled) {
+        match match_exit_status_rules(&log_tail, &rule_set.rules) {
             Some((name, exit_status)) => {
                 info!(
                     "Frame {}: log matched rule '{}'; overriding exit status {} -> {}",
@@ -2108,6 +2108,39 @@ mod tests {
         // Even with a matching local file, a Loki-backed frame must not be scanned.
         let frame = frame_with_license_rule("http://loki.example.com", LICENSE_LOG);
         assert_eq!(frame.scan_log_for_exit_status_override(3).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[tokio::test]
+    async fn test_scan_uses_rules_added_after_frame_creation() {
+        // The live-reload guarantee: a frame launched with NO rules configured must pick up
+        // rules swapped in later (as the config watcher does on file change), because every
+        // RunnerConfig clone shares the compiled-rules cell.
+        let mut config_handle: Option<RunnerConfig> = None;
+        let mut frame = create_running_frame_cfg("false", 1, 1, HashMap::new(), "", |cfg| {
+            config_handle = Some(cfg.clone());
+        });
+        let log_file = std::env::temp_dir().join(format!("rqd_scan_test_{}.rqlog", Uuid::new_v4()));
+        std::fs::write(&log_file, LICENSE_LOG).unwrap();
+        frame.log_path = log_file.to_string_lossy().to_string();
+
+        // No rules yet: the failure keeps its exit status (this also seeds the shared cell,
+        // proving a reload replaces an already-seeded set).
+        assert_eq!(frame.scan_log_for_exit_status_override(3).await, None);
+
+        config_handle.unwrap().reload_exit_status_rules(
+            50,
+            &[rule(
+                "HOUDINI_LICENSE_ERROR",
+                "A usable license to run the application is installed but they are all in use",
+                330,
+            )],
+        );
+
+        assert_eq!(
+            frame.scan_log_for_exit_status_override(3).await,
+            Some(("HOUDINI_LICENSE_ERROR".to_string(), 330))
+        );
         let _ = std::fs::remove_file(&frame.log_path);
     }
 

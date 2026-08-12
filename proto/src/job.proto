@@ -383,6 +383,11 @@ service LayerInterface {
     // Set the Min Memory value for the layer
     rpc SetMinMemory(LayerSetMinMemoryRequest) returns (LayerSetMinMemoryResponse);
 
+    // Do not book frames of this layer before the given time. Also written automatically by
+    // Cuebot's exit-status backoff (dispatcher.layer_delay.rules); an operator-set time is
+    // authoritative and replaces any automatic delay.
+    rpc SetStartAfter(LayerSetStartAfterRequest) returns (LayerSetStartAfterResponse);
+
     // Set tags on the layer
     rpc SetTags(LayerSetTagsRequest) returns (LayerSetTagsResponse);
 
@@ -727,6 +732,11 @@ message Layer {
     int32 eligible_time = 23;
     int32 start_time = 24;
     int32 stop_time = 25;
+    // Do not book frames of this layer before this time. Epoch seconds; 0 = not set.
+    // int64 because this is a future timestamp an operator may set past the int32 epoch limit.
+    int64 start_after = 26;
+    // Free-text provenance for start_after, displayed verbatim.
+    string start_after_reason = 27;
 }
 
 message LayerSeq {
@@ -1784,6 +1794,17 @@ message LayerSetMinMemoryRequest {
 }
 
 message LayerSetMinMemoryResponse {} // Empty
+
+// SetStartAfter
+message LayerSetStartAfterRequest {
+    Layer layer = 1;
+    // Epoch seconds; 0 clears the delay. See Layer.start_after for why this is int64.
+    int64 start_after = 2;
+    // Recorded in the layer's start_after_reason for provenance.
+    string username = 3;
+}
+
+message LayerSetStartAfterResponse {} // Empty
 
 // SetTags
 message LayerSetTagsRequest {

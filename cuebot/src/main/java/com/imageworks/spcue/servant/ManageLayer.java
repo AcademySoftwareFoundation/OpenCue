@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.servant;
 
+import java.sql.Timestamp;
 import java.util.HashSet;
 
 import com.google.protobuf.Descriptors;
@@ -104,6 +105,8 @@ import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryResponse;
+import com.imageworks.spcue.grpc.job.LayerSetStartAfterRequest;
+import com.imageworks.spcue.grpc.job.LayerSetStartAfterResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
 import com.imageworks.spcue.grpc.job.LayerSetTagsResponse;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
@@ -140,6 +143,22 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private LocalBookingSupport localBookingSupport;
     private FrameSearchFactory frameSearchFactory;
     private final String property = "layer.finished_jobs_readonly";
+
+    /**
+     * Width of layer.str_start_after_reason (see V47__Add_layer_start_after.sql). The reason embeds
+     * a client-supplied username, so it is truncated here rather than letting an oversized value
+     * fail the UPDATE with an opaque DataAccessException.
+     */
+    private static final int START_AFTER_REASON_MAX_LENGTH = 255;
+
+    /**
+     * Upper bound on how far in the future a start_after gate may be set. A value in milliseconds
+     * passed where seconds are expected lands around the year 58,000 - Postgres stores it and
+     * CueGUI renders it without a year, so the layer is silently gated forever. Anything beyond
+     * this bound (or negative) is rejected as INVALID_ARGUMENT instead.
+     */
+    private static final long START_AFTER_MAX_FUTURE_YEARS = 5;
+
     @Autowired
     private Environment env;
 
@@ -441,6 +460,40 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
             layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
             responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setStartAfter(LayerSetStartAfterRequest request,
+            StreamObserver<LayerSetStartAfterResponse> responseObserver) {
+        long startAfter = request.getStartAfter();
+        long maxStartAfter = System.currentTimeMillis() / 1000L
+                + START_AFTER_MAX_FUTURE_YEARS * 365L * 24 * 3600;
+        if (startAfter < 0 || startAfter > maxStartAfter) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("start_after must be a Unix timestamp in seconds no more "
+                            + "than " + START_AFTER_MAX_FUTURE_YEARS + " years in the future, "
+                            + "or 0 to clear the gate; got " + startAfter
+                            + ". Was a milliseconds value passed where seconds are expected?")
+                    .asRuntimeException());
+            return;
+        }
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            if (request.getStartAfter() == 0) {
+                layerDao.updateStartAfter(layer, null, null);
+            } else {
+                String username =
+                        request.getUsername().isEmpty() ? "unknown" : request.getUsername();
+                String reason = "Set by " + username;
+                if (reason.length() > START_AFTER_REASON_MAX_LENGTH) {
+                    reason = reason.substring(0, START_AFTER_REASON_MAX_LENGTH);
+                }
+                layerDao.updateStartAfter(layer, new Timestamp(request.getStartAfter() * 1000L),
+                        reason);
+            }
+            responseObserver.onNext(LayerSetStartAfterResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
     }

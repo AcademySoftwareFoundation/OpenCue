@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
@@ -192,6 +193,18 @@ public class PrometheusMetricsCollector {
             .name("cue_host_reports_received_total").help("Total number of host reports received")
             .labelNames("env", "cuebot_host", "facility").register();
 
+    // Layer start-after backoff (dispatcher.layer_delay.rules). The counter ticks once per real
+    // delay write (concurrent reports that no-op on the conditional monotonic write do not count);
+    // the gauge is the number of layers currently gated, served by the i_layer_start_after partial
+    // index. A layer stuck re-delaying shows as a flat non-zero gauge with a climbing counter.
+    private static final Counter layerDelaysTotal =
+            Counter.build().name("cuebot_layer_delays_total")
+                    .help("Number of automatic layer booking delays written, by exit status")
+                    .labelNames("env", "cuebot_hosts", "exit_status").register();
+    private static final Gauge layersDelayed = Gauge.build().name("cuebot_layers_delayed")
+            .help("Number of layers whose ts_start_after gate is currently in the future")
+            .labelNames("env", "cuebot_hosts").register();
+
     // Memory-stranded cores: idle cores that cannot be booked because their host is out of memory.
     // Reported per allocation.
     private static final Gauge coresTotal =
@@ -207,6 +220,8 @@ public class PrometheusMetricsCollector {
     private static final Logger logger = LogManager.getLogger(PrometheusMetricsCollector.class);
 
     private HostManager hostManager;
+
+    private LayerDao layerDao;
 
     private String deployment_environment;
     private String cuebot_host;
@@ -331,6 +346,16 @@ public class PrometheusMetricsCollector {
                     }
                 } catch (Exception e) {
                     logger.error("Failed to collect memory-stranded core metrics", e);
+                }
+            }
+
+            // Delayed-layer gauge, wrapped separately for the same reason as above.
+            if (layerDao != null) {
+                try {
+                    layersDelayed.labels(this.deployment_environment, this.cuebot_host)
+                            .set(layerDao.getDelayedLayerCount());
+                } catch (Exception e) {
+                    logger.error("Failed to collect delayed-layer metric", e);
                 }
             }
         }
@@ -486,6 +511,17 @@ public class PrometheusMetricsCollector {
     }
 
     /**
+     * Record an automatic layer booking delay (a real ts_start_after write, not a no-op)
+     *
+     * @param exitStatus the configured exit status that triggered the delay
+     */
+    public void recordLayerDelay(int exitStatus) {
+        layerDelaysTotal
+                .labels(this.deployment_environment, this.cuebot_host, String.valueOf(exitStatus))
+                .inc();
+    }
+
+    /**
      * Record a host report received
      *
      * @param facility facility name
@@ -514,5 +550,9 @@ public class PrometheusMetricsCollector {
 
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
+    }
+
+    public void setLayerDao(LayerDao layerDao) {
+        this.layerDao = layerDao;
     }
 }

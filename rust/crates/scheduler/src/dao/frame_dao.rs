@@ -171,6 +171,13 @@ UPDATE frame SET
 WHERE pk_frame = $6
     AND str_state = 'WAITING'
     AND int_version = $7
+    -- Deferred layer booking: refuse to start a frame whose layer's start-after
+    -- gate is in the future. Authoritative counterpart of the advisory predicate
+    -- in the pending-frames query (layer_dao.rs).
+    AND EXISTS (
+        SELECT 1 FROM layer
+        WHERE layer.pk_layer = frame.pk_layer
+            AND (layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp))
 RETURNING int_version
 "#;
 
