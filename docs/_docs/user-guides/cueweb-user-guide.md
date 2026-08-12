@@ -804,19 +804,32 @@ The graph is theme-aware: it follows the light/dark toggle without re-fetching t
 
 A layer can carry a **start-after time**: no frame of the layer starts before it. Two things write it - you, and OpenCue itself when a frame fails in a way that is worth waiting out rather than retrying immediately (for example, a license shortage).
 
-A delayed layer is tinted in the Layers table, and its **Start After** column shows the time. Hovering that value shows the reason - either `Set by <user>` or the automatic backoff that wrote it.
+A layer with no delay leaves the **Start After** column blank. Scroll the Layers table to the right if that column is off screen.
 
-To set or change it, right-click the layer and choose **Set Start After…**:
+   ![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
+
+To set or change the time, right-click the layer and choose **Set Start After…**.
+
+   ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+In the dialog:
 
 - Pick a date and time. The picker shows and accepts **your local time**.
 - The **+15m**, **+1h**, **+4h** and **Tonight 18:00** buttons fill the picker for you; you can still adjust the value afterwards.
+- When the layer is already delayed, the dialog shows the current time and the reason it was set.
 - **Set** applies the time; **Clear** removes the delay and makes the layer bookable immediately.
 
+   ![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
+
+A notification confirms the change.
+
+   ![Confirmation that the start-after time was set](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_4_set_start_after_confirmation.png)
+
+The delayed layer is now tinted, so you can spot it without reading any column, and the **Start After** column shows the time it is waiting for. Hover that value to see why the layer is delayed - either `Set by <user>` or the automatic backoff that wrote it.
+
+   ![The delayed layer tinted, with the time shown in the Start After column](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_5_layer_after.png)
+
 A layer you clear may be delayed again automatically while the condition that caused the automatic delay (for example, that license shortage) is still going on. A time you set yourself is authoritative: an automatic backoff can only push a layer further into the future, never pull it earlier.
-
-   ![OpenCueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
-
-   ![Pop-up showing successful retry layer message](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open_and_success_notification.png)
 
 ### Frame Operations
 

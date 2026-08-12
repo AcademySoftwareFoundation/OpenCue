@@ -93,7 +93,22 @@ OpenCueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/
    ![View Dependencies dialog](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_view_dependencies_window.png)
 
    ![Dependency Wizard - type picker](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_dependency_wizard_menu_select_dependency_type_job_on_job_step1_select_type.png)
-   - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, **Set Start After...** (defer booking of the layer until a chosen time, with +15m / +1h / +4h / Tonight 18:00 presets and a Clear button; delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why), Kill, Eat, Retry, Retry Dead Frames.
+   - **Layer actions** include: View Layer, **Copy Layer Name**, dependency items, Reorder / Stagger Frames, Properties, **Set Start After...** (defer booking of the layer until a chosen time, with +15m / +1h / +4h / Tonight 18:00 presets and a Clear button; delayed layers are tinted and show the time in a **Start After** column whose tooltip explains why), Kill, Eat, Retry, Retry Dead Frames. The Set Start After flow is shown in Figures 74-78.
+
+   **Figure 74: ftart After column is blank**
+   ![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
+
+   **Figure 75: Set Start After... in the layer right-click menu**
+   ![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+   **Figure 76: The Set Start After dialog, with presets and the current value**
+   ![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
+
+   **Figure 77: Confirmation that the start-after time was set**
+   ![Confirmation that the start-after time was set](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_4_set_start_after_confirmation.png)
+
+   **Figure 78: The delayed layer, tinted, with the time in the Start After column**
+   ![The delayed layer tinted, with the time shown in the Start After column](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_5_layer_after.png)
    - **Frame actions** include: **Tail Log / View Log** (in-browser viewer), **View Log on \<editor\>** (external editor - see item 23), **Copy Log Path**, **Copy Frame Name**, View Host, dependency items (View / Drop / **Dependency Wizard**), **Mark as waiting**, Filter Selected Layers, Reorder, **Preview All** (external image viewer; command configurable via `NEXT_PUBLIC_PREVIEW_COMMAND` / `NEXT_PUBLIC_PREVIEW_URL`), Retry, Eat, Kill, **Mark done** / Eat and Mark done, View Processes. You can also drag (or shift-click) to select a contiguous **frame range** and Retry / Eat / Kill it at once. The job menu's **Show Progress Bar** shows a configurable CueProgBar launch command (`NEXT_PUBLIC_CUEPROGBAR_COMMAND`).
    - **Frame log viewer** also offers in-log **search** (highlight + match counter, case/regex toggles), **follow/tail** mode (auto-scroll, pause-on-scroll-up, jump-to-bottom; **Tail Log** opens it following by default), absolute **line numbers**, **per-line copy**, raw-log **download**, and a **frame preview thumbnail** panel.
    - All copy actions work whether OpenCueWeb is reached at `localhost` or at a LAN IP over plain HTTP.

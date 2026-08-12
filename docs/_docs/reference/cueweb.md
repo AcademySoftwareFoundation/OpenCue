@@ -1206,6 +1206,34 @@ The screenshots below show the screen flow for each dependency type. Every picke
 
 ---
 
+### Set Start After dialog
+
+The layer context menu's **Set Start After...** entry defers booking of a layer: no frame of it starts before the chosen time. Mounted with the other layer dialogs via `<LayerExtraDialogs />`; opens on a `cueweb:open-layer-start-after` CustomEvent that `setLayerStartAfterGivenRow(row)` (`cueweb/app/utils/action_utils.ts`) dispatches with `{ layer }`. Lives in `cueweb/components/ui/layer-extra-dialogs.tsx`. The same entry appears on layer nodes in the Job Dependency Graph, so both routes open this one dialog.
+
+The gate has two writers: an operator here, and Cuebot's exit-status backoff (`dispatcher.layer_delay.rules`), which pushes the layer out automatically when a frame exits with a configured status such as a license shortage. A layer with no delay leaves the **Start After** column blank.
+
+![A layer with no delay - the Start After column is blank](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_1_layer_before.png)
+
+![Set Start After in the layer right-click menu](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_2_layer_right_click.png)
+
+The picker is a `datetime-local` input, so it reads and writes the browser's local time while the RPC carries UTC epoch seconds. The **+15m** / **+1h** / **+4h** / **Tonight 18:00** buttons only fill the picker - they are not a separate input mode, and the value stays editable. When the layer is already delayed the dialog shows the current time and its reason.
+
+![The Set Start After dialog with its quick presets](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_3_layer_set_start_after.png)
+
+After **Set** (or **Clear**, which sends `start_after: 0`):
+
+- `setLayerStartAfter(layers, startAfter)` / `clearLayerStartAfter(layers)` from `action_utils.ts` post `{ layer, start_after }` to `/api/layer/action/setstartafter`, which forwards to `/job.LayerInterface/SetStartAfter` on the REST gateway.
+- The body carries no username: the route resolves the signed-in identity server-side (`getServerSession`, the same source the audit trail uses) and Cuebot records it as the layer's `startAfterReason`, so a caller cannot attribute a delay to someone else.
+- A success toast confirms the change.
+
+![Confirmation that the start-after time was set](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_4_set_start_after_confirmation.png)
+
+While the gate is in the future the row is tinted (`layerRowClassName`), and the **Start After** column shows the time. The cell's `title` carries the reason verbatim as plain text, so a username embedded in it can never render as markup.
+
+![The delayed layer tinted, with the time shown in the Start After column](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layers_set_start_after_5_layer_after.png)
+
+---
+
 ## CueSubmit (Job Submission UI)
 
 OpenCueWeb ships a browser-based equivalent of the standalone CueSubmit CLI tool at the `/cuesubmit` route, reachable from the **CueSubmit** top-level dropdown in the header (and the matching entry in the sidebar / mobile nav drawer). It mirrors the CueSubmit dialog layout one-for-one with a few quality-of-life improvements made possible by running in the browser.

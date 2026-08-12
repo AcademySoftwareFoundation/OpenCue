@@ -35,6 +35,14 @@ export function isLayerDelayed(layer: Layer): boolean {
 // Row tint for a delayed layer (CueGUI COLOR_LAYER_DELAYED_BACKGROUND).
 // Self-clearing: once the deadline passes, the next table render drops the
 // tint. Returns a Tailwind class for SimpleDataTable's getRowClassName hook.
+//
+// The hover variants are required, not decorative: TableRow carries
+// `hover:bg-muted/50`, and a bare `bg-amber-100` loses to it on hover - so the
+// tint would disappear at exactly the moment the operator hovers the row to
+// read the Start After reason. Restating it under `hover:` keeps the row
+// legible as delayed while pointed at (twMerge drops the base hover rule).
 export function layerRowClassName(layer: Layer): string | undefined {
-  return isLayerDelayed(layer) ? "bg-amber-100 dark:bg-amber-950/40" : undefined;
+  return isLayerDelayed(layer)
+    ? "bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
+    : undefined;
 }
