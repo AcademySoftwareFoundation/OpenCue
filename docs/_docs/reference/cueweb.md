@@ -243,6 +243,7 @@ The inline Layers table (`cueweb/app/layers/layer-columns.tsx`, rendered by `Sim
 | **Timeout** | Layer timeout (`HHH:MM`). |
 | **Timeout LLU** | Last-log-update timeout (`HHH:MM`). |
 | **Eligible** | `layer.eligibleTime` formatted `YYYY-MM-DD HH:MM`. |
+| **Start After** | `layer.startAfter` formatted `YYYY-MM-DD HH:MM`; blank when unset. The proto field is an `int64`, so the gateway marshals it as a JSON string - `layerStartAfterSeconds` (`cueweb/app/utils/layer_start_after_utils.ts`) normalizes both shapes, and the column sorts on that number rather than the formatted text. The cell's `title` carries `layer.startAfterReason` verbatim, as plain text. While the gate is in the future, `layerRowClassName` tints the whole row (`SimpleDataTable`'s `getRowClassName` hook, the same mechanism the Hosts table uses); the tint self-clears on the first render after the deadline passes. |
 
 ### Frames Table
 
@@ -402,7 +403,7 @@ A read-only, interactive node graph of a job's dependency tree, rendered with [R
 | **Nodes** | Custom `DependencyNode` renderer: monospace, truncated label with the full name in a `title` tooltip, a kind label and color-coded left border (JOB = blue, LAYER = amber, FRAME = emerald), and a stronger ring on the focus job. Layer / frame nodes carry a hierarchical label so their parent job/layer is visible. |
 | **Edges** | Directed upstream &rarr; downstream (top-to-bottom); animated when the depend is active. Layer nodes also get a structural "contains" edge from the job node. |
 | **Navigation** | **Double-clicking** a node (`onNodeDoubleClick`) calls `onNodeNavigate(jobName)` if supplied, else `router.push("/jobs/<jobName>?tab=overview")`. A single click only selects the node. |
-| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
+| **Node menu** | Right-clicking a layer node (`onNodeContextMenu`) opens a cursor-positioned menu reusing the Layers-table actions via a `{ original: layer }` shim: **Auto Layout Nodes** (re-layout + `fitView`), **Dependencies** (View Dependencies… / Dependency Wizard… / Mark done), **Reorder Frames…**, **Stagger Frames…**, **Properties…**, **Set Start After…**, **Kill**, **Eat**, **Retry**, **Retry Dead Frames**. The same layer dialogs + Dependency Wizard are already mounted by the host page (`data-table.tsx` / the job page), so the events resolve in both contexts. |
 | **Theme-aware** | dagre lays out fresh per call (no module-level singleton); the data fetch is keyed on `job.id` so toggling dark/light does not re-walk the tree. The crosshair-cursor SVG is scoped per instance via a `data-graph-id` attribute so two graphs on a page do not collide. |
 | **Empty / loading states** | `Loading dependency graph...` while walking; `No layers or dependencies found for this job.` only when there are zero nodes. |
 
@@ -869,6 +870,7 @@ All three context menus (`JobContextMenu`, `LayerContextMenu`, `FrameContextMenu
 | **View Dependencies** / **Dependency Wizard** / **Drop depends** | Manage layer-level dependencies (`layer-extra-dialogs.tsx`; the wizard opens with `LAYER_ON_LAYER` pre-selected; `/api/layer/action/getdepends`). |
 | **Reorder Frames** / **Stagger Frames** | Open the reorder / stagger dialogs (`/api/layer/action/reorderframes` / `staggerframes`). |
 | **Properties** | Edit the layer's min cores / min memory / min GPU memory, threadable flag, and tags (`/api/layer/action/{setmincores,setminmemory,setmingpumemory,setthreadable,settags}`). |
+| **Set Start After** | Defer booking of the layer until a chosen time, or clear the delay (`/api/layer/action/setstartafter` &rarr; `/job.LayerInterface/SetStartAfter`). The dialog (`layer-extra-dialogs.tsx`) picks local time and sends UTC epoch seconds, with `+15m` / `+1h` / `+4h` / `Tonight 18:00` presets that fill the picker; **Clear** sends `start_after: 0`. The signed-in username travels with the request and Cuebot records it as the layer's `startAfterReason`. Both the route and Cuebot reject a negative value or one more than five years out, which is how a milliseconds-for-seconds mistake is caught. |
 | **Mark done** / **Eat and Mark done** | Mark the layer's frames done, optionally eating first (`/api/layer/action/markdone`). |
 | **View Processes** | List the procs running the layer's frames in the proc panel. |
 | **Kill** | Kill every frame in the layer. |

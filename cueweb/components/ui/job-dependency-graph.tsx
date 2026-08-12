@@ -35,6 +35,7 @@ import dagre from "dagre";
 import { useTheme } from "next-themes";
 import {
   TbCheck,
+  TbClock,
   TbHelp,
   TbLayoutGrid,
   TbLink,
@@ -55,6 +56,7 @@ import {
   reorderLayerFramesGivenRow,
   staggerLayerFramesGivenRow,
   layerPropertiesGivenRow,
+  setLayerStartAfterGivenRow,
   killLayerGivenRow,
   eatLayerFramesGivenRow,
   retryLayerFramesGivenRow,
@@ -666,6 +668,7 @@ function NodeContextMenu({
           <Item label="Stagger Frames..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => staggerLayerFramesGivenRow(row)} />
           <Sep />
           <Item label="Properties..." icon={<TbSettings className="h-3.5 w-3.5" />} onClick={() => layerPropertiesGivenRow(row)} />
+          <Item label="Set Start After..." icon={<TbClock className="h-3.5 w-3.5" />} onClick={() => setLayerStartAfterGivenRow(row)} />
           <Sep />
           <Item label="Kill" icon={<MdOutlineCancel className="h-3.5 w-3.5 text-red-500" />} danger onClick={() => killLayerGivenRow(row, username)} />
           <Item label="Eat" icon={<TbPacman className="h-3.5 w-3.5 text-orange-500" />} onClick={() => eatLayerFramesGivenRow(row)} />

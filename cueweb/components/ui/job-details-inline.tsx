@@ -20,6 +20,7 @@ import * as React from "react";
 import { Frame, frameColumns } from "@/app/frames/frame-columns";
 import { Job } from "@/app/jobs/columns";
 import { Layer, layerColumns } from "@/app/layers/layer-columns";
+import { layerRowClassName } from "@/app/utils/layer_start_after_utils";
 import { getFramesForJob, getLayersForJob } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
@@ -294,6 +295,7 @@ export function JobDetailsInline({ job, username }: JobDetailsInlineProps) {
             username={username}
             columnVisibilityStorageKey="cueweb.layers.columnVisibility"
             viewsPageKey="layers"
+            getRowClassName={layerRowClassName}
             onRowClick={handleLayerClick}
             selectedRowId={selectedLayer?.id ?? null}
             toolbarLeft={

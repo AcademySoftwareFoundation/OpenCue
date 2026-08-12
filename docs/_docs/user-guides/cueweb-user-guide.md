@@ -754,6 +754,7 @@ The **Job Dependency Graph** is a read-only, interactive node graph of a job's d
 - **Dependencies** - **View Dependencies…**, **Dependency Wizard…**, **Mark done**.
 - **Reorder Frames…**, **Stagger Frames…**.
 - **Properties…** - edit the layer's cores / memory / GPU memory / threadable / tags.
+- **Set Start After…** - defer booking of the layer until a time you pick.
 - **Kill**, **Eat**, **Retry**, **Retry Dead Frames**.
 
 ![Right-click menu on a layer node in the Job Dependency Graph](/assets/images/cueweb/cueweb_dependency_graph_menu_options.png)
@@ -789,6 +790,7 @@ The graph is theme-aware: it follows the light/dark toggle without re-fetching t
 | **Timeout** | Frame timeout duration (HHH:MM) |
 | **Timeout LLU** | Timeout for last layer update (HHH:MM) |
 | **Eligible** | Timestamp when the layer became eligible to dispatch. |
+| **Start After** | The time before which no frame of the layer may start. Blank when the layer has no delay. Hover the value to see why the layer is delayed. |
 
 #### Layer Actions
 
@@ -796,6 +798,21 @@ The graph is theme-aware: it follows the light/dark toggle without re-fetching t
 - **Eat**: Mark layer as completed (skip)
 - **Retry**: Restart all frames in the layer
 - **Retry Dead Frames**: Restart only failed frames
+- **Set Start After…**: Defer booking of the layer until a time you pick
+
+#### Deferring a Layer with Start After
+
+A layer can carry a **start-after time**: no frame of the layer starts before it. Two things write it - you, and OpenCue itself when a frame fails in a way that is worth waiting out rather than retrying immediately (for example, a license shortage).
+
+A delayed layer is tinted in the Layers table, and its **Start After** column shows the time. Hovering that value shows the reason - either `Set by <user>` or the automatic backoff that wrote it.
+
+To set or change it, right-click the layer and choose **Set Start After…**:
+
+- Pick a date and time. The picker shows and accepts **your local time**.
+- The **+15m**, **+1h**, **+4h** and **Tonight 18:00** buttons fill the picker for you; you can still adjust the value afterwards.
+- **Set** applies the time; **Clear** removes the delay and makes the layer bookable immediately.
+
+A layer you clear may be delayed again automatically while the condition that caused the automatic delay (for example, that license shortage) is still going on. A time you set yourself is authoritative: an automatic backoff can only push a layer further into the future, never pull it earlier.
 
    ![OpenCueWeb with layer context menu open](/assets/images/cueweb/cueweb_cuetopia_monitor_jobs_layer_context_menu_open.png)
 

@@ -17,11 +17,13 @@
  */
 
 import * as React from "react";
+import { useSession } from "next-auth/react";
 
 import type { Frame } from "@/app/frames/frame-columns";
 import type { Job } from "@/app/jobs/columns";
 import type { Layer } from "@/app/layers/layer-columns";
 import {
+  clearLayerStartAfter,
   eatAndMarkdoneLayers,
   fetchLayerDepends,
   markdoneLayers,
@@ -29,12 +31,14 @@ import {
   setLayerMinCores,
   setLayerMinGpuMemory,
   setLayerMinMemory,
+  setLayerStartAfter,
   setLayerTags,
   setLayerThreadable,
   staggerLayerFrames,
 } from "@/app/utils/action_utils";
 import { getFramesForJob } from "@/app/utils/get_utils";
-import { convertMemoryToString, secondsToHHMMSS } from "@/app/utils/layers_frames_utils";
+import { layerStartAfterSeconds } from "@/app/utils/layer_start_after_utils";
+import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHMMSS } from "@/app/utils/layers_frames_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -433,6 +437,132 @@ function LayerPropertiesDialog() {
   );
 }
 
+// Local datetime-local value (YYYY-MM-DDTHH:mm) for a Date, in the browser's
+// own timezone - `toISOString()` would shift it to UTC and the picker would
+// open on the wrong hour.
+function toLocalInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+// Set Start After (CueGUI LayerStartAfterDialog): defer booking of the layer
+// until a chosen time. The picker shows local time and the RPC carries UTC
+// epoch seconds. The same field is written automatically by Cuebot's
+// exit-status backoff (e.g. a license shortage), so a cleared layer may be
+// delayed again automatically while the underlying condition persists; a value
+// set here replaces any automatic delay.
+function LayerStartAfterDialog() {
+  const { data: session } = useSession();
+  const username = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "";
+
+  const [open, setOpen] = React.useState(false);
+  const [layer, setLayer] = React.useState<Layer | null>(null);
+  const [value, setValue] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    function handler(e: Event) {
+      const l = layerOf(e);
+      if (!l) return;
+      setLayer(l);
+      // Seed with the layer's current delay when it has one, otherwise now -
+      // same seeding as the CueGUI dialog.
+      const current = layerStartAfterSeconds(l);
+      setValue(toLocalInputValue(current ? new Date(current * 1000) : new Date()));
+      setOpen(true);
+    }
+    window.addEventListener("cueweb:open-layer-start-after", handler);
+    return () => window.removeEventListener("cueweb:open-layer-start-after", handler);
+  }, []);
+
+  // Presets fill the picker; they are not a separate input mode.
+  function presetIn(minutes: number) {
+    setValue(toLocalInputValue(new Date(Date.now() + minutes * 60_000)));
+  }
+  function presetTonight() {
+    const tonight = new Date();
+    tonight.setHours(18, 0, 0, 0);
+    if (tonight.getTime() <= Date.now()) tonight.setDate(tonight.getDate() + 1);
+    setValue(toLocalInputValue(tonight));
+  }
+
+  async function apply() {
+    if (!layer) return;
+    const picked = new Date(value);
+    if (Number.isNaN(picked.getTime())) return;
+    setBusy(true);
+    try {
+      if (await setLayerStartAfter([layer], Math.floor(picked.getTime() / 1000), username)) setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clear() {
+    if (!layer) return;
+    setBusy(true);
+    try {
+      if (await clearLayerStartAfter([layer], username)) setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const current = layer ? layerStartAfterSeconds(layer) : 0;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Set Start After</DialogTitle>
+          <DialogDescription className="break-all font-mono text-xs">{layer?.name}</DialogDescription>
+        </DialogHeader>
+        <div className="min-w-0 space-y-3 py-2 text-sm">
+          <label className="block min-w-0">
+            <span className="text-muted-foreground">Do not book before (local time)</span>
+            <Input
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="mt-1 w-full"
+              aria-label="Start after"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => presetIn(15)}>+15m</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => presetIn(60)}>+1h</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => presetIn(240)}>+4h</Button>
+            <Button type="button" variant="outline" size="sm" onClick={presetTonight}>Tonight 18:00</Button>
+          </div>
+          {current ? (
+            <div className="min-w-0 space-y-1 rounded-md border border-input p-3 text-xs">
+              <p>
+                <span className="text-muted-foreground">current: </span>
+                <span className="font-mono">{convertUnixToHumanReadableDate(current)}</span>
+              </p>
+              {/* The reason embeds a client-supplied username and is displayed
+                  verbatim; JSX escapes it, so it can never render as markup. */}
+              {layer?.startAfterReason ? <p className="break-all">{layer.startAfterReason}</p> : null}
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            A layer may be delayed again automatically while the underlying failure condition
+            (e.g. a license shortage) persists.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="outline" onClick={clear} disabled={busy}>Clear</Button>
+          <Button onClick={apply} disabled={busy || !value}>Set</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // View Dependencies for a layer (CueGUI DependDialog -> getWhatThisDependsOn).
 function LayerDependenciesDialog() {
   const [open, setOpen] = React.useState(false);
@@ -637,6 +767,7 @@ export function LayerExtraDialogs({ job }: { job?: Job }) {
       <LayerStaggerFramesDialog />
       <LayerConfirmDialog />
       <LayerPropertiesDialog />
+      <LayerStartAfterDialog />
       <LayerDependenciesDialog />
       <LayerProcessesDialog job={job} />
     </>

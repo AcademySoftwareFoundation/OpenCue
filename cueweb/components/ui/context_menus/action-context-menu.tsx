@@ -32,6 +32,7 @@ import {
   reorderLayerFramesGivenRow,
   staggerLayerFramesGivenRow,
   layerPropertiesGivenRow,
+  setLayerStartAfterGivenRow,
   eatAndMarkdoneLayerGivenRow,
   viewLayerProcessesGivenRow,
   createSubscriptionGivenRow,
@@ -110,6 +111,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { MdOutlineCancel } from "react-icons/md";
 import {
+  TbClock,
   TbCopy,
   TbDots,
   TbExternalLink,
@@ -635,6 +637,7 @@ export const LayerContextMenu: React.FC<LayerContextMenuProps> = ({
     sep("group-properties"),
 
     { label: "Properties...", onClick: layerPropertiesGivenRow, isActive: true, component: <TbSettings className="mr-1" size={14} /> },
+    { label: "Set Start After...", onClick: setLayerStartAfterGivenRow, isActive: active, component: <TbClock className="mr-1" size={14} color={active ? undefined : "gray"} /> },
 
     sep("group-actions"),
 

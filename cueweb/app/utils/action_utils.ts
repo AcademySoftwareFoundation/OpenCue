@@ -336,6 +336,26 @@ export async function setLayerTags(layer: Layer, tags: string[]): Promise<boolea
   return performAction("/api/layer/action/settags", [JSON.stringify({ layer, tags })], `Set tags on ${layer.name}`);
 }
 
+// Defer booking of the given layers until `startAfter` (UTC epoch seconds);
+// 0 clears the delay (CueGUI LayerStartAfterDialog). The username is recorded
+// by Cuebot as the start_after_reason for provenance.
+//
+// The same field is written automatically by Cuebot's exit-status backoff
+// (e.g. a license shortage), so a cleared layer may be delayed again while the
+// underlying condition persists; a value set here replaces any automatic delay.
+export async function setLayerStartAfter(layers: Layer[], startAfter: number, username: string): Promise<boolean> {
+  const bodyAr = layers.map((layer) => JSON.stringify({ layer, start_after: startAfter, username }));
+  const message =
+    startAfter === 0
+      ? `Cleared start after on ${layers.length} layer(s)`
+      : `Set start after on ${layers.length} layer(s)`;
+  return performAction("/api/layer/action/setstartafter", bodyAr, message);
+}
+
+export async function clearLayerStartAfter(layers: Layer[], username: string): Promise<boolean> {
+  return setLayerStartAfter(layers, 0, username);
+}
+
 /**************************************/
 // Redirect (CueGUI Redirect)
 /**************************************/
@@ -1015,6 +1035,9 @@ export function staggerLayerFramesGivenRow(row: Row<any>) {
 }
 export function layerPropertiesGivenRow(row: Row<any>) {
   dispatchLayerEvent("cueweb:open-layer-properties", row.original as Layer);
+}
+export function setLayerStartAfterGivenRow(row: Row<any>) {
+  dispatchLayerEvent("cueweb:open-layer-start-after", row.original as Layer);
 }
 export function eatAndMarkdoneLayerGivenRow(row: Row<any>) {
   dispatchLayerEvent("cueweb:open-layer-confirm", row.original as Layer, { action: "eatandmarkdone" });

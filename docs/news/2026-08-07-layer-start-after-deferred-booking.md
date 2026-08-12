@@ -90,6 +90,11 @@ tooltip explains why the layer is delayed — `Automatic backoff: exit status 33
 `Set by <user>`. *Clear* makes the layer bookable immediately (though it may be re-delayed
 automatically while the underlying condition persists).
 
+CueWeb offers the same thing: the Layers table gained a sortable *Start After* column with the
+reason on hover, delayed rows are tinted, and the layer right-click menu (in the table and on layer
+nodes in the Job Dependency Graph) has a *Set Start After…* dialog carrying the same presets and
+*Clear*. The picker shows local time and sends UTC epoch seconds.
+
 From python:
 
 ```python
@@ -113,6 +118,7 @@ on `cuebot_layers_delayed > 0` sustained.
 
 ## Availability
 
-The layer start-after gate is available now in Cuebot, the Rust scheduler, pycue, and CueGUI.
-CueWeb parity (a read-only column, then set/clear) and `rest_gateway` registration of
-`SetStartAfter` are tracked as follow-up work.
+The layer start-after gate is available now in Cuebot, the Rust scheduler, pycue, CueGUI, and
+CueWeb. `rest_gateway` exposes `SetStartAfter` as `POST /job.LayerInterface/SetStartAfter` with no
+extra registration — it generates a route per RPC from `job.proto`, so the endpoint appears when
+the gateway is rebuilt against this proto.
