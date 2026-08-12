@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,6 +39,10 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public int timeout_llu;
     public int dispatchOrder;
     public int totalFrameCount;
+
+    /** Do not book frames of this layer before this time. Null means no restriction. */
+    public Timestamp startAfter;
+    public String startAfterReason;
 
     public Set<String> tags = new LinkedHashSet<String>();
     public Set<String> services = new LinkedHashSet<String>();

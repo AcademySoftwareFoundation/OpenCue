@@ -223,6 +223,38 @@ class Layer(object):
             layer=self.data, timeout_llu=timeout_llu),
             timeout=Cuebot.Timeout)
 
+    def setStartAfter(self, epoch_seconds, username=None):
+        """Defers booking of this layer: no frame of the layer will start before
+        the given time.
+
+        The same field is written automatically by Cuebot's exit-status backoff
+        (e.g. a license shortage); a value set here is authoritative and replaces
+        any automatic delay, and a later automatic delay can only move the time
+        further into the future.
+
+        :type  epoch_seconds: int
+        :param epoch_seconds: UTC epoch time before which no frame may start;
+                              0 clears the delay
+        :type  username: str
+        :param username: recorded in the start-after reason for provenance;
+                         defaults to the current user
+        """
+        username = username if username else getpass.getuser()
+        return self.stub.SetStartAfter(job_pb2.LayerSetStartAfterRequest(
+            layer=self.data, start_after=epoch_seconds, username=username),
+            timeout=Cuebot.Timeout)
+
+    def clearStartAfter(self, username=None):
+        """Clears the layer's start-after delay, making it bookable immediately.
+
+        Note the layer may be delayed again automatically while the condition
+        that triggered an automatic delay (e.g. a license shortage) persists.
+
+        :type  username: str
+        :param username: recorded for provenance; defaults to the current user
+        """
+        return self.setStartAfter(0, username=username)
+
     def addRenderPartition(self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus):
         """Adds a render partition to the layer.
 
@@ -696,3 +728,40 @@ class Layer(object):
         if not format:
             return self.data.stop_time
         return time.strftime(format, time.localtime(self.data.stop_time))
+
+    # pylint: disable=redefined-builtin
+    def startAfter(self, format=None):
+        """Returns the layer's start-after time in the desired format.
+
+        No frame of the layer may start before this time. Written by operators
+        (setStartAfter) or automatically by Cuebot's exit-status backoff.
+        Returns 0 when no delay is set.
+
+        Examples:
+            None
+            "%m/%d %H:%M"           => 05/17 18:00
+            "%a %b %d %H:%M:%S %Y"  => Sun May 17 18:00:00 2026
+
+        See the format table at:
+        https://docs.python.org/3/library/time.html
+
+        :type  format: str
+        :param format: desired time format
+        :rtype:  int/str
+        :return: layer start-after time in epoch, or string version of that
+                 timestamp if format given; an empty string when no delay is
+                 set and a format was given"""
+        if not format:
+            return self.data.start_after
+        if not self.data.start_after:
+            # 0 means "no delay", not the epoch; formatting it would show 1970.
+            return ''
+        return time.strftime(format, time.localtime(self.data.start_after))
+
+    def startAfterReason(self):
+        """Returns the free-text provenance of the layer's start-after time,
+        e.g. "Automatic backoff: exit status 330" or "Set by <user>".
+
+        :rtype:  str
+        :return: reason the start-after time was set, or an empty string"""
+        return self.data.start_after_reason

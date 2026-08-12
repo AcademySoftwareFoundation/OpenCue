@@ -982,6 +982,17 @@ class LayerActions(AbstractActions):
             dialog.exec_()
             self._update()
 
+    setStartAfter_info = [
+        "Set Start After...",
+        "Defer booking of the selected layers until a chosen time", "configure"]
+
+    def setStartAfter(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            dialog = cuegui.LayerDialog.LayerStartAfterDialog(layers, self._caller)
+            dialog.exec_()
+            self._update()
+
     kill_info = ["&Kill", None, "kill"]
 
     def kill(self, rpcObjects=None):
