@@ -281,12 +281,10 @@ public class FrameCompleteHandler {
      * the normal state for a proc whose frame was stopped by another actor (eat, retry, kill) and
      * that now needs to be released.
      *
-     * The proc is re-read immediately before it is released: any frame assignment on the fresh read
-     * — the reported frame again, or a different frame booked in the meantime — means a newer run
-     * is live on this proc, and the report is dropped instead, since releasing the proc would
-     * orphan that run. A report that gets past the duplicate check is discarded on every path, so
-     * it is counted (and a successful report flagged as a lost render result) whether the proc is
-     * released or the report is dropped.
+     * The release itself is deferred to {@link #releaseStaleProc}, which re-reads the proc
+     * immediately before releasing it and drops the report when that read shows a newer run. A
+     * report that gets past the duplicate check is discarded on every path, so it is counted (and a
+     * successful report flagged as a lost render result) here, before the release is queued.
      */
     private void handleStaleReport(VirtualProc proc, FrameCompleteReport report, String key) {
         if (proc.frameId != null && !proc.frameId.equals(report.getFrame().getFrameId())) {
@@ -320,16 +318,28 @@ public class FrameCompleteHandler {
                     + " and the result of this render is being discarded.");
         }
 
-        /*
-         * Never unbook a live render. The proc snapshot this method was handed can be stale by the
-         * time the release decision is made: the dispatcher may since have assigned the proc a
-         * newer run, either the reported frame again (stopped and re-dispatched onto this same proc
-         * between this report being generated and handled) or a different frame entirely. Releasing
-         * the proc deletes its row with no fence on the current assignment, which would orphan that
-         * live run, so the proc is re-read here and the report is dropped whenever the fresh read
-         * shows any frame assigned; the newer run's own report will release the proc when it ends.
-         * Only a proc confirmed idle by the fresh read is redirected or unbooked.
-         */
+        queueDispatchTask(key, "releaseStaleProc", () -> releaseStaleProc(proc, report));
+    }
+
+    /**
+     * Redirects or unbooks a proc whose frame complete report was stale, unless the proc is holding
+     * a live run.
+     *
+     * The proc snapshot handed to {@link #handleStaleReport} can be stale by the time the release
+     * decision is made: the dispatcher may since have assigned the proc a newer run, either the
+     * reported frame again (stopped and re-dispatched onto this same proc between this report being
+     * generated and handled) or a different frame entirely. Releasing the proc deletes its row with
+     * no fence on the current assignment, which would orphan that live run, so the proc is re-read
+     * here and the report is dropped whenever the fresh read shows any frame assigned; the newer
+     * run's own report will release the proc when it ends.
+     *
+     * The re-read runs on the dispatch queue, immediately before the release it guards, rather than
+     * on the report thread: the delete is not fenced on the assignment read, so this narrows the
+     * window to the gap between the read and the delete instead of leaving it open for however long
+     * the release sat queued. It does not eliminate the window; a proc that books a new frame
+     * inside that gap can still be released out from under it.
+     */
+    private void releaseStaleProc(VirtualProc proc, FrameCompleteReport report) {
         VirtualProc currentProc;
         try {
             currentProc = hostManager.getVirtualProc(proc.getProcId());
@@ -347,9 +357,9 @@ public class FrameCompleteHandler {
         }
 
         if (redirectManager.hasRedirect(proc)) {
-            queueDispatchTask(key, "redirect", () -> redirectManager.redirect(proc));
+            redirectManager.redirect(proc);
         } else {
-            queueDispatchTask(key, "unbookProc", () -> dispatchSupport.unbookProc(proc));
+            dispatchSupport.unbookProc(proc);
         }
     }
 

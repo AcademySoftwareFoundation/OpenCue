@@ -431,9 +431,13 @@ public class JobManagerSupport {
      *
      * The kill-confirmation budget ({@code dispatcher.retry_frame_kill_budget_ms}) is shared by the
      * whole request rather than granted per frame, so a bulk retry of many running frames cannot
-     * occupy a manage thread for many multiples of the budget. Frames reached after the budget is
-     * spent still get their kill and one confirmation poll each, and are deferred (left RUNNING)
-     * when that poll cannot confirm the render dead.
+     * spend the budget once per frame waiting on confirmations. Frames reached after the budget is
+     * spent still get their kill, but are not confirmed and so are deferred (left RUNNING).
+     *
+     * The budget bounds the confirmation waiting, not the whole request: every frame still costs
+     * one kill RPC on the calling thread, and that RPC carries {@code grpc.rqd_task_deadline}, so a
+     * bulk retry against unreachable hosts costs up to the budget plus one RQD deadline per frame.
+     * Size bulk retry requests against that, not against the budget alone.
      *
      * @param request
      * @param source
@@ -486,15 +490,22 @@ public class JobManagerSupport {
         boolean killBeforeRelease = env == null || env.getProperty(
                 "dispatcher.kill_running_frame_before_release_enabled", Boolean.class, true);
 
+        boolean redirected = false;
+
         if (proc != null && killBeforeRelease) {
             /*
-             * The redirect is registered before the kill: the killed render's completion report can
-             * arrive at any point during the confirmation polling below, and handleStaleReport must
-             * find the redirect already in place to steer the proc back to this job instead of
-             * unbooking it. On a deferred retry the redirect lingers, which is benign; it only
-             * redirects the proc to its own job later.
+             * A first attempt at the redirect is made before the kill: the killed render's
+             * completion report can arrive at any point during the confirmation polling below, and
+             * handleStaleReport must find the redirect already in place to steer the proc back to
+             * this job instead of unbooking it. On a deferred retry the redirect lingers, which is
+             * benign; it only redirects the proc to its own job later.
+             *
+             * This attempt only registers when the job has some other dispatchable frame:
+             * addRedirect requires a WAITING frame for the proc, and the frame being retried is
+             * still RUNNING at this point. The attempt after the stop below covers the rest,
+             * including a job whose only remaining work is the frame being retried.
              */
-            redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
+            redirected = redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
             if (!killAndConfirmDead(proc, frame, source, killDeadlineMs)) {
                 if (prometheusMetrics != null) {
                     prometheusMetrics.incrementFrameRetryDeferred();
@@ -511,6 +522,21 @@ public class JobManagerSupport {
             if (proc != null && !killBeforeRelease) {
                 redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
                 kill(proc, source);
+            } else if (proc != null && killBeforeRelease) {
+                /*
+                 * The retried frame is WAITING now, so it is itself dispatchable to this proc: this
+                 * is the attempt that registers when the frame is the job's only remaining work.
+                 * Re-registering an existing redirect is harmless, it rewrites the same target on
+                 * the proc row.
+                 */
+                redirected = redirectManager.addRedirect(proc, (JobInterface) proc, false, source)
+                        || redirected;
+                if (!redirected) {
+                    logger.info("No redirect could be registered for " + proc.getName()
+                            + " while retrying frame " + frame.getName() + "; the proc will be "
+                            + "unbooked rather than steered back to its job when the killed "
+                            + "render's completion report arrives.");
+                }
             }
         } else {
             /*
@@ -525,6 +551,11 @@ public class JobManagerSupport {
             FrameDetail currentFrame = jobManager.getFrameDetail(frame.getFrameId());
             if (currentFrame.state != FrameState.RUNNING) {
                 jobManager.updateFrameState(currentFrame, FrameState.WAITING);
+            } else {
+                logger.info("Retry of frame " + frame.getName() + " did not change its state: the "
+                        + "frame is " + currentFrame.state + " again at version "
+                        + currentFrame.version + ", so it has already been re-dispatched and is "
+                        + "left alone. Retry it again to interrupt that render.");
             }
         }
 
@@ -567,6 +598,11 @@ public class JobManagerSupport {
      * {@code isFrameRunning}. Returns false when the render is still running at the deadline or the
      * host cannot be reached to confirm; the caller must then leave the frame RUNNING rather than
      * release it for re-dispatch.
+     *
+     * The deadline bounds the confirmation polling, including the first poll: once it has passed,
+     * the kill is still delivered but the render is not confirmed and the frame is deferred. Each
+     * confirmation poll is a gRPC call carrying {@code grpc.rqd_task_deadline}, so polling past the
+     * deadline would let one bulk retry spend that deadline per frame on top of the budget.
      */
     private boolean killAndConfirmDead(VirtualProc proc, FrameInterface frame, Source source,
             long deadlineMs) {
@@ -577,9 +613,7 @@ public class JobManagerSupport {
                     + " could not be delivered, " + e);
         }
 
-        // do/while so the render gets at least one confirmation poll even when the shared budget
-        // was spent on earlier frames.
-        do {
+        while (System.currentTimeMillis() < deadlineMs) {
             try {
                 if (!rqdClient.isFrameRunning(proc.hostName, frame.getFrameId())) {
                     return true;
@@ -598,7 +632,7 @@ public class JobManagerSupport {
                 Thread.currentThread().interrupt();
                 return false;
             }
-        } while (true);
+        }
         return false;
     }
 

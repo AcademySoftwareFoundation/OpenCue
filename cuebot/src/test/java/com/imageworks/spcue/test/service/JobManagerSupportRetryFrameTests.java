@@ -105,12 +105,13 @@ public class JobManagerSupportRetryFrameTests {
         jobManagerSupport.setDependManager(dependManager);
         ReflectionTestUtils.setField(jobManagerSupport, "env", env);
 
-        // Kill-before-release enabled by default, with a zero confirmation budget so tests run a
-        // single confirmation poll instead of sleeping.
+        // Kill-before-release enabled by default, with a full confirmation budget. Tests whose
+        // render is confirmed gone on the first poll never sleep; tests that need the budget to be
+        // spent set it explicitly.
         when(env.getProperty(eq(KILL_BEFORE_RELEASE_PROPERTY), eq(Boolean.class), eq(true)))
                 .thenReturn(true);
         when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
-                .thenReturn(0L);
+                .thenReturn(10000L);
 
         frame = new FrameDetail();
         frame.id = FRAME_ID;
@@ -149,9 +150,40 @@ public class JobManagerSupportRetryFrameTests {
         inOrder.verify(rqdClient, times(1)).isFrameRunning(proc.hostName, FRAME_ID);
         inOrder.verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.WAITING),
                 anyInt());
+        verify(jobManager, times(1)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
+    }
+
+    @Test
+    public void registersRedirectBothBeforeTheKillAndAfterTheFrameIsWaiting() {
+        // addRedirect only registers when the job has a frame this proc can be dispatched to. The
+        // pre-kill attempt covers the report landing during confirmation, but at that point the
+        // retried frame is still RUNNING, so on a job whose only remaining work is that frame it
+        // finds nothing. The attempt after the stop is the one that registers there.
+        when(rqdClient.isFrameRunning(proc.hostName, FRAME_ID)).thenReturn(false);
+
+        jobManagerSupport.retryFrame(frame, source);
+
+        InOrder inOrder = inOrder(redirectManager, rqdClient, dispatchSupport);
+        inOrder.verify(redirectManager, times(1)).addRedirect(eq(proc), any(JobInterface.class),
+                eq(false), eq(source));
+        inOrder.verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        inOrder.verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.WAITING),
+                anyInt());
+        inOrder.verify(redirectManager, times(1)).addRedirect(eq(proc), any(JobInterface.class),
+                eq(false), eq(source));
+    }
+
+    @Test
+    public void doesNotRetryTheRedirectWhenTheFrameIsNotReleased() {
+        // A deferred retry leaves the frame RUNNING, so there is no post-stop redirect attempt.
+        when(rqdClient.isFrameRunning(proc.hostName, FRAME_ID)).thenReturn(true);
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(0L);
+
+        jobManagerSupport.retryFrame(frame, source);
+
         verify(redirectManager, times(1)).addRedirect(eq(proc), any(JobInterface.class), eq(false),
                 eq(source));
-        verify(jobManager, times(1)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
     }
 
     @Test
@@ -170,17 +202,38 @@ public class JobManagerSupportRetryFrameTests {
 
     @Test
     public void defersRetryWhenRenderOutlivesKillBudget() {
+        // A budget shorter than one poll interval: the render is polled once, is still alive, and
+        // the budget is spent before another poll is due.
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(200L);
         when(rqdClient.isFrameRunning(proc.hostName, FRAME_ID)).thenReturn(true);
 
         jobManagerSupport.retryFrame(frame, source);
 
         // Fail closed: the frame must be left RUNNING and none of the release steps may run.
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(rqdClient, times(1)).isFrameRunning(proc.hostName, FRAME_ID);
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
                 anyInt());
         verify(jobManager, never()).updateFrameState(any(FrameInterface.class),
                 any(FrameState.class));
         verify(jobManager, never()).updateJobState(any(JobInterface.class), any(JobState.class));
+    }
+
+    @Test
+    public void skipsConfirmationPollWhenBudgetIsAlreadySpent() {
+        // Each confirmation poll is a gRPC call bounded by grpc.rqd_task_deadline, so polling once
+        // the shared budget is gone would let a bulk retry spend that deadline per frame on top of
+        // the budget. Past the deadline the kill is still delivered and the frame is deferred.
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(0L);
+
+        jobManagerSupport.retryFrame(frame, source);
+
+        verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
+        verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
+                anyInt());
     }
 
     @Test
@@ -259,10 +312,13 @@ public class JobManagerSupportRetryFrameTests {
 
     @Test
     public void bulkRetrySharesOneKillBudgetAcrossFrames() {
-        // The zero budget from setup means the shared deadline is already spent when the first
-        // frame is processed. Every frame must still get its kill and exactly one confirmation
-        // poll, and both renders (still alive at their poll) must be deferred, so a bulk retry
-        // cannot hold a manage thread for one full budget per frame.
+        // A zero budget means the shared deadline is already spent when the first frame is
+        // processed. Every frame must still get its kill, none may be confirmed or released, and
+        // no frame may spend a confirmation RPC, so a bulk retry cannot hold a manage thread for
+        // one full budget per frame.
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(0L);
+
         FrameDetail frame2 = new FrameDetail();
         frame2.id = "00000000-0000-0000-0000-0000000000f2";
         frame2.jobId = JOB_ID;
@@ -281,14 +337,12 @@ public class JobManagerSupportRetryFrameTests {
         FrameSearchInterface search = mock(FrameSearchInterface.class);
         when(jobManager.findFrames(search))
                 .thenReturn(Arrays.<FrameInterface>asList(frame, frame2));
-        when(rqdClient.isFrameRunning(anyString(), anyString())).thenReturn(true);
 
         jobManagerSupport.retryFrames(search, source);
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         verify(rqdClient, times(1)).killFrame(eq(proc2), anyString());
-        verify(rqdClient, times(1)).isFrameRunning(proc.hostName, FRAME_ID);
-        verify(rqdClient, times(1)).isFrameRunning(proc2.hostName, frame2.id);
+        verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
         // Fail closed for both: neither frame may be released while its render is unconfirmed.
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
                 anyInt());
