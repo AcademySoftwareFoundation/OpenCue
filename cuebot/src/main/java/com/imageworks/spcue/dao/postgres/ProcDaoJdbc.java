@@ -579,7 +579,11 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "job.pk_job = proc.pk_job "
                 + "AND "
                 + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL;
+            + ORPHANED_PROC_INTERVAL
+            // Oldest ping first, so a limited batch is deterministic across passes: the
+            // longest-stale procs are always retried (and eventually hit the deferral bound)
+            // instead of a nondeterministic subset cycling through the batch window.
+            + " ORDER BY proc.ts_ping";
     // spotless:on
 
     public List<VirtualProc> findOrphanedVirtualProcs() {
@@ -589,6 +593,54 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
     public List<VirtualProc> findOrphanedVirtualProcs(int limit) {
         return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST + " LIMIT " + limit,
                 VIRTUAL_PROC_MAPPER);
+    }
+
+    // spotless:off
+    private static final String IS_PING_OLDER_THAN =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "proc "
+            + "WHERE "
+                + "proc.pk_proc = ? "
+                + "AND "
+                + "current_timestamp - proc.ts_ping > (? * interval '1 millisecond')";
+    // spotless:on
+
+    @Override
+    public boolean isPingOlderThan(ProcInterface proc, long ageMs) {
+        return getJdbcTemplate().queryForObject(IS_PING_OLDER_THAN, Integer.class, proc.getProcId(),
+                ageMs) > 0;
+    }
+
+    /**
+     * Safety margin required between a proc's dispatch time (database clock) and its host's
+     * reported boot time (host clock) before the reboot counts as proof the render is dead. Covers
+     * clock skew between the host and the database: a host whose clock runs ahead by less than this
+     * margin cannot make a pre-dispatch boot look post-dispatch.
+     */
+    private static final String BOOT_AFTER_DISPATCH_SKEW_MARGIN = "interval '300' second";
+
+    // spotless:off
+    private static final String IS_HOST_REBOOTED_SINCE_DISPATCH =
+            "SELECT "
+                + "COUNT(1) "
+            + "FROM "
+                + "proc, "
+                + "host_stat "
+            + "WHERE "
+                + "proc.pk_proc = ? "
+                + "AND "
+                + "host_stat.pk_host = proc.pk_host "
+                + "AND "
+                + "host_stat.ts_booted > proc.ts_dispatched + "
+            + BOOT_AFTER_DISPATCH_SKEW_MARGIN;
+    // spotless:on
+
+    @Override
+    public boolean isHostRebootedSinceDispatch(ProcInterface proc) {
+        return getJdbcTemplate().queryForObject(IS_HOST_REBOOTED_SINCE_DISPATCH, Integer.class,
+                proc.getProcId()) > 0;
     }
 
     // spotless:off
