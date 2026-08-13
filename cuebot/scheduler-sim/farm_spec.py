@@ -118,6 +118,15 @@ TAG_SKEW = float(os.environ.get("SIM_TAG_SKEW", "0.3"))
 # random) keeps the extra groups bounded (~N pairs, not N^2). 0 (default) = off.
 MULTITAG_FRAC = float(os.environ.get("SIM_MULTITAG_FRAC", "0") or "0")
 
+# Run-anywhere work: SIM_GENERAL_FRAC in [0,1] is the fraction of layers that
+# request NO capability tag and so stay on plain 'general' -- the common
+# general-queue job that any host can run. 'general' is on EVERY host, so such a
+# layer is a candidate in EVERY host-spec group at once. That is the realistic
+# case (most work is untagged) and, with many tags, the maximal stress on the
+# planner: one run-anywhere layer is scanned/planned once per group per tick. 0
+# (default) = every layer is confined to a capability pool.
+GENERAL_FRAC = float(os.environ.get("SIM_GENERAL_FRAC", "0") or "0")
+
 
 def _stable_frac(key):
     """Deterministic float in [0,1) from a string key."""
@@ -171,6 +180,11 @@ def layer_tag(cores, mem_kb):
     the cold pools idle (no eligible work) -- the imbalance that drops util.
     Feasibility-constrained so a job is only confined, never made impossible."""
     if not TAGS_ON:
+        return None
+    # Run-anywhere slice: a GENERAL_FRAC fraction of layers carry no capability
+    # tag (caller falls back to plain 'general'), so they can book on any host in
+    # any pool -- and are a candidate in every host-spec group at once.
+    if GENERAL_FRAC > 0 and random.random() < GENERAL_FRAC:
         return None
     caps = _pool_caps()
     feasible = [p for p, (c, m) in caps.items() if cores <= c and mem_kb <= m]

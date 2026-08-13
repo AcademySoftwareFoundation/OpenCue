@@ -1559,6 +1559,21 @@ def _verify_check(name, gdir, logp, cblog):
             detail += (f"; {lm.group(1)} of them licensed, "
                        f"{om.group(1) if om else '?'} pool oversubscription")
         return ok, detail
+    if name == "TAGMAX":
+        # The planner's cross-group layer dedup: with many tags + a run-anywhere
+        # slice, an undeduped planner re-plans each 'general' layer once per
+        # host-spec group and loses all but one copy to the version race. Gate on
+        # tagmax_watch.py's verdict: raceLost a small fraction of planned.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        fm = re.search(r"raceLost \d+ / planned \d+ = ([\d.]+)% of planned", txt)
+        gm = re.search(r"across (\d+) host-spec groups", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"raceLost {fm.group(1) if fm else '?'}% of planned across "
+                    f"{gm.group(1) if gm else '?'} host-spec groups "
+                    f"(cross-group dedup holds if low)")
     return False, "unknown scenario"
 
 
@@ -1713,6 +1728,15 @@ def run_verify():
         # accounting while every pool still runs work.
         ("TAGS_GPU", ["--tags", "8", "--gpu", "0.25", "--feed", str(D + 30),
                       "--tag-gpu-test", str(D)]),
+        # TAGMAX: the planner's cross-group dedup under maximal fragmentation. 120
+        # random capability tags shatter the FULL farm into host-spec groups AND
+        # 30% of layers are run-anywhere ('general', a candidate in EVERY group at
+        # once). Without the dedup each such layer is planned once per group per
+        # tick and all but one copy loses the frame.int_version race at commit;
+        # with it, planned about equals committed. Asserts raceLost stays a small
+        # fraction of planned (the dedup holds) while the farm still books.
+        ("TAGMAX", ["--tags", "120", "--feed", str(D + 30), "--tagmax-test", str(D)],
+         {"SIM_GENERAL_FRAC": "0.3"}),
     ]
     results = []
     for entry in scenarios:
@@ -1959,6 +1983,15 @@ def main():
                          "no negative GPU idle counters; coverage floors: peak GPU "
                          "procs >= SIM_TAGGPU_MIN_GPU (default 50) and all N tag "
                          "pools ran work.")
+    ap.add_argument("--tagmax-test", type=int, default=0, metavar="SECS",
+                    help="TAGMAX test: a heavy full-farm run with many capability "
+                         "tags (SIM_NTAGS, default 120) shattering the farm into "
+                         "host-spec groups PLUS a run-anywhere slice "
+                         "(SIM_GENERAL_FRAC, default 0.3) of untagged 'general' "
+                         "layers that are a candidate in every group. Asserts the "
+                         "planner's cross-group layer dedup holds: raceLost stays a "
+                         "small fraction of planned (SIM_TAGMAX_MAX_RACE, default "
+                         "0.10). Pair with --feed; normally driven by --verify.")
     ap.add_argument("--folder-test", type=int, default=0, metavar="SECS",
                     help="FOLDER test: cap the sim folder at SIM_FOLDER_MAX=50 cores "
                          "(folder_resource.int_max_cores) and flood work into it; "
@@ -2057,6 +2090,16 @@ def main():
     # fragmentation still binds (each job stays confined to its ~1/N slice).
     if args.tag_gpu_test:
         os.environ.setdefault("SIM_TAG_SKEW", "1.0")
+
+    # TAGMAX: a heavy tag count shatters the farm into many host-spec groups, and
+    # a run-anywhere slice makes untagged 'general' layers a candidate in every
+    # group at once, the maximal stress on the planner's cross-group dedup.
+    # Default both here so a bare `--tagmax-test SECS` is meaningful; an explicit
+    # --tags N or SIM_GENERAL_FRAC still wins.
+    if args.tagmax_test:
+        if not args.tags:
+            args.tags = 120
+        os.environ.setdefault("SIM_GENERAL_FRAC", "0.3")
 
     # FAILOVER: hand the surviving cuebot's address to fake_rqd / rqd_report
     # (spawned later, they inherit this env) so completion + status reports
@@ -2241,6 +2284,7 @@ def main():
              or args.limit_test or args.license_test or args.poison_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
+             or args.tagmax_test
              or args.parity_test or args.stats or args.metrics or args.feed)
     if watch:
         # This run owns the stack for a bounded, watched lifetime: tear it down on
@@ -2301,6 +2345,11 @@ def main():
         csv = f"{graph_dir}/run_taggpu.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "tag_gpu_watch.py", str(args.tag_gpu_test), "2"],
                        cwd=FARM, env=dict(os.environ, SIM_TAGGPU_CSV=csv))
+    elif args.tagmax_test:
+        log(f"watching TAGMAX (cross-group layer dedup: raceLost vs planned) "
+            f"for {args.tagmax_test}s ...")
+        subprocess.run([VENV_PY, "tagmax_watch.py", str(args.tagmax_test), "3"],
+                       cwd=FARM)
     elif args.poison_test:
         # POISON drill: create orphaned procs mid-run and watch whether booking
         # survives. The injection IS the bug's aftermath, made deterministic:

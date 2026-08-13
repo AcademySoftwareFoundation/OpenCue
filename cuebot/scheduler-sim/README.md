@@ -40,9 +40,9 @@ to get wrong:
 ```
 python simulate.py --verify
 ```
-It runs eleven scenarios back-to-back — each a fresh, fully torn-down sim that
-writes its own graphs — then prints a PASS/FAIL summary (nonzero exit if any
-scenario fails):
+It runs its full battery of scenarios back-to-back — each a fresh, fully
+torn-down sim that writes its own graphs — then prints a PASS/FAIL summary
+(nonzero exit if any scenario fails):
 
 | scenario | asserts |
 |---|---|
@@ -58,6 +58,7 @@ scenario fails):
 | **DEPENDS** | dependency correctness: no frame ever RUNS with unsatisfied depends, while depends satisfy and previously-gated frames run (coverage floors) |
 | **FAILOVER** | HA / leader election: the leader cuebot is killed mid-run and the standby takes over booking AND keeps accepting submissions (all clients re-dial the survivor like a real farm's multi-cuebot config) |
 | **TAGS_GPU** | one mixed run where capability tags AND a GPU slice fragment the farm at once: zero tag/GPU placement violations, GPUs and GPU memory never oversubscribed, every tag pool still runs work |
+| **TAGMAX** | the planner's cross-group layer dedup under maximal fragmentation: 120 capability tags shatter the full farm into host-spec groups while 30% of layers are run-anywhere (`general`, a candidate in every group at once), and `raceLost` (planned frames that lost the `frame.int_version` race at commit) must stay a small fraction of planned — proof no layer is re-planned across groups only to lose every copy but one |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
 Each scenario is tuned (farm size, oversubscription, frame length) so its verdict
@@ -132,6 +133,7 @@ Run `python metrics.py 120` against a live run anytime.
 | `--depend-test SECS` | `0` | DEPENDS test: assert no frame ever RUNS with unsatisfied depends (plus coverage floors `SIM_DEPEND_MIN_SATISFIED`/`SIM_DEPEND_MIN_STARTED`). Pair with `--feed` (dep trees are its default). Normally driven by `--verify`. |
 | `--failover-test SECS` | `0` | FAILOVER test: kill the leader cuebot at SECS/2 and assert the standby books >= `SIM_FAILOVER_MIN_STARTED` (default 100) new frames in the second half. All clients (reporters, fake RQD, feeder) re-dial the survivor via `SIM_CUEBOT_GRPC_FALLBACKS`; PASS also requires >= `SIM_FAILOVER_MIN_JOBS` (default 3) jobs SUBMITTED after the kill. Needs `--cuebots >= 2` and `--feed`. Normally driven by `--verify`. |
 | `--tag-gpu-test SECS` | `0` | TAGS_GPU test: pair with `--tags N`, `--gpu F` and `--feed` for one mixed run where both constraints intersect. Asserts zero tag/GPU placement violations, no GPU/GPU-mem oversubscription, no negative GPU idle counters; floors: peak GPU procs >= `SIM_TAGGPU_MIN_GPU` (default 50), all N tag pools ran work (demand forced uniform: `SIM_TAG_SKEW=1.0`). Normally driven by `--verify`. |
+| `--tagmax-test SECS` | `0` | TAGMAX test: a heavy full-farm run with many capability tags (`SIM_NTAGS`, default 120) that shatter the farm into host-spec groups, plus a run-anywhere slice (`SIM_GENERAL_FRAC`, default 0.3) of untagged `general` layers that are a candidate in every group at once. Asserts the planner's cross-group layer dedup holds: `raceLost` stays within `SIM_TAGMAX_MAX_RACE` (default 0.10) of planned, across at least `SIM_TAGMAX_MIN_GROUPS` (default 80) groups with at least `SIM_TAGMAX_MIN_PLANNED` (default 5000) planned. Pair with `--feed`. Normally driven by `--verify`. |
 
 #### Farm realism / placement stress
 | Flag | Default | What it does |

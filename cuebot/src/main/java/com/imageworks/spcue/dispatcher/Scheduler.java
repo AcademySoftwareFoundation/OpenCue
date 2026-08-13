@@ -261,6 +261,15 @@ public class Scheduler extends JdbcDaoSupport {
     // Per-tick placements to commit, grouped host id -> layer ids. Planner-thread
     // only; cleared each tick after the batch commit.
     private final Map<String, List<String>> plannedByHost = new LinkedHashMap<>();
+    // Layers already PLACED this tick (submitCommit), across ALL host-spec groups.
+    // A permissive layer (loose tags, or plain 'general') is a candidate in many
+    // groups; without this each group re-plans it onto its own host, and the
+    // parallel plan reads then all grab the SAME waiting frames, so every copy but
+    // one loses the frame.int_version race at commit -- wasted reads/VirtualProcs
+    // and idle cores stolen from siblings for nothing. Keyed on PLACEMENT (not
+    // candidacy) so a layer that could not fit an earlier group can still place in
+    // a later one. Planner-thread only; cleared each tick with plannedByHost.
+    private final Set<String> placedLayerIds = new HashSet<>();
     // Consecutive ticks each layer was PLANNED onto a host but planHost's
     // commit-time read returned ZERO frames. That combination is the silent
     // starvation signature of a planner-vs-dispatch eligibility mismatch (a
@@ -1036,6 +1045,7 @@ public class Scheduler extends JdbcDaoSupport {
         // throws mid-placement leaves stale (host, layer) pairings behind, and
         // the next tick would plan them against a fresh snapshot. Start clean.
         plannedByHost.clear();
+        placedLayerIds.clear();
         // 1. SNAPSHOT. Read ALL schedulable hosts (UP + OPEN), busy or idle.
         // Placement only uses the idle ones, but reservations must see BUSY
         // hosts too, a reservation's whole purpose is to hold a host that is
@@ -1988,6 +1998,17 @@ public class Scheduler extends JdbcDaoSupport {
         for (LayerCandidate c : candidates) {
             seenLayerIds.add(c.layerId);
 
+            // Cross-group dedup: skip a layer already PLACED in an earlier host-spec
+            // group this tick. Its per-host plan read would pull the SAME waiting
+            // frames and lose the commit-time frame.int_version race, so re-planning
+            // it only wastes reads/VirtualProcs and steals idle cores that then book
+            // nothing. Placed AFTER seenLayerIds.add so reservation sweeping still
+            // sees the layer, and BEFORE any host/cap mutation so a duplicate
+            // consumes no simulated resources. Keyed on placement, so a layer capped
+            // or unfit in an earlier group is still tried here.
+            if (placedLayerIds.contains(c.layerId))
+                continue;
+
             // Sync this candidate's job/show usage with the tick-wide totals
             // before any cap check: seed from the DB snapshot the first time
             // a job/show is seen, then read back the accumulated value so
@@ -2688,6 +2709,7 @@ public class Scheduler extends JdbcDaoSupport {
      */
     private void submitCommit(String hostId, String layerId) {
         plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
+        placedLayerIds.add(layerId);
     }
 
     // ---- batched resource accounting: accumulate + flush ------------------
