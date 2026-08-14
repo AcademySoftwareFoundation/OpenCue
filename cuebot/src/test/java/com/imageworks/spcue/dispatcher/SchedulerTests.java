@@ -220,6 +220,29 @@ public class SchedulerTests {
         assertFalse(Scheduler.fitsOnHost(gpu, freeHost(CORE, GB, 1, GB - 1)));
     }
 
+    // ---- classifyFragmentation --------------------------------------------
+
+    @Test
+    public void classifyFragmentationSplitsByFirstFailingGate() {
+        // cores: an 8-core layer, but no host has more than 4 idle cores.
+        List<Scheduler.BookableHost> small = Arrays.asList(freeHost(4 * CORE, 100 * GB, 0, 0),
+                freeHost(4 * CORE, 100 * GB, 0, 0));
+        assertEquals("cores", Scheduler.classifyFragmentation(layer(8 * CORE, GB, 0, 0), small));
+
+        // memory: cores fit, but no host has the RAM the layer needs.
+        List<Scheduler.BookableHost> lowMem = Arrays.asList(freeHost(8 * CORE, 2 * GB, 0, 0));
+        assertEquals("memory", Scheduler.classifyFragmentation(layer(CORE, 8 * GB, 0, 0), lowMem));
+
+        // gpu: cores and RAM fit, but the layer needs a GPU no host has.
+        List<Scheduler.BookableHost> noGpu = Arrays.asList(freeHost(8 * CORE, 100 * GB, 0, 0));
+        assertEquals("gpu", Scheduler.classifyFragmentation(layer(CORE, GB, 1, GB), noGpu));
+
+        // fit: a host fits the layer fully, so it was gated (reservation or license
+        // seat); the caller resolves that into held/license.
+        List<Scheduler.BookableHost> roomy = Arrays.asList(freeHost(8 * CORE, 100 * GB, 2, 4 * GB));
+        assertEquals("fit", Scheduler.classifyFragmentation(layer(CORE, GB, 1, GB), roomy));
+    }
+
     // ---- computeMaxMore ---------------------------------------------------
 
     @Test

@@ -20,6 +20,28 @@ ALLOC = "general"
 TAG = "general"
 SHOW = "sim"
 
+# Multi-show model. Real farms run many concurrent shows, so the standard feeder
+# spreads its jobs across these (override with SIM_SHOWS). Each show carries a
+# fixed PRIORITY spanning 10..100 (SHOW_PRIS), so the per-show board panels have
+# real structure and the priority-weighted lottery hands higher-priority shows a
+# bigger slice of a contended farm. Single-show scripts (the priority tests, etc.)
+# keep using SHOW above and are untouched.
+SHOWS = [s for s in os.environ.get("SIM_SHOWS", "sim1,sim2,sim3,sim4,sim5").split(",") if s]
+
+
+def _spread(n, lo=10, hi=100):
+    """n priorities evenly spaced over [lo, hi], both endpoints included."""
+    if n <= 1:
+        return [hi]
+    return [round(lo + (hi - lo) * i / (n - 1)) for i in range(n)]
+
+
+# {show: priority} -- e.g. sim1=10, sim2=32, sim3=55, sim4=78, sim5=100. Override
+# the even spread with SIM_SHOW_PRIS="10,30,50,...".
+_pris = os.environ.get("SIM_SHOW_PRIS")
+SHOW_PRIS = (dict(zip(SHOWS, [int(x) for x in _pris.split(",")])) if _pris
+             else dict(zip(SHOWS, _spread(len(SHOWS)))))
+
 # Connection config shared by every helper script, all overridable via SIM_*
 # (matching simulate.py's defaults) so the whole harness agrees. No sudo: the
 # scripts run as the same non-root user that started Postgres and cuebot, so
@@ -89,6 +111,12 @@ TAGS_ON = NTAGS >= 2
 # so a gentle skew (e.g. 1/(i+1)) barely dents util -- the cold tail has to go
 # near zero to actually strand cores, hence a steep default.
 TAG_SKEW = float(os.environ.get("SIM_TAG_SKEW", "0.3"))
+# Some hosts are DUAL-capability: SIM_MULTITAG_FRAC in [0,1] is the fraction of
+# tagged hosts given a SECOND tag (the adjacent pool cap{i+1}). Those boxes can
+# absorb the neighbouring pool's work, forming their own spec groups and softening
+# -- not erasing -- the fragmentation a single-tag farm suffers. Adjacent (not
+# random) keeps the extra groups bounded (~N pairs, not N^2). 0 (default) = off.
+MULTITAG_FRAC = float(os.environ.get("SIM_MULTITAG_FRAC", "0") or "0")
 
 
 def _stable_frac(key):
@@ -103,11 +131,16 @@ def host_pool(name):
 
 
 def host_tags(name):
-    """'general' (for the allocation lookup) plus this host's ONE random
-    capability tag, cap{i}. Just 'general' when tagging is off."""
+    """'general' (for the allocation lookup) plus this host's capability tag(s):
+    always its random pool cap{i}, and for the SIM_MULTITAG_FRAC fraction of hosts
+    a second, ADJACENT tag cap{i+1} (dual-capability boxes). Just 'general' when
+    tagging is off."""
     tags = [TAG]
     if TAGS_ON:
-        tags.append(f"cap{host_pool(name)}")
+        p = host_pool(name)
+        tags.append(f"cap{p}")
+        if MULTITAG_FRAC > 0 and _stable_frac("mt:" + name) < MULTITAG_FRAC:
+            tags.append(f"cap{(p + 1) % NTAGS}")
     return tags
 
 

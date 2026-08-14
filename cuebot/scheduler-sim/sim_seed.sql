@@ -43,4 +43,29 @@ INSERT INTO point (pk_point, pk_dept, pk_show, str_ti_task, int_cores, b_managed
 INSERT INTO subscription (pk_subscription, pk_alloc, pk_show, int_size, int_burst, int_cores, float_tier) VALUES
     ('10000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000003', 5724800, 1000000000, 0, 0);
 
+-- Multi-show model: sim1..sim5 share this facility + allocation, each with its
+-- own root folder, point and huge-burst subscription. The standard feeder spreads
+-- jobs across them with a per-show priority. PKs are derived from the show index
+-- i (1..5) as 2000000i-...-0003/4/5/6 so they never collide with the 'sim' rows.
+INSERT INTO show (pk_show, str_name, int_default_max_cores, int_default_min_cores, b_booking_enabled, b_dispatch_enabled, b_active)
+    SELECT ('2000000'||i||'-0000-0000-0000-000000000003')::uuid, 'sim'||i, 20000000, 100, true, true, true
+    FROM generate_series(1, 5) AS i;
+
+INSERT INTO show_stats (pk_show, int_frame_insert_count, int_job_insert_count, int_frame_success_count, int_frame_fail_count)
+    SELECT ('2000000'||i||'-0000-0000-0000-000000000003')::uuid, 0, 0, 0, 0
+    FROM generate_series(1, 5) AS i;
+
+INSERT INTO folder (pk_folder, pk_parent_folder, pk_show, str_name, b_default, pk_dept, int_job_min_cores, int_job_max_cores, int_job_priority, f_order, b_exclude_managed)
+    SELECT ('2000000'||i||'-0000-0000-0000-000000000004')::uuid, null, ('2000000'||i||'-0000-0000-0000-000000000003')::uuid, 'sim'||i, true,
+           'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA7', -1, -1, -1, 1, false
+    FROM generate_series(1, 5) AS i;
+
+INSERT INTO point (pk_point, pk_dept, pk_show, str_ti_task, int_cores, b_managed, int_min_cores, float_tier)
+    SELECT ('2000000'||i||'-0000-0000-0000-000000000005')::uuid, 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA7', ('2000000'||i||'-0000-0000-0000-000000000003')::uuid, null, 0, false, 0, 0
+    FROM generate_series(1, 5) AS i;
+
+INSERT INTO subscription (pk_subscription, pk_alloc, pk_show, int_size, int_burst, int_cores, float_tier)
+    SELECT ('2000000'||i||'-0000-0000-0000-000000000006')::uuid, '10000000-0000-0000-0000-000000000002', ('2000000'||i||'-0000-0000-0000-000000000003')::uuid, 5724800, 1000000000, 0, 0
+    FROM generate_series(1, 5) AS i;
+
 COMMIT;

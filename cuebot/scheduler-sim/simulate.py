@@ -602,11 +602,14 @@ def ensure_postgres():
 
 
 # ---------------------------------------------------------------- reset
+# Wipe every sim show's work (base 'sim' plus sim1..sim5), matched by name so the
+# multi-show feeder's jobs are all cleared between runs.
+_SIM_SHOWS = "(SELECT pk_show FROM show WHERE str_name LIKE 'sim%')"
 RESET_SQL = (
     "DELETE FROM proc;"
-    f" DELETE FROM frame f USING job j WHERE f.pk_job=j.pk_job AND j.pk_show='{SHOW}';"
-    f" DELETE FROM layer l USING job j WHERE l.pk_job=j.pk_job AND j.pk_show='{SHOW}';"
-    f" DELETE FROM job WHERE pk_show='{SHOW}';"
+    f" DELETE FROM frame f USING job j WHERE f.pk_job=j.pk_job AND j.pk_show IN {_SIM_SHOWS};"
+    f" DELETE FROM layer l USING job j WHERE l.pk_job=j.pk_job AND j.pk_show IN {_SIM_SHOWS};"
+    f" DELETE FROM job WHERE pk_show IN {_SIM_SHOWS};"
     " UPDATE host SET int_cores_idle=int_cores, int_mem_idle=int_mem,"
     " int_gpus_idle=int_gpus, int_gpu_mem_idle=int_gpu_mem;"
     " UPDATE subscription SET int_cores=0, int_gpus=0;")
@@ -642,7 +645,8 @@ def reset_db(wipe_hosts=True):
     chk = psql(
         f"SELECT (SELECT count(*) FROM proc), "
         f"(SELECT count(*) FROM frame f JOIN job j ON j.pk_job=f.pk_job "
-        f"WHERE j.pk_show='{SHOW}'), (SELECT count(*) FROM host);")
+        f"JOIN show s ON s.pk_show=j.pk_show WHERE s.str_name LIKE 'sim%'), "
+        f"(SELECT count(*) FROM host);")
     procs, frames, hosts = chk.stdout.strip().split("|")
     log(f"  procs={procs} simFrames={frames} hosts={hosts}")
     if int(procs) or int(frames):
@@ -758,7 +762,8 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
     # and nothing runs (NEW looks busy but completes 0 frames). cuebot needs no
     # proxy at runtime, so bypass it for every host. This -D is appended LAST so
     # it overrides any nonProxyHosts inherited from JAVA_TOOL_OPTIONS.
-    java_tool_opts = f"-Djdk.net.hosts.file={SIM_HOSTS_FILE} -Dhttp.nonProxyHosts=*"
+    java_tool_opts = (f"-Djdk.net.hosts.file={SIM_HOSTS_FILE} -Dhttp.nonProxyHosts=*"
+                      " -Dmetrics.prometheus.collector=true")
     if os.environ.get("JAVA_TOOL_OPTIONS"):
         java_tool_opts = os.environ["JAVA_TOOL_OPTIONS"] + " " + java_tool_opts
     env = dict(os.environ)
@@ -851,7 +856,8 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
     # and nothing runs (NEW looks busy but completes 0 frames). cuebot needs no
     # proxy at runtime, so bypass it for every host. This -D is appended LAST so
     # it overrides any nonProxyHosts inherited from JAVA_TOOL_OPTIONS.
-    java_tool_opts = f"-Djdk.net.hosts.file={SIM_HOSTS_FILE} -Dhttp.nonProxyHosts=*"
+    java_tool_opts = (f"-Djdk.net.hosts.file={SIM_HOSTS_FILE} -Dhttp.nonProxyHosts=*"
+                      " -Dmetrics.prometheus.collector=true")
     if os.environ.get("JAVA_TOOL_OPTIONS"):
         java_tool_opts = os.environ["JAVA_TOOL_OPTIONS"] + " " + java_tool_opts
     env = dict(os.environ)
@@ -1166,7 +1172,9 @@ def set_scheduler_managed(managed):
     false restores it to cuebot, so a later --mode new/old run is never left
     stranded by a previous --mode rust run."""
     val = "true" if managed else "false"
-    psql(f"UPDATE show SET b_scheduler_managed={val} WHERE pk_show='{SHOW}';")
+    # All sim shows (the base 'sim' plus sim1..sim5) get the same flag, so a
+    # multi-show run hands every show to the same scheduler.
+    psql(f"UPDATE show SET b_scheduler_managed={val} WHERE str_name LIKE 'sim%';")
     log(f"  show b_scheduler_managed={val}")
 
 

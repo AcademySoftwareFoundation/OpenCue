@@ -43,10 +43,18 @@ DEP_MAX_BRANCH = int(os.environ.get("SIM_DEP_MAX_BRANCH", "3"))
 # somewhat above the cap (e.g. ~210k DEPEND on the full farm at 3x40k).
 PENDING_CAP = TARGET * 3
 
-SPEC_HEAD = ('<?xml version="1.0"?>\n'
-  '<!DOCTYPE spec SYSTEM "http://localhost:8080/spcue/dtd/cjsl-1.15.dtd">\n'
-  '<spec>\n  <facility>sim</facility>\n  <show>sim</show>\n  <shot>test</shot>\n'
-  '  <user>sim</user>\n  <uid>9860</uid>\n')
+# Multi-show feeder: spread submissions across spec.SHOWS (sim1..sim5), each with
+# its own priority (spec.SHOW_PRIS, 10..100). The show is chosen per SUBMISSION so
+# a whole dependency tree stays in one show. Falls back to the single 'sim' show
+# when SIM_SHOWS is cleared, keeping the old single-show behaviour available.
+SHOWS = spec.SHOWS or [spec.SHOW]
+
+
+def spec_head(show):
+    return ('<?xml version="1.0"?>\n'
+            '<!DOCTYPE spec SYSTEM "http://localhost:8080/spcue/dtd/cjsl-1.15.dtd">\n'
+            f'<spec>\n  <facility>sim</facility>\n  <show>{show}</show>\n  <shot>test</shot>\n'
+            '  <user>sim</user>\n  <uid>9860</uid>\n')
 
 def waiting():
     try:
@@ -56,7 +64,7 @@ def waiting():
     except Exception:
         return -1
 
-def make_job(name, rng):
+def make_job(name, rng, pri=None):
     n = rng.randint(LAYERS_MIN, LAYERS_MAX)
     layers = []
     for li in range(n):
@@ -81,7 +89,8 @@ def make_job(name, rng):
             f'<cmd>/bin/true</cmd><range>1-{nf}</range><chunk>1</chunk>'
             f'<cores>{cores*sim_model.CORE_POINTS}</cores><threadable>{sim_model.THREADABLE}</threadable><memory>{mem_mb}mb</memory>'
             f'{gpu_xml}<tags>{tag}</tags><services><service>shell</service></services></layer>')
-    return (f'  <job name="{name}"><paused>false</paused><maxcores>8000</maxcores>\n'
+    pri_xml = f'<priority>{pri}</priority>' if pri is not None else ''
+    return (f'  <job name="{name}"><paused>false</paused>{pri_xml}<maxcores>8000</maxcores>\n'
             '    <layers>\n' + "\n".join(layers) + "\n    </layers>\n  </job>\n")
 
 def build_tree(depth, rng):
@@ -104,20 +113,21 @@ def build_tree(depth, rng):
     return parents
 
 
-def make_tree_spec(base, depth, rng):
+def make_tree_spec(base, depth, rng, show, pri):
     """One spec holding a whole dependency tree: a <job> per node plus a <depends>
     block where every non-root job JOB_ON_JOB-depends on its parent. Submitted
     atomically so the names resolve in-spec; cuebot creates the depends, parks
-    descendant frames in DEPEND, and releases them as parents complete."""
+    descendant frames in DEPEND, and releases them as parents complete. The whole
+    tree lands in one show at that show's priority."""
     parents = build_tree(depth, rng)
     names = [f"{base}_n{i}" for i in range(len(parents))]
-    jobs = "\n".join(make_job(names[i], rng) for i in range(len(parents)))
+    jobs = "\n".join(make_job(names[i], rng, pri) for i in range(len(parents)))
     deps = "".join(
         f'      <depend type="JOB_ON_JOB"><depjob>{names[i]}</depjob>'
         f'<onjob>{names[p]}</onjob></depend>\n'
         for i, p in enumerate(parents) if p is not None)
     depends_block = f"    <depends>\n{deps}    </depends>\n" if deps else ""
-    return SPEC_HEAD + jobs + "\n" + depends_block + "</spec>\n"
+    return spec_head(show) + jobs + "\n" + depends_block + "</spec>\n"
 
 
 def pending():
@@ -155,10 +165,14 @@ def main():
             for _ in range(WAVE):
                 seq += 1
                 name = f"{base0}_{seq:05d}"
+                # Round-robin the submission across the shows; the whole tree/job
+                # lands in that show at that show's priority (10..100).
+                show = SHOWS[seq % len(SHOWS)]
+                pri = spec.SHOW_PRIS.get(show)
                 if trees:
-                    job_xml = make_tree_spec(name, DEP_DEPTH, random.Random(seq))
+                    job_xml = make_tree_spec(name, DEP_DEPTH, random.Random(seq), show, pri)
                 else:
-                    job_xml = SPEC_HEAD + make_job(name, random.Random(seq)) + "</spec>\n"
+                    job_xml = spec_head(show) + make_job(name, random.Random(seq), pri) + "</spec>\n"
                 try:
                     stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=job_xml))
                     submitted += 1

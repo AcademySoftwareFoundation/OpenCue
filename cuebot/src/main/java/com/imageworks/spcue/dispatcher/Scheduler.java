@@ -199,6 +199,8 @@ public class Scheduler extends JdbcDaoSupport {
 
     private Dispatcher dispatcher;
     private FrameCompleteHandler frameCompleteHandler;
+    private SchedulerMetrics schedulerMetrics;
+    private SchedulerMetrics.TickStats lastTickStats;
 
     /**
      * Max queued completions applied per drain transaction. Bounds the size (and lock footprint) of
@@ -853,6 +855,10 @@ public class Scheduler extends JdbcDaoSupport {
             summaryLicenseBooked += tickLicenseBooked;
             summaryLicenseHeld += tickLicenseHeld;
             summaryLicenseTrimmed += tickLicenseTrimmed;
+            if (schedulerMetrics != null && lastTickStats != null) {
+                lastTickStats.tickDurationMs = ms;
+                schedulerMetrics.recordTick(lastTickStats);
+            }
         } catch (RuntimeException e) {
             logger.error("Scheduler tick failed", e);
         } finally {
@@ -1005,6 +1011,9 @@ public class Scheduler extends JdbcDaoSupport {
      */
     private int doTick() {
         long tStart = System.currentTimeMillis();
+        // Metrics tallies for this tick; mutated in place, handed off after doTick returns.
+        SchedulerMetrics.TickStats stats = new SchedulerMetrics.TickStats();
+        lastTickStats = stats;
         // Reset per-tick stat outputs before any early return, so a host-less
         // tick contributes zero to the window rather than last tick's values.
         tickPlanned = 0;
@@ -1057,6 +1066,14 @@ public class Scheduler extends JdbcDaoSupport {
         // idle subset (for placement) is derived per group below.
         Map<HostSpecKey, List<BookableHost>> groups = groupByHostSpec(allHosts);
         lastGroups = groups.size();
+        stats.groups = groups.size();
+        // Farm size this tick, the denominator fragmentation is shown against so a
+        // little waste on one busy host reads as a small share of the whole farm.
+        stats.farmCores = (int) (lastCoresTotalCp / CORE_POINTS_PER_CORE);
+        // Cores in use per show, read live from the procs (only when metrics are on,
+        // so the query never runs on farms that don't collect). SET, never summed.
+        if (schedulerMetrics != null && schedulerMetrics.isEnabled())
+            stats.coresByShow.putAll(readShowCores());
         // Guardrail: too many groups means the spec key is fragmenting per host
         // (usually a host name leaked into the tag set), which defeats the whole
         // point of grouping. Warn loudly but throttled so we never log it per tick.
@@ -1162,6 +1179,7 @@ public class Scheduler extends JdbcDaoSupport {
                             + " the usual cause; the database error names the layer's tags: "
                             + e.getMessage());
                 }
+                stats.queryError++;
                 continue;
             }
             // Log the per-group candidate summary BEFORE the empty-continue so a
@@ -1179,8 +1197,10 @@ public class Scheduler extends JdbcDaoSupport {
                 if (candidates.isEmpty())
                     explainGroupExclusions(spec, maxCoresTotalInGroup);
             }
-            if (candidates.isEmpty())
+            if (candidates.isEmpty()) {
+                stats.noWork++;
                 continue;
+            }
             // Record capped-folder ceilings + running cores for the exact post-plan
             // trim. folder_running is folder-global (identical across a folder's
             // candidates), so the first value seen wins.
@@ -1200,9 +1220,14 @@ public class Scheduler extends JdbcDaoSupport {
 
             // 3b. DISPATCH AND RECONCILE (priority order). Placement uses the
             // idle subset; reservations use the full group (busy hosts too).
+            int before = dispatched;
             dispatched += dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
                     jobCoresUsed, showCoresUsed, limitUsed, folderUsed, reservationReqs,
                     tReadyByHost, hostLayerAffinity, licenseBudgets, licenseUsed, licenseSeats);
+            if (dispatched > before)
+                stats.booked++;
+            else
+                stats.noFit++;
         }
 
         // 3c. GRANT RESERVATIONS, highest priority first (then widest job), so
@@ -1434,6 +1459,13 @@ public class Scheduler extends JdbcDaoSupport {
                         : dispatchSupport.startFramesAndProcsBatch(planned);
         long tCommit = System.currentTimeMillis();
 
+        // Per-show frames booked this tick, for throughput (rate). Cores in use per
+        // show are NOT accumulated here -- they are read live from the procs once
+        // per tick (see readShowCores) so the gauge cannot drift.
+        for (FrameBooking b : committed) {
+            stats.framesByShow.merge(b.frame.show, 1, Integer::sum);
+        }
+
         // 4c. Accounting deltas from the winners, then flush one UPDATE per row.
         if (batchResourceAccounting && !committed.isEmpty()) {
             List<VirtualProc> procs = new ArrayList<>(committed.size());
@@ -1628,6 +1660,26 @@ public class Scheduler extends JdbcDaoSupport {
      */
     /* package for tests */ List<BookableHost> readAllHosts() {
         return getJdbcTemplate().query(SELECT_ALL_HOSTS, HOST_MAPPER);
+    }
+
+    // Cores actually running per show, summed straight from the live procs. This
+    // is the ground truth OpenCue itself uses to recompute subscriptions, so the
+    // show_cores gauge is SET from it each tick rather than event-sourced -- no
+    // drift, no missed-decrement bookkeeping. Non-local procs only, matching how
+    // farm cores are counted elsewhere.
+    private static final String SELECT_SHOW_CORES =
+            "SELECT sh.str_name AS show_name, SUM(p.int_cores_reserved) AS cores "
+                    + "FROM proc p JOIN show sh ON sh.pk_show = p.pk_show "
+                    + "WHERE p.b_local = false GROUP BY sh.str_name";
+
+    /** Whole cores running per show right now, read live from the procs. */
+    /* package for tests */ Map<String, Double> readShowCores() {
+        Map<String, Double> byShow = new HashMap<>();
+        getJdbcTemplate().query(SELECT_SHOW_CORES, rs -> {
+            byShow.put(rs.getString("show_name"),
+                    rs.getLong("cores") / (double) CORE_POINTS_PER_CORE);
+        });
+        return byShow;
     }
 
     /**
@@ -1920,6 +1972,7 @@ public class Scheduler extends JdbcDaoSupport {
             Map<String, LicenseSource.LicenseBudget> licenseBudgets,
             Map<String, Integer> licenseUsed, Map<String, Set<String>> licenseSeats) {
         int dispatched = 0;
+        boolean metricsFrag = schedulerMetrics != null && schedulerMetrics.isEnabled();
         // Largest host in this group, for the reservation width gate below: a
         // layer may reserve only if its per-frame cores are a big enough fraction
         // of this. Uses fullHosts (idle + busy) so the bar reflects the class's
@@ -1929,6 +1982,9 @@ public class Scheduler extends JdbcDaoSupport {
             if (h.coresTotal > maxGroupHostCores)
                 maxGroupHostCores = h.coresTotal;
         }
+        // Cause the highest-priority layer that wanted work could not place; the
+        // idle cores it strands are charged to it once per group after the loop.
+        String fragReason = null;
         for (LayerCandidate c : candidates) {
             seenLayerIds.add(c.layerId);
 
@@ -2201,6 +2257,29 @@ public class Scheduler extends JdbcDaoSupport {
                         + c.waitingFrameCount + " why=" + why);
             }
 
+            // Fragmentation cause: the first layer (priority order) that wanted work
+            // but could not place names why the group's idle cores are stranded. A
+            // job/show/limit/folder cap is `quota`; an exhausted license pool is
+            // `license`; otherwise the first fit gate no host clears (cores/memory/
+            // gpu), or a fitting host held by a reservation (`held`) or a host-based
+            // seat (`license`). The cores it strands are summed once below (supply),
+            // not the layer's backlog, so the metric stays bounded by the farm.
+            if (metricsFrag && fragReason == null && !placed && c.waitingFrameCount > 0) {
+                boolean quotaCap = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
+                        || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
+                        || (c.limitId != null && limitInUse >= c.limitMax)
+                        || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax);
+                if (quotaCap) {
+                    fragReason = "quota";
+                } else if (licenseHeld || licenseUsable <= 0) {
+                    fragReason = "license";
+                } else {
+                    fragReason = classifyFragmentation(c, hosts);
+                    if ("fit".equals(fragReason))
+                        fragReason = fitGateReason(c, hosts, licenseSeatPools, licenseSeats);
+                }
+            }
+
             if (reservationsEnabled) {
                 // Blocked = waiting frames, not capped, placed nothing. A layer
                 // at its seat cap counts as capped, not blocked: reserving new
@@ -2236,6 +2315,22 @@ public class Scheduler extends JdbcDaoSupport {
                             + holdsResv + " qualifies=" + (holdsResv || qualified));
                 }
             }
+        }
+
+        // Stranded idle cores: when this group could not place work it wanted to
+        // run, the idle cores left on its WORKING hosts are wasted capacity, charged
+        // to that cause. Only hosts with a core already in use can be fragmented -- a
+        // wholly-empty host is one free block, not a stranded sliver -- so empty
+        // hosts are skipped. The panel normalizes this against the whole farm, so a
+        // little waste on one busy host reads as a tiny share, and the number only
+        // climbs when the waste is farm-wide.
+        if (metricsFrag && fragReason != null) {
+            long idleCp = 0;
+            for (BookableHost h : hosts)
+                if (h.coresIdle < h.coresTotal)
+                    idleCp += h.coresIdle;
+            if (idleCp > 0)
+                lastTickStats.fragByReason.merge(fragReason, idleCp / 100.0, Double::sum);
         }
         return dispatched;
     }
@@ -2763,6 +2858,51 @@ public class Scheduler extends JdbcDaoSupport {
         return true;
     }
 
+    /**
+     * Why an unplaced layer could not fit on any of {@code hosts}, as a fragmentation reason by the
+     * first gate no host clears (gates mirror {@link #fitsOnHost}): {@code cores} (no host had
+     * enough idle cores for one frame), {@code memory} (cores fit somewhere but not the RAM),
+     * {@code gpu} (cores and RAM fit but not the GPU), or {@code fit} (some host fit fully, so the
+     * layer was gated by a reservation or a host-based license seat -- the caller resolves that
+     * into held/license).
+     */
+    static String classifyFragmentation(LayerCandidate c, List<BookableHost> hosts) {
+        boolean anyCores = false;
+        boolean anyMem = false;
+        for (BookableHost h : hosts) {
+            if (h.coresIdle < c.layerCoresMin)
+                continue;
+            anyCores = true;
+            if (h.memIdle < c.layerMemMin)
+                continue;
+            anyMem = true;
+            if (h.gpusIdle >= c.layerGpusMin && h.gpuMemIdle >= c.layerGpuMemMin)
+                return "fit";
+        }
+        if (!anyCores)
+            return "cores";
+        if (!anyMem)
+            return "memory";
+        return "gpu";
+    }
+
+    /**
+     * Resolve a {@code fit} fragmentation (some host fit the layer fully, yet it did not book) into
+     * the gate that held it: {@code license} when a fitting host's host-based seat is taken, else
+     * {@code held} (a reservation is draining that host for a wide job).
+     */
+    private String fitGateReason(LayerCandidate c, List<BookableHost> hosts,
+            List<LicenseSource.LicenseBudget> licenseSeatPools,
+            Map<String, Set<String>> licenseSeats) {
+        if (licenseSeatPools != null) {
+            for (BookableHost h : hosts) {
+                if (fitsOnHost(c, h) && !licenseSeatsAllow(licenseSeatPools, licenseSeats, h))
+                    return "license";
+            }
+        }
+        return "held";
+    }
+
     // ---- config -----------------------------------------------------------
 
     private boolean isEnabled() {
@@ -2962,5 +3102,9 @@ public class Scheduler extends JdbcDaoSupport {
 
     public void setFrameCompleteHandler(FrameCompleteHandler h) {
         this.frameCompleteHandler = h;
+    }
+
+    public void setSchedulerMetrics(SchedulerMetrics m) {
+        this.schedulerMetrics = m;
     }
 }

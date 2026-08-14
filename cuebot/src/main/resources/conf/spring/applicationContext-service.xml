@@ -308,6 +308,8 @@
     <property name="hostManager" ref="hostManager" />
   </bean>
 
+  <bean id="schedulerMetrics" class="com.imageworks.spcue.dispatcher.SchedulerMetrics" />
+
   <bean id="historicalManager" class="com.imageworks.spcue.service.HistoricalManagerService">
     <property name="historicalDao" ref="historicalDao" />
   </bean>
@@ -429,6 +431,7 @@
     <property name="jobManager"  ref="jobManager" />
     <property name="rqdClient"   ref="rqdClient" />
     <property name="frameCompleteHandler" ref="frameCompleteHandler" />
+    <property name="schedulerMetrics" ref="schedulerMetrics" />
   </bean>
 
   <!-- ##################################################################################### -->
