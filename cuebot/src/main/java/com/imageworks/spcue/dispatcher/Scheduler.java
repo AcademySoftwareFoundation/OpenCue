@@ -218,8 +218,8 @@ public class Scheduler extends JdbcDaoSupport {
      * The dedicated connection that holds this Cuebot's planning-leadership advisory lock, or null
      * when this Cuebot is a standby. Leadership is STICKY: the leader acquires the lock once and
      * holds it for its whole life (not re-taken per tick), so one Cuebot plans continuously and the
-     * others idle as warm backups: no leadership churn, no farm-wide planning redone in N places.
-     * A standby only becomes leader when the holder's session dies (Postgres auto-releases the
+     * others idle as warm backups: no leadership churn, no farm-wide planning redone in N places. A
+     * standby only becomes leader when the holder's session dies (Postgres auto-releases the
      * session-scoped lock). That is real failover, never load-sharing.
      *
      * Deliberately NOT a pooled connection: HikariCP would reap it on idle-timeout or warn on the
@@ -270,6 +270,30 @@ public class Scheduler extends JdbcDaoSupport {
     // candidacy) so a layer that could not fit an earlier group can still place in
     // a later one. Planner-thread only; cleared each tick with plannedByHost.
     private final Set<String> placedLayerIds = new HashSet<>();
+    // Tick-scoped planning scratch, planner-thread only, reset at the top of each tick
+    // (clearTickScratch). Held as fields so the phase methods (planGroup and friends)
+    // share them without threading a dozen parameters. Cap accounting stops two layers
+    // that share a job/show/limit/folder cap from both booking to it; the folder maps
+    // seed the exact post-plan trim; the license maps carry per-tick pool spend; seen +
+    // reservationReqs feed the reservation grant and the end-of-tick sweep.
+    private final Map<String, Integer> jobCoresUsed = new HashMap<>();
+    private final Map<String, Integer> showCoresUsed = new HashMap<>();
+    private final Map<String, Integer> limitUsed = new HashMap<>();
+    private final Map<String, Integer> folderUsed = new HashMap<>();
+    private final Map<String, Integer> folderMaxCp = new HashMap<>();
+    private final Map<String, Integer> folderRunSeed = new HashMap<>();
+    private final Map<String, String> jobFolderCap = new HashMap<>();
+    private final Map<String, List<String>> layerLicenses = new HashMap<>();
+    private final Map<String, LicenseSource.LicenseBudget> licenseBudgets = new HashMap<>();
+    private final Map<String, Integer> licenseUsed = new HashMap<>();
+    private final Map<String, Set<String>> licenseSeats = new HashMap<>();
+    private final Set<String> seenLayerIds = new HashSet<>();
+    private final List<ReservationRequest> reservationReqs = new ArrayList<>();
+    // Read fresh (not accumulated) each tick, so reassigned rather than cleared.
+    private Map<String, Integer> tReadyByHost = new HashMap<>();
+    private Map<String, Set<String>> hostLayerAffinity = new HashMap<>();
+    // Layer-placements planned this tick, carried for the tick-breakdown log line.
+    private int lastPlacements;
     // Consecutive ticks each layer was PLANNED onto a host but planHost's
     // commit-time read returned ZERO frames. That combination is the silent
     // starvation signature of a planner-vs-dispatch eligibility mismatch (a
@@ -746,19 +770,14 @@ public class Scheduler extends JdbcDaoSupport {
     // ---- tick -------------------------------------------------------------
 
     /**
-     * Public entry point. Invoked by the Quartz trigger.
+     * Quartz entry point, fired every few seconds on every Cuebot. A thin harness around doTick: it
+     * skips when disabled, guards against overlapping ticks with tickInFlight so a slow tick makes
+     * the next firing skip rather than stack, starts the scheduler pools on first use, times the
+     * pass, and folds the leader's per-tick counters into the window summary maybeLogStat emits.
      *
-     * Every tick starts with the COMPLETION DRAIN, on every Cuebot, leader and standby alike: apply
-     * the completions this Cuebot resolved and queued since the last tick, single-threaded and in
-     * batches. The planner then plans against a snapshot where every finished frame and freed core
-     * is already visible, and completions never race each other, a job shutdown, or the batch
-     * commit, the concurrency that used to manufacture orphaned procs. Each chunk is one
-     * transaction (frames stopped, procs deleted, resources refunded). Winners hand their follow-up
-     * work (depends, layer/job completion, usage counters) to the handler's dedicated post-complete
-     * thread, so the tick stays a few batched statements regardless of the completion rate. Losers
-     * (frame killed, eaten or retried meanwhile) get their proc redirected or unbooked, and a chunk
-     * that fails outright falls back to per-report processing so one bad report cannot wedge the
-     * rest.
+     * The work, the drain and the planning, lives in doTick. It returns the procs dispatched, or -1
+     * when this Cuebot is a standby that drained but did not plan; a standby therefore contributes
+     * no planning stats, only its drain count and the heartbeat stat line.
      */
     public void runTick() {
         if (!isEnabled())
@@ -770,114 +789,113 @@ public class Scheduler extends JdbcDaoSupport {
         }
         startSchedulerPoolsIfNeeded();
         long t0 = System.currentTimeMillis();
-        // COMPLETION DRAIN, before anything else: one writer, in tick order.
-        int drained = 0;
-        if (frameCompleteHandler != null) {
-            List<QueuedFrameCompletion> resolved = SchedulerCompletionQueue.drain();
-            drained = resolved.size();
-            long tDrain0 = System.currentTimeMillis();
-            for (int from = 0; from < resolved.size(); from += DRAIN_CHUNK) {
-                List<QueuedFrameCompletion> chunk =
-                        resolved.subList(from, Math.min(from + DRAIN_CHUNK, resolved.size()));
-                long tChunk0 = System.currentTimeMillis();
-                try {
-                    boolean[] won = dispatchSupport.stopFramesBatch(chunk);
-                    long tChunk = System.currentTimeMillis() - tChunk0;
-                    if (tChunk > 500) {
-                        logger.info("Scheduler drain: stopFramesBatch(" + chunk.size() + ") took "
-                                + tChunk + "ms");
-                    }
-                    for (int i = 0; i < won.length; i++) {
-                        QueuedFrameCompletion c = chunk.get(i);
-                        if (won[i]) {
-                            // Cache-warmth feed: this host just ran this
-                            // layer, so its local caches are hot. Stamp the
-                            // entry with the host's booking odometer.
-                            if (localityEnabled && localityWindowFrames > 0
-                                    && c.proc.getLayerId() != null) {
-                                warmthByHostLayer.put(
-                                        c.proc.getHostId() + "|" + c.proc.getLayerId(),
-                                        bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
-                            }
-                            frameCompleteHandler.queuePostOps(c);
-                        } else {
-                            frameCompleteHandler.handleStaleCompletion(c.proc,
-                                    c.proc.getName() + "/" + c.frame.getName());
-                        }
-                    }
-                } catch (RuntimeException e) {
-                    logger.warn("Scheduler drain: batch of " + chunk.size()
-                            + " completions failed, retrying per-report: " + e);
-                    for (QueuedFrameCompletion c : chunk) {
-                        try {
-                            frameCompleteHandler.processReportNow(c.report);
-                        } catch (RuntimeException e2) {
-                            logger.warn("Scheduler drain: completion for frame " + c.frame.getName()
-                                    + " failed: " + e2);
-                        }
-                    }
-                }
-            }
-            long tDrain = System.currentTimeMillis() - tDrain0;
-            if (tDrain > 1000) {
-                logger.info("Scheduler drain: " + drained + " completions in " + tDrain + "ms");
-            }
-        }
-        summaryDrained += drained;
-        // Expire warmth entries displaced by a window's worth of foreign
-        // frames. Idle hosts' entries never expire: nothing displaced them.
-        if (!warmthByHostLayer.isEmpty()) {
-            warmthByHostLayer.entrySet()
-                    .removeIf(e -> bookingsByHost
-                            .getOrDefault(e.getKey().substring(0, e.getKey().indexOf('|')), 0L)
-                            - e.getValue() >= localityWindowFrames);
-        }
         try {
-            // STICKY leadership. We hold the advisory lock across ticks on a
-            // dedicated connection (leaderConn) rather than re-taking it every
-            // tick. If we are not the leader this returns false and we idle as a
-            // standby: one Cuebot plans, the rest back it up, so the farm-wide
-            // planning is never redone in parallel by several Cuebots.
-            if (!ensureLeadership()) {
-                logger.debug("Scheduler: another Cuebot holds the planning lock");
-                summaryLockLost++;
-                return;
-            }
-            // We are the sticky leader. Note: no per-tick lock release; we keep
-            // leadership even if this tick throws, and only give it up on death
-            // (connection drop, detected next tick) or shutdown.
             int dispatched = doTick();
-            long ms = System.currentTimeMillis() - t0;
-            // Per-tick detail at DEBUG; INFO gets one consolidated stat
-            // line per window (maybeLogStat, called in the finally below).
-            logger.debug("Scheduler tick: dispatched " + dispatched + " procs, " + ms
-                    + " ms, reservations=" + reservations.size());
-            summaryTicks++;
-            summaryDispatched += dispatched;
-            summaryTickMs += ms;
-            if (ms > summaryMaxTickMs)
-                summaryMaxTickMs = ms;
-            summaryPlanned += tickPlanned;
-            summaryGranted += tickGranted;
-            summaryBackfilled += tickBackfilled;
-            summaryBackfilledCores += tickBackfilledCores;
-            summaryLicenseBooked += tickLicenseBooked;
-            summaryLicenseHeld += tickLicenseHeld;
-            summaryLicenseTrimmed += tickLicenseTrimmed;
-            if (schedulerMetrics != null && lastTickStats != null) {
-                lastTickStats.tickDurationMs = ms;
-                schedulerMetrics.recordTick(lastTickStats);
+            if (dispatched >= 0) {
+                long ms = System.currentTimeMillis() - t0;
+                // Per-tick detail at DEBUG; INFO gets one consolidated stat line per
+                // window (maybeLogStat, called in the finally below).
+                logger.debug("Scheduler tick: dispatched " + dispatched + " procs, " + ms
+                        + " ms, reservations=" + reservations.size());
+                summaryTicks++;
+                summaryDispatched += dispatched;
+                summaryTickMs += ms;
+                if (ms > summaryMaxTickMs)
+                    summaryMaxTickMs = ms;
+                summaryPlanned += tickPlanned;
+                summaryGranted += tickGranted;
+                summaryBackfilled += tickBackfilled;
+                summaryBackfilledCores += tickBackfilledCores;
+                summaryLicenseBooked += tickLicenseBooked;
+                summaryLicenseHeld += tickLicenseHeld;
+                summaryLicenseTrimmed += tickLicenseTrimmed;
+                if (schedulerMetrics != null && lastTickStats != null) {
+                    lastTickStats.tickDurationMs = ms;
+                    schedulerMetrics.recordTick(lastTickStats);
+                }
             }
         } catch (RuntimeException e) {
             logger.error("Scheduler tick failed", e);
         } finally {
-            // One consolidated stat line per window, on EVERY tick attempt
-            // (leader or standby) so a standby Cuebot still emits a heartbeat.
-            // Reached only by the thread that held tickInFlight (the CAS loser
-            // returned earlier), so the plain summary fields stay single-writer.
+            // One consolidated stat line per window, on EVERY tick attempt (leader or
+            // standby) so a standby Cuebot still emits a heartbeat. Reached only by the
+            // thread that held tickInFlight (the CAS loser returned earlier), so the plain
+            // summary fields stay single-writer.
             maybeLogStat();
             tickInFlight.set(false);
         }
+    }
+
+    /**
+     * Apply the frame completions queued since the last tick, as a single writer in tick order,
+     * before any planning. Runs on every Cuebot (leader and standby). Batches of
+     * {@link #DRAIN_CHUNK}: a batch that throws falls back to per-report so one bad completion
+     * cannot drop the rest. A won completion queues its post-ops and, when locality is on, stamps
+     * the host/layer cache-warmth entry (this host just ran this layer, so its caches are hot) with
+     * the host's booking odometer; a lost one is handled as stale. Returns the number drained.
+     */
+    private int drainResolvedCompletions() {
+        if (frameCompleteHandler == null)
+            return 0;
+        List<QueuedFrameCompletion> resolved = SchedulerCompletionQueue.drain();
+        int drained = resolved.size();
+        long tDrain0 = System.currentTimeMillis();
+        for (int from = 0; from < resolved.size(); from += DRAIN_CHUNK) {
+            List<QueuedFrameCompletion> chunk =
+                    resolved.subList(from, Math.min(from + DRAIN_CHUNK, resolved.size()));
+            long tChunk0 = System.currentTimeMillis();
+            try {
+                boolean[] won = dispatchSupport.stopFramesBatch(chunk);
+                long tChunk = System.currentTimeMillis() - tChunk0;
+                if (tChunk > 500) {
+                    logger.info("Scheduler drain: stopFramesBatch(" + chunk.size() + ") took "
+                            + tChunk + "ms");
+                }
+                for (int i = 0; i < won.length; i++) {
+                    QueuedFrameCompletion c = chunk.get(i);
+                    if (won[i]) {
+                        if (localityEnabled && localityWindowFrames > 0
+                                && c.proc.getLayerId() != null) {
+                            warmthByHostLayer.put(c.proc.getHostId() + "|" + c.proc.getLayerId(),
+                                    bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
+                        }
+                        frameCompleteHandler.queuePostOps(c);
+                    } else {
+                        frameCompleteHandler.handleStaleCompletion(c.proc,
+                                c.proc.getName() + "/" + c.frame.getName());
+                    }
+                }
+            } catch (RuntimeException e) {
+                logger.warn("Scheduler drain: batch of " + chunk.size()
+                        + " completions failed, retrying per-report: " + e);
+                for (QueuedFrameCompletion c : chunk) {
+                    try {
+                        frameCompleteHandler.processReportNow(c.report);
+                    } catch (RuntimeException e2) {
+                        logger.warn("Scheduler drain: completion for frame " + c.frame.getName()
+                                + " failed: " + e2);
+                    }
+                }
+            }
+        }
+        long tDrain = System.currentTimeMillis() - tDrain0;
+        if (tDrain > 1000) {
+            logger.info("Scheduler drain: " + drained + " completions in " + tDrain + "ms");
+        }
+        return drained;
+    }
+
+    /**
+     * Expire cache-warmth entries displaced by a window's worth of foreign frames on their host.
+     * Idle hosts' entries never expire because nothing displaced them.
+     */
+    private void expireDisplacedWarmth() {
+        if (warmthByHostLayer.isEmpty())
+            return;
+        warmthByHostLayer.entrySet()
+                .removeIf(e -> bookingsByHost
+                        .getOrDefault(e.getKey().substring(0, e.getKey().indexOf('|')), 0L)
+                        - e.getValue() >= localityWindowFrames);
     }
 
     /**
@@ -1018,13 +1036,11 @@ public class Scheduler extends JdbcDaoSupport {
      *
      * @return total number of procs dispatched this tick
      */
-    private int doTick() {
-        long tStart = System.currentTimeMillis();
-        // Metrics tallies for this tick; mutated in place, handed off after doTick returns.
-        SchedulerMetrics.TickStats stats = new SchedulerMetrics.TickStats();
-        lastTickStats = stats;
-        // Reset per-tick stat outputs before any early return, so a host-less
-        // tick contributes zero to the window rather than last tick's values.
+    /**
+     * Zero the per-tick stat outputs before any early return, so a host-less tick contributes zero
+     * to the window rather than carrying last tick's values.
+     */
+    private void resetTickOutputs() {
         tickPlanned = 0;
         tickGranted = 0;
         tickBackfilled = 0;
@@ -1032,35 +1048,14 @@ public class Scheduler extends JdbcDaoSupport {
         tickLicenseBooked = 0;
         tickLicenseHeld = 0;
         tickLicenseTrimmed = 0;
-        // JANITOR: sweep procs whose frame is no longer RUNNING (10s old, so an
-        // in-flight booking is never touched). The commit-time eviction heals an
-        // orphan only when its frame is planned again; an orphan on a finished
-        // or killed job never is, and would hold its host's cores forever.
-        try {
-            dispatchSupport.sweepOrphanedProcs(10);
-        } catch (RuntimeException e) {
-            logger.warn("Scheduler: orphan sweep failed: " + e);
-        }
-        // Defensive: normally drained at the end of every tick, but a tick that
-        // throws mid-placement leaves stale (host, layer) pairings behind, and
-        // the next tick would plan them against a fresh snapshot. Start clean.
-        plannedByHost.clear();
-        placedLayerIds.clear();
-        // 1. SNAPSHOT. Read ALL schedulable hosts (UP + OPEN), busy or idle.
-        // Placement only uses the idle ones, but reservations must see BUSY
-        // hosts too, a reservation's whole purpose is to hold a host that is
-        // full now until it drains (EASY/conservative backfill: you reserve a
-        // node that is currently running work, not one that is already free).
-        List<BookableHost> allHosts = readAllHosts();
-        if (allHosts.isEmpty()) {
-            // No hosts at all. Leave existing reservations alone; they belong
-            // to layers whose hosts are simply unavailable this tick.
-            return 0;
-        }
+    }
 
-        // Farm snapshot for the per-window stat line, taken BEFORE this tick's
-        // placement mutates the in-memory idle counts (placement decrements
-        // h.coresIdle). Core points; maybeLogStat converts to whole cores.
+    /**
+     * Record the farm's host/core fill for the per-window stat line, taken BEFORE this tick's
+     * placement mutates the in-memory idle counts (placement decrements h.coresIdle). Core points;
+     * maybeLogStat converts to whole cores.
+     */
+    private void snapshotFarmFill(List<BookableHost> allHosts) {
         lastHosts = allHosts.size();
         lastIdleHosts = 0;
         lastCoresTotalCp = 0;
@@ -1071,246 +1066,435 @@ public class Scheduler extends JdbcDaoSupport {
             if (h.coresIdle >= Dispatcher.CORE_POINTS_RESERVED_MIN)
                 lastIdleHosts++;
         }
+    }
 
-        // 2. GROUP all hosts by spec. Each group carries its full host set; the
-        // idle subset (for placement) is derived per group below.
-        Map<HostSpecKey, List<BookableHost>> groups = groupByHostSpec(allHosts);
-        lastGroups = groups.size();
-        stats.groups = groups.size();
-        // Farm size this tick, the denominator fragmentation is shown against so a
-        // little waste on one busy host reads as a small share of the whole farm.
-        stats.farmCores = (int) (lastCoresTotalCp / CORE_POINTS_PER_CORE);
-        // Cores in use per show, read live from the procs (only when metrics are on,
-        // so the query never runs on farms that don't collect). SET, never summed.
-        if (schedulerMetrics != null && schedulerMetrics.isEnabled())
-            stats.coresByShow.putAll(readShowCores());
-        // Guardrail: too many groups means the spec key is fragmenting per host
-        // (usually a host name leaked into the tag set), which defeats the whole
-        // point of grouping. Warn loudly but throttled so we never log it per tick.
-        if (groups.size() >= GROUP_COUNT_WARN_THRESHOLD) {
-            long nowMs = System.currentTimeMillis();
-            if (nowMs - lastGroupWarnMs >= GROUP_WARN_INTERVAL_MS) {
-                lastGroupWarnMs = nowMs;
-                logger.warn("Scheduler: " + groups.size() + " host-spec groups for "
-                        + allHosts.size() + " hosts (a handful is expected). A count near"
-                        + " the host count means hosts are fragmenting into near-per-host"
-                        + " groups, commonly a host name leaking into the tag set, which"
-                        + " collapses planning into one candidate query per host, the very"
-                        + " query storm the scheduler avoids. Check tag normalization"
-                        + " (normalizeTags / groupByHostSpec).");
-            }
-        }
-        Set<String> seenLayerIds = new HashSet<>();
+    /**
+     * Warn (throttled) when the host-spec group count approaches the host count: the spec key is
+     * fragmenting per host (usually a host name leaked into the tag set), which collapses planning
+     * into one candidate query per host, the query storm grouping exists to avoid.
+     */
+    private void warnIfGroupsFragmented(int groupCount, int hostCount) {
+        if (groupCount < GROUP_COUNT_WARN_THRESHOLD)
+            return;
+        long nowMs = System.currentTimeMillis();
+        if (nowMs - lastGroupWarnMs < GROUP_WARN_INTERVAL_MS)
+            return;
+        lastGroupWarnMs = nowMs;
+        logger.warn("Scheduler: " + groupCount + " host-spec groups for " + hostCount
+                + " hosts (a handful is expected). A count near the host count means hosts are"
+                + " fragmenting into near-per-host groups, commonly a host name leaking into the"
+                + " tag set, which collapses planning into one candidate query per host, the very"
+                + " query storm the scheduler avoids. Check tag normalization (normalizeTags /"
+                + " groupByHostSpec).");
+    }
 
-        // EASY-backfill deadlines: for each host reserved on a PRIOR tick, the
-        // estimated seconds until it frees enough cores for its reserving layer.
-        // Computed from the untouched snapshot (before this tick's dispatch
-        // mutates idle counts). A borrowed frame may run on a reserved host only
-        // if it finishes before this deadline (backfillAllows).
-        Map<String, BookableHost> hostById = new HashMap<>();
-        for (BookableHost h : allHosts)
-            hostById.put(h.hostId, h);
-        Map<String, Integer> tReadyByHost = computeHostReadySeconds(hostById);
-
-        // Host->layer affinity for the locality bonus. Read once per tick from
-        // the live proc table (before this tick's commits mutate it).
-        Map<String, Set<String>> hostLayerAffinity = readHostLayerAffinity();
-
-        // Live application licenses: pools each layer declares, and what each
-        // pool allows RIGHT NOW (filled per group by resolveLicenseBudgets).
-        Map<String, List<String>> layerLicenses = new HashMap<>();
-        Map<String, LicenseSource.LicenseBudget> licenseBudgets = new HashMap<>();
-        // Tick-scoped license bookings: floating pools count frames, host-based
-        // pools count seats (distinct lowercased host names).
-        Map<String, Integer> licenseUsed = new HashMap<>();
-        Map<String, Set<String>> licenseSeats = new HashMap<>();
-
-        // Tick-scoped aggregate cap accounting, planner-thread only. Candidates
-        // are seeded from a point-in-time snapshot, so without these maps two
-        // layers sharing a job/show/limit/folder cap would each book to it.
-        Map<String, Integer> jobCoresUsed = new HashMap<>();
-        Map<String, Integer> showCoresUsed = new HashMap<>();
-        // Per limit (license cap), in frames.
-        Map<String, Integer> limitUsed = new HashMap<>();
-        // Per folder (group/dept ceiling), in cores.
-        Map<String, Integer> folderUsed = new HashMap<>();
-        // Capped-folder bookkeeping for the exact post-plan trim below. planHost
-        // has no folder clause, so within one tick it can book a capped folder past
-        // its ceiling; these carry, per capped folder, its ceiling and its running
-        // cores at tick start, so the trim can hold the committed total to the cap.
-        Map<String, Integer> folderMaxCp = new HashMap<>(); // folderId -> ceiling (core-points)
-        Map<String, Integer> folderRunSeed = new HashMap<>(); // folderId -> running at tick start
-        Map<String, String> jobFolderCap = new HashMap<>(); // jobId -> its capped folderId
-
-        // Layers that want reservations this tick (blocked long enough, or
-        // already holding). Collected during placement and granted afterwards
-        // priority-first then widest-job, so the scarce reservation budget goes
-        // to the highest-priority work that actually cannot fit (wide jobs)
-        // rather than to whichever small layer happened to be oldest.
-        List<ReservationRequest> reservationReqs = new ArrayList<>();
-
-        int dispatched = 0;
-        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet()) {
-            HostSpecKey spec = g.getKey();
-            List<BookableHost> fullGroup = g.getValue();
-
-            // Idle subset for placement: hosts with at least the minimum
-            // reservable cores free. The full group is kept for reservations.
-            List<BookableHost> idleGroup = new ArrayList<>();
-            for (BookableHost h : fullGroup) {
-                if (h.coresIdle >= Dispatcher.CORE_POINTS_RESERVED_MIN)
-                    idleGroup.add(h);
-            }
-
-            // 3a. CANDIDATE QUERY (one per group)
-            // Filter against max host *total* cores in the group, not max
-            // idle. A blocked layer waiting on a partially-loaded reserved
-            // host must remain in the candidate set so its reservation
-            // survives sweep.
-            int maxCoresTotalInGroup =
-                    fullGroup.stream().mapToInt(h -> h.coresTotal).max().orElse(0);
-
-            // Layer tags are regex fragments typed by USERS, and the candidate
-            // query compiles every pending layer's tags in one statement: one
-            // malformed tag ("comp(") would otherwise throw here and abort the
-            // whole tick, every tick, farm-wide. The legacy dispatcher runs the
-            // same regex per show, so a bad tag only poisons that show. Match
-            // that blast radius: fail THIS GROUP's query, warn (throttled), and
-            // keep planning the other groups.
-            List<LayerCandidate> candidates;
-            try {
-                candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
-            } catch (RuntimeException e) {
-                long nowMs = System.currentTimeMillis();
-                if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
-                    lastCandidateErrWarnMs = nowMs;
-                    logger.warn("Scheduler: candidate query failed for " + spec
-                            + "; skipping the group this tick. A malformed layer tag regex is"
-                            + " the usual cause; the database error names the layer's tags: "
-                            + e.getMessage());
-                }
-                stats.queryError++;
+    /**
+     * Hold every capped folder to its ceiling. The plan read has no folder clause, so a batch can
+     * carry more of a capped folder than int_max_cores allows; walk the frames in plan order and
+     * drop any that would cross the cap, counting up from the folder's running cores at tick start.
+     * Folders with no cap are never touched. Returns the kept bookings.
+     */
+    private List<FrameBooking> trimOverFolderCeiling(List<FrameBooking> planned,
+            Map<String, Integer> folderMaxCp, Map<String, Integer> folderRunSeed,
+            Map<String, String> jobFolderCap) {
+        if (folderMaxCp.isEmpty() || planned.isEmpty())
+            return planned;
+        Map<String, Integer> folderCommit = new HashMap<>(folderRunSeed);
+        List<FrameBooking> keep = new ArrayList<>(planned.size());
+        int folderTrimmed = 0;
+        for (FrameBooking b : planned) {
+            String fid = jobFolderCap.get(b.proc.getJobId());
+            if (fid == null) {
+                keep.add(b);
                 continue;
             }
-            // Log the per-group candidate summary BEFORE the empty-continue so a
-            // group that plans nothing (idle hosts, zero candidates: the classic
-            // "farm sits idle and nothing books" incident) is visible at DEBUG,
-            // with the per-gate explain naming what excluded each pending layer.
-            if (logger.isDebugEnabled()) {
-                int wideCount = 0;
-                for (LayerCandidate lc : candidates)
-                    if (lc.layerCoresMin > 100)
-                        wideCount++;
-                logger.debug("Scheduler group: " + spec + " hosts=" + fullGroup.size() + " idle="
-                        + idleGroup.size() + " maxCoresTotal=" + maxCoresTotalInGroup
-                        + " candidates=" + candidates.size() + " wide(>100cores)=" + wideCount);
-                if (candidates.isEmpty())
-                    explainGroupExclusions(spec, maxCoresTotalInGroup);
+            int cap = folderMaxCp.get(fid);
+            int used = folderCommit.getOrDefault(fid, 0);
+            int cp = b.proc.coresReserved;
+            if (used + cp <= cap) {
+                folderCommit.put(fid, used + cp);
+                keep.add(b);
+            } else {
+                folderTrimmed++;
             }
-            if (candidates.isEmpty()) {
-                stats.noWork++;
+        }
+        if (folderTrimmed == 0)
+            return planned;
+        logger.debug("Scheduler: folder ceiling trimmed " + folderTrimmed
+                + " planned frame(s) over cap this tick");
+        return keep;
+    }
+
+    /**
+     * Hold every live application-license pool to its availability. Same gap as the folder ceiling:
+     * the plan read is license-blind, so this trim is what actually holds the line. Floating pools
+     * count frames against budget.usable; host-based pools charge a seat only for hosts not already
+     * seated, and a frame's pools are spent only once it is certain to be kept (so a frame rejected
+     * by its second license never consumes a seat in its first). Dropped frames stay WAITING for
+     * the next tick. Returns the kept bookings.
+     */
+    private List<FrameBooking> trimOverLicensePools(List<FrameBooking> planned,
+            Map<String, LicenseSource.LicenseBudget> licenseBudgets,
+            Map<String, List<String>> layerLicenses) {
+        if (licenseBudgets.isEmpty() || layerLicenses.isEmpty() || planned.isEmpty())
+            return planned;
+        Map<String, Integer> committedByLicense = new HashMap<>();
+        Map<String, Set<String>> seatsByLicense = new HashMap<>();
+        List<FrameBooking> keep = new ArrayList<>(planned.size());
+        int licTrimmed = 0;
+        for (FrameBooking b : planned) {
+            List<String> names = layerLicenses.get(b.proc.getLayerId());
+            if (names == null) {
+                keep.add(b);
                 continue;
             }
-            // Record capped-folder ceilings + running cores for the exact post-plan
-            // trim. folder_running is folder-global (identical across a folder's
-            // candidates), so the first value seen wins.
-            for (LayerCandidate lc : candidates) {
-                if (lc.folderMax >= 0) {
-                    folderMaxCp.putIfAbsent(lc.folderId, lc.folderMax);
-                    folderRunSeed.putIfAbsent(lc.folderId, lc.folderRunning);
-                    jobFolderCap.putIfAbsent(lc.jobId, lc.folderId);
+            String hostName = b.proc.hostName == null ? "" : b.proc.hostName.toLowerCase();
+            boolean fits = true;
+            for (String name : names) {
+                LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
+                if (bd == null || bd.stale) {
+                    fits = false;
+                    break;
+                }
+                if (bd.hostBased) {
+                    Set<String> seats =
+                            seatsByLicense.computeIfAbsent(name, k -> new HashSet<>(bd.seats));
+                    if (!seats.contains(hostName) && seats.size() >= bd.seatCap) {
+                        fits = false;
+                        break;
+                    }
+                } else if (committedByLicense.getOrDefault(name, 0) + 1 > bd.usable) {
+                    fits = false;
+                    break;
                 }
             }
-            // Resolve what this group's licensed candidates may spend. The names
-            // arrived on the candidate rows; budgets are computed once per license
-            // per tick and shared across groups, so a pool queried by the first
-            // group is not re-derived for the rest. layerLicenses is what the
-            // commit-time trim below reads.
-            resolveLicenseBudgets(candidates, layerLicenses, licenseBudgets);
-
-            // 3b. DISPATCH AND RECONCILE (priority order). Placement uses the
-            // idle subset; reservations use the full group (busy hosts too).
-            int before = dispatched;
-            dispatched += dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
-                    jobCoresUsed, showCoresUsed, limitUsed, folderUsed, reservationReqs,
-                    tReadyByHost, hostLayerAffinity, licenseBudgets, licenseUsed, licenseSeats);
-            if (dispatched > before)
-                stats.booked++;
-            else
-                stats.noFit++;
+            if (!fits) {
+                licTrimmed++;
+                continue;
+            }
+            for (String name : names) {
+                LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
+                if (bd.hostBased) {
+                    seatsByLicense.get(name).add(hostName);
+                } else {
+                    committedByLicense.merge(name, 1, Integer::sum);
+                }
+            }
+            keep.add(b);
         }
+        if (licTrimmed == 0)
+            return planned;
+        tickLicenseTrimmed += licTrimmed;
+        logger.debug("Scheduler: license pools trimmed " + licTrimmed
+                + " planned frame(s) over live availability this tick");
+        return keep;
+    }
 
-        // 3c. GRANT RESERVATIONS, highest priority first (then widest job), so
-        // the scarce budget lands on work that cannot fit on its own. Two
-        // passes to keep the tick bounded: existing reservers are always
-        // reconciled (refresh or release promptly); NEW qualifiers get at most
-        // top-K grants this tick, the rest qualify again next tick.
+    /**
+     * Drop reservation and blocked-debt state for layers that left the dispatchable set this tick,
+     * so a layer that disappears and returns starts its block timer fresh.
+     */
+    private void sweepStaleReservationState(Set<String> seenLayerIds) {
+        reservations.entrySet().removeIf(e -> !seenLayerIds.contains(e.getValue().layerId));
+        blockedDebtMs.keySet().removeIf(id -> !seenLayerIds.contains(id));
+        lastSeenMs.keySet().removeIf(id -> !seenLayerIds.contains(id));
+    }
+
+    /**
+     * Grant reservations highest priority first (then widest job), so the scarce budget lands on
+     * work that cannot fit on its own. Existing reservers are always reconciled (refresh or release
+     * promptly); new qualifiers get at most scheduler.reservation_max_grantees grants this tick,
+     * the rest qualify again next tick.
+     */
+    private void grantReservations(List<ReservationRequest> reservationReqs) {
         int reservationMaxGrantees =
                 env.getProperty("scheduler.reservation_max_grantees", Integer.class, 8);
         reservationReqs.sort(Comparator.<ReservationRequest>comparingInt(r -> -r.candidate.priority)
                 .thenComparingInt(r -> -r.candidate.layerCoresMin));
-        // Verbose per-tick reservation summary at DEBUG only (guarded so the
-        // string is not built when DEBUG is off); INFO sees new grants below and
-        // the held count in the minute heartbeat.
-        if (logger.isDebugEnabled() && (!reservationReqs.isEmpty() || !reservations.isEmpty())) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("Scheduler resv-tick: requests=").append(reservationReqs.size())
-                    .append(" cap=").append(reservationMaxGrantees).append(" held=")
-                    .append(reservations.size()).append(" blockThresholdMs=")
-                    .append(reservationBlockMs);
-            if (!reservationReqs.isEmpty()) {
-                sb.append(" top=[");
-                int show = Math.min(3, reservationReqs.size());
-                for (int i = 0; i < show; i++) {
-                    ReservationRequest rr = reservationReqs.get(i);
-                    long debt = blockedDebtMs.getOrDefault(rr.candidate.layerId, 0L);
-                    sb.append("layer=").append(rr.candidate.layerId).append("(cores=")
-                            .append(rr.candidate.layerCoresMin).append(",waiting=")
-                            .append(rr.candidate.waitingFrameCount).append(",debt=").append(debt)
-                            .append("ms)");
-                    if (i < show - 1)
-                        sb.append(", ");
-                }
-                sb.append("]");
-            }
-            logger.debug(sb.toString());
-        }
+        logReservationTick(reservationReqs, reservationMaxGrantees);
         int newGrantees = 0;
         for (ReservationRequest r : reservationReqs) {
-            boolean alreadyHolds = layerHoldsReservation(r.candidate.layerId);
-            if (alreadyHolds) {
+            if (layerHoldsReservation(r.candidate.layerId)) {
                 reconcileReservationsForLayer(r.candidate, r.fullHosts);
             } else if (newGrantees < reservationMaxGrantees) {
                 reconcileReservationsForLayer(r.candidate, r.fullHosts);
                 newGrantees++;
             }
         }
-        // Log only when a reservation is actually granted (an event), not every
-        // tick that reservations merely exist, so this stays off the hot path.
         if (newGrantees > 0) {
             logger.info("Scheduler resv-grant: newGrantees=" + newGrantees + " totalHeld="
                     + reservations.size());
         }
         tickGranted = newGrantees;
         lastReservationReqs = reservationReqs.size();
+    }
 
-        // 4. PLAN bookings: read each placement's next frames and build procs
-        // in memory (no writes). Parallelized across hosts, the candidate
-        // reads are the dominant tick cost as the farm fills.
-        long tPlan = System.currentTimeMillis();
-        // One thread per host, serial within it: planHost decrements the
-        // host's idle fields as it books, so a later layer sees what an
-        // earlier one took. Two threads on one host would double-book it and
-        // abort the whole batch. Different hosts run concurrently.
-        int placements = 0;
-        Set<String> plannedLayerIds = new HashSet<>();
-        for (List<String> ls : plannedByHost.values()) {
-            placements += ls.size();
-            plannedLayerIds.addAll(ls);
+    /**
+     * DEBUG-only per-tick reservation summary, guarded so the string is never built when DEBUG is
+     * off. INFO sees only actual new grants and the held count in the minute heartbeat.
+     */
+    private void logReservationTick(List<ReservationRequest> reservationReqs, int cap) {
+        if (!logger.isDebugEnabled() || (reservationReqs.isEmpty() && reservations.isEmpty()))
+            return;
+        StringBuilder sb = new StringBuilder();
+        sb.append("Scheduler resv-tick: requests=").append(reservationReqs.size()).append(" cap=")
+                .append(cap).append(" held=").append(reservations.size())
+                .append(" blockThresholdMs=").append(reservationBlockMs);
+        if (!reservationReqs.isEmpty()) {
+            sb.append(" top=[");
+            int show = Math.min(3, reservationReqs.size());
+            for (int i = 0; i < show; i++) {
+                ReservationRequest rr = reservationReqs.get(i);
+                long debt = blockedDebtMs.getOrDefault(rr.candidate.layerId, 0L);
+                sb.append("layer=").append(rr.candidate.layerId).append("(cores=")
+                        .append(rr.candidate.layerCoresMin).append(",waiting=")
+                        .append(rr.candidate.waitingFrameCount).append(",debt=").append(debt)
+                        .append("ms)");
+                if (i < show - 1)
+                    sb.append(", ");
+            }
+            sb.append("]");
+        }
+        logger.debug(sb.toString());
+    }
+
+    /**
+     * Reset all tick-scoped planning scratch to empty. Defensive: a tick that throws mid-placement
+     * leaves stale (host, layer) pairings and half-filled cap maps behind, and the next tick must
+     * plan against a clean slate. The two read-fresh maps (tReadyByHost, hostLayerAffinity) are
+     * reassigned in doTick, not cleared here.
+     */
+    private void clearTickScratch() {
+        plannedByHost.clear();
+        placedLayerIds.clear();
+        jobCoresUsed.clear();
+        showCoresUsed.clear();
+        limitUsed.clear();
+        folderUsed.clear();
+        folderMaxCp.clear();
+        folderRunSeed.clear();
+        jobFolderCap.clear();
+        layerLicenses.clear();
+        licenseBudgets.clear();
+        licenseUsed.clear();
+        licenseSeats.clear();
+        seenLayerIds.clear();
+        reservationReqs.clear();
+    }
+
+    /**
+     * Plan one host-spec group: run its single candidate query (a malformed layer tag fails only
+     * this group, not the whole tick), seed the capped-folder trim data and this group's license
+     * budgets, then dispatch-and-reconcile in priority order. Placement uses the group's idle
+     * subset (hosts with the minimum reservable cores free); reservations use the full group so a
+     * blocked layer can hold a busy host. Candidates are filtered against max host TOTAL cores, not
+     * idle, so a layer blocked on a partially-loaded reserved host stays a candidate and its
+     * reservation survives the end-of-tick sweep. Returns the frames booked for the group and bumps
+     * the matching stats counter (queryError / noWork / booked / noFit).
+     */
+    private int planGroup(HostSpecKey spec, List<BookableHost> fullGroup,
+            SchedulerMetrics.TickStats stats) {
+        List<BookableHost> idleGroup = new ArrayList<>();
+        for (BookableHost h : fullGroup) {
+            if (h.coresIdle >= Dispatcher.CORE_POINTS_RESERVED_MIN)
+                idleGroup.add(h);
+        }
+        int maxCoresTotalInGroup = fullGroup.stream().mapToInt(h -> h.coresTotal).max().orElse(0);
+
+        List<LayerCandidate> candidates;
+        try {
+            candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+        } catch (RuntimeException e) {
+            long nowMs = System.currentTimeMillis();
+            if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
+                lastCandidateErrWarnMs = nowMs;
+                logger.warn("Scheduler: candidate query failed for " + spec
+                        + "; skipping the group this tick. A malformed layer tag regex is"
+                        + " the usual cause; the database error names the layer's tags: "
+                        + e.getMessage());
+            }
+            stats.queryError++;
+            return 0;
+        }
+        if (logger.isDebugEnabled())
+            logGroupCandidates(spec, fullGroup, idleGroup, candidates, maxCoresTotalInGroup);
+        if (candidates.isEmpty()) {
+            stats.noWork++;
+            return 0;
+        }
+        for (LayerCandidate lc : candidates) {
+            if (lc.folderMax >= 0) {
+                folderMaxCp.putIfAbsent(lc.folderId, lc.folderMax);
+                folderRunSeed.putIfAbsent(lc.folderId, lc.folderRunning);
+                jobFolderCap.putIfAbsent(lc.jobId, lc.folderId);
+            }
+        }
+        resolveLicenseBudgets(candidates, layerLicenses, licenseBudgets);
+        int booked = dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
+                jobCoresUsed, showCoresUsed, limitUsed, folderUsed, reservationReqs, tReadyByHost,
+                hostLayerAffinity, licenseBudgets, licenseUsed, licenseSeats);
+        if (booked > 0)
+            stats.booked++;
+        else
+            stats.noFit++;
+        return booked;
+    }
+
+    /**
+     * DEBUG per-group candidate summary, logged before the empty-continue so a group that sits idle
+     * with zero candidates (the classic "farm idle, nothing books" incident) is visible, with the
+     * per-gate explain naming what excluded each pending layer.
+     */
+    private void logGroupCandidates(HostSpecKey spec, List<BookableHost> fullGroup,
+            List<BookableHost> idleGroup, List<LayerCandidate> candidates,
+            int maxCoresTotalInGroup) {
+        int wideCount = 0;
+        for (LayerCandidate lc : candidates)
+            if (lc.layerCoresMin > 100)
+                wideCount++;
+        logger.debug("Scheduler group: " + spec + " hosts=" + fullGroup.size() + " idle="
+                + idleGroup.size() + " maxCoresTotal=" + maxCoresTotalInGroup + " candidates="
+                + candidates.size() + " wide(>100cores)=" + wideCount);
+        if (candidates.isEmpty())
+            explainGroupExclusions(spec, maxCoresTotalInGroup);
+    }
+
+    /**
+     * One full scheduling pass, run on every Cuebot but only the leader plans. Returns the number
+     * of frames committed, or -1 when this Cuebot is a standby that drained but did not plan.
+     *
+     * Operation zero is the completion drain, on every Cuebot alike: apply the frame-completions
+     * this Cuebot queued since the last tick, single-threaded and in batches, before anything else.
+     * Draining first lets the planner work against a farm where every finished frame is already
+     * stopped and its cores freed, so planning never races a completion, the race that used to
+     * manufacture orphaned procs.
+     *
+     * The drain runs before the leadership gate on purpose. Cuebots are a hot-standby set: exactly
+     * one holds the Postgres advisory lock and plans, the rest idle as backups. When a backup takes
+     * over after the leader crashes, it must flush the completions in flight before it plans, and
+     * it does that on this very tick, so nothing in flight is lost and there is no separate startup
+     * drain.
+     *
+     * Everything past the gate is the leader's, in numbered phases. 1. Snapshot every schedulable
+     * host (UP + OPEN), busy and idle, before placement mutates the in-memory idle counts (busy
+     * hosts are kept so a reservation can hold one until it drains). 2. Group the hosts by spec
+     * (allocation, facility, tags, OS, GPU presence, thread mode) and record farm-fill and per-show
+     * cores for the stat line. 3. Plan each group in priority order against one candidate query per
+     * group (a malformed tag fails only its own group), placing into the idle subset while a layer
+     * that cannot fit collects a reservation request; the tick-scoped cap maps stop two layers that
+     * share a cap from both booking to it. 4. Grant reservations (highest priority, then widest
+     * job, within budget), plan the bookings in parallel on the bounded read pool, trim to the
+     * exact folder ceilings and live license pools planHost is blind to, commit the survivors in
+     * one batch, launch them, and sweep reservation and blocked-debt state for layers that left the
+     * dispatchable set. See Scheduler.md for the full model.
+     */
+    private int doTick() {
+        // 0. DRAIN the queued frame-completions (every Cuebot, leader and standby), then expire the
+        // cache-warmth entries a window of foreign frames displaced on their host.
+        summaryDrained += drainResolvedCompletions();
+        expireDisplacedWarmth();
+
+        // Leadership gate: a backup has now drained and idles here; only the leader plans below.
+        if (!ensureLeadership()) {
+            logger.debug("Scheduler: another Cuebot holds the planning lock");
+            summaryLockLost++;
+            return -1;
         }
 
+        long tStart = System.currentTimeMillis();
+        SchedulerMetrics.TickStats stats = new SchedulerMetrics.TickStats();
+        lastTickStats = stats;
+        resetTickOutputs();
+        try {
+            dispatchSupport.sweepOrphanedProcs(10);
+        } catch (RuntimeException e) {
+            logger.warn("Scheduler: orphan sweep failed: " + e);
+        }
+        clearTickScratch();
+
+        // 1. SNAPSHOT all schedulable hosts (UP + OPEN), busy and idle.
+        List<BookableHost> allHosts = readAllHosts();
+        if (allHosts.isEmpty())
+            return 0;
+        snapshotFarmFill(allHosts);
+
+        // 2. GROUP the hosts by spec.
+        Map<HostSpecKey, List<BookableHost>> groups = groupByHostSpec(allHosts);
+        lastGroups = groups.size();
+        stats.groups = groups.size();
+        stats.farmCores = (int) (lastCoresTotalCp / CORE_POINTS_PER_CORE);
+        if (schedulerMetrics != null && schedulerMetrics.isEnabled())
+            stats.coresByShow.putAll(readShowCores());
+        warnIfGroupsFragmented(groups.size(), allHosts.size());
+
+        // Tick-scoped snapshots: hostById is local; tReadyByHost and hostLayerAffinity are
+        // read fresh into their fields; the cap/license/reservation scratch fields were reset
+        // in clearTickScratch.
+        Map<String, BookableHost> hostById = new HashMap<>();
+        for (BookableHost h : allHosts)
+            hostById.put(h.hostId, h);
+        tReadyByHost = computeHostReadySeconds(hostById);
+        hostLayerAffinity = readHostLayerAffinity();
+
+        // 3. PLAN each host-spec group in priority order.
+        int dispatched = 0;
+        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet())
+            dispatched += planGroup(g.getKey(), g.getValue(), stats);
+
+        grantReservations(reservationReqs);
+
+        // 4. PLAN bookings in parallel, then trim to the exact folder + license limits.
+        long tPlan = System.currentTimeMillis();
+        List<FrameBooking> planned = planBookings();
+        if (planned == null)
+            return dispatched; // interrupted mid-plan; abort before committing
+        planned = trimOverFolderCeiling(planned, folderMaxCp, folderRunSeed, jobFolderCap);
+        planned = trimOverLicensePools(planned, licenseBudgets, layerLicenses);
+        long tRead = System.currentTimeMillis();
+        tickPlanned = planned.size();
+
+        // 4b. COMMIT the survivors in one batch, then account, warm, and launch them.
+        List<FrameBooking> committed =
+                planned.isEmpty() ? java.util.Collections.<FrameBooking>emptyList()
+                        : dispatchSupport.startFramesAndProcsBatch(planned);
+        long tCommit = System.currentTimeMillis();
+        recordCommitted(committed, stats);
+        stampWarmthAndLaunch(committed);
+        int dispatchedNow = committed.size();
+        long tFlush = System.currentTimeMillis();
+        if (tFlush - tStart > 1000) {
+            logger.info("Scheduler tick breakdown: place=" + (tPlan - tStart) + "ms, read="
+                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, flush+launch="
+                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
+                    + planned.size() + " committed=" + dispatchedNow);
+        }
+        dispatched = dispatchedNow;
+
+        sweepStaleReservationState(seenLayerIds);
+        return dispatched;
+    }
+
+    /**
+     * Read each planned placement's next frames and build procs in memory (no DB writes),
+     * parallelized across hosts on the bounded read pool, the dominant tick cost as the farm fills.
+     * One TASK per host (not one thread), run at scheduler.read_pool_size concurrency: a host is
+     * booked serially within its task because planHost decrements that host's idle fields as it
+     * books, so a later layer sees what an earlier one took, and two tasks on one host would
+     * double-book it; different hosts run concurrently. A layer that plans but yields zero bookable
+     * frames for plan_zero_warn_ticks ticks in a row is warned (a commit-time gate the planner does
+     * not model is silently rejecting it, which would otherwise starve in silence). Returns the
+     * planned bookings, or null if the wait was interrupted (the caller then aborts the tick before
+     * committing).
+     */
+    private List<FrameBooking> planBookings() {
         int planZeroWarnTicks =
                 env.getProperty("scheduler.plan_zero_warn_ticks", Integer.class, 40);
+        lastPlacements = 0;
+        Set<String> plannedLayerIds = new HashSet<>();
+        for (List<String> ls : plannedByHost.values()) {
+            lastPlacements += ls.size();
+            plannedLayerIds.addAll(ls);
+        }
         List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
         for (Map.Entry<String, List<String>> e : plannedByHost.entrySet()) {
             final String hostId = e.getKey();
@@ -1321,10 +1505,6 @@ public class Scheduler extends JdbcDaoSupport {
                 for (String layerId : layerIds) {
                     LayerInterface layer = jobManager.getLayer(layerId);
                     List<FrameBooking> got = dispatcher.planHost(host, layer);
-                    // Planned but nothing to commit: score one strike. A layer
-                    // striking out planZeroWarnTicks ticks IN A ROW is being
-                    // rejected by a commit-time gate the planner does not
-                    // model, and would otherwise starve in silence.
                     if (got.isEmpty()) {
                         int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
                         if (streak % planZeroWarnTicks == 0) {
@@ -1359,124 +1539,24 @@ public class Scheduler extends JdbcDaoSupport {
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            return dispatched;
+            return null;
         }
-        // Streaks are meaningful only while the planner keeps choosing the
-        // layer; drop entries for layers not planned this tick so the map
-        // tracks live pathologies, not completed or vanished work.
+        // Streaks matter only while the planner keeps choosing the layer; drop entries for
+        // layers not planned this tick so the map tracks live pathologies, not vanished work.
         planZeroStreak.keySet().retainAll(plannedLayerIds);
+        return planned;
+    }
 
-        // FOLDER CEILING (exact). The plan read has no folder clause, so the
-        // batch can carry more of a capped folder than int_max_cores allows.
-        // Walk the frames about to commit in plan order and drop any that
-        // would cross the cap, counting up from the folder's running cores at
-        // tick start. Folders with no cap are never touched.
-        if (!folderMaxCp.isEmpty() && !planned.isEmpty()) {
-            Map<String, Integer> folderCommit = new HashMap<>(folderRunSeed);
-            List<FrameBooking> keep = new ArrayList<>(planned.size());
-            int folderTrimmed = 0;
-            for (FrameBooking b : planned) {
-                String fid = jobFolderCap.get(b.proc.getJobId());
-                if (fid == null) {
-                    keep.add(b); // folder has no cap
-                    continue;
-                }
-                int cap = folderMaxCp.get(fid);
-                int used = folderCommit.getOrDefault(fid, 0);
-                int cp = b.proc.coresReserved;
-                if (used + cp <= cap) {
-                    folderCommit.put(fid, used + cp);
-                    keep.add(b);
-                } else {
-                    folderTrimmed++;
-                }
-            }
-            if (folderTrimmed > 0) {
-                planned = keep;
-                logger.debug("Scheduler: folder ceiling trimmed " + folderTrimmed
-                        + " planned frame(s) over cap this tick");
-            }
-        }
-
-        // LICENSE POOLS (exact). Same gap as the folder ceiling above: the plan
-        // read is license-blind, so this trim is what actually holds the line.
-        // Floating pools count frames against budget.usable; host-based pools
-        // charge a seat only for hosts not already seated. Dropped frames are
-        // not lost, they stay WAITING for the next tick.
-        if (!licenseBudgets.isEmpty() && !layerLicenses.isEmpty() && !planned.isEmpty()) {
-            Map<String, Integer> committedByLicense = new HashMap<>();
-            Map<String, Set<String>> seatsByLicense = new HashMap<>();
-            List<FrameBooking> keep = new ArrayList<>(planned.size());
-            int licTrimmed = 0;
-            for (FrameBooking b : planned) {
-                List<String> names = layerLicenses.get(b.proc.getLayerId());
-                if (names == null) {
-                    keep.add(b); // unlicensed layer, never gated
-                    continue;
-                }
-                String hostName = b.proc.hostName == null ? "" : b.proc.hostName.toLowerCase();
-                boolean fits = true;
-                for (String name : names) {
-                    LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
-                    if (bd == null || bd.stale) {
-                        fits = false;
-                        break;
-                    }
-                    if (bd.hostBased) {
-                        Set<String> seats =
-                                seatsByLicense.computeIfAbsent(name, k -> new HashSet<>(bd.seats));
-                        if (!seats.contains(hostName) && seats.size() >= bd.seatCap) {
-                            fits = false;
-                            break;
-                        }
-                    } else if (committedByLicense.getOrDefault(name, 0) + 1 > bd.usable) {
-                        fits = false;
-                        break;
-                    }
-                }
-                if (!fits) {
-                    licTrimmed++;
-                    continue;
-                }
-                // Only spend the pools once the frame is certain to be kept, so a
-                // frame rejected by its second license does not consume a seat in
-                // its first.
-                for (String name : names) {
-                    LicenseSource.LicenseBudget bd = licenseBudgets.get(name);
-                    if (bd.hostBased) {
-                        seatsByLicense.get(name).add(hostName);
-                    } else {
-                        committedByLicense.merge(name, 1, Integer::sum);
-                    }
-                }
-                keep.add(b);
-            }
-            if (licTrimmed > 0) {
-                planned = keep;
-                tickLicenseTrimmed += licTrimmed;
-                logger.debug("Scheduler: license pools trimmed " + licTrimmed
-                        + " planned frame(s) over live availability this tick");
-            }
-        }
-
-        long tRead = System.currentTimeMillis();
-        tickPlanned = planned.size();
-
-        // 4b. BATCH COMMIT: one transaction, batched frame UPDATE + proc INSERT
-        // + host UPDATE. Returns the winners (frames not lost to a version race).
-        List<FrameBooking> committed =
-                planned.isEmpty() ? java.util.Collections.<FrameBooking>emptyList()
-                        : dispatchSupport.startFramesAndProcsBatch(planned);
-        long tCommit = System.currentTimeMillis();
-
-        // Per-show frames booked this tick, for throughput (rate). Cores in use per
-        // show are NOT accumulated here -- they are read live from the procs once
-        // per tick (see readShowCores) so the gauge cannot drift.
+    /**
+     * Fold the committed bookings into the per-show throughput tally, then apply their resource
+     * accounting deltas and flush one UPDATE per changed row. Per-show CORES are not accumulated
+     * here (they are read live from the procs each tick, see readShowCores, so the gauge cannot
+     * drift); only the per-show frame count for the rate is merged.
+     */
+    private void recordCommitted(List<FrameBooking> committed, SchedulerMetrics.TickStats stats) {
         for (FrameBooking b : committed) {
             stats.framesByShow.merge(b.frame.show, 1, Integer::sum);
         }
-
-        // 4c. Accounting deltas from the winners, then flush one UPDATE per row.
         if (batchResourceAccounting && !committed.isEmpty()) {
             List<VirtualProc> procs = new ArrayList<>(committed.size());
             for (FrameBooking b : committed)
@@ -1484,10 +1564,16 @@ public class Scheduler extends JdbcDaoSupport {
             accumulateResourceDeltas(procs);
         }
         flushResourceDeltas();
+    }
 
-        // Cache-warmth odometer: every committed booking displaces cache on
-        // its host. A layer returning to its own warm host re-stamps its
-        // entry instead (its cache is being kept hot, not displaced).
+    /**
+     * Stamp cache warmth for the committed bookings, then fire their RQD launches on the launch
+     * pool. Every commit displaces cache on its host (the odometer advances); a layer returning to
+     * its own warm host re-stamps its entry instead of displacing it. A launch that fails
+     * post-commit unbooks the proc, returns the frame to WAITING, and kills it on RQD, all on the
+     * launch thread so the tick is never blocked.
+     */
+    private void stampWarmthAndLaunch(List<FrameBooking> committed) {
         if (localityEnabled && localityWindowFrames > 0) {
             for (FrameBooking b : committed) {
                 long odo = bookingsByHost.merge(b.proc.getHostId(), 1L, Long::sum);
@@ -1499,17 +1585,12 @@ public class Scheduler extends JdbcDaoSupport {
                 }
             }
         }
-
-        // 4d. LAUNCH: fire the RQD launches post-commit on the launch pool.
         for (FrameBooking b : committed) {
             final FrameBooking fb = b;
             launchPool.execute(() -> {
                 try {
                     dispatchSupport.runFrame(fb.proc, fb.frame);
                 } catch (RuntimeException e) {
-                    // Commit succeeded but the launch failed: unbook the proc,
-                    // return the frame to WAITING, kill on RQD in case it did
-                    // start. Runs on the launch thread, never blocks the tick.
                     logger.warn("Scheduler: RQD launch failed for " + fb.proc.getName()
                             + " on frame " + fb.frame.getFrameId() + ": " + e.getMessage()
                             + ", unbooking and clearing frame");
@@ -1518,32 +1599,12 @@ public class Scheduler extends JdbcDaoSupport {
                         dispatchSupport.clearFrame(fb.frame);
                         rqdClient.killFrame(fb.proc, "launch failed during scheduler dispatch");
                     } catch (RuntimeException ce) {
-                        // killFrame failing is expected when the frame never
-                        // launched; the unbook/clear above already freed the slot.
                         logger.debug("Scheduler: launch-failure cleanup partial for "
                                 + fb.frame.getFrameId() + ": " + ce.getMessage());
                     }
                 }
             });
         }
-        int dispatchedNow = committed.size();
-        long tFlush = System.currentTimeMillis();
-        if (tFlush - tStart > 1000) {
-            logger.info("Scheduler tick breakdown: place=" + (tPlan - tStart) + "ms, read="
-                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, flush+launch="
-                    + (tFlush - tCommit) + "ms | placements=" + placements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow);
-        }
-        dispatched = dispatchedNow;
-
-        // 5. SWEEP orphans
-        reservations.entrySet().removeIf(e -> !seenLayerIds.contains(e.getValue().layerId));
-        // Drop blocked-debt state for layers that left the dispatchable set,
-        // so a layer that disappears and returns starts its block timer fresh.
-        blockedDebtMs.keySet().removeIf(id -> !seenLayerIds.contains(id));
-        lastSeenMs.keySet().removeIf(id -> !seenLayerIds.contains(id));
-
-        return dispatched;
     }
 
     // ---- leader lock ------------------------------------------------------
@@ -1552,14 +1613,13 @@ public class Scheduler extends JdbcDaoSupport {
      * Ensure this Cuebot holds planning leadership, acquiring it once and keeping it (sticky).
      * Returns true if we are the leader this tick.
      *
-     * <ul>
-     * <li>Already leader (leaderConn set): confirm the lock connection is still alive. If it is, we
-     * still hold the session-scoped advisory lock; do NOT re-acquire (it is re-entrant and would
-     * need matching unlocks). If the connection died, Postgres already auto-released the lock, so
-     * demote to standby and re-probe next tick.</li>
-     * <li>Standby (leaderConn null): try to take the lock on a fresh dedicated connection. Win ->
-     * become the sticky leader. Lose -> another Cuebot leads; idle.</li>
-     * </ul>
+     * If we are already leader (leaderConn set), confirm the lock connection is still alive. If it
+     * is, we still hold the session-scoped advisory lock, so do not re-acquire it (the lock is
+     * re-entrant and would then need matching unlocks). If the connection died, Postgres already
+     * auto-released the lock, so demote to standby and re-probe next tick.
+     *
+     * If we are a standby (leaderConn null), try to take the lock on a fresh dedicated connection.
+     * Winning makes us the sticky leader; losing means another Cuebot leads and we idle.
      *
      * The isValid() ping each tick doubles as a keepalive, so an otherwise-idle lock connection is
      * never dropped by a firewall/NAT idle timeout.
