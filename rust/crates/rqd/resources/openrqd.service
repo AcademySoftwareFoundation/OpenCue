@@ -14,6 +14,12 @@ SyslogIdentifier=openrqd
 TimeoutSec=5
 Restart=on-failure
 RestartSec=30
+# Only signal the main rqd process on stop/restart. With the default
+# KillMode=control-group, systemd would SIGTERM (and after TimeoutSec, SIGKILL)
+# every process in the unit's cgroup - including running frames - which defeats
+# rqd's live-restart frame recovery. Frames run in their own session and are
+# reattached by the new rqd instance through their on-disk snapshots.
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
