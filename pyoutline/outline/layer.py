@@ -760,13 +760,7 @@ class Layer(metaclass=LayerType):
                 if not intersect:
                     return None
 
-                # If normalizing does not change the order of frames, return normalized
-                normalized = FileSequence.FrameSet(str(intersect))
-                normalized.normalize()
-                if list(intersect) == list(normalized):
-                    return str(normalized)
-
-                return str(intersect)
+                return outline.util.compact_frame_range(intersect.getAll())
             if rng:
                 return rng
 

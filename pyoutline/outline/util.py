@@ -17,6 +17,7 @@
 
 
 from __future__ import absolute_import
+from __future__ import annotations
 from __future__ import print_function
 from __future__ import division
 
@@ -82,6 +83,39 @@ def make_frame_set(frames, normalize=True):
     if normalize:
         fs.normalize()
     return fs
+
+def compact_frame_range(frames: list[int]) -> str:
+    """
+    Convert a list of frame numbers into a compact range string,
+    grouping consecutive frames into "start-end" spans instead of
+    listing every frame. This keeps the serialized spec small for
+    large frame counts; Cuebot stores a layer's range in a
+    fixed-width database column, and a fully enumerated list of a
+    few thousand frames can exceed it.
+
+    Frames are grouped based on their position in the input list, not
+    on numeric order, so the original frame order and any duplicates
+    are preserved when the string is parsed back into a FrameSet.
+
+    :type  frames: List<int>
+    :param frames: The frame list to convert to a range string.
+
+    :rtype: str
+    :return: A comma-separated string of frames and frame spans.
+    """
+    if not frames:
+        return ''
+
+    spans = []
+    start = prev = frames[0]
+    for frame in frames[1:]:
+        if frame == prev + 1:
+            prev = frame
+            continue
+        spans.append(str(start) if start == prev else '%d-%d' % (start, prev))
+        start = prev = frame
+    spans.append(str(start) if start == prev else '%d-%d' % (start, prev))
+    return ','.join(spans)
 
 def get_slice(frame_range, frames, items):
     """
