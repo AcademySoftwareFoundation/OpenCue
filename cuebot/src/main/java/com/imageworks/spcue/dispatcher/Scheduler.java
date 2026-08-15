@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -538,7 +539,7 @@ public class Scheduler extends JdbcDaoSupport {
             // random()^(1/priority) (Efraimidis-Spirakis) and we take the top LIMIT, so a
             // low-priority layer keeps a share proportional to its priority instead of being
             // starved by a higher-priority stream. GREATEST(...,1) floors the weight for priority
-            // <= 0. Reservation granting stays strict priority-first. See Scheduler.md section 3.5.
+            // <= 0. Reservation granting uses the same lottery weighting. See Scheduler.md 3.5.
             + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC " + "LIMIT  ? ";
 
     // ---- row mappers ------------------------------------------------------
@@ -978,16 +979,17 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Grant reservations highest priority first (then widest job), so the scarce budget lands on
-     * work that cannot fit on its own. Existing reservers are always reconciled (refresh or release
+     * Grant reservations in priority-weighted lottery order (the same Efraimidis-Spirakis weighting
+     * dispatch uses), so the scarce budget is shared roughly in proportion to priority and a
+     * low-priority wide job still wins a grant now and then instead of being starved by a
+     * higher-priority stream. Existing reservers are always reconciled (refresh or release
      * promptly); new qualifiers get at most scheduler.reservation_max_grantees grants this tick,
-     * the rest qualify again next tick.
+     * the rest draw again next tick.
      */
     private void grantReservations(List<ReservationRequest> reservationReqs) {
         int reservationMaxGrantees =
                 env.getProperty("scheduler.reservation_max_grantees", Integer.class, 8);
-        reservationReqs.sort(Comparator.<ReservationRequest>comparingInt(r -> -r.candidate.priority)
-                .thenComparingInt(r -> -r.candidate.layerCoresMin));
+        sortByPriorityLottery(reservationReqs);
         logReservationTick(reservationReqs, reservationMaxGrantees);
         int newGrantees = 0;
         for (ReservationRequest r : reservationReqs) {
@@ -1004,6 +1006,22 @@ public class Scheduler extends JdbcDaoSupport {
         }
         tickGranted = newGrantees;
         lastReservationReqs = reservationReqs.size();
+    }
+
+    /**
+     * Order reservation requests by a priority-weighted lottery: each draws key =
+     * random()^(1/priority) (Efraimidis-Spirakis) and grants go out in descending key order. The
+     * expected rank rises with priority, so high-priority work is favored, yet every request has a
+     * nonzero chance of leading, which keeps a low-priority wide job from being starved of grants
+     * under a steady higher-priority stream. This mirrors the dispatch lottery, so the scarce
+     * reservation budget gets the same fairness with no separate anti-starvation deadline.
+     */
+    private void sortByPriorityLottery(List<ReservationRequest> reqs) {
+        for (ReservationRequest r : reqs) {
+            int pri = Math.max(1, r.candidate.priority);
+            r.grantKey = Math.pow(ThreadLocalRandom.current().nextDouble(), 1.0 / pri);
+        }
+        reqs.sort((a, b) -> Double.compare(b.grantKey, a.grantKey));
     }
 
     /**
@@ -2052,16 +2070,9 @@ public class Scheduler extends JdbcDaoSupport {
                     tickBackfilledCores += estCores;
                 }
 
-                // If the host carried a lower-priority reservation,
-                // take ownership. A reservation by c or by anyone equal
-                // or higher is preserved (the second case can't happen
-                // here because reservationAllows already excluded it).
-                Reservation existing = reservations.get(best.hostId);
-                if (existing != null && existing.priority < c.priority) {
-                    reservations.put(best.hostId,
-                            new Reservation(c.layerId, c.priority, c.layerCoresMin));
-                }
-
+                // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
+                // reached here is either its owner booking after the drain or an EASY-backfill
+                // borrow. A borrow never takes ownership, so the reservation is left intact.
                 submitCommit(best.hostId, c.layerId);
                 dispatched += estFrames;
                 placed = true;
@@ -2226,15 +2237,20 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * A host's reservation lets c through if there is no reservation, the reservation belongs to c,
-     * or the existing reservation is strictly lower priority (in which case c may override on
-     * successful dispatch).
+     * Whether host h's reservation lets c book and own it. Only its owner may: a reservation is
+     * firm, the host is held for the reserving layer until it drains and that layer runs there, so
+     * no other layer seizes it, not even a higher-priority one. Higher-priority work is not
+     * blocked, it reaches the reserved host's spare cores through EASY backfill (see
+     * {@link #backfillAllows}), which borrows without taking ownership so the owner is never
+     * delayed. Firm reservations are what let a low-priority but long-starved wide job actually run
+     * once granted; the priority-first grant order and the max-fraction cap keep the reserved set
+     * bounded and fair.
      */
     private boolean reservationAllows(BookableHost h, LayerCandidate c) {
         if (!reservationsEnabled)
             return true;
         Reservation r = reservations.get(h.hostId);
-        return r == null || r.layerId.equals(c.layerId) || r.priority < c.priority;
+        return r == null || r.layerId.equals(c.layerId);
     }
 
     /**
@@ -2310,13 +2326,16 @@ public class Scheduler extends JdbcDaoSupport {
      * capped layer must not hold hosts it cannot legally use, which would block lower-priority
      * work). 2. Made capacity-aware: a fitting host runs several frames of the layer (e.g. two
      * 64-core frames on a 128-core host), so the number of hosts needed is frames /
-     * frames-per-host, not one host per frame. 3. Bounded by the per-class cap: reservations (this
-     * layer's plus any already held by others on hosts that fit c) may cover at most
-     * reservationMaxFraction of the hosts that can fit c, so the class can never be fully reserved.
-     * Callers grant priority-first then widest-job, so the cap fills for high-priority wide jobs
-     * before narrow ones are considered.
+     * frames-per-host, not one host per frame.
      *
-     * Drops excess reservations (frames dispatched, layer capped, or cap shrunk) or claims more via
+     * The per-class cap (reservationMaxFraction of the hosts that can fit c) throttles fresh grants
+     * only, never a host c already holds. A held host is mid-drain: new bookings are frozen on it
+     * and its cores are trickling toward c, so releasing it the moment another layer reserves a
+     * different fitting host resets that progress and the wide job never assembles its block (the
+     * reservation thrash this avoids). Retaining it cannot deadlock the class, because a draining
+     * host runs its owner and then frees up. So c sheds hosts only when its own demand falls
+     * (frames dispatched or the layer capped), least-drained first via
+     * {@link #releaseSurplusReservations}, and claims more, up to its remaining cap headroom, via
      * {@link #pickReservationTarget}.
      */
     private void reconcileReservationsForLayer(LayerCandidate c, List<BookableHost> hosts) {
@@ -2341,9 +2360,8 @@ public class Scheduler extends JdbcDaoSupport {
         int need = framesPerHost > 0 ? (framesNeed + framesPerHost - 1) / framesPerHost // ceil
                 : framesNeed;
 
-        // Per-class cap: at most reservationMaxFraction of the hosts that can
-        // fit c may be reserved at once. Count fitting hosts and how many of
-        // them are already reserved by other layers; c may use the remainder.
+        // Fitting hosts in this group and how many are already held by other layers, for the
+        // per-class cap. The cap bounds fresh grants only (see the header); held hosts are kept.
         int fittingTotal = 0, reservedByOthers = 0;
         for (BookableHost h : hosts) {
             if (!hostCanEverFit(c, h))
@@ -2354,28 +2372,36 @@ public class Scheduler extends JdbcDaoSupport {
                 reservedByOthers++;
         }
         int capTotal = (int) Math.floor(reservationMaxFraction * fittingTotal);
-        int capForC = Math.max(0, capTotal - reservedByOthers);
-        need = Math.min(need, capForC);
 
         if (have > need) {
-            for (String hostId : mine.subList(need, have)) {
-                reservations.remove(hostId);
-            }
+            releaseSurplusReservations(mine, hosts, need);
         } else if (have < need) {
-            int want = need - have;
+            int headroom = Math.max(0, capTotal - reservedByOthers - have);
+            int want = Math.min(need - have, headroom);
             for (int i = 0; i < want; i++) {
                 BookableHost t = pickReservationTarget(c, hosts);
                 if (t == null)
-                    break; // no more eligible host
-                Reservation existing = reservations.get(t.hostId);
-                if (existing != null && existing.priority < c.priority) {
-                    logger.info("Scheduler: override reservation host=" + t.hostName + " layer="
-                            + existing.layerId + "(p=" + existing.priority + ") -> " + c.layerId
-                            + "(p=" + c.priority + ")");
-                }
+                    break; // no free eligible host
                 reservations.put(t.hostId, new Reservation(c.layerId, c.priority, c.layerCoresMin));
             }
         }
+    }
+
+    /**
+     * Release this layer's reservations down to {@code keep} hosts, dropping the least-drained
+     * first: a host with more idle cores is nearer to launching the owner, so it survives while the
+     * barely-drained ones are shed. Called only when the layer's own demand has fallen below what
+     * it holds, never to satisfy the per-class cap, so a mid-drain host is never yanked for the
+     * cap.
+     */
+    private void releaseSurplusReservations(List<String> mine, List<BookableHost> hosts, int keep) {
+        Map<String, Integer> idleByHost = new HashMap<>();
+        for (BookableHost h : hosts)
+            idleByHost.put(h.hostId, h.coresIdle);
+        mine.sort((a, b) -> Integer.compare(idleByHost.getOrDefault(b, 0),
+                idleByHost.getOrDefault(a, 0)));
+        for (String hostId : mine.subList(Math.min(keep, mine.size()), mine.size()))
+            reservations.remove(hostId);
     }
 
     /**
@@ -2392,16 +2418,13 @@ public class Scheduler extends JdbcDaoSupport {
         for (BookableHost h : hosts) {
             if (!hostCanEverFit(c, h))
                 continue;
-            Reservation r = reservations.get(h.hostId);
-            // Skip hosts c already owns: they are counted in 'have' by
-            // reconcileReservationsForLayer and must not be re-claimed.
-            // Without this check, reservationAllows returns true for
-            // c's own reservations and the loop re-picks the same best
-            // host on every iteration, never actually expanding the set.
-            if (r != null && r.layerId.equals(c.layerId))
-                continue;
-            // Skip hosts held by an equal- or higher-priority layer.
-            if (r != null && r.priority >= c.priority)
+            // Firm reservations: only ever expand into a free host. A held host is
+            // never taken from its owner, not even by a higher-priority reserver, so a
+            // low-priority job's lottery-won grant is not clawed back; it frees only
+            // when its owner's demand drops (releaseSurplusReservations) or the layer
+            // leaves. Own hosts are already counted in 'have', so skipping every
+            // reserved host covers them too.
+            if (reservations.get(h.hostId) != null)
                 continue;
             if (h.runningProcs < bestProcs) {
                 bestProcs = h.runningProcs;
@@ -2832,6 +2855,8 @@ public class Scheduler extends JdbcDaoSupport {
     static final class ReservationRequest {
         final LayerCandidate candidate;
         final List<BookableHost> fullHosts;
+        // Per-tick priority-weighted lottery key (sortByPriorityLottery); higher grants first.
+        double grantKey;
 
         ReservationRequest(LayerCandidate candidate, List<BookableHost> fullHosts) {
             this.candidate = candidate;

@@ -737,7 +737,8 @@ def license_env(script=False):
 
 
 def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
-                 max_grantees=8, backfill=True, booking_off=False, frame_cores_max=0):
+                 max_grantees=8, backfill=True, booking_off=False,
+                 frame_cores_max=0):
     # scheduler.enabled is a tri-state rollout switch: no | facility | managed
     # (back-compat true=facility/false=no). Default new->facility, else->no;
     # override with SIM_SCHEDULER_ENABLED (e.g. "managed" for per-show testing).
@@ -745,8 +746,8 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
     resv = "true" if reservations else "false"
     bf = "true" if backfill else "false"
     log(f"starting cuebot (mode={mode}, scheduler.enabled={enabled}, "
-        f"reservations={resv}, block={block_seconds}s, max_frac={max_fraction}, "
-        f"max_grantees={max_grantees}, backfill={bf}, "
+        f"reservations={resv}, block={block_seconds}s, "
+        f"max_frac={max_fraction}, max_grantees={max_grantees}, backfill={bf}, "
         f"booking_off={booking_off}) ...")
     # Point cuebot's JVM at our private hosts file so every farm name resolves
     # to 127.0.0.1 (where fake_rqd listens) without touching /etc/hosts. The
@@ -823,7 +824,8 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
 
 
 def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
-                       max_fraction=0.5, max_grantees=8, backfill=True, frame_cores_max=0):
+                       max_fraction=0.5, max_grantees=8, backfill=True,
+                       frame_cores_max=0):
     """Launch an ADDITIONAL cuebot (instance >= 1) from the built jar, on offset
     ports, against the SAME Postgres with scheduler.enabled. All instances race
     for the Postgres advisory lock each tick, so exactly one plans at a time:
@@ -1393,7 +1395,7 @@ def _verify_check(name, gdir, logp, cblog):
             ran = 0
         peak = max([int(x) for x in re.findall(r"reservedCores=(\d+)", cb)] or [0])
         ok = ran > 0
-        return ok, f"{ran} stranded big frames rescued+ran (peak reservedCores {peak})"
+        return ok, f"{ran} stranded big frames reserved+ran (peak reservedCores {peak})"
     if name == "LIMIT":
         # The scheduler must never run more than the limit's cap concurrently.
         # Gate on limit_watch.py's verdict (PASS only if peak running <= cap AND the
@@ -1626,7 +1628,7 @@ def run_verify():
         #    so the reservation finishes and the job actually RUNS within the run.
         #    128-core whole-host jobs with long frames never finished draining, so
         #    they stranded forever -- reservation "requested" but the job never ran.
-        # The check asserts the stranded big jobs RAN (were rescued), not the hollow
+        # The check asserts the stranded big jobs RAN (were reserved), not the hollow
         # reservedCores>0. Fixed durations (a tiny farm needs far less than D).
         ("RESERVATIONS", ["--hosts", "10,12,40", "--compress", "4",
                           "--reservations", "--reservation-block-seconds", "15",

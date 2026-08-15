@@ -63,8 +63,8 @@ procs first). That pipeline:
       lottery order, score every fitting host, pick the lowest score, record the
       placement, and decrement the in-memory snapshot. A candidate that stays
       blocked long enough and is wide enough records a reservation *request*.
-4. **Grant reservations**: after all groups, process the requests
-   highest-priority-then-widest and reconcile each grantee's reservation count
+4. **Grant reservations**: after all groups, order the requests by a
+   priority-weighted lottery and reconcile each grantee's reservation count
    under the per-class and max-grantees caps (section 3.2).
 5. **Commit**: read each recorded placement's frames in parallel by host
    (`planHost`, read-only), write them all in one batched transaction
@@ -209,32 +209,47 @@ conservative backfill):
   (default 0.5) of the hosts that can fit the layer, and at most
   `scheduler.reservation_max_grantees` (default 8) distinct layers may hold
   reservations farm-wide. So a class of machines can never be fully reserved,
-  and the farm cannot deadlock on reservations. Granting is priority-first
-  (then widest-job-first), so high-priority blocked work gets first claim on
-  the limited budget.
+  and the farm cannot deadlock on reservations.
+- **Priority-weighted lottery grant (anti-starvation).** Grantees are drawn in
+  the same Efraimidis-Spirakis lottery dispatch uses: each qualifying request
+  keys on `random()^(1/priority)` and grants go out in descending key order
+  (`sortByPriorityLottery`). High-priority work wins more often in expectation,
+  but every request has a nonzero chance of leading, so a low-priority wide layer
+  keeps a share of the scarce budget instead of being starved by a steady
+  higher-priority stream. Combined with firm reservations (a lottery win is never
+  clawed back), this is the whole liveness story; no separate rescue deadline.
 - **Drain guard.** A reserved host that has not yet drained enough cores for
   its owner (`idle < owner.layerCoresMin`) refuses all backfill, even work that
   would finish in time. Otherwise backfill keeps refilling the gap the host
   is trying to open and the owner never gets in.
 
 Backfill itself (`backfillAllows` / `backfillFits`) is the EASY no-delay
-test: a strictly-lower-priority frame may borrow a draining host's free cores
-only if its runtime estimate (from `layer_usage`) shows it finishing before
-the host is needed; a frame with no runtime history is refused, since its
-finish time cannot be bounded. Borrowing never takes ownership.
+test: any non-owner frame may borrow a draining host's free cores only if its
+runtime estimate (from `layer_usage`) shows it finishing before the host is
+needed; a frame with no runtime history is refused, since its finish time
+cannot be bounded. Borrowing never takes ownership, so higher-priority work
+uses a reserved host's idle cores without ever displacing the owner.
 
-Supporting machinery: `reservationAllows` decides whether a reservation lets
-a layer through (no reservation, owns it, or the existing one is strictly
-lower priority and gets overridden on successful dispatch);
-`reconcileReservationsForLayer` brings a qualified layer's reservation count
-toward its pending frame count under the caps; `pickReservationTarget`
+Reservations are **firm**: `reservationAllows` lets a layer book and own a host
+only when there is no reservation or it already owns it, and
+`pickReservationTarget` only ever claims a free host. So once a layer holds a
+host nothing takes it away, not a running frame and not another reserver, not
+even a higher-priority one; higher-priority work reaches the idle cores through
+backfill (above) but never seizes the host. Firmness is what makes a lottery
+grant count: a reservation a higher-priority frame or reserver could claw back
+would leave the wide job stranded exactly as before. A held host frees only when
+the owner's own pending demand falls, and the per-class cap throttles only new
+grants, so a host mid-drain is never yanked to satisfy the cap; the surplus is
+shed least-drained first. `pickReservationTarget`
 chooses the host likely to free soonest (fewest running procs) among hosts
 that fit the layer when fully idle.
 
-The reservation map persists across ticks. The invariant: a host's
-reservation belongs to the highest-priority layer that has claimed it. The
-end-of-tick sweep drops reservations (and blocked-debt) for layers that left
-the dispatchable set.
+The reservation map persists across ticks. The invariant: a reserved host is
+held for its owner (the highest-priority wide layer that claimed it) until it
+drains and the owner runs there, or the owner's pending demand falls and it
+releases the surplus; no running frame breaks that hold. The end-of-tick
+sweep drops reservations (and blocked-debt) for layers that left the
+dispatchable set.
 
 This is the mechanism that retires the human-driven "save this machine for
 the big job" practice.
@@ -312,10 +327,11 @@ contested selections, not 100%. Two consequences:
   saturating higher-priority backlog forever. `GREATEST(priority, 1)` floors the
   weight so priority 0 or negative still draws the minimum nonzero share.
 
-**Reservations are the exception.** Reservation *granting* stays strict
-priority-first (the requests are re-sorted by priority before the per-class caps
-fill; §3.2), so the lottery changes only booking *order*, never which wide job
-gets rescued first.
+**Reservation granting uses the same lottery.** The scarce reservation budget is
+handed out in priority-weighted lottery order too (`sortByPriorityLottery`;
+§3.2), so a low-priority wide job still wins a grant now and then and is not
+starved by a higher-priority stream. Reservations are firm, so a lottery win is
+never clawed back.
 
 ### 3.6 Live application licenses
 
