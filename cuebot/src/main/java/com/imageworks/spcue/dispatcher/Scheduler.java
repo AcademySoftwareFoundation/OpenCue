@@ -62,130 +62,58 @@ import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.JobManager;
 
 /**
- * Scheduler: single-threaded planner with persistent reservations, parallel per-host plan reads,
- * and a single batched commit.
+ * Single-threaded planner: one Cuebot holds a Postgres advisory lock and plans each tick while the
+ * rest idle as warm standbys. Placement is serial so decisions never race; only the per-host plan
+ * reads fan out on a pool, and every booking for a tick commits in one batched transaction.
+ * Persistent reservations hold hosts for blocked wide layers until enough cores free up.
  *
- * Replaces the multi-threaded BookingQueue path. Each tick:
- *
- * 1. Acquire a Postgres advisory lock so only one Cuebot plans at a time. 2. Read bookable hosts.
- * 3. Group them by static spec (alloc, normalized tags, os, has_gpu). 4. For each group: - one
- * candidate-layer query - for each candidate in priority order, run the dispatch loop: score every
- * fitting host (respecting reservations, overriding a lower-priority reservation on successful
- * dispatch), record each (host, layer) pairing to plan, and decrement in-memory accounting from an
- * estimate. A layer that stays blocked long enough and is wide enough records a reservation
- * REQUEST. 5. Grant reservations: process the requests highest-priority-then-widest, reconciling
- * each grantee's reservation count under the per-class and max-grantees caps (EASY/Maui backfill).
- * 6. PLAN the recorded pairings in parallel (by host), commit them in one batched transaction, then
- * fire the RQD launches fire-and-forget. 7. Sweep reservations whose layer no longer appears in any
- * candidate set. 8. Release the lock.
- *
- * Planning stays single-threaded so decisions never race on shared state. The only parallelism is
- * on the plan-phase reads: once placements are chosen, the per-host frame selection (planHost) runs
- * concurrently on a read pool. The writes are not fanned out: every booking for the tick lands in
- * one batched transaction. Frames lost to a frame.int_version race are dropped from the batch (they
- * stay WAITING and are retried next tick); the RQD launches fire afterward fire-and-forget so a
- * slow RQD never stalls the tick.
- *
- * Reservation invariant: a host's reservation belongs to the highest-priority layer that has
- * claimed it. A reservation persists across ticks until the owning layer's pending unfittable
- * frames reach zero, the layer leaves the dispatchable set, or a higher-priority layer overrides
- * the claim. This prevents blocked-layer starvation: any layer that doesn't fit anywhere claims
- * hosts so they aren't re-consumed by lower-priority work between the moment the layer becomes
- * blocked and the moment hosts free up enough cores.
- *
- * Gated by scheduler.enabled (default false). When true, HostReportHandler suppresses the legacy
- * BookingQueue enqueue via the existing booking-off branch, so the two paths never both run.
+ * Gated by scheduler.enabled (default false). See Scheduler.md for the full model.
  */
 public class Scheduler extends JdbcDaoSupport {
 
     private static final Logger logger = LogManager.getLogger(Scheduler.class);
 
-    /**
-     * Postgres advisory lock key. Must be the same constant on every Cuebot that shares a database.
-     * Arbitrary 64-bit integer; chosen as ASCII "OpenCue" for visibility in pg_locks.
-     */
+    // Postgres advisory-lock key, shared by every Cuebot on the database. ASCII "OpenCue".
     private static final long SCHEDULER_LOCK_KEY = 0x4F70656E437565L;
 
-    // ---- placementScore: E-PVM dimension weights --------------------------
-    //
-    // placementScore sums a convex per-dimension cost whose argument is the
-    // dimensionless utilization fraction used_D/total_D (see the method's
-    // Javadoc), so no per-dimension unit conversion is needed, the weights
-    // below set only the RELATIVE importance of the dimensions on that common
-    // scale. Cores and memory contribute equally; GPUs are weighted higher so
-    // a GPU layer prefers the host where it strands the least GPU capacity.
+    // placementScore (E-PVM) dimension weights: relative importance on the util-fraction scale.
+    // GPUs weighted up so a GPU layer prefers the host where it strands the least GPU capacity.
     private static final double W_CORES = 1.0;
     private static final double W_MEM = 1.0;
     private static final double W_GPUS = 4.0;
     private static final double W_GPU_MEM = 1.0;
 
-    // Locality bonus. The reactive path used to rebook the next frame of a job
-    // on the same proc the moment a frame finished (same-machine locality).
-    // Under the Scheduler that path is gone, a completing proc is unbooked and its cores
-    // return to the host. To preserve locality, placement subtracts this bonus
-    // from a host's score when the host ALREADY runs the candidate's layer, so
-    // the freed core is preferentially refilled by the same layer next tick. A
-    // multi-frame layer keeps >=1 proc on its host between ticks, so the signal
-    // persists without tracking individual completions. Sized to dominate the
-    // marginal stranding cost (deltaCost terms are ~e^util, single digits) but
-    // bounded; reservations and fit are filtered BEFORE scoring, so the bonus
-    // can never override them.
+    // Locality bonus: subtracted from a host's score when it already runs the candidate's layer, so
+    // a freed core is refilled by the same layer next tick. Bounded, below the fit/reservation
+    // gates.
     private volatile double localityBonus = 8.0;
     private volatile boolean localityEnabled = true;
 
-    /**
-     * Cache-warmth window. The live locality bonus dies the moment a host loses its LAST proc of a
-     * layer, yet the layer's locally cached data (texture caches, NFS client caches, ...) is still
-     * sitting on that host, so a decayed pull is kept on vacated (host, layer) pairs:
-     * {@code bonus = localityBonus * (1 - foreignFrames/window)}.
-     *
-     * Age is NOT wall clock. What invalidates a local cache is DISPLACEMENT: other layers' frames
-     * writing their data over yours. A host that idled for an hour still has layer K's cache, so K
-     * lands there with the full pull; a busy host cools by one step per foreign frame booked. Age
-     * is therefore counted in frames of other work booked onto the host since the layer left it:
-     * bookingsByHost is the per-host booking odometer, and each warmthByHostLayer entry stores the
-     * odometer reading when the layer last completed there. The window is your cache size over a
-     * typical frame's cache footprint, a site property, hence the knob; 0 disables.
-     *
-     * Fed by the completion drain (this Cuebot's completions only, best effort by design: a map
-     * lost to a failover just means a few minutes of colder placement) and read only on the planner
-     * thread, so no locking anywhere.
-     */
+    // Cache-warmth window: a decayed locality pull kept on vacated (host, layer) pairs, aged by
+    // foreign frames booked since (displacement, not wall clock), not seconds. 0 disables. See doc.
     private volatile int localityWindowFrames = 64;
+    // host|layer -> host's booking-odometer reading when the layer last completed there.
     private final Map<String, Long> warmthByHostLayer = new HashMap<String, Long>();
+    // host -> booking odometer, incremented per frame booked on the host.
     private final Map<String, Long> bookingsByHost = new HashMap<String, Long>();
 
-    // Seat bonus for HOST-BASED application licenses, where a seat is a machine
-    // and every frame on a seated machine shares its one checkout. A seated host
-    // can take more of the layer's frames for free, so placement subtracts this
-    // bonus to pack licensed work onto the fewest hosts instead of spreading a
-    // seat onto every host it merely fits on. Sized ABOVE the maximum possible
-    // E-PVM score spread (7*(e-1) ~= 12, see the dimension weights above) so
-    // among fitting hosts a seated host always wins (effectively
-    // lexicographic), while fit and reservations are still filtered BEFORE
-    // scoring and can never be overridden by it. Applied ONCE PER POOL the host
-    // is seated in, so a host that already holds every license the layer needs
-    // (costing zero new seats) outranks one that holds only some.
+    // Seat bonus for host-based licenses (one checkout per machine): subtracted per seated pool so
+    // placement packs licensed work onto the fewest hosts. Sized above the E-PVM spread. See doc.
     private volatile double licenseSeatBonus = 16.0;
 
-    /**
-     * Live application-license availability (Houdini Engine, Katana, ...), or null until the first
-     * tick builds it. Polls a site provider off the hot path; the planner only reads numbers from
-     * it. See {@link LicenseSource} for why a static {@code limit_record} cannot do this job.
-     */
+    // Live application-license availability, null until the first tick builds it. See
+    // LicenseSource.
     private volatile LicenseSource licenseSource;
 
+    // Spring config; scheduler.* properties read once in startSchedulerPoolsIfNeeded().
     @Autowired
     private Environment env;
 
+    // Backs txTemplate (atomic resource-delta flushes).
     @Autowired
     private PlatformTransactionManager transactionManager;
 
-    /**
-     * Built lazily from the injected manager; wraps each resource-delta flush so its several
-     * UPDATEs commit atomically (partial commit + retry would double-apply the sub-batches that had
-     * already succeeded).
-     */
+    // Wraps each resource-delta flush so its several UPDATEs commit atomically. Built lazily.
     private volatile TransactionTemplate txTemplate;
 
     private TransactionTemplate txTemplate() {
@@ -197,85 +125,57 @@ public class Scheduler extends JdbcDaoSupport {
         return t;
     }
 
+    // Plans one host's next bookable frames via planHost() (legacy per-host dispatch path).
     private Dispatcher dispatcher;
+
+    // Applies frame completions; drives the stage-0 drain (drainResolvedCompletions).
     private FrameCompleteHandler frameCompleteHandler;
+
+    // Records each tick's stats to Prometheus via recordTick (runTick).
     private SchedulerMetrics schedulerMetrics;
+
+    // The in-progress tick's stats, handed to schedulerMetrics at tick end.
     private SchedulerMetrics.TickStats lastTickStats;
 
-    /**
-     * Max queued completions applied per drain transaction. Bounds the size (and lock footprint) of
-     * the single stop/delete/refund transaction; the drain loops until the queue snapshot is empty.
-     */
+    // Max completions applied per drain transaction (bounds the stop/delete/refund lock footprint).
     private static final int DRAIN_CHUNK = 2000;
+
+    // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
+
+    // Resolves a host id to a DispatchHost for the plan reads (planBookings).
     private HostManager hostManager;
+
+    // Resolves a layer id to a LayerInterface for the plan reads (planBookings).
     private JobManager jobManager;
+
+    // Kills the frame whose post-commit launch failed (by frame id); see launchCommitted.
     private RqdClient rqdClient;
 
+    // Reentrancy latch: a slow tick makes the next firing skip instead of overlapping (runTick).
     private final AtomicBoolean tickInFlight = new AtomicBoolean(false);
 
-    /**
-     * The dedicated connection that holds this Cuebot's planning-leadership advisory lock, or null
-     * when this Cuebot is a standby. Leadership is STICKY: the leader acquires the lock once and
-     * holds it for its whole life (not re-taken per tick), so one Cuebot plans continuously and the
-     * others idle as warm backups: no leadership churn, no farm-wide planning redone in N places. A
-     * standby only becomes leader when the holder's session dies (Postgres auto-releases the
-     * session-scoped lock). That is real failover, never load-sharing.
-     *
-     * Deliberately NOT a pooled connection: HikariCP would reap it on idle-timeout or warn on the
-     * 30s leak-detection threshold, and either silently drops the lock. It is a raw DriverManager
-     * connection outside the pool. Touched by the single tick thread (guarded by tickInFlight) and
-     * by shutdown; volatile for that one cross-thread read.
-     */
+    // This Cuebot's planning-leadership lock connection, or null when standby. Sticky and raw (not
+    // pooled, so Hikari cannot reap it and drop the lock). See Scheduler.md for the failover model.
     private volatile Connection leaderConn = null;
 
-    /**
-     * Live host reservations, persistent across ticks. Key: host id. Value: the (layer, priority)
-     * pair that has claimed the host. A reservation is created when a blocked layer's reconcile
-     * claims a target host, and removed when the layer's pending unfittable frame count reaches
-     * zero, the layer leaves the dispatchable set entirely, or a higher-priority layer overrides
-     * the claim.
-     *
-     * <b>Single-writer: the planner thread only.</b> HashMap is not thread-safe; reading or writing
-     * this field from any other thread (e.g. FrameCompleteHandler) requires either replacing it
-     * with a ConcurrentHashMap or wrapping access in an explicit lock. Failover via the advisory
-     * lock means a new leader starts with an empty map. The block-time bucket (blockedDebtMs) is
-     * in-memory too and resets with it, so reservations do NOT rebuild in a tick or two: each
-     * blocked layer must re-accrue reservation_block_seconds before it can reserve again, so
-     * protection re-arms only over that window after a failover (placement itself is unaffected and
-     * resumes immediately).
-     */
+    // Live host reservations, persistent across ticks: host id -> claiming (layer, priority).
+    // Planner-thread only (single-writer); empty after failover. See Scheduler.md for the model.
     private final Map<String, Reservation> reservations = new HashMap<>();
 
     // ---- plan / batch-commit / launch -------------------------------------
-    //
-    // The planner is single-threaded. During placement it only RECORDS the
-    // (host, layer) pairings it wants (plannedByHost). After placement it
-    // reads each pairing's next frames (planHost, no writes), commits them all
-    // in one batched transaction (startFramesAndProcsBatch: batched frame
-    // UPDATE + proc INSERT + host UPDATE, ~4 statements instead of ~6 per
-    // frame), then fires the RQD launches on a small pool. This replaced the
-    // per-frame commit-worker pool whose ~6 round-trips per frame dominated
-    // tick time at scale.
+    // Placement only records (host, layer) pairings; after it, planHost reads each pairing's frames
+    // and one batched transaction commits them all, then RQD launches fire on a small pool.
 
-    // Per-tick placements to commit, grouped host id -> layer ids. Planner-thread
-    // only; cleared each tick after the batch commit.
+    // Per-tick placements to commit, host id -> layer ids. Planner-thread only; cleared each tick.
     private final Map<String, List<String>> plannedByHost = new LinkedHashMap<>();
-    // Layers already PLACED this tick (submitCommit), across ALL host-spec groups.
-    // A permissive layer (loose tags, or plain 'general') is a candidate in many
-    // groups; without this each group re-plans it onto its own host, and the
-    // parallel plan reads then all grab the SAME waiting frames, so every copy but
-    // one loses the frame.int_version race at commit -- wasted reads/VirtualProcs
-    // and idle cores stolen from siblings for nothing. Keyed on PLACEMENT (not
-    // candidacy) so a layer that could not fit an earlier group can still place in
-    // a later one. Planner-thread only; cleared each tick with plannedByHost.
+
+    // Layers already placed this tick, across all groups: stops a permissive layer being re-planned
+    // per group (the copies would race for the same frames). Keyed on placement, not candidacy.
     private final Set<String> placedLayerIds = new HashSet<>();
-    // Tick-scoped planning scratch, planner-thread only, reset at the top of each tick
-    // (clearTickScratch). Held as fields so the phase methods (planGroup and friends)
-    // share them without threading a dozen parameters. Cap accounting stops two layers
-    // that share a job/show/limit/folder cap from both booking to it; the folder maps
-    // seed the exact post-plan trim; the license maps carry per-tick pool spend; seen +
-    // reservationReqs feed the reservation grant and the end-of-tick sweep.
+
+    // Tick-scoped planning scratch (planner-thread only, reset each tick by clearTickScratch). Held
+    // as fields so the phase methods share them without threading a dozen parameters.
     private final Map<String, Integer> jobCoresUsed = new HashMap<>();
     private final Map<String, Integer> showCoresUsed = new HashMap<>();
     private final Map<String, Integer> limitUsed = new HashMap<>();
@@ -289,115 +189,75 @@ public class Scheduler extends JdbcDaoSupport {
     private final Map<String, Set<String>> licenseSeats = new HashMap<>();
     private final Set<String> seenLayerIds = new HashSet<>();
     private final List<ReservationRequest> reservationReqs = new ArrayList<>();
-    // Read fresh (not accumulated) each tick, so reassigned rather than cleared.
+    // host -> seconds until it frees enough cores for a reserving layer (backfill deadline).
+    // Read fresh each tick (reassigned, not cleared).
     private Map<String, Integer> tReadyByHost = new HashMap<>();
+
+    // host -> layer ids it currently runs, the locality/affinity signal. Read fresh each tick.
     private Map<String, Set<String>> hostLayerAffinity = new HashMap<>();
-    // Layer-placements planned this tick, carried for the tick-breakdown log line.
+
+    // Layer-placements planned this tick, for the tick-breakdown log line.
     private int lastPlacements;
-    // Consecutive ticks each layer was PLANNED onto a host but planHost's
-    // commit-time read returned ZERO frames. That combination is the silent
-    // starvation signature of a planner-vs-dispatch eligibility mismatch (a
-    // gate the legacy frame query enforces that the candidate query does not
-    // model: thread mode, a limit filling mid-tick, ...): the layer burns its
-    // one commit per tick forever while looking perfectly schedulable at
-    // DEBUG. Written from the plan pool (ConcurrentHashMap); entries are
-    // dropped for layers that stop being planned, so only live pathologies
-    // are tracked. WARNs at scheduler.plan_zero_warn_ticks (default 40).
+
+    // Consecutive ticks a layer was planned but planHost's commit-time read found zero frames: the
+    // signature of a planner-vs-dispatch eligibility mismatch. Warns at plan_zero_warn_ticks.
     private final Map<String, Integer> planZeroStreak = new ConcurrentHashMap<>();
-    // Small pool for the post-commit RQD launches (runFrame gRPC), which are
-    // inherently one call per frame. Bounded with caller-runs backpressure so a
-    // slow RQD cannot let launches pile up unbounded.
+
+    // Small bounded pool for post-commit RQD launches (one gRPC per frame); a full queue drops
+    // the launch (launchDropped) rather than blocking the planner.
     private volatile ExecutorService launchPool;
-    // Count of launches dropped because the launch queue was full (RQD sink too
-    // slow). The frame is already RUNNING in the DB; reconciliation recovers it.
+
+    // Launches dropped because the launch queue was full; the frame is RUNNING in the DB, reconcile
+    // recovers it.
     private final java.util.concurrent.atomic.AtomicLong launchDropped =
             new java.util.concurrent.atomic.AtomicLong(0);
-    // Pool for the PLAN phase: the per-host candidate reads (planHost) are
-    // read-only and the dominant tick cost as the farm fills, so they run in
-    // parallel, one task per host (a host's layers stay serial within the task
-    // so the in-memory capacity decrement is correct; different hosts run
-    // concurrently). The single batched commit still happens after those reads.
+
+    // Pool for the plan phase: per-host plan reads (planHost) run in parallel, one task per host
+    // (serial within a host so the capacity decrement is correct). Commit is still single/batched.
     private volatile ExecutorService readPool;
-    // Written once inside synchronized startSchedulerPoolsIfNeeded(); read on
-    // the planner thread in the dispatch loop without holding the lock.
-    // volatile ensures the written value is immediately visible to the
-    // planner thread after startSchedulerPoolsIfNeeded() returns.
+
+    // Max frames one commit books per layer (property dispatcher.job_frame_dispatch_max).
     private volatile int jobFrameDispatchMax;
-    // When false, the planner ignores reservations entirely (no claims made,
-    // none enforced), the bare placement core. Lets us isolate core
-    // scheduling behaviour from the reservation logic. Read once in
-    // startSchedulerPoolsIfNeeded(); volatile for visibility on the planner thread.
+    // When false, the planner ignores reservations entirely (no claims, none enforced): the bare
+    // placement core, for isolating core scheduling from the reservation logic.
     private volatile boolean reservationsEnabled = true;
-    // EASY/Maui-style reservation gating (Lifka 1995; Jackson, Snell, Clement
-    // 2001), with a per-host-class cap so reservations can never consume a
-    // whole machine type ("conservative backfill", the low-utilization
-    // extreme). Three rules:
-    //
-    // - Time gate: a layer must be BLOCKED (waiting frames, not capped, but
-    // no host fits even one) continuously for reservationBlockMs before it
-    // may reserve. Wall-clock, so it is independent of the tick rate and
-    // matches operator intuition ("still stuck after 5 minutes -> act").
-    // Ignores momentary saturation, which clears within a tick or two.
-    //
-    // - Capacity cap: reservations may hold at most reservationMaxFraction of
-    // the hosts that can fit a given layer, so the rest of that class always
-    // stays open and the farm cannot deadlock on reservations.
-    //
-    // - Width gate: a reservation exists to DRAIN a host so a wide frame can
-    // assemble a contiguous block. Only a layer whose per-frame core request
-    // is at least RESERVATION_MIN_HOST_FRACTION of the LARGEST host in its
-    // group may reserve; narrow layers run the instant any core frees and must
-    // not consume the scarce reservation budget. A fraction of the biggest
-    // host (self-tuning across host classes), not an absolute core count.
-    //
-    // Granting is priority-first (EASY/Maui): candidates are processed in
-    // priority+age order, each reconciling up to its capacity-aware need until
-    // the cap is reached, so high-priority blocked work gets first claim on the
-    // limited reservation budget. Read once in startSchedulerPoolsIfNeeded();
-    // volatile for planner-thread visibility.
+
+    // Time gate: blocked-time a layer must accrue before it may reserve (wall-clock).
+    // Property scheduler.reservation_block_seconds. See Scheduler.md for the reservation model.
     private volatile long reservationBlockMs = 300_000; // 5 minutes
+    // Capacity gate: reservations hold at most this fraction of the hosts that fit a given layer.
     private volatile double reservationMaxFraction = 0.5;
-    // Width gate (always on, not configurable): a layer may reserve only if its
-    // per-frame cores are at least this fraction of the largest host in its group.
+
+    // Width gate (always on): a layer may reserve only if its per-frame cores are at least this
+    // fraction of the largest host in its group.
     private static final double RESERVATION_MIN_HOST_FRACTION = 0.5;
-    // EASY backfill (Lifka 1995): rather than freezing a reserved host idle
-    // while it drains, let a lower-priority frame run on its free cores, but
-    // ONLY if that frame's worst-case runtime (layer_usage.int_clock_time_high)
-    // finishes before the host is projected to free enough cores for its
-    // reserving (wide) layer, so the reserved job is never delayed. Recovers
-    // the utilization a pure freeze wastes. Read once in
-    // startSchedulerPoolsIfNeeded(); volatile for planner-thread visibility.
+
+    // EASY backfill: let a lower-priority frame run on a reserved host's free cores, but only if it
+    // finishes before the host frees enough for the reserving layer, so the reservation is
+    // undelayed.
     private volatile boolean backfillEnabled = true;
-    // Per-layer leaky bucket of NET blocked time (ms): grows while the layer is
-    // blocked, decays (1:1) while it places. A layer qualifies to reserve once
-    // its debt reaches reservationBlockMs, so a job that only CRAWLS, winning
-    // the odd gap, which would reset a "continuously blocked" timer, still
-    // accumulates and reserves, while a healthy layer stays near zero.
-    // lastSeenMs gives the per-layer time delta between ticks. Planner-thread only.
+
+    // Per-layer leaky bucket of net blocked time (ms): grows while blocked, decays while placing.
+    // A layer qualifies to reserve once its debt reaches reservationBlockMs.
     private final Map<String, Long> blockedDebtMs = new HashMap<>();
+    // Per-layer last-seen tick time, for the inter-tick delta that feeds blockedDebtMs.
     private final Map<String, Long> lastSeenMs = new HashMap<>();
 
     // ---- log throttling + per-window stat line -----------------------------
-    // A sub-second tick would write tens of thousands of INFO lines a day if it
-    // logged every tick, so per-tick detail goes to DEBUG and INFO gets ONE
-    // consolidated stat line per statIntervalMs (scheduler.stat_interval_seconds,
-    // default 5 minutes). The line is a full snapshot meant to be pasted straight
-    // into a bug report: planner health and HA leadership, farm fill at the last
-    // planned tick, throughput and loss, and reservation/backfill activity (see
-    // maybeLogStat). It is emitted on EVERY tick attempt, leader or standby, so a
-    // standby that never wins the lock still logs a heartbeat (ticks=0,
-    // lockLost>0) proving it is alive rather than dead.
-    //
+    // Per-tick detail goes to DEBUG; INFO gets one consolidated stat line per statIntervalMs, a
+    // full
+    // snapshot for bug reports, emitted on every tick attempt (leader or standby) as a heartbeat.
+
     // Core points per whole core: OpenCue stores host/proc cores as cores * 100.
     private static final int CORE_POINTS_PER_CORE = 100;
-    // Every field below is planner-thread only EXCEPT summarySkipped, which is
-    // bumped by the concurrent trigger thread whose tick overlapped (the CAS
-    // loser never holds tickInFlight), hence atomic. The summary* accumulators
-    // are summed across the window; the last* fields hold the most-recent planned
-    // tick's snapshot; the tick* fields are per-tick outputs doTick hands back to
-    // runTick. maybeLogStat emits the line and resets the window.
+
+    // Stat-line interval (scheduler.stat_interval_seconds, default 5 min).
     private volatile long statIntervalMs = 300_000;
     private long lastSummaryMs = 0;
+
+    // Window accumulators, planner-thread only except summarySkipped (bumped by the CAS-loser
+    // trigger thread, hence atomic). maybeLogStat emits the consolidated line and resets the
+    // window.
     private int summaryTicks = 0; // ticks this Cuebot won and planned
     private long summaryDispatched = 0; // procs committed (won the version race)
     private long summaryTickMs = 0; // summed tick wall time (for the mean)
@@ -414,15 +274,14 @@ public class Scheduler extends JdbcDaoSupport {
     private long summaryLaunchDroppedAt = 0; // launchDropped count at window start
     private final java.util.concurrent.atomic.AtomicInteger summarySkipped =
             new java.util.concurrent.atomic.AtomicInteger(0);
-    // Most-recent planned tick's farm snapshot (set at the top of doTick, BEFORE
-    // placement mutates the in-memory idle counts), reported as the point-in-time
-    // view in the stat line.
+    // Farm fill for the stat line, captured in snapshotFarmFill (stage 1) before placement
+    // decrements the in-memory idle counts.
     private int lastHosts = 0; // schedulable hosts
     private int lastIdleHosts = 0; // hosts with >= reservable-min idle
     private long lastCoresTotalCp = 0; // total cores, core points
     private long lastCoresIdleCp = 0; // idle cores, core points
-    private int lastGroups = 0; // host-spec groups
-    private int lastReservationReqs = 0; // layers requesting a reservation last tick
+    private int lastGroups = 0; // host-spec groups (stage 2)
+    private int lastReservationReqs = 0; // reservation requests, set later in grantReservations
     // Per-tick outputs set by doTick(), folded into the window by runTick().
     private long tickPlanned = 0;
     private int tickGranted = 0;
@@ -435,11 +294,8 @@ public class Scheduler extends JdbcDaoSupport {
     // Planned frames dropped at commit time because a pool could not cover them
     // (the plan read has no license clause; see the trim in doTick).
     private int tickLicenseTrimmed = 0;
-    // Guardrail: a handful of host-spec groups is expected. A count anywhere near
-    // the host count means hosts are fragmenting into near-per-host groups (the
-    // classic cause is a host name leaking into the tag set), which collapses the
-    // scheduler back into the per-host query storm it exists to avoid. Warn
-    // loudly, but throttled so it does not itself spam the log.
+    // Warn threshold: a group count near the host count means near-per-host fragmentation.
+    // See warnIfGroupsFragmented.
     private static final int GROUP_COUNT_WARN_THRESHOLD = 100;
     private static final long GROUP_WARN_INTERVAL_MS = 300_000; // at most every 5 min
     private long lastGroupWarnMs = 0;
@@ -447,22 +303,10 @@ public class Scheduler extends JdbcDaoSupport {
     private long lastCandidateErrWarnMs = 0;
 
     // ---- batched resource accounting --------------------------------------
-    //
-    // Booking a proc the legacy way fires five single-row UPDATEs
-    // (subscription, layer_resource, job_resource, folder_resource, point)
-    // inside the booking transaction. At full-farm scale a tick books
-    // thousands of procs, and they all target the same handful of hot rows
-    // (one point row per show/dept, one folder_resource per folder, ...), so
-    // they serialize on those row locks, the dominant commit cost at scale.
-    // Instead, the batched commit path (batchInsertVirtualProcs) never issues
-    // those per-proc writes, and the planner records the equivalent deltas here;
-    // doTick flushes one UPDATE per row right after the commit, collapsing
-    // thousands of contended writes into a few dozen. Proc release (frame
-    // complete) and legacy dispatch keep their per-proc updates.
-    //
-    // Always on for the new Scheduler, EXCEPT when scheduler_manages_resources
-    // is true, then the Rust scheduler's periodic recompute owns these tables
-    // and we must not write them at all. Set in startSchedulerPoolsIfNeeded.
+    // The legacy per-proc resource UPDATEs serialize on a few hot rows and dominate commit cost at
+    // scale. Instead the planner records per-row deltas and flushes one UPDATE per row after the
+    // batch commit. Off only when scheduler_manages_resources is true (the Rust scheduler owns the
+    // resource tables then). Set in startSchedulerPoolsIfNeeded. See Scheduler.md section 5.
     private volatile boolean batchResourceAccounting = true;
     // Per-row delta buffers: value is {cores, gpus}. Written on the planner
     // thread when the batch commit's winners are accounted, then drained in
@@ -498,9 +342,8 @@ public class Scheduler extends JdbcDaoSupport {
         // Property name kept from the per-host-limit feature this supersedes, so
         // any site already setting it keeps its value.
         licenseSeatBonus = env.getProperty("scheduler.host_limit_seat_bonus", Double.class, 16.0);
-        // Live application licenses. Started here rather than wired as a bean so
-        // its poll thread's life matches the planner's, and so a Cuebot with
-        // scheduler.license.enabled=false never starts one at all.
+        // Live application licenses. Started here rather than wired as a bean so its poll thread's
+        // life matches the planner's; layers without CUE_LICENSES simply never consult it.
         LicenseSource ls = new LicenseSource(env, getJdbcTemplate());
         ls.start();
         licenseSource = ls;
@@ -513,12 +356,9 @@ public class Scheduler extends JdbcDaoSupport {
         // procCreated writes nothing and we must not either.
         batchResourceAccounting =
                 !env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
-        // Bounded pool for post-commit RQD launches. Launches must NEVER run on
-        // the tick thread: a slow RQD sink would otherwise stall the whole tick
-        // (caller-runs put thousands of serial gRPC calls on the planner). On a
-        // full queue we DROP the launch and count it, the frame is already
-        // RUNNING in the DB, so RQD report reconciliation recovers it, so the
-        // tick is pure fire-and-forget and its latency never depends on RQD.
+        // Bounded pool so launches never run on the tick thread (a slow RQD sink would stall the
+        // tick). On a full queue we drop the launch and count it: the frame is already running in
+        // the DB, so RQD report reconciliation recovers it, and the tick never waits on RQD.
         int launchQueueSize = env.getProperty("scheduler.launch_queue_size", Integer.class, 16384);
         ThreadPoolExecutor pool = new ThreadPoolExecutor(launchSize, launchSize, 0L,
                 TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(launchQueueSize), r -> {
@@ -534,7 +374,7 @@ public class Scheduler extends JdbcDaoSupport {
                     }
                 });
         launchPool = pool;
-        // Read pool for the parallel PLAN phase. Reads are DB-bound (they block
+        // Read pool for the parallel plan phase. Reads are DB-bound (they block
         // on Postgres, not the CPU), so sizing above the core count is fine.
         int readSize = env.getProperty("scheduler.read_pool_size", Integer.class, launchSize);
         readPool = Executors.newFixedThreadPool(readSize, r -> {
@@ -550,8 +390,9 @@ public class Scheduler extends JdbcDaoSupport {
     // ---- snapshot queries -------------------------------------------------
 
     /**
-     * Bookable hosts: UP, lock state OPEN, with at least the minimum bookable cores. Returns enough
-     * columns to compute the spec key and run the per-host fit check without a second lookup.
+     * All schedulable hosts: state UP and lock state OPEN, busy or idle. Returns enough columns to
+     * compute the spec key and run the per-host fit check without a second lookup. The
+     * idle/min-core cut happens later, in planGroup.
      */
     private static final String SELECT_ALL_HOSTS = "SELECT " + "  h.pk_host, " + "  h.str_name, "
             + "  h.pk_alloc, " + "  a.pk_facility, " + "  h.int_thread_mode, " + "  h.int_cores, "
@@ -567,9 +408,9 @@ public class Scheduler extends JdbcDaoSupport {
      * unpaused - tag regex match against the group's normalized tag string - OS match (or any if
      * the job is OS-agnostic) - job under int_max_cores - show under subscription burst on this
      * alloc - at least one WAITING, depend-resolved frame on the layer - layer.int_cores_min fits
-     * the group's max host TOTAL cores (not idle , a blocked layer waiting on a reserved host stays
+     * the group's max host total cores (not idle, a blocked layer waiting on a reserved host stays
      * in the candidate set even when no host has it idle right now) Ranked by the priority-weighted
-     * lottery (power(random(),1/priority)) and capped by LIMIT, NOT strictly by priority.
+     * lottery (power(random(),1/priority)) and capped by LIMIT, not strictly by priority.
      * waiting_frame_count is the number of dispatchable frames on the layer at query time;
      * reconciliation uses it to decide how many hosts the layer should reserve.
      */
@@ -623,7 +464,7 @@ public class Scheduler extends JdbcDaoSupport {
             + "    SELECT j2.pk_folder, "
             + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
             + "    FROM   job j2 "
-            // Only aggregate CAPPED folders (int_max_cores <> -1). Every job has a
+            // Only aggregate capped folders (int_max_cores <> -1). Every job has a
             // folder but almost none are capped, so without this join the subquery
             // would sum layer_stat across the whole farm every candidate query; this
             // keeps it empty (free) when no folder has a ceiling.
@@ -642,7 +483,7 @@ public class Scheduler extends JdbcDaoSupport {
             // candidates or disturb the ranking below.
             + "LEFT JOIN layer_env le ON le.pk_layer = l.pk_layer AND le.str_key = ? "
             + "WHERE  j.str_state = 'PENDING' " + "  AND  j.b_paused  = false "
-            // A host may advertise SEVERAL OSes, comma-separated in
+            // A host may advertise several OSes, comma-separated in
             // host_stat.str_os ("rhel7,rhel9" on mid-migration boxes). The
             // legacy dispatcher expands that into str_os IN ('rhel7','rhel9');
             // an exact string compare here silently starved every os-pinned
@@ -655,7 +496,7 @@ public class Scheduler extends JdbcDaoSupport {
             // planner books cross-facility (PARITY's parity_facother archetype)
             // because the frame-level plan read never re-checks facility.
             + "  AND  j.pk_facility = ? "
-            // ThreadMode.ALL hosts run ONLY threadable layers (bind 1 for ALL
+            // ThreadMode.ALL hosts run only threadable layers (bind 1 for ALL
             // groups, 0 otherwise), exactly the legacy dispatcher's clause.
             // Without it the planner parks non-threadable layers on ALL hosts
             // (idle NIMBY workstations score best), planHost's re-check finds
@@ -664,7 +505,7 @@ public class Scheduler extends JdbcDaoSupport {
             + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
             + "  AND  jr.int_cores  < jr.int_max_cores " + "  AND  sub.int_cores < sub.int_burst "
             + "  AND  l.int_cores_min <= ? "
-            // Dispatchable-frame test AND waiting_frame_count both come from
+            // Dispatchable-frame test and waiting_frame_count both come from
             // layer_stat.int_waiting_count (maintained by core trigger
             // trigger__update_frame_status_counts; WAITING frames are depend-resolved,
             // DEPEND is a separate state). Backed by the partial index
@@ -679,7 +520,7 @@ public class Scheduler extends JdbcDaoSupport {
             // filter: the downstream query still enforces the cap.
             + "  AND (lim.pk_limit_record IS NULL "
             + "       OR COALESCE(lu2.int_sum_running, 0) < lim.int_max_value) "
-            // Skip jobs whose FOLDER (group/dept) core ceiling is already reached
+            // Skip jobs whose folder (group/dept) core ceiling is already reached
             // (folder_resource.int_max_cores, another core cap the legacy dispatcher
             // enforces; -1 = unlimited). Same rationale as the limit filter: purely an
             // efficiency gate (don't plan bookings a full folder can't take). The exact
@@ -693,19 +534,11 @@ public class Scheduler extends JdbcDaoSupport {
             // exactly those, so the two partition); in 'facility' mode the bound flag
             // is true and this short-circuits to plan every show.
             + "  AND (? OR sh.b_scheduler_managed = true) "
-            // Priority-WEIGHTED LOTTERY, not a strict priority sort. Each eligible
-            // layer gets a random key random()^(1/priority) (Efraimidis-Spirakis
-            // weighted reservoir sampling) and we take the top-LIMIT by that key.
-            // ORDER BY ranks the WHOLE eligible set before LIMIT (sort-then-limit),
-            // so a low-priority layer always keeps a real, smaller chance of being
-            // selected: its expected share is proportional to its priority, so it is
-            // never starved by a sustained higher-priority stream. The old strict
-            // "int_priority DESC" starved it outright: pri-100 work never ran while
-            // a pri-300 backlog kept the farm saturated. GREATEST(...,1) floors the
-            // weight so priority 0/negative still gets the minimum (nonzero) share
-            // rather than divide-by-zero or starvation. Reservation GRANTING stays
-            // strict priority-first (the requests are re-sorted by priority below),
-            // so wide-job rescue is unaffected by this booking-order change.
+            // Priority-weighted lottery, not a strict priority sort: each layer gets key
+            // random()^(1/priority) (Efraimidis-Spirakis) and we take the top LIMIT, so a
+            // low-priority layer keeps a share proportional to its priority instead of being
+            // starved by a higher-priority stream. GREATEST(...,1) floors the weight for priority
+            // <= 0. Reservation granting stays strict priority-first. See Scheduler.md section 3.5.
             + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC " + "LIMIT  ? ";
 
     // ---- row mappers ------------------------------------------------------
@@ -817,7 +650,7 @@ public class Scheduler extends JdbcDaoSupport {
         } catch (RuntimeException e) {
             logger.error("Scheduler tick failed", e);
         } finally {
-            // One consolidated stat line per window, on EVERY tick attempt (leader or
+            // One consolidated stat line per window, on every tick attempt (leader or
             // standby) so a standby Cuebot still emits a heartbeat. Reached only by the
             // thread that held tickInFlight (the CAS loser returned earlier), so the plain
             // summary fields stay single-writer.
@@ -900,38 +733,18 @@ public class Scheduler extends JdbcDaoSupport {
 
     /**
      * Emit the consolidated per-window stat line at most once per {@link #statIntervalMs}, then
-     * reset the window accumulators. A full snapshot meant to be pasted into a bug report:
-     *
-     * <pre>
-     * Scheduler stat: win=300s ticks=920 skipped=0 lockLost=12 avgTick=556ms maxTick=1840ms
-     *   | farm hosts=1553 idleHosts=9 cores=57088 idleCores=74 util=99.9% groups=5
-     *   | flow committed=98210 planned=104900 raceLost=6690 launchDropped=0
-     *   | resv held=52 reservedCores=3328 granted=31 reqs=11 backfilled=88 backfilledCores=512
-     * </pre>
-     *
-     * <ul>
-     * <li><b>health/HA:</b> win (window seconds), ticks won, skipped (fired while the previous tick
-     * still ran, so falling behind), lockLost (another Cuebot held the advisory lock, so this one
-     * was standby for that tick), avgTick/maxTick.</li>
-     * <li><b>farm:</b> the last planned tick's host/core fill and host-spec group count (a count
-     * near the host count is the tag-leak bug the guardrail warns on).</li>
-     * <li><b>flow:</b> committed procs, frames the plan phase produced, the gap lost to the frame
-     * version race (contention), and RQD launches dropped because the launch queue was full.</li>
-     * <li><b>resv:</b> reservations held, the whole cores those held reservations account for
-     * (reservedCores), reservations newly granted, requested last tick, frames placed onto a
-     * reserved host via EASY backfill, and the cores (whole cores, not core-points) those
-     * backfilled frames borrowed.</li>
-     * <li><b>lic:</b> present only when live application licenses are in play. Frames booked
-     * against a license pool, and how many times a pool held a candidate back (out of seats, or its
-     * sample had gone stale), and planned frames dropped at commit time because a pool could not
-     * cover them. A persistently high held with booked near zero means the provider is failing or
-     * headroom is set too high, not that the farm is out of licenses. A high trimmed is normal
-     * under contention (the plan read is license-blind by design); it matters only if it dwarfs
-     * booked.</li>
-     * </ul>
+     * reset the window accumulators. A full snapshot for a bug report, grouped as: health/HA
+     * (window seconds, ticks won, skipped when a tick fired while the previous still ran, lockLost
+     * when this Cuebot was a standby, avgTick/maxTick); farm (the last planned tick's host/core
+     * fill and host-spec group count, where a count near the host count is the tag-leak the
+     * guardrail warns on); flow (committed procs, frames planned, the gap lost to the frame-version
+     * race, RQD launches dropped); resv (reservations held and the cores they hold, newly granted,
+     * requested last tick, and frames EASY-backfilled onto reserved hosts); and lic, only when
+     * licenses are in play (frames booked against a pool, candidates a pool held back, and planned
+     * frames trimmed at commit because a pool could not cover them).
      *
      * Called from runTick's finally on the thread that held tickInFlight, so the plain fields are
-     * single-writer (summarySkipped is atomic because the CAS loser bumps it from another thread).
+     * single-writer (summarySkipped is atomic, bumped by the CAS loser from another thread).
      */
     private void maybeLogStat() {
         long nowMs = System.currentTimeMillis();
@@ -1001,42 +814,6 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * One scheduling tick. The algorithm in order:
-     *
-     * 1. SNAPSHOT Read all bookable hosts (UP, OPEN, with at least the minimum bookable cores) in
-     * one SQL query. Each row carries the host's static spec (alloc, tags, OS), its current idle
-     * resources, its total capacity, and its running proc count.
-     *
-     * 2. GROUP Bucket hosts by their static spec key (alloc, normalized tags, os, has-gpu). Hosts
-     * in the same group share the same set of candidate layers, so one candidate query per group
-     * instead of per host.
-     *
-     * 3. FOR EACH GROUP: a. CANDIDATE QUERY One SQL per group, returning up to
-     * scheduler.layer_candidates_per_group_max layers, ranked by the priority-weighted lottery
-     * (§3.5), not strict priority. The filter "int_cores_min <= group's MAX TOTAL cores" includes
-     * blocked layers whose reserved hosts are partially loaded; using max IDLE would let them drop
-     * out of the candidate set and be swept incorrectly.
-     *
-     * b. DISPATCH AND RECONCILE (priority order) Implemented in dispatchGroupWithScoring. For each
-     * candidate: - Drain by best-fit onto fitting hosts. Reservation rules apply: a host reserved
-     * at priority >= c.priority for another layer is skipped; a host reserved at lower priority is
-     * usable, and on dispatch c takes ownership. - Reconcile c's reservation count to exactly c's
-     * remaining pending unfittable frame count. Layer ids encountered are added to seenLayerIds for
-     * the end-of-tick sweep.
-     *
-     * 4. SWEEP Any reservation whose layer didn't appear in any candidate set this tick is dropped.
-     * That layer is no longer dispatchable (job paused, completed, deleted, or its int_cores_min
-     * exceeds every host's total capacity), so its claim is stale.
-     *
-     * The reservation map persists across ticks. The single invariant is that a host's reservation
-     * belongs to the highest-priority layer that has claimed it; every operation above respects
-     * this. A new leader after failover starts with an empty map; because the block-time bucket
-     * resets with it, reservations re-arm only as blocked layers re-accrue
-     * reservation_block_seconds, not within a tick or two.
-     *
-     * @return total number of procs dispatched this tick
-     */
-    /**
      * Zero the per-tick stat outputs before any early return, so a host-less tick contributes zero
      * to the window rather than carrying last tick's values.
      */
@@ -1051,7 +828,7 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Record the farm's host/core fill for the per-window stat line, taken BEFORE this tick's
+     * Record the farm's host/core fill for the per-window stat line, taken before this tick's
      * placement mutates the in-memory idle counts (placement decrements h.coresIdle). Core points;
      * maybeLogStat converts to whole cores.
      */
@@ -1287,7 +1064,7 @@ public class Scheduler extends JdbcDaoSupport {
      * this group, not the whole tick), seed the capped-folder trim data and this group's license
      * budgets, then dispatch-and-reconcile in priority order. Placement uses the group's idle
      * subset (hosts with the minimum reservable cores free); reservations use the full group so a
-     * blocked layer can hold a busy host. Candidates are filtered against max host TOTAL cores, not
+     * blocked layer can hold a busy host. Candidates are filtered against max host total cores, not
      * idle, so a layer blocked on a partially-loaded reserved host stays a candidate and its
      * reservation survives the end-of-tick sweep. Returns the frames booked for the group and bumps
      * the matching stats counter (queryError / noWork / booked / noFit).
@@ -1360,33 +1137,19 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * One full scheduling pass, run on every Cuebot but only the leader plans. Returns the number
-     * of frames committed, or -1 when this Cuebot is a standby that drained but did not plan.
+     * One full scheduling pass. Runs on every Cuebot; only the leader plans.
      *
-     * Operation zero is the completion drain, on every Cuebot alike: apply the frame-completions
-     * this Cuebot queued since the last tick, single-threaded and in batches, before anything else.
-     * Draining first lets the planner work against a farm where every finished frame is already
-     * stopped and its cores freed, so planning never races a completion, the race that used to
-     * manufacture orphaned procs.
+     * The stages: 0. drain the frame-completions queued since the last tick (every Cuebot, before
+     * the leadership gate, so planning sees finished frames already stopped and never races an
+     * in-flight completion); 1. snapshot every schedulable host (UP + OPEN), busy and idle, before
+     * placement mutates the in-memory idle counts; 2. group the hosts by spec (allocation,
+     * facility, tags, OS, GPU, thread mode) and record farm-fill and per-show cores for the stat
+     * line; 3. plan each group in priority order against one candidate query per group, placing
+     * into the idle subset while a layer that cannot fit collects a reservation request; 4. grant
+     * reservations, plan the bookings in parallel, trim to the folder and license limits, commit
+     * the survivors in one batch, and launch them. See Scheduler.md for the full model.
      *
-     * The drain runs before the leadership gate on purpose. Cuebots are a hot-standby set: exactly
-     * one holds the Postgres advisory lock and plans, the rest idle as backups. When a backup takes
-     * over after the leader crashes, it must flush the completions in flight before it plans, and
-     * it does that on this very tick, so nothing in flight is lost and there is no separate startup
-     * drain.
-     *
-     * Everything past the gate is the leader's, in numbered phases. 1. Snapshot every schedulable
-     * host (UP + OPEN), busy and idle, before placement mutates the in-memory idle counts (busy
-     * hosts are kept so a reservation can hold one until it drains). 2. Group the hosts by spec
-     * (allocation, facility, tags, OS, GPU presence, thread mode) and record farm-fill and per-show
-     * cores for the stat line. 3. Plan each group in priority order against one candidate query per
-     * group (a malformed tag fails only its own group), placing into the idle subset while a layer
-     * that cannot fit collects a reservation request; the tick-scoped cap maps stop two layers that
-     * share a cap from both booking to it. 4. Grant reservations (highest priority, then widest
-     * job, within budget), plan the bookings in parallel on the bounded read pool, trim to the
-     * exact folder ceilings and live license pools planHost is blind to, commit the survivors in
-     * one batch, launch them, and sweep reservation and blocked-debt state for layers that left the
-     * dispatchable set. See Scheduler.md for the full model.
+     * @return frames committed this tick, or -1 for a standby that drained but did not plan.
      */
     private int doTick() {
         // 0. DRAIN the queued frame-completions (every Cuebot, leader and standby), then expire the
@@ -1453,13 +1216,13 @@ public class Scheduler extends JdbcDaoSupport {
         long tRead = System.currentTimeMillis();
         tickPlanned = planned.size();
 
-        // 4b. COMMIT the survivors in one batch, then account, warm, and launch them.
+        // 4b. COMMIT the survivors in one batch, then account and launch them.
         List<FrameBooking> committed =
                 planned.isEmpty() ? java.util.Collections.<FrameBooking>emptyList()
                         : dispatchSupport.startFramesAndProcsBatch(planned);
         long tCommit = System.currentTimeMillis();
         recordCommitted(committed, stats);
-        stampWarmthAndLaunch(committed);
+        launchCommitted(committed);
         int dispatchedNow = committed.size();
         long tFlush = System.currentTimeMillis();
         if (tFlush - tStart > 1000) {
@@ -1477,7 +1240,7 @@ public class Scheduler extends JdbcDaoSupport {
     /**
      * Read each planned placement's next frames and build procs in memory (no DB writes),
      * parallelized across hosts on the bounded read pool, the dominant tick cost as the farm fills.
-     * One TASK per host (not one thread), run at scheduler.read_pool_size concurrency: a host is
+     * One task per host (not one thread), run at scheduler.read_pool_size concurrency: a host is
      * booked serially within its task because planHost decrements that host's idle fields as it
      * books, so a later layer sees what an earlier one took, and two tasks on one host would
      * double-book it; different hosts run concurrently. A layer that plans but yields zero bookable
@@ -1549,7 +1312,7 @@ public class Scheduler extends JdbcDaoSupport {
 
     /**
      * Fold the committed bookings into the per-show throughput tally, then apply their resource
-     * accounting deltas and flush one UPDATE per changed row. Per-show CORES are not accumulated
+     * accounting deltas and flush one UPDATE per changed row. Per-show cores are not accumulated
      * here (they are read live from the procs each tick, see readShowCores, so the gauge cannot
      * drift); only the per-show frame count for the rate is merged.
      */
@@ -1567,13 +1330,15 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Stamp cache warmth for the committed bookings, then fire their RQD launches on the launch
-     * pool. Every commit displaces cache on its host (the odometer advances); a layer returning to
-     * its own warm host re-stamps its entry instead of displacing it. A launch that fails
-     * post-commit unbooks the proc, returns the frame to WAITING, and kills it on RQD, all on the
-     * launch thread so the tick is never blocked.
+     * Launch the committed bookings: fire each one's RQD launch on the launch pool. A launch that
+     * fails post-commit unbooks the proc, returns the frame to WAITING, and kills it on RQD, all on
+     * the launch thread so the tick is never blocked.
+     *
+     * This is also where locality cache-warmth is stamped, since the committed set is in hand:
+     * every commit advances its host's odometer (displacing older cache), and a layer returning to
+     * its own warm host re-stamps its entry instead of displacing it.
      */
-    private void stampWarmthAndLaunch(List<FrameBooking> committed) {
+    private void launchCommitted(List<FrameBooking> committed) {
         if (localityEnabled && localityWindowFrames > 0) {
             for (FrameBooking b : committed) {
                 long odo = bookingsByHost.merge(b.proc.getHostId(), 1L, Long::sum);
@@ -1662,7 +1427,7 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Open a dedicated Postgres connection for the leadership lock, OUTSIDE the HikariCP pool. A
+     * Open a dedicated Postgres connection for the leadership lock, outside the HikariCP pool. A
      * pooled connection would be reaped on idle-timeout or flagged by the leak-detection threshold
      * while we hold it across ticks, silently releasing the advisory lock. Built straight from the
      * configured JDBC url/credentials so the scheduler stays pool-implementation agnostic.
@@ -1734,7 +1499,7 @@ public class Scheduler extends JdbcDaoSupport {
 
     // Cores actually running per show, summed straight from the live procs. This
     // is the ground truth OpenCue itself uses to recompute subscriptions, so the
-    // show_cores gauge is SET from it each tick rather than event-sourced -- no
+    // show_cores gauge is set from it each tick rather than event-sourced: no
     // drift, no missed-decrement bookkeeping. Non-local procs only, matching how
     // farm cores are counted elsewhere.
     private static final String SELECT_SHOW_CORES =
@@ -1770,18 +1535,18 @@ public class Scheduler extends JdbcDaoSupport {
         return affinity;
     }
 
-    /**
-     * DEBUG-only "why is nothing booking" explain: the candidate query's WHERE clauses recast as
-     * per-layer boolean columns, so when a group yields ZERO candidates one tick of DEBUG logging
-     * names the exact gate that excluded each pending layer (the first false column). Keeps every
-     * eligibility rule in one visible line instead of requiring hand-written SQL against a live
-     * incident. Top {@value #EXPLAIN_LIMIT} pending layers by priority. The subscription join is
-     * LEFT here (unlike the real query) precisely so a MISSING subscription shows up as
-     * hasSub=false instead of an invisible row; each column mirrors its production clause (os = ANY
-     * of the host's comma-separated list, facility bind, smallest-cap limit).
-     */
+    // Max pending layers the "why nothing books" explain logs per group, highest priority first.
     private static final int EXPLAIN_LIMIT = 20;
 
+    /**
+     * DEBUG-only "why is nothing booking" explain: the candidate query's WHERE clauses recast as
+     * per-layer boolean columns, so when a group yields zero candidates one tick of DEBUG logging
+     * names the exact gate that excluded each pending layer (the first false column). Keeps every
+     * eligibility rule in one visible line instead of hand-written SQL against a live incident. The
+     * subscription join is LEFT here (unlike the real query) precisely so a missing subscription
+     * shows up as hasSub=false instead of an invisible row; each column mirrors its production
+     * clause (os = ANY of the host's comma-separated list, facility bind, smallest-cap limit).
+     */
     private static final String EXPLAIN_GROUP_EXCLUSIONS = "SELECT " + "  j.str_name AS job_name, "
             + "  l.str_name AS layer_name, " + "  l.str_tags, " + "  jr.int_priority, "
             + "  (? ~* ('(?x)' || l.str_tags || '\\y'))               AS tag_ok, "
@@ -1840,7 +1605,7 @@ public class Scheduler extends JdbcDaoSupport {
      *
      * The license names already arrived on the candidate rows (the candidate query carries them),
      * so this costs nothing but a walk of the list. Budgets are the part that touches the database
-     * (the in-flight term), so they are derived ONCE per license per tick: a pool named by an
+     * (the in-flight term), so they are derived once per license per tick: a pool named by an
      * earlier group is reused by every later one, which also keeps the numbers consistent across
      * groups within a tick. Both maps are tick-scoped and planner-thread only.
      */
@@ -1877,7 +1642,7 @@ public class Scheduler extends JdbcDaoSupport {
     /**
      * May this host take a frame of a layer whose licenses include host-based pools?
      *
-     * Yes when, for EVERY such pool, the host either already holds a seat (extra frames there are
+     * Yes when, for every such pool, the host either already holds a seat (extra frames there are
      * free, they share the one checkout) or the pool still has an unused seat. The seat set
      * includes seats the license server reports held by machines outside the cue, so an artist's
      * workstation occupies a seat here just as a render node does.
@@ -1927,11 +1692,11 @@ public class Scheduler extends JdbcDaoSupport {
      * reserving layer's core deficit is covered; that proc's projected finish is the host's ready
      * time. The deadline is the bar a borrowed frame must beat (see {@link #backfillAllows}).
      *
-     * Conservative by construction: - A host whose needed procs lack a runtime estimate maps to
-     * {@link Integer#MAX_VALUE} ("unknown -> never backfill"). - Ready time uses the procs' AVERAGE
-     * finish, while the borrowed frame is bounded by its WORST case (int_clock_time_high).
-     * Requiring worst(frame) <= avg(host-ready) heavily biases against delaying the reserved job,
-     * since high is typically well above avg.
+     * Conservative by construction. A host whose needed procs lack a runtime estimate maps to
+     * {@link Integer#MAX_VALUE} (unknown, so never backfill). Ready time uses the procs' average
+     * finish while the borrowed frame is bounded by its worst case (int_clock_time_high); requiring
+     * worst(frame) <= avg(host-ready) heavily biases against delaying the reserved job (high is
+     * typically well above avg).
      *
      * Cores-only: cores are the binding dimension for the wide-job stranding this targets;
      * memory/GPU readiness is not modelled here.
@@ -2058,14 +1823,11 @@ public class Scheduler extends JdbcDaoSupport {
         for (LayerCandidate c : candidates) {
             seenLayerIds.add(c.layerId);
 
-            // Cross-group dedup: skip a layer already PLACED in an earlier host-spec
-            // group this tick. Its per-host plan read would pull the SAME waiting
-            // frames and lose the commit-time frame.int_version race, so re-planning
-            // it only wastes reads/VirtualProcs and steals idle cores that then book
-            // nothing. Placed AFTER seenLayerIds.add so reservation sweeping still
-            // sees the layer, and BEFORE any host/cap mutation so a duplicate
-            // consumes no simulated resources. Keyed on placement, so a layer capped
-            // or unfit in an earlier group is still tried here.
+            // Cross-group dedup: skip a layer already placed in an earlier host-spec group this
+            // tick, whose per-host plan read would pull the same waiting frames and lose the
+            // commit-time frame.int_version race. Placed after seenLayerIds.add (so the sweep still
+            // sees the layer) and before any host/cap mutation. Keyed on placement, so a layer
+            // capped or unfit in an earlier group is still tried here.
             if (placedLayerIds.contains(c.layerId))
                 continue;
 
@@ -2079,15 +1841,15 @@ public class Scheduler extends JdbcDaoSupport {
             // Seed this limit's tick-wide running count from the farm-wide count
             // the first time it is seen this tick (candidate query already
             // excluded limits that were full at query time; this catches a limit
-            // filling DURING the tick as sibling layers book against it).
+            // filling during the tick as sibling layers book against it).
             int limitInUse =
                     (c.limitId != null) ? limitUsed.computeIfAbsent(c.limitId, k -> c.limitRunning)
                             : 0;
 
-            // Live application licenses: a layer needs a seat in EVERY pool it
-            // declares. Floating pools allow the MIN of their remaining counts;
+            // Live application licenses: a layer needs a seat in every pool it
+            // declares. Floating pools allow the minimum of their remaining counts;
             // host-based pools are enforced per host in the scoring loop. A
-            // stale or unreported pool HOLDS the layer, never runs it blind.
+            // stale or unreported pool holds the layer, never runs it blind.
             int licenseUsable = Integer.MAX_VALUE;
             boolean licenseHeld = false;
             List<LicenseSource.LicenseBudget> licenseSeatPools = null;
@@ -2117,7 +1879,7 @@ public class Scheduler extends JdbcDaoSupport {
                     : 0;
 
             // A capped layer (job/show cap, full limit, folder ceiling) must
-            // not dispatch but MUST still reconcile, dropping reservations it
+            // not dispatch but must still reconcile, dropping reservations it
             // can no longer use so other work can take those hosts.
             boolean capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
                     || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
@@ -2134,7 +1896,7 @@ public class Scheduler extends JdbcDaoSupport {
                 for (BookableHost h : hosts) {
                     if (!fitsOnHost(c, h))
                         continue;
-                    // Same gate for a host-based LICENSE pool, but keyed by host
+                    // Same gate for a host-based license pool, but keyed by host
                     // name (what a license server reports) and against the live
                     // seat count rather than a typed-in cap: this host is
                     // eligible only if it already holds a seat in every such
@@ -2216,7 +1978,7 @@ public class Scheduler extends JdbcDaoSupport {
                         estFrames = limHeadroom;
                 }
                 // Cap the commit to the licenses' remaining seats. licenseUsable is
-                // the MIN across the layer's floating pools and is decremented as
+                // the minimum across the layer's floating pools and is decremented as
                 // this tick books, so sibling layers sharing a pool cannot each
                 // spend it. One frame is one seat.
                 if (licenseUsable != Integer.MAX_VALUE) {
@@ -2225,7 +1987,7 @@ public class Scheduler extends JdbcDaoSupport {
                     if (estFrames > licenseUsable)
                         estFrames = licenseUsable;
                 }
-                // Cap the commit to the folder's remaining CORE headroom (this cap
+                // Cap the commit to the folder's remaining core headroom (this cap
                 // is in cores, not frames). If one more frame's cores won't fit,
                 // stop booking this layer this tick.
                 if (c.folderMax >= 0) {
@@ -2305,7 +2067,7 @@ public class Scheduler extends JdbcDaoSupport {
                 placed = true;
 
                 // One commit per layer per tick: parallel per-host plan reads
-                // would otherwise grab the SAME frames (version collisions).
+                // would otherwise grab the same frames (version collisions).
                 // A layer spreads across hosts over a few ticks instead.
                 break;
             }
@@ -2374,8 +2136,8 @@ public class Scheduler extends JdbcDaoSupport {
                 blockedDebtMs.put(c.layerId, debt);
 
                 // Request a reservation if the layer already holds some (keep
-                // maintaining them until the job drains) OR it newly qualifies:
-                // blocked past the threshold AND wide enough. The width gate
+                // maintaining them until the job drains) or it newly qualifies:
+                // blocked past the threshold and wide enough. The width gate
                 // keeps the small-frame stream out of the wide-job budget.
                 boolean wideEnough = maxGroupHostCores > 0
                         && c.layerCoresMin >= RESERVATION_MIN_HOST_FRACTION * maxGroupHostCores;
@@ -2399,9 +2161,9 @@ public class Scheduler extends JdbcDaoSupport {
         }
 
         // Stranded idle cores: when this group could not place work it wanted to
-        // run, the idle cores left on its WORKING hosts are wasted capacity, charged
-        // to that cause. Only hosts with a core already in use can be fragmented -- a
-        // wholly-empty host is one free block, not a stranded sliver -- so empty
+        // run, the idle cores left on its working hosts are wasted capacity, charged
+        // to that cause. Only hosts with a core already in use can be fragmented (a
+        // wholly-empty host is one free block, not a stranded sliver), so empty
         // hosts are skipped. The panel normalizes this against the whole farm, so a
         // little waste on one busy host reads as a tiny share, and the number only
         // climbs when the waste is farm-wide.
@@ -2425,7 +2187,7 @@ public class Scheduler extends JdbcDaoSupport {
         return false;
     }
 
-    /** Whether host h has enough TOTAL capacity to run a frame of c when idle. */
+    /** Whether host h has enough total capacity to run a frame of c when idle. */
     private static boolean hostCanEverFit(LayerCandidate c, BookableHost h) {
         return h.coresTotal >= c.layerCoresMin && h.memTotal >= c.layerMemMin
                 && h.gpusTotal >= c.layerGpusMin && h.gpuMemTotal >= c.layerGpuMemMin;
@@ -2446,7 +2208,7 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Frames of c that fit on one reservation-eligible host, taken as the MINIMUM across fitting
+     * Frames of c that fit on one reservation-eligible host, taken as the minimum across fitting
      * hosts so we never under-reserve (the dangerous direction, too few reserved hosts and the
      * layer stays starved). Returns 0 when no host can fit c (caller then falls back to a per-frame
      * count).
@@ -2486,7 +2248,7 @@ public class Scheduler extends JdbcDaoSupport {
      * ready time is unknown, keeping the no-delay guarantee conservative under soft (non-killed)
      * estimates.
      *
-     * The time check is the WHOLE guarantee; do not also gate on "host already has enough idle for
+     * The time check is the whole guarantee; do not also gate on "host already has enough idle for
      * the owner". That guard makes backfill dead: once idle covers the owner, the higher-priority
      * owner books the host itself, so the only moment backfill can place anything is while the host
      * is still draining, exactly what such a guard forbids. The sub-owner-width idle on reserved
@@ -2546,9 +2308,9 @@ public class Scheduler extends JdbcDaoSupport {
      *
      * 1. Frames the layer could still run: waiting frames, clamped by the job and show core caps (a
      * capped layer must not hold hosts it cannot legally use, which would block lower-priority
-     * work). 2. Made CAPACITY-AWARE: a fitting host runs several frames of the layer (e.g. two
-     * 64-core frames on a 128-core host), so the number of HOSTS needed is frames /
-     * frames-per-host, not one host per frame. 3. Bounded by the per-class CAP: reservations (this
+     * work). 2. Made capacity-aware: a fitting host runs several frames of the layer (e.g. two
+     * 64-core frames on a 128-core host), so the number of hosts needed is frames /
+     * frames-per-host, not one host per frame. 3. Bounded by the per-class cap: reservations (this
      * layer's plus any already held by others on hosts that fit c) may cover at most
      * reservationMaxFraction of the hosts that can fit c, so the class can never be fully reserved.
      * Callers grant priority-first then widest-job, so the cap fills for high-priority wide jobs
@@ -2581,7 +2343,7 @@ public class Scheduler extends JdbcDaoSupport {
 
         // Per-class cap: at most reservationMaxFraction of the hosts that can
         // fit c may be reserved at once. Count fitting hosts and how many of
-        // them are already reserved by OTHER layers; c may use the remainder.
+        // them are already reserved by other layers; c may use the remainder.
         int fittingTotal = 0, reservedByOthers = 0;
         for (BookableHost h : hosts) {
             if (!hostCanEverFit(c, h))
@@ -2620,7 +2382,7 @@ public class Scheduler extends JdbcDaoSupport {
      * Pick the host most likely to become available for c soonest, expressed as "host with the
      * fewest running procs": fewer running frames means fewer to wait on before the host frees up
      * enough cores for c. The host must (a) be tag/OS-compatible (granted by group membership), (b)
-     * have enough TOTAL capacity for c when fully idle, (c) not already be reserved by c (reconcile
+     * have enough total capacity for c when fully idle, (c) not already be reserved by c (reconcile
      * only expands the set, never re-claims), and (d) not be reserved at equal or higher priority
      * for a different layer.
      */
@@ -2650,50 +2412,19 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Placement score for a (host, layer) pair. Lower is better. Callers MUST call
-     * {@link #fitsOnHost} first; this function assumes the layer fits.
+     * Placement score for a (host, layer) pair; lower is better. Callers must fitsOnHost first,
+     * this assumes the layer fits.
      *
-     * Real E-PVM (after Amir, Awerbuch, Barak, Borgstrom &amp; Keren 2000): the farm carries a
-     * convex "cost" potential, summed over every host and every resource dimension D:
+     * The score is E-PVM marginal cost (Amir et al. 2000): the weighted sum over the resource
+     * dimensions of each dimension's convex cost rise from adding one frame (see deltaCost).
+     * Because the terms are e^(used/total), an already-full dimension (idle cores behind saturated
+     * memory) costs far more, and the utilization-fraction exponent keeps the score size-unbiased
+     * so big hosts are not starved. We pick the host with the smallest score. See Scheduler.md for
+     * the derivation and the farm-balancing properties.
      *
-     * C = sum_hosts sum_D e^( used_D / total_D )
-     *
-     * Placing a frame on host h raises only h's usage, so the marginal cost of accepting it, the
-     * score, is the rise in that one host's terms:
-     *
-     * score(h) = sum_D W_D * ( e^(after_D/total_D) - e^(before_D/total_D) ) before_D = total_D -
-     * idle_D (currently reserved) after_D = before_D + layer.min_D (with this frame added)
-     *
-     * We pick the host with the smallest score (argmin of the marginal cost). E-PVM is a
-     * load-BALANCING heuristic, not a bin-packing one, and three properties fall out of the convex,
-     * capacity-normalized form, each fixing a failure of the old absolute-stranding score:
-     *
-     * - Proportional balancing. Because the exponent is used/total, the same frame is a smaller
-     * fraction of a large host, so a fresh big host has a lower marginal cost than a fresh small
-     * one and is filled first, but only until its fraction catches up. Under a sustained backlog
-     * e^x's convexity drives every host toward the SAME fractional utilization, so a 128-core host
-     * ends up carrying ~8x the frames of a 16-core host instead of sitting idle. The old
-     * absolute-stranding score did the opposite: it consolidated memory-light work onto small hosts
-     * and left ~55% of the farm's cores (the big hosts) unused.
-     *
-     * - Size neutrality of the steady state. The cost is a fraction, so "balanced" means equal
-     * utilization PERCENT across heterogeneous hosts, not equal frame counts. That is the right
-     * target for a farm whose goal is to keep all hardware busy.
-     *
-     * - Memory-bound hosts read as full. A host with idle cores but saturated memory sits at
-     * e^(~1.0) on the memory axis; its marginal cost there is enormous, so it stops attracting work
-     * even though cores look free. The old linear score could not see this and would keep stranding
-     * cores behind full memory.
-     *
-     * This is a one-step lookahead: "after" is the state with just THIS frame added, not an
-     * end-of-tick projection. We do not need computeMaxMore's pile-up estimate here, the dispatch
-     * loop decrements h.*Idle after each commit, so the next frame in the tick sees a higher
-     * "before" and a steeper delta automatically (convexity handles the pile-up).
-     *
-     * Units cancel: used_D and total_D are in the same units per dimension (core points, KB,
-     * count), so the exponent is dimensionless and no per-dimension unit conversion is needed. The
-     * W_D weights set the relative importance of the dimensions on that common, dimensionless
-     * scale.
+     * One-step lookahead: the cost adds just this frame, not an end-of-tick projection. The
+     * dispatch loop decrements h.*Idle after each commit, so the next frame sees a steeper delta on
+     * its own, with no computeMaxMore pile-up estimate needed here.
      */
     static double placementScore(BookableHost h, LayerCandidate c) {
         return W_CORES * deltaCost(h.coresTotal, h.coresIdle, c.layerCoresMin)
@@ -2716,16 +2447,16 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Predict the number of ADDITIONAL frames of c (beyond the first) that could be dispatched to h
+     * Predict the number of additional frames of c (beyond the first) that could be dispatched to h
      * within this tick. Shared by placementScore (which uses it to compute stranding) and the
      * dispatch loop (which uses it to estimate the frames a single commit will book).
      *
-     * Caps applied (mirroring the dispatcher's per-frame fit checks): - physical fit on each
-     * dimension - job int_max_cores (matches isJobBookable) - show int_burst (matches
-     * isShowAtOrOverBurst)
+     * Caps applied (mirroring the dispatcher's per-frame fit checks): physical fit on each
+     * dimension, job int_max_cores (matches isJobBookable), and show int_burst (matches
+     * isShowAtOrOverBurst).
      *
-     * Per-call caps host_frame_dispatch_max and job_frame_dispatch_max are NOT applied here because
-     * they bound a single dispatch CALL, not the per-tick total. The dispatch loop applies
+     * The per-call caps host_frame_dispatch_max and job_frame_dispatch_max are not applied here
+     * because they bound a single dispatch call, not the per-tick total. The dispatch loop applies
      * job_frame_dispatch_max when estimating a single commit's worth of frames.
      */
     static long computeMaxMore(BookableHost h, LayerCandidate c) {
@@ -3032,7 +2763,7 @@ public class Scheduler extends JdbcDaoSupport {
         int jobMaxCores;
         int showCoresInUse;
         int showBurstCores;
-        // Number of pending unfittable frames. Initialized from
+        // Number of pending dispatchable (waiting) frames. Initialized from
         // waiting_frame_count in the candidate query; decremented as the
         // layer dispatches in this tick. Reconcile keeps the layer's
         // reservation count equal to this value.
@@ -3053,8 +2784,8 @@ public class Scheduler extends JdbcDaoSupport {
         int limitMax;
         int limitRunning;
         // Live application licenses the layer declares in CUE_LICENSES, or null
-        // when it declares none (the common case). A seat is needed in EVERY pool
-        // listed. Attached per tick from layer_env, not from the candidate query.
+        // when it declares none (the common case). A seat is needed in every pool
+        // listed. Carried on the candidate row via the layer_env join, not a second read.
         List<String> licenses;
         // Folder (group/dept) core cap. folderId is the job's folder; folderMax is
         // folder_resource.int_max_cores (-1 = unlimited, core-points); folderRunning
@@ -3118,7 +2849,7 @@ public class Scheduler extends JdbcDaoSupport {
         final String tagsNormalized;
         final String os;
         final boolean hasGpu;
-        // ThreadMode.ALL hosts (NIMBY workstations by default) run ONLY
+        // ThreadMode.ALL hosts (NIMBY workstations by default) run only
         // threadable layers; the legacy dispatcher enforces that per host and
         // the candidate query binds it per group, so mode must split the key.
         // One bit suffices: legacy itself normalizes every other mode to AUTO.

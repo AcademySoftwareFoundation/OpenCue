@@ -40,13 +40,18 @@ starve, and books accordingly. That is what this component does.
 
 ## 2. Architecture: the tick loop
 
-The scheduler runs a periodic tick (`runTick` → `doTick`). Each tick:
+The scheduler runs a periodic tick (`runTick` → `doTick`). Every Cuebot, leader
+or not, first drains any queued frame-completions (`drainResolvedCompletions`)
+and expires displaced cache-warmth, self-healing that must run regardless of who
+holds the lock. A **leadership gate** follows: only the Cuebot holding the
+planning lock runs the placement pipeline below (the leader also sweeps orphaned
+procs first). That pipeline:
 
-1. **Snapshot**: read all bookable hosts in one query (`readBookableHosts`,
-   `SELECT_BOOKABLE_HOSTS`). Hosts that are UP, OPEN, and have at least the
-   minimum bookable cores.
-2. **Group**: bucket hosts by spec key `(alloc, normalized_tags, os,
-   has_gpu)` (`groupByHostSpec`). On a homogeneous farm this is a handful of
+1. **Snapshot**: read all hosts in one query (`readAllHosts`,
+   `SELECT_ALL_HOSTS`): every host that is UP and OPEN, busy or idle. The
+   minimum-idle-core cut is applied later, per group, in `planGroup`.
+2. **Group**: bucket hosts by spec key `(alloc, facility, normalized_tags,
+   os, has_gpu, thread_mode==ALL)` (`groupByHostSpec`). On a homogeneous farm this is a handful of
    groups, which is what collapses the per-host query storm into a few
    queries per tick.
 3. **For each group:**
@@ -100,10 +105,10 @@ That is the deliberate trade: **pay a re-read each tick in order to own no state
 
 Owning no durable state keeps the planner small and cheap to run. It lives
 **inside Cuebot** — no new deploy unit, no separate service to run or fail over,
-no new infrastructure, and no schema migrations. It is gated by a single flag
+and no new infrastructure. It is gated by a single flag
 (`scheduler.enabled`) and rolled back by flipping that flag off. The whole thing
-is ~3,700 lines, almost all in four new files (the planner, a value type, this
-doc, and a test), with ~16 existing files lightly touched. There is nowhere to
+is ~3,700 lines, almost all in a handful of new files (the planner and its
+helpers, this doc, and a test), with ~16 existing files lightly touched. There is nowhere to
 keep live state, no process to run it, and nothing to rebuild on failover — the
 database it already uses is the only state there is.
 
@@ -133,7 +138,7 @@ gpu memory):
 | `total_D` | the host's total capacity in `D` |
 | `idle_D` | the host's capacity in `D` not reserved yet |
 | `before_D`, `after_D` | reserved amount in `D` before / after adding this frame |
-| `layer.min_D` | the layer's minimum requirement in `D` (`minCores`, `minMemory`, ...) |
+| `layer.min_D` | the layer's minimum requirement in `D` (`layerCoresMin`, `layerMemMin`, ...) |
 | `C` | the farm-wide potential; `score(h)` is the marginal increase of `C` if the frame lands on host `h` |
 
 We pick the host with the smallest score. Because the exponent is the
@@ -208,7 +213,7 @@ conservative backfill):
   (then widest-job-first), so high-priority blocked work gets first claim on
   the limited budget.
 - **Drain guard.** A reserved host that has not yet drained enough cores for
-  its owner (`idle < owner.coresMin`) refuses all backfill, even work that
+  its owner (`idle < owner.layerCoresMin`) refuses all backfill, even work that
   would finish in time. Otherwise backfill keeps refilling the gap the host
   is trying to open and the owner never gets in.
 
@@ -565,9 +570,6 @@ The reservation **width gate** (`RESERVATION_MIN_HOST_FRACTION`, 0.5 of the
 largest host in a group) is deliberately a fixed constant, not a property:
 loosening it reintroduces the small-frame flooding it exists to prevent.
 
-No schema changes. The only new SQL is the host-snapshot query and the
-per-group candidate query, both against existing tables and indexes.
-
 **Rollback** is a single flag: set `scheduler.enabled=no` and the legacy
 dispatcher resumes. Progressive rollout works the same way in reverse: in
 `managed` mode, clearing a show's `b_scheduler_managed` flag hands it straight
@@ -590,7 +592,7 @@ back to the legacy dispatcher with no restart.
 - **Slow RQD launch**: absorbed by the fire-and-forget launch pool; on a full
   launch queue the launch is dropped and recovered by RQD report
   reconciliation, so it never stalls the tick.
-- **Empty snapshot** (no bookable hosts): tick is a no-op; reservations are
+- **Empty snapshot** (no UP/OPEN hosts): tick is a no-op; reservations are
   left intact.
 - **Spec-group explosion**: if the host-spec group count approaches the host
   count (commonly a host name leaking into the tag set), planning degrades to
@@ -614,16 +616,19 @@ back to the legacy dispatcher with no restart.
 ```
 Scheduler stat: win=300s ticks=920 skipped=0 lockLost=12 avgTick=556ms maxTick=1840ms
   | farm hosts=1553 idleHosts=9 cores=57088 idleCores=74 util=99.9% groups=5
-  | flow committed=98210 planned=104900 raceLost=6690 launchDropped=0
-  | resv held=52 granted=31 reqs=11 backfilled=88
+  | flow committed=98210 planned=104900 raceLost=6690 launchDropped=0 drained=98180
+  | resv held=52 reservedCores=418 granted=31 reqs=11 backfilled=88 backfilledCores=176
 ```
 
 It groups planner health and HA leadership (ticks won, `skipped` = fired while
 the previous tick still ran, `lockLost` = another Cuebot held the lock, avg/max
 tick), farm fill (hosts, idle hosts, cores, idle cores, utilization, host-spec
 group count), throughput and loss (committed procs, frames planned, `raceLost` =
-frames lost to the version race, RQD launches dropped), and reservation/backfill
-activity (held, newly granted, requested, backfilled). Every Cuebot emits it,
+frames lost to the version race, RQD launches dropped, frame-completions
+`drained`), and reservation/backfill activity (reservations held and the cores
+they hold, newly granted, requested, frames backfilled and the cores they
+reclaimed). When any license pool is active a fifth `lic` segment follows (seats
+booked, held, trimmed). Every Cuebot emits it,
 leader or standby, so a standby that never wins the lock still heartbeats
 (`ticks=0`, `lockLost` high), distinguishing a standby from a dead process. The
 line is meant to be pasted straight into a bug report.
