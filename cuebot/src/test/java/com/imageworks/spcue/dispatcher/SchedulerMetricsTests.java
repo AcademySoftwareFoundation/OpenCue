@@ -89,24 +89,20 @@ public class SchedulerMetricsTests {
         s.noWork = 4;
         s.queryError = 1;
         s.tickDurationMs = 250;
+        s.runningFrames = 42;
         s.coresByShow.put("smtest_pub", 30.0);
         s.framesByShow.put("smtest_pub", 7);
-        s.fragByReason.put("cores", 40.0);
-        s.fragByReason.put("quota", 15.0);
         m.recordTick(s);
 
         assertEquals(5.0, sum("cue_scheduler_groups_total"), 0.0001);
         assertEquals(1000.0, sum("cue_scheduler_farm_cores_total"), 0.0001);
+        assertEquals(42.0, sum("cue_scheduler_running_frames"), 0.0001);
         assertEquals(bookedBefore + 3.0, sample(pass, "reason", "booked"), 0.0001);
         assertEquals(noFitBefore + 2.0, sample(pass, "reason", "no fit"), 0.0001);
         assertEquals(noWorkBefore + 4.0, sample(pass, "reason", "no work"), 0.0001);
         assertEquals(errBefore + 1.0, sample(pass, "reason", "query error"), 0.0001);
         assertEquals(framesBefore + 7.0, sample(frames, "show", "smtest_pub"), 0.0001);
         assertEquals(30.0, sample("cue_scheduler_show_cores", "show", "smtest_pub"), 0.0001);
-        // Fragmentation is published per reason; absent reasons read 0, not stale.
-        assertEquals(40.0, sample("cue_scheduler_fragmented_cores", "reason", "cores"), 0.0001);
-        assertEquals(15.0, sample("cue_scheduler_fragmented_cores", "reason", "quota"), 0.0001);
-        assertEquals(0.0, sample("cue_scheduler_fragmented_cores", "reason", "memory"), 0.0001);
         // Histogram observed exactly one tick.
         assertEquals(durCountBefore + 1.0, sum("cue_scheduler_tick_duration_seconds_count"),
                 0.0001);
@@ -131,6 +127,30 @@ public class SchedulerMetricsTests {
         // A show with no procs this tick drops to 0, not its last value.
         m.recordTick(new SchedulerMetrics.TickStats());
         assertEquals(0.0, sample(metric, "show", "smtest_live"), 0.0001);
+    }
+
+    @Test
+    public void waitlistIsSetPerReasonAndZeroedWhenAbsent() {
+        SchedulerMetrics m = enabledMetrics();
+        String metric = "cue_scheduler_waiting_frames";
+
+        SchedulerMetrics.TickStats s = new SchedulerMetrics.TickStats();
+        s.waitingFramesByReason.put("flowing", 120L);
+        s.waitingFramesByReason.put("limit", 45L);
+        m.recordTick(s);
+        m.recordTick(s); // gauge is SET each tick, not summed -> still 45, not 90
+        assertEquals(120.0, sample(metric, "reason", "flowing"), 0.0001);
+        assertEquals(45.0, sample(metric, "reason", "limit"), 0.0001);
+        // Absent reasons read 0, not stale.
+        assertEquals(0.0, sample(metric, "reason", "capacity"), 0.0001);
+        assertEquals(0.0, sample(metric, "reason", "no fit"), 0.0001);
+        assertEquals(0.0, sample(metric, "reason", "no license"), 0.0001);
+        assertEquals(0.0, sample(metric, "reason", "held"), 0.0001);
+
+        // A cause that clears drops to 0 on the next tick, not its last value.
+        m.recordTick(new SchedulerMetrics.TickStats());
+        assertEquals(0.0, sample(metric, "reason", "limit"), 0.0001);
+        assertEquals(0.0, sample(metric, "reason", "flowing"), 0.0001);
     }
 
     @Test

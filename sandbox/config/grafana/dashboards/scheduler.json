@@ -27,7 +27,16 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "hide": 0,
         "includeAll": true,
         "label": "Show",
@@ -50,6 +59,21 @@
   "uid": "opencue-scheduler",
   "panels": [
     {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #5794F2;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">THROUGHPUT</div>"
+      }
+    },
+    {
       "type": "timeseries",
       "title": "Throughput",
       "description": "Frames booked per second, per show (rate of cue_scheduler_frames_dispatched_total).",
@@ -58,7 +82,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -108,7 +132,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 2
       },
       "fieldConfig": {
         "defaults": {
@@ -150,6 +174,312 @@
       ]
     },
     {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #5794F2;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">UTILISATION</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Utilisation",
+      "description": "Cores running as a share of the whole farm, from the live show_cores ledger (no SQL: plus on the batch commit, minus on the drain). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "axisLabel": "% of farm running"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "utilisation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(cue_scheduler_show_cores) / scalar(max(cue_scheduler_farm_cores_total)) * 100",
+          "legendFormat": "utilisation",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "What's holding frames",
+      "description": "Of ALL the frames the farm handles right now (running plus waiting), the share blocked by each cause, on a fixed 0-100 axis. A healthy farm shows small bars: most frames run or flow, so a 2% blocked slice reads as 2%. capacity = the farm is simply full. no fit = idle cores exist but none fits (slivers, memory or gpu). limit = a job, show, limit or folder cap. no license = a pool is out of seats or stale. held = every fitting host is reserved for a wide job. A limit share while cores sit idle = check the caps (a drifted job core counter shows up here).",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never",
+            "axisLabel": "% of all frames (running + waiting)"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "capacity"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "held"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no fit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no license"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "last",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (cue_scheduler_waiting_frames{reason!=\"flowing\"}) / scalar(sum(cue_scheduler_waiting_frames) + sum(cue_scheduler_running_frames)) * 100",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #5794F2;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">SCHEDULER PERFORMANCE</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Host-spec groups",
+      "description": "Host-spec groups each tick, split by demand (has-work cut). active = the group had eligible work (booked, or no fit when the farm slice is full); inactive = no matching work at all. The stack height is the total group count \u2014 a spike toward the host count still signals tag fragmentation (a hostname leaking into tags). When tags/specs fragment demand, inactive rising is the tell: pools sitting idle with no work while others are slammed.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never",
+            "axisLabel": "groups"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "inactive"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(cue_scheduler_groups_by_state{state=\"active\"})",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "max(cue_scheduler_groups_by_state{state=\"inactive\"})",
+          "legendFormat": "inactive",
+          "refId": "B"
+        }
+      ]
+    },
+    {
       "type": "timeseries",
       "title": "Tick duration",
       "description": "Scheduler tick wall-clock latency (p50/p95/p99). The core health signal.",
@@ -157,8 +487,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 8
+        "x": 12,
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -198,255 +528,6 @@
           "expr": "histogram_quantile(0.99, sum(rate(cue_scheduler_tick_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "C"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Farm booking performance",
-      "description": "Every scheduler tick, each host-spec group lands in an outcome; this shows their mix as a share of all checks. booked (placed work) vs why it didn't \u2014 no fit (farm saturated), no work (nothing eligible), query error (bad tag). Each bar sums to 100%: mostly booked = healthy, mostly no fit = saturated, mostly no work = starved, any query error = misconfigured.",
-      "datasource": "prometheus",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 0,
-            "stacking": {
-              "mode": "percent",
-              "group": "A"
-            },
-            "showPoints": "never",
-            "axisLabel": "share of checks"
-          }
-        },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "booked" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
-          { "matcher": { "id": "byName", "options": "no fit" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } } ] },
-          { "matcher": { "id": "byName", "options": "no work" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] },
-          { "matcher": { "id": "byName", "options": "query error" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by (reason) (rate(cue_scheduler_group_pass_total[5m]))",
-          "legendFormat": "{{reason}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Host-spec groups",
-      "description": "Host-spec groups each tick, split by demand (has-work cut). active = the group had eligible work (booked, or no fit when the farm slice is full); inactive = no matching work at all. The stack height is the total group count — a spike toward the host count still signals tag fragmentation (a hostname leaking into tags). When tags/specs fragment demand, inactive rising is the tell: pools sitting idle with no work while others are slammed.",
-      "datasource": "prometheus",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "lineWidth": 0,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "showPoints": "never",
-            "axisLabel": "groups"
-          }
-        },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "active" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
-          { "matcher": { "id": "byName", "options": "inactive" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [ "mean", "max" ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "max(cue_scheduler_groups_by_state{state=\"active\"})",
-          "legendFormat": "active",
-          "refId": "A"
-        },
-        {
-          "expr": "max(cue_scheduler_groups_by_state{state=\"inactive\"})",
-          "legendFormat": "inactive",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Fragmentation",
-      "description": "Idle cores stranded on WORKING hosts (at least one core in use) that no ready frame could take this tick, as a share of the whole farm, by cause: (stranded idle on working hosts) / (total farm cores). cores = the leftover idle was too few on any one host for a waiting frame (wide layers); memory = idle cores whose host lacked the RAM; gpu = idle cores whose host lacked the GPU; held = idle cores on a host reserved for a wide job; license = idle cores a license shortage blocks; quota = idle cores a job/show/limit/folder cap holds back. Empty hosts aren't fragmented (one free block) so they don't count; normalizing over the whole farm keeps a lone busy host's leftover a tiny share -- it only climbs when the waste is farm-wide. A packed farm strands nothing; waiting work then shows under 'Why the farm isn't booking' as no fit.",
-      "datasource": "prometheus",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 1,
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 75,
-            "lineWidth": 0,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "showPoints": "never",
-            "axisLabel": "% of farm"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cores"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "memory"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "gpu"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "purple"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "held"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "yellow"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "license"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "quota"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "mean",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by (reason) (cue_scheduler_fragmented_cores) / scalar(max(cue_scheduler_farm_cores_total)) * 100",
-          "legendFormat": "{{reason}}",
-          "refId": "A"
         }
       ]
     }

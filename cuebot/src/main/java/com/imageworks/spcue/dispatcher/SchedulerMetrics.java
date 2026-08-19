@@ -58,8 +58,7 @@ public class SchedulerMetrics {
     // 'active' = candidates present (booked or no fit), 'inactive' = none (no work).
     // Makes spec/tag fragmentation legible at a glance -- how many pools are
     // engaged vs sitting idle with no matching work. Sums to groups_total.
-    private static final Gauge groupsByState = Gauge.build()
-            .name("cue_scheduler_groups_by_state")
+    private static final Gauge groupsByState = Gauge.build().name("cue_scheduler_groups_by_state")
             .help("Host-spec groups by demand this tick: 'active' (has eligible work: "
                     + "booked or no fit) vs 'inactive' (no work)")
             .labelNames("env", "cuebot_host", "state").register();
@@ -89,22 +88,30 @@ public class SchedulerMetrics {
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host").register();
 
-    // Fragmentation: idle cores stranded on WORKING hosts (at least one core in
-    // use) that no ready frame could take this tick, by the cause. cores = the
-    // leftover idle was too few on any one host for a waiting frame (wide layers);
-    // memory/gpu = idle cores whose host lacked the RAM/GPU the waiting work needs;
-    // held = idle cores on a host reserved for a wide job; license = idle cores a
-    // license shortage blocks; quota = idle cores a job/show/limit/folder cap holds
-    // back. Empty hosts are not fragmented (one free block), so they are skipped;
-    // the panel shows this over the whole farm, so a busy host's leftover reads as
-    // a small share and the number only grows when the waste is farm-wide.
-    private static final String[] FRAG_REASONS =
-            {"cores", "memory", "gpu", "held", "license", "quota"};
-    private static final Gauge fragmentedCores =
-            Gauge.build().name("cue_scheduler_fragmented_cores")
-                    .help("Idle cores stranded on working hosts this tick, by cause "
-                            + "(cores, memory, gpu, held, license, quota)")
-                    .labelNames("env", "cuebot_host", "reason").register();
+    // The waitlist: waiting frames on the last tick's candidate layers, split by why
+    // they cannot run. Every waiting frame the tick weighed lands in exactly one
+    // bucket, so the panel's blocked shares are each bucket over the sum, and all
+    // zero means everything flows. Loop-only by design (no extra query): a job the
+    // candidate query filters out at its cap shows up only on the ticks churn
+    // re-admits it.
+    // Frames on procs right now, from the live ledger (booked minus drained). The
+    // denominator that turns the waitlist's blocked counts into a share of ALL
+    // frames the farm handles, so a small blocked slice reads small on the panel.
+    private static final Gauge runningFrames = Gauge.build().name("cue_scheduler_running_frames")
+            .help("Frames on procs right now, from the live booking/drain ledger")
+            .labelNames("env", "cuebot_host").register();
+
+    private static final String[] WAIT_REASONS =
+            {"flowing", "capacity", "no fit", "limit", "no license", "held"};
+    private static final Gauge waitingFrames = Gauge.build().name("cue_scheduler_waiting_frames")
+            .help("Waiting frames on the last tick's candidate layers, by why they cannot run: "
+                    + "flowing (layer booked this tick, backlog is moving); "
+                    + "capacity (farm simply full: idle cores cannot cover one frame); "
+                    + "'no fit' (idle exists but none fits: slivers, memory or gpu); "
+                    + "limit (job, show, limit or folder cap); "
+                    + "'no license' (pool exhausted or stale); "
+                    + "held (every fitting host is reserved)")
+            .labelNames("env", "cuebot_host", "reason").register();
 
     private final boolean enabled;
     private final String env;
@@ -151,6 +158,7 @@ public class SchedulerMetrics {
             groupsByState.labels(env, host, "active").set((double) (s.booked + s.noFit));
             groupsByState.labels(env, host, "inactive").set((double) s.noWork);
             farmCores.labels(env, host).set(s.farmCores);
+            runningFrames.labels(env, host).set(s.runningFrames);
             incReason("booked", s.booked);
             incReason("no fit", s.noFit);
             incReason("no work", s.noWork);
@@ -170,9 +178,9 @@ public class SchedulerMetrics {
                 framesDispatched.labels(env, host, e.getKey()).inc(e.getValue());
             // Set every reason each tick (0 when absent) so a cause that clears
             // reads 0 rather than pinning its last value.
-            for (String reason : FRAG_REASONS)
-                fragmentedCores.labels(env, host, reason)
-                        .set(s.fragByReason.getOrDefault(reason, 0.0));
+            for (String reason : WAIT_REASONS)
+                waitingFrames.labels(env, host, reason)
+                        .set(s.waitingFramesByReason.getOrDefault(reason, 0L));
         } catch (RuntimeException e) {
             logger.warn("recordTick failed: " + e.getMessage());
         }
@@ -194,9 +202,10 @@ public class SchedulerMetrics {
         public int noFit;
         public int noWork;
         public int queryError;
+        public long runningFrames;
         public long tickDurationMs;
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();
-        public final Map<String, Double> fragByReason = new HashMap<>();
+        public final Map<String, Long> waitingFramesByReason = new HashMap<>();
     }
 }

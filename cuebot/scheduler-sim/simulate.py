@@ -1338,6 +1338,18 @@ def _verify_check(name, gdir, logp, cblog):
         cb = open(cblog, errors="ignore").read()
     except Exception:
         cb = ""
+
+    def wl_peaks():
+        """Peak waitlist tallies across every 'Scheduler stat:' line in the cuebot
+        log (waitlist section keys: total/flowing/nofit/limit/license/held). The
+        scenarios below assert their own cause fired (>0); a farm that never even
+        classified its backlog cannot pass."""
+        rows = re.findall(r"waitlist total=(\d+) flowing=(\d+) capacity=(\d+) "
+                          r"nofit=(\d+) limit=(\d+) license=(\d+) held=(\d+)", cb)
+        keys = ("total", "flowing", "capacity", "nofit", "limit", "license", "held")
+        return {k: max((int(r[i]) for r in rows), default=0)
+                for i, k in enumerate(keys)}
+
     if name == "OOM":
         # The per-frame OOM path must handle the kills and the legacy
         # whole-layer ratchet must never fire, while the farm still fills.
@@ -1377,8 +1389,12 @@ def _verify_check(name, gdir, logp, cblog):
             txt = ""
         m = re.search(r"Spearman rho\(priority, share\) = ([\-\d.]+)", txt)
         rho = float(m.group(1)) if m else 0.0
-        ok = bool(re.search(r"(?m)^PASS:", txt))
-        return ok, f"share ordered by priority (Spearman rho={rho:.2f})"
+        # Waitlist cross-check: a 9x-oversubscribed farm must classify its
+        # backlog as 'capacity' (idle cores drained, farm simply full).
+        wl = wl_peaks()
+        ok = bool(re.search(r"(?m)^PASS:", txt)) and wl["capacity"] > 0
+        return ok, (f"share ordered by priority (Spearman rho={rho:.2f}); "
+                    f"waitlist capacity peak {wl['capacity']}")
     if name == "RESERVATIONS":
         # A reservation only counts if it RESCUES the stranded wide job -- its
         # frames must actually run. reservedCores>0 alone is hollow: a drain that
@@ -1394,8 +1410,12 @@ def _verify_check(name, gdir, logp, cblog):
         except Exception:
             ran = 0
         peak = max([int(x) for x in re.findall(r"reservedCores=(\d+)", cb)] or [0])
-        ok = ran > 0
-        return ok, f"{ran} stranded big frames reserved+ran (peak reservedCores {peak})"
+        # Waitlist cross-check: while reserved hosts drain, blocked small work
+        # must be classified 'held' (a fitting host is reserved) at some point.
+        wl = wl_peaks()
+        ok = ran > 0 and wl["held"] > 0
+        return ok, (f"{ran} stranded big frames reserved+ran (peak reservedCores "
+                    f"{peak}); waitlist held peak {wl['held']}")
     if name == "LIMIT":
         # The scheduler must never run more than the limit's cap concurrently.
         # Gate on limit_watch.py's verdict (PASS only if peak running <= cap AND the
@@ -1408,8 +1428,12 @@ def _verify_check(name, gdir, logp, cblog):
         pm = re.search(r"peak concurrent running=(\d+)", txt)
         cap = int(cm.group(1)) if cm else -1
         peak = int(pm.group(1)) if pm else -1
-        ok = bool(re.search(r"(?m)^PASS:", txt))
-        return ok, f"peak concurrent running {peak} vs cap {cap}"
+        # Waitlist cross-check: the capped flood's backlog must be classified
+        # 'limit' at some point (churn re-admits the layer every tick).
+        wl = wl_peaks()
+        ok = bool(re.search(r"(?m)^PASS:", txt)) and wl["limit"] > 0
+        return ok, (f"peak concurrent running {peak} vs cap {cap}; "
+                    f"waitlist limit peak {wl['limit']}")
     if name in ("LICENSE", "LICENSE_NO_HOSTS"):
         # Live licenses: the farm's usage plus what artists hold must never exceed
         # a pool. Gate on license_watch.py's verdict. Same watcher for both
@@ -1422,12 +1446,16 @@ def _verify_check(name, gdir, logp, cblog):
         peaks = re.findall(r"(?m)^(\w+)\s+total=(\d+)\s+peak farm use=(\d+)", txt)
         am = re.search(r"artists took (\d+) katana seats", txt)
         dm = re.search(r"succeeded=(\d+)\s+dead=(\d+)", txt)
-        ok = bool(re.search(r"(?m)^PASS:", txt))
+        # Waitlist cross-check: license-gated backlog must be classified
+        # 'no license' at some point during the run.
+        wl = wl_peaks()
+        ok = bool(re.search(r"(?m)^PASS:", txt)) and wl["license"] > 0
         pools = ", ".join(f"{n} {u}/{t}" for n, t, u in peaks) or "?"
         return ok, (f"{pools}; artists got "
                     f"{am.group(1) if am else '?'} katana seats; "
                     f"{dm.group(1) if dm else '?'} done, "
-                    f"{dm.group(2) if dm else '?'} dead")
+                    f"{dm.group(2) if dm else '?'} dead; "
+                    f"waitlist license peak {wl['license']}")
     if name == "DEADLOCK":
         # Two-sided: the balancer must have RUN (else the pressure knob broke
         # and a pass is meaningless) and postgres must report ZERO deadlocks

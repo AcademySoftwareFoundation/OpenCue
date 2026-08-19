@@ -448,6 +448,33 @@ each booking by its memory reservation instead of counting 1.
 
 ---
 
+### 3.8 The waitlist (what's holding frames)
+
+Observability, not scheduling: each tick, every candidate layer that leaves the
+planning loop with waiting frames lands in exactly one bucket, so the sum is the
+waitlist the tick actually weighed. `flowing` = the layer booked this tick, its
+backlog is moving. `capacity` = the farm is simply full (the group's idle cores
+cannot cover one frame; nothing is wrong). `no fit` = idle cores exist but none
+fits (slivers too small for a wide frame, or memory / gpu short): the shape
+mismatch worth investigating. `limit` = a job, show, limit or folder cap.
+`no license` = a pool is exhausted or stale. `held` = every fitting host is
+reserved for a wide job. The buckets reuse the why-not precedence
+(`waitlistReason`), cost no extra query, and are published as the gauge
+`cue_scheduler_waiting_frames{reason}`. The "What's holding frames" Grafana
+panel shows each BLOCKED bucket as a share of the weighed waitlist: all zero
+means everything flows, and `flowing` is the empty space below 100%. The stat
+line carries a `waitlist ...` section with the window's PEAK per bucket, so a
+one-tick spike still shows. Two honest limits: a job the candidate query
+filters out at its cap appears only on the ticks churn re-admits it (a fully
+static capped job stays off the panel), and when the same layer is weighed in
+several groups the last group's verdict wins. A `limit` share while cores sit
+idle is the fingerprint of a drifted `job_resource.int_cores` counter.
+
+House rule for every scheduler metric: stats gather NO SQL, only live data the
+tick already holds. The waitlist reuses the loop's own verdicts, and the
+`show_cores` gauge is a live ledger (plus on the batch commit, minus on the
+drain; a show that drains to zero drops out), not a query over procs.
+
 ## 4. Concurrency model
 
 The planner reasons over an in-memory snapshot while commits and external
