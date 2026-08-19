@@ -1365,14 +1365,13 @@ public class Scheduler extends JdbcDaoSupport {
 
     /**
      * Fold the committed bookings into the per-show throughput tally and the live cores-per-show
-     * ledger (the show_cores gauge's only source: stats never query the database), then apply
-     * their resource accounting deltas and flush one UPDATE per changed row.
+     * ledger (the show_cores gauge's only source: stats never query the database), then apply their
+     * resource accounting deltas and flush one UPDATE per changed row.
      */
     private void recordCommitted(List<FrameBooking> committed, SchedulerMetrics.TickStats stats) {
         for (FrameBooking b : committed) {
             stats.framesByShow.merge(b.frame.show, 1, Integer::sum);
-            bumpShowCoresLive(b.frame.show,
-                    b.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
+            bumpShowCoresLive(b.frame.show, b.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
             runningFramesLive++;
         }
         if (batchResourceAccounting && !committed.isEmpty()) {
@@ -1557,9 +1556,9 @@ public class Scheduler extends JdbcDaoSupport {
      * single writer for its shows, so it counts what it sees flow: plus the proc's cores when its
      * batch commit books a frame, minus when the drain applies that frame's completion (won or
      * stale, the proc is released either way). A show whose count reaches zero drops out of the
-     * map, which also bounds the small leaks this bookkeeping accepts: a proc released outside
-     * the drain (a lost host, a failed launch) leaks its cores only until its show drains empty.
-     * A fresh leader starts the ledger empty and converges as its own bookings flow.
+     * map, which also bounds the small leaks this bookkeeping accepts: a proc released outside the
+     * drain (a lost host, a failed launch) leaks its cores only until its show drains empty. A
+     * fresh leader starts the ledger empty and converges as its own bookings flow.
      */
     private final Map<String, Double> showCoresLive = new HashMap<>();
 
@@ -2597,18 +2596,27 @@ public class Scheduler extends JdbcDaoSupport {
             return;
         }
         Map<String, long[]> snap = drain(subDeltas);
-        List<Object[]> batch = new ArrayList<>(snap.size());
+        List<Object[]> burstBatch = new ArrayList<>(snap.size());
+        List<Object[]> pairBatch = new ArrayList<>(snap.size());
         for (Map.Entry<String, long[]> e : snap.entrySet()) {
             String[] k = e.getKey().split("\t", 2);
             long[] d = e.getValue();
-            batch.add(new Object[] {(int) d[0], (int) d[1], k[0], k[1]});
+            burstBatch.add(new Object[] {(int) d[0], k[0], k[1]});
+            pairBatch.add(new Object[] {(int) d[0], (int) d[0], (int) d[1], k[0], k[1]});
         }
         try {
+            // Same cap-neutral pair trick as flushJobDeltas: verify_subscription
+            // rejects a plus that lands over the burst while the burst column is
+            // unchanged, so an admin shrinking a busy subscription would wedge
+            // this flush forever. Each statement below touches int_burst, the
+            // trigger's WHEN clause skips both, and burst is net unchanged at
+            // commit. Burst enforcement stays in the planner at plan time.
             txTemplate().execute(status -> {
-                getJdbcTemplate().batchUpdate(
-                        "UPDATE subscription SET int_cores = int_cores + ?, "
-                                + "int_gpus = int_gpus + ? WHERE pk_show = ? AND pk_alloc = ?",
-                        batch);
+                getJdbcTemplate().batchUpdate("UPDATE subscription SET int_burst = int_burst + ? "
+                        + "WHERE pk_show = ? AND pk_alloc = ?", burstBatch);
+                getJdbcTemplate().batchUpdate("UPDATE subscription SET int_cores = int_cores + ?, "
+                        + "int_burst = int_burst - ?, int_gpus = int_gpus + ? "
+                        + "WHERE pk_show = ? AND pk_alloc = ?", pairBatch);
                 return null;
             });
         } catch (RuntimeException ex) {
@@ -2652,6 +2660,7 @@ public class Scheduler extends JdbcDaoSupport {
         }
         Map<String, long[]> snap = drain(jobDeltas);
         List<Object[]> jobBatch = new ArrayList<>(snap.size());
+        List<Object[]> pairBatch = new ArrayList<>(snap.size());
         List<Object[]> pointBatch = new ArrayList<>(snap.size());
         for (Map.Entry<String, long[]> e : snap.entrySet()) {
             long[] d = e.getValue();
@@ -2659,15 +2668,34 @@ public class Scheduler extends JdbcDaoSupport {
             int gpus = (int) d[1];
             String jobId = e.getKey();
             jobBatch.add(new Object[] {cores, gpus, jobId});
+            pairBatch.add(new Object[] {cores, cores, gpus, gpus, jobId});
             pointBatch.add(new Object[] {cores, gpus, jobId, jobId});
         }
         try {
             // One transaction for all three UPDATEs: on a mid-flush error the whole
             // set rolls back, so the retry (which re-queues the drained deltas) can
             // never double-apply a sub-batch that had already committed.
+            //
+            // The job_resource write is a max-neutral PAIR, not a plain add. The
+            // legacy trigger verify_job_resources rejects any statement that raises
+            // int_cores while int_max_cores stays unchanged; when a user lowers a
+            // running job's max under load, that rejection aborts the whole batch,
+            // the pluses wedge in the retry buffer while completions keep
+            // subtracting, and the mirror drifts negative (the CAPDROP verify
+            // scenario reproduces this). Cap ENFORCEMENT is the planner's job at
+            // plan time; this mirror must always record reality. Each statement
+            // below also touches int_max_cores, so the trigger's WHEN clause skips
+            // both, and max is net unchanged at commit. Leans on that WHEN clause
+            // (V11: fires only on cores-up with max unchanged) by design.
             txTemplate().execute(status -> {
+                getJdbcTemplate()
+                        .batchUpdate(
+                                "UPDATE job_resource SET int_max_cores = int_max_cores + ?, "
+                                        + "int_max_gpus = int_max_gpus + ? WHERE pk_job = ?",
+                                jobBatch);
                 getJdbcTemplate().batchUpdate("UPDATE job_resource SET int_cores = int_cores + ?, "
-                        + "int_gpus = int_gpus + ? WHERE pk_job = ?", jobBatch);
+                        + "int_max_cores = int_max_cores - ?, int_gpus = int_gpus + ?, "
+                        + "int_max_gpus = int_max_gpus - ? WHERE pk_job = ?", pairBatch);
                 getJdbcTemplate().batchUpdate(
                         "UPDATE folder_resource SET int_cores = int_cores + ?, "
                                 + "int_gpus = int_gpus + ? "
@@ -2713,10 +2741,10 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Why an unplaced layer could not fit on any of {@code hosts}, by the first gate no host
-     * clears (gates mirror {@link #fitsOnHost}): {@code cores} (no host had enough idle cores for
-     * one frame), {@code memory} (cores fit somewhere but not the RAM), {@code gpu} (cores and RAM
-     * fit but not the GPU), or {@code fit} (some host fit fully, so the layer was gated by a
+     * Why an unplaced layer could not fit on any of {@code hosts}, by the first gate no host clears
+     * (gates mirror {@link #fitsOnHost}): {@code cores} (no host had enough idle cores for one
+     * frame), {@code memory} (cores fit somewhere but not the RAM), {@code gpu} (cores and RAM fit
+     * but not the GPU), or {@code fit} (some host fit fully, so the layer was gated by a
      * reservation or a host-based license seat -- the caller resolves that into held/license).
      * Feeds the waitlist buckets via {@link #waitlistReason}.
      */
@@ -2762,9 +2790,9 @@ public class Scheduler extends JdbcDaoSupport {
      * precedence as the why-not trace: a job / show / limit / folder cap is {@code limit}; an
      * exhausted or stale license pool is {@code no license}; a fitting host reserved for someone
      * else is {@code held}. The remaining fit failures split in two: {@code capacity} when the
-     * group's idle cores together cannot cover even one frame (the farm is simply full, nothing
-     * is wrong), and {@code no fit} when idle cores exist but none fits (slivers too small for a
-     * wide frame, or memory / gpu short): the shape mismatch worth investigating.
+     * group's idle cores together cannot cover even one frame (the farm is simply full, nothing is
+     * wrong), and {@code no fit} when idle cores exist but none fits (slivers too small for a wide
+     * frame, or memory / gpu short): the shape mismatch worth investigating.
      */
     private String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int limitInUse,
             int folderInUse, boolean licenseHeld, int licenseUsable,
@@ -2794,12 +2822,11 @@ public class Scheduler extends JdbcDaoSupport {
     }
 
     /**
-     * Fold the per-layer waitlist tallies into the tick stats and preformat the stat-line
-     * fragment. The waitlist is every candidate layer that still had waiting frames when the
-     * planning loop left it; every such frame is in exactly one bucket, so the panel and the
-     * stat line sum to the waitlist the tick actually weighed. Loop-only by design (no extra
-     * query): a job the candidate query already filters out at its cap surfaces here only on
-     * the ticks churn re-admits it.
+     * Fold the per-layer waitlist tallies into the tick stats and preformat the stat-line fragment.
+     * The waitlist is every candidate layer that still had waiting frames when the planning loop
+     * left it; every such frame is in exactly one bucket, so the panel and the stat line sum to the
+     * waitlist the tick actually weighed. Loop-only by design (no extra query): a job the candidate
+     * query already filters out at its cap surfaces here only on the ticks churn re-admits it.
      */
     private void tallyWaitlist(SchedulerMetrics.TickStats stats) {
         Map<String, Long> w = stats.waitingFramesByReason;

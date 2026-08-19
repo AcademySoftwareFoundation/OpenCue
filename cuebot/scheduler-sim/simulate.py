@@ -1118,6 +1118,12 @@ def start_limit_injector(duration):
     spawn(["inject_limit.py", str(duration)], f"{FARM}/inject_limit.log")
 
 
+def start_capdrop_injector(duration):
+    log(f"starting CAPDROP injector (a few deep 1-core jobs; the watcher lowers "
+        f"one job's max cores under load, for {duration}s) ...")
+    spawn(["inject_capdrop.py", str(duration)], f"{FARM}/inject_capdrop.log")
+
+
 def start_license_server(duration):
     """Bring up the fake license server BEFORE cuebot polls it, so the planner's
     first sample is real rather than a failed fetch."""
@@ -1434,6 +1440,26 @@ def _verify_check(name, gdir, logp, cblog):
         ok = bool(re.search(r"(?m)^PASS:", txt)) and wl["limit"] > 0
         return ok, (f"peak concurrent running {peak} vs cap {cap}; "
                     f"waitlist limit peak {wl['limit']}")
+    if name == "CAPDROP":
+        # The watcher's own verdict (mirror tracked procs after the cap drop),
+        # plus: the wedge signature must be absent from the cuebot log. One
+        # rejected flush means the mechanism is back even if sampling missed it.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        gm = re.search(r"worst gap (\d+)cp", txt)
+        sm = re.search(r"worst divergence streak (\d+)", txt)
+        sgm = re.search(r"sub worst gap (\d+)cp", txt)
+        ssm = re.search(r"sub worst streak (\d+)", txt)
+        warns = (cb.count("job/folder/point delta flush failed")
+                 + cb.count("subscription delta flush failed"))
+        ok = bool(re.search(r"(?m)^PASS:", txt)) and warns == 0
+        return ok, (f"mirrors vs procs after cap drops: job worst gap "
+                    f"{gm.group(1) if gm else '?'}cp streak "
+                    f"{sm.group(1) if sm else '?'}, sub worst gap "
+                    f"{sgm.group(1) if sgm else '?'}cp streak "
+                    f"{ssm.group(1) if ssm else '?'}; flush rejections {warns}")
     if name in ("LICENSE", "LICENSE_NO_HOSTS"):
         # Live licenses: the farm's usage plus what artists hold must never exceed
         # a pool. Gate on license_watch.py's verdict. Same watcher for both
@@ -1667,6 +1693,12 @@ def run_verify():
         # concurrent running never exceeds the cap. Inherits --compress 8 so frames
         # run long enough for concurrency to accumulate.
         ("LIMIT", ["--hosts", "3,4,10", "--limit-test", str(D)]),
+        # CAPDROP: a user lowers a running job's max cores below its live usage,
+        # then an admin shrinks the show's subscription burst the same way. The
+        # legacy verify triggers reject the planner's batched plus-flush over
+        # either cap; a correct scheduler must keep each accounting mirror equal
+        # to the procs anyway (no wedge, no negative drift).
+        ("CAPDROP", ["--hosts", "3,4,10", "--capdrop-test", str(D)]),
         # LICENSE: live application licenses (hengine host-based, katana + maya
         # floating) served by a fake license server that counts the farm's own
         # usage AND artist holds, the way a real one does. Same small farm as the
@@ -1950,6 +1982,13 @@ def main():
                          "moderate backlog each, NO prefill, for SECS. Checks that "
                          "completion share is ORDERED by priority (Spearman rho); the "
                          "everyday proportional-rate case, not the starvation edge.")
+    ap.add_argument("--capdrop-test", type=int, default=0, metavar="SECS",
+                    help="CAPDROP test: flood a few deep jobs, then lower one "
+                         "job's max cores below its live usage (the production "
+                         "'set max cores on a running job' event) and assert the "
+                         "accounting mirror (job_resource.int_cores) keeps "
+                         "tracking SUM(procs) instead of wedging on the legacy "
+                         "verify trigger.")
     ap.add_argument("--limit-test", type=int, default=0, metavar="SECS",
                     help="LIMIT test: attach a global limit (SIM_LIMIT_NAME=simlic, "
                          "cap SIM_LIMIT_MAX=50) to a flood of frames and check the "
@@ -2289,6 +2328,8 @@ def main():
         start_priority_spread_injector(args.priority_spread)
     if args.limit_test:
         start_limit_injector(args.limit_test)
+    if args.capdrop_test:
+        start_capdrop_injector(args.capdrop_test)
     if lic_secs:
         start_license_injector(lic_secs)
     if args.folder_test:
@@ -2312,6 +2353,7 @@ def main():
     # is active, so a run can be watched without querying the DB by hand.
     watch = (args.strand or args.priority_starve or args.priority_spread
              or args.limit_test or args.license_test or args.poison_test
+             or args.capdrop_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
              or args.tagmax_test
@@ -2336,6 +2378,11 @@ def main():
         csv = f"{graph_dir}/run_priority_spread.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "priority_spread_watch.py", str(args.priority_spread), "5"],
                        cwd=FARM, env=dict(os.environ, SIM_SPREAD_CSV=csv))
+    elif args.capdrop_test:
+        log(f"watching CAPDROP (accounting mirror vs procs after a cap drop) "
+            f"for {args.capdrop_test}s ...")
+        subprocess.run([VENV_PY, "capdrop_watch.py", str(args.capdrop_test), "3"],
+                       cwd=FARM)
     elif args.limit_test:
         log(f"watching LIMIT (concurrent running vs cap) for {args.limit_test}s ...")
         csv = f"{graph_dir}/run_limit.csv" if graph_dir else ""
