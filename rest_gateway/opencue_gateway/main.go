@@ -227,8 +227,32 @@ func run() error {
 
 	log.Println("All gRPC handlers registered successfully")
 
-	// Create HTTP multiplexer and apply JWT authentication middleware
+	// Create HTTP multiplexer and mount routes
 	httpMux := http.NewServeMux()
+
+	// Swagger UI / OpenAPI handling
+	swaggerDir := os.Getenv("SWAGGER_DIR")
+	if swaggerDir == "" {
+		swaggerDir = "./gen/openapiv2"
+	}
+
+	if info, err := os.Stat(swaggerDir); err == nil && info.IsDir() {
+		log.Printf("Serving Swagger UI / OpenAPI specs from %s on /swagger/", swaggerDir)
+		
+		// 1. Serve static JSON spec files
+		fileServer := http.FileServer(http.Dir(swaggerDir))
+		httpMux.Handle("/swagger/specs/", http.StripPrefix("/swagger/specs/", fileServer))
+
+		// 2. Serve the Swagger UI HTML page
+		httpMux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(swaggerUIHTML))
+		})
+	} else {
+		log.Printf("Swagger directory %s not found; skipping /swagger/ static handler", swaggerDir)
+	}
+
+	// Apply JWT authentication middleware to all other routes
 	httpMux.Handle("/", jwtMiddleware(mux, jwtSecret))
 
 	log.Printf("Starting HTTP server on endpoint: %s, port %s", grpcServerEndpoint, port)
@@ -322,3 +346,62 @@ func main() {
 		grpclog.Fatal(err)
 	}
 }
+
+// swaggerUIHTML embeds the Swagger UI application loaded from standard CDNs.
+const swaggerUIHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenCue REST API Documentation</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    body { margin: 0; padding: 0; background: #fafafa; }
+    .topbar-wrapper { padding: 10px 20px; background: #1b1b1b; color: #fff; font-family: sans-serif; display: flex; align-items: center; gap: 10px; }
+    .topbar-wrapper select { padding: 6px 10px; font-size: 14px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="topbar-wrapper">
+    <label for="spec-select"><strong>OpenCue Service:</strong></label>
+    <select id="spec-select" onchange="loadSpec(this.value)">
+      <option value="/swagger/specs/job.swagger.json">Job Service</option>
+      <option value="/swagger/specs/show.swagger.json">Show Service</option>
+      <option value="/swagger/specs/frame.swagger.json">Frame Service</option>
+      <option value="/swagger/specs/host.swagger.json">Host Service</option>
+      <option value="/swagger/specs/layer.swagger.json">Layer Service</option>
+      <option value="/swagger/specs/group.swagger.json">Group Service</option>
+      <option value="/swagger/specs/proc.swagger.json">Proc Service</option>
+      <option value="/swagger/specs/comment.swagger.json">Comment Service</option>
+      <option value="/swagger/specs/allocation.swagger.json">Allocation Service</option>
+      <option value="/swagger/specs/facility.swagger.json">Facility Service</option>
+      <option value="/swagger/specs/filter.swagger.json">Filter Service</option>
+      <option value="/swagger/specs/subscription.swagger.json">Subscription Service</option>
+      <option value="/swagger/specs/department.swagger.json">Department Service</option>
+      <option value="/swagger/specs/service.swagger.json">Service Service</option>
+    </select>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+  <script>
+    let ui;
+    function loadSpec(url) {
+      ui = SwaggerUIBundle({
+        url: url,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    }
+    window.onload = () => {
+      const select = document.getElementById('spec-select');
+      loadSpec(select.value);
+    };
+  </script>
+</body>
+</html>
+`

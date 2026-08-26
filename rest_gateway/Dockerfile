@@ -39,6 +39,13 @@ RUN protoc -I ../proto/src/ --grpc-gateway_out ./gen/go \
     --grpc-gateway_opt generate_unbound_methods=true \
     ../proto/src/*.proto
 
+# Generate OpenAPI/Swagger definitions
+RUN mkdir -p gen/openapiv2 && \
+    protoc -I ../proto/src/ --openapiv2_out ./gen/openapiv2 \
+    --openapiv2_opt generate_unbound_methods=true \
+    --openapiv2_opt logtostderr=true \
+    ../proto/src/*.proto
+
 # Uncomment this to run go tests
 # RUN go test -v
 
@@ -51,6 +58,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/opencue_gateway/grpc_gateway /app/
+COPY --from=build /app/opencue_gateway/gen/openapiv2 /app/gen/openapiv2
 
 # Ensure logs folder is created and has correct permissions
 RUN mkdir -p /logs && chmod 755 /logs
@@ -59,6 +67,7 @@ RUN mkdir -p /logs && chmod 755 /logs
 ENV CUEBOT_ENDPOINT=localhost:8443
 ENV REST_PORT=8448
 ENV JWT_SECRET=default-secret-key
+ENV SWAGGER_DIR=/app/gen/openapiv2
 
 EXPOSE 8448
 ENTRYPOINT ["/app/grpc_gateway"]
