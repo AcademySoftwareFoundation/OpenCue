@@ -55,6 +55,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	swaggerfiles "github.com/swaggo/files/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
@@ -241,11 +242,14 @@ func run() error {
 	if info, err := os.Stat(swaggerDir); err == nil && info.IsDir() {
 		log.Printf("Serving Swagger UI / OpenAPI specs from %s on /swagger/", swaggerDir)
 
-		// 1. Serve static JSON spec files
+		// 1. Serve embedded Swagger UI static assets (JS, CSS)
+		httpMux.Handle("/swagger/assets/", http.StripPrefix("/swagger/assets/", http.FileServer(http.FS(swaggerfiles.FS))))
+
+		// 2. Serve static JSON spec files
 		fileServer := http.FileServer(http.Dir(swaggerDir))
 		httpMux.Handle("/swagger/specs/", http.StripPrefix("/swagger/specs/", fileServer))
 
-		// 2. Serve dynamically generated Swagger UI HTML page
+		// 3. Serve dynamically generated Swagger UI HTML page
 		httpMux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
 			serveSwaggerUI(w, swaggerDir)
 		})
@@ -402,15 +406,15 @@ const swaggerUITemplate = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OpenCue REST API Documentation</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <link rel="stylesheet" href="/swagger/assets/swagger-ui.css" />
   <style>
     body { margin: 0; padding: 0; background: #fafafa; }
   </style>
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script src="/swagger/assets/swagger-ui-bundle.js"></script>
+  <script src="/swagger/assets/swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = () => {
       window.ui = SwaggerUIBundle({

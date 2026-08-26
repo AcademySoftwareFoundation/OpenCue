@@ -46,6 +46,10 @@ RUN mkdir -p gen/openapiv2 && \
     --openapiv2_opt logtostderr=true \
     ../proto/src/*.proto
 
+# Fetch swaggo/files static assets and update dependencies
+RUN go get github.com/swaggo/files/v2 && \
+    go mod tidy
+
 # Uncomment this to run go tests
 # RUN go test -v
 
