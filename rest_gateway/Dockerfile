@@ -47,7 +47,7 @@ RUN mkdir -p gen/openapiv2 && \
     ../proto/src/*.proto
 
 # Fetch swaggo/files static assets and update dependencies
-RUN go get github.com/swaggo/files/v2 && \
+RUN go get github.com/swaggo/files/v2@v2.0.2 && \
     go mod tidy
 
 # Uncomment this to run go tests
