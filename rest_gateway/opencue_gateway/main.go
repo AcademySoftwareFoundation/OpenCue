@@ -42,8 +42,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -238,15 +240,14 @@ func run() error {
 
 	if info, err := os.Stat(swaggerDir); err == nil && info.IsDir() {
 		log.Printf("Serving Swagger UI / OpenAPI specs from %s on /swagger/", swaggerDir)
-		
+
 		// 1. Serve static JSON spec files
 		fileServer := http.FileServer(http.Dir(swaggerDir))
 		httpMux.Handle("/swagger/specs/", http.StripPrefix("/swagger/specs/", fileServer))
 
-		// 2. Serve the Swagger UI HTML page
+		// 2. Serve dynamically generated Swagger UI HTML page
 		httpMux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write([]byte(swaggerUIHTML))
+			serveSwaggerUI(w, swaggerDir)
 		})
 	} else {
 		log.Printf("Swagger directory %s not found; skipping /swagger/ static handler", swaggerDir)
@@ -347,8 +348,55 @@ func main() {
 	}
 }
 
-// swaggerUIHTML embeds the Swagger UI application loaded from standard CDNs.
-const swaggerUIHTML = `<!DOCTYPE html>
+// swaggerSpecItem represents an entry in Swagger UI's top-bar selector.
+type swaggerSpecItem struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
+}
+
+// serveSwaggerUI dynamically reads all JSON files in swaggerDir and renders Swagger UI.
+func serveSwaggerUI(w http.ResponseWriter, swaggerDir string) {
+	entries, err := os.ReadDir(swaggerDir)
+	if err != nil {
+		http.Error(w, "Failed to read swagger directory", http.StatusInternalServerError)
+		return
+	}
+
+	var specs []swaggerSpecItem
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".swagger.json") || strings.HasSuffix(name, ".json") {
+			displayName := strings.TrimSuffix(name, ".swagger.json")
+			displayName = strings.TrimSuffix(displayName, ".json")
+			displayName = strings.Title(strings.ReplaceAll(displayName, "_", " ")) + " Service"
+
+			specs = append(specs, swaggerSpecItem{
+				URL:  "/swagger/specs/" + name,
+				Name: displayName,
+			})
+		}
+	}
+
+	specsJSON, err := json.Marshal(specs)
+	if err != nil {
+		http.Error(w, "Failed to encode specs", http.StatusInternalServerError)
+		return
+	}
+
+	tmpl, err := template.New("swagger").Parse(swaggerUITemplate)
+	if err != nil {
+		http.Error(w, "Failed to parse Swagger template", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = tmpl.Execute(w, template.JS(specsJSON))
+}
+
+const swaggerUITemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -357,49 +405,62 @@ const swaggerUIHTML = `<!DOCTYPE html>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
   <style>
     body { margin: 0; padding: 0; background: #fafafa; }
-    .topbar-wrapper { padding: 10px 20px; background: #1b1b1b; color: #fff; font-family: sans-serif; display: flex; align-items: center; gap: 10px; }
-    .topbar-wrapper select { padding: 6px 10px; font-size: 14px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <div class="topbar-wrapper">
-    <label for="spec-select"><strong>OpenCue Service:</strong></label>
-    <select id="spec-select" onchange="loadSpec(this.value)">
-      <option value="/swagger/specs/job.swagger.json">Job Service</option>
-      <option value="/swagger/specs/show.swagger.json">Show Service</option>
-      <option value="/swagger/specs/frame.swagger.json">Frame Service</option>
-      <option value="/swagger/specs/host.swagger.json">Host Service</option>
-      <option value="/swagger/specs/layer.swagger.json">Layer Service</option>
-      <option value="/swagger/specs/group.swagger.json">Group Service</option>
-      <option value="/swagger/specs/proc.swagger.json">Proc Service</option>
-      <option value="/swagger/specs/comment.swagger.json">Comment Service</option>
-      <option value="/swagger/specs/allocation.swagger.json">Allocation Service</option>
-      <option value="/swagger/specs/facility.swagger.json">Facility Service</option>
-      <option value="/swagger/specs/filter.swagger.json">Filter Service</option>
-      <option value="/swagger/specs/subscription.swagger.json">Subscription Service</option>
-      <option value="/swagger/specs/department.swagger.json">Department Service</option>
-      <option value="/swagger/specs/service.swagger.json">Service Service</option>
-    </select>
-  </div>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
   <script>
-    let ui;
-    function loadSpec(url) {
-      ui = SwaggerUIBundle({
-        url: url,
+    window.onload = () => {
+      window.ui = SwaggerUIBundle({
+        urls: {{ . }},
         dom_id: '#swagger-ui',
         deepLinking: true,
         presets: [
           SwaggerUIBundle.presets.apis,
-          SwaggerUIBundle.SwaggerUIStandalonePreset
+          SwaggerUIStandalonePreset
         ],
-        layout: "BaseLayout"
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout",
+        requestInterceptor: (req) => {
+          // If a token was provided via Swagger UI Authorize dialog, attach it
+          const auth = window.ui.authSelectors.authorized();
+          if (auth && auth.BearerAuth && auth.BearerAuth.value) {
+            let token = auth.BearerAuth.value;
+            if (!token.startsWith("Bearer ")) {
+              token = "Bearer " + token;
+            }
+            req.headers["Authorization"] = token;
+          }
+          return req;
+        },
+        responseInterceptor: (res) => {
+          // Inject security definition so the "Authorize" button always appears
+          if (res.url.includes("/swagger/specs/")) {
+            try {
+              const spec = JSON.parse(res.text);
+              if (!spec.securityDefinitions) {
+                spec.securityDefinitions = {};
+              }
+              spec.securityDefinitions.BearerAuth = {
+                type: "apiKey",
+                name: "Authorization",
+                in: "header",
+                description: "Enter your JWT token in the format: <token> or Bearer <token>"
+              };
+              spec.security = [{ BearerAuth: [] }];
+              res.text = JSON.stringify(spec);
+              res.data = JSON.stringify(spec);
+            } catch (e) {
+              console.error("Failed to inject BearerAuth into spec", e);
+            }
+          }
+          return res;
+        }
       });
-    }
-    window.onload = () => {
-      const select = document.getElementById('spec-select');
-      loadSpec(select.value);
     };
   </script>
 </body>
