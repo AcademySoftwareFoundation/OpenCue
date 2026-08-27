@@ -4,7 +4,7 @@ OpenCue REST Gateway - a production-ready HTTP/REST interface for OpenCue's gRPC
 
 ## Table of Contents
 
-1. [Overview](#overview)[API Documentation (Swagger UI)](#api-documentation-swagger-ui)
+1. [Overview](#overview)
    - [What is the REST Gateway](#what-is-the-rest-gateway)
    - [Key Features](#key-features)
    - [Use Cases](#use-cases)
@@ -1197,18 +1197,32 @@ The OpenAPI documents are generated from `proto/src/*.proto` by `protoc-gen-open
 Click **Authorize**, paste a JWT (see [Authentication](#authentication)), and use **Try it out** on any endpoint. The `Bearer ` prefix is optional; the page adds it if you leave it off.
 
 ```bash
-# Generate a token matching the gateway's JWT_SECRET, then paste it into Authorize
+# Must match the gateway's JWT_SECRET. The Docker image defaults to
+# 'default-secret-key'; docker-compose.yml uses
+# 'opencue-dev-jwt-secret-change-in-production'.
+export JWT_SECRET=default-secret-key
+
+# Generate a token, then paste it into Authorize
 export JWT_TOKEN=$(python3 -c "
-import base64, hmac, hashlib, json, time
+import base64, hmac, hashlib, json, os, time
 header = {'alg': 'HS256', 'typ': 'JWT'}
 payload = {'sub': 'user', 'exp': int(time.time()) + 3600}
 h = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
 p = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
 m = f'{h}.{p}'
-s = base64.urlsafe_b64encode(hmac.new(b'default-secret-key', m.encode(), hashlib.sha256).digest()).decode().rstrip('=')
+secret = os.environ['JWT_SECRET'].encode()
+s = base64.urlsafe_b64encode(hmac.new(secret, m.encode(), hashlib.sha256).digest()).decode().rstrip('=')
 print(f'{m}.{s}')
 ")
 echo $JWT_TOKEN
+```
+
+If the gateway rejects the token with `401`, the secret does not match. Read the
+value the running container was started with:
+
+```bash
+docker inspect opencue-rest-gateway \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^JWT_SECRET='
 ```
 
 ### Security Considerations
