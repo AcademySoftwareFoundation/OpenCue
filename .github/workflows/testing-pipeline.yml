@@ -373,10 +373,24 @@ jobs:
             --grpc-gateway_opt generate_unbound_methods=true \
             ../../proto/src/*.proto
 
+      - name: Generate OpenAPI definitions
+        working-directory: rest_gateway/opencue_gateway
+        run: |
+          mkdir -p gen/openapiv2
+          protoc -I ../../proto/src/ \
+            --openapiv2_out ./gen/openapiv2 \
+            --openapiv2_opt generate_unbound_methods=true \
+            --openapiv2_opt logtostderr=true \
+            ../../proto/src/*.proto
+
       - name: Install Go dependencies
         working-directory: rest_gateway/opencue_gateway
         run: |
           if [ ! -f go.mod ]; then go mod init opencue_gateway; fi
+          # Keep this pin in sync with rest_gateway/Dockerfile. go.mod/go.sum are
+          # not committed, so without it CI and the image can resolve different
+          # versions of the Swagger UI assets.
+          go get github.com/swaggo/files/v2@v2.0.2
           go mod tidy
 
       - name: Run unit tests with coverage

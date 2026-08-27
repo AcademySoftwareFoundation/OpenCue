@@ -46,7 +46,10 @@ RUN mkdir -p gen/openapiv2 && \
     --openapiv2_opt logtostderr=true \
     ../proto/src/*.proto
 
-# Fetch swaggo/files static assets and update dependencies
+# Fetch swaggo/files static assets and update dependencies.
+# go.mod/go.sum are not committed (see rest_gateway/.gitignore), so this pin is
+# the only thing keeping the build reproducible. Keep the version in sync with
+# the "Install Go dependencies" step in .github/workflows/testing-pipeline.yml.
 RUN go get github.com/swaggo/files/v2@v2.0.2 && \
     go mod tidy
 
@@ -72,6 +75,10 @@ ENV CUEBOT_ENDPOINT=localhost:8443
 ENV REST_PORT=8448
 ENV JWT_SECRET=default-secret-key
 ENV SWAGGER_DIR=/app/gen/openapiv2
+# The Swagger UI on /swagger/ is served without authentication so the API can be
+# browsed. Set SWAGGER_ENABLED=false wherever the gateway is reachable beyond a
+# trusted network.
+ENV SWAGGER_ENABLED=true
 
 EXPOSE 8448
 ENTRYPOINT ["/app/grpc_gateway"]
