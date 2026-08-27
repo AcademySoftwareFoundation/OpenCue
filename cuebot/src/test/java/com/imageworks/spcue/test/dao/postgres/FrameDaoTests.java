@@ -672,10 +672,11 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void testUpdateFrameCleared() {
+    public void testUpdateFrameClearedIfRunning() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
-        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+        // pass_1 depends on pass_1_preprocess, so its frames are DEPEND and cannot be started.
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
 
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.allocationId;
@@ -687,19 +688,23 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         proc.layerId = frame.layerId;
         proc.showId = frame.showId;
 
+        DispatchFrame dframe = frameDao.getDispatchFrame(frame.id);
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
+        dframe.version = frameDao.updateFrameStarted(proc, dframe);
 
         /*
          * Only frames without active procs can be cleared.
          */
-
-        DispatchFrame dframe = frameDao.getDispatchFrame(frame.id);
-        assertFalse(frameDao.updateFrameCleared(dframe));
+        assertFalse(frameDao.updateFrameClearedIfRunning(dframe));
 
         dispatchSupport.unbookProc(proc);
-        assertTrue(frameDao.updateFrameCleared(dframe));
+        assertTrue(frameDao.updateFrameClearedIfRunning(dframe));
 
+        /*
+         * The frame is WAITING at a new version now, so the same run cannot clear it twice.
+         */
+        assertFalse(frameDao.updateFrameClearedIfRunning(dframe));
     }
 
     @Test

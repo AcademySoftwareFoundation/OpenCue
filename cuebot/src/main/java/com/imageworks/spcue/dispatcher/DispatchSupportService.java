@@ -63,6 +63,8 @@ import com.imageworks.spcue.grpc.rqd.RunFrame;
 import com.imageworks.spcue.monitoring.KafkaEventPublisher;
 import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.util.FrameSet;
@@ -80,6 +82,27 @@ public class DispatchSupportService implements DispatchSupport {
      */
     private static final long DEFAULT_LOST_PROC_MAX_DEFER_MS = 1200000;
 
+    /**
+     * Time {@link #resolveUnknownLaunchOutcome} may spend confirming a frame's state on RQD after a
+     * launch RPC failed with an unknown outcome. Confirmation is two polls
+     * {@code dispatcher.launch_confirm_poll_interval_ms} apart, so this is a ceiling rather than
+     * the wait itself: it only gates whether the second poll still fits once the first has
+     * answered. Sized to leave room for a first poll that runs all the way to
+     * {@code grpc.rqd_task_deadline} plus the poll interval. Overridable via the
+     * {@code dispatcher.launch_confirm_budget_ms} property; zero or negative restores the legacy
+     * behavior of releasing the booking immediately with a best-effort kill.
+     */
+    private static final long DEFAULT_LAUNCH_CONFIRM_BUDGET_MS = 20000;
+
+    /**
+     * Delay between {@code isFrameRunning} polls in {@link #resolveUnknownLaunchOutcome}, i.e. how
+     * long a launch the host received but has not registered yet is given to surface. A host whose
+     * launch RPC already blew its deadline is by definition slow, so this is wider than the RPC
+     * deadline's own granularity. Overridable via
+     * {@code dispatcher.launch_confirm_poll_interval_ms}.
+     */
+    private static final long DEFAULT_LAUNCH_CONFIRM_POLL_INTERVAL_MS = 7000;
+
     private JobDao jobDao;
     private FrameDao frameDao;
     private LayerDao layerDao;
@@ -95,6 +118,7 @@ public class DispatchSupportService implements DispatchSupport {
     private BookingDao bookingDao;
     private KafkaEventPublisher kafkaEventPublisher;
     private MonitoringEventBuilder monitoringEventBuilder;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     @Autowired
     private Environment env;
@@ -226,6 +250,10 @@ public class DispatchSupportService implements DispatchSupport {
         try {
             rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
             dispatchedProcs.getAndIncrement();
+        } catch (RqdLaunchUnknownOutcomeException e) {
+            // Preserve the classification: the frame may be running on the host, and the
+            // dispatcher's rollback must not release the booking without confirming.
+            throw e;
         } catch (Exception e) {
             throw new DispatcherException(
                     proc.getName() + " could not be booked on " + frame.getName() + ", " + e);
@@ -240,7 +268,11 @@ public class DispatchSupportService implements DispatchSupport {
         // Capture previous state before update for event publishing
         FrameState previousState = frame.state;
 
-        frameDao.updateFrameStarted(proc, frame);
+        /*
+         * Keep the in-memory version in step with the row the start produced: a rollback of this
+         * dispatch fences its clearFrame on that version, so it can only reset the run it started.
+         */
+        frame.version = frameDao.updateFrameStarted(proc, frame);
 
         reserveProc(proc, frame);
 
@@ -371,9 +403,15 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void clearFrame(DispatchFrame frame) {
+    public boolean clearFrame(DispatchFrame frame) {
         logger.trace("clearing frame: " + frame);
-        frameDao.updateFrameCleared(frame);
+        if (frameDao.updateFrameClearedIfRunning(frame)) {
+            return true;
+        }
+        logger.info("Frame " + frame.getName() + " was not cleared: it is no longer the run this "
+                + "dispatch started at version " + frame.getVersion() + ", so it either never "
+                + "started or has already moved on.");
+        return false;
     }
 
     @Override
@@ -652,6 +690,97 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public boolean resolveUnknownLaunchOutcome(VirtualProc proc, DispatchFrame frame) {
+        long budgetMs = env.getProperty("dispatcher.launch_confirm_budget_ms", Long.class,
+                DEFAULT_LAUNCH_CONFIRM_BUDGET_MS);
+        if (budgetMs <= 0) {
+            // Fail-closed resolution disabled: legacy rollback (release first, best-effort kill).
+            unbookProc(proc, "launch failed, releasing without confirmation (legacy behavior)");
+            clearFrame(frame);
+            try {
+                rqdClient.killFrame(proc, "An accounting error occured when booking this frame.");
+            } catch (Exception e) {
+                // Expected to fail when the launch itself could not reach the host.
+            }
+            countLaunchOutcome("released_unconfirmed");
+            return true;
+        }
+
+        /*
+         * Releasing requires two consecutive not-running polls: a launch request that reached the
+         * host but has not been processed yet would make a single immediate poll report a frame
+         * that is about to start as gone. Anything short of that keeps the booking (fail closed).
+         */
+        long pollIntervalMs =
+                Math.max(0, env.getProperty("dispatcher.launch_confirm_poll_interval_ms",
+                        Long.class, DEFAULT_LAUNCH_CONFIRM_POLL_INTERVAL_MS));
+        long deadline = System.currentTimeMillis() + budgetMs;
+        if (!isFrameConfirmedNotRunning(proc, frame)) {
+            return false;
+        }
+        if (System.currentTimeMillis() + pollIntervalMs > deadline) {
+            logger.warn("Launch of frame " + frame.getName() + " on " + proc.getName()
+                    + " failed and the confirmation budget leaves no room for the second poll. "
+                    + "Keeping the booking to avoid double-booking.");
+            countLaunchOutcome("unconfirmed_kept");
+            return false;
+        }
+        try {
+            Thread.sleep(pollIntervalMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            countLaunchOutcome("unconfirmed_kept");
+            return false;
+        }
+        if (!isFrameConfirmedNotRunning(proc, frame)) {
+            return false;
+        }
+
+        logger.info("Launch of frame " + frame.getName() + " on " + proc.getName()
+                + " confirmed not running on the host, releasing the booking.");
+        unbookProc(proc, "launch failed, frame confirmed not running");
+        /*
+         * The polls cannot tell "never started" apart from "started, finished and was already
+         * reaped by RQD", so the reset is fenced on the frame still being this run: a frame whose
+         * render completed while the launch was being confirmed must not be re-rendered.
+         */
+        countLaunchOutcome(clearFrame(frame) ? "released" : "released_frame_moved_on");
+        return true;
+    }
+
+    /**
+     * Polls the host once for a frame whose launch outcome is unknown. Returns true only when RQD
+     * positively reports the frame as not running; a running frame or an unreachable host is logged
+     * and counted as a kept booking here, so callers can simply stop.
+     */
+    private boolean isFrameConfirmedNotRunning(VirtualProc proc, DispatchFrame frame) {
+        try {
+            if (!rqdClient.isFrameRunning(proc.hostName, frame.getFrameId())) {
+                return true;
+            }
+            logger.warn("Launch of frame " + frame.getName() + " on " + proc.getName()
+                    + " failed on this side but the frame IS running on the host. "
+                    + "Keeping the booking; the run will finish through its own "
+                    + "frame complete report.");
+            countLaunchOutcome("running_kept");
+        } catch (Exception e) {
+            logger.warn("Launch of frame " + frame.getName() + " on " + proc.getName()
+                    + " failed and the frame's state could not be confirmed (" + e + "). "
+                    + "Keeping the booking to avoid double-booking; the orphaned-proc "
+                    + "reaper will reclaim it if the frame never started.");
+            countLaunchOutcome("unconfirmed_kept");
+        }
+        return false;
+    }
+
+    private void countLaunchOutcome(String resolution) {
+        if (prometheusMetrics != null) {
+            prometheusMetrics.incrementFrameLaunchOutcomeUnknown(resolution);
+        }
+    }
+
+    @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long pss,
             long maxPss, long vsize, long maxVsize, long usedGpuMemory, long maxUsedGpuMemory,
@@ -772,6 +901,10 @@ public class DispatchSupportService implements DispatchSupport {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
     }
 
     public BookingManager getBookingManager() {
