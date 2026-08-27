@@ -77,6 +77,12 @@ public interface RqdClient {
     /**
      * Attempts to launch a frame
      *
+     * A failure is classified by what it proves about the frame's state: a plain
+     * {@link RqdClientException} means RQD rejected the launch or the request was never sent, so
+     * the frame is known not to be running; a {@link RqdLaunchUnknownOutcomeException} means the
+     * call failed without proving that (deadline, dropped connection), so the frame may be running
+     * on the host and the caller must not release the booking without confirming.
+     *
      * @param frame
      * @param resource
      * @return RunningFramePrx

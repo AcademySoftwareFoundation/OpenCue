@@ -204,6 +204,7 @@
     <property name="bookingDao" ref="bookingDao" />
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
   </bean>
 
   <bean id="filterManager" class="com.imageworks.spcue.service.FilterManagerService">

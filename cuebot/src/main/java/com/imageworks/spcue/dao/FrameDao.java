@@ -163,9 +163,9 @@ public interface FrameDao {
      *
      * @param proc
      * @param frame
-     * @return
+     * @return the frame's version once started, which identifies this run for later fenced updates
      */
-    void updateFrameStarted(VirtualProc proc, FrameInterface frame);
+    int updateFrameStarted(VirtualProc proc, FrameInterface frame);
 
     /**
      * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.
@@ -188,12 +188,15 @@ public interface FrameDao {
     boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss);
 
     /**
-     * Sets a frame to an unreserved waiting state.
+     * Sets a frame to an unreserved waiting state, but only when it is still the RUNNING run the
+     * caller is holding: the frame must be Running at {@code frame.getVersion()} and have no proc
+     * pointing at it. Callers must pass a freshly read frame, so the version reflects the run being
+     * released and not a stale in-memory copy.
      *
      * @param frame
-     * @return
+     * @return true if the frame was reset, false if it has moved on and was left untouched
      */
-    boolean updateFrameCleared(FrameInterface frame);
+    boolean updateFrameClearedIfRunning(FrameInterface frame);
 
     /**
      * Sets a frame exitStatus to EXIT_STATUS_MEMORY_FAILURE

@@ -161,9 +161,28 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         return updateFrame(frame, Dispatcher.EXIT_STATUS_DOWN_HOST) > 0;
     }
 
+    // spotless:off
+    private static final String UPDATE_FRAME_CLEARED_IF_RUNNING =
+            "UPDATE frame "
+            + "SET "
+                + "str_state = ?, "
+                + "int_exit_status = ?, "
+                + "ts_stopped = current_timestamp, "
+                + "ts_updated = current_timestamp, "
+                + "int_version = int_version + 1 "
+            + "WHERE frame.pk_frame = ? "
+            + "AND frame.str_state = ? "
+            + "AND frame.int_version = ? "
+            + "AND frame.pk_frame NOT IN "
+                + "(SELECT proc.pk_frame FROM proc WHERE proc.pk_frame=?)";
+    // spotless:on
+
     @Override
-    public boolean updateFrameCleared(FrameInterface frame) {
-        return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
+    public boolean updateFrameClearedIfRunning(FrameInterface frame) {
+        return getJdbcTemplate().update(UPDATE_FRAME_CLEARED_IF_RUNNING,
+                FrameState.WAITING.toString(), Dispatcher.EXIT_STATUS_FRAME_CLEARED,
+                frame.getFrameId(), FrameState.RUNNING.toString(), frame.getVersion(),
+                frame.getFrameId()) > 0;
     }
 
     // spotless:off
@@ -234,7 +253,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     // spotless:on
 
     @Override
-    public void updateFrameStarted(VirtualProc proc, FrameInterface frame) {
+    public int updateFrameStarted(VirtualProc proc, FrameInterface frame) {
 
         lockFrameForUpdate(frame, FrameState.WAITING);
 
@@ -274,6 +293,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         } catch (DataAccessException e) {
             throw new FrameReservationException(e.getCause());
         }
+
+        return frame.getVersion() + 1;
     }
 
     // spotless:off

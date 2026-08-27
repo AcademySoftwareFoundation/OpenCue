@@ -159,6 +159,13 @@ public class PrometheusMetricsCollector {
             .help("Frame retries deferred because the running render could not be confirmed dead")
             .labelNames("env", "cuebot_host").register();
 
+    private static final Counter frameLaunchOutcomeUnknownCounter =
+            Counter.build().name("cue_frame_launch_outcome_unknown_total")
+                    .help("Frame launch RPCs that failed without proving the frame did not start, "
+                            + "by how the booking was resolved: running_kept, released, "
+                            + "unconfirmed_kept, released_unconfirmed (legacy behavior)")
+                    .labelNames("env", "cuebot_host", "resolution").register();
+
     private static final Counter frameZombieRenderCounter = Counter.build()
             .name("cue_frame_zombie_render_total")
             .help("Host reports carrying a frame the DB no longer has RUNNING: RQD is rendering "
@@ -442,6 +449,17 @@ public class PrometheusMetricsCollector {
      */
     public void incrementFrameZombieRender() {
         frameZombieRenderCounter.labels(this.deployment_environment, this.cuebot_host).inc();
+    }
+
+    /**
+     * Increment cue_frame_launch_outcome_unknown_total metric
+     *
+     * @param resolution how the booking was resolved (running_kept, released, unconfirmed_kept,
+     *        released_unconfirmed)
+     */
+    public void incrementFrameLaunchOutcomeUnknown(String resolution) {
+        frameLaunchOutcomeUnknownCounter
+                .labels(this.deployment_environment, this.cuebot_host, resolution).inc();
     }
 
     /**

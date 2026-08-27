@@ -39,6 +39,7 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
@@ -422,6 +423,22 @@ public class CoreUnitDispatcher implements Dispatcher {
         this.rqdClient = rqdClient;
     }
 
+    /**
+     * Resolve a booking whose launch RPC failed without proving the frame never started on the
+     * host. Confirms the frame's state before releasing anything instead of running the legacy
+     * release-first rollback; see {@link AbstractDispatcher#handleUnknownLaunchOutcome} and
+     * {@link DispatchSupport#resolveUnknownLaunchOutcome} for the full rationale.
+     */
+    private void handleUnknownLaunchOutcome(DispatchFrame frame, VirtualProc proc,
+            RqdLaunchUnknownOutcomeException e) {
+        DispatchSupport.bookingErrors.incrementAndGet();
+        logger.warn("launch outcome unknown booking proc " + proc + " on frame " + frame.getName()
+                + ", resolving before any release, " + e);
+        boolean released = dispatchSupport.resolveUnknownLaunchOutcome(proc, frame);
+        logger.info("launch outcome resolution for " + frame.getName() + " on " + proc.getName()
+                + ": booking " + (released ? "released" : "kept"));
+    }
+
     private abstract class DispatchFrameTemplate {
         protected VirtualProc proc;
         protected JobInterface job;
@@ -480,6 +497,11 @@ public class CoreUnitDispatcher implements Dispatcher {
                 /* Throw an exception to stop booking **/
                 throw new DispatcherException("host reservation error, "
                         + "dispatchHostToJob failed to allocate a new proc " + rrfe);
+            } catch (RqdLaunchUnknownOutcomeException e) {
+                handleUnknownLaunchOutcome(frame, proc, e);
+                /* Throw an exception to stop booking this host, its RPCs are failing. */
+                throw new DispatcherException(
+                        "stopped dispatching host, launch outcome unknown, " + e);
             } catch (Exception e) {
                 /*
                  * Everything else means that the host/frame record was updated but another error

@@ -22,6 +22,7 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.util.CueUtil;
 
 /**
@@ -81,6 +82,10 @@ public abstract class AbstractDispatcher {
 
             throw new DispatcherException("proc reservation error, " + "unable to allocate proc "
                     + proc + "that " + "was already allocated.");
+        } catch (RqdLaunchUnknownOutcomeException e) {
+            handleUnknownLaunchOutcome(frame, proc, e);
+            throw new DispatcherException(
+                    "proc reservation error, launch outcome unknown for proc " + proc + ", " + e);
         } catch (Exception e) {
             /*
              * Everything else means that the host/frame record was updated but another error
@@ -150,6 +155,11 @@ public abstract class AbstractDispatcher {
             /* Throw an exception to stop booking * */
             throw new DispatcherException("host reservation error, "
                     + "dispatchHostToJob failed to allocate a new proc " + rrfe);
+        } catch (RqdLaunchUnknownOutcomeException e) {
+            handleUnknownLaunchOutcome(frame, proc, e);
+            /* Throw an exception to stop booking this host, its RPCs are failing. */
+            throw new DispatcherException(
+                    "stopped dispatching host " + proc + ", launch outcome unknown, " + e);
         } catch (Exception e) {
             /*
              * Any other exception means that the frame/host records have been updated, so, we need
@@ -173,6 +183,25 @@ public abstract class AbstractDispatcher {
         }
 
         return false;
+    }
+
+    /**
+     * Resolve a booking whose launch RPC failed without proving the frame never started on the
+     * host. The legacy rollback below (unbook, clear, best-effort kill) frees the frame before the
+     * kill and swallows the kill's failure, so when the request was actually delivered and the
+     * render is alive the frame gets re-booked onto a second host while this one keeps rendering.
+     * The resolution confirms the frame's state first and only releases the booking when the frame
+     * is confirmed not running, keeping it otherwise (see
+     * {@link DispatchSupport#resolveUnknownLaunchOutcome}).
+     */
+    private void handleUnknownLaunchOutcome(DispatchFrame frame, VirtualProc proc,
+            RqdLaunchUnknownOutcomeException e) {
+        DispatchSupport.bookingErrors.incrementAndGet();
+        logger.warn("launch outcome unknown booking proc " + proc + " on frame " + frame.getName()
+                + ", resolving before any release, " + e);
+        boolean released = dispatchSupport.resolveUnknownLaunchOutcome(proc, frame);
+        logger.info("launch outcome resolution for " + frame.getName() + " on " + proc.getName()
+                + ": booking " + (released ? "released" : "kept"));
     }
 
     public void dispatch(DispatchFrame frame, VirtualProc proc) {

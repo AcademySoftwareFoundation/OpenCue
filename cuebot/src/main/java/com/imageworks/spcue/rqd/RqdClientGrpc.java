@@ -15,6 +15,9 @@
 
 package com.imageworks.spcue.rqd;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -233,6 +236,30 @@ public final class RqdClientGrpc implements RqdClient {
         }
     }
 
+    /**
+     * Status codes for which a failed launch call does not prove RQD never started the frame:
+     * transport-level failures where the request may have been delivered and only the response was
+     * lost (or never produced in time).
+     *
+     * Every other code is a response from the server's application layer, which means the launch
+     * was processed and refused before any render was spawned. The two implementations report that
+     * differently: the Rust RQD maps its launch errors to ABORTED, FAILED_PRECONDITION or
+     * INVALID_ARGUMENT ({@code FrameManagerError} in rust/crates/rqd/src/frame/manager.rs), while
+     * the Python RQD's servicer sets no status code, so the exception it raises surfaces as UNKNOWN
+     * (rqd/rqd/rqdservicers.py). Both raise only before spawning, which is what makes "rejected"
+     * equivalent to "not running" here.
+     *
+     * One refusal inverts that: RQD rejects a launch for a frame it is already running (Python
+     * DuplicateFrameViolationException, Rust {@code FrameManagerError::AlreadyExist}), which proves
+     * the frame IS rendering on that host. It still lands in the rejected branch, so the caller's
+     * rollback releases the booking and kills the render. That kill goes to a host that just
+     * answered, so it lands and cannot double-book -- the cost is a wasted render, not a second
+     * booking.
+     */
+    private static final Set<Status.Code> LAUNCH_OUTCOME_UNKNOWN_CODES = Collections
+            .unmodifiableSet(EnumSet.of(Status.Code.DEADLINE_EXCEEDED, Status.Code.UNAVAILABLE,
+                    Status.Code.CANCELLED, Status.Code.INTERNAL, Status.Code.DATA_LOSS));
+
     public void launchFrame(final RunFrame frame, final VirtualProc proc) {
         RqdStaticLaunchFrameRequest request =
                 RqdStaticLaunchFrameRequest.newBuilder().setRunFrame(frame).build();
@@ -243,7 +270,16 @@ public final class RqdClientGrpc implements RqdClient {
 
         try {
             getStub(proc.hostName).launchFrame(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
+        } catch (StatusRuntimeException e) {
+            if (LAUNCH_OUTCOME_UNKNOWN_CODES.contains(e.getStatus().getCode())) {
+                throw new RqdLaunchUnknownOutcomeException(
+                        "failed to launch frame " + frame.getFrameId() + " on " + proc.hostName
+                                + ", outcome unknown: the frame may be running",
+                        e);
+            }
+            throw new RqdClientException("failed to launch frame", e);
+        } catch (ExecutionException e) {
+            // The channel could not even be created; the request was never sent.
             throw new RqdClientException("failed to launch frame", e);
         }
     }
