@@ -95,7 +95,7 @@ graph LR
 
 ### Self-Describing API
 
-The same `.proto` files that generate the gateway's HTTP handlers also generate an OpenAPI (Swagger) definition for every OpenCue interface. These definitions are produced at build time by `protoc-gen-openapiv2` and packaged into the gateway image, so the API documentation can never drift from the endpoints the gateway actually serves; both come from one source.
+The same `.proto` files that generate the gateway's HTTP handlers also generate an OpenAPI (Swagger) definition for every OpenCue interface. These definitions are produced at build time by `protoc-gen-openapiv2` and packaged into the gateway image. Because both come from one source, the documented paths and message schemas can never drift from the handlers. That shared source does not, however, guarantee that every generated method is routed; see below.
 
 The gateway serves those definitions, and a Swagger UI that renders them, under `/swagger/`:
 
@@ -103,7 +103,7 @@ The gateway serves those definitions, and a Swagger UI that renders them, under 
 
 This makes the gateway self-describing: a client that can reach it can discover the complete set of interfaces, methods, request bodies, and response schemas without any external documentation. All Swagger UI assets are served by the gateway itself, so the page works on an isolated network.
 
-There is one nuance to be aware of. The definitions are generated with `generate_unbound_methods=true`, which emits an entry for every method in every `.proto` file, whereas the gateway registers handlers only for the interfaces Cuebot exposes to REST clients. The published surface is therefore slightly wider than the routed one: 304 endpoints across 28 interfaces are described, and 273 across 22 interfaces are reachable. The remainder belong to components other than Cuebot, chiefly the RQD agent running on each host, and return `404`. The [API reference](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) lists them.
+There is one nuance to be aware of. The definitions are generated with `generate_unbound_methods=true`, which emits an entry for every method in every `.proto` file, whereas the gateway registers handlers for a chosen subset. The published surface is therefore slightly wider than the routed one: 304 endpoints across 28 interfaces are described, and 273 across 22 interfaces are reachable. The remaining 31 endpoints return `404` simply because this gateway does not register them, and they fall into two groups. `RqdInterface` and `RunningFrame` are implemented by the RQD agent on each host rather than by Cuebot, so the gateway has nothing to forward them to. `CueInterface`, `MonitoringInterface`, `RenderPartitionInterface`, and `RqdReportInterface` are Cuebot services, but they are internal or agent-facing rather than intended for REST clients. The [API reference](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) lists them.
 
 ### Documentation and the Authentication Boundary
 

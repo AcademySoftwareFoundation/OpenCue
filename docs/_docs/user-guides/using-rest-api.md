@@ -105,7 +105,7 @@ That is 304 endpoints in total, but only 273 of them work. Cue, Monitoring, Rend
 
 ### Authorizing
 
-Click **Authorize** and paste your JWT. The `Bearer ` prefix is optional; the page adds it if you leave it off.
+Click **Authorize** and paste your JWT. The `Bearer` prefix is optional; the page adds it if you leave it off.
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
 

@@ -196,7 +196,7 @@ else
 fi
 ```
 
-**Note:** All endpoints require JWT authentication - there are no public health endpoints.
+**Note:** All API endpoints require JWT authentication, and there are no public health endpoints. The Swagger UI on `/swagger/` is served without a token when `SWAGGER_ENABLED` is true; it exposes documentation only, never data.
 
 For authenticated API testing:
 
@@ -333,7 +333,7 @@ The REST Gateway supports these environment variables:
 | `REST_PORT` | `8448` | HTTP server port |
 | `JWT_SECRET` | `dev-secret-key-change-in-production` | JWT signing secret (required) |
 | `SWAGGER_ENABLED` | `true` | Serve the Swagger UI on `/swagger/` |
-| `SWAGGER_DIR` | `/app/gen/openapiv2` | Directory holding the generated OpenAPI documents |
+| `SWAGGER_DIR` | `./gen/openapiv2` | Directory holding the generated OpenAPI documents. The Docker image sets this to `/app/gen/openapiv2` |
 | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 | `CORS_ALLOWED_ORIGINS` | `*` | CORS allowed origins |
 
@@ -349,7 +349,7 @@ Pick an interface from the **Select a definition** menu in the top bar:
 
 ![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
 
-Click **Authorize** and paste a JWT (see [Authentication Setup](#authentication-setup)). The `Bearer ` prefix is optional; the page adds it for you.
+Click **Authorize** and paste a JWT (see [Authentication Setup](#authentication-setup)). The `Bearer` prefix is optional; the page adds it for you.
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
 

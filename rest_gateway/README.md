@@ -104,7 +104,7 @@ Built with Go and the [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gate
 - Docker containerization with Rocky Linux base
 - Environment-based configuration
 - Comprehensive error handling and logging
-- All endpoints require JWT authentication for security
+- All API endpoints require JWT authentication for security (the Swagger UI on `/swagger/` is served without a token)
 - Graceful shutdown and connection management
 
 #### **Performance Optimized**
@@ -374,7 +374,7 @@ export OPENCUE_REST_GATEWAY_URL=http://localhost:8448
 ```
 
 **Important Notes:**
-- **All endpoints require JWT authentication** - there are no public health endpoints
+- **All API endpoints require JWT authentication** - there are no public health endpoints. The Swagger UI on `/swagger/` is the only unauthenticated route
 - The secret key must exactly match your REST Gateway's `JWT_SECRET` environment variable
 - Check your container configuration: `docker inspect opencue-rest-gateway-live | grep JWT_SECRET`
 
@@ -1194,7 +1194,7 @@ The OpenAPI documents are generated from `proto/src/*.proto` by `protoc-gen-open
 
 ### Trying Requests From the Browser
 
-Click **Authorize**, paste a JWT (see [Authentication](#authentication)), and use **Try it out** on any endpoint. The `Bearer ` prefix is optional; the page adds it if you leave it off.
+Click **Authorize**, paste a JWT (see [Authentication](#authentication)), and use **Try it out** on any endpoint. The `Bearer` prefix is optional; the page adds it if you leave it off.
 
 ```bash
 # Must match the gateway's JWT_SECRET. The Docker image defaults to
@@ -1725,7 +1725,7 @@ Go back to [Contents](#contents).
 
 ## Authentication
 
-The REST Gateway uses JSON Web Tokens (JWT) for secure authentication. All endpoints require a valid JWT token in the Authorization header.
+The REST Gateway uses JSON Web Tokens (JWT) for secure authentication. All API endpoints require a valid JWT token in the Authorization header. The Swagger UI on `/swagger/` is the only route served without one.
 
 ### JWT Token Requirements
 
@@ -2437,7 +2437,7 @@ protoc -I ../../proto/src/ \
 curl http://localhost:8448/health
 # Response: Authorization header required
 ```
-- **This is NORMAL**: The REST Gateway has no unauthenticated endpoints
+- **This is NORMAL**: the REST Gateway has no unauthenticated API endpoints (`/swagger/` is documentation only)
 - **For health checks**: Use TCP checks or authenticated endpoint requests
 - **Expected response**: 401 Unauthorized means the service is running correctly
 
@@ -2481,7 +2481,7 @@ export LOG_LEVEL=debug
 
 ### Service Health Checks
 
-**Important:** The OpenCue REST Gateway has NO unauthenticated endpoints. All endpoints require JWT authentication.
+**Important:** Every OpenCue REST Gateway API endpoint requires JWT authentication. The only unauthenticated routes are the Swagger UI and OpenAPI documents under `/swagger/`, which can be turned off with `SWAGGER_ENABLED=false`.
 
 ```bash
 # Check if gateway is responding (expects 401 - this means service is up)

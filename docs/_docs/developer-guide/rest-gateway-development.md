@@ -180,7 +180,7 @@ else
     echo "Gateway may not be running (got HTTP $response)"
 fi
 
-# Test with JWT authentication (all endpoints require authentication)
+# Test with JWT authentication (all API endpoints require authentication)
 export JWT_TOKEN=$(python3 -c "
 import jwt, datetime
 payload = {'user': 'dev', 'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)}
@@ -249,7 +249,7 @@ echo "Code generation complete"
 
 ### OpenAPI Definition Generation
 
-The Swagger UI is driven by OpenAPI 2.0 documents generated from the same `.proto` files, using `protoc-gen-openapiv2`. Because the documentation and the HTTP handlers come from one source, they cannot drift apart.
+The Swagger UI is driven by OpenAPI 2.0 documents generated from the same `.proto` files, using `protoc-gen-openapiv2`. Because the documentation and the HTTP handlers come from one source, the documented paths and message schemas cannot drift from the code. Note that this says nothing about routing: `generate_unbound_methods=true` emits an entry for every proto method, including those `registerGRPCHandlers` does not register.
 
 Install the plugin alongside the others:
 
@@ -299,7 +299,7 @@ The routes are mounted by `registerSwaggerHandlers` in `rest_gateway/opencue_gat
 
 | Route | Handler | Notes |
 |-------|---------|-------|
-| `/swagger/` | `serveSwaggerUI` | Renders `swaggerUITemplate`, with the spec list discovered from `SWAGGER_DIR` at request time |
+| `/swagger/` | `serveSwaggerUI` | Executes `swaggerUITmpl`, with the spec list discovered from `SWAGGER_DIR` at request time |
 | `/swagger/specs/` | `serveSwaggerSpec` | Serves one `.json` file; rejects nested paths, traversal, and directory listings |
 | `/swagger/assets/` | allow-listed `http.FileServer` | Serves the embedded `swaggo/files/v2` distribution |
 
@@ -307,7 +307,7 @@ Three points worth knowing when modifying this code:
 
 - **The routes are mounted outside `jwtMiddleware`.** That is deliberate, and `TestSwaggerRoutesBypassAuth` pins it in both directions. If you move the mount point, that test will tell you.
 - **The asset allow-list is not incidental.** The embedded distribution also ships `index.html` and `swagger-initializer.js`, which load `https://petstore.swagger.io`, plus several megabytes of source maps. `swaggerUIAssets` restricts serving to the three files the template references.
-- **The page template is parsed once**, into the package-level `swaggerUITmpl`, not per request.
+- **The page template is parsed once**, not per request. The HTML lives in the `swaggerUITemplate` const; `swaggerUITmpl` is the `template.Must` parse of it, and that is what `serveSwaggerUI` executes. Edit the const to change the page.
 
 To work on the UI without rebuilding the image, point `SWAGGER_DIR` at your local output:
 

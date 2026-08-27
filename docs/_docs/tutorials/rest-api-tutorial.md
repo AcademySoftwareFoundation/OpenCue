@@ -112,7 +112,7 @@ Before writing any `curl` commands, it is worth seeing what the API offers. Open
 open "$OPENCUE_REST_GATEWAY_URL/swagger/"
 ```
 
-Every OpenCue interface is published as its own OpenAPI definition. Use the **Select a definition** menu in the top bar to switch between them. Start with **Show Service**:
+One OpenAPI definition is generated per OpenCue `.proto` file, and each appears in the **Select a definition** menu in the top bar. A definition can hold more than one interface: **Job Service** alone covers `JobInterface`, `LayerInterface`, `FrameInterface`, and `GroupInterface`. Start with **Show Service**:
 
 ![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
 
@@ -139,7 +139,7 @@ The menu holds 18 definitions covering 304 endpoints in total. This tutorial use
 | Subscription Service | Show subscriptions |
 | Task Service | Department tasks |
 
-Six of these are published but not routed by the gateway, so calling them returns `404` even with a valid token. **Cue**, **Monitoring**, **RenderPartition**, **Report** and **Rqd** are the ones to avoid, and **Criterion** contains no endpoints at all. The [API reference](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) explains why and lists what to use instead.
+Two caveats before you start clicking. Five of these definitions publish endpoints the gateway does not route, so calling one returns `404` even with a valid token: **Cue**, **Monitoring**, **RenderPartition**, **Report** and **Rqd**. Separately, **Criterion** contains no endpoints at all, so there is nothing there to call; selecting it shows a Models section and nothing else. The remaining twelve definitions are fully routed. The [API reference](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) explains why and lists what to use instead.
 
 ### Authorize with your token
 
@@ -147,7 +147,7 @@ Click **Authorize** in the top right, paste the `JWT_TOKEN` you generated in Ste
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
 
-The `Bearer ` prefix is optional; the page adds it for you. Once authorized, the value is masked and the padlocks on each endpoint close:
+The `Bearer` prefix is optional; the page adds it for you. Once authorized, the value is masked and the padlocks on each endpoint close:
 
 ![Swagger UI after authorizing](/assets/images/rest_gateway/swagger/swagger_ui_authorized.png)
 

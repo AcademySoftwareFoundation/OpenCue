@@ -14,9 +14,11 @@ nav_order: 0
 ---
 
 The OpenCue REST Gateway now ships an interactive **Swagger UI** at `/swagger/`. Every OpenCue
-interface is published as an OpenAPI definition generated from the same `.proto` files that produce
-the gateway's HTTP handlers, so the documentation cannot drift from the endpoints the gateway
-actually serves.
+interface is described by an OpenAPI definition generated from the same `.proto` files that produce
+the gateway's HTTP handlers, so the documented paths and message schemas stay aligned with those
+sources and cannot drift from them. Routing coverage is narrower than what the definitions describe;
+[Published surface versus routed surface](#published-surface-versus-routed-surface) explains where
+the two differ.
 
 ![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
 
@@ -42,7 +44,7 @@ when any one of them was wrong.
 
 ## The Solution
 
-### A definition per interface
+### A definition per proto file
 
 The Docker build now runs `protoc-gen-openapiv2` over the OpenCue protos and packages the result
 into the image. The gateway discovers those documents at request time and renders them, so the
@@ -59,7 +61,7 @@ openapi-generator generate -i show.swagger.json -g python -o ./opencue-show-clie
 
 ### Authorize once, then try anything
 
-Click **Authorize** and paste a JWT. The `Bearer ` prefix is optional; the page adds it if you leave
+Click **Authorize** and paste a JWT. The `Bearer` prefix is optional; the page adds it if you leave
 it off.
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
@@ -80,20 +82,27 @@ served; the upstream distribution's demo page and source maps are not exposed.
 
 One nuance is worth knowing before you explore. The definitions are generated with
 `generate_unbound_methods=true`, which emits an entry for every method in every `.proto` file,
-whereas the gateway registers handlers only for the interfaces Cuebot exposes to REST clients. The
-published surface is therefore slightly wider than the routed one: 304 endpoints across 28
-interfaces are described, and 273 across 22 interfaces are reachable.
+whereas the gateway registers handlers for a chosen subset. The published surface is therefore
+slightly wider than the routed one: 304 endpoints across 28 interfaces are described, and 273
+across 22 interfaces are reachable.
 
-Six interfaces appear in the menu but return `404` even with a valid token, because they belong to
-components other than Cuebot, chiefly the RQD agent running on each host:
+Six interfaces appear in the menu but return `404` even with a valid token, because this gateway
+does not register them. Two are implemented by the RQD agent on each host rather than by Cuebot, so
+there is nothing for the gateway to forward to. The other four are Cuebot services that are
+internal or agent-facing rather than intended for REST clients.
 
-| Interface | Endpoints | Use instead |
-| --- | --- | --- |
-| `RqdInterface`, `RunningFrame` | 19 | `HostInterface` and `FrameInterface`, which relay to RQD |
-| `MonitoringInterface` | 6 | The Prometheus and Grafana monitoring stack |
-| `RqdReportInterface` | 3 | Not client-facing; RQD reports to Cuebot over gRPC |
-| `RenderPartitionInterface` | 2 | `HostInterface` |
-| `CueInterface` | 1 | Not registered on the gateway |
+They are spread across five of the menu entries, so the affected definitions are easy to avoid once
+you know which they are:
+
+| Menu entry | Interface | Endpoints | Implemented by | Use instead |
+| --- | --- | --- | --- | --- |
+| Rqd Service | `RqdInterface`, `RunningFrame` | 19 | RQD agent | `HostInterface` and `FrameInterface`, which relay to RQD |
+| Monitoring Service | `MonitoringInterface` | 6 | Cuebot | The Prometheus and Grafana monitoring stack |
+| Report Service | `RqdReportInterface` | 3 | Cuebot | Agent-facing only; RQD calls it to report in |
+| RenderPartition Service | `RenderPartitionInterface` | 2 | Cuebot | `AddRenderPartition` to create, `HostInterface/GetRenderPartitions` to list |
+| Cue Service | `CueInterface` | 1 | Cuebot | Internal statistics, no REST equivalent |
+
+Every other menu entry is fully routed.
 
 Criterion Service is a further special case: `criterion.proto` defines only message types and no
 service, so that definition contains zero endpoints and renders as a Models section with nothing
@@ -132,7 +141,7 @@ your reverse proxy.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SWAGGER_ENABLED` | `true` | Mount the `/swagger/` routes. `false`, `0`, `no`, or `off` disables them |
-| `SWAGGER_DIR` | `/app/gen/openapiv2` | Directory holding the generated OpenAPI documents |
+| `SWAGGER_DIR` | `./gen/openapiv2` | Directory holding the generated OpenAPI documents. The Docker image sets this to `/app/gen/openapiv2` |
 
 | Route | Serves | Auth |
 | --- | --- | --- |

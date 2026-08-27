@@ -50,7 +50,7 @@ The documentation routes under `/swagger/` are the sole exception. See [Interact
 
 ## Interactive API Documentation
 
-The gateway serves a Swagger UI and the machine-readable OpenAPI definitions that back it. These are the authoritative description of a given deployment: they are generated from the same `.proto` files as the HTTP handlers, so they always match the endpoints that gateway actually serves.
+The gateway serves a Swagger UI and the machine-readable OpenAPI definitions that back it. Both are generated from the same `.proto` files as the HTTP handlers, so the paths and the request and response schemas they describe are always correct for that build. They describe a slightly wider surface than the gateway routes, however: see [Definitions the Gateway Does Not Route](#definitions-the-gateway-does-not-route).
 
 ### Documentation Routes
 
@@ -105,16 +105,27 @@ The OpenAPI documents are generated with `generate_unbound_methods=true`, which 
 {"code":5,"message":"Not Found","details":[]}
 ```
 
-| Interface | Endpoints | Why it is not routed |
-|-----------|-----------|----------------------|
-| `CueInterface` | `GetSystemStats` | Internal Cuebot statistics, not registered on the gateway |
-| `MonitoringInterface` | `GetFarmStatistics`, `GetFrameHistory`, `GetHostHistory`, `GetJobHistory`, `GetLayerHistory`, `GetLayerMemoryHistory` | Served by the monitoring stack, not by Cuebot's REST surface |
-| `RenderPartitionInterface` | `Delete`, `SetMaxResources` | Reached through `HostInterface` rather than directly |
-| `RqdReportInterface` | `ReportRqdStartup`, `ReportRunningFrameCompletion`, `ReportStatus` | RQD reports to Cuebot over gRPC; not a client-facing API |
-| `RqdInterface` | `GetRunFrame`, `GetRunningFrameStatus`, `KillRunningFrame`, `LaunchFrame`, `Lock`, `LockAll`, `NimbyOff`, `NimbyOn`, `RebootIdle`, `RebootNow`, `ReportStatus`, `RestartRqdIdle`, `RestartRqdNow`, `ShutdownRqdIdle`, `ShutdownRqdNow`, `Unlock`, `UnlockAll` | Implemented by the RQD agent on each host, not by Cuebot |
-| `RunningFrame` | `Kill`, `Status` | Implemented by the RQD agent, not by Cuebot |
+| Interface | Endpoints | Implemented by | Why it is not routed |
+|-----------|-----------|----------------|----------------------|
+| `CueInterface` | `GetSystemStats` | Cuebot (`CueStatic`) | Internal Cuebot statistics, not intended for REST clients |
+| `MonitoringInterface` | `GetFarmStatistics`, `GetFrameHistory`, `GetHostHistory`, `GetJobHistory`, `GetLayerHistory`, `GetLayerMemoryHistory` | Cuebot (`ManageMonitoring`) | Not registered on the gateway; farm history is normally read from the Prometheus and Grafana stack |
+| `RenderPartitionInterface` | `Delete`, `SetMaxResources` | Cuebot (`ManageRenderPartition`) | Not registered on the gateway |
+| `RqdReportInterface` | `ReportRqdStartup`, `ReportRunningFrameCompletion`, `ReportStatus` | Cuebot (`RqdReportStatic`) | Agent-facing rather than client-facing; RQD calls it to report in |
+| `RqdInterface` | `GetRunFrame`, `GetRunningFrameStatus`, `KillRunningFrame`, `LaunchFrame`, `Lock`, `LockAll`, `NimbyOff`, `NimbyOn`, `RebootIdle`, `RebootNow`, `ReportStatus`, `RestartRqdIdle`, `RestartRqdNow`, `ShutdownRqdIdle`, `ShutdownRqdNow`, `Unlock`, `UnlockAll` | The RQD agent on each host | Cuebot is a client of this interface, not its server, so the gateway has nothing to forward to |
+| `RunningFrame` | `Kill`, `Status` | The RQD agent on each host | As above |
 
-To act on a host or a running frame from the REST API, use `HostInterface` and `FrameInterface` instead; Cuebot relays the instruction to RQD.
+In other words, these endpoints return `404` because this gateway does not register them, not because the operations are unavailable in OpenCue. Four of the six are Cuebot services that are internal or agent-facing; the other two belong to RQD.
+
+Where an equivalent exists, use the routed interface instead:
+
+| To do this | Use |
+|------------|-----|
+| Lock, unlock, reboot, or act on a host | `HostInterface` |
+| Kill or retry a running frame | `FrameInterface`, which Cuebot relays to RQD |
+| Create a render partition | `FrameInterface`, `JobInterface`, or `LayerInterface` `AddRenderPartition` |
+| List render partitions | `HostInterface/GetRenderPartitions` |
+
+`RenderPartitionInterface`'s own `Delete` and `SetMaxResources` have no routed equivalent, so a partition can be created and listed over REST but not resized or removed.
 
 **Criterion Service** is a special case. `criterion.proto` defines only message types (the numeric matchers used by filters) and no service, so the definition contains zero endpoints. Selecting it in the menu shows a page with a **Models** section and nothing else. This is expected.
 
@@ -154,7 +165,7 @@ Swagger UI injects a `BearerAuth` security definition (`apiKey`, in `header`, na
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
 
-The value you enter is sent as the `Authorization` header. A `Bearer ` prefix is added automatically if you omit it, so both `<token>` and `Bearer <token>` work.
+The value you enter is sent as the `Authorization` header. A `Bearer` prefix, followed by a single space, is added automatically if you omit it, so both `<token>` and `Bearer <token>` work.
 
 ### Configuration
 

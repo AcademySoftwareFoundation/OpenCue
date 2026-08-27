@@ -116,7 +116,7 @@ fi
 
 ## Step 3: Generate a JWT Token
 
-All REST Gateway endpoints require JWT authentication. Generate a token using Python:
+All REST Gateway API endpoints require JWT authentication. The Swagger UI on `/swagger/` is the only exception; it serves documentation without a token. Generate a token using Python:
 
 ### Using Python (Recommended)
 
@@ -218,13 +218,13 @@ Rather than working from `curl` alone, open the built-in Swagger UI:
 open http://localhost:8448/swagger/
 ```
 
-Every OpenCue interface is published as its own OpenAPI definition. Pick one from the **Select a definition** menu in the top bar:
+One OpenAPI definition is generated per OpenCue `.proto` file, and each appears in the **Select a definition** menu in the top bar. A definition can hold more than one interface: **Job Service** alone covers `JobInterface`, `LayerInterface`, `FrameInterface`, and `GroupInterface`. Pick one to browse it:
 
 ![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
 
 ### Authorize
 
-Click **Authorize** and paste the `$JWT_TOKEN` you generated in Step 3. The `Bearer ` prefix is optional; the page adds it for you.
+Click **Authorize** and paste the `$JWT_TOKEN` you generated in Step 3. The `Bearer` prefix is optional; the page adds it for you.
 
 ![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
 

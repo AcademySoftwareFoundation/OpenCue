@@ -202,6 +202,32 @@ cd rest_gateway/opencue_gateway
 go build -o opencue-rest-gateway
 ```
 
+**Generate the OpenAPI documents.** Unlike the Docker build, `go build` does not
+produce them, and they are not checked into the source tree. Without them the
+`/swagger/` routes are silently not mounted, so the Swagger UI returns `401` as if
+it were disabled. Generate and install them alongside the binary:
+
+```bash
+# Once, to install the plugin
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+
+# From rest_gateway/opencue_gateway
+mkdir -p gen/openapiv2
+protoc -I ../../proto/src/ \
+  --openapiv2_out ./gen/openapiv2 \
+  --openapiv2_opt generate_unbound_methods=true \
+  --openapiv2_opt logtostderr=true \
+  ../../proto/src/*.proto
+
+# Install next to the binary
+sudo mkdir -p /opt/opencue/gen/openapiv2
+sudo cp gen/openapiv2/*.swagger.json /opt/opencue/gen/openapiv2/
+```
+
+If you do not want the Swagger UI on this host, skip the step above and set
+`SWAGGER_ENABLED=false` in the unit file instead, which makes the intent explicit
+rather than relying on a missing directory.
+
 Create systemd service `/etc/systemd/system/opencue-rest-gateway.service`:
 
 ```ini
@@ -217,11 +243,23 @@ ExecStart=/opt/opencue/opencue-rest-gateway
 Environment=CUEBOT_ENDPOINT=localhost:8443
 Environment=JWT_SECRET=your-secret-key
 Environment=LOG_LEVEL=info
+# Absolute path: SWAGGER_DIR is otherwise resolved relative to WorkingDirectory.
+# Set SWAGGER_ENABLED=false instead to leave the UI off on this host.
+Environment=SWAGGER_ENABLED=true
+Environment=SWAGGER_DIR=/opt/opencue/gen/openapiv2
 Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+```
+
+Confirm the routes mounted after starting the service:
+
+```bash
+journalctl -u opencue-rest-gateway | grep -i swagger
+# Expected: Serving Swagger UI / OpenAPI specs from /opt/opencue/gen/openapiv2 on /swagger/
+# A "Swagger directory ... not found" line means the documents were not installed.
 ```
 
 Enable and start:
@@ -241,7 +279,7 @@ sudo systemctl start opencue-rest-gateway
 | `REST_PORT` | `8448` | HTTP server port |
 | `JWT_SECRET` | `dev-secret-key-change-in-production` | JWT signing secret |
 | `SWAGGER_ENABLED` | `true` | Serve the unauthenticated Swagger UI on `/swagger/` |
-| `SWAGGER_DIR` | `/app/gen/openapiv2` | Directory holding the generated OpenAPI documents |
+| `SWAGGER_DIR` | `./gen/openapiv2` | Directory holding the generated OpenAPI documents. The Docker image sets this to `/app/gen/openapiv2`; a binary deployment resolves it relative to the working directory |
 | `LOG_LEVEL` | `info` | Logging level (debug, info, warn, error) |
 | `CORS_ALLOWED_ORIGINS` | `*` | CORS allowed origins |
 | `GRPC_MAX_MESSAGE_SIZE` | `4194304` | Max gRPC message size (4MB) |
@@ -444,7 +482,7 @@ spec:
 
 ### Service Health Monitoring
 
-**Important:** The OpenCue REST Gateway requires JWT authentication for ALL endpoints - there are no public health endpoints.
+**Important:** The OpenCue REST Gateway requires JWT authentication for ALL API endpoints, and there are no public health endpoints. The one exception is the Swagger UI on `/swagger/`, which is served without a token while `SWAGGER_ENABLED` is true. It exposes documentation only; see [Swagger UI Exposure](#swagger-ui-exposure).
 
 For health monitoring, use these approaches:
 
