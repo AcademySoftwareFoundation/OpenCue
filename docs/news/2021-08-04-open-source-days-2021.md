@@ -2,7 +2,7 @@
 layout: default
 title: "Aug 4, 2021: Open Source Days 2021"
 parent: News
-nav_order: 7
+nav_order: 8
 ---
 
 # Open Source Days 2021

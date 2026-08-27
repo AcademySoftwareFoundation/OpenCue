@@ -2,7 +2,7 @@
 layout: default
 title: "Jul 8, 2019: OpenCue Birds of a Feather at SIGGRAPH"
 parent: News
-nav_order: 13
+nav_order: 14
 ---
 
 # OpenCue Birds of a Feather at SIGGRAPH

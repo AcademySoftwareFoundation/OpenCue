@@ -2,7 +2,7 @@
 layout: default
 title: "January 21, 2026: OpenCue Project Update: Major Releases and 2026 Roadmap"
 parent: News
-nav_order: 3
+nav_order: 4
 ---
 
 # OpenCue Project Update: Major Releases and 2026 Roadmap

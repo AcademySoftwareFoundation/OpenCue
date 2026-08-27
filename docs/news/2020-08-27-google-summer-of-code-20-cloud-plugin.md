@@ -2,7 +2,7 @@
 layout: default
 title: "Aug 27, 2020: Google Summer of Code '20 - Cloud Plugin"
 parent: News
-nav_order: 8
+nav_order: 9
 ---
 
 # Google Summer of Code '20 - Cloud Plugin
