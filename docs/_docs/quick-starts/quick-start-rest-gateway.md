@@ -30,6 +30,7 @@ The OpenCue REST Gateway provides HTTP/REST endpoints for OpenCue's gRPC API. It
 - How to deploy the REST Gateway
 - How to authenticate with JWT tokens
 - How to make your first API calls
+- How to browse and test the API in Swagger UI
 - Basic job and show operations
 
 ### Prerequisites
@@ -209,7 +210,41 @@ curl -X POST http://localhost:8448/host.HostInterface/GetHosts \
 
 ---
 
-## Step 5: Basic Operations
+## Step 5: Browse the API in Swagger UI
+
+Rather than working from `curl` alone, open the built-in Swagger UI:
+
+```bash
+open http://localhost:8448/swagger/
+```
+
+Every OpenCue interface is published as its own OpenAPI definition. Pick one from the **Select a definition** menu in the top bar:
+
+![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
+
+### Authorize
+
+Click **Authorize** and paste the `$JWT_TOKEN` you generated in Step 3. The `Bearer ` prefix is optional; the page adds it for you.
+
+![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
+
+Once authorized, the padlocks on each endpoint close and every request you send from the page carries your token:
+
+![Swagger UI after authorizing](/assets/images/rest_gateway/swagger/swagger_ui_authorized.png)
+
+### Send a request
+
+Expand an endpoint, click **Try it out**, edit the JSON body if needed, and click **Execute**. Swagger UI shows the exact `curl` command it ran, the request URL, and the live response from your farm:
+
+![A live 200 response from GetShows](/assets/images/rest_gateway/swagger/swagger_ui_execute_response.png)
+
+The `curl` command is copy-pasteable, which makes the Swagger UI a quick way to build up requests before scripting them.
+
+> **Note:** The Swagger UI is served without authentication so the API can be browsed. The API endpoints themselves still require a token. If your gateway is reachable beyond a trusted network, disable the UI with `SWAGGER_ENABLED=false`.
+
+---
+
+## Step 6: Basic Operations
 
 ### Find a Specific Show
 
@@ -305,6 +340,16 @@ All endpoints follow this pattern:
 ```
 POST http://<gateway-host>:8448/<interface>/<method>
 ```
+
+### Documentation Routes
+
+| Route | Purpose | Auth required |
+|-------|---------|---------------|
+| `/swagger/` | Interactive Swagger UI | No |
+| `/swagger/specs/<name>.swagger.json` | A single OpenAPI definition | No |
+| `/swagger/assets/` | Swagger UI JavaScript and CSS | No |
+
+The full list of definitions is discovered automatically; `GET /swagger/` reflects whatever the gateway was built with. It holds 18 definitions and 304 endpoints, of which 273 are routed. Cue, Monitoring, RenderPartition, Report and Rqd are listed but return `404`, and Criterion Service contains no endpoints. See [Definitions the Gateway Does Not Route](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route).
 
 ---
 

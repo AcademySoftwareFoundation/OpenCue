@@ -247,6 +247,81 @@ protoc \
 echo "Code generation complete"
 ```
 
+### OpenAPI Definition Generation
+
+The Swagger UI is driven by OpenAPI 2.0 documents generated from the same `.proto` files, using `protoc-gen-openapiv2`. Because the documentation and the HTTP handlers come from one source, they cannot drift apart.
+
+Install the plugin alongside the others:
+
+```bash
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+```
+
+Generate the documents:
+
+```bash
+cd rest_gateway/opencue_gateway
+mkdir -p gen/openapiv2
+protoc -I ../../proto/src/ \
+  --openapiv2_out ./gen/openapiv2 \
+  --openapiv2_opt generate_unbound_methods=true \
+  --openapiv2_opt logtostderr=true \
+  ../../proto/src/*.proto
+```
+
+This writes one flat `<proto>.swagger.json` per input file:
+
+```
+gen/openapiv2/
+├── comment.swagger.json
+├── criterion.swagger.json
+├── cue.swagger.json
+├── ...
+├── show.swagger.json
+└── task.swagger.json
+```
+
+`generate_unbound_methods=true` must match the flag passed to `--grpc-gateway_out`. Without it the generated paths would not line up with the routes the gateway actually registers.
+
+The same steps run in `rest_gateway/Dockerfile` at image build time, and in the `Generate OpenAPI definitions` step of `.github/workflows/testing-pipeline.yml`. If you change one, change the others.
+
+Inspect the output directly:
+
+```bash
+jq '.paths | keys[]' gen/openapiv2/show.swagger.json | head
+```
+
+![The raw OpenAPI document served at /swagger/specs/show.swagger.json](/assets/images/rest_gateway/swagger/swagger_ui_openapi_spec.png)
+
+### Swagger UI Serving
+
+The routes are mounted by `registerSwaggerHandlers` in `rest_gateway/opencue_gateway/main.go`:
+
+| Route | Handler | Notes |
+|-------|---------|-------|
+| `/swagger/` | `serveSwaggerUI` | Renders `swaggerUITemplate`, with the spec list discovered from `SWAGGER_DIR` at request time |
+| `/swagger/specs/` | `serveSwaggerSpec` | Serves one `.json` file; rejects nested paths, traversal, and directory listings |
+| `/swagger/assets/` | allow-listed `http.FileServer` | Serves the embedded `swaggo/files/v2` distribution |
+
+Three points worth knowing when modifying this code:
+
+- **The routes are mounted outside `jwtMiddleware`.** That is deliberate, and `TestSwaggerRoutesBypassAuth` pins it in both directions. If you move the mount point, that test will tell you.
+- **The asset allow-list is not incidental.** The embedded distribution also ships `index.html` and `swagger-initializer.js`, which load `https://petstore.swagger.io`, plus several megabytes of source maps. `swaggerUIAssets` restricts serving to the three files the template references.
+- **The page template is parsed once**, into the package-level `swaggerUITmpl`, not per request.
+
+To work on the UI without rebuilding the image, point `SWAGGER_DIR` at your local output:
+
+```bash
+cd rest_gateway/opencue_gateway
+SWAGGER_DIR=./gen/openapiv2 \
+CUEBOT_ENDPOINT=localhost:8443 \
+REST_PORT=8448 \
+JWT_SECRET=dev-secret \
+go run main.go
+```
+
+Set `SWAGGER_ENABLED=false` to reproduce a production deployment where the UI is switched off.
+
 ## Testing
 
 ### Unit Tests
@@ -269,6 +344,26 @@ go test -v .
 go test -coverprofile=coverage.out .
 go tool cover -html=coverage.out -o coverage.html
 ```
+
+### Swagger UI Tests
+
+`swagger_test.go` covers the documentation routes. Run them on their own with:
+
+```bash
+go test -run Swagger -v .
+```
+
+They exercise, among other things:
+
+| Test | What it pins |
+|------|--------------|
+| `TestSwaggerRoutesBypassAuth` | `/swagger/*` is reachable anonymously **and** the API still returns `401` without a token |
+| `TestRegisterSwaggerHandlers` | `index.html`, `swagger-initializer.js` and `.map` files are not served |
+| `TestServeSwaggerSpec` | Directory listings and path traversal are refused |
+| `TestRegisterSwaggerHandlersNotMounted` | `SWAGGER_ENABLED=false` and a missing `SWAGGER_DIR` mount nothing |
+| `TestSwaggerSpecs` | Definition discovery and display-name formatting |
+
+These tests use a temporary directory of fixture documents, so they do not need `protoc` or a generated `gen/openapiv2`.
 
 ### Integration Tests
 
@@ -476,6 +571,15 @@ Access profiling endpoints:
 - Goroutines: `http://localhost:6060/debug/pprof/goroutine`
 
 ## Security Considerations
+
+### The Swagger UI Authentication Boundary
+
+`/swagger/` is the only part of the gateway served without a token. When touching that code, keep the boundary explicit:
+
+- Mount new documentation routes **inside** `registerSwaggerHandlers`, never by adding another pattern next to `httpMux.Handle("/", jwtMiddleware(...))`. Go's `ServeMux` matches the longest pattern, so a stray `/swagger`-prefixed handler registered elsewhere would silently bypass authentication.
+- Anything served from those routes is public. Do not surface configuration, environment values, internal hostnames, or Cuebot responses through them. Only the generated OpenAPI documents and the UI assets belong there.
+- When adding a file to `swaggerUIAssets`, confirm it does not fetch third-party resources. That allow-list exists because the upstream distribution's `index.html` and `swagger-initializer.js` load `https://petstore.swagger.io`.
+- Keep `SWAGGER_ENABLED` honoured. Operators rely on it to unmount the routes entirely in production.
 
 ### JWT Token Handling
 

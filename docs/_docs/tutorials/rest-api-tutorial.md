@@ -102,9 +102,78 @@ else
 fi
 ```
 
-**Note:** The REST Gateway requires JWT authentication for ALL endpoints - there are no public health endpoints.
+**Note:** The REST Gateway requires JWT authentication for ALL API endpoints - there are no public health endpoints. The Swagger UI on `/swagger/` is the one route served without a token; it exposes documentation only.
 
-## Step 2: Exploring Shows
+## Step 2: Explore the API in Swagger UI
+
+Before writing any `curl` commands, it is worth seeing what the API offers. Open the gateway's built-in Swagger UI:
+
+```bash
+open "$OPENCUE_REST_GATEWAY_URL/swagger/"
+```
+
+Every OpenCue interface is published as its own OpenAPI definition. Use the **Select a definition** menu in the top bar to switch between them. Start with **Show Service**:
+
+![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
+
+The menu holds 18 definitions covering 304 endpoints in total. This tutorial uses **Show Service** throughout, but the same Authorize and **Try it out** steps apply to any of them:
+
+| Definition | Contains |
+|------------|----------|
+| Comment Service | Comments on jobs |
+| Criterion Service | Message types only, no endpoints |
+| Cue Service | System statistics |
+| Department Service | Show departments and their tasks |
+| Depend Service | Dependencies between jobs, layers and frames |
+| Facility Service | Facilities and allocations |
+| Filter Service | Filters, actions and matchers |
+| Host Service | Hosts, owners, procs and deeds |
+| Job Service | Jobs, layers, frames and groups |
+| Limit Service | Resource limits |
+| Monitoring Service | Farm and job history |
+| RenderPartition Service | Local desktop rendering slices |
+| Report Service | RQD status reports |
+| Rqd Service | RQD agent control |
+| Service Service | Service definitions and overrides |
+| Show Service | Shows, subscriptions and owners |
+| Subscription Service | Show subscriptions |
+| Task Service | Department tasks |
+
+Six of these are published but not routed by the gateway, so calling them returns `404` even with a valid token. **Cue**, **Monitoring**, **RenderPartition**, **Report** and **Rqd** are the ones to avoid, and **Criterion** contains no endpoints at all. The [API reference](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) explains why and lists what to use instead.
+
+### Authorize with your token
+
+Click **Authorize** in the top right, paste the `JWT_TOKEN` you generated in Step 1, and click **Authorize**:
+
+![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
+
+The `Bearer ` prefix is optional; the page adds it for you. Once authorized, the value is masked and the padlocks on each endpoint close:
+
+![Swagger UI after authorizing](/assets/images/rest_gateway/swagger/swagger_ui_authorized.png)
+
+Click **Close** to dismiss the dialog. Your token now applies to every request you send from this page.
+
+### Inspect an endpoint
+
+Find `/show.ShowInterface/GetShows` and click it to expand. You will see the request body it expects, the parameter content type, and the schema of a successful response:
+
+![The GetShows endpoint expanded](/assets/images/rest_gateway/swagger/swagger_ui_endpoint_expanded.png)
+
+### Send your first request
+
+Click **Try it out**. The request body becomes editable. `GetShows` takes no arguments, so leave it as `{}`:
+
+![The GetShows endpoint with Try it out enabled](/assets/images/rest_gateway/swagger/swagger_ui_try_it_out.png)
+
+Click **Execute**. Swagger UI shows the exact `curl` command it ran, the request URL, and the live response from your farm:
+
+![A live 200 response from GetShows](/assets/images/rest_gateway/swagger/swagger_ui_execute_response.png)
+
+A `200` with a `shows` array means your gateway, your token, and Cuebot are all working end to end. If you get a `401`, your token is wrong or expired. Go back to Step 1.
+
+> **Tip:** The `curl` command Swagger UI generates is copy-pasteable. Working out a request in the browser first and then copying the command is usually faster than writing it by hand, and it is exactly how the `curl` examples in the rest of this tutorial were built.
+
+## Step 3: Exploring Shows
 
 ### List All Shows
 
@@ -145,7 +214,7 @@ curl -s -H "Authorization: Bearer $JWT_TOKEN" \
      -d '{"name": "demo_show"}' | jq .
 ```
 
-## Step 3: Working with Jobs
+## Step 4: Working with Jobs
 
 ### List Jobs for a Show
 
@@ -207,7 +276,7 @@ curl -s -H "Authorization: Bearer $JWT_TOKEN" \
      -d '{"r": {"show": "demo_show", "user": "artist1"}}' | jq .
 ```
 
-## Step 4: Monitoring Frame Progress
+## Step 5: Monitoring Frame Progress
 
 ### Get Frames for a Job
 
@@ -247,7 +316,7 @@ curl -s -H "Authorization: Bearer $JWT_TOKEN" \
      -d "{\"id\": \"$FRAME_ID\"}" | jq .
 ```
 
-## Step 5: Host and Resource Monitoring
+## Step 6: Host and Resource Monitoring
 
 ### List Rendering Hosts
 
@@ -285,7 +354,7 @@ curl -s -H "Authorization: Bearer $JWT_TOKEN" \
      -d '{"name": "render01"}' | jq .
 ```
 
-## Step 6: Job Management Operations
+## Step 7: Job Management Operations
 
 ### Pause a Job
 
@@ -335,7 +404,7 @@ curl -s -H "Authorization: Bearer $JWT_TOKEN" \
      -d "{\"frame\": {\"id\": \"$FRAME_ID\"}}" | jq .
 ```
 
-## Step 7: Creating a Simple Monitoring Script
+## Step 8: Creating a Simple Monitoring Script
 
 ### Basic Monitoring Script
 
@@ -387,7 +456,7 @@ chmod +x monitor_job.sh
 ./monitor_job.sh "your-job-id-here"
 ```
 
-## Step 8: Python Integration Example
+## Step 9: Python Integration Example
 
 ### Complete Python Class
 
@@ -530,7 +599,7 @@ Run the Python client:
 python3 opencue_client.py
 ```
 
-## Step 9: Web Integration Example
+## Step 10: Web Integration Example
 
 ### JavaScript/HTML Dashboard
 
@@ -654,7 +723,7 @@ Create a simple web dashboard:
 </html>
 ```
 
-## Step 10: Best Practices and Tips
+## Step 11: Best Practices and Tips
 
 ### Error Handling
 

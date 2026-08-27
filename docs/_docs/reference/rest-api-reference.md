@@ -36,13 +36,134 @@ The OpenCue REST Gateway provides HTTP/REST endpoints for all OpenCue gRPC inter
 
 ### Authentication
 
-All endpoints require JWT authentication:
+All API endpoints require JWT authentication:
 
 ```http
 POST /interface.Interface/Method
 Authorization: Bearer <jwt-token>
 Content-Type: application/json
 ```
+
+The documentation routes under `/swagger/` are the sole exception. See [Interactive API Documentation](#interactive-api-documentation).
+
+---
+
+## Interactive API Documentation
+
+The gateway serves a Swagger UI and the machine-readable OpenAPI definitions that back it. These are the authoritative description of a given deployment: they are generated from the same `.proto` files as the HTTP handlers, so they always match the endpoints that gateway actually serves.
+
+### Documentation Routes
+
+| Route | Method | Returns | Auth required |
+|-------|--------|---------|---------------|
+| `/swagger/` | GET | Swagger UI page (HTML) | No |
+| `/swagger/specs/<name>.swagger.json` | GET | One OpenAPI 2.0 document (JSON) | No |
+| `/swagger/assets/swagger-ui.css` | GET | Swagger UI stylesheet | No |
+| `/swagger/assets/swagger-ui-bundle.js` | GET | Swagger UI script | No |
+| `/swagger/assets/swagger-ui-standalone-preset.js` | GET | Swagger UI script | No |
+
+Requests to `/swagger` (no trailing slash) redirect to `/swagger/` with `301`.
+
+Only the three asset files listed above are served; any other path under `/swagger/assets/` returns `404`. Directory listings are disabled, so `GET /swagger/specs/` returns `404` rather than an index.
+
+### Definition Map
+
+One document is generated per OpenCue `.proto` file, named `<proto>.swagger.json`, and each appears in the **Select a definition** menu. A single document can contain several interfaces: `job.swagger.json` alone holds four.
+
+The table below lists all 18 definitions, the interfaces in each, and how many endpoints each interface publishes. **Status** records whether the gateway actually routes those endpoints.
+
+| Definition (menu entry) | Interfaces (endpoints) | Status |
+|-------------------------|------------------------|--------|
+| `comment` (Comment Service) | CommentInterface (2) | Routed |
+| `criterion` (Criterion Service) | none | Empty, see below |
+| `cue` (Cue Service) | CueInterface (1) | Not routed |
+| `department` (Department Service) | DepartmentInterface (13) | Routed |
+| `depend` (Depend Service) | DependInterface (3) | Routed |
+| `facility` (Facility Service) | AllocationInterface (14), FacilityInterface (5) | Routed |
+| `filter` (Filter Service) | ActionInterface (3), FilterInterface (16), MatcherInterface (3) | Routed |
+| `host` (Host Service) | DeedInterface (3), HostInterface (23), OwnerInterface (6), ProcInterface (13) | Routed |
+| `job` (Job Service) | FrameInterface (18), GroupInterface (20), JobInterface (42), LayerInterface (36) | Routed |
+| `limit` (Limit Service) | LimitInterface (7) | Routed |
+| `monitoring` (Monitoring Service) | MonitoringInterface (6) | Not routed |
+| `renderPartition` (RenderPartition Service) | RenderPartitionInterface (2) | Not routed |
+| `report` (Report Service) | RqdReportInterface (3) | Not routed |
+| `rqd` (Rqd Service) | RqdInterface (17), RunningFrame (2) | Not routed |
+| `service` (Service Service) | ServiceInterface (5), ServiceOverrideInterface (2) | Routed |
+| `show` (Show Service) | ShowInterface (31) | Routed |
+| `subscription` (Subscription Service) | SubscriptionInterface (5) | Routed |
+| `task` (Task Service) | TaskInterface (3) | Routed |
+
+Totals: **18 definitions, 28 interfaces, 304 published endpoints**, of which **273 across 22 interfaces are routed** by the gateway.
+
+The list is discovered at request time from `SWAGGER_DIR`, so `GET /swagger/` always reflects what the running gateway was built with.
+
+### Definitions the Gateway Does Not Route
+
+The OpenAPI documents are generated with `generate_unbound_methods=true`, which produces an entry for **every** method in every `.proto` file. The gateway, however, registers handlers only for the interfaces Cuebot exposes to REST clients. The difference is visible in the Swagger UI: the definitions below appear in the menu and their endpoints render normally, but calling one returns `404` with a gRPC `NOT_FOUND` body, even with a valid token.
+
+```json
+{"code":5,"message":"Not Found","details":[]}
+```
+
+| Interface | Endpoints | Why it is not routed |
+|-----------|-----------|----------------------|
+| `CueInterface` | `GetSystemStats` | Internal Cuebot statistics, not registered on the gateway |
+| `MonitoringInterface` | `GetFarmStatistics`, `GetFrameHistory`, `GetHostHistory`, `GetJobHistory`, `GetLayerHistory`, `GetLayerMemoryHistory` | Served by the monitoring stack, not by Cuebot's REST surface |
+| `RenderPartitionInterface` | `Delete`, `SetMaxResources` | Reached through `HostInterface` rather than directly |
+| `RqdReportInterface` | `ReportRqdStartup`, `ReportRunningFrameCompletion`, `ReportStatus` | RQD reports to Cuebot over gRPC; not a client-facing API |
+| `RqdInterface` | `GetRunFrame`, `GetRunningFrameStatus`, `KillRunningFrame`, `LaunchFrame`, `Lock`, `LockAll`, `NimbyOff`, `NimbyOn`, `RebootIdle`, `RebootNow`, `ReportStatus`, `RestartRqdIdle`, `RestartRqdNow`, `ShutdownRqdIdle`, `ShutdownRqdNow`, `Unlock`, `UnlockAll` | Implemented by the RQD agent on each host, not by Cuebot |
+| `RunningFrame` | `Kill`, `Status` | Implemented by the RQD agent, not by Cuebot |
+
+To act on a host or a running frame from the REST API, use `HostInterface` and `FrameInterface` instead; Cuebot relays the instruction to RQD.
+
+**Criterion Service** is a special case. `criterion.proto` defines only message types (the numeric matchers used by filters) and no service, so the definition contains zero endpoints. Selecting it in the menu shows a page with a **Models** section and nothing else. This is expected.
+
+To check the routed set on your own deployment:
+
+```bash
+# Publishes 304 endpoints
+curl -s http://localhost:8448/swagger/ \
+  | grep -o '/swagger/specs/[a-zA-Z_]*\.swagger\.json' | sort -u \
+  | while read -r s; do curl -s "http://localhost:8448$s" | jq '.paths | length'; done \
+  | paste -sd+ - | bc
+
+# A routed endpoint returns 200, an unrouted one returns 404
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  -H "Authorization: Bearer $JWT_TOKEN" -H 'Content-Type: application/json' -d '{}' \
+  http://localhost:8448/department.DepartmentInterface/GetDepartmentNames
+```
+
+### Fetching a Definition
+
+```bash
+curl -s http://localhost:8448/swagger/specs/show.swagger.json | jq '.paths | keys[]'
+```
+
+```json
+"/show.ShowInterface/Archive"
+"/show.ShowInterface/CreateFilter"
+"/show.ShowInterface/CreateOwner"
+"/show.ShowInterface/GetShows"
+```
+
+![The raw OpenAPI document served at /swagger/specs/show.swagger.json](/assets/images/rest_gateway/swagger/swagger_ui_openapi_spec.png)
+
+### Authorizing in the Browser
+
+Swagger UI injects a `BearerAuth` security definition (`apiKey`, in `header`, named `Authorization`) into every document it loads, so the **Authorize** button is always available:
+
+![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
+
+The value you enter is sent as the `Authorization` header. A `Bearer ` prefix is added automatically if you omit it, so both `<token>` and `Bearer <token>` work.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SWAGGER_ENABLED` | `true` | Mount the `/swagger/` routes. `false`, `0`, `no` or `off` (case-insensitive) disables them |
+| `SWAGGER_DIR` | `./gen/openapiv2` (`/app/gen/openapiv2` in the Docker image) | Directory holding the generated OpenAPI documents |
+
+When the routes are disabled, or when `SWAGGER_DIR` does not exist, nothing is mounted and `/swagger/` falls through to the authenticated handler, returning `401`.
 
 ---
 
@@ -112,6 +233,9 @@ The REST API provides access to all OpenCue interfaces:
 | [Service Interface](#service-interface) | Service definitions | GetService, GetDefaultServices, CreateService, Update, Delete |
 | [ServiceOverride Interface](#serviceoverride-interface) | Service overrides | Update, Delete |
 | [Task Interface](#task-interface) | Task management | Delete, SetMinCores, ClearAdjustments |
+| [Department Interface](#department-interface) | Show departments and their tasks | GetDepartmentNames, GetTasks, AddTask, SetManagedCores |
+
+These 22 interfaces are the ones the gateway routes. The Swagger UI menu also lists six interfaces it does not route; see [Definitions the Gateway Does Not Route](#definitions-the-gateway-does-not-route).
 
 ---
 
@@ -2214,6 +2338,114 @@ POST /task.TaskInterface/ClearAdjustments
     "id": "task-id-yz1"
   }
 }
+```
+
+---
+
+## Department Interface
+
+Manage a show's departments and the tasks that allocate cores to them. A department groups work such as Lighting or FX within a show, and can be managed either manually or by a track-it system.
+
+All 13 endpoints are routed by the gateway.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GetDepartmentNames` | List the department names configured in the system |
+| `AddDepartmentName` | Register a new department name |
+| `RemoveDepartmentName` | Remove a department name |
+| `Delete` | Delete a department from a show |
+| `GetTasks` | List the tasks belonging to a department |
+| `AddTask` | Add a single task |
+| `AddTasks` | Add several tasks at once |
+| `ReplaceTasks` | Replace the department's full task list |
+| `ClearTasks` | Remove every task from the department |
+| `ClearTaskAdjustments` | Clear core adjustments across the department's tasks |
+| `SetManagedCores` | Set the core count the department manages |
+| `EnableTiManaged` | Hand core management to a track-it system |
+| `DisableTiManaged` | Return the department to manual management |
+
+### Get Department Names
+
+List every department name known to the system.
+
+```http
+POST /department.DepartmentInterface/GetDepartmentNames
+```
+
+**Request Body:**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "names": [
+    "Animation",
+    "Cloth",
+    "FX",
+    "Hair",
+    "Layout",
+    "Lighting",
+    "Pipeline",
+    "Unknown"
+  ]
+}
+```
+
+### Add Department Name
+
+Register a new department name.
+
+```http
+POST /department.DepartmentInterface/AddDepartmentName
+```
+
+**Request Body:**
+```json
+{
+  "name": "Compositing"
+}
+```
+
+### Get Tasks
+
+List the tasks that belong to a department.
+
+```http
+POST /department.DepartmentInterface/GetTasks
+```
+
+**Request Body:**
+```json
+{
+  "department": {
+    "id": "department-id-abc"
+  }
+}
+```
+
+### Set Managed Cores
+
+Set the number of cores the department manages.
+
+```http
+POST /department.DepartmentInterface/SetManagedCores
+```
+
+**Request Body:**
+```json
+{
+  "department": {
+    "id": "department-id-abc"
+  },
+  "cores": 100
+}
+```
+
+**Response:**
+```json
+{}
 ```
 
 ---

@@ -51,7 +51,7 @@ For detailed installation and deployment options, see the [Deploying REST Gatewa
 
 ## Authentication
 
-**Important:** ALL REST Gateway endpoints require JWT authentication - there are no public endpoints.
+**Important:** ALL REST Gateway API endpoints require JWT authentication. The only routes served without a token are the Swagger UI and the OpenAPI definitions under `/swagger/`, which expose documentation but no data. See [Exploring the API with Swagger UI](#exploring-the-api-with-swagger-ui).
 
 Create and use JWT tokens for authentication:
 
@@ -71,6 +71,69 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
      "http://localhost:8448/show.ShowInterface/GetShows" \
      -d '{}'
 ```
+
+## Exploring the API with Swagger UI
+
+Before scripting against the API, it is usually quicker to explore it in the browser. The gateway ships an interactive Swagger UI at `http://localhost:8448/swagger/` covering every OpenCue interface.
+
+![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
+
+Use the **Select a definition** menu in the top bar to switch between the 18 definitions. Each is generated from the corresponding `.proto` file, and one definition can hold several interfaces: Job Service alone covers JobInterface, LayerInterface, FrameInterface and GroupInterface.
+
+| Definition | Interfaces it contains | Endpoints |
+|------------|------------------------|-----------|
+| Comment Service | CommentInterface | 2 |
+| Criterion Service | none, message types only | 0 |
+| Cue Service | CueInterface | 1 |
+| Department Service | DepartmentInterface | 13 |
+| Depend Service | DependInterface | 3 |
+| Facility Service | AllocationInterface, FacilityInterface | 19 |
+| Filter Service | ActionInterface, FilterInterface, MatcherInterface | 22 |
+| Host Service | DeedInterface, HostInterface, OwnerInterface, ProcInterface | 45 |
+| Job Service | FrameInterface, GroupInterface, JobInterface, LayerInterface | 116 |
+| Limit Service | LimitInterface | 7 |
+| Monitoring Service | MonitoringInterface | 6 |
+| RenderPartition Service | RenderPartitionInterface | 2 |
+| Report Service | RqdReportInterface | 3 |
+| Rqd Service | RqdInterface, RunningFrame | 19 |
+| Service Service | ServiceInterface, ServiceOverrideInterface | 7 |
+| Show Service | ShowInterface | 31 |
+| Subscription Service | SubscriptionInterface | 5 |
+| Task Service | TaskInterface | 3 |
+
+That is 304 endpoints in total, but only 273 of them work. Cue, Monitoring, RenderPartition, Report and Rqd are published in the menu yet not routed by the gateway, so they return `404` even with a valid token, and Criterion Service has no endpoints at all. See [Definitions the Gateway Does Not Route](/docs/reference/rest-api-reference/#definitions-the-gateway-does-not-route) for the reason and the alternatives.
+
+### Authorizing
+
+Click **Authorize** and paste your JWT. The `Bearer ` prefix is optional; the page adds it if you leave it off.
+
+![The Authorize dialog](/assets/images/rest_gateway/swagger/swagger_ui_authorize_dialog.png)
+
+### Sending a request
+
+Expand an endpoint to see its request body and response schema, then click **Try it out**, edit the JSON, and click **Execute**:
+
+![An endpoint with Try it out enabled](/assets/images/rest_gateway/swagger/swagger_ui_try_it_out.png)
+
+Swagger UI shows the equivalent `curl` command, the request URL, and the live response and headers:
+
+![A live 200 response from GetShows](/assets/images/rest_gateway/swagger/swagger_ui_execute_response.png)
+
+The generated `curl` command is copy-pasteable, which makes this a fast way to work out the exact request shape before moving it into a script.
+
+### Downloading a definition
+
+Each definition is downloadable on its own, which is useful for generating a typed client:
+
+```bash
+# Fetch a single OpenAPI document (no authentication required)
+curl -s http://localhost:8448/swagger/specs/show.swagger.json -o show.swagger.json
+
+# For example, generate a Python client with openapi-generator
+openapi-generator generate -i show.swagger.json -g python -o ./opencue-show-client
+```
+
+> **Note:** The Swagger UI is served without authentication so the API can be browsed. If your gateway is reachable beyond a trusted network, ask your administrator to disable it with `SWAGGER_ENABLED=false`.
 
 ## Common REST API Operations
 
@@ -252,6 +315,8 @@ The REST Gateway provides access to all OpenCue interfaces:
 ### Advanced Features
 - **Proc**: Process monitoring
 - **Deed**: Resource deed management
+
+For the authoritative list on your own deployment, open `http://localhost:8448/swagger/`. The definition menu is populated from the OpenAPI documents the gateway was built with, so it always reflects the running version.
 
 ## Rate Limiting and Performance
 

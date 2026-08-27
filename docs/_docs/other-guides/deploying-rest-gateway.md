@@ -240,6 +240,8 @@ sudo systemctl start opencue-rest-gateway
 | `CUEBOT_ENDPOINT` | `localhost:8443` | Cuebot gRPC endpoint |
 | `REST_PORT` | `8448` | HTTP server port |
 | `JWT_SECRET` | `dev-secret-key-change-in-production` | JWT signing secret |
+| `SWAGGER_ENABLED` | `true` | Serve the unauthenticated Swagger UI on `/swagger/` |
+| `SWAGGER_DIR` | `/app/gen/openapiv2` | Directory holding the generated OpenAPI documents |
 | `LOG_LEVEL` | `info` | Logging level (debug, info, warn, error) |
 | `CORS_ALLOWED_ORIGINS` | `*` | CORS allowed origins |
 | `GRPC_MAX_MESSAGE_SIZE` | `4194304` | Max gRPC message size (4MB) |
@@ -260,9 +262,56 @@ CORS_ALLOWED_ORIGINS=https://your-domain.com,https://cueweb.internal
 GRPC_MAX_MESSAGE_SIZE=8388608
 REQUEST_TIMEOUT=60s
 SHUTDOWN_TIMEOUT=30s
+# The Swagger UI is unauthenticated; keep it off in production
+SWAGGER_ENABLED=false
 ```
 
 ## Security Configuration
+
+### Swagger UI Exposure
+
+The gateway serves an interactive Swagger UI on `/swagger/`, mounted **outside** the JWT middleware so the API can be browsed without a token:
+
+![Swagger UI showing the ShowInterface endpoints](/assets/images/rest_gateway/swagger/swagger_ui_overview.png)
+
+This is convenient during development, but on a production gateway it publishes the complete API surface to anyone who can reach the port, including every interface, method name, and message schema. No data is readable and no operation can be performed without a valid JWT, but the shape of the system is visible.
+
+Choose one of the following for production:
+
+**Option 1. Disable it entirely (recommended).** The routes are not mounted at all, and `/swagger/` falls through to the authenticated handler:
+
+```bash
+docker run -d --name opencue-rest-gateway \
+  -e CUEBOT_ENDPOINT=cuebot.internal:8443 \
+  -e REST_PORT=8448 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e SWAGGER_ENABLED=false \
+  -p 8448:8448 \
+  opencue/rest-gateway:latest
+```
+
+Accepted false values are `false`, `0`, `no` and `off` (case-insensitive). Confirm from the gateway log:
+
+```
+SWAGGER_ENABLED is false; not mounting /swagger/ handlers
+```
+
+**Option 2. Keep it, but restrict it at the reverse proxy.** Useful when you want internal staff to browse the API but do not want it publicly reachable:
+
+```nginx
+location /swagger/ {
+    allow 10.0.0.0/8;       # internal network only
+    deny  all;
+    proxy_pass http://localhost:8448;
+}
+```
+
+Verify whichever option you chose:
+
+```bash
+# Should be 404/401 (disabled) or 403 (proxy-restricted) from outside
+curl -s -o /dev/null -w "%{http_code}\n" https://api.your-domain.com/swagger/
+```
 
 ### JWT Authentication
 
@@ -492,6 +541,18 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
      -d '{}'
 ```
 
+### Swagger UI Exposure Test
+
+Confirm the documentation routes match your intended configuration:
+
+```bash
+swagger_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8448/swagger/)
+echo "GET /swagger/ -> $swagger_status"
+```
+
+- `200`. The Swagger UI is being served without authentication. Expected in development; on a production gateway, set `SWAGGER_ENABLED=false` or restrict the path at your reverse proxy.
+- `401`. The routes are not mounted and the request fell through to the authenticated handler. Expected in production.
+
 ### Load Testing
 
 Use Apache Bench for load testing:
@@ -554,6 +615,7 @@ export LOG_LEVEL=debug
 5. **Regular security updates** for base images
 6. **Network segmentation** between gateway and Cuebot
 7. **Monitor for suspicious activity**
+8. **Disable the Swagger UI** with `SWAGGER_ENABLED=false`, or restrict `/swagger/` at the reverse proxy
 
 ## What's next?
 
