@@ -84,6 +84,7 @@ _seq = 0
 # is reported exactly once.
 _alive = {}           # frame_id -> RunningFrameInfo
 _stats = {"launched": 0, "completed": 0, "mem_failed": 0, "oom_killed": 0, "failed": 0,
+          "report_retries": 0,
           # work + latency instrumentation
           "core_points": 0,        # sum of reserved core-points launched (100==1 core)
           "work_cs": 0.0,          # sum of (cores * sim_duration) -> core-seconds of work
@@ -155,9 +156,14 @@ def _send_completion(frame, due_time, killed=False):
     report = report_pb2.FrameCompleteReport(
         host=_DUMMY_HOST, frame=frame, exit_status=exit_status, exit_signal=0, run_time=1)
     t0 = time.time()
-    # One failover retry: on RpcError re-dial the next configured cuebot and
-    # resend, so a leader kill costs at most one bounced report per frame.
-    for attempt in range(2):
+    # The real RQD (post #2473) holds a completion report and retries until
+    # cuebot ACCEPTS it: cuebot answers overload with a retry signal, and a
+    # dropped report would lose the completion forever. Model that contract:
+    # redial the same cuebot with a one second backoff, try the next cuebot
+    # every third failure (so a leader kill still fails over), and give up
+    # only after 90 attempts, which counts as "failed" like a dead farm.
+    attempt = 0
+    while True:
         try:
             _report.ReportRunningFrameCompletion(
                 report_pb2.RqdReportRunningFrameCompletionRequest(
@@ -176,12 +182,16 @@ def _send_completion(frame, due_time, killed=False):
                 _stats["lag_ms_sum"] += max(0.0, (t0 - due_time) * 1000.0)
             return
         except grpc.RpcError:
-            if attempt == 0 and len(_CUEBOTS) > 1:
-                _failover_report_stub()
-                continue
+            attempt += 1
             with _heap_lock:
-                _stats["failed"] += 1
-            return
+                _stats["report_retries"] += 1
+            if attempt >= 90:
+                with _heap_lock:
+                    _stats["failed"] += 1
+                return
+            if len(_CUEBOTS) > 1 and attempt % 3 == 0:
+                _failover_report_stub()
+            time.sleep(1.0)
 
 
 def _completion_loop():
@@ -281,6 +291,7 @@ def _stats_loop():
         oom_str = f" oomKilled={_stats['oom_killed']}" if _stats["oom_killed"] else ""
         print(f"  [rqd] launched={_stats['launched']} completed={_stats['completed']}"
               f"{mem_fail_str}{oom_str} pending={pending} failed={_stats['failed']} "
+              f"reportRetries={_stats['report_retries']} "
               f"cores_launched={cp//100} work_coreSec={cs:.0f} "
               f"ackMs_avg={ack_avg:.1f} ackMs_max={_stats['ack_ms_max']:.0f} "
               f"reporterLagMs_avg={lag_avg:.1f}", flush=True)

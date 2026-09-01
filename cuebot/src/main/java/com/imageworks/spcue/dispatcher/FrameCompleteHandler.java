@@ -16,14 +16,18 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
@@ -195,14 +199,18 @@ public class FrameCompleteHandler {
                         OomMemoryTracker.DEFAULT_EXPIRE_HOURS),
                 env.getProperty("dispatcher.oom_streak_expire_hours", Long.class,
                         OomMemoryTracker.DEFAULT_EXPIRE_HOURS));
-        int postCompleteQueueSize =
-                env.getProperty("maestro.post_complete_queue_size", Integer.class, 10000);
+        // One worker for ordering; an UNBOUNDED queue so this executor's
+        // overflow cannot exist as a code path. Maestro must never file
+        // post-complete work itself (tick time would multiply by the
+        // completion rate), and a completion that reached cuebot is never
+        // refused: the queue's depth is the completion rate times the time
+        // the worker stands still, a few kilobytes per entry.
         postCompleteExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(postCompleteQueueSize), r -> {
+                new LinkedBlockingQueue<Runnable>(), r -> {
                     Thread t = new Thread(r, "CompletionPostOps");
                     t.setDaemon(true);
                     return t;
-                }, new ThreadPoolExecutor.CallerRunsPolicy());
+                });
     }
 
     /**
@@ -341,27 +349,160 @@ public class FrameCompleteHandler {
      * completion checks, usage counters) can lag a little without hurting anyone; running it inside
      * the tick would multiply the tick time by the completion rate, and putting it on dispatchQueue
      * would let load-shedding silently drop depend satisfaction (a job then hangs forever). The
-     * queue is bounded (maestro.post_complete_queue_size) with a caller-runs overflow policy:
-     * nothing is ever dropped, but a sustained backlog turns into back-pressure on the drain
-     * instead of unbounded heap growth. Queue depth is reported on Maestro stat line. Initialized
-     * in the constructor (needs env for the bound).
+     * queue is UNBOUNDED so neither of those failure modes exists as a code path, and nothing is
+     * refused at the intake either: the RQD channel makes at most four attempts per report
+     * (rqd/rqd/rqnetwork.py) and postFrameAction deletes the frame before the send, so a report
+     * refused past those attempts is lost for good. The queue's depth is the completion rate times
+     * the time the worker stands still, a few kilobytes per entry, and it is reported on the
+     * Maestro stat line as postQ.
      */
     private final ThreadPoolExecutor postCompleteExecutor;
 
+    // consumed by queuePostOps()
+    private final LinkedBlockingQueue<QueuedFrameCompletion> postCompleteQueue =
+            new LinkedBlockingQueue<QueuedFrameCompletion>();
+
+    // consumed by queuePostOps()
+    private final AtomicBoolean scoopScheduled = new AtomicBoolean(false);
+
+    // consumed by batchPostOps(); one scoop is one batch of filings
+    private static final int POST_COMPLETE_SCOOP_MAX = 500;
+
     /**
-     * Queue a drained (already stopped) completion's follow-up work on the post-complete worker.
-     * Called by Maestro's drain for every frame its batched stop won.
+     * Queue a drained (already stopped) completion's follow-up work for the post-complete worker.
+     * Called by Maestro's drain for every frame its batched stop won. Completions land on a data
+     * queue rather than as closures, so the worker can scoop hundreds at a time and file them as a
+     * batch (batchPostOps): counters in one round trip per statement, completion checks once per
+     * distinct layer and job. The scoop task reschedules itself while work remains, so the executor
+     * holds at most one task and the queue depth is the real backlog.
      */
     public void queuePostOps(final QueuedFrameCompletion c) {
+        postCompleteQueue.offer(c);
+        scheduleScoop();
+    }
+
+    private void scheduleScoop() {
+        if (!scoopScheduled.compareAndSet(false, true))
+            return;
+        try {
+            submitScoop();
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Only possible during shutdown, after the executor stopped taking
+            // work: never let it reach the drain (the Maestro thread). What is
+            // still queued is abandoned to the maintenance sweep, exactly like
+            // an overrun of the shutdown drain window.
+            scoopScheduled.set(false);
+            logger.warn("post-complete worker is shut down; " + postCompleteQueue.size()
+                    + " queued completions left to the maintenance sweep.");
+        }
+    }
+
+    private void submitScoop() {
         postCompleteExecutor.execute(() -> {
+            List<QueuedFrameCompletion> scoop =
+                    new ArrayList<QueuedFrameCompletion>(POST_COMPLETE_SCOOP_MAX);
             try {
-                handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame, c.newFrameState,
-                        c.frameDetail);
-            } catch (RuntimeException e) {
-                logger.warn("post-complete operations for frame " + c.frame.getName() + " failed: "
-                        + CueExceptionUtil.getStackTrace(e));
+                while (true) {
+                    scoop.clear();
+                    postCompleteQueue.drainTo(scoop, POST_COMPLETE_SCOOP_MAX);
+                    if (scoop.isEmpty())
+                        return;
+                    batchPostOps(scoop);
+                }
+            } finally {
+                // The flag goes down whatever ended the task, the empty queue
+                // or an Error out of a batch, so no failure can leave the
+                // intake without a worker; an Error costs that one scoop's
+                // bookkeeping, its frames are stopped already. A completion
+                // that arrived between the last drain and the flag going down
+                // would be stranded: re-arm for it.
+                scoopScheduled.set(false);
+                if (!postCompleteQueue.isEmpty())
+                    scheduleScoop();
             }
         });
+    }
+
+    /**
+     * File one scoop of completions as a batch. The per-frame pieces (event publish, delay rules,
+     * memory-failure retries, frame-level depends) loop as before; the counters go through
+     * updateUsageCountersBatch in one round trip per statement; and the completion checks run once
+     * per DISTINCT layer and job instead of once per frame, so three hundred frames of one job ask
+     * "is the job done" once. The proc branches of the per-frame path are skipped entirely: this
+     * path only ever files completions the batched stop already released, so there is no proc left
+     * to unbook, transfer or rebook. Any failure falls back to the per-frame filing for the whole
+     * scoop, the same shape as the drain's own fallback.
+     */
+    private void batchPostOps(List<QueuedFrameCompletion> scoop) {
+        try {
+            Map<String, QueuedFrameCompletion> byLayer =
+                    new LinkedHashMap<String, QueuedFrameCompletion>();
+            Map<String, Boolean> layerSawSuccess = new LinkedHashMap<String, Boolean>();
+            Map<String, QueuedFrameCompletion> byJob =
+                    new LinkedHashMap<String, QueuedFrameCompletion>();
+            for (QueuedFrameCompletion c : scoop) {
+                publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState,
+                        c.proc);
+                applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail),
+                        c.newFrameState);
+                if (isMemoryFailure(c.report, c.frameDetail)) {
+                    retryFrameWithRaisedMemory(c.proc, c.frame);
+                }
+                boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
+                if (succeeded && MaestroMode.enabled(env)) {
+                    OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
+                }
+                boolean dependEligible = succeeded || (!satisfyDependOnlyOnFrameSuccess
+                        && c.newFrameState.equals(FrameState.EATEN));
+                if (dependEligible) {
+                    final QueuedFrameCompletion cc = c;
+                    satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(cc.frame),
+                            "frame " + cc.frame.getName() + " (id=" + cc.frame.getFrameId() + ")",
+                            cc.job.getName(), cc.job.getJobId());
+                    byLayer.putIfAbsent(c.frame.getLayerId(), c);
+                    layerSawSuccess.merge(c.frame.getLayerId(), succeeded, Boolean::logicalOr);
+                }
+                if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
+                    byJob.putIfAbsent(c.frame.getJobId(), c);
+                }
+            }
+
+            dispatchSupport.updateUsageCountersBatch(scoop);
+
+            for (Map.Entry<String, QueuedFrameCompletion> e : byLayer.entrySet()) {
+                final QueuedFrameCompletion c = e.getValue();
+                boolean isLayerComplete = jobManager.isLayerComplete(c.frame);
+                if (isLayerComplete) {
+                    satisfyDependsWithRetry(
+                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) c.frame),
+                            "layer " + c.frame.getLayerId(), c.job.getName(), c.job.getJobId());
+                    publishLayerCompletedTelemetry(c.frame);
+                } else if (layerSawSuccess.getOrDefault(e.getKey(), false)) {
+                    jobManager.optimizeLayer(c.frame, c.report.getFrame().getNumCores(),
+                            c.report.getFrame().getMaxRss(), c.report.getRunTime());
+                }
+            }
+
+            for (QueuedFrameCompletion c : byJob.values()) {
+                if (jobManager.isJobComplete(c.job)) {
+                    c.job.state = JobState.FINISHED;
+                    jobManagerSupport.queueShutdownJob(c.job, new Source("natural"), false);
+                }
+            }
+        } catch (RuntimeException e) {
+            logger.warn("batched post-complete filing of " + scoop.size()
+                    + " completions failed, retrying per frame: "
+                    + CueExceptionUtil.getStackTrace(e));
+            for (QueuedFrameCompletion c : scoop) {
+                try {
+                    handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame,
+                            c.newFrameState, c.frameDetail);
+                } catch (RuntimeException e2) {
+                    logger.warn("post-complete operations for frame " + c.frame.getName()
+                            + " failed: " + CueExceptionUtil.getStackTrace(e2));
+                }
+            }
+        }
     }
 
     /**
@@ -1434,7 +1575,7 @@ public class FrameCompleteHandler {
         try {
             if (!postCompleteExecutor.awaitTermination(drainMs, TimeUnit.MILLISECONDS)) {
                 logger.warn("post-complete worker did not drain within " + drainMs + "ms; "
-                        + postCompleteExecutor.getQueue().size() + " queued operations abandoned"
+                        + postCompleteQueue.size() + " queued completions abandoned"
                         + " (recovered later by the depend maintenance sweep).");
             }
         } catch (InterruptedException e) {
@@ -1444,7 +1585,7 @@ public class FrameCompleteHandler {
 
     /** Depth of the post-complete work queue, reported on Maestro stat line. */
     public int getPostCompleteQueueDepth() {
-        return postCompleteExecutor.getQueue().size();
+        return postCompleteQueue.size();
     }
 
     public HostManager getHostManager() {

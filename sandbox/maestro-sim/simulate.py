@@ -390,6 +390,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_layercap.py", "layercap_watch.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
+                     "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
                      "live_stats.py",
@@ -1134,6 +1135,13 @@ def start_strandgrow_injector(duration):
           f"{FARM}/inject_strandgrow.log")
 
 
+def start_completionstorm_injector(duration):
+    log(f"starting COMPLETIONSTORM flood (one-core frames completing faster "
+        f"than one post-op worker can file) for {duration}s ...")
+    spawn(["inject_completionstorm.py", str(duration)],
+          f"{FARM}/inject_completionstorm.log")
+
+
 def start_doublerender_injector(duration):
     log(f"starting DOUBLERENDER (stale unfenced frame-stop on running "
         f"frames; real sweep + rebook decide the verdict) for {duration}s ...")
@@ -1427,6 +1435,21 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{fm.group(4) if fm else '?'} frames, ctrl max "
                     f"{cm.group(1) if cm else '?'}, peak core util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "COMPLETIONSTORM":
+        # The watcher's verdict is the whole check: the tick must stay calm
+        # under the storm and the fake RQD must have lost no report.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        qm = re.search(r"peak postQ (\d+)", txt)
+        tm = re.search(r"peak avgTick (\d+)ms", txt)
+        dm = re.search(r"lost (\d+)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"completion rate vs the post-op worker: peak postQ "
+                    f"{qm.group(1) if qm else '?'}, peak avgTick "
+                    f"{tm.group(1) if tm else '?'}ms, lost "
+                    f"{dm.group(1) if dm else '?'}")
     if name == "DOUBLERENDER":
         # The watcher's verdict is the whole check: after the injected stale
         # frame-stop, the swept corpse's render must be killed, not left to
@@ -1756,6 +1779,24 @@ def run_verify():
         ("STRANDGROW", ["--hosts", "3,4,10",
                         "--strandgrow-test", str(max(D, 240))],
          {"SIM_RSS_PIN": "simstrandgrow=18"}),
+        # COMPLETIONSTORM: the completion path against the post-op worker. A
+        # finished frame's urgent work happens in the batched stop inside the
+        # tick; the slow follow-up (depends, job completion checks, usage) goes
+        # to ONE background worker through a queue, and Maestro must never
+        # do that filing itself: tick time would multiply by the completion
+        # rate, as the worker's own comment states. 400 single-layer jobs on
+        # purpose (Maestro commits once per layer per tick, so layers set
+        # the booking rate) of one second frames on 80 small hosts complete
+        # ~145/s. Asserts that the tick stays calm, that the fake RQD lost
+        # no report (every completion was accepted within the RQD channel's
+        # four attempts) and that the backlog drained.
+        ("COMPLETIONSTORM", ["--hosts", "0,0,80", "--cuebots", "1",
+                             "--completionstorm-test", str(max(D, 240))],
+         {"SIM_DUR_LONG_S": "1", "SIM_STORM_JOBS": "400",
+          "SIM_STORM_FRAMES": "300",
+          "SIM_STORM_MIN_POSTQ": "200",
+          "SIM_STORM_TICK_MAX_MS": "2000",
+          "SIM_STAT_INTERVAL_SECONDS": "10"}),
         # DOUBLERENDER: the release-path defect found by audit. A stale
         # lostProc (maintenance walking a minutes-old proc list) stops a frame
         # that was already released and rebooked -- the stop is unfenced, so
@@ -2054,6 +2095,11 @@ def main():
                          "accounting mirror (job_resource.int_cores) keeps "
                          "tracking SUM(procs) instead of wedging on the legacy "
                          "verify trigger.")
+    ap.add_argument("--completionstorm-test", type=int, default=0, metavar="SECS",
+                    help="COMPLETIONSTORM test: complete one-core frames faster "
+                         "than the single post-complete worker can file the "
+                         "follow-up work, and assert the tick never does that "
+                         "filing itself and no acked completion is dropped.")
     ap.add_argument("--strandgrow-test", type=int, default=0, metavar="SECS",
                     help="STRANDGROW test: flood threadable 1-core layers "
                          "whose frames really hold 18G of rss and assert the "
@@ -2409,6 +2455,8 @@ def main():
         start_layercap_solo_injector(args.layercap_solo_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
+    if args.completionstorm_test:
+        start_completionstorm_injector(args.completionstorm_test)
     if args.doublerender_test:
         start_doublerender_injector(args.doublerender_test)
     if lic_secs:
@@ -2431,6 +2479,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test
              or args.health_test or args.strandgrow_test
+             or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
@@ -2476,6 +2525,11 @@ def main():
             f"core grant) for {args.strandgrow_test}s ...")
         subprocess.run([VENV_PY, "strandgrow_watch.py",
                         str(args.strandgrow_test), "5"], cwd=FARM)
+    elif args.completionstorm_test:
+        log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
+            f"worker) for {args.completionstorm_test}s ...")
+        subprocess.run([VENV_PY, "completionstorm_watch.py",
+                        str(args.completionstorm_test), "5"], cwd=FARM)
     elif args.doublerender_test:
         log(f"watching DOUBLERENDER (swept corpse proc vs its still-running "
             f"render) for {args.doublerender_test}s ...")

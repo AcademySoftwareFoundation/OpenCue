@@ -821,40 +821,70 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         }, layer.getLayerId());
     }
 
+    // spotless:off
+    private static final String UPDATE_LAYER_USAGE_SUCCESS =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + 1 "
+            + "WHERE pk_layer = ? ";
+    private static final String UPDATE_LAYER_USAGE_HIGH =
+            "UPDATE layer_usage "
+            + "SET int_clock_time_high = ? "
+            + "WHERE pk_layer = ? "
+            + "AND int_clock_time_high < ?";
+    private static final String UPDATE_LAYER_USAGE_LOW =
+            "UPDATE layer_usage "
+            + "SET int_clock_time_low = ? "
+            + "WHERE pk_layer = ? "
+            + "AND (? < int_clock_time_low OR int_clock_time_low = 0)";
+    private static final String UPDATE_LAYER_USAGE_FAIL =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + 1 "
+            + "WHERE pk_layer = ? ";
+    // spotless:on
+
     @Override
     public void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus) {
 
         if (exitStatus == 0) {
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET "
-                            + "int_core_time_success = int_core_time_success + ?,"
-                            + "int_gpu_time_success = int_gpu_time_success + ?,"
-                            + "int_clock_time_success = int_clock_time_success + ?,"
-                            + "int_frame_success_count = int_frame_success_count + 1 " + "WHERE "
-                            + "pk_layer = ? ",
-                    usage.getCoreTimeSeconds(), usage.getGpuTimeSeconds(),
-                    usage.getClockTimeSeconds(), layer.getLayerId());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_SUCCESS, usage.getCoreTimeSeconds(),
+                    usage.getGpuTimeSeconds(), usage.getClockTimeSeconds(), layer.getLayerId());
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET " + "int_clock_time_high = ? " + "WHERE "
-                            + "pk_layer = ? " + "AND " + "int_clock_time_high < ?",
-                    usage.getClockTimeSeconds(), layer.getLayerId(), usage.getClockTimeSeconds());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_HIGH, usage.getClockTimeSeconds(),
+                    layer.getLayerId(), usage.getClockTimeSeconds());
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET " + "int_clock_time_low = ? " + "WHERE "
-                            + "pk_layer = ? " + "AND "
-                            + "(? < int_clock_time_low OR int_clock_time_low = 0)",
-                    usage.getClockTimeSeconds(), layer.getLayerId(), usage.getClockTimeSeconds());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_LOW, usage.getClockTimeSeconds(),
+                    layer.getLayerId(), usage.getClockTimeSeconds());
         } else {
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET "
-                            + "int_core_time_fail = int_core_time_fail + ?,"
-                            + "int_clock_time_fail = int_clock_time_fail + ?,"
-                            + "int_frame_fail_count = int_frame_fail_count + 1 " + "WHERE "
-                            + "pk_layer = ? ",
-                    usage.getCoreTimeSeconds(), usage.getClockTimeSeconds(), layer.getLayerId());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_FAIL, usage.getCoreTimeSeconds(),
+                    usage.getClockTimeSeconds(), layer.getLayerId());
         }
+    }
+
+    /**
+     * The batched form of updateUsage: the same four statements, one JDBC round trip each for a
+     * whole batch of completions instead of three or four per frame. Row shapes: success {coreTime,
+     * gpuTime, clockTime, pk_layer}, high and low {clockTime, pk_layer, clockTime}, fail {coreTime,
+     * clockTime, pk_layer}.
+     */
+    @Override
+    public void updateUsageBatch(List<Object[]> success, List<Object[]> high, List<Object[]> low,
+            List<Object[]> fail) {
+        if (!success.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_SUCCESS, success);
+        if (!high.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_HIGH, high);
+        if (!low.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_LOW, low);
+        if (!fail.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_FAIL, fail);
     }
 
     // spotless:off
