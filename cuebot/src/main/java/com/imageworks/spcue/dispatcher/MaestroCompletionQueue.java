@@ -68,19 +68,24 @@ public final class MaestroCompletionQueue {
 
     private MaestroCompletionQueue() {}
 
-    /** Ack-path enqueue. Never blocks, never throws; over the cap the completion is dropped. */
-    public static void offer(QueuedFrameCompletion completion) {
+    /**
+     * Ack-path enqueue. Never blocks, never throws; over the cap it returns false so the CALLER can
+     * refuse the report with the retry signal BEFORE acking it. RQD then holds the report and
+     * redials (the #2473 contract), so a completion is never dropped after it was acked.
+     */
+    public static boolean offer(QueuedFrameCompletion completion) {
         if (SIZE.get() >= MAX_QUEUED) {
             long n = DROPPED.incrementAndGet();
             if (n % 1000 == 1) {
                 logger.warn("MaestroCompletionQueue full (" + MAX_QUEUED
-                        + "); dropping completion for " + "frame " + completion.frame.getName()
-                        + " (total dropped " + n + "); host-report reconciliation will requeue it");
+                        + "); refusing completion for " + "frame " + completion.frame.getName()
+                        + " (total refused " + n + "); RQD holds the report and retries");
             }
-            return;
+            return false;
         }
         QUEUE.offer(completion);
         SIZE.incrementAndGet();
+        return true;
     }
 
     /**

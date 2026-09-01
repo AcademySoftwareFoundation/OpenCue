@@ -764,6 +764,57 @@ public class DispatchSupportService implements DispatchSupport {
         }
     }
 
+    /**
+     * The batched form of updateUsageCounters, for the post-complete worker's scoop. Reads each
+     * frame's resource usage (still one SELECT per frame; the aggregated read is a later step),
+     * then files show, job and layer counters through the DAOs' batch methods: one JDBC round trip
+     * per statement for the whole scoop instead of four to six per frame. A frame whose usage read
+     * fails is skipped with a log line, exactly like the per-frame form.
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateUsageCountersBatch(List<QueuedFrameCompletion> batch) {
+        List<Object[]> showSuccess = new ArrayList<Object[]>();
+        List<Object[]> showFail = new ArrayList<Object[]>();
+        List<Object[]> jobSuccess = new ArrayList<Object[]>();
+        List<Object[]> jobHigh = new ArrayList<Object[]>();
+        List<Object[]> jobFail = new ArrayList<Object[]>();
+        List<Object[]> laySuccess = new ArrayList<Object[]>();
+        List<Object[]> layHigh = new ArrayList<Object[]>();
+        List<Object[]> layLow = new ArrayList<Object[]>();
+        List<Object[]> layFail = new ArrayList<Object[]>();
+        for (QueuedFrameCompletion c : batch) {
+            final ResourceUsage usage;
+            try {
+                usage = frameDao.getResourceUsage(c.frame);
+            } catch (Exception e) {
+                logger.info("Unable to find and update resource usage for frame, " + c.frame
+                        + " while updating frame with exit status " + c.exitStatus + "," + e);
+                continue;
+            }
+            long core = usage.getCoreTimeSeconds();
+            long gpu = usage.getGpuTimeSeconds();
+            long clock = usage.getClockTimeSeconds();
+            String jobId = c.frame.getJobId();
+            String layerId = c.frame.getLayerId();
+            if (c.exitStatus == 0) {
+                showSuccess.add(new Object[] {c.frame.getShowId()});
+                jobSuccess.add(new Object[] {core, gpu, clock, jobId});
+                jobHigh.add(new Object[] {clock, jobId, clock});
+                laySuccess.add(new Object[] {core, gpu, clock, layerId});
+                layHigh.add(new Object[] {clock, layerId, clock});
+                layLow.add(new Object[] {clock, layerId, clock});
+            } else {
+                showFail.add(new Object[] {c.frame.getShowId()});
+                jobFail.add(new Object[] {core, clock, jobId});
+                layFail.add(new Object[] {core, clock, layerId});
+            }
+        }
+        showDao.updateFrameCountersBatch(showSuccess, showFail);
+        jobDao.updateUsageBatch(jobSuccess, jobHigh, jobFail);
+        layerDao.updateUsageBatch(laySuccess, layHigh, layLow, layFail);
+    }
+
     private void reserveProc(VirtualProc proc, DispatchFrame frame) {
 
         proc.jobId = frame.getJobId();

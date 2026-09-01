@@ -401,6 +401,14 @@ public interface LayerDao {
     void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus);
 
     /**
+     * The batched form of updateUsage: one JDBC round trip per statement for a whole batch of
+     * completions. Row shapes: success {coreTime, gpuTime, clockTime, pk_layer}, high and low
+     * {clockTime, pk_layer, clockTime}, fail {coreTime, clockTime, pk_layer}.
+     */
+    void updateUsageBatch(java.util.List<Object[]> success, java.util.List<Object[]> high,
+            java.util.List<Object[]> low, java.util.List<Object[]> fail);
+
+    /**
      * Returns true of the layer is launching.
      *
      * @param l

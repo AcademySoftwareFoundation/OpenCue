@@ -985,32 +985,59 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId());
     }
 
+    // spotless:off
+    private static final String UPDATE_JOB_USAGE_SUCCESS =
+            "UPDATE job_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + 1 "
+            + "WHERE pk_job = ? ";
+    private static final String UPDATE_JOB_USAGE_HIGH =
+            "UPDATE job_usage "
+            + "SET int_clock_time_high = ? "
+            + "WHERE pk_job = ? "
+            + "AND int_clock_time_high < ?";
+    private static final String UPDATE_JOB_USAGE_FAIL =
+            "UPDATE job_usage "
+            + "SET "
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + 1 "
+            + "WHERE pk_job = ? ";
+    // spotless:on
+
     public void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus) {
 
         if (exitStatus == 0) {
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "job_usage " + "SET "
-                            + "int_core_time_success = int_core_time_success + ?,"
-                            + "int_gpu_time_success = int_gpu_time_success + ?,"
-                            + "int_clock_time_success = int_clock_time_success + ?,"
-                            + "int_frame_success_count = int_frame_success_count + 1 " + "WHERE "
-                            + "pk_job = ? ",
-                    usage.getCoreTimeSeconds(), usage.getGpuTimeSeconds(),
-                    usage.getClockTimeSeconds(), job.getJobId());
+            getJdbcTemplate().update(UPDATE_JOB_USAGE_SUCCESS, usage.getCoreTimeSeconds(),
+                    usage.getGpuTimeSeconds(), usage.getClockTimeSeconds(), job.getJobId());
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "job_usage " + "SET " + "int_clock_time_high = ? " + "WHERE "
-                            + "pk_job = ? " + "AND " + "int_clock_time_high < ?",
-                    usage.getClockTimeSeconds(), job.getJobId(), usage.getClockTimeSeconds());
+            getJdbcTemplate().update(UPDATE_JOB_USAGE_HIGH, usage.getClockTimeSeconds(),
+                    job.getJobId(), usage.getClockTimeSeconds());
         } else {
 
-            getJdbcTemplate().update("UPDATE " + "job_usage " + "SET "
-                    + "int_core_time_fail = int_core_time_fail + ?,"
-                    + "int_clock_time_fail = int_clock_time_fail + ?,"
-                    + "int_frame_fail_count = int_frame_fail_count + 1 " + "WHERE " + "pk_job = ? ",
-                    usage.getCoreTimeSeconds(), usage.getClockTimeSeconds(), job.getJobId());
+            getJdbcTemplate().update(UPDATE_JOB_USAGE_FAIL, usage.getCoreTimeSeconds(),
+                    usage.getClockTimeSeconds(), job.getJobId());
         }
+    }
+
+    /**
+     * The batched form of updateUsage: the same three statements, one JDBC round trip each for a
+     * whole batch of completions instead of two or three per frame. Row shapes: success {coreTime,
+     * gpuTime, clockTime, pk_job}, high {clockTime, pk_job, clockTime}, fail {coreTime, clockTime,
+     * pk_job}.
+     */
+    @Override
+    public void updateUsageBatch(List<Object[]> success, List<Object[]> high, List<Object[]> fail) {
+        if (!success.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_SUCCESS, success);
+        if (!high.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_HIGH, high);
+        if (!fail.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_FAIL, fail);
     }
 
     public void updateEmail(JobInterface job, String email) {

@@ -18,6 +18,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -294,6 +295,29 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         }
         getJdbcTemplate().update("UPDATE show_stats SET " + col + " WHERE pk_show=?",
                 s.getShowId());
+    }
+
+    // spotless:off
+    private static final String INCREMENT_FRAME_SUCCESS =
+            "UPDATE show_stats "
+            + "SET int_frame_success_count = int_frame_success_count + 1 "
+            + "WHERE pk_show = ?";
+    private static final String INCREMENT_FRAME_FAIL =
+            "UPDATE show_stats "
+            + "SET int_frame_fail_count = int_frame_fail_count + 1 "
+            + "WHERE pk_show = ?";
+    // spotless:on
+
+    /**
+     * The batched form of updateFrameCounters: the same one-row increments, one JDBC round trip per
+     * outcome for a whole batch of completions instead of one per frame. Rows are {pk_show}.
+     */
+    @Override
+    public void updateFrameCountersBatch(List<Object[]> success, List<Object[]> fail) {
+        if (!success.isEmpty())
+            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_SUCCESS, success);
+        if (!fail.isEmpty())
+            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_FAIL, fail);
     }
 
     @Override

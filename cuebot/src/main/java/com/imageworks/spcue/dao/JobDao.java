@@ -475,6 +475,14 @@ public interface JobDao {
     void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus);
 
     /**
+     * The batched form of updateUsage: one JDBC round trip per statement for a whole batch of
+     * completions. Row shapes: success {coreTime, gpuTime, clockTime, pk_job}, high {clockTime,
+     * pk_job, clockTime}, fail {coreTime, clockTime, pk_job}.
+     */
+    void updateUsageBatch(java.util.List<Object[]> success, java.util.List<Object[]> high,
+            java.util.List<Object[]> fail);
+
+    /**
      * Returns true if the job is launching
      *
      * @param j
