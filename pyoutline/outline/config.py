@@ -121,7 +121,7 @@ def read_config_from_disk():
         _config.set('outline', 'user_dir', str(default_user_dir))
 
     # Override config options with environment variables if present.
-    # Format: OUTLINE_<SECTION>_<OPTION> or OL_<SECTION>_<OPTION>
+    # Format: OUTLINE_<SECTION>_<OPTION>
     # Section and option names are converted to uppercase, with non-alphanumeric
     # characters (such as ':' in section names) replaced with '_'.
     for section in _config.sections():
