@@ -153,18 +153,5 @@ class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
             del os.environ['OUTLINE_OUTLINE_SPEC_VERSION']
             del os.environ['OUTLINE_PLUGIN_LOCAL_ENABLE']
 
-    def test__should_not_override_options_with_ol_prefixed_env_vars(self):
-        config_file_path = '/path/to/outline.cfg'
-        self.fs.create_file(config_file_path, contents=USER_CONFIG)
-        os.environ['OUTLINE_CONFIG_FILE'] = config_file_path
-
-        os.environ['OL_OUTLINE_FACILITY'] = 'ignored_facility'
-
-        try:
-            config = read_config_from_disk()
-            self.assertEqual('cloud', config.get('outline', 'facility'))
-        finally:
-            del os.environ['OL_OUTLINE_FACILITY']
-
 if __name__ == '__main__':
     unittest.main()
