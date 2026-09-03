@@ -392,6 +392,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_solofill.py", "solofill_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_gpustrand.py", "gpustrand_watch.py",
+                     "inject_showtier.py", "showtier_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
@@ -1151,6 +1152,13 @@ def start_gpustrand_injector(duration):
           f"{FARM}/inject_gpustrand.log")
 
 
+def start_showtier_injector(duration):
+    log(f"starting SHOWTIER flood (two shows of equal priority, sizes one quarter "
+        f"and three quarters of the farm) for {duration}s ...")
+    spawn(["inject_showtier.py", str(duration)],
+          f"{FARM}/inject_showtier.log")
+
+
 def start_doublerender_injector(duration):
     log(f"starting DOUBLERENDER (stale unfenced frame-stop on running "
         f"frames; real sweep + rebook decide the verdict) for {duration}s ...")
@@ -1487,6 +1495,21 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{sm.group(1) if sm else '?'} hosts, rises "
                     f"{sm.group(2) if sm else '?'}, zero at "
                     f"{sm.group(3) if sm else '?'}, peak util "
+                    f"{um.group(1) if um else '?'}%")
+    if name == "SHOWTIER":
+        # The watcher's verdict is the whole check: equal tiers over the last
+        # 30 s under contention, nobody above burst. Fail-first: the slot draw
+        # ignores subscription size.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        tm = re.search(r"mean tiers showA ([0-9.]+), showB ([0-9.]+); tier gap ([0-9.]+)", txt)
+        um = re.search(r"peak util ([0-9.]+)%", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"allocation split by size: tiers showA "
+                    f"{tm.group(1) if tm else '?'} showB {tm.group(2) if tm else '?'}, "
+                    f"gap {tm.group(3) if tm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
     if name == "COMPLETIONSTORM":
         # The watcher's verdict is the whole check: the storm must fill the
@@ -1852,6 +1875,15 @@ def run_verify():
         ("GPUSTRAND", ["--hosts", "3,4,10", "--gpu", "0.25",
                        "--gpustrand-test", str(max(D, 240))],
          {"SIM_GPU_LAYERS": "0", "SIM_DUR_LONG_S": "40"}),
+        # SHOWTIER: a subscription's size is a guaranteed share of an
+        # allocation and its burst the ceiling. The legacy dispatcher walks
+        # shows lowest tier first (cores in use over size), so shows with work
+        # share an allocation in proportion to size. Two shows of equal
+        # priority, sizes one quarter and three quarters, flood one allocation.
+        # Fail-first: the slot draw reads priority alone and splits the farm in
+        # half, so the small show runs at twice its size.
+        ("SHOWTIER", ["--hosts", "3,4,10", "--showtier-test", str(max(D, 180))],
+         {"SIM_DUR_LONG_S": "90"}),
         # COMPLETIONSTORM: the completion path against the post-op worker. A
         # finished frame's urgent work happens in the batched stop inside the
         # tick; the slow follow-up (depends, job completion checks, usage) goes
@@ -2185,6 +2217,12 @@ def main():
                          "stranded count never rises and reaches zero: freed "
                          "cores on such a host go to GPU work, never back to "
                          "the flood.")
+    ap.add_argument("--showtier-test", type=int, default=0, metavar="SECS",
+                    help="SHOWTIER test: two shows of equal priority flood one "
+                         "allocation, sizes one quarter and three quarters of the "
+                         "farm. Assert that the allocation splits in proportion to "
+                         "subscription size (equal tiers) with nobody above burst, "
+                         "the legacy dispatcher's show walk.")
     ap.add_argument("--strandgrow-test", type=int, default=0, metavar="SECS",
                     help="STRANDGROW test: flood threadable 1-core layers "
                          "whose frames really hold 18G of rss and assert the "
@@ -2550,6 +2588,8 @@ def main():
         start_strandgrow_injector(args.strandgrow_test)
     if args.gpustrand_test:
         start_gpustrand_injector(args.gpustrand_test)
+    if args.showtier_test:
+        start_showtier_injector(args.showtier_test)
     if args.completionstorm_test:
         start_completionstorm_injector(args.completionstorm_test)
     if args.doublerender_test:
@@ -2574,7 +2614,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test or args.solofill_test
              or args.health_test or args.strandgrow_test
-             or args.gpustrand_test
+             or args.gpustrand_test or args.showtier_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2631,6 +2671,11 @@ def main():
             f"for {args.gpustrand_test}s ...")
         subprocess.run([VENV_PY, "gpustrand_watch.py",
                         str(args.gpustrand_test), "3"], cwd=FARM)
+    elif args.showtier_test:
+        log(f"watching SHOWTIER (allocation split by subscription size) "
+            f"for {args.showtier_test}s ...")
+        subprocess.run([VENV_PY, "showtier_watch.py",
+                        str(args.showtier_test), "3"], cwd=FARM)
     elif args.completionstorm_test:
         log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
             f"worker) for {args.completionstorm_test}s ...")
