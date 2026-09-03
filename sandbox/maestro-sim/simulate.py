@@ -394,6 +394,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_pin.py", "pin_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_migrate.py", "migrate_watch.py",
+                     "inject_slice.py", "slice_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
@@ -1153,6 +1154,11 @@ def start_migrate_injector(duration):
     spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_migrate.log")
 
 
+def start_slice_injector(duration):
+    log(f"starting SLICE (one wide layer on three large hosts) for {duration}s ...")
+    spawn(["inject_slice.py", str(duration)], f"{FARM}/inject_slice.log")
+
+
 def start_doublerender_injector(duration):
     log(f"starting DOUBLERENDER (stale unfenced frame-stop on running "
         f"frames; real sweep + rebook decide the verdict) for {duration}s ...")
@@ -1501,6 +1507,16 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{fm.group(4) if fm else '?'} frames, ctrl max "
                     f"{cm.group(1) if cm else '?'}, peak core util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "SLICE":
+        # The watcher's verdict is the whole check: every large host's first
+        # slice is the accounted size. Fail-first: the per-call cap cuts it.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        fm = re.search(r"first deliveries: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"first slices: {fm.group(1) if fm else '?'}"
     if name == "COMPLETIONSTORM":
         # The watcher's verdict is the whole check: the tick must stay calm
         # under the storm and the fake RQD must have lost no report.
@@ -1865,6 +1881,13 @@ def run_verify():
         ("STRANDGROW", ["--hosts", "3,4,10",
                         "--strandgrow-test", str(max(D, 240))],
          {"SIM_RSS_PIN": "simstrandgrow=18"}),
+        # SLICE: Maestro sizes a slice at frame_query_max and charges the
+        # host and every cap for it; the plan read must deliver that slice.
+        # Fail-first: the read breaks at host_frame_dispatch_max (12) even
+        # when it was handed a slice of 20, so eight frames per slice wait a
+        # tick and the host carries phantom reservation.
+        ("SLICE", ["--hosts", "3,1,1", "--slice-test", "90"],
+         {"SIM_DUR_LONG_S": "20"}),
         # COMPLETIONSTORM: the completion path against the post-op worker. A
         # finished frame's urgent work happens in the batched stop inside the
         # tick; the slow follow-up (depends, job completion checks, usage) goes
@@ -2206,6 +2229,11 @@ def main():
                          "than the single post-complete worker can file the "
                          "follow-up work, and assert the tick never does that "
                          "filing itself and no acked completion is dropped.")
+    ap.add_argument("--slice-test", type=int, default=0, metavar="SECS",
+                    help="SLICE test: one wide one-core layer on three large "
+                         "hosts. Assert that the first slice delivered on every "
+                         "large host is the slice Maestro accounted "
+                         "(frame_query_max), not a smaller per-call cap.")
     ap.add_argument("--strandgrow-test", type=int, default=0, metavar="SECS",
                     help="STRANDGROW test: flood threadable 1-core layers "
                          "whose frames really hold 18G of rss and assert the "
@@ -2590,6 +2618,8 @@ def main():
         start_migrate_injector(args.migrate_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
+    if args.slice_test:
+        start_slice_injector(args.slice_test)
     if args.completionstorm_test:
         start_completionstorm_injector(max(60, args.completionstorm_test - STORM_DRAIN_S))
     if args.doublerender_test:
@@ -2614,6 +2644,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test or args.solofill_test or args.pin_test
              or args.health_test or args.strandgrow_test or args.migrate_test
+             or args.slice_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2674,6 +2705,10 @@ def main():
             f"core grant) for {args.strandgrow_test}s ...")
         subprocess.run([VENV_PY, "strandgrow_watch.py",
                         str(args.strandgrow_test), "5"], cwd=FARM)
+    elif args.slice_test:
+        log(f"watching SLICE (a slice delivers what Maestro accounted) "
+            f"for {args.slice_test}s ...")
+        subprocess.run([VENV_PY, "slice_watch.py", str(args.slice_test)], cwd=FARM)
     elif args.completionstorm_test:
         log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
             f"worker) for {args.completionstorm_test}s ...")
