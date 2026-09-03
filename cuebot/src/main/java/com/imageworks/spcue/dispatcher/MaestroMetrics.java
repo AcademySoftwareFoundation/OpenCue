@@ -147,7 +147,7 @@ public class MaestroMetrics {
                     .labelNames("env", "cuebot_host").register();
 
     private static final String[] WAIT_REASONS =
-            {"flowing", "capacity", "no fit", "limit", "no license", "held"};
+            {"flowing", "capacity", "no fit", "limit", "no license", "held", "share"};
     private static final Gauge waitingFrames = Gauge.build().name("cue_maestro_waiting_frames")
             .help("Waiting frames on the last tick's candidate layers, by why they cannot run: "
                     + "flowing (layer booked this tick, backlog is moving); "
@@ -155,7 +155,9 @@ public class MaestroMetrics {
                     + "'no fit' (idle exists but none fits: slivers, memory or gpu); "
                     + "limit (job, show, limit or folder cap); "
                     + "'no license' (pool exhausted or stale); "
-                    + "held (every fitting host is reserved)")
+                    + "held (every fitting host is reserved); "
+                    + "share (the layer holds its per-host share on every fitting host while "
+                    + "other work waits)")
             .labelNames("env", "cuebot_host", "reason").register();
 
     private final boolean enabled;

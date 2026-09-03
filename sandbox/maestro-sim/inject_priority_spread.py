@@ -75,7 +75,7 @@ def token(pri):
     return f"prispread{pri:03d}"
 
 
-def make_job(name, pri, rng):
+def make_job(name, pri, rng, paused=False):
     n = rng.randint(LAYERS_MIN, LAYERS_MAX)
     layers = []
     for li in range(n):
@@ -87,7 +87,8 @@ def make_job(name, pri, rng):
             f'<cores>{cores*sim_model.CORE_POINTS}</cores>'
             f'<threadable>{sim_model.THREADABLE}</threadable><memory>{mem_mb}mb</memory>'
             f'<tags>{spec.TAG}</tags><services><service>shell</service></services></layer>')
-    return (f'  <job name="{name}"><paused>false</paused><priority>{pri}</priority>'
+    return (f'  <job name="{name}"><paused>{"true" if paused else "false"}</paused>'
+            f'<priority>{pri}</priority>'
             f'<maxcores>80000</maxcores>\n'
             '    <layers>\n' + "\n".join(layers) + "\n    </layers>\n  </job>\n")
 
@@ -113,12 +114,12 @@ def util_pct():
                    "/NULLIF(sum(int_cores),0),0) FROM host;", float, -1.0)
 
 
-def submit_wave(stub, prefix, pri, seq):
+def submit_wave(stub, prefix, pri, seq, paused=False):
     """Submit up to WAVE jobs; back off (and stop the wave) on launch-queue reject."""
     for _ in range(WAVE):
         seq += 1
         xml = SPEC_HEAD + make_job(f"{prefix}-{seq:05d}", pri,
-                                   random.Random(seq * 7 + pri)) + "</spec>\n"
+                                   random.Random(seq * 7 + pri), paused) + "</spec>\n"
         try:
             stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=xml))
         except grpc.RpcError:
@@ -136,6 +137,23 @@ def main():
           flush=True)
     t0 = time.time()
     seq = {p: 0 for p in PRIS}
+    # Every class must be on the farm before the first booking, or the idle
+    # farm goes to whichever class is ingested first: Maestro fills an
+    # idle farm in one tick, and the injector submits classes in turn. So the
+    # first wave of every class goes in paused, the loop waits until each
+    # class holds runnable frames, and one UPDATE releases them all at once:
+    # from that instant the classes contend together, which is the premise
+    # the verdict measures.
+    for p in PRIS:
+        seq[p] = submit_wave(stub, f"sim-test-{token(p)}", p, seq[p], paused=True)
+    deadline = time.time() + 90
+    while time.time() < deadline and any(waiting(token(p)) < FRAMES_MIN for p in PRIS):
+        time.sleep(1.0)
+    r = subprocess.run(PSQL + ["-c", "UPDATE job SET b_paused=false WHERE str_name LIKE "
+                               "'%prispread%' AND b_paused=true;"],
+                       capture_output=True, text=True, timeout=15)
+    print(f"released all classes together at t={time.time()-t0:.0f}s: "
+          f"{(r.stdout or '').strip()}", flush=True)
     while time.time() - t0 < DURATION:
         for p in PRIS:
             w = waiting(token(p))
