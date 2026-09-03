@@ -402,6 +402,14 @@ public class CoreUnitDispatcher implements Dispatcher {
             if (effMemKb > frame.getMinMemory()) {
                 frame.setMinMemory(effMemKb);
             }
+            // A frame that OOMed carries its own memory bump. Fit and reserve
+            // at that size here, so the commit's capacity gate sees the sum
+            // the plan reserved and never drops the host for a bump it did
+            // not know about.
+            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(frame.getFrameId());
+            if (bump > frame.getMinMemory()) {
+                frame.setMinMemory(bump);
+            }
 
             VirtualProc proc;
             try {

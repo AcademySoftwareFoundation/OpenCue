@@ -275,9 +275,24 @@ class RqdServicer(rqd_pb2_grpc.RqdInterfaceServicer):
         return rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
 
 
+ALIVE_FILE = os.path.join(_HERE, "rqd_alive.txt")   # consumed by the FAILOVER watcher
+
+
+def _dump_alive():
+    """Publish the ids of the frames RQD runs right now (atomic replace)."""
+    try:
+        tmp = ALIVE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            f.write("\n".join(list(_alive.keys())))
+        os.replace(tmp, ALIVE_FILE)
+    except Exception:
+        pass
+
+
 def _stats_loop():
     while True:
         time.sleep(5)
+        _dump_alive()
         with _heap_lock:
             pending = len(_heap)
             c = _stats["completed"] or 1
@@ -290,6 +305,7 @@ def _stats_loop():
         # Real host-OOM kills from cuebot's balancer (shown once any have happened).
         oom_str = f" oomKilled={_stats['oom_killed']}" if _stats["oom_killed"] else ""
         print(f"  [rqd] launched={_stats['launched']} completed={_stats['completed']}"
+              f" alive={len(_alive)}"
               f"{mem_fail_str}{oom_str} pending={pending} failed={_stats['failed']} "
               f"reportRetries={_stats['report_retries']} "
               f"cores_launched={cp//100} work_coreSec={cs:.0f} "

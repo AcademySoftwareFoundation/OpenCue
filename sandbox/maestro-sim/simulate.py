@@ -1747,6 +1747,13 @@ def _verify_check(name, gdir, logp, cblog):
         om = re.search(r"worst pool oversubscription after kill=(\d+)", txt)
         ok = bool(re.search(r"(?m)^PASS:", txt))
         detail = f"{started} frames booked by the standby after leader kill"
+        tm = re.search(r"takeover after kill=(\S+) .*?dead leader orphans peak=(\d+) "
+                       r"recovered at=(\S+) .*?double launches after kill=(\d+)  "
+                       r"completions per 60s before kill=(\d+) at end=(\d+)", txt)
+        if tm:
+            detail += (f"; takeover {tm.group(1)}, dead leader orphans peak {tm.group(2)} "
+                       f"reclaimed {tm.group(3)}, double launches {tm.group(4)}, "
+                       f"completions per 60s {tm.group(5)} before, {tm.group(6)} at end")
         if lm:
             detail += (f"; {lm.group(1)} of them licensed, "
                        f"{om.group(1) if om else '?'} pool oversubscription")
@@ -2029,8 +2036,8 @@ def run_verify():
         # take over the license pools too, without double-booking the seats the
         # dead leader had already spent. That is exactly why in-flight is derived
         # from the DB rather than counted in the leader's memory.
-        ("FAILOVER", ["--feed", str(D + 40), "--dep-tree-depth", "1",
-                      "--with-licenses", "--failover-test", str(D)]),
+        ("FAILOVER", ["--feed", str(max(D, 300) + 40), "--dep-tree-depth", "1",
+                      "--with-licenses", "--failover-test", str(max(D, 300))]),
         # TAGS_GPU: one MIXED run where the constraints intersect on the FULL
         # farm -- 8 random capability tags fragment the hosts AND 25% of hosts/
         # layers are GPU, so a GPU layer tagged cap3 fits only hosts that are
@@ -2940,6 +2947,29 @@ def main():
         started_after = 0
         running_end = 0
         jobs_after = 0
+        # Takeover invariants, sampled beside the booking counters. The dead
+        # leader's orphans are the frames it left RUNNING that RQD does not
+        # run: bookings it committed but never launched, and completions it
+        # acked but never wrote. Only frames started before the kill count,
+        # so the live launch and drain backlogs of the new leader stay out.
+        # Host-report verification must reclaim them; the time until that
+        # count reaches zero is the recovery time. Double launches come from
+        # RQD itself, which rejects a LaunchFrame for a frame it already runs.
+        kill_epoch = time.time()
+        takeover_s = None
+        phantom_peak = 0
+        phantom_end = 0
+        recovered_at = None
+        double_after = 0
+        rqd_lines0 = 0
+        try:
+            rqd_lines0 = sum(1 for l in open(RQD_LOG, errors="ignore") if "DOUBLE LAUNCH" in l)
+        except Exception:
+            pass
+        before = psql(f"SELECT count(*) FROM frame_history WHERE int_ts_stopped "
+                      f"BETWEEN {int(kill_epoch) - 60} AND {int(kill_epoch)};")
+        done_before = int(before.stdout.strip() or 0)
+        alive_file = os.path.join(FARM, "rqd_alive.txt")
         # With --with-licenses, the handover must also carry LICENSING. This is the
         # scenario that justifies deriving in-flight seats from the database: the
         # promoted standby never saw the dead leader's bookings, so if it counted
@@ -2964,6 +2994,33 @@ def main():
             running_end = int(out.stdout.strip() or 0)
             out = psql("SELECT count(*) FROM job;")
             jobs_after = int(out.stdout.strip() or 0) - jobs0
+            if takeover_s is None and started_after > 0:
+                out = psql(f"SELECT EXTRACT(EPOCH FROM (min(ts_started) - "
+                           f"'{kill_ts}'::timestamptz)) FROM frame "
+                           f"WHERE ts_started > '{kill_ts}';")
+                try:
+                    takeover_s = float(out.stdout.strip())
+                except ValueError:
+                    takeover_s = None
+            try:
+                double_after = sum(1 for l in open(RQD_LOG, errors="ignore")
+                                   if "DOUBLE LAUNCH" in l) - rqd_lines0
+                alive = set(open(alive_file).read().split())
+            except Exception:
+                alive = None
+            phantom_end = 0
+            if alive is not None:
+                out = psql(f"SELECT pk_frame FROM frame WHERE str_state='RUNNING' "
+                           f"AND ts_started < '{kill_ts}';")
+                dead = [f for f in out.stdout.split() if f not in alive]
+                phantom_end = len(dead)
+            phantom_peak = max(phantom_peak, phantom_end)
+            since = time.time() - kill_epoch
+            if since > 20 and phantom_end == 0:
+                if recovered_at is None:
+                    recovered_at = since
+            else:
+                recovered_at = None
             lic_note = ""
             if licensed:
                 st = licw.server_state()
@@ -2987,7 +3044,8 @@ def main():
                             f"pools: {' | '.join(parts)}")
             log(f"  [failover] frames started since kill: {started_after}  "
                 f"running now: {running_end}  jobs submitted since kill: "
-                f"{jobs_after}{lic_note}")
+                f"{jobs_after}  dead leader's orphans: {phantom_end}  "
+                f"double launches: {double_after}{lic_note}")
             time.sleep(5)
         floor = int(os.environ.get("SIM_FAILOVER_MIN_STARTED", "100"))
         jfloor = int(os.environ.get("SIM_FAILOVER_MIN_JOBS", "3"))
@@ -3014,17 +3072,55 @@ def main():
                 print(f"LICENSE-FAILOVER OK: the standby booked "
                       f"{lic_started_after} licensed frames after the kill without "
                       f"oversubscribing any pool.", flush=True)
+        end_epoch = int(time.time())
+        after = psql(f"SELECT count(*) FROM frame_history WHERE int_ts_stopped "
+                     f"BETWEEN {end_epoch - 60} AND {end_epoch};")
+        done_after = int(after.stdout.strip() or 0)
+        max_takeover = float(os.environ.get("SIM_FAILOVER_MAX_TAKEOVER_S", "15"))
+        max_recover = float(os.environ.get("SIM_FAILOVER_MAX_RECOVER_S", "120"))
+        rate_floor = float(os.environ.get("SIM_FAILOVER_RATE_FLOOR", "0.5"))
+        takeover_ok = takeover_s is not None and takeover_s <= max_takeover
+        recover_ok = recovered_at is not None and recovered_at <= max_recover
+        rate_ok = done_before == 0 or done_after >= rate_floor * done_before
+        double_ok = double_after == 0
+        # The orphan reclaim is parked: the dead leader's orphans are reported
+        # on every run but do not gate the verdict until the reclaim lands.
+        inv_ok = takeover_ok and rate_ok and double_ok
+        print(f"takeover after kill={'never' if takeover_s is None else f'{takeover_s:.1f}s'} "
+              f"(max {max_takeover:.0f}s)  dead leader orphans peak={phantom_peak} "
+              f"recovered at={'never' if recovered_at is None else f'{recovered_at:.0f}s'} "
+              f"(max {max_recover:.0f}s)  double launches after kill={double_after}  "
+              f"completions per 60s before kill={done_before} at end={done_after} "
+              f"(floor {rate_floor:.0%})", flush=True)
+        if not recover_ok:
+            print(f"TAKEOVER NOTE (parked): the dead leader's orphans were not reclaimed "
+                  f"(peak {phantom_peak}, end {phantom_end}); the maintenance sweep needs "
+                  f"300 s of silence per proc.", flush=True)
+        if not inv_ok:
+            why = []
+            if not takeover_ok:
+                why.append("the backup did not take over in time")
+            if not double_ok:
+                why.append(f"RQD saw {double_after} double launches")
+            if not rate_ok:
+                why.append(f"the completion rate did not recover ({done_after} vs "
+                           f"{done_before} per 60s)")
+            print("TAKEOVER FAIL: " + "; ".join(why), flush=True)
         print("\n==== FAILOVER VERDICT ====", flush=True)
         print(f"frames started after leader kill={started_after}  "
               f"jobs submitted after leader kill={jobs_after}  "
               f"running at end={running_end}  (floors {floor}/{jfloor})", flush=True)
-        if started_after >= floor and jobs_after >= jfloor and running_end > 0 and lic_ok:
+        if (started_after >= floor and jobs_after >= jfloor and running_end > 0 and lic_ok
+                and inv_ok):
             print(f"PASS: after the leader was killed the standby booked "
                   f"{started_after} new frames (>= {floor}) AND accepted "
                   f"{jobs_after} new job submissions (>= {jfloor})"
                   + (f" AND took over {lic_started_after} licensed frames with no "
                      f"pool oversubscribed" if licensed else "")
                   + " -- full-service leader failover works.", flush=True)
+        elif started_after >= floor and jobs_after >= jfloor and lic_ok and not inv_ok:
+            print(f"FAIL: the backup booked and accepted submissions, but a takeover "
+                  f"invariant broke -- see the TAKEOVER FAIL line above.", flush=True)
         elif not lic_ok:
             print(f"FAIL: bookings and submissions failed over ({started_after} "
                   f"frames, {jobs_after} jobs) but LICENSING did not -- see the "

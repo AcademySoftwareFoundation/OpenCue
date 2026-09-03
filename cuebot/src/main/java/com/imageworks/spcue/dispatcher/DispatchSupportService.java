@@ -458,6 +458,9 @@ public class DispatchSupportService implements DispatchSupport {
                 b.proc.jobId = b.frame.getJobId();
                 b.proc.layerId = b.frame.getLayerId();
                 b.proc.showId = b.frame.getShowId();
+                // The batch start advanced int_version by one; keep the frame
+                // in step so a guarded clear after a failed launch matches.
+                b.frame.version++;
                 winners.add(b);
                 winnerProcs.add(b.proc);
             } else {
