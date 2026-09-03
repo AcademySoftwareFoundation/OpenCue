@@ -438,7 +438,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                 break;
             } else if (bookings.size() >= bookMax) {
                 break;
-            } else if (bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+            } else if (planLimit <= 0
+                    && bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+                // The per-call cap belongs to the legacy trickle. A planner
+                // slice is already sized and charged; deliver all of it.
                 break;
             }
         }
