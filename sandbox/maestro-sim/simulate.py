@@ -389,6 +389,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_prodenv.py", "prodenv_watch.py",
                      "inject_layercap.py", "layercap_watch.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
+                     "inject_solofill.py", "solofill_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
@@ -736,7 +737,7 @@ def maestro_enabled(sim_mode):
     return raw.strip().lower() or "no"
 
 
-def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
+def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
                  max_grantees=8, backfill=True,
                  frame_cores_max=0):
     # maestro.enabled is a tri-state rollout switch: no | facility | managed
@@ -820,7 +821,7 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
     sys.exit(f"cuebot did not become ready; see {CUEBOT_LOG}")
 
 
-def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
+def start_extra_cuebot(instance, mode, reservations=True, block_seconds=60,
                        max_fraction=0.5, max_grantees=8, backfill=True,
                        frame_cores_max=0):
     """Launch an ADDITIONAL cuebot (instance >= 1) from the built jar, on offset
@@ -1155,6 +1156,12 @@ def start_layercap_injector(duration):
     spawn(["inject_layercap.py", str(duration)], f"{FARM}/inject_layercap.log")
 
 
+def start_solofill_injector(duration):
+    log(f"starting SOLOFILL (one-layer job vs many-layer job of equal frames "
+        f"on the idle farm) for {duration}s")
+    spawn(["inject_solofill.py", str(duration)], f"{FARM}/inject_solofill.log")
+
+
 def start_layercap_solo_injector(duration):
     log(f"starting LAYERCAP_SOLO flood (one deep 1-core layer ALONE; the cap "
         f"must yield instead of stranding the farm, for {duration}s) ...")
@@ -1417,6 +1424,21 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{pm.group(1) if pm else '?'} frames on "
                     f"{pm.group(2) if pm else '?'} hosts, "
                     f"{om.group(1) if om else '?'} hosts over cap")
+    if name == "SOLOFILL":
+        # The watcher's verdict is the whole check: at the mark the one-layer
+        # job must keep pace with the many-layer job of equal frames.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        mm = re.search(r"at the mark: A (\d+) running on (\d+) hosts with (\d+) "
+                       r"waiting; B (\d+) running; ratio A/B ([0-9.]+)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"one-layer vs many-layer fill at the mark: A "
+                    f"{mm.group(1) if mm else '?'} running on "
+                    f"{mm.group(2) if mm else '?'} hosts ({mm.group(3) if mm else '?'} "
+                    f"waiting) vs B {mm.group(4) if mm else '?'}; A/B "
+                    f"{mm.group(5) if mm else '?'}")
     if name == "STRANDGROW":
         # The watcher's verdict is the whole check: memory-heavy threadable
         # frames book at their metric share, the non-threadable control does
@@ -1769,6 +1791,14 @@ def run_verify():
         ("LAYERCAP_SOLO", ["--hosts", "3,4,10",
                            "--layercap-solo-test", str(max(D, 240))],
          {"SIM_LAYER_HOST_MAX_FRAC": "0.25"}),
+        # SOLOFILL: a one-layer job and a fifty-layer job of equal frames
+        # start together on the idle FULL farm (a small farm hides this: one
+        # host per tick covers 17 hosts in a minute). At 120s the one-layer
+        # job must hold at least half of the other's running frames, or a
+        # layer's fill rate is a per-tick allowance and a job fills the farm
+        # at a speed set by its layer count. Fail-first: A/B near 0.02. Frames
+        # run 90s: still up at the 120s mark, done before the run ends.
+        ("SOLOFILL", ["--solofill-test", str(max(D, 150))], {"SIM_DUR_LONG_S": "90"}),
         # STRANDGROW: 1-core layers whose frames REALLY hold 18G of rss (the
         # fake RQD pins their reported rss; declarations are not trusted). The
         # first wave books at the ask (no evidence yet), then the scheduler
@@ -2131,6 +2161,12 @@ def main():
                          "on an idle farm must go past the per-host layer "
                          "cap (contention rule, nobody waiting) and reach "
                          "high core utilisation instead of stranding.")
+    ap.add_argument("--solofill-test", type=int, default=0, metavar="SECS",
+                    help="SOLOFILL test: a one-layer job and a many-layer job "
+                         "of equal frames start together on an idle farm; "
+                         "at the mark the one-layer job must hold at least "
+                         "half of the other's running frames, or a layer's "
+                         "fill rate is a per-tick allowance.")
     ap.add_argument("--health-test", type=int, default=0, metavar="SECS",
                     help="HEALTH test: assert the cue_farm_health_* Prometheus "
                          "family reports the fake farm's deterministic health "
@@ -2414,12 +2450,12 @@ def main():
     # Whole-host wide jobs (--strand-cores > 64) need the per-frame clamp
     # raised (core-points) so cuebot does not cap them back to 64.
     frame_cores_max = args.strand_cores * 100 if args.strand_cores > 64 else 0
-    start_cuebot(args.mode, args.reservations,
+    start_cuebot(args.mode, os.environ.get('SIM_RESERVATIONS', '1') != '0',
                  args.reservation_block_seconds, args.reservation_max_fraction,
                  args.reservation_max_grantees, args.backfill,
                  frame_cores_max=frame_cores_max)
     for i in range(1, max(1, args.cuebots)):
-        start_extra_cuebot(i, args.mode, args.reservations,
+        start_extra_cuebot(i, args.mode, os.environ.get('SIM_RESERVATIONS', '1') != '0',
                            args.reservation_block_seconds, args.reservation_max_fraction,
                            args.reservation_max_grantees, args.backfill,
                            frame_cores_max=frame_cores_max)
@@ -2457,6 +2493,8 @@ def main():
         start_layercap_injector(args.layercap_test)
     if args.layercap_solo_test:
         start_layercap_solo_injector(args.layercap_solo_test)
+    if args.solofill_test:
+        start_solofill_injector(args.solofill_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
     if args.completionstorm_test:
@@ -2481,7 +2519,7 @@ def main():
     watch = (args.strand or args.priority_starve or args.priority_spread
              or args.limit_test or args.license_test or args.poison_test
              or args.capdrop_test or args.prodenv_test or args.layercap_test
-             or args.layercap_solo_test
+             or args.layercap_solo_test or args.solofill_test
              or args.health_test or args.strandgrow_test
              or args.completionstorm_test
              or args.doublerender_test
@@ -2524,6 +2562,11 @@ def main():
             f"for {args.layercap_solo_test}s ...")
         subprocess.run([VENV_PY, "layercap_solo_watch.py",
                         str(args.layercap_solo_test), "5"], cwd=FARM)
+    elif args.solofill_test:
+        log(f"watching SOLOFILL (one-layer vs many-layer fill on an idle farm) "
+            f"for {args.solofill_test}s ...")
+        subprocess.run([VENV_PY, "solofill_watch.py",
+                        str(args.solofill_test), "5"], cwd=FARM)
     elif args.strandgrow_test:
         log(f"watching STRANDGROW (memory-heavy frames vs the launch-time "
             f"core grant) for {args.strandgrow_test}s ...")
