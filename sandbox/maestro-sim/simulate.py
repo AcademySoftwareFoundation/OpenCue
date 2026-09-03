@@ -391,6 +391,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
                      "inject_solofill.py", "solofill_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
+                     "inject_gpustrand.py", "gpustrand_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
@@ -1143,6 +1144,13 @@ def start_completionstorm_injector(duration):
           f"{FARM}/inject_completionstorm.log")
 
 
+def start_gpustrand_injector(duration):
+    log(f"starting GPUSTRAND flood (CPU-only jobs saturate the farm, then a "
+        f"GPU job asks for one GPU) for {duration}s ...")
+    spawn(["inject_gpustrand.py", str(duration)],
+          f"{FARM}/inject_gpustrand.log")
+
+
 def start_doublerender_injector(duration):
     log(f"starting DOUBLERENDER (stale unfenced frame-stop on running "
         f"frames; real sweep + rebook decide the verdict) for {duration}s ...")
@@ -1456,6 +1464,29 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{fm.group(1) if fm else '?'} pts over "
                     f"{fm.group(4) if fm else '?'} frames, ctrl max "
                     f"{cm.group(1) if cm else '?'}, peak core util "
+                    f"{um.group(1) if um else '?'}%")
+    if name == "GPUSTRAND":
+        # The watcher's verdict is the whole check: a GPU is reachable only
+        # through a core and some memory, so a host that holds an idle GPU
+        # behind CPU-only work is stranded. No scheduler without preemption
+        # can free it before those frames finish, so the invariant is on the
+        # drain: while GPU frames wait the stranded count never rises, it
+        # reaches zero, and GPU frames run. Fail-first: the placement score
+        # charges nothing for stranded GPU capacity, so freed cores go
+        # straight back to the flood.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        gm = re.search(r"gpu frames peak running (\d+)", txt)
+        sm = re.search(r"stranded peak (\d+) hosts, rises (\d+), zero at (\S+),", txt)
+        um = re.search(r"peak util ([0-9.]+)%", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"CPU-only flood vs the GPUs it buries: gpu frames peak "
+                    f"{gm.group(1) if gm else '?'}, stranded peak "
+                    f"{sm.group(1) if sm else '?'} hosts, rises "
+                    f"{sm.group(2) if sm else '?'}, zero at "
+                    f"{sm.group(3) if sm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
     if name == "COMPLETIONSTORM":
         # The watcher's verdict is the whole check: the storm must fill the
@@ -1810,6 +1841,17 @@ def run_verify():
         ("STRANDGROW", ["--hosts", "3,4,10",
                         "--strandgrow-test", str(max(D, 240))],
          {"SIM_RSS_PIN": "simstrandgrow=18"}),
+        # GPUSTRAND: a GPU is reachable only through a core and some memory,
+        # but a CPU-only frame asks for no GPU, so both GPU terms of the score
+        # return zero and an idle GPU host is the cheapest machine on the farm
+        # for CPU work. A CPU-only flood saturates a farm that has GPU hosts,
+        # then a GPU job arrives. The flood frames run 40 s so the stranded
+        # hosts can drain inside the run: the stranded count must never rise
+        # and must reach zero while GPU frames wait. Fail-first: freed cores
+        # go back to the flood and the GPUs stay unreachable.
+        ("GPUSTRAND", ["--hosts", "3,4,10", "--gpu", "0.25",
+                       "--gpustrand-test", str(max(D, 240))],
+         {"SIM_GPU_LAYERS": "0", "SIM_DUR_LONG_S": "40"}),
         # COMPLETIONSTORM: the completion path against the post-op worker. A
         # finished frame's urgent work happens in the batched stop inside the
         # tick; the slow follow-up (depends, job completion checks, usage) goes
@@ -2134,6 +2176,15 @@ def main():
                          "than the single post-complete worker can file the "
                          "follow-up work, and assert the tick never does that "
                          "filing itself and no acked completion is dropped.")
+    ap.add_argument("--gpustrand-test", type=int, default=0, metavar="SECS",
+                    help="GPUSTRAND test: saturate a farm that has GPU hosts "
+                         "with CPU-only work, then submit a GPU job. A GPU is "
+                         "reachable only through a core and some memory, so a "
+                         "host that holds an idle GPU behind CPU-only work is "
+                         "stranded. Assert that, while GPU frames wait, the "
+                         "stranded count never rises and reaches zero: freed "
+                         "cores on such a host go to GPU work, never back to "
+                         "the flood.")
     ap.add_argument("--strandgrow-test", type=int, default=0, metavar="SECS",
                     help="STRANDGROW test: flood threadable 1-core layers "
                          "whose frames really hold 18G of rss and assert the "
@@ -2497,6 +2548,8 @@ def main():
         start_solofill_injector(args.solofill_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
+    if args.gpustrand_test:
+        start_gpustrand_injector(args.gpustrand_test)
     if args.completionstorm_test:
         start_completionstorm_injector(args.completionstorm_test)
     if args.doublerender_test:
@@ -2521,6 +2574,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test or args.solofill_test
              or args.health_test or args.strandgrow_test
+             or args.gpustrand_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2572,6 +2626,11 @@ def main():
             f"core grant) for {args.strandgrow_test}s ...")
         subprocess.run([VENV_PY, "strandgrow_watch.py",
                         str(args.strandgrow_test), "5"], cwd=FARM)
+    elif args.gpustrand_test:
+        log(f"watching GPUSTRAND (CPU-only work vs the GPUs it buries) "
+            f"for {args.gpustrand_test}s ...")
+        subprocess.run([VENV_PY, "gpustrand_watch.py",
+                        str(args.gpustrand_test), "3"], cwd=FARM)
     elif args.completionstorm_test:
         log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
             f"worker) for {args.completionstorm_test}s ...")

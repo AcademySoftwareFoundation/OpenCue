@@ -100,7 +100,7 @@ public class Maestro extends JdbcDaoSupport {
     // foreign frames booked since (displacement, not wall clock), not seconds. 0 disables. See doc.
     private volatile int localityWindowFrames = 64;
     // host|layer -> host's booking-odometer reading when the layer last completed there.
-    private final Map<String, Long> warmthByHostLayer = new HashMap<String, Long>();
+    private final Map<String, Map<String, Long>> warmthByHost = new HashMap<>();
     // host -> booking odometer, incremented per frame booked on the host.
     private final Map<String, Long> bookingsByHost = new HashMap<String, Long>();
 
@@ -233,7 +233,7 @@ public class Maestro extends JdbcDaoSupport {
     private Map<String, Set<String>> hostLayerAffinity = new HashMap<>();
     // Frames each layer runs per host right now ("hostId|layerId" -> count), read with the
     // affinity snapshot and advanced as the plan books. Backs the per-host layer cap.
-    private Map<String, Integer> hostLayerFrames = new HashMap<>();
+    private Map<String, Map<String, Integer>> hostLayerFrames = new HashMap<>();
     // Frames each layer runs farm-wide right now, read with the same snapshot. Backs the
     // probe gate for layers with no rss evidence yet.
     private Map<String, Integer> layerRunningFrames = new HashMap<>();
@@ -246,7 +246,7 @@ public class Maestro extends JdbcDaoSupport {
     // waiting list, so the parallel plan reads pull disjoint frames and
     // deliver exactly what the scoring accounted.
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
-    private final Map<String, int[]> planSliceByHostLayer = new HashMap<>();
+    private double[][] reachNeeds; // consumed by placementScore() and strandFreeFrames()
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
     // effective memory KB}, read by planBookings so the commit books the same shape the
     // Maestro scored.
@@ -757,8 +757,9 @@ public class Maestro extends JdbcDaoSupport {
                     if (won[i]) {
                         if (localityEnabled && localityWindowFrames > 0
                                 && c.proc.getLayerId() != null) {
-                            warmthByHostLayer.put(c.proc.getHostId() + "|" + c.proc.getLayerId(),
-                                    bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
+                            warmthByHost.computeIfAbsent(c.proc.getHostId(), k -> new HashMap<>())
+                                    .put(c.proc.getLayerId(),
+                                            bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
                         }
                         frameCompleteHandler.queuePostOps(c);
                     } else {
@@ -791,12 +792,13 @@ public class Maestro extends JdbcDaoSupport {
      * Idle hosts' entries never expire because nothing displaced them.
      */
     private void expireDisplacedWarmth() {
-        if (warmthByHostLayer.isEmpty())
+        if (warmthByHost.isEmpty())
             return;
-        warmthByHostLayer.entrySet()
-                .removeIf(e -> bookingsByHost
-                        .getOrDefault(e.getKey().substring(0, e.getKey().indexOf('|')), 0L)
-                        - e.getValue() >= localityWindowFrames);
+        for (Map.Entry<String, Map<String, Long>> h : warmthByHost.entrySet()) {
+            long odo = bookingsByHost.getOrDefault(h.getKey(), 0L);
+            h.getValue().values().removeIf(seen -> odo - seen >= localityWindowFrames);
+        }
+        warmthByHost.values().removeIf(Map::isEmpty);
     }
 
     /**
@@ -857,11 +859,12 @@ public class Maestro extends JdbcDaoSupport {
         // tick), so a cause that spiked for a single tick still shows here.
         String waitlist = String.format(
                 " | waitlist total=%d flowing=%d capacity=%d nofit=%d limit=%d license=%d held=%d"
-                        + " share=%d",
+                        + " share=%d strand=%d",
                 winWaitTotalMax, winWaitMax.getOrDefault("flowing", 0L),
                 winWaitMax.getOrDefault("capacity", 0L), winWaitMax.getOrDefault("no fit", 0L),
                 winWaitMax.getOrDefault("limit", 0L), winWaitMax.getOrDefault("no license", 0L),
-                winWaitMax.getOrDefault("held", 0L), winWaitMax.getOrDefault("share", 0L));
+                winWaitMax.getOrDefault("held", 0L), winWaitMax.getOrDefault("share", 0L),
+                winWaitMax.getOrDefault("strand", 0L));
 
         logger.info(String.format(
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
@@ -1215,7 +1218,7 @@ public class Maestro extends JdbcDaoSupport {
         resolveLimitBudgets(candidates, layerLimits, limitBudgets);
         int booked = dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
                 spec.pkAlloc, jobCoresUsed, showCoresUsed, folderUsed, reservationReqs,
-                tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed, limitSeats);
+                limitBudgets, limitUsed, limitSeats);
         stats.strandedCores += strandedWholeCores(fullGroup, candidates);
         if (booked > 0)
             stats.booked++;
@@ -1303,6 +1306,7 @@ public class Maestro extends JdbcDaoSupport {
             hostById.put(h.hostId, h);
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
+        bindTickState(allHosts);
 
         // 3. PLAN each host-spec group in priority order.
         int dispatched = 0;
@@ -1314,7 +1318,7 @@ public class Maestro extends JdbcDaoSupport {
 
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
-        List<FrameBooking> planned = planBookings();
+        List<FrameBooking> planned = planBookings(hostById);
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
         planned = trimOverFolderCeiling(planned, folderMaxCp, folderRunSeed, jobFolderCap);
@@ -1401,7 +1405,7 @@ public class Maestro extends JdbcDaoSupport {
      * bookings, or null if the wait was interrupted (the caller then aborts the tick before
      * committing).
      */
-    private List<FrameBooking> planBookings() {
+    private List<FrameBooking> planBookings(Map<String, BookableHost> hostById) {
         int planZeroWarnTicks = env.getProperty("maestro.plan_zero_warn_ticks", Integer.class, 40);
         lastPlacements = 0;
         Set<String> plannedLayerIds = new HashSet<>();
@@ -1421,7 +1425,7 @@ public class Maestro extends JdbcDaoSupport {
                     // The rss resize Maestro scored with, so the commit books the
                     // same shape. {cores, memKb}; absent = book the layer's own ask.
                     long[] rz = layerResize.get(layerId);
-                    int[] slice = planSliceByHostLayer.get(hostId + "|" + layerId);
+                    int[] slice = hostById.get(hostId).planned.get(layerId);
                     List<FrameBooking> got = dispatcher.planHost(host, layer,
                             rz != null ? (int) rz[0] : 0, rz != null ? rz[1] : 0,
                             slice != null ? slice[0] : 0, slice != null ? slice[1] : 0);
@@ -1574,10 +1578,9 @@ public class Maestro extends JdbcDaoSupport {
             for (FrameBooking b : committed) {
                 long odo = bookingsByHost.merge(b.proc.getHostId(), 1L, Long::sum);
                 if (b.proc.getLayerId() != null) {
-                    String key = b.proc.getHostId() + "|" + b.proc.getLayerId();
-                    if (warmthByHostLayer.containsKey(key)) {
-                        warmthByHostLayer.put(key, odo);
-                    }
+                    Map<String, Long> warm = warmthByHost.get(b.proc.getHostId());
+                    if (warm != null && warm.containsKey(b.proc.getLayerId()))
+                        warm.put(b.proc.getLayerId(), odo);
                 }
             }
         }
@@ -1758,15 +1761,32 @@ public class Maestro extends JdbcDaoSupport {
      * no join is needed. A just-completed proc has been unbooked (row deleted), so only live
      * placements appear.
      */
+    /**
+     * Hand each host its tick state, so the scan reads fields where it used to look up host-keyed
+     * maps for every host of every slot: the layers it runs and their frame counts, its plan
+     * slices, its cache warmth and odometer, its reservation and its ready time. Bound once per
+     * tick, after the reads that fill the maps; the plan slices start empty.
+     */
+    private void bindTickState(List<BookableHost> hosts) {
+        for (BookableHost h : hosts) {
+            h.layersRunning = hostLayerAffinity.get(h.hostId);
+            h.layerFrames = hostLayerFrames.computeIfAbsent(h.hostId, k -> new HashMap<>());
+            h.planned = new HashMap<>();
+            h.warmth = warmthByHost.get(h.hostId);
+            h.odometer = bookingsByHost.getOrDefault(h.hostId, 0L);
+            h.reservation = reservations.get(h.hostId);
+            h.tReady = tReadyByHost.get(h.hostId);
+        }
+    }
+
     private Map<String, Set<String>> readHostLayerAffinity() {
         Map<String, Set<String>> affinity = new HashMap<>();
-        Map<String, Integer> counts = new HashMap<>();
+        Map<String, Map<String, Integer>> counts = new HashMap<>();
         hostLayerFrames = counts;
         layerRunningFrames = new HashMap<>();
         layerProbeUsed.clear();
         layerResize.clear();
         plannedFramesByLayer.clear();
-        planSliceByHostLayer.clear();
         if (!localityEnabled && layerHostMaxFrac <= 0)
             return affinity;
         getJdbcTemplate().query("SELECT pk_host, pk_layer, COUNT(*) AS n FROM proc "
@@ -1774,7 +1794,7 @@ public class Maestro extends JdbcDaoSupport {
                     String host = rs.getString("pk_host");
                     String layer = rs.getString("pk_layer");
                     affinity.computeIfAbsent(host, k -> new HashSet<>()).add(layer);
-                    counts.put(host + "|" + layer, rs.getInt("n"));
+                    counts.computeIfAbsent(host, k -> new HashMap<>()).put(layer, rs.getInt("n"));
                     layerRunningFrames.merge(layer, rs.getInt("n"), Integer::sum);
                 });
         return affinity;
@@ -1796,42 +1816,132 @@ public class Maestro extends JdbcDaoSupport {
         for (LayerCandidate o : candidates) {
             if (o == c || o.waitingFrameCount <= 0 || !fitsOnHost(o, h))
                 continue;
-            if (hostLayerFrames.getOrDefault(h.hostId + "|" + o.layerId, 0) >= layerHostCap(h, o))
+            if (layerFramesOn(h, o) >= layerHostCap(h, o))
                 continue;
-            if (jobCoresUsed.getOrDefault(o.jobId, o.jobCoresInUse)
-                    + o.layerCoresMin > o.jobMaxCores)
+            if (openToPlace(o, groupAllocId, jobCoresUsed, showCoresUsed, limitBudgets, limitUsed)
+                    && !hostSeatBlocked(h, o, limitBudgets, limitSeats))
+                return true;
+        }
+        return false;
+    }
+
+    /** Whether candidate o is held by none of its job, show or limit caps, read tick-wide. */
+    private static boolean openToPlace(LayerCandidate o, String groupAllocId,
+            Map<String, Integer> jobCoresUsed, Map<String, Integer> showCoresUsed,
+            Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed) {
+        if (jobCoresUsed.getOrDefault(o.jobId, o.jobCoresInUse) + o.layerCoresMin > o.jobMaxCores)
+            return false;
+        if (showCoresUsed.getOrDefault(subKey(o.showId, groupAllocId), o.showCoresInUse)
+                + o.layerCoresMin > o.showBurstCores)
+            return false;
+        if (limitFull(o, limitBudgets, limitUsed))
+            return false;
+        return true;
+    }
+
+    /**
+     * Frames of candidate c that host h can give away without lowering the reach of a resource c
+     * does not need while a waiting candidate that needs it could ever fit on h. This is the
+     * refusal a price cannot make: while GPU work waits, the cores and memory an idle GPU needs
+     * stay with it, and every core beyond that bundle is still sold to CPU work. The bound is
+     * closed-form. Reach is the least idle-over-need ratio across the dimensions that couple the
+     * resource, and each frame of c takes need(c) from the dimensions c uses, so the frames that
+     * keep the reach where it stands are (idle - reach * need per unit) / need(c) on each such
+     * dimension, and the least of those wins. Zero puts h off-limits to c this tick; a slice on h
+     * is cut to the value. "Could ever fit" rather than "fits now", so a host full of CPU work
+     * drains toward the bundle as its frames finish. Nothing is protected when nobody waits for the
+     * resource, and nothing bounds c when no resource on h is at stake.
+     */
+    private int strandFreeFrames(BookableHost h, LayerCandidate c, List<LayerCandidate> candidates,
+            String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
+        if (reachNeeds == null)
+            return Integer.MAX_VALUE;
+        long free = Integer.MAX_VALUE;
+        for (Dim d : DIMS) {
+            if (d.need(c) > 0 || d.idle(h) <= 0)
                 continue;
-            if (showCoresUsed.getOrDefault(subKey(o.showId, groupAllocId), o.showCoresInUse)
-                    + o.layerCoresMin > o.showBurstCores)
+            if (!wantedOn(d, h, c, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+                    limitBudgets, limitUsed, limitSeats))
                 continue;
-            if (limitBlocks(h, o, limitBudgets, limitUsed, limitSeats))
+            double keep = reach(d, h, c, reachNeeds, false);
+            for (Dim e : DIMS) {
+                double per = reachNeeds[d.ordinal()][e.ordinal()];
+                if (per <= 0 || e.need(c) <= 0)
+                    continue;
+                free = Math.min(free,
+                        (long) Math.floor((e.idle(h) - keep * per) / e.need(c) + 1e-9));
+            }
+        }
+        return (int) Math.max(0, free);
+    }
+
+    /**
+     * Whether a waiting candidate other than c needs d, could ever fit on h and is open to place.
+     */
+    private static boolean wantedOn(Dim d, BookableHost h, LayerCandidate c,
+            List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
+        for (LayerCandidate o : candidates) {
+            if (o == c || o.waitingFrameCount <= 0 || d.need(o) <= 0)
                 continue;
-            return true;
+            if (hostCanEverFit(o, h) && openToPlace(o, groupAllocId, jobCoresUsed, showCoresUsed,
+                    limitBudgets, limitUsed) && !hostSeatBlocked(h, o, limitBudgets, limitSeats))
+                return true;
+        }
+        return false;
+    }
+
+    /** Frames of c on h as this tick sees them: booked at the read plus planned since. */
+    private static int layerFramesOn(BookableHost h, LayerCandidate c) {
+        return h.layerFrames.getOrDefault(c.layerId, 0);
+    }
+
+    /** Whether (h, c) already holds a plan slice this tick; a pair plans once per tick. */
+    private static boolean plannedOn(BookableHost h, LayerCandidate c) {
+        return h.planned.containsKey(c.layerId);
+    }
+
+    /** The odometer reading when c last left h, or null when h holds no warmth for c. */
+    private static Long warmthOn(BookableHost h, LayerCandidate c) {
+        return h.warmth == null ? null : h.warmth.get(c.layerId);
+    }
+
+    /**
+     * Whether a FRAME limit bound to candidate o has spent its tick-wide budget. A limit with no
+     * budget entry does not gate (see resolveLimitBudgets); HOST limits are per host, see
+     * hostSeatBlocked.
+     */
+    private static boolean limitFull(LayerCandidate o, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed) {
+        if (o.limitIds == null)
+            return false;
+        for (String limId : o.limitIds) {
+            LimitBudget b = limitBudgets.get(limId);
+            if (b != null && !b.hostBased && limitUsed.getOrDefault(limId, 0) >= b.usable)
+                return true;
         }
         return false;
     }
 
     /**
-     * Whether a gating limit keeps candidate o off host h right now: a FRAME limit whose tick-wide
-     * budget is spent, or a HOST limit with no seat left that h does not already hold. A limit with
-     * no budget entry does not gate (see resolveLimitBudgets).
+     * Whether a HOST limit bound to candidate o keeps it off host h: the limit has no seat left and
+     * h does not already hold one. The seat set is the tick's live one when the limit was gated
+     * this tick, else the budget's snapshot.
      */
-    private static boolean limitBlocks(BookableHost h, LayerCandidate o,
-            Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
-            Map<String, Set<String>> limitSeats) {
+    private static boolean hostSeatBlocked(BookableHost h, LayerCandidate o,
+            Map<String, LimitBudget> limitBudgets, Map<String, Set<String>> limitSeats) {
         if (o.limitIds == null)
             return false;
         for (String limId : o.limitIds) {
             LimitBudget b = limitBudgets.get(limId);
-            if (b == null)
+            if (b == null || !b.hostBased)
                 continue;
-            if (b.hostBased) {
-                Set<String> seats = limitSeats.getOrDefault(limId, b.seats);
-                if (!seats.contains(shortHostName(h.hostName)) && seats.size() >= b.seatCap)
-                    return true;
-            } else if (limitUsed.getOrDefault(limId, 0) >= b.usable) {
+            Set<String> seats = limitSeats.getOrDefault(limId, b.seats);
+            if (!seats.contains(shortHostName(h.hostName)) && seats.size() >= b.seatCap)
                 return true;
-            }
         }
         return false;
     }
@@ -2266,7 +2376,6 @@ public class Maestro extends JdbcDaoSupport {
             List<LayerCandidate> candidates, Set<String> seenLayerIds, String groupAllocId,
             Map<String, Integer> jobCoresUsed, Map<String, Integer> showCoresUsed,
             Map<String, Integer> folderUsed, List<ReservationRequest> reservationReqs,
-            Map<String, Integer> tReadyByHost, Map<String, Set<String>> hostLayerAffinity,
             Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
             Map<String, Set<String>> limitSeats) {
         int dispatched = 0;
@@ -2288,6 +2397,7 @@ public class Maestro extends JdbcDaoSupport {
             c.waitingFrameCount -= plannedFramesByLayer.getOrDefault(c.layerId, 0);
             c.placedThisTick = false;
         }
+        reachNeeds = reachNeedsOf(candidates);
 
         // Placement slots by lottery: every slot goes to a candidate drawn with
         // probability proportional to its job priority among the candidates
@@ -2313,8 +2423,7 @@ public class Maestro extends JdbcDaoSupport {
                 idx++;
             LayerCandidate c = active.get(idx);
             int got = placeOnce(c, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
-                    folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
-                    limitSeats);
+                    folderUsed, limitBudgets, limitUsed, limitSeats);
             if (got > 0)
                 dispatched += got;
             if (got <= 0 || c.waitingFrameCount <= 0) {
@@ -2371,7 +2480,8 @@ public class Maestro extends JdbcDaoSupport {
                 waitReasonByLayer.put(c.layerId,
                         placed ? "flowing"
                                 : waitlistReason(c, hosts, folderInUse, limitUsable, limitSeatPools,
-                                        limitSeats));
+                                        limitSeats, candidates, groupAllocId, jobCoresUsed,
+                                        showCoresUsed, limitBudgets, limitUsed));
                 waitFramesByLayer.put(c.layerId, c.waitingFrameCount);
             } else if (placed) {
                 waitReasonByLayer.remove(c.layerId);
@@ -2490,7 +2600,6 @@ public class Maestro extends JdbcDaoSupport {
     private int placeOnce(LayerCandidate c, List<BookableHost> hosts,
             List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
             Map<String, Integer> showCoresUsed, Map<String, Integer> folderUsed,
-            Map<String, Integer> tReadyByHost, Map<String, Set<String>> hostLayerAffinity,
             Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
             Map<String, Set<String>> limitSeats) {
         CandidateGate g = gate(c, groupAllocId, jobCoresUsed, showCoresUsed, folderUsed,
@@ -2513,8 +2622,17 @@ public class Maestro extends JdbcDaoSupport {
         BookableHost best = null;
         BookableHost cappedFallback = null;
         double bestScore = Double.POSITIVE_INFINITY;
+        int bestStrandFree = Integer.MAX_VALUE;
+        int fallbackStrandFree = Integer.MAX_VALUE;
         for (BookableHost h : hosts) {
             if (!fitsOnHost(c, h))
+                continue;
+            // A host is not given away while work that needs one of its idle
+            // resources is waiting: the bundle that resource needs stays,
+            // and the slice is cut to what lies beyond it.
+            int strandFree = strandFreeFrames(h, c, candidates, groupAllocId, jobCoresUsed,
+                    showCoresUsed, limitBudgets, limitUsed, limitSeats);
+            if (strandFree <= 0)
                 continue;
             // Per-host gate for HOST-type limits, keyed by host name (what
             // a license server reports): this host is eligible only if it
@@ -2525,7 +2643,7 @@ public class Maestro extends JdbcDaoSupport {
             // A reserved host is off-limits unless EASY backfill can
             // borrow it without delaying the reservation's owner.
             if (!reservationAllows(h, c)) {
-                if (!backfillAllows(h, c, tReadyByHost))
+                if (!backfillAllows(h, c))
                     continue;
             }
             // Per-host layer cap: a host already holding its share of
@@ -2533,7 +2651,7 @@ public class Maestro extends JdbcDaoSupport {
             // next host instead of blanketing this one.
             // One plan per (host, layer) per tick; a pair already
             // planned takes its next slice next tick.
-            if (planSliceByHostLayer.containsKey(h.hostId + "|" + c.layerId))
+            if (plannedOn(h, c))
                 continue;
             // SOFT per-host layer cap: prefer hosts under the cap, so
             // a flood spreads instead of blanketing one machine. But a
@@ -2542,20 +2660,21 @@ public class Maestro extends JdbcDaoSupport {
             // stranding an idle machine, and only on a host no other
             // candidate could still use (othersWant). Unproven layers
             // never get the fallback (the probe gate is their brake).
-            if (layerHostMaxFrac > 0 && hostLayerFrames.getOrDefault(h.hostId + "|" + c.layerId,
-                    0) >= layerHostCap(h, c)) {
+            if (layerHostMaxFrac > 0 && layerFramesOn(h, c) >= layerHostCap(h, c)) {
                 if (cappedFallback == null && c.rssProven
                         && !othersWant(h, c, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
-                                limitBudgets, limitUsed, limitSeats))
+                                limitBudgets, limitUsed, limitSeats)) {
                     cappedFallback = h;
+                    fallbackStrandFree = strandFree;
+                }
                 continue;
             }
-            double score = placementScore(h, c);
+            double score = placementScore(h, c, reachNeeds);
             // Locality bonus: prefer a host already running this layer so
             // a freed core is refilled by the same layer (same-machine
             // locality, formerly the reactive DispatchNextFrame path).
             if (localityEnabled) {
-                Set<String> layersHere = hostLayerAffinity.get(h.hostId);
+                Set<String> layersHere = h.layersRunning;
                 if (layersHere != null && layersHere.contains(c.layerId)) {
                     score -= localityBonus;
                 } else if (localityWindowFrames > 0) {
@@ -2564,9 +2683,9 @@ public class Maestro extends JdbcDaoSupport {
                     // pull the layer back with a decayed bonus. Never
                     // larger than the live bonus; fit/reservations
                     // are filtered before scoring.
-                    Long seen = warmthByHostLayer.get(h.hostId + "|" + c.layerId);
+                    Long seen = warmthOn(h, c);
                     if (seen != null) {
-                        long foreign = bookingsByHost.getOrDefault(h.hostId, 0L) - seen;
+                        long foreign = h.odometer - seen;
                         if (foreign >= 0 && foreign < localityWindowFrames) {
                             score -= localityBonus
                                     * (1.0 - (double) foreign / localityWindowFrames);
@@ -2589,6 +2708,7 @@ public class Maestro extends JdbcDaoSupport {
             if (score < bestScore) {
                 bestScore = score;
                 best = h;
+                bestStrandFree = strandFree;
             }
         }
         boolean overCap = false;
@@ -2596,6 +2716,7 @@ public class Maestro extends JdbcDaoSupport {
             // Soft cap: the only thing between this layer and an idle
             // machine was the cap. Give it the machine.
             best = cappedFallback;
+            bestStrandFree = fallbackStrandFree;
             overCap = true;
         }
         if (best == null)
@@ -2604,7 +2725,8 @@ public class Maestro extends JdbcDaoSupport {
         // Estimate how many frames this commit will book. The
         // dispatcher books up to job_frame_dispatch_max per call,
         // bounded by the same fit checks placementScore uses.
-        int estFrames = headroomFrames(c, best, overCap, probeHeadroom, limitUsable, folderUsed);
+        int estFrames = headroomFrames(c, best, overCap, probeHeadroom, limitUsable, folderUsed,
+                bestStrandFree);
         if (estFrames <= 0)
             return 0;
 
@@ -2618,10 +2740,8 @@ public class Maestro extends JdbcDaoSupport {
         int estGpus = estFrames * c.layerGpusMin;
         long estGpuMem = (long) estFrames * c.layerGpuMemMin;
 
-        best.coresIdle -= estCores;
-        best.memIdle -= estMem;
-        best.gpusIdle -= estGpus;
-        best.gpuMemIdle -= estGpuMem;
+        for (Dim d : DIMS)
+            d.take(best, (long) estFrames * d.need(c));
         c.jobCoresInUse += estCores;
         c.showCoresInUse += estCores;
         c.waitingFrameCount -= estFrames;
@@ -2630,7 +2750,7 @@ public class Maestro extends JdbcDaoSupport {
         jobCoresUsed.put(c.jobId, c.jobCoresInUse);
         showCoresUsed.put(subKey(c.showId, groupAllocId), c.showCoresInUse);
         if (layerHostMaxFrac > 0)
-            hostLayerFrames.merge(best.hostId + "|" + c.layerId, estFrames, Integer::sum);
+            best.layerFrames.merge(c.layerId, estFrames, Integer::sum);
         if (!c.rssProven)
             layerProbeUsed.merge(c.layerId, estFrames, Integer::sum);
         if (c.folderMax >= 0)
@@ -2671,7 +2791,7 @@ public class Maestro extends JdbcDaoSupport {
         // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
         // reached here is either its owner booking after the drain or an EASY-backfill
         // borrow. A borrow never takes ownership, so the reservation is left intact.
-        submitCommit(best.hostId, c.layerId, estFrames);
+        submitCommit(best, c.layerId, estFrames);
         c.placedThisTick = true;
         return estFrames;
 
@@ -2688,21 +2808,20 @@ public class Maestro extends JdbcDaoSupport {
 
     /** Whether host h has enough total capacity to run a frame of c when idle. */
     private static boolean hostCanEverFit(LayerCandidate c, BookableHost h) {
-        return h.coresTotal >= c.layerCoresMin && h.memTotal >= c.layerMemMin
-                && h.gpusTotal >= c.layerGpusMin && h.gpuMemTotal >= c.layerGpuMemMin;
+        for (Dim d : DIMS) {
+            if (d.total(h) < d.need(c))
+                return false;
+        }
+        return true;
     }
 
     /** How many frames of c fit on a fully-idle host h (min over dimensions). */
     private static int framesThatFit(LayerCandidate c, BookableHost h) {
         long f = Long.MAX_VALUE;
-        if (c.layerCoresMin > 0)
-            f = Math.min(f, h.coresTotal / c.layerCoresMin);
-        if (c.layerMemMin > 0)
-            f = Math.min(f, h.memTotal / c.layerMemMin);
-        if (c.layerGpusMin > 0)
-            f = Math.min(f, h.gpusTotal / c.layerGpusMin);
-        if (c.layerGpuMemMin > 0)
-            f = Math.min(f, h.gpuMemTotal / c.layerGpuMemMin);
+        for (Dim d : DIMS) {
+            if (d.need(c) > 0)
+                f = Math.min(f, d.total(h) / d.need(c));
+        }
         return (f == Long.MAX_VALUE) ? 1 : (int) f; // unconstrained -> 1
     }
 
@@ -2737,7 +2856,7 @@ public class Maestro extends JdbcDaoSupport {
     private boolean reservationAllows(BookableHost h, LayerCandidate c) {
         if (!reservationsEnabled)
             return true;
-        Reservation r = reservations.get(h.hostId);
+        Reservation r = h.reservation;
         return r == null || r.layerId.equals(c.layerId);
     }
 
@@ -2758,11 +2877,10 @@ public class Maestro extends JdbcDaoSupport {
      * is still draining, exactly what such a guard forbids. The sub-owner-width idle on reserved
      * hosts would then strand instead of being backfilled.
      */
-    private boolean backfillAllows(BookableHost h, LayerCandidate c,
-            Map<String, Integer> tReadyByHost) {
+    private boolean backfillAllows(BookableHost h, LayerCandidate c) {
         if (!backfillEnabled)
             return false;
-        Integer tReady = tReadyByHost.get(h.hostId);
+        Integer tReady = h.tReady;
         if (tReady == null)
             return false;
         return backfillFits(c.hasRuntimeEstimate(), c.clockTimeHighSec, tReady);
@@ -2938,10 +3056,23 @@ public class Maestro extends JdbcDaoSupport {
      * its own, with no computeMaxMore pile-up estimate needed here.
      */
     static double placementScore(BookableHost h, LayerCandidate c) {
-        return wCores * deltaCost(h.coresTotal, h.coresIdle, c.layerCoresMin)
-                + wMem * deltaCost(h.memTotal, h.memIdle, c.layerMemMin)
-                + wGpus * deltaCost(h.gpusTotal, h.gpusIdle, c.layerGpusMin)
-                + wGpuMem * deltaCost(h.gpuMemTotal, h.gpuMemIdle, c.layerGpuMemMin);
+        return placementScore(h, c, null);
+    }
+
+    /**
+     * The same score with reach in place of raw idle: each dimension's cost rises by the units of
+     * it this frame consumes or puts out of reach, so a CPU frame that eats the cores an idle GPU
+     * needs pays on the GPU term. With no coupling ({@code needs} null or all zero) every term
+     * equals plain E-PVM.
+     */
+    static double placementScore(BookableHost h, LayerCandidate c, double[][] needs) {
+        double score = 0;
+        for (Dim d : DIMS) {
+            double rb = reach(d, h, c, needs, false);
+            double ra = reach(d, h, c, needs, true);
+            score += d.weight() * deltaCost(d.total(h), rb, rb - ra);
+        }
+        return score;
     }
 
     /**
@@ -2976,12 +3107,14 @@ public class Maestro extends JdbcDaoSupport {
      * (overCap) skips the per-host layer-cap term; the cap already yielded for this booking.
      */
     private int headroomFrames(LayerCandidate c, BookableHost best, boolean overCap,
-            int probeHeadroom, int limitUsable, Map<String, Integer> folderUsed) {
+            int probeHeadroom, int limitUsable, Map<String, Integer> folderUsed, int strandFree) {
         long maxMore = computeMaxMore(best, c);
         // Commit size: one plan slice.
         int est = (int) Math.min(frameQueryMax, maxMore + 1);
         // Backlog: never book frames the layer does not have.
         est = Math.min(est, c.waitingFrameCount);
+        // Strand bundle: what lies beyond the reach waiting work keeps on this host.
+        est = Math.min(est, strandFree);
         // Probe: an unproven layer's remaining farm-wide allowance.
         est = Math.min(est, probeHeadroom);
         // FRAME limits: one frame is one token, budgets shared tick-wide.
@@ -2994,27 +3127,17 @@ public class Maestro extends JdbcDaoSupport {
         if (!overCap && layerHostMaxFrac > 0) {
             int hlCap = layerHostCap(best, c);
             if (hlCap != Integer.MAX_VALUE)
-                est = Math.min(est,
-                        hlCap - hostLayerFrames.getOrDefault(best.hostId + "|" + c.layerId, 0));
+                est = Math.min(est, hlCap - layerFramesOn(best, c));
         }
         return est;
     }
 
     static long computeMaxMore(BookableHost h, LayerCandidate c) {
-        long remCores = h.coresIdle - c.layerCoresMin;
-        long remMem = h.memIdle - c.layerMemMin;
-        long remGpus = h.gpusIdle - c.layerGpusMin;
-        long remGpuMem = h.gpuMemIdle - c.layerGpuMemMin;
-
         long maxMore = Long.MAX_VALUE;
-        if (c.layerCoresMin > 0)
-            maxMore = Math.min(maxMore, remCores / c.layerCoresMin);
-        if (c.layerMemMin > 0)
-            maxMore = Math.min(maxMore, remMem / c.layerMemMin);
-        if (c.layerGpusMin > 0)
-            maxMore = Math.min(maxMore, remGpus / c.layerGpusMin);
-        if (c.layerGpuMemMin > 0)
-            maxMore = Math.min(maxMore, remGpuMem / c.layerGpuMemMin);
+        for (Dim d : DIMS) {
+            if (d.need(c) > 0)
+                maxMore = Math.min(maxMore, (d.idle(h) - d.need(c)) / d.need(c));
+        }
 
         if (c.layerCoresMin > 0) {
             long jobRem = (long) c.jobMaxCores - c.jobCoresInUse - c.layerCoresMin;
@@ -3073,13 +3196,13 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     private String localityKind(BookableHost h, LayerCandidate c) {
-        Set<String> layersHere = hostLayerAffinity.get(h.hostId);
+        Set<String> layersHere = h.layersRunning;
         if (layersHere != null && layersHere.contains(c.layerId))
             return "live_warm";
         if (localityWindowFrames > 0) {
-            Long seen = warmthByHostLayer.get(h.hostId + "|" + c.layerId);
+            Long seen = warmthOn(h, c);
             if (seen != null) {
-                long foreign = bookingsByHost.getOrDefault(h.hostId, 0L) - seen;
+                long foreign = h.odometer - seen;
                 if (foreign >= 0 && foreign < localityWindowFrames)
                     return "cache_warm";
             }
@@ -3093,11 +3216,11 @@ public class Maestro extends JdbcDaoSupport {
      * Record a (host, layer) placement to commit at the end of this tick. Maestro-thread only;
      * doTick drains plannedByHost via planHost + startFramesAndProcsBatch.
      */
-    private void submitCommit(String hostId, String layerId, int estFrames) {
-        plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
+    private void submitCommit(BookableHost best, String layerId, int estFrames) {
+        plannedByHost.computeIfAbsent(best.hostId, k -> new ArrayList<>()).add(layerId);
         // Slice bookkeeping: this plan starts where the layer's earlier plans
         // this tick end, so parallel plan reads pull disjoint frames.
-        planSliceByHostLayer.put(hostId + "|" + layerId,
+        best.planned.put(layerId,
                 new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames});
         plannedFramesByLayer.merge(layerId, estFrames, Integer::sum);
     }
@@ -3253,15 +3376,151 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     static boolean fitsOnHost(LayerCandidate c, BookableHost h) {
-        if (h.coresIdle < c.layerCoresMin)
-            return false;
-        if (h.memIdle < c.layerMemMin)
-            return false;
-        if (h.gpusIdle < c.layerGpusMin)
-            return false;
-        if (h.gpuMemIdle < c.layerGpuMemMin)
-            return false;
+        for (Dim d : DIMS) {
+            if (d.idle(h) < d.need(c))
+                return false;
+        }
         return true;
+    }
+
+    /**
+     * The resource dimensions of a host and of a frame, in one table, so the fit test, the
+     * placement score, the frame estimate, the snapshot decrement and the reach logic all iterate
+     * the same list. A new resource is one more constant here once the host report and the schema
+     * carry it.
+     */
+    private static final Dim[] DIMS = Dim.values(); // consumed by the Dim loops
+
+    enum Dim {
+        CORES, MEM, GPUS, GPU_MEM;
+
+        long total(BookableHost h) {
+            switch (this) {
+                case CORES:
+                    return h.coresTotal;
+                case MEM:
+                    return h.memTotal;
+                case GPUS:
+                    return h.gpusTotal;
+                default:
+                    return h.gpuMemTotal;
+            }
+        }
+
+        long idle(BookableHost h) {
+            switch (this) {
+                case CORES:
+                    return h.coresIdle;
+                case MEM:
+                    return h.memIdle;
+                case GPUS:
+                    return h.gpusIdle;
+                default:
+                    return h.gpuMemIdle;
+            }
+        }
+
+        long need(LayerCandidate c) {
+            switch (this) {
+                case CORES:
+                    return c.layerCoresMin;
+                case MEM:
+                    return c.layerMemMin;
+                case GPUS:
+                    return c.layerGpusMin;
+                default:
+                    return c.layerGpuMemMin;
+            }
+        }
+
+        double weight() {
+            switch (this) {
+                case CORES:
+                    return wCores;
+                case MEM:
+                    return wMem;
+                case GPUS:
+                    return wGpus;
+                default:
+                    return wGpuMem;
+            }
+        }
+
+        void take(BookableHost h, long amount) {
+            switch (this) {
+                case CORES:
+                    h.coresIdle -= (int) amount;
+                    break;
+                case MEM:
+                    h.memIdle -= amount;
+                    break;
+                case GPUS:
+                    h.gpusIdle -= (int) amount;
+                    break;
+                default:
+                    h.gpuMemIdle -= amount;
+                    break;
+            }
+        }
+    }
+
+    /**
+     * Per-unit needs that couple the dimensions, read from the group's waiting work: needs[d][e] is
+     * how much of dimension e one unit of dimension d needs to be usable, taken as the smallest
+     * ratio among the candidates that ask for d, so a unit counts as reachable while the lightest
+     * waiting consumer could still use it. Only a dimension that some waiting candidate does not
+     * ask for is coupled: a resource can be stranded only by work that does not use it, so cores
+     * and memory, which every frame asks for, keep their plain E-PVM terms. Zero where nothing
+     * waiting asks for d: an idle resource with nothing to run is not a loss.
+     */
+    static double[][] reachNeedsOf(List<LayerCandidate> candidates) {
+        int n = DIMS.length;
+        double[][] needs = new double[n][n];
+        boolean[] strandable = new boolean[n];
+        for (LayerCandidate c : candidates) {
+            if (c.waitingFrameCount <= 0)
+                continue;
+            for (Dim d : DIMS)
+                if (d.need(c) <= 0)
+                    strandable[d.ordinal()] = true;
+        }
+        for (LayerCandidate c : candidates) {
+            if (c.waitingFrameCount <= 0)
+                continue;
+            for (Dim d : DIMS) {
+                long nd = d.need(c);
+                if (nd <= 0 || !strandable[d.ordinal()])
+                    continue;
+                for (Dim e : DIMS) {
+                    if (e == d || e.need(c) <= 0)
+                        continue;
+                    double r = (double) e.need(c) / nd;
+                    double cur = needs[d.ordinal()][e.ordinal()];
+                    if (cur == 0 || r < cur)
+                        needs[d.ordinal()][e.ordinal()] = r;
+                }
+            }
+        }
+        return needs;
+    }
+
+    /**
+     * Units of dimension d still reachable on host h, as it stands ({@code after} false) or once
+     * one frame of c has taken its needs ({@code after} true): idle units of d, bounded by what the
+     * other dimensions can still support at the group's per-unit needs. Fractional on purpose, so
+     * the last core an idle GPU needs still counts toward it. Plain idle when nothing couples d.
+     * Reads the host in place: this runs for every host of every slot.
+     */
+    static double reach(Dim d, BookableHost h, LayerCandidate c, double[][] needs, boolean after) {
+        double r = Math.max(0, d.idle(h) - (after ? d.need(c) : 0));
+        if (needs == null)
+            return r;
+        for (Dim e : DIMS) {
+            double per = needs[d.ordinal()][e.ordinal()];
+            if (per > 0)
+                r = Math.min(r, Math.max(0, e.idle(h) - (after ? e.need(c) : 0)) / per);
+        }
+        return r;
     }
 
     /**
@@ -3296,12 +3555,16 @@ public class Maestro extends JdbcDaoSupport {
      * Resolve a {@code fit} fragmentation (some host fit the layer fully, yet it did not book) into
      * the gate that held it: {@code license} when a fitting host's HOST-limit seat is taken;
      * {@code held} when a fitting host is reserved for someone else (a reservation is draining it
-     * for a wide job); else {@code share}: every fitting host already holds this layer's per-host
-     * share while other work waits (the soft cap yielding to nobody, see othersWant), or was
-     * planned for it this tick and takes its next slice next tick.
+     * for a wide job); {@code strand} when a fitting host keeps an idle resource's bundle for
+     * waiting work that needs it (see strandFreeFrames); else {@code share}: every fitting host
+     * already holds this layer's per-host share while other work waits (the soft cap yielding to
+     * nobody, see othersWant), or was planned for it this tick and takes its next slice next tick.
      */
     private String fitGateReason(LayerCandidate c, List<BookableHost> hosts,
-            List<LimitBudget> limitSeatPools, Map<String, Set<String>> limitSeats) {
+            List<LimitBudget> limitSeatPools, Map<String, Set<String>> limitSeats,
+            List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed) {
         if (limitSeatPools != null) {
             for (BookableHost h : hosts) {
                 if (fitsOnHost(c, h) && !limitSeatsAllow(limitSeatPools, limitSeats, h))
@@ -3311,6 +3574,11 @@ public class Maestro extends JdbcDaoSupport {
         for (BookableHost h : hosts) {
             if (fitsOnHost(c, h) && !reservationAllows(h, c))
                 return "held";
+        }
+        for (BookableHost h : hosts) {
+            if (fitsOnHost(c, h) && strandFreeFrames(h, c, candidates, groupAllocId, jobCoresUsed,
+                    showCoresUsed, limitBudgets, limitUsed, limitSeats) <= 0)
+                return "strand";
         }
         return "share";
     }
@@ -3326,8 +3594,10 @@ public class Maestro extends JdbcDaoSupport {
      * or memory / gpu short): the shape mismatch worth investigating.
      */
     private String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
-            int limitUsable, List<LimitBudget> limitSeatPools,
-            Map<String, Set<String>> limitSeats) {
+            int limitUsable, List<LimitBudget> limitSeatPools, Map<String, Set<String>> limitSeats,
+            List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed) {
         if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
                 || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
                 || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax))
@@ -3336,8 +3606,9 @@ public class Maestro extends JdbcDaoSupport {
             return "no license";
         String fit = classifyFragmentation(c, hosts);
         if ("fit".equals(fit))
-            fit = fitGateReason(c, hosts, limitSeatPools, limitSeats);
-        if ("held".equals(fit) || "share".equals(fit))
+            fit = fitGateReason(c, hosts, limitSeatPools, limitSeats, candidates, groupAllocId,
+                    jobCoresUsed, showCoresUsed, limitBudgets, limitUsed);
+        if ("held".equals(fit) || "share".equals(fit) || "strand".equals(fit))
             return fit;
         if ("license".equals(fit))
             return "no license";
@@ -3404,6 +3675,13 @@ public class Maestro extends JdbcDaoSupport {
         int runningProcs;
         String tagsRaw;
         String os;
+        Set<String> layersRunning; // consumed by placeOnce() and localityKind()
+        Map<String, Integer> layerFrames; // consumed by layerFramesOn()
+        Map<String, int[]> planned; // consumed by plannedOn() and planBookings()
+        Map<String, Long> warmth; // consumed by warmthOn()
+        long odometer; // consumed by placeOnce() and localityKind()
+        Reservation reservation; // consumed by reservationAllows()
+        Integer tReady; // consumed by backfillAllows()
     }
 
     static final class LayerCandidate {
