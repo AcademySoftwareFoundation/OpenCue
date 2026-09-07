@@ -165,10 +165,21 @@ def test(job):
 
         while True:
             try:
+                pending_response = session.post(
+                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/IsJobPending",
+                    json={"name": job_name},
+                )
+                pending_response.raise_for_status()
+                is_pending = pending_response.json().get("value", False)
+                if not is_pending:
+                    break
+
                 response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
                     json={"name": job_name},
                 )
+                if response.status_code == 404:
+                    break
                 response.raise_for_status()
                 job_info = response.json().get("job", {})
                 stats = job_info.get("jobStats", {})
@@ -202,6 +213,7 @@ def test(job):
                 json={"job": {"id": job_id, "name": job_name}},
             )
         except Exception:
+            print("Excepted error while killing job: %s" % job_name, file=sys.stderr)
             pass
         session.close()
 
