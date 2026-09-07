@@ -9,7 +9,7 @@ from packaging.version import Version
 import outline
 import FileSequence
 
-logger = logging.getLogger("outline.backend.__common")
+logger = logging.getLogger("outline.backend._common")
 
 def _serialize(launcher, use_pycuerun):
     """

@@ -43,9 +43,10 @@ __all__ = ["launch",
            "serialize",
            "serialize_simple"]
 
+logger = logging.getLogger("outline.backend.cue")
+
 JOB_WAIT_PERIOD_SEC = 5
 
-logger = logging.getLogger("outline.backend.cue")
 
 
 def launch(launcher, use_pycuerun=True):
