@@ -349,6 +349,9 @@ public interface DispatchSupport {
      */
     void runFrame(VirtualProc proc, DispatchFrame frame);
 
+    /** Run the frame on the proc, reading the job and layer environments through the batch memo. */
+    void runFrame(VirtualProc proc, DispatchFrame frame, LaunchEnv env);
+
     /**
      * Return true if the specified show is over its burst size of the given proc's allocation.
      *
@@ -403,6 +406,9 @@ public interface DispatchSupport {
      * @return RunFrame
      */
     RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame);
+
+    /** As above, with the job and layer environments read through the batch memo. */
+    RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame, LaunchEnv env);
 
     /**
      * Checks to see if job passes basic tests for dispatchability. Tests include if the proc is

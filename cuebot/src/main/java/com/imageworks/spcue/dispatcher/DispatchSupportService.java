@@ -261,8 +261,14 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Transactional(propagation = Propagation.NEVER)
     public void runFrame(VirtualProc proc, DispatchFrame frame) {
+        runFrame(proc, frame, new LaunchEnv());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public void runFrame(VirtualProc proc, DispatchFrame frame, LaunchEnv env) {
         try {
-            rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
+            rqdClient.launchFrame(prepareRqdRunFrame(proc, frame, env), proc);
             dispatchedProcs.getAndIncrement();
         } catch (RqdLaunchUnknownOutcomeException e) {
             // Preserve the classification: the frame may be running on the host, and the
@@ -674,6 +680,12 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Transactional(propagation = Propagation.SUPPORTS)
     public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
+        return prepareRqdRunFrame(proc, frame, new LaunchEnv());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame, LaunchEnv env) {
         int threads = proc.coresReserved / 100;
         if (threads < 1) {
             threads = 1;
@@ -696,9 +708,8 @@ public class DispatchSupportService implements DispatchSupport {
                 .setNumCores(proc.coresReserved).setNumGpus(proc.gpusReserved)
                 .setStartTime(System.currentTimeMillis()).setIgnoreNimby(proc.isLocalDispatch)
                 .setOs(proc.os).setSoftMemoryLimit(frame.softMemoryLimit).setLokiUrl(frame.lokiURL)
-                .setHardMemoryLimit(frame.hardMemoryLimit)
-                .putAllEnvironment(jobDao.getEnvironment(frame))
-                .putAllEnvironment(layerDao.getLayerEnvironment(frame)).putEnvironment("CUE3", "1")
+                .setHardMemoryLimit(frame.hardMemoryLimit).putAllEnvironment(env.job(frame, jobDao))
+                .putAllEnvironment(env.layer(frame, layerDao)).putEnvironment("CUE3", "1")
                 .putEnvironment("CUE_THREADS", String.valueOf(threads))
                 .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
                 .putEnvironment("CUE_GPUS", String.valueOf(proc.gpusReserved))

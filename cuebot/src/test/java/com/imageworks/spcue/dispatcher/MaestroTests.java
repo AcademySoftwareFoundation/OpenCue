@@ -235,20 +235,24 @@ public class MaestroTests {
         // cores: an 8-core layer, but no host has more than 4 idle cores.
         List<Maestro.BookableHost> small = Arrays.asList(freeHost(4 * CORE, 100 * GB, 0, 0),
                 freeHost(4 * CORE, 100 * GB, 0, 0));
-        assertEquals("cores", Maestro.classifyFragmentation(layer(8 * CORE, GB, 0, 0), small));
+        assertEquals("cores", Maestro.classifyFragmentation(layer(8 * CORE, GB, 0, 0),
+                new GroupViews.IdleView(small)));
 
         // memory: cores fit, but no host has the RAM the layer needs.
         List<Maestro.BookableHost> lowMem = Arrays.asList(freeHost(8 * CORE, 2 * GB, 0, 0));
-        assertEquals("memory", Maestro.classifyFragmentation(layer(CORE, 8 * GB, 0, 0), lowMem));
+        assertEquals("memory", Maestro.classifyFragmentation(layer(CORE, 8 * GB, 0, 0),
+                new GroupViews.IdleView(lowMem)));
 
         // gpu: cores and RAM fit, but the layer needs a GPU no host has.
         List<Maestro.BookableHost> noGpu = Arrays.asList(freeHost(8 * CORE, 100 * GB, 0, 0));
-        assertEquals("gpu", Maestro.classifyFragmentation(layer(CORE, GB, 1, GB), noGpu));
+        assertEquals("gpu", Maestro.classifyFragmentation(layer(CORE, GB, 1, GB),
+                new GroupViews.IdleView(noGpu)));
 
         // fit: a host fits the layer fully, so it was gated (reservation or license
         // seat); the caller resolves that into held/license.
         List<Maestro.BookableHost> roomy = Arrays.asList(freeHost(8 * CORE, 100 * GB, 2, 4 * GB));
-        assertEquals("fit", Maestro.classifyFragmentation(layer(CORE, GB, 1, GB), roomy));
+        assertEquals("fit", Maestro.classifyFragmentation(layer(CORE, GB, 1, GB),
+                new GroupViews.IdleView(roomy)));
     }
 
     // ---- strandedWholeCores -----------------------------------------------

@@ -371,23 +371,12 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
-            long effMemKb, int planOffset, int planLimit) {
-        // The scheduler accounted planLimit frames for this (host, layer) slice;
-        // deliver exactly that. 0 = no slice info: legacy per-call trickle.
-        int bookMax =
-                planLimit > 0 ? planLimit : getIntProperty("dispatcher.job_frame_dispatch_max");
-        // Maestro-native lean read. Maestro already loaded this host and
-        // already enforced show-burst and job caps in-tick, so we skip the
-        // per-frame isShowAtOrOverBurst / isJobBookable DB round-trips the
-        // legacy dispatchHost makes (~15 per placement). One candidate query,
-        // then build procs and apply the in-memory resource fit checks; the
-        // Maestro commits the bookings in bulk. No writes, no RQD launch.
+    public List<FrameBooking> planFrames(DispatchHost host, List<DispatchFrame> frames,
+            int effCores, long effMemKb) {
+        // Maestro-native lean plan over the frames of one slice, read once per layer by
+        // Maestro, which already loaded this host and enforced the show-burst and job caps:
+        // build procs and apply the in-memory fit checks. No reads, no writes, no RQD launch.
         List<FrameBooking> bookings = new ArrayList<FrameBooking>();
-
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(layer, host,
-                Math.max(getIntProperty("dispatcher.frame_query_max"), bookMax), planOffset);
-
         String[] selfishServices =
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame : frames) {
@@ -443,13 +432,6 @@ public class CoreUnitDispatcher implements Dispatcher {
                     proc.gpuMemoryReserved);
             if (!host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, MEM_RESERVED_MIN,
                     Dispatcher.GPU_UNITS_RESERVED_MIN, MEM_GPU_RESERVED_MIN)) {
-                break;
-            } else if (bookings.size() >= bookMax) {
-                break;
-            } else if (planLimit <= 0
-                    && bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
-                // The per-call cap belongs to the legacy trickle. A planner
-                // slice is already sized and charged; deliver all of it.
                 break;
             }
         }

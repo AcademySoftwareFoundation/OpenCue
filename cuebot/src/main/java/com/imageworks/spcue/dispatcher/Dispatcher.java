@@ -167,18 +167,13 @@ public interface Dispatcher {
     List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer);
 
     /**
-     * Plan (but do not commit) the frames that would be booked for a layer on a host. Runs the same
-     * placement logic as {@link #dispatchHost(DispatchHost, LayerInterface)}, candidate query, fit
-     * checks, in-memory host resource decrement, but instead of writing each booking, collects the
-     * planned (frame, proc) pairs for Maestro to commit in bulk. No DB writes and no RQD launch
-     * happen here.
-     *
-     * @param host
-     * @param layer
-     * @return the planned bookings, in placement order.
+     * Plan (but do not commit) the bookings of the given frames on a host: the frames of one plan
+     * slice run through the same fit checks and in-memory host decrement as dispatchHost and are
+     * collected as (frame, proc) pairs for Maestro to commit in bulk. No DB access and no RQD
+     * launch; the plan stops at the first frame the host cannot hold.
      */
-    List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
-            long effMemKb, int planOffset, int planLimit);
+    List<FrameBooking> planFrames(DispatchHost host, List<DispatchFrame> frames, int effCores,
+            long effMemKb);
 
     /**
      * Dispatch a host to the specified job.
