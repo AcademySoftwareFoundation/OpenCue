@@ -71,4 +71,7 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
 
     // Parameters to tell rqd whether or not to use Loki for frame logs and which base url to use
     public String lokiURL;
+
+    // Minutes without progress before RQD kills this frame as stuck. 0 = disabled.
+    public int stuckDetectionLlu;
 }

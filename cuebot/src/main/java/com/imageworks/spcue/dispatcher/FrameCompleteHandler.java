@@ -1076,6 +1076,14 @@ public class FrameCompleteHandler {
             return FrameState.WAITING;
         }
 
+        // RQD killed the frame as stuck (no log/CPU/IO progress). The hang is usually
+        // host-local, so retry on another host rather than letting the stale-LLU check below
+        // mark the frame DEAD on its first strike.
+        if (report.getExitStatus() == Dispatcher.EXIT_STATUS_FRAME_STUCK
+                && frame.retries < job.maxRetries) {
+            return FrameState.WAITING;
+        }
+
         // Log update (LLU) and run time timeouts.
         long minutesSinceLogUpdate =
                 (System.currentTimeMillis() / 1000 - report.getFrame().getLluTime()) / 60;

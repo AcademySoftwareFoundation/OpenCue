@@ -18,7 +18,7 @@ use std::os::fd::IntoRawFd;
 use std::os::fd::{FromRawFd, RawFd};
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
     env,
@@ -26,7 +26,7 @@ use std::{
     path::Path,
     process::ExitStatus,
     sync::atomic::{AtomicBool, Ordering},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 use std::{process::Stdio, thread};
 use tokio::time::{self, Duration};
@@ -39,10 +39,10 @@ use tokio::io::AsyncReadExt;
 use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
-use crate::system::OOM_REASON_MSG;
+use crate::system::{OOM_REASON_MSG, STUCK_EXIT_STATUS, STUCK_REASON_MSG};
 use crate::{
     frame::frame_cmd::FrameCmdBuilder,
-    system::manager::{HostMemSnapshot, PeerMem, ProcessStats},
+    system::manager::{HostMemSnapshot, PeerMem, ProcessStats, SessionProgress},
 };
 
 use serde::{Deserialize, Serialize};
@@ -167,6 +167,33 @@ pub struct RunningFrame {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     latest_host_mem_snapshot: RwLock<Option<Arc<HostMemSnapshot>>>,
+    /// Logger this frame writes through, attached by `run`/`run_docker` once created. Gives
+    /// stuck-frame detection its log-traction signal (in-process, so it works for Loki frames
+    /// and never stats a possibly hung filesystem) and a channel to write the kill footer.
+    /// Transient, never persisted in frame snapshots.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    attached_logger: RwLock<Option<FrameLogger>>,
+    /// Stuck-frame detection state, updated once per monitor cycle. Transient: after an RQD
+    /// restart tracking restarts fresh, which fails open (recovered frames get a full
+    /// threshold window before they can be flagged).
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    stuck_tracker: Mutex<Option<StuckTracker>>,
+    /// Guards the kill footer to a single write per frame. A kill that fails unfreezes the
+    /// frame so the next monitor cycle retries, and without this the retry would append
+    /// another footer every cycle. Transient, never persisted in frame snapshots.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    stuck_footer_written: AtomicBool,
+}
+
+/// Last observed progress sample and the moment any signal last moved.
+/// See `RunningFrame::observe_progress`.
+struct StuckTracker {
+    last_progress_at: SystemTime,
+    last_log_epoch: u64,
+    last_progress: SessionProgress,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -299,6 +326,9 @@ impl RunningFrame {
             dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
             latest_host_mem_snapshot: RwLock::new(None),
+            attached_logger: RwLock::new(None),
+            stuck_tracker: Mutex::new(None),
+            stuck_footer_written: AtomicBool::new(false),
         }
     }
 
@@ -443,14 +473,19 @@ impl RunningFrame {
         match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
             FrameState::Running(running_state) => {
-                // Replace exit_signal to memory signal if kill_reason matches the memory check message
-                let modified_exit_signal = match &running_state.kill_reason {
+                // Kills issued by RQD itself encode their cause in the reported status:
+                // OOM kills replace the exit signal with Cuebot's memory-failure signal, and
+                // stuck kills replace the exit code with the frame-stuck status.
+                let (exit_code, modified_exit_signal) = match &running_state.kill_reason {
                     Some(reason) if reason.contains(OOM_REASON_MSG) => {
                         // 33 is the error signal hardcoded on Cuebot for memory issues
                         // (See Dispatcher.java:EXIT_STATUS_MEMORY_FAILURE)
-                        Some(33)
+                        (exit_code, Some(33))
                     }
-                    _ => exit_signal,
+                    Some(reason) if reason.contains(STUCK_REASON_MSG) => {
+                        (STUCK_EXIT_STATUS, exit_signal)
+                    }
+                    _ => (exit_code, exit_signal),
                 };
 
                 // Create a new FinishedState with the current running state values
@@ -696,7 +731,9 @@ impl RunningFrame {
             };
             return;
         }
-        let logger = Arc::new(logger_base.unwrap());
+        let logger_handle: FrameLogger = logger_base.unwrap();
+        self.attach_logger(logger_handle.clone());
+        let logger = Arc::new(logger_handle);
 
         let output = if recover_mode {
             self.recover_inner(Arc::clone(&logger)).await
@@ -1687,6 +1724,16 @@ Render Frame Completed
         self.stats_frozen.store(true, Ordering::SeqCst);
     }
 
+    /// Unfreezes the frame statistics, re-enabling updates.
+    ///
+    /// Called when a kill that froze stats first could not be issued: `observe_progress`
+    /// skips frozen frames, so without unfreezing a failed stuck-kill would never be
+    /// re-detected and retried, and stats reporting would stay dead while the process
+    /// lives on.
+    pub fn unfreeze_stats(&self) {
+        self.stats_frozen.store(false, Ordering::SeqCst);
+    }
+
     /// Stores the latest host-wide memory snapshot, shared from the monitor loop.
     ///
     /// The same `Arc` is pushed into every running frame each monitor cycle so that a
@@ -1698,6 +1745,158 @@ Render Frame Completed
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         *lock = Some(snapshot);
+    }
+
+    /// Attaches the logger this frame writes through, exposing its in-process last-write
+    /// timestamp to stuck-frame detection and letting the monitor append the kill footer.
+    pub fn attach_logger(&self, logger: FrameLogger) {
+        let mut lock = self
+            .attached_logger
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *lock = Some(logger);
+    }
+
+    fn logger_last_write(&self) -> Option<u64> {
+        self.attached_logger
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .as_ref()
+            .map(|logger| logger.last_write_epoch())
+    }
+
+    /// Feeds one monitor-cycle progress sample into stuck-frame detection and returns how
+    /// long this frame has gone without any sign of progress.
+    ///
+    /// Progress is any of: a log write since the last cycle, a change in the session's
+    /// cpu/io counters, or a change in the session's process composition. Every uncertain
+    /// case fails open: no session sample (`None`, e.g. non-Linux), an unavailable CPU
+    /// signal, a frozen frame, or the first observation all reset the clock instead of
+    /// accumulating towards a kill.
+    pub fn observe_progress(&self, sample: Option<SessionProgress>) -> Option<std::time::Duration> {
+        if self.stats_frozen.load(Ordering::SeqCst) {
+            return None;
+        }
+        let mut lock = self
+            .stuck_tracker
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let now = SystemTime::now();
+        let log_epoch = self.logger_last_write().unwrap_or(0);
+
+        // The CPU signal is required for a verdict: without it the rule would degrade to
+        // log-silence alone (e.g. on platforms where /proc is unavailable).
+        let sample = match sample {
+            Some(sample) if sample.cpu_time.is_some() => sample,
+            _ => {
+                *lock = None;
+                return None;
+            }
+        };
+
+        match lock.as_mut() {
+            Some(tracker) => {
+                let iomoved = match (tracker.last_progress.io_bytes, sample.io_bytes) {
+                    (Some(last), Some(current)) => last != current,
+                    // An IO signal that appears or disappears is a change, not silence
+                    (last, current) => last.is_some() != current.is_some(),
+                };
+                let moved = tracker.last_log_epoch != log_epoch
+                    || tracker.last_progress.cpu_time != sample.cpu_time
+                    || tracker.last_progress.composition != sample.composition
+                    || iomoved;
+                if moved {
+                    tracker.last_progress_at = now;
+                }
+                tracker.last_log_epoch = log_epoch;
+                tracker.last_progress = sample;
+                now.duration_since(tracker.last_progress_at).ok()
+            }
+            None => {
+                *lock = Some(StuckTracker {
+                    last_progress_at: now,
+                    last_log_epoch: log_epoch,
+                    last_progress: sample,
+                });
+                Some(std::time::Duration::ZERO)
+            }
+        }
+    }
+
+    /// Appends the stuck-kill evidence footer to the frame log. This is the artist's only
+    /// explanation for the frame dying with the frame-stuck status, so it renders everything
+    /// RQD knows: how long nothing moved, when the log and counters last did, and what each
+    /// session process was blocked on.
+    ///
+    /// Writes at most once per frame: a failed kill is retried on every subsequent monitor
+    /// cycle, and the footer describes a verdict that does not change between attempts.
+    pub fn write_stuck_footer(
+        &self,
+        no_progress: std::time::Duration,
+        threshold: std::time::Duration,
+        evidence: &[String],
+    ) {
+        if self.stuck_footer_written.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let logger = {
+            let lock = self
+                .attached_logger
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            lock.clone()
+        };
+        let Some(logger) = logger else {
+            warn!("Frame {}: no logger attached, skipping stuck footer", self);
+            return;
+        };
+        let (last_progress_at, last_log_epoch) = {
+            let lock = self
+                .stuck_tracker
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            match lock.as_ref() {
+                Some(tracker) => (Some(tracker.last_progress_at), tracker.last_log_epoch),
+                None => (None, 0),
+            }
+        };
+        let fmt_time = |time: SystemTime| {
+            DateTime::<Local>::from(time)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        };
+        let mut footer = String::new();
+        footer.push_str("\n=== RQD: frame killed as stuck ===\n");
+        footer.push_str(&format!(
+            "No progress (log, CPU, or IO) for {}s (threshold {}s).\n",
+            no_progress.as_secs(),
+            threshold.as_secs()
+        ));
+        if last_log_epoch > 0 {
+            footer.push_str(&format!(
+                "Last log write:   {}\n",
+                fmt_time(UNIX_EPOCH + std::time::Duration::from_secs(last_log_epoch))
+            ));
+        }
+        if let Some(last_progress_at) = last_progress_at {
+            footer.push_str(&format!(
+                "Last counter move: {}\n",
+                fmt_time(last_progress_at)
+            ));
+        }
+        if evidence.is_empty() {
+            footer.push_str("No per-process evidence available.\n");
+        } else {
+            footer.push_str(&format!("Session processes ({}):\n", evidence.len()));
+            for line in evidence {
+                footer.push_str(line);
+                footer.push('\n');
+            }
+        }
+        footer.push_str(
+            "The frame will be reported with exit status 303 (frame stuck) and retried by Cuebot.",
+        );
+        logger.writeln(&footer);
     }
 
     /// Builds this frame's contribution to the host memory snapshot from its current stats.
@@ -1827,6 +2026,212 @@ mod tests {
 
     use super::{match_exit_status_rules, read_last_lines, RunningFrame, LOG_SCAN_MAX_BYTES};
 
+
+    mod stuck_detection {
+        use super::*;
+        use crate::frame::logging::FrameLogger;
+        use crate::frame::running_frame::FrameState;
+        use crate::system::manager::SessionProgress;
+        use crate::system::{STUCK_EXIT_STATUS, STUCK_REASON_MSG};
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
+
+        fn frame() -> RunningFrame {
+            create_running_frame("sleep 1", 1, 0, HashMap::new())
+        }
+
+        fn sample(cpu: u64, io: Option<u64>, composition: u64) -> Option<SessionProgress> {
+            Some(SessionProgress {
+                cpu_time: Some(cpu),
+                io_bytes: io,
+                composition,
+            })
+        }
+
+        #[test]
+        fn first_observation_starts_the_clock_at_zero() {
+            let frame = frame();
+            let elapsed = frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            assert!(elapsed < Duration::from_secs(1));
+        }
+
+        #[test]
+        fn no_movement_accumulates() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            let elapsed = frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            assert!(elapsed >= Duration::from_millis(20));
+        }
+
+        #[test]
+        fn cpu_movement_resets_the_clock() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            let elapsed = frame.observe_progress(sample(11, Some(100), 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn io_movement_resets_the_clock() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            let elapsed = frame.observe_progress(sample(10, Some(101), 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn io_signal_appearing_or_disappearing_is_movement_not_silence() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            let elapsed = frame.observe_progress(sample(10, None, 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+            std::thread::sleep(Duration::from_millis(20));
+            let elapsed = frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn composition_change_resets_the_clock() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            // A (pid, starttime) set change (fork, exit, or pid reuse) is progress
+            let elapsed = frame.observe_progress(sample(10, Some(100), 2)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn log_write_resets_the_clock() {
+            let frame = frame();
+            let logger = Arc::new(TestLogger::init());
+            frame.attach_logger(logger.clone() as FrameLogger);
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            // Writes are tracked at second granularity; move the recorded epoch instead of
+            // sleeping over a second boundary.
+            logger.last_write.store(u64::MAX, Ordering::Relaxed);
+            let elapsed = frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn absent_sample_fails_open() {
+            let frame = frame();
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            // Signals became unavailable: no verdict, and the tracker resets so the frame
+            // gets a fresh threshold window when they come back.
+            assert!(frame.observe_progress(None).is_none());
+            let elapsed = frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            assert!(elapsed < Duration::from_millis(20));
+        }
+
+        #[test]
+        fn missing_cpu_signal_fails_open() {
+            let frame = frame();
+            let no_cpu = Some(SessionProgress {
+                cpu_time: None,
+                io_bytes: Some(100),
+                composition: 1,
+            });
+            assert!(frame.observe_progress(no_cpu).is_none());
+        }
+
+        #[test]
+        fn frozen_frame_is_not_observed() {
+            let frame = frame();
+            frame.freeze_stats();
+            assert!(frame.observe_progress(sample(10, Some(100), 1)).is_none());
+        }
+
+        #[test]
+        fn stuck_kill_reason_overrides_exit_status() {
+            let frame = create_running_frame("sleep 1", 1, 0, HashMap::new());
+            let frame = RunningFrame::init_started_for_test(
+                frame.request.clone(),
+                0,
+                frame.config.clone(),
+                None,
+                None,
+                "localhost".to_string(),
+                std::time::Duration::from_secs(60),
+            );
+            frame.get_pid_to_kill(STUCK_REASON_MSG).unwrap();
+            frame.finish(143, Some(15), None).unwrap();
+            match frame.get_state_copy() {
+                FrameState::Finished(finished) => {
+                    assert_eq!(finished.exit_code, STUCK_EXIT_STATUS);
+                    assert_eq!(finished.exit_signal, Some(15));
+                }
+                other => panic!("expected finished state, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn non_stuck_kill_keeps_exit_status() {
+            let frame = create_running_frame("sleep 1", 1, 0, HashMap::new());
+            let frame = RunningFrame::init_started_for_test(
+                frame.request.clone(),
+                0,
+                frame.config.clone(),
+                None,
+                None,
+                "localhost".to_string(),
+                std::time::Duration::from_secs(60),
+            );
+            frame.get_pid_to_kill("manual kill").unwrap();
+            frame.finish(143, Some(15), None).unwrap();
+            match frame.get_state_copy() {
+                FrameState::Finished(finished) => {
+                    assert_eq!(finished.exit_code, 143);
+                }
+                other => panic!("expected finished state, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn stuck_footer_reaches_the_frame_log() {
+            let frame = frame();
+            let logger = Arc::new(TestLogger::init());
+            frame.attach_logger(logger.clone() as FrameLogger);
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            frame.write_stuck_footer(
+                Duration::from_secs(1800),
+                Duration::from_secs(1200),
+                &["  4711 S nfs_hog  wchan=rpc_wait_bit_killable  syscall=-".to_string()],
+            );
+            let footer = logger.pop().expect("footer should have been written");
+            assert!(footer.contains("frame killed as stuck"));
+            assert!(footer.contains("rpc_wait_bit_killable"));
+            assert!(footer.contains("303"));
+        }
+
+        #[test]
+        fn stuck_footer_is_written_only_once() {
+            let frame = frame();
+            let logger = Arc::new(TestLogger::init());
+            frame.attach_logger(logger.clone() as FrameLogger);
+            frame.observe_progress(sample(10, Some(100), 1)).unwrap();
+            let write = || {
+                frame.write_stuck_footer(
+                    Duration::from_secs(1800),
+                    Duration::from_secs(1200),
+                    &["  4711 S nfs_hog  wchan=rpc_wait_bit_killable  syscall=-".to_string()],
+                )
+            };
+            write();
+            logger.pop().expect("footer should have been written");
+            // A failed kill unfreezes the frame and the next monitor cycle retries; the
+            // footer must not be appended again.
+            write();
+            assert!(logger.pop().is_none(), "footer was written more than once");
+        }
+    }
+
     fn create_running_frame(
         command: &str,
         num_cores: u32,
@@ -1880,6 +2285,7 @@ mod tests {
                 hard_memory_limit: 0,
                 pid: 0,
                 loki_url: loki_url.to_string(),
+                stuck_detection_llu: 0,
 
                 #[allow(deprecated)]
                 job_temp_dir: "".to_string(),

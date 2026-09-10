@@ -170,6 +170,13 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout_llu.setSuffix(" minutes")
         self.__timeout_llu.setSpecialValueText("No timeout")
 
+        # Stuck detection LLU
+        self.__stuck_detection_llu = QtWidgets.QSpinBox(self)
+        self.__stuck_detection_llu.setRange(0, 4320)
+        self.__stuck_detection_llu.setSingleStep(1)
+        self.__stuck_detection_llu.setSuffix(" minutes")
+        self.__stuck_detection_llu.setSpecialValueText("Disabled")
+
         # Memory Optimizer
         self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
@@ -228,6 +235,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_gpus.setValue(self.getMaxGpus())
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
+        self.__stuck_detection_llu.setValue(self.getStuckDetectionLLU())
 
         QtWidgets.QVBoxLayout(self)
 
@@ -270,6 +278,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                             multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout LLU:",
                                                             self.__timeout_llu,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Stuck Detection LLU:",
+                                                            self.__stuck_detection_llu,
                                                             False),
                                                             multiSelect))
         layout.addStretch()
@@ -336,6 +348,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setTimeout(self.__timeout.value())
             if self.__timeout_llu.isEnabled():
                 layer.setTimeoutLLU(self.__timeout_llu.value())
+            if self.__stuck_detection_llu.isEnabled():
+                layer.setStuckDetectionLLU(self.__stuck_detection_llu.value())
         if self.__tags.isEnabled():
             self.__tags.apply()
         if self.__limits.isEnabled():
@@ -410,6 +424,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         for layer in self.__layers:
             if layer.data.timeout_llu > result:
                 result = layer.data.timeout_llu
+        return result
+
+    def getStuckDetectionLLU(self):
+        """Gets the layer stuck-detection threshold (minutes, 0 = disabled)."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.stuck_detection_llu > result:
+                result = layer.data.stuck_detection_llu
         return result
 
     def getMemoryOptSetting(self):

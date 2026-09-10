@@ -1319,6 +1319,9 @@ impl RqdDispatcherService {
             attributes: HashMap::new(),
             children: None,
             pid: 0, // Will be set by RQD
+            // Stuck detection is not plumbed through the scheduler's dispatch path yet, so
+            // scheduler-dispatched frames are never stuck-inspected by RQD.
+            stuck_detection_llu: 0,
 
             // Deprecated fields
             #[allow(deprecated)]

@@ -178,6 +178,24 @@ public class FrameCompleteHandlerFrameStateTests {
     }
 
     @Test
+    public void testStuckFrameWaitsForRetryDespiteStaleLlu() {
+        // A stuck kill (303) is usually host-local; it must retry even though the LLU is
+        // stale enough that the timeout_llu branch below would return DEAD.
+        layer.timeout_llu = 30;
+        long staleLluTime = System.currentTimeMillis() / 1000 - 3600;
+        FrameCompleteReport report = FrameCompleteReport
+                .newBuilder(report(Dispatcher.EXIT_STATUS_FRAME_STUCK, 0))
+                .setFrame(RunningFrameInfo.newBuilder().setLluTime(staleLluTime).build()).build();
+        assertEquals(FrameState.WAITING, determine(report));
+    }
+
+    @Test
+    public void testStuckFrameDiesWhenRetriesExhausted() {
+        frame.retries = job.maxRetries;
+        assertEquals(FrameState.DEAD, determine(report(Dispatcher.EXIT_STATUS_FRAME_STUCK, 0)));
+    }
+
+    @Test
     public void testLayerTimeoutKillsFrame() {
         layer.timeout = 10;
         FrameCompleteReport report =

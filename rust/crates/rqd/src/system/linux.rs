@@ -38,7 +38,7 @@ use uuid::Uuid;
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
 
-use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SystemManager};
+use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SessionProgress, SystemManager};
 
 pub struct LinuxSystem {
     config: MachineConfig,
@@ -63,6 +63,11 @@ struct ProcessData {
     name: String,
     start_time: u64,
     run_time: u64,
+    /// utime+stime in clock ticks (fields 14 and 15 of /proc/<pid>/stat). None if unparsable.
+    cpu_time: Option<u64>,
+    /// read_bytes+write_bytes from /proc/<pid>/io. None when unreadable (requires
+    /// PTRACE_MODE_READ over the target).
+    io_bytes: Option<u64>,
 }
 
 impl ProcessData {
@@ -536,9 +541,7 @@ impl LinuxSystem {
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
         let stat = nix::sys::statvfs::statvfs(self.config.temp_path.as_str())
             .into_diagnostic()
-            .wrap_err_with(|| {
-                format!("statvfs failed for temp path {}", self.config.temp_path)
-            })?;
+            .wrap_err_with(|| format!("statvfs failed for temp path {}", self.config.temp_path))?;
         let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
         let available_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
         Ok((total_space, available_space))
@@ -737,6 +740,16 @@ impl LinuxSystem {
 
             let (start_time, run_time) = self.calculate_process_time(start_time);
 
+            // utime (14) + stime (15): cpu progress counter for stuck-frame detection
+            let cpu_time = match (
+                fields_stat[13].parse::<u64>(),
+                fields_stat[14].parse::<u64>(),
+            ) {
+                (Ok(utime), Ok(stime)) => Some(utime + stime),
+                _ => None,
+            };
+            let io_bytes = Self::read_io_bytes(pid);
+
             // Remove ()
             let name = if name.len() > 2 {
                 name[1..name.len() - 1].to_string()
@@ -755,6 +768,8 @@ impl LinuxSystem {
                 name,
                 start_time,
                 run_time,
+                cpu_time,
+                io_bytes,
             })
         } else {
             Err(miette!("Invalid /proc/stat file for {pid}"))
@@ -786,6 +801,27 @@ impl LinuxSystem {
         let start_time = self.static_info.boot_time_secs + start_time_without_boot_time;
         let run_time = now_epoch.saturating_sub(start_time);
         (start_time, run_time)
+    }
+
+    /// Sum of read_bytes+write_bytes from /proc/<pid>/io, or None when unreadable.
+    fn read_io_bytes(pid: u32) -> Option<u64> {
+        let content = std::fs::read_to_string(format!("/proc/{}/io", pid)).ok()?;
+        let mut total: Option<u64> = None;
+        for line in content.lines() {
+            if let Some(("read_bytes" | "write_bytes", value)) = line.split_once(':') {
+                let bytes = value.trim().parse::<u64>().ok()?;
+                total = Some(total.unwrap_or(0) + bytes);
+            }
+        }
+        total
+    }
+
+    /// Best-effort single-value read of a /proc file, for the stuck-kill evidence footer.
+    fn read_proc_line(pid: u32, file: &str) -> Option<String> {
+        std::fs::read_to_string(format!("/proc/{}/{}", pid, file))
+            .ok()
+            .map(|content| content.trim().to_string())
+            .filter(|content| !content.is_empty())
     }
 
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
@@ -987,6 +1023,61 @@ impl SystemManager for LinuxSystem {
                 run_time: session_data.run_time,
             }
         }))
+    }
+
+    fn collect_session_progress(&self, session_pid: u32) -> Option<SessionProgress> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let pids = self.session_processes.get(&session_pid)?;
+        let mut composition: Vec<(u32, u64)> = Vec::new();
+        let mut cpu_time: Option<u64> = None;
+        let mut io_bytes: Option<u64> = None;
+        for pid in pids.iter() {
+            if let Some(proc) = self.cached_processes.get(pid) {
+                if proc.is_dead() {
+                    continue;
+                }
+                composition.push((*pid, proc.start_time));
+                if let Some(cpu) = proc.cpu_time {
+                    cpu_time = Some(cpu_time.unwrap_or(0) + cpu);
+                }
+                if let Some(io) = proc.io_bytes {
+                    io_bytes = Some(io_bytes.unwrap_or(0) + io);
+                }
+            }
+        }
+        if composition.is_empty() {
+            return None;
+        }
+        composition.sort_unstable();
+        let mut hasher = DefaultHasher::new();
+        composition.hash(&mut hasher);
+        Some(SessionProgress {
+            cpu_time,
+            io_bytes,
+            composition: hasher.finish(),
+        })
+    }
+
+    fn collect_session_evidence(&self, session_pid: u32) -> Vec<String> {
+        let pids: Vec<u32> = match self.session_processes.get(&session_pid) {
+            Some(pids) => pids.clone(),
+            None => return Vec::new(),
+        };
+        pids.into_iter()
+            .map(|pid| {
+                let (state, name) = self
+                    .cached_processes
+                    .get(&pid)
+                    .map(|proc| (proc.state.clone(), proc.name.clone()))
+                    .unwrap_or_else(|| ("?".to_string(), "?".to_string()));
+                let wchan = Self::read_proc_line(pid, "wchan").unwrap_or_else(|| "-".to_string());
+                let syscall =
+                    Self::read_proc_line(pid, "syscall").unwrap_or_else(|| "-".to_string());
+                format!("  {pid} {state} {name}  wchan={wchan}  syscall={syscall}")
+            })
+            .collect()
     }
 
     fn refresh_procs(&self) {

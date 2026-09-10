@@ -73,6 +73,10 @@ class ServiceForm(QtWidgets.QWidget):
         self.timeout_llu = QtWidgets.QSpinBox(self)
         self.timeout_llu.setRange(0, 4320)
         self.timeout_llu.setValue(0)
+        self.stuck_detection_llu = QtWidgets.QSpinBox(self)
+        self.stuck_detection_llu.setRange(0, 4320)
+        self.stuck_detection_llu.setValue(0)
+        self.stuck_detection_llu.setSpecialValueText("Disabled")
         self.min_memory_increase = QtWidgets.QSpinBox(self)
         self.min_memory_increase.setRange(0, int(self._cfg().get('max_memory', 48)) * 1024)
         self.min_memory_increase.setValue(0)
@@ -93,17 +97,19 @@ class ServiceForm(QtWidgets.QWidget):
         layout.addWidget(self.timeout, 6, 1)
         layout.addWidget(QtWidgets.QLabel("Timeout LLU (in minutes):", self), 7, 0)
         layout.addWidget(self.timeout_llu, 7, 1)
-        layout.addWidget(QtWidgets.QLabel("OOM Increase MB:", self), 8, 0)
-        layout.addWidget(self.min_memory_increase, 8, 1)
+        layout.addWidget(QtWidgets.QLabel("Stuck detection LLU (in minutes):", self), 8, 0)
+        layout.addWidget(self.stuck_detection_llu, 8, 1)
+        layout.addWidget(QtWidgets.QLabel("OOM Increase MB:", self), 9, 0)
+        layout.addWidget(self.min_memory_increase, 9, 1)
         self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
-        layout.addWidget(self._tags_w, 9, 0, 1, 2)
+        layout.addWidget(self._tags_w, 10, 0, 1, 2)
 
         self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save,
                                                 QtCore.Qt.Horizontal,
                                                 self)
         self.__buttons.setDisabled(True)
 
-        layout.addWidget(self.__buttons, 10, 1)
+        layout.addWidget(self.__buttons, 11, 1)
 
         self.__buttons.accepted.connect(self.save)  # pylint: disable=no-member
 
@@ -139,6 +145,7 @@ class ServiceForm(QtWidgets.QWidget):
         self._tags_w.set_tags(service.data.tags)
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
+        self.stuck_detection_llu.setValue(service.data.stuck_detection_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
 
     def new(self):
@@ -156,6 +163,7 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_gpu_memory.setValue(self.gpu_min_mb)
         self.timeout.setValue(0)
         self.timeout_llu.setValue(0)
+        self.stuck_detection_llu.setValue(0)
         self.min_memory_increase.setValue(2048)
         self._tags_w.set_tags(['general'])
 
@@ -184,6 +192,13 @@ class ServiceForm(QtWidgets.QWidget):
                                             "The minimum memory increase must be more than 0 MB")
             return
 
+        if 0 < self.timeout_llu.value() <= self.stuck_detection_llu.value():
+            # Cuebot's blind LLU kill fires first and RQD's verified stuck kill never runs
+            QtWidgets.QMessageBox.warning(
+                self, "Warning",
+                "Timeout LLU should be larger than the stuck detection LLU, otherwise "
+                "frames time out on log staleness before RQD can verify they are stuck.")
+
         service = opencue.wrappers.service.Service()
         if self.__service:
             service.data.id = self.__service.data.id
@@ -195,6 +210,7 @@ class ServiceForm(QtWidgets.QWidget):
         service.setMinGpuMemory(self.min_gpu_memory.value() * 1024)
         service.setTimeout(self.timeout.value())
         service.setTimeoutLLU(self.timeout_llu.value())
+        service.setStuckDetectionLLU(self.stuck_detection_llu.value())
         service.setMinMemoryIncrease(self.min_memory_increase.value() * 1024)
         service.setTags(self._tags_w.get_tags())
 

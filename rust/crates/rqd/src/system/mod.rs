@@ -33,3 +33,12 @@ pub type PhysId = u32;
 pub type ThreadId = u32;
 
 pub use oom::OOM_REASON_MSG;
+
+/// Kill reason recorded when stuck-frame detection kills a frame. `RunningFrame::finish`
+/// matches on this to override the reported exit status with `STUCK_EXIT_STATUS`.
+pub static STUCK_REASON_MSG: &str =
+    "Frame killed by stuck-frame detection: no log, CPU, or IO progress";
+
+/// Mirrors Cuebot's Dispatcher.EXIT_STATUS_FRAME_STUCK. Cuebot returns the frame to WAITING
+/// (counting the retry) when it sees this status.
+pub static STUCK_EXIT_STATUS: i32 = 303;

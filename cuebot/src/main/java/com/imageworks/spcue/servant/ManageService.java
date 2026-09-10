@@ -58,6 +58,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         service.threadable = request.getData().getThreadable();
         service.timeout = request.getData().getTimeout();
         service.timeout_llu = request.getData().getTimeoutLlu();
+        service.stuck_detection_llu = request.getData().getStuckDetectionLlu();
         service.minMemoryIncrease = request.getData().getMinMemoryIncrease();
         serviceManager.createService(service);
         responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
@@ -132,6 +133,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         entity.threadable = service.getThreadable();
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();
+        entity.stuck_detection_llu = service.getStuckDetectionLlu();
         entity.minMemoryIncrease = service.getMinMemoryIncrease();
         return entity;
     }

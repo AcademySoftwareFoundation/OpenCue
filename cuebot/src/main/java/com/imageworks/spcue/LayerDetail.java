@@ -37,6 +37,7 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public int chunkSize;
     public int timeout;
     public int timeout_llu;
+    public int stuck_detection_llu;
     public int dispatchOrder;
     public int totalFrameCount;
 
@@ -110,6 +111,14 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
 
     public void setTimeoutLLU(int timeout_llu) {
         this.timeout_llu = timeout_llu;
+    }
+
+    public int getStuckDetectionLLU() {
+        return stuck_detection_llu;
+    }
+
+    public void setStuckDetectionLLU(int stuck_detection_llu) {
+        this.stuck_detection_llu = stuck_detection_llu;
     }
 
     public long getMinimumMemory() {

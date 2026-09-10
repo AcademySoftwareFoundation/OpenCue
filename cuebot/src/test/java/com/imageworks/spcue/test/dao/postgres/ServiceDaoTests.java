@@ -183,6 +183,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minCores = 200;
         s.timeout = 10;
         s.timeout_llu = 10;
+        s.stuck_detection_llu = 20;
         s.minMemory = CueUtil.GB8;
         s.minGpuMemory = CueUtil.GB4;
         s.threadable = true;
@@ -197,6 +198,8 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s.minCores, s1.minCores);
         assertEquals(s.timeout, s1.timeout);
         assertEquals(s.timeout_llu, s1.timeout_llu);
+        assertEquals(s.stuck_detection_llu, s1.stuck_detection_llu);
+        assertEquals(20, s1.stuck_detection_llu);
         assertEquals(s.minMemory, s1.minMemory);
         assertEquals(s.minGpuMemory, s1.minGpuMemory);
         assertEquals(s.threadable, s1.threadable);

@@ -334,6 +334,15 @@ public interface LayerDao {
     void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
 
     /**
+     * Update stuck-detection LLU (minutes without progress before RQD kills a frame as stuck) for
+     * the given layer. 0 disables stuck detection.
+     *
+     * @param layer
+     * @param stuck_detection_llu
+     */
+    void updateStuckDetectionLLU(LayerInterface layer, int stuck_detection_llu);
+
+    /**
      * Authoritatively set or clear the layer's start-after gate. No frame of the layer may start
      * before the given time. A null timestamp clears the gate.
      *

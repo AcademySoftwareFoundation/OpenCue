@@ -64,6 +64,12 @@ public class ServiceEntity extends Entity {
 
     public int timeout_llu = 0;
 
+    /**
+     * Minutes without progress (log, CPU, or IO) before RQD kills a frame as stuck. 0 disables
+     * stuck detection.
+     */
+    public int stuck_detection_llu = 0;
+
     public long minMemoryIncrease = Dispatcher.MINIMUM_MEMORY_INCREASE;
 
 }

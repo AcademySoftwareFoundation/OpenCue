@@ -46,6 +46,21 @@ pub trait SystemManager {
     /// Collects stats of a process
     fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>>;
 
+    /// Collects progress counters for a frame's process session, used by stuck-frame
+    /// detection. Returns None when the signals are unavailable (non-Linux platforms, or the
+    /// session is unknown), in which case the frame must never be flagged as stuck.
+    fn collect_session_progress(&self, session_pid: u32) -> Option<SessionProgress> {
+        let _ = session_pid;
+        None
+    }
+
+    /// Collects per-process blocking evidence (state, wchan, current syscall) for the
+    /// stuck-kill log footer. Best effort; empty when unavailable.
+    fn collect_session_evidence(&self, session_pid: u32) -> Vec<String> {
+        let _ = session_pid;
+        Vec::new()
+    }
+
     /// Update info about procs currently active
     fn refresh_procs(&self);
 
@@ -116,6 +131,25 @@ pub struct MachineGpuStats {
     pub free_memory: u64,
     /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
     pub _used_memory_by_unit: HashMap<u32, u64>,
+}
+
+/// Progress counters aggregated over a frame's process session, compared between monitor
+/// cycles by stuck-frame detection. Any change in any field counts as progress.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionProgress {
+    /// Sum of utime+stime (clock ticks) over the live processes in the session that
+    /// reported the counter. None only when no process reported one, which disables the
+    /// verdict entirely (the CPU signal is required for a frame to ever be flagged).
+    /// A process whose /proc entry cannot be read at all is absent from the session
+    /// altogether, so it also changes `composition` and therefore reads as progress.
+    pub cpu_time: Option<u64>,
+    /// Sum of read_bytes+write_bytes from /proc/<pid>/io over the processes that reported
+    /// it. None only when no process did (the file needs PTRACE_MODE_READ); an absent IO
+    /// signal is simply not compared, never counted as zero.
+    pub io_bytes: Option<u64>,
+    /// Hash of the session's (pid, starttime) set. A fork or an exit changes it, and
+    /// starttime guards against pid reuse looking like continuity.
+    pub composition: u64,
 }
 
 /// Tracks memory and runtime statistics for a rendering process and its children.

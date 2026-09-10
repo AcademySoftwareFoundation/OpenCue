@@ -126,6 +126,9 @@ message RunFrame {
     int64 hard_memory_limit = 27;
     int32 pid = 28;
     string loki_url = 29;
+    // Minutes without progress before RQD kills this frame as stuck. 0 = never inspect.
+    // Sourced from the layer's service.
+    int32 stuck_detection_llu = 30;
 }
 
 message RunFrameSeq {

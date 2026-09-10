@@ -59,7 +59,9 @@ impl RunningFrame {
             }
             return;
         }
-        let logger = Arc::new(logger_base.unwrap());
+        let logger_handle: FrameLogger = logger_base.unwrap();
+        self.attach_logger(logger_handle.clone());
+        let logger = Arc::new(logger_handle);
 
         let exit_code = if recover_mode {
             match self.recover_inner(Arc::clone(&logger)).await {

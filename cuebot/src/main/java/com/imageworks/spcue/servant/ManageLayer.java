@@ -113,6 +113,8 @@ import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutRequest;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutResponse;
+import com.imageworks.spcue.grpc.job.LayerSetStuckDetectionLLURequest;
+import com.imageworks.spcue.grpc.job.LayerSetStuckDetectionLLUResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLURequest;
 import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLUResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
@@ -461,6 +463,17 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
             layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
             responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setStuckDetectionLLU(LayerSetStuckDetectionLLURequest request,
+            StreamObserver<LayerSetStuckDetectionLLUResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateStuckDetectionLLU(layer, request.getStuckDetectionLlu());
+            responseObserver.onNext(LayerSetStuckDetectionLLUResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
     }

@@ -21,8 +21,11 @@ use std::{
     fs::{self, File, Permissions},
     io::Write,
     path::Path,
-    sync::{Arc, Mutex},
-    time::SystemTime,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
+    time::{SystemTime, UNIX_EPOCH},
 };
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -37,6 +40,17 @@ pub trait FrameLoggerT {
     // Write a byte stream
     #[allow(dead_code)]
     fn write(&self, bytes: &[u8]);
+    /// Epoch seconds of the last write through this logger. Unlike the log file's mtime,
+    /// this is tracked in-process, so it works for Loki-backed frames and never touches a
+    /// possibly hung filesystem. Used by stuck-frame detection as the log-traction signal.
+    fn last_write_epoch(&self) -> u64;
+}
+
+fn epoch_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 pub struct FrameLoggerBuilder {}
@@ -62,6 +76,7 @@ pub struct FrameFileLogger {
     _path: String,
     prepend_timestamp: bool,
     file_descriptor: Mutex<File>,
+    last_write: AtomicU64,
 }
 
 impl FrameFileLogger {
@@ -105,6 +120,7 @@ impl FrameFileLogger {
             _path: path,
             prepend_timestamp,
             file_descriptor,
+            last_write: AtomicU64::new(epoch_now()),
         })
     }
 
@@ -273,6 +289,7 @@ pub struct FrameLokiLogger {
     agent: Agent,
     loki_url: String,
     labels: HashMap<String, String>,
+    last_write: AtomicU64,
 }
 
 impl FrameLokiLogger {
@@ -288,6 +305,7 @@ impl FrameLokiLogger {
             agent,
             loki_url,
             labels,
+            last_write: AtomicU64::new(epoch_now()),
         })
     }
 
@@ -320,6 +338,7 @@ impl FrameLokiLogger {
 
 impl FrameLoggerT for FrameLokiLogger {
     fn writeln(&self, line: &str) {
+        self.last_write.store(epoch_now(), Ordering::Relaxed);
         let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string();
         let payload = LokiPayload {
             streams: vec![Stream {
@@ -345,10 +364,15 @@ impl FrameLoggerT for FrameLokiLogger {
             }
         }
     }
+
+    fn last_write_epoch(&self) -> u64 {
+        self.last_write.load(Ordering::Relaxed)
+    }
 }
 
 impl FrameLoggerT for FrameFileLogger {
     fn writeln(&self, text: &str) {
+        self.last_write.store(epoch_now(), Ordering::Relaxed);
         let mut line = String::with_capacity(text.len() + 8);
         if self.prepend_timestamp {
             let time_str: DateTime<Local> = SystemTime::now().into();
@@ -373,6 +397,7 @@ impl FrameLoggerT for FrameFileLogger {
     }
 
     fn write(&self, bytes: &[u8]) {
+        self.last_write.store(epoch_now(), Ordering::Relaxed);
         let mut buff: Vec<u8> = Vec::with_capacity(bytes.len());
 
         if self.prepend_timestamp {
@@ -400,12 +425,17 @@ impl FrameLoggerT for FrameFileLogger {
             }
         }
     }
+
+    fn last_write_epoch(&self) -> u64 {
+        self.last_write.load(Ordering::Relaxed)
+    }
 }
 
 #[cfg(test)]
 /// A memory logger, meant for being used on test environments
 pub struct TestLogger {
     lines: Mutex<Vec<String>>,
+    pub(crate) last_write: AtomicU64,
 }
 
 #[cfg(test)]
@@ -413,6 +443,7 @@ impl TestLogger {
     pub fn init() -> Self {
         TestLogger {
             lines: Mutex::new(Vec::new()),
+            last_write: AtomicU64::new(epoch_now()),
         }
     }
 
@@ -429,12 +460,14 @@ impl TestLogger {
 #[cfg(test)]
 impl FrameLoggerT for TestLogger {
     fn writeln(&self, line: &str) {
+        self.last_write.store(epoch_now(), Ordering::Relaxed);
         self.lines.lock().unwrap().push(line.to_string());
 
         println!("{}", line);
     }
 
     fn write(&self, bytes: &[u8]) {
+        self.last_write.store(epoch_now(), Ordering::Relaxed);
         if let Ok(text) = std::str::from_utf8(bytes) {
             self.lines.lock().unwrap().push(text.to_string());
             print!("{}", text);
@@ -447,6 +480,10 @@ impl FrameLoggerT for TestLogger {
             println!("<binary data of {} bytes>", bytes.len());
         }
     }
+
+    fn last_write_epoch(&self) -> u64 {
+        self.last_write.load(Ordering::Relaxed)
+    }
 }
 
 #[cfg(test)]
@@ -454,6 +491,48 @@ mod tests {
     use super::*;
     use std::io::Read;
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_file_logger_last_write_epoch_advances_on_writeln() {
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+        let logger = FrameFileLogger::init(temp_path, false, None).unwrap();
+
+        let epoch_at_init = logger.last_write_epoch();
+        assert!(epoch_at_init > 0);
+
+        // Force a visible epoch step so the bump is observable in whole seconds
+        logger.last_write.store(1, Ordering::Relaxed);
+        logger.writeln("some progress");
+        assert!(logger.last_write_epoch() >= epoch_at_init);
+
+        logger.last_write.store(1, Ordering::Relaxed);
+        logger.write(b"more progress\n");
+        assert!(logger.last_write_epoch() >= epoch_at_init);
+    }
+
+    #[test]
+    fn test_loki_logger_last_write_epoch_advances_on_writeln() {
+        use opencue_proto::rqd::RunFrame;
+
+        // Connection-refused endpoint: the push fails, but the traction signal must still
+        // register the write attempt.
+        let run_frame = RunFrame {
+            job_name: "job".to_string(),
+            frame_name: "frame".to_string(),
+            user_name: "user".to_string(),
+            frame_id: "id".to_string(),
+            loki_url: "http://127.0.0.1:1".to_string(),
+            ..Default::default()
+        };
+        let logger = FrameLokiLogger::init(run_frame).unwrap();
+        let epoch_at_init = logger.last_write_epoch();
+        assert!(epoch_at_init > 0);
+
+        logger.last_write.store(1, Ordering::Relaxed);
+        logger.writeln("some progress");
+        assert!(logger.last_write_epoch() >= epoch_at_init);
+    }
 
     #[test]
     fn test_frame_file_logger_write_basic() {

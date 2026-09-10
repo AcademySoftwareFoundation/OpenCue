@@ -117,14 +117,14 @@ public class MonitoringEventBuilder {
         EventHeader header = publisher.createEventHeader(eventType, layer.getJobId()).build();
 
         // Build the embedded Layer message
-        Layer.Builder layerBuilder =
-                Layer.newBuilder().setId(layer.getLayerId()).setName(layer.getName())
-                        .setType(layer.type).setMinCores(layer.minimumCores / 100.0f)
-                        .setMaxCores(layer.maximumCores / 100.0f).setMinGpus(layer.minimumGpus)
-                        .setMaxGpus(layer.maximumGpus).setMinMemory(layer.minimumMemory)
-                        .setMinGpuMemory(layer.minimumGpuMemory).setIsThreadable(layer.isThreadable)
-                        .setChunkSize(layer.chunkSize).setTimeout(layer.timeout)
-                        .setTimeoutLlu(layer.timeout_llu).setParentId(layer.getJobId());
+        Layer.Builder layerBuilder = Layer.newBuilder().setId(layer.getLayerId())
+                .setName(layer.getName()).setType(layer.type)
+                .setMinCores(layer.minimumCores / 100.0f).setMaxCores(layer.maximumCores / 100.0f)
+                .setMinGpus(layer.minimumGpus).setMaxGpus(layer.maximumGpus)
+                .setMinMemory(layer.minimumMemory).setMinGpuMemory(layer.minimumGpuMemory)
+                .setIsThreadable(layer.isThreadable).setChunkSize(layer.chunkSize)
+                .setTimeout(layer.timeout).setTimeoutLlu(layer.timeout_llu)
+                .setStuckDetectionLlu(layer.stuck_detection_llu).setParentId(layer.getJobId());
 
         if (layer.tags != null && !layer.tags.isEmpty()) {
             layerBuilder.addAllTags(layer.tags);

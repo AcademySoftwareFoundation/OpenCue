@@ -76,6 +76,7 @@ public class ManageServiceOverride
         entity.showId = showId;
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();
+        entity.stuck_detection_llu = service.getStuckDetectionLlu();
         entity.minMemoryIncrease = service.getMinMemoryIncrease();
         return entity;
     }

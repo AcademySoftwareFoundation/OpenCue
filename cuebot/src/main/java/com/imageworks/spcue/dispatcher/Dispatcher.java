@@ -71,6 +71,12 @@ public interface Dispatcher {
      */
     public static final int EXIT_STATUS_FAILED_KILL = 302;
 
+    /*
+     * RQD killed the frame after detecting no progress (log, CPU, or IO) for longer than the
+     * layer's stuck-detection threshold.
+     */
+    public static final int EXIT_STATUS_FRAME_STUCK = 303;
+
     // Return value for cleared frame
     public static final int EXIT_STATUS_DOWN_HOST = 399;
 

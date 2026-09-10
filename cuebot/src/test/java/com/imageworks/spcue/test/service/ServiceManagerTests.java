@@ -83,11 +83,13 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.threadable = false;
         s.timeout = 0;
         s.timeout_llu = 0;
+        s.stuck_detection_llu = 25;
         s.tags.addAll(Sets.newHashSet("general"));
         serviceManager.createService(s);
 
         ServiceEntity newService = serviceManager.getService(s.id);
         assertEquals(s, newService);
+        assertEquals(25, newService.stuck_detection_llu);
     }
 
     @Test
@@ -99,6 +101,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.minCores = 400;
         s.timeout = 10;
         s.timeout_llu = 10;
+        s.stuck_detection_llu = 15;
         s.minMemory = CueUtil.GB8;
         s.minGpuMemory = CueUtil.GB2;
         s.threadable = false;
@@ -112,6 +115,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         assertEquals(400, newService.minCores);
         assertEquals(10, newService.timeout);
         assertEquals(10, newService.timeout_llu);
+        assertEquals(15, newService.stuck_detection_llu);
         assertEquals(CueUtil.GB8, newService.minMemory);
         assertEquals(CueUtil.GB2, newService.minGpuMemory);
         assertFalse(newService.threadable);
@@ -129,6 +133,12 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Transactional
     @Rollback(true)
     public void testJobLaunch() {
+
+        // Give the primary service a stuck-detection window so the inheritance
+        // assertion below is not comparing default zeros.
+        ServiceEntity shellService = serviceManager.getService("shell");
+        shellService.stuck_detection_llu = 42;
+        serviceManager.updateService(shellService);
 
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
@@ -148,6 +158,8 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         assertEquals(shell.minGpuMemory, shellLayer.minimumGpuMemory);
         assertFalse(shellLayer.isThreadable);
         assertEquals(shell.tags, shellLayer.tags);
+        // Layers inherit stuck_detection_llu from their primary service
+        assertEquals(42, shellLayer.stuck_detection_llu);
         assertThat(shellLayer.services, contains("shell", "katana", "unknown"));
 
         assertEquals(prman.minCores, prmanLayer.minimumCores);

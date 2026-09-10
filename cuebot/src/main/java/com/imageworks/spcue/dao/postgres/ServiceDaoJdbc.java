@@ -62,6 +62,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.tags = splitTags(rs.getString("str_tags"));
             s.timeout = rs.getInt("int_timeout");
             s.timeout_llu = rs.getInt("int_timeout_llu");
+            s.stuck_detection_llu = rs.getInt("int_stuck_detection_llu");
             s.minMemoryIncrease = rs.getLong("int_min_memory_increase");
             return s;
         }
@@ -84,6 +85,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                     s.showId = rs.getString("pk_show");
                     s.timeout = rs.getInt("int_timeout");
                     s.timeout_llu = rs.getInt("int_timeout_llu");
+                    s.stuck_detection_llu = rs.getInt("int_stuck_detection_llu");
                     s.minMemoryIncrease = rs.getLong("int_min_memory_increase");
                     return s;
                 }
@@ -104,6 +106,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "service.str_tags, "
                 + "service.int_timeout, "
                 + "service.int_timeout_llu, "
+                + "service.int_stuck_detection_llu, "
                 + "service.int_min_memory_increase "
             + "FROM "
                 + "service ";
@@ -130,6 +133,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "show_service.str_tags,"
                 + "show_service.int_timeout,"
                 + "show_service.int_timeout_llu,"
+                + "show_service.int_stuck_detection_llu,"
                 + "show_service.int_min_memory_increase,"
                 + "show.pk_show "
             + "FROM "
@@ -179,9 +183,10 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "str_tags,"
                 + "int_timeout,"
                 + "int_timeout_llu, "
+                + "int_stuck_detection_llu, "
                 + "int_min_memory_increase "
             + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     // spotless:on
 
     @Override
@@ -191,7 +196,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 service.minCores, service.maxCores, service.minMemory, service.minGpus,
                 service.maxGpus, service.minGpuMemory,
                 StringUtils.join(service.tags.toArray(), " | "), service.timeout,
-                service.timeout_llu, service.minMemoryIncrease);
+                service.timeout_llu, service.stuck_detection_llu, service.minMemoryIncrease);
     }
 
     // spotless:off
@@ -210,9 +215,10 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "str_tags,"
                 + "int_timeout,"
                 + "int_timeout_llu, "
+                + "int_stuck_detection_llu, "
                 + "int_min_memory_increase "
             + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     // spotless:on
 
     @Override
@@ -221,7 +227,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id, service.showId, service.name,
                 service.threadable, service.minCores, service.maxCores, service.minMemory,
                 service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
-                service.timeout, service.timeout_llu, service.minMemoryIncrease);
+                service.timeout, service.timeout_llu, service.stuck_detection_llu,
+                service.minMemoryIncrease);
     }
 
     // spotless:off
@@ -240,6 +247,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "str_tags=?,"
                 + "int_timeout=?,"
                 + "int_timeout_llu=?, "
+                + "int_stuck_detection_llu=?, "
                 + "int_min_memory_increase=? "
             + "WHERE "
                 + "pk_service = ?";
@@ -250,7 +258,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(UPDATE_SERVICE, service.name, service.threadable, service.minCores,
                 service.maxCores, service.minMemory, service.minGpus, service.maxGpus,
                 service.minGpuMemory, joinTags(service.tags), service.timeout, service.timeout_llu,
-                service.minMemoryIncrease, service.getId());
+                service.stuck_detection_llu, service.minMemoryIncrease, service.getId());
     }
 
     // spotless:off
@@ -269,6 +277,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 + "str_tags=?,"
                 + "int_timeout=?,"
                 + "int_timeout_llu=?, "
+                + "int_stuck_detection_llu=?, "
                 + "int_min_memory_increase=? "
             + "WHERE "
                 + "pk_show_service = ?";
@@ -279,7 +288,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name, service.threadable,
                 service.minCores, service.maxCores, service.minMemory, service.minGpus,
                 service.maxGpus, service.minGpuMemory, joinTags(service.tags), service.timeout,
-                service.timeout_llu, service.minMemoryIncrease, service.getId());
+                service.timeout_llu, service.stuck_detection_llu, service.minMemoryIncrease,
+                service.getId());
     }
 
     @Override

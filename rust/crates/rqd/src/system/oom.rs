@@ -231,6 +231,7 @@ mod tests {
                 hard_memory_limit: 0,
                 pid: 0,
                 loki_url: "".to_string(),
+                stuck_detection_llu: 0,
                 #[allow(deprecated)]
                 job_temp_dir: "".to_string(),
                 #[allow(deprecated)]

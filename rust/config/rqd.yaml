@@ -166,6 +166,11 @@ runner:
   # Default: false
   # run_on_docker: false
 
+  # Host-level master switch for stuck-frame detection. A frame is only inspected when its
+  # service opted in on Cuebot (stuck_detection_llu > 0); with no opt-in this switch is inert.
+  # Signals are Linux-only. Default: true
+  # stuck_detection_enabled: true
+
   # Default user ID for running jobs
   # Default: 1000
   # default_uid: 1000

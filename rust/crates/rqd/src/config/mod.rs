@@ -362,6 +362,10 @@ pub struct RunnerConfig {
     /// Number of trailing log lines scanned against `log_exit_status_rules` when a frame
     /// fails. Set to 0, or leave `log_exit_status_rules` empty, to disable log scanning.
     pub log_scan_last_lines: usize,
+    /// Host-level master switch for stuck-frame detection. Even when enabled, a frame is only
+    /// inspected if its RunFrame carries a non-zero stuck_detection_llu (opt-in per service on
+    /// Cuebot). Signals are Linux-only; on other platforms detection is inert.
+    pub stuck_detection_enabled: bool,
     /// Ordered list of regex→exit-status rules applied to failed frames' logs. The first
     /// matching rule wins. Empty by default, which disables the feature.
     pub log_exit_status_rules: Vec<LogExitStatusRule>,
@@ -429,6 +433,7 @@ impl Default for RunnerConfig {
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),
             log_scan_last_lines: 50,
+            stuck_detection_enabled: true,
             log_exit_status_rules: Vec::new(),
             log_exit_status_rules_reload_interval: Duration::from_secs(300), // 5 min
             compiled_exit_status_rules: Arc::new(RwLock::new(None)),

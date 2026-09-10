@@ -223,6 +223,16 @@ class Layer(object):
             layer=self.data, timeout_llu=timeout_llu),
             timeout=Cuebot.Timeout)
 
+    def setStuckDetectionLLU(self, stuck_detection_llu):
+        """Set the stuck-detection threshold for frames in this layer.
+        :type stuck_detection_llu: int
+        :param stuck_detection_llu: minutes without progress before RQD kills a
+            frame as stuck; 0 disables stuck detection
+        """
+        return self.stub.SetStuckDetectionLLU(job_pb2.LayerSetStuckDetectionLLURequest(
+            layer=self.data, stuck_detection_llu=stuck_detection_llu),
+            timeout=Cuebot.Timeout)
+
     def setStartAfter(self, epoch_seconds, username=None):
         """Defers booking of this layer: no frame of the layer will start before
         the given time.

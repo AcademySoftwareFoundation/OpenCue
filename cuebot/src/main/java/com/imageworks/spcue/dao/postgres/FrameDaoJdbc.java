@@ -387,6 +387,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             frame.services = rs.getString("str_services");
             frame.os = rs.getString("str_os");
             frame.lokiURL = rs.getString("str_loki_url");
+            frame.stuckDetectionLlu = rs.getInt("int_stuck_detection_llu");
             return frame;
         }
     };
@@ -424,7 +425,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 + "layer.int_gpu_mem_min, "
                 + "layer.str_range, "
                 + "layer.int_chunk_size, "
-                + "layer.str_services "
+                + "layer.str_services, "
+                + "layer.int_stuck_detection_llu "
             + "FROM "
                 + "layer, "
                 + "job, "

@@ -223,6 +223,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.services.addAll(Lists.newArrayList(rs.getString("str_services").split(",")));
             layer.timeout = rs.getInt("int_timeout");
             layer.timeout_llu = rs.getInt("int_timeout_llu");
+            layer.stuck_detection_llu = rs.getInt("int_stuck_detection_llu");
             layer.startAfter = rs.getTimestamp("ts_start_after");
             layer.startAfterReason = rs.getString("str_start_after_reason");
             return layer;
@@ -325,9 +326,10 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                     + "int_gpu_mem_min, "
                     + "str_services, "
                     + "int_timeout,"
-                    + "int_timeout_llu "
+                    + "int_timeout_llu, "
+                    + "int_stuck_detection_llu "
                 + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     // spotless:on
 
     @Override
@@ -337,7 +339,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.chunkSize, l.dispatchOrder, StringUtils.join(l.tags, " | "), l.type.toString(),
                 l.minimumCores, l.maximumCores, l.isThreadable, l.minimumMemory, l.minimumGpus,
                 l.maximumGpus, l.minimumGpuMemory, StringUtils.join(l.services, ","), l.timeout,
-                l.timeout_llu);
+                l.timeout_llu, l.stuck_detection_llu);
     }
 
     @Override
@@ -705,6 +707,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     public void updateTimeoutLLU(LayerInterface layer, int timeout_llu) {
         getJdbcTemplate().update("UPDATE layer SET int_timeout_llu=? WHERE pk_layer=?", timeout_llu,
                 layer.getLayerId());
+    }
+
+    @Override
+    public void updateStuckDetectionLLU(LayerInterface layer, int stuck_detection_llu) {
+        getJdbcTemplate().update("UPDATE layer SET int_stuck_detection_llu=? WHERE pk_layer=?",
+                stuck_detection_llu, layer.getLayerId());
     }
 
     @Override

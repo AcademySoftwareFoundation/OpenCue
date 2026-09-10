@@ -258,6 +258,24 @@ class Service(object):
         """
         self.data.timeout_llu = timeout_llu
 
+    def stuckDetectionLLU(self) -> int:
+        """Returns the default service stuck-detection threshold in minutes.
+
+        :rtype: int
+        :return: Minutes without progress (log, CPU, or IO) before RQD kills a
+            frame as stuck. 0 means stuck detection is disabled.
+        """
+        return self.data.stuck_detection_llu
+
+    def setStuckDetectionLLU(self, stuck_detection_llu: int) -> None:
+        """Sets the default service stuck-detection threshold.
+
+        :type stuck_detection_llu: int
+        :param stuck_detection_llu: Minutes without progress (log, CPU, or IO)
+            before RQD kills a frame as stuck. 0 disables stuck detection.
+        """
+        self.data.stuck_detection_llu = stuck_detection_llu
+
     def minMemoryIncrease(self):
         """Gets the default service minimum memory increment"""
         return self.data.min_memory_increase

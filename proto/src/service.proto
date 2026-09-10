@@ -55,6 +55,9 @@ message Service {
     int32 min_gpus = 11;
     int32 max_gpus = 12;
     int32 min_memory_increase = 13;
+    // Minutes without progress (log, CPU, or IO) before RQD kills a frame as stuck.
+    // 0 = stuck detection disabled.
+    int32 stuck_detection_llu = 14;
 }
 
 message ServiceSeq {
