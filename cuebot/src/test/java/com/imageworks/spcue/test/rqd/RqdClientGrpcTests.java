@@ -36,6 +36,7 @@ import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
@@ -107,7 +108,9 @@ public class RqdClientGrpcTests {
 
     @Test
     public void killFrameSucceedsWhenRqdKillsTheFrame() {
-        client.killFrame("localhost", "frame-id", "test kill");
+        // An acknowledged kill means the signal was delivered, NOT that the render is dead:
+        // callers must not treat it as confirmed-stopped.
+        assertFalse(client.killFrame("localhost", "frame-id", "test kill"));
 
         assertEquals("frame-id", lastKillFrameId);
     }
@@ -117,7 +120,7 @@ public class RqdClientGrpcTests {
         killResponseStatus = Status.NOT_FOUND;
 
         // Must not throw: the frame is confirmed not running on the host.
-        client.killFrame("localhost", "frame-id", "test kill");
+        assertTrue(client.killFrame("localhost", "frame-id", "test kill"));
 
         assertEquals("frame-id", lastKillFrameId);
     }

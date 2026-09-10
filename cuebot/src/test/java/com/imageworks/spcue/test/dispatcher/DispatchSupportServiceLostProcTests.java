@@ -124,6 +124,9 @@ public class DispatchSupportServiceLostProcTests {
 
     @Test
     public void killsRqdBeforeReleasingProc() {
+        // The kill confirms nothing is running there (RQD answered NOT_FOUND): release is safe.
+        when(rqdClient.killFrame(eq(proc), anyString())).thenReturn(true);
+
         dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
 
         InOrder inOrder = inOrder(rqdClient, procDao);
@@ -131,6 +134,55 @@ public class DispatchSupportServiceLostProcTests {
         inOrder.verify(procDao, times(1)).deleteVirtualProc(proc);
         verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
                 eq(FrameState.WAITING), anyInt());
+    }
+
+    @Test
+    public void defersReleaseWhenKillOnlyDeliveredToLiveRender() {
+        // RQD acknowledged the kill: the signal was delivered but the render is still alive
+        // until it honors it. Releasing on the ACK would re-book the frame while the superseded
+        // render is still shutting down (and writing output), so the release is deferred and the
+        // run's own frame complete report finalizes it.
+        when(rqdClient.killFrame(eq(proc), anyString())).thenReturn(false);
+
+        assertFalse(
+                dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
+
+        verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+        // A delivered kill proves the render is alive right now; the reboot escape hatch must
+        // not release it.
+        verify(procDao, never()).isHostRebootedSinceDispatch(any(ProcInterface.class));
+    }
+
+    @Test
+    public void defersWhenKillDeliveredEvenIfHostMarkedDown() {
+        // A host marked DOWN that still answers its kill RPC is partitioned or report-starved,
+        // not dead: the delivered kill is positive proof of a live render, so the DOWN state must
+        // not release the frame for re-booking.
+        when(rqdClient.killFrame(eq(proc), anyString())).thenReturn(false);
+        when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(false);
+
+        assertFalse(dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST));
+
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void failsClosedToDeadWhenKillDeliveredAndBoundExceeded() {
+        // A delivered kill whose frame complete report never arrives (e.g. the render ignores
+        // the signal) cannot defer forever: past the bound the frame is parked DEAD, not WAITING.
+        when(rqdClient.killFrame(eq(proc), anyString())).thenReturn(false);
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
+
+        assertTrue(dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
+
+        verify(procDao, times(1)).deleteVirtualProc(proc);
+        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
+                eq(FrameState.DEAD), anyInt());
     }
 
     @Test
@@ -147,38 +199,61 @@ public class DispatchSupportServiceLostProcTests {
     }
 
     @Test
-    public void releasesForFailedKillWhenHostConfirmedDownByDb() {
-        // FAILED_KILL but the host is no longer Up in the DB: no live RQD remains, release
-        // proceeds.
+    public void defersForFailedKillEvenWhenHostMarkedDownByDb() {
+        // FAILED_KILL and the host no longer Up in the DB: the DOWN mark only means missed
+        // reports, which a partition or report-ingest stall produces while the render keeps
+        // running, so it is not proof of death and the release must defer.
         when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(false);
 
-        dispatchSupport.lostProc(proc, "failed kill", Dispatcher.EXIT_STATUS_FAILED_KILL);
+        assertFalse(
+                dispatchSupport.lostProc(proc, "failed kill", Dispatcher.EXIT_STATUS_FAILED_KILL));
 
         verify(rqdClient, never()).killFrame(any(VirtualProc.class), anyString());
-        verify(procDao, times(1)).deleteVirtualProc(proc);
-        verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
-                eq(FrameState.WAITING), anyInt());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
     }
 
     @Test
-    public void releasesProcWhenRqdKillThrowsForDownHost() {
-        // A host reported DOWN is confirmed dead: the kill may throw, but release must still
-        // proceed.
+    public void defersProcWhenRqdKillThrowsForDownHost() {
+        // A host reported DOWN whose kill also throws is a partitioned-or-dead host; both look
+        // identical, so the release defers until the silence bound decides.
         doThrow(new RuntimeException("host unreachable")).when(rqdClient)
                 .killFrame(any(VirtualProc.class), anyString());
 
-        dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST);
+        assertFalse(dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST));
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+    }
+
+    @Test
+    public void releasesWaitingWhenDownHostSilentPastBound() {
+        // A DOWN host that has also been silent for the whole deferral bound is genuinely dead:
+        // its frame is reset to WAITING (auto-retry), not parked DEAD.
+        doThrow(new RuntimeException("host unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
+
+        assertTrue(dispatchSupport.lostProc(proc, "down host", Dispatcher.EXIT_STATUS_DOWN_HOST));
+
         verify(procDao, times(1)).deleteVirtualProc(proc);
         verify(frameDao, times(1)).updateFrameStopped(any(FrameInterface.class),
                 eq(FrameState.WAITING), anyInt());
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class), eq(FrameState.DEAD),
+                anyInt());
     }
 
     @Test
     public void updatesFrameHostDownWhenFrameNotRunningForDownHost() {
-        // Down host whose frame is no longer RUNNING but already DEAD: updateFrameStopped reports
-        // nothing to stop, so the down-host fallback must reset it via updateFrameHostDown.
+        // Down host, silent past the bound, whose frame is no longer RUNNING but already DEAD:
+        // updateFrameStopped reports nothing to stop, so the down-host fallback must reset it
+        // via updateFrameHostDown.
+        doThrow(new RuntimeException("host unreachable")).when(rqdClient)
+                .killFrame(any(VirtualProc.class), anyString());
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
         when(frameDao.updateFrameStopped(any(FrameInterface.class), any(FrameState.class),
                 anyInt())).thenReturn(false);
         FrameDetail deadFrame = new FrameDetail();
@@ -207,13 +282,15 @@ public class DispatchSupportServiceLostProcTests {
     }
 
     @Test
-    public void releasesWhenKillThrowsAndHostNotUp() {
-        // The kill throws but the host is no longer Up: confirmed dead, so release is safe.
+    public void releasesWaitingWhenKillThrowsAndHostNotUpPastBound() {
+        // The kill throws, the host is not Up AND has been silent past the bound: dead with its
+        // host, released back to WAITING.
         doThrow(new RuntimeException("host unreachable")).when(rqdClient)
                 .killFrame(any(VirtualProc.class), anyString());
         when(hostDao.isHostUp(any(HostInterface.class))).thenReturn(false);
+        when(procDao.isPingOlderThan(any(ProcInterface.class), anyLong())).thenReturn(true);
 
-        dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+        assertTrue(dispatchSupport.lostProc(proc, "orphaned", Dispatcher.EXIT_STATUS_FRAME_ORPHAN));
 
         verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         verify(procDao, times(1)).deleteVirtualProc(proc);

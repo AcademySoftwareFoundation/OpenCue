@@ -996,28 +996,38 @@ impl SystemManager for LinuxSystem {
     }
 
     fn kill_session(&self, session_pid: u32) -> Result<()> {
-        killpg(
-            nix::unistd::Pid::from_raw(session_pid as i32),
-            Signal::SIGTERM,
+        crate::system::signal_result_tolerating_esrch(
+            killpg(
+                nix::unistd::Pid::from_raw(session_pid as i32),
+                Signal::SIGTERM,
+            ),
+            session_pid,
+            "kill session",
         )
-        .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
     }
 
     fn force_kill_session(&self, session_pid: u32) -> Result<()> {
-        killpg(
-            nix::unistd::Pid::from_raw(session_pid as i32),
-            Signal::SIGKILL,
+        crate::system::signal_result_tolerating_esrch(
+            killpg(
+                nix::unistd::Pid::from_raw(session_pid as i32),
+                Signal::SIGKILL,
+            ),
+            session_pid,
+            "force kill session",
         )
-        .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
     }
 
     fn force_kill(&self, pids: &[u32]) -> Result<()> {
         let mut failed_pids = Vec::new();
         let mut last_err = Ok(());
         for pid in pids {
-            if let Err(err) = kill(nix::unistd::Pid::from_raw(*pid as i32), Signal::SIGKILL) {
-                failed_pids.push(pid);
-                last_err = Err(err);
+            match kill(nix::unistd::Pid::from_raw(*pid as i32), Signal::SIGKILL) {
+                // An already-gone pid is the state the kill was meant to reach.
+                Ok(()) | Err(nix::errno::Errno::ESRCH) => {}
+                Err(err) => {
+                    failed_pids.push(pid);
+                    last_err = Err(err);
+                }
             }
         }
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))

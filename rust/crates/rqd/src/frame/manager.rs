@@ -26,7 +26,7 @@ use uuid::Uuid;
 #[cfg(feature = "containerized_frames")]
 use super::docker_running_frame;
 
-use super::running_frame::RunningFrame;
+use super::running_frame::{KillOutcome, RunningFrame};
 use crate::{config::CONFIG, servant::rqd_servant::MachineImpl, system::machine};
 
 pub struct FrameManager {
@@ -369,15 +369,15 @@ impl FrameManager {
     /// # Returns
     ///
     /// * `Ok(Some(()))` if the frame was found and killed successfully
-    /// * `Ok(None)` if no frame with the given ID was found
+    /// * `Ok(None)` if no frame with the given ID was found, or the frame already reached a
+    ///   terminal state -- either way there is nothing running to kill, which callers (Cuebot)
+    ///   treat as the strongest "not running" proof (NOT_FOUND)
     /// * `Err(miette::Error)` if frame cannot be killed, possibly a precondition wasn't met
-    ///     - Frame existed but wasn't running
-    ///     - Frame has alredy been killed
+    ///     - Frame existed but hasn't spawned its process yet
     pub async fn kill_running_frame(&self, frame_id: &Uuid, reason: String) -> Result<Option<()>> {
         match self.get_running_frame(frame_id) {
-            Some(running_frame) => {
-                let pid = running_frame.get_pid_to_kill(&reason);
-                if let Ok(frame_pid) = pid {
+            Some(running_frame) => match running_frame.get_pid_to_kill(&reason) {
+                KillOutcome::Signal(frame_pid) => {
                     info!(
                         "Killing frame {running_frame}({frame_pid}) by request.\n\
                         Reason: {reason}"
@@ -386,13 +386,22 @@ impl FrameManager {
                     self.monitor_killed_frame(frame_pid, &running_frame);
 
                     Ok(Some(()))
-                } else {
-                    Err(miette!(
-                        "Kill frame with invalid State. Frame {running_frame} exists but has \
-                        no pid assigned to it"
-                    ))
                 }
-            }
+                KillOutcome::Scheduled => {
+                    info!(
+                        "Kill request for {running_frame} arrived before its process spawned; \
+                        the kill is recorded and will be applied as soon as it starts.\n\
+                        Reason: {reason}"
+                    );
+                    Ok(Some(()))
+                }
+                KillOutcome::AlreadyTerminated(msg) => {
+                    info!(
+                        "Kill request for {running_frame} found nothing running to kill: {msg}"
+                    );
+                    Ok(None)
+                }
+            },
             None => Ok(None),
         }
     }
@@ -409,26 +418,39 @@ impl FrameManager {
     ///
     /// # Returns
     ///
-    /// * `Ok(count)` - The number of frames that were successfully killed
-    /// * `Err(miette::Error)` - If any frame exists but has no pid assigned (invalid state)
+    /// * `Ok(count)` - The number of frames that were successfully killed. Frames that cannot be
+    ///   killed (not spawned yet, already terminated, or a failed signal) are logged and skipped
+    ///   so one bad frame cannot abort the sweep and leave the rest running.
     pub async fn kill_all_running_frames(&self, reason: &str) -> Result<usize> {
         let mut count = 0;
         for frame_id in self.machine.all_running_frame_ids() {
             if let Some(running_frame) = self.get_running_frame(&frame_id) {
-                let pid = running_frame.get_pid_to_kill(reason);
-                if let Ok(frame_pid) = pid {
-                    info!(
-                        "Killing frame {running_frame}({frame_pid}) as a kill_all request.\n\
-                        Reason: {reason}"
-                    );
-                    self.machine.kill_session(frame_pid, false).await?;
-                    self.monitor_killed_frame(frame_pid, &running_frame);
-                    count += 1;
-                } else {
-                    Err(miette!(
-                        "Kill frame with invalid State. Frame {running_frame} exists but has \
-                        no pid assigned to it"
-                    ))?
+                match running_frame.get_pid_to_kill(reason) {
+                    KillOutcome::Signal(frame_pid) => {
+                        info!(
+                            "Killing frame {running_frame}({frame_pid}) as a kill_all request.\n\
+                            Reason: {reason}"
+                        );
+                        match self.machine.kill_session(frame_pid, false).await {
+                            Ok(()) => {
+                                self.monitor_killed_frame(frame_pid, &running_frame);
+                                count += 1;
+                            }
+                            Err(err) => warn!(
+                                "kill_all failed to kill frame {running_frame}({frame_pid}): {err}"
+                            ),
+                        }
+                    }
+                    KillOutcome::Scheduled => {
+                        info!(
+                            "kill_all recorded a pending kill for {running_frame}: created but \
+                            not started yet"
+                        );
+                        count += 1;
+                    }
+                    KillOutcome::AlreadyTerminated(msg) => {
+                        info!("kill_all skipping frame {running_frame}: {msg}")
+                    }
                 }
             }
         }
@@ -521,9 +543,9 @@ impl FrameManager {
                     break;
                 }
 
-                if monitor_limit_seconds >= interval_seconds {
-                    monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
-                }
+                // Unconditional: a timeout that is not a multiple of the interval would
+                // otherwise never reach zero and the escalation would never fire.
+                monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
             }
         });
     }

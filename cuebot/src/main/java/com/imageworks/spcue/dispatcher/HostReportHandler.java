@@ -691,8 +691,16 @@ public class HostReportHandler {
         } catch (ExecutionException e) {
             return false;
         }
-        killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
+            /*
+             * Do not write the counter back on a denied attempt: put() restarts the
+             * expireAfterWrite clock, and a still-running frame is re-detected on every host report
+             * (~10s), so refreshing here would keep the entry alive forever and disable the kill
+             * permanently after one exhausted burst -- a transient kill failure would leave a
+             * double-booked render running to completion. Leaving the entry untouched turns the
+             * give-up into a cooldown: it expires FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES after
+             * the last granted attempt and kills resume with a fresh budget.
+             */
             // If the kill retry limit has been reached, notify prometheus of the issue and
             // give up
             if (!dispatcher.isTestMode()) {
@@ -708,6 +716,7 @@ public class HostReportHandler {
             }
             return false;
         }
+        killRequestCounterCache.put(cacheKey, cachedCount);
         return true;
     }
 

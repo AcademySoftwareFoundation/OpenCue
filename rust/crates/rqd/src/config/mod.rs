@@ -422,9 +422,13 @@ impl Default for RunnerConfig {
             temp_path: std::env::temp_dir().to_str().unwrap_or("/tmp").to_string(),
             shell_path,
             snapshots_path: format!("{}/.rqd/snapshots", home_dir),
-            kill_monitor_interval: Duration::from_secs(120),
-            kill_monitor_timeout: Duration::from_secs(1200),
-            force_kill_after_timeout: false,
+            // A killed frame that ignores SIGTERM must not survive the kill: Cuebot has already
+            // (or will soon have) rebooked the frame elsewhere, so a surviving render is a
+            // double-render writing to the same output. Escalate to SIGKILL after 5 minutes by
+            // default instead of giving up.
+            kill_monitor_interval: Duration::from_secs(60),
+            kill_monitor_timeout: Duration::from_secs(300),
+            force_kill_after_timeout: true,
             docker_mounts: Vec::new(),
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),

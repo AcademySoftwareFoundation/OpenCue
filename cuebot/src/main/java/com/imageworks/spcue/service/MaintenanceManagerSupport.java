@@ -470,8 +470,12 @@ public class MaintenanceManagerSupport {
         logger.warn("found " + procs.size() + " that are down.");
         for (VirtualProc proc : procs) {
             try {
-                dispatchSupport.lostProc(proc, proc.getName() + " was marked as down.",
-                        Dispatcher.EXIT_STATUS_DOWN_HOST);
+                // lostProc defers the release until the render is confirmed stopped or the host
+                // has been silent past its deferral bound; only actual releases are reported.
+                if (!dispatchSupport.lostProc(proc, proc.getName() + " was marked as down.",
+                        Dispatcher.EXIT_STATUS_DOWN_HOST)) {
+                    continue;
+                }
                 FrameInterface f = frameDao.getFrame(proc.frameId);
                 FrameDetail frameDetail = frameDao.getFrameDetail(f);
                 Sentry.configureScope(scope -> {

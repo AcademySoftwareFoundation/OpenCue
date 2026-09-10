@@ -487,6 +487,29 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateFrameHostDownResurrectsOnlyDeadFrames() {
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        // A DEAD, proc-less frame is what the down-host fallback exists for: reset to WAITING.
+        jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
+                FrameState.DEAD.toString(), frame.getFrameId());
+        assertTrue(frameDao.updateFrameHostDown(frame));
+        assertEquals(FrameState.WAITING.toString(), jdbcTemplate.queryForObject(
+                "SELECT str_state FROM frame WHERE pk_frame=?", String.class, frame.getFrameId()));
+
+        // Any other state must be left untouched: a frame eaten (or otherwise finalized) between
+        // the caller's state check and this update must not be resurrected for a re-run.
+        jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
+                FrameState.EATEN.toString(), frame.getFrameId());
+        assertFalse(frameDao.updateFrameHostDown(frame));
+        assertEquals(FrameState.EATEN.toString(), jdbcTemplate.queryForObject(
+                "SELECT str_state FROM frame WHERE pk_frame=?", String.class, frame.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateFrameFixed() {
 
         DispatchHost host = createHost();

@@ -148,14 +148,18 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 + "ts_updated = current_timestamp, "
                 + "int_version = int_version + 1 "
             + "WHERE frame.pk_frame = ? "
+            + "AND frame.str_state = ? "
             + "AND frame.pk_frame NOT IN "
                 + "(SELECT proc.pk_frame FROM proc WHERE proc.pk_frame=?)";
     // spotless:on
 
     private int updateFrame(FrameInterface frame, int exitStatus) {
 
+        // Fenced to DEAD frames: this resurrection exists to auto-retry frames that died with a
+        // down host, and must not flip any other state (e.g. a frame eaten or completed in the
+        // meantime) back to WAITING for a re-run.
         int result = getJdbcTemplate().update(UPDATE_FRAME_REASON, FrameState.WAITING.toString(),
-                exitStatus, frame.getFrameId(), frame.getFrameId());
+                exitStatus, frame.getFrameId(), FrameState.DEAD.toString(), frame.getFrameId());
 
         return result;
     }

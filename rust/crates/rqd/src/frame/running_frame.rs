@@ -177,12 +177,30 @@ pub enum FrameState {
     FailedBeforeStart,
 }
 
+/// How a kill request can proceed for a frame, based on its current state.
+#[derive(Debug)]
+pub enum KillOutcome {
+    /// The frame is running: signal this session pid. The kill reason has been recorded.
+    Signal(u32),
+    /// The frame's process has not spawned yet; the kill has been recorded and will be applied
+    /// as soon as the frame starts.
+    Scheduled,
+    /// The frame already reached a terminal state: there is nothing running to kill. The
+    /// message describes how it terminated.
+    AlreadyTerminated(String),
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreatedState {
     // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     launch_thread_handle: Option<JoinHandle<()>>,
+    /// A kill requested before the frame's process spawned. Applied as soon as the frame
+    /// transitions to Running, so a kill that races the (possibly slow) launch is honored
+    /// instead of silently dropped.
+    #[serde(default)]
+    pending_kill_reason: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -295,6 +313,7 @@ impl RunningFrame {
             entrypoint_file_path,
             state: RwLock::new(FrameState::Created(CreatedState {
                 launch_thread_handle: None,
+                pending_kill_reason: None,
             })),
             dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
@@ -377,8 +396,9 @@ impl RunningFrame {
         let state = self.state.read().unwrap_or_else(|err| err.into_inner());
 
         match *state {
-            FrameState::Created(_) => FrameState::Created(CreatedState {
+            FrameState::Created(ref c) => FrameState::Created(CreatedState {
                 launch_thread_handle: None,
+                pending_kill_reason: c.pending_kill_reason.clone(),
             }),
             FrameState::Running(ref r) => FrameState::Running(RunningState {
                 pid: r.pid,
@@ -513,7 +533,9 @@ impl RunningFrame {
                     pid,
                     start_time: SystemTime::now(),
                     launch_thread_handle: created_state.launch_thread_handle.take(),
-                    kill_reason: None,
+                    // A kill requested during the launch window is carried over so the caller
+                    // can apply it right after the transition.
+                    kill_reason: created_state.pending_kill_reason.take(),
                 });
             }
             FrameState::Running(running_state) => warn!(
@@ -806,6 +828,18 @@ impl RunningFrame {
             process may have failed to start or already finished"
         ))?;
         self.start(pid);
+
+        // A kill requested while the frame was still launching was recorded as pending and
+        // carried into the running state: honor it now, before the render does any real work.
+        if let Some(reason) = self.kill_reason() {
+            warn!(
+                "Frame {self}(pid={pid}) was killed before it started ({reason}); \
+                terminating it immediately"
+            );
+            unsafe {
+                libc::killpg(pid as i32, libc::SIGTERM);
+            }
+        }
 
         info!(
             "Frame {self} started with pid {pid}, with taskset {}",
@@ -1187,38 +1221,41 @@ impl RunningFrame {
     /// # Returns
     /// Returns a `Result` containing the PID if the frame is in a running state
     ///
-    /// # Errors
-    /// Returns an error if:
-    /// - The frame has not been started yet (is in Created state)
-    /// - The frame has already finished (is in Finished state)
-    ///
     /// # Details
     /// This method safely accesses the thread-protected state to retrieve
-    /// the current PID of the running frame process. A warning is logged
-    /// if the frame doesn't have an associated thread handle.
-    pub fn get_pid_to_kill(&self, reason: &str) -> Result<u32> {
+    /// the current PID of the running frame process, recording the kill reason on a running
+    /// frame. The returned [`KillOutcome`] tells the caller how the kill can proceed; a frame in
+    /// a terminal state is reported as such so the caller can answer "nothing running to kill"
+    /// instead of an error.
+    pub fn get_pid_to_kill(&self, reason: &str) -> KillOutcome {
         let mut lock = self
             .state
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         match *lock {
-            FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
+            FrameState::Created(ref mut created_state) => {
+                // The process hasn't spawned yet (e.g. the launch is stuck on slow log setup).
+                // Record the kill so it is applied the moment the frame starts, instead of
+                // silently refusing and letting the frame run after its booking was released.
+                created_state.pending_kill_reason = Some(reason.to_owned());
+                KillOutcome::Scheduled
+            }
             FrameState::Running(ref mut running_state) => {
                 running_state.kill_reason = Some(reason.to_owned());
-                Ok(running_state.pid)
+                KillOutcome::Signal(running_state.pid)
             }
             FrameState::Finished(ref finished_state) => {
                 let end_time: DateTime<Local> = finished_state.end_time.into();
-                Err(miette!(
+                KillOutcome::AlreadyTerminated(format!(
                     "Frame has already terminated at {} with exit_code={} and exit_signal={:?}",
-                    end_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                    end_time.format("%Y-%m-%d %H:%M:%S"),
                     finished_state.exit_code,
                     finished_state.exit_signal
                 ))
             }
-            FrameState::FailedBeforeStart => {
-                Err(miette!("Frame has been created and failed before starting"))
-            }
+            FrameState::FailedBeforeStart => KillOutcome::AlreadyTerminated(
+                "Frame has been created and failed before starting".to_string(),
+            ),
         }
     }
 
@@ -2149,7 +2186,10 @@ mod tests {
         // A frame RQD killed keeps its kill-driven classification, even if the log matches.
         let frame = frame_with_license_rule("", LICENSE_LOG);
         frame.start(12345);
-        frame.get_pid_to_kill("manual kill").unwrap();
+        assert!(matches!(
+            frame.get_pid_to_kill("manual kill"),
+            super::KillOutcome::Signal(_)
+        ));
         assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
         let _ = std::fs::remove_file(&frame.log_path);
     }
@@ -2612,4 +2652,82 @@ mod tests {
     //     assert!(status.is_ok());
     //     assert_eq!((0, None), status.unwrap());
     // }
+
+    #[test]
+    fn test_get_pid_to_kill_running_records_reason_and_signals_pid() {
+        let frame = create_running_frame("sleep 1", 1, 1, HashMap::new());
+        frame.start(4321);
+
+        match frame.get_pid_to_kill("test kill") {
+            super::KillOutcome::Signal(pid) => assert_eq!(4321, pid),
+            other => panic!("expected Signal, got {:?}", other),
+        }
+        assert_eq!(Some("test kill".to_string()), frame.kill_reason());
+    }
+
+    #[test]
+    fn test_get_pid_to_kill_created_schedules_pending_kill() {
+        // A kill racing the launch window is recorded, not dropped: the frame starts already
+        // carrying its kill reason and is terminated right after spawn.
+        let frame = create_running_frame("sleep 1", 1, 1, HashMap::new());
+
+        assert!(matches!(
+            frame.get_pid_to_kill("test kill"),
+            super::KillOutcome::Scheduled
+        ));
+
+        frame.start(4321);
+        assert_eq!(Some("test kill".to_string()), frame.kill_reason());
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    async fn test_run_honors_pending_kill_from_launch_window() {
+        // The kill arrives while the frame is still Created; the run must terminate the process
+        // immediately after spawn instead of letting it render.
+        let running_frame = create_running_frame("sleep 30", 1, 1, HashMap::new());
+        assert!(matches!(
+            running_frame.get_pid_to_kill("killed during launch"),
+            super::KillOutcome::Scheduled
+        ));
+
+        let logger = Arc::new(TestLogger::init());
+        let started = std::time::Instant::now();
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
+            .await;
+
+        assert!(status.is_ok());
+        let (_exit_code, exit_signal) = status.unwrap();
+        assert_eq!(Some(15), exit_signal);
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(25),
+            "frame should have been killed at spawn, not after rendering"
+        );
+    }
+
+    #[test]
+    fn test_get_pid_to_kill_finished_is_already_terminated() {
+        // A frame that already terminated has nothing running to kill: callers surface this as
+        // NOT_FOUND so Cuebot can take it as confirmed-stopped instead of a failed kill.
+        let frame = create_running_frame("sleep 1", 1, 1, HashMap::new());
+        frame.start(4321);
+        frame.finish(1, Some(15), None).expect("finish should work");
+
+        assert!(matches!(
+            frame.get_pid_to_kill("test kill"),
+            super::KillOutcome::AlreadyTerminated(_)
+        ));
+    }
+
+    #[test]
+    fn test_get_pid_to_kill_failed_before_start_is_already_terminated() {
+        let frame = create_running_frame("sleep 1", 1, 1, HashMap::new());
+        frame.fail_before_start().expect("state change should work");
+
+        assert!(matches!(
+            frame.get_pid_to_kill("test kill"),
+            super::KillOutcome::AlreadyTerminated(_)
+        ));
+    }
 }

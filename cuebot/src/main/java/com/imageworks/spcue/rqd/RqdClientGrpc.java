@@ -169,21 +169,24 @@ public final class RqdClientGrpc implements RqdClient {
         }
     }
 
-    public void killFrame(VirtualProc proc, String message) {
-        killFrame(proc.hostName, proc.frameId, message);
+    public boolean killFrame(VirtualProc proc, String message) {
+        return killFrame(proc.hostName, proc.frameId, message);
     }
 
-    public void killFrame(String host, String frameId, String message) {
+    public boolean killFrame(String host, String frameId, String message) {
         RqdStaticKillRunningFrameRequest request = RqdStaticKillRunningFrameRequest.newBuilder()
                 .setFrameId(frameId).setMessage(message).build();
 
         if (testMode) {
-            return;
+            return true;
         }
 
         try {
             logger.info("killing frame on " + host + ", source: " + message);
             getStub(host).killRunningFrame(request);
+            // RQD acknowledged the kill: the signal is delivered but the render is still alive
+            // until it honors it, and its death will arrive as a frame complete report.
+            return false;
         } catch (StatusRuntimeException e) {
             // RQD returns NOT_FOUND when the frame is not in its cache (already reaped, or the
             // host restarted since the frame was dispatched): the render is confirmed not running
@@ -193,7 +196,7 @@ public final class RqdClientGrpc implements RqdClient {
             if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
                 logger.info("frame " + frameId + " is not running on " + host
                         + " (NOT_FOUND), nothing to kill");
-                return;
+                return true;
             }
             throw new RqdClientException("failed to kill frame " + frameId, e);
         } catch (ExecutionException e) {

@@ -92,26 +92,32 @@ public interface RqdClient {
     /**
      * Kills a running frame by resource
      *
-     * Returning normally means the frame is no longer running on the host: either the kill was
-     * delivered, or RQD answered NOT_FOUND (it does not track the frame, e.g. after a host
-     * restart), which is definitive proof the render is not running there. An
-     * {@link RqdClientException} is raised only when the frame's state remains unknown (host
-     * unreachable, deadline exceeded, etc.).
+     * Returning normally means the kill reached the host, but says nothing about the render being
+     * dead yet: RQD acknowledges as soon as the signal is delivered, and the process may keep
+     * running (and writing output) until it honors it. The return value separates the two cases:
+     * {@code true} means RQD answered NOT_FOUND (it does not track the frame, e.g. after a host
+     * restart), which is definitive proof the render is not running there; {@code false} means the
+     * kill was delivered to a live render, whose death will be announced by its own frame complete
+     * report. An {@link RqdClientException} is raised only when the frame's state remains unknown
+     * (host unreachable, deadline exceeded, etc.).
      *
      * @param resource
+     * @return true when the frame is confirmed not running on the host, false when the kill was
+     *         delivered to a still-live render
      */
-    void killFrame(VirtualProc Proc, String message);
+    boolean killFrame(VirtualProc Proc, String message);
 
     /**
      * Kills a running frame
      *
      * Same contract as {@link #killFrame(VirtualProc, String)}: NOT_FOUND counts as
-     * confirmed-stopped, only an unknown outcome throws.
+     * confirmed-stopped (returns true), a delivered kill returns false, only an unknown outcome
+     * throws.
      *
      * @param hostName
      * @param frameId
      */
-    void killFrame(String hostName, String frameId, String message);
+    boolean killFrame(String hostName, String frameId, String message);
 
     /**
      * Returns whether the given frame is still running on the given host.

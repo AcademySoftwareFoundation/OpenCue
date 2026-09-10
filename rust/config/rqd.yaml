@@ -204,16 +204,18 @@ runner:
   # snapshots_path: "$HOME/.rqd/snapshots"
 
   # How often to check if jobs need to be killed
-  # Default: 2m (120 seconds)
-  # kill_monitor_interval: 2m
+  # Default: 1m (60 seconds)
+  # kill_monitor_interval: 1m
 
   # How long to wait before force-killing unresponsive jobs
-  # Default: 20m (1200 seconds)
-  # kill_monitor_timeout: 20m
+  # Default: 5m (300 seconds)
+  # kill_monitor_timeout: 5m
 
-  # Force kill jobs that don't respond to normal termination
-  # Default: false
-  # force_kill_after_timeout: false
+  # Force kill (SIGKILL) jobs that don't respond to normal termination. A killed frame that
+  # survives its SIGTERM keeps rendering after Cuebot has rebooked the frame elsewhere
+  # (a double-render writing to the same output), so this defaults to on.
+  # Default: true
+  # force_kill_after_timeout: true
 
   # Default Docker image to use when run_on_docker is enabled
   # Default: ubuntu:latest

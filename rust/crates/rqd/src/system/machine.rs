@@ -310,12 +310,27 @@ impl MachineMonitor {
                         }
                     }
                     _ = interval.tick() => {
-                        self.collect_and_send_host_report().await?;
+                        // Errors here must never break the loop: a host that stops reporting
+                        // while its frames keep rendering gets marked DOWN by Cuebot and all of
+                        // its frames re-booked (double-renders). Log and retry on the next tick.
+                        if let Err(err) = self.collect_and_send_host_report().await {
+                            error!(
+                                "Failed to collect and send host report, will retry on the \
+                                next cycle: {err}"
+                            );
+                        }
                         self.check_reboot_flag().await;
 
                         #[cfg(feature = "nimby")]
                         if let Some(nimby) = &*self.nimby {
-                            last_lock_state = self.handle_nimby_state_change(nimby, last_lock_state).await?;
+                            match self.handle_nimby_state_change(nimby, last_lock_state).await {
+                                Ok(state) => last_lock_state = state,
+                                Err(err) => error!(
+                                    "Failed to handle nimby state change, keeping state {:?} \
+                                    and retrying on the next cycle: {err}",
+                                    last_lock_state
+                                ),
+                            }
                         }
                 }
 
@@ -489,20 +504,54 @@ impl MachineMonitor {
                 // Update stats for running frames
                 running_frame.update_frame_stats(proc_stats);
             } else if running_frame.is_dangling_expired() {
-                // Frama proc was not found to be running even after a grace period
-                warn!(
-                    "Removing {} from the cache. Could not find proc {} for frame that was supposed to be running.",
-                    running_frame.to_string(),
-                    running_state.pid
-                );
-                // Attempt to finish the process
-                let _ = running_frame.finish(
-                    1,
-                    Some(19),
-                    Some("Failed to find PID associated to this frame".to_string()),
-                );
-                finished_frames.push(Arc::clone(running_frame));
-                self.running_frames_cache.remove(&running_frame.frame_id);
+                // The cached /proc scan has not seen this pid for the whole grace period. That
+                // is NOT proof the process is gone -- a stalled or incomplete scan produces the
+                // same picture while the render keeps running. Declaring such a frame finished
+                // sends a FrameCompleteReport, Cuebot re-books the frame, and the untouched
+                // render becomes a double-render. Probe the pid directly before deciding.
+                #[cfg(unix)]
+                let alive = crate::system::pid_exists(running_state.pid);
+                #[cfg(not(unix))]
+                let alive = false;
+
+                if alive {
+                    warn!(
+                        "Proc stats have been missing for {} (pid {}) past the dangling grace \
+                        period but the process is alive; killing it instead of reporting it \
+                        finished.",
+                        running_frame.to_string(),
+                        running_state.pid
+                    );
+                    // Kill and keep the frame in the cache: a later sweep confirms the death
+                    // and finishes it through this same path.
+                    let kill_result = {
+                        let system_monitor = self.system_manager.lock().await;
+                        system_monitor.force_kill_session(running_state.pid)
+                    };
+                    if let Err(err) = kill_result {
+                        warn!(
+                            "Failed to kill dangling frame {} (pid {}): {}",
+                            running_frame.to_string(),
+                            running_state.pid,
+                            err
+                        );
+                    }
+                } else {
+                    // Frame proc was not found to be running even after a grace period
+                    warn!(
+                        "Removing {} from the cache. Could not find proc {} for frame that was supposed to be running.",
+                        running_frame.to_string(),
+                        running_state.pid
+                    );
+                    // Attempt to finish the process
+                    let _ = running_frame.finish(
+                        1,
+                        Some(19),
+                        Some("Failed to find PID associated to this frame".to_string()),
+                    );
+                    finished_frames.push(Arc::clone(running_frame));
+                    self.running_frames_cache.remove(&running_frame.frame_id);
+                }
             } else {
                 // Proc finished but frame is waiting for the lock on `is_finished` to update the status
                 // keep frame around for another round
