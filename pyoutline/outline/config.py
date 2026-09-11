@@ -74,6 +74,7 @@ def read_config_from_disk():
     """Loads configuration settings from config file on the local system.
 
     The configuration file used is, in order of preference:
+
     - Path defined by the OUTLINE_CONFIG_FILE environment variable.
     - Path defined by the OL_CONFIG environment variable.
     - Path within the config base directory (i.e. ~/.config/opencue/outline.cfg)
