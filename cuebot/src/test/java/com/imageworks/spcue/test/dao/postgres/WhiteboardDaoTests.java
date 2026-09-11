@@ -124,6 +124,7 @@ import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+@SuppressWarnings("deprecation")
 public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired

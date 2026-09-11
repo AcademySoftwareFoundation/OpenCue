@@ -2,7 +2,7 @@
 layout: default
 title: "August 26, 2026: Swagger UI for the REST Gateway"
 parent: News
-nav_order: 0
+nav_order: 1
 ---
 
 # Swagger UI for the REST Gateway

@@ -880,7 +880,10 @@ class LimitTests(unittest.TestCase):
         opencue.api.createLimit(TEST_LIMIT_NAME, testLimitValue)
 
         stubMock.Create.assert_called_with(
-            limit_pb2.LimitCreateRequest(name=TEST_LIMIT_NAME, max_value=testLimitValue),
+            limit_pb2.LimitCreateRequest(name=TEST_LIMIT_NAME, max_value=testLimitValue,
+                                         type=limit_pb2.FRAME, enforcement=limit_pb2.ENFORCED,
+                                         soft_value=-1, exit_status=0, delay_minutes=0,
+                                         auto_tag=True),
             timeout=mock.ANY)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -910,6 +913,74 @@ class LimitTests(unittest.TestCase):
         stubMock.Find.assert_called_with(
             limit_pb2.LimitFindRequest(name=TEST_LIMIT_NAME),
             timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetLimitHolds(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetHolds.return_value = limit_pb2.LimitGetHoldsResponse(
+            holds=[limit_pb2.LimitHold(limit_name=TEST_LIMIT_NAME, host_name='render0142')])
+        getStubMock.return_value = stubMock
+
+        holds = opencue.api.getLimitHolds(TEST_LIMIT_NAME)
+
+        stubMock.GetHolds.assert_called_with(
+            limit_pb2.LimitGetHoldsRequest(limit_name=TEST_LIMIT_NAME), timeout=mock.ANY)
+        self.assertEqual(['render0142'], [hold.host_name for hold in holds])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetLimitBindings(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetBindings.return_value = limit_pb2.LimitGetBindingsResponse(
+            bindings=[limit_pb2.LimitBinding(layer_name='sim', source=limit_pb2.AUTO)])
+        getStubMock.return_value = stubMock
+
+        bindings = opencue.api.getLimitBindings(TEST_LIMIT_NAME, sources=[limit_pb2.AUTO])
+
+        stubMock.GetBindings.assert_called_with(
+            limit_pb2.LimitGetBindingsRequest(limit_name=TEST_LIMIT_NAME,
+                                              sources=[limit_pb2.AUTO]),
+            timeout=mock.ANY)
+        self.assertEqual(['sim'], [binding.layer_name for binding in bindings])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testClearLimitBindings(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.ClearBindings.return_value = limit_pb2.LimitClearBindingsResponse(removed=38)
+        getStubMock.return_value = stubMock
+
+        removed = opencue.api.clearLimitBindings(TEST_LIMIT_NAME, [limit_pb2.AUTO])
+
+        stubMock.ClearBindings.assert_called_with(
+            limit_pb2.LimitClearBindingsRequest(limit_name=TEST_LIMIT_NAME,
+                                                sources=[limit_pb2.AUTO]),
+            timeout=mock.ANY)
+        self.assertEqual(38, removed)
+
+    def testBuildLimitReport(self):
+        report = opencue.api.buildLimitReport(
+            TEST_LIMIT_NAME, {'render0142': 2, 'ws-artist': 1}, total_licenses=50,
+            capture_time=1234567890)
+
+        self.assertEqual(TEST_LIMIT_NAME, report.limit_name)
+        self.assertEqual(50, report.total_licenses)
+        self.assertEqual(1234567890, report.capture_time)
+        self.assertEqual([('render0142', 2), ('ws-artist', 1)],
+                         [(host.host_name, host.tokens) for host in report.hosts])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testReportLimitUsage(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.ReportUsage.return_value = limit_pb2.LimitReportUsageResponse(
+            unknown_limits=['karma'])
+        getStubMock.return_value = stubMock
+
+        reports = [opencue.api.buildLimitReport(TEST_LIMIT_NAME, {'render0142': 1})]
+        response = opencue.api.reportLimitUsage(reports, 'sesictrl@lic01')
+
+        stubMock.ReportUsage.assert_called_with(
+            limit_pb2.LimitReportUsageRequest(reports=reports, source='sesictrl@lic01'),
+            timeout=mock.ANY)
+        self.assertEqual(['karma'], list(response.unknown_limits))
 
 
 if __name__ == '__main__':

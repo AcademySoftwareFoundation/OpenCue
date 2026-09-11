@@ -1,0 +1,21 @@
+# Maps sesictrl product strings to OpenCue limit names for sesictrl_report.py.
+#
+# Reporter identity stored on each limit and shown in CueGUI's "Source" column.
+source: "sesictrl@lic01"
+
+# Map sesictrl product keys to OpenCue limit names. Products not listed are
+# ignored. Limit names must already exist in Cuebot.
+limits:
+  houdini:
+    # Substring, matched case-insensitively against the sesictrl product string.
+    product: "Houdini-Master"
+    limit: "houdini"
+    # Push the server's seat count into max_value so the pool size tracks
+    # reality. Leave false to manage max_value by hand: for a HOST limit the
+    # maximum is a policy number (how many machines the farm may use), not the
+    # pool size.
+    sync_max_value: false
+  engine:
+    product: "Houdini-Engine"
+    limit: "houdini_engine"
+    sync_max_value: false

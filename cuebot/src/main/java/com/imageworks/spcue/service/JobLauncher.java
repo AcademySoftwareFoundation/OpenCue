@@ -17,7 +17,12 @@ package com.imageworks.spcue.service;
 
 import java.io.File;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -29,6 +34,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import com.imageworks.spcue.BuildableJob;
+import com.imageworks.spcue.BuildableLayer;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LocalHostAssignment;
@@ -162,6 +168,51 @@ public class JobLauncher implements ApplicationContextAware {
             throw new EntityCreationError("The " + spec.getShow()
                     + " does not exist. Please contact "
                     + "administrator of your OpenCue deployment to have this show " + "created.");
+        }
+
+        verifyLimits(spec);
+    }
+
+    /**
+     * Fails the launch if the spec references limits that have not been created yet, naming every
+     * missing limit and the layers that use it.
+     */
+    private void verifyLimits(JobSpec spec) {
+
+        Map<String, Set<String>> layersByLimit = new LinkedHashMap<String, Set<String>>();
+
+        for (BuildableJob job : spec.getJobs()) {
+            collectLimits(job, layersByLimit);
+            if (job.getPostJob() != null) {
+                collectLimits(job.getPostJob(), layersByLimit);
+            }
+        }
+
+        if (layersByLimit.isEmpty()) {
+            return;
+        }
+
+        List<String> missingLimits = adminManager.findMissingLimitNames(layersByLimit.keySet());
+        if (missingLimits.isEmpty()) {
+            return;
+        }
+
+        String detail = missingLimits.stream()
+                .map(limitName -> limitName + " (used by "
+                        + String.join(", ", layersByLimit.get(limitName)) + ")")
+                .collect(Collectors.joining("; "));
+
+        throw new EntityCreationError("The following limits do not exist: " + detail
+                + ". Please contact administrator of your OpenCue deployment to have these limits"
+                + " created, or remove them from the job spec.");
+    }
+
+    private void collectLimits(BuildableJob job, Map<String, Set<String>> layersByLimit) {
+        for (BuildableLayer buildableLayer : job.getBuildableLayers()) {
+            for (String limitName : buildableLayer.layerDetail.limits) {
+                layersByLimit.computeIfAbsent(limitName, name -> new LinkedHashSet<String>())
+                        .add(job.detail.name + "/" + buildableLayer.layerDetail.name);
+            }
         }
     }
 

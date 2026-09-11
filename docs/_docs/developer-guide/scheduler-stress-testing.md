@@ -1,7 +1,7 @@
 ---
 title: "Scheduler Stress Testing"
-nav_order: 102
-parent: Reference
+nav_order: 103
+parent: "Developer Guide"
 layout: default
 linkTitle: "Scheduler Stress Testing"
 date: 2026-06-12

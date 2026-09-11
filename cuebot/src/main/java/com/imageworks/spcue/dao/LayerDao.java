@@ -30,6 +30,7 @@ import com.imageworks.spcue.LimitEntity;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.grpc.job.LayerType;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
 
 public interface LayerDao {
 
@@ -466,12 +467,22 @@ public interface LayerDao {
     void updateLayerMaxGpus(LayerInterface layer, int val);
 
     /**
-     * Add a limit to the given layer.
+     * Add a limit to the given layer, recording it as a spec-declared binding.
      *
+     * @deprecated use the overload taking a {@link LimitBindSource}.
      * @param layer
      * @param limit_id
      */
+    @Deprecated
     void addLimit(LayerInterface layer, String limitId);
+
+    /**
+     * Bind a layer to a limit. Idempotent: an existing binding is left untouched, including its
+     * original source, so a submitter's declaration is never downgraded to a machine's guess.
+     *
+     * @return true if a new binding was created.
+     */
+    boolean addLimit(LayerInterface layer, String limitId, LimitBindSource source);
 
     /**
      * Remove a limit to the given layer.

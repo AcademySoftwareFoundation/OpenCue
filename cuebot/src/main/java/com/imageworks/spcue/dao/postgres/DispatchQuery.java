@@ -18,9 +18,219 @@
 package com.imageworks.spcue.dao.postgres;
 
 public class DispatchQuery {
+
+    /**
+     * Placeholder for limit.settle_window_seconds, resolved by DispatcherDaoJdbc at startup. Query
+     * constants cannot read properties, and binding the window as a parameter would touch every
+     * call site's argument array.
+     */
+    public static final String SETTLE_WINDOW_TOKEN = "__LIMIT_SETTLE_SEC__";
+
+    /**
+     * Placeholder in the frame queries' ORDER BY for the license-affinity sort key. Resolved by
+     * DispatcherDaoJdbc to {@link #AFFINITY_ORDER_SQL} (which binds the host name twice, ahead of
+     * every other parameter) when dispatcher.limit.affinity_ordering_enabled is true, or to nothing
+     * when it is off.
+     */
+    public static final String AFFINITY_ORDER_TOKEN = "__LIMIT_AFFINITY_ORDER__";
+
+    /**
+     * Sorts layers that would need this host to acquire a NEW license last, within the job. A layer
+     * with no license limits and a layer whose licenses this host already holds are
+     * indistinguishable at position 0, so unlicensed work is never penalized. Applies to ADVISORY
+     * limits too: it never blocks anything, it only chooses among work already eligible.
+     */
+    // spotless:off
+    public static final String AFFINITY_ORDER_SQL =
+            "CASE WHEN EXISTS ("
+                + "SELECT 1 FROM layer_limit aff_ll "
+                + "JOIN limit_record aff_lr ON aff_lr.pk_limit_record = aff_ll.pk_limit_record "
+                + "WHERE aff_ll.pk_layer = frame.pk_layer "
+                + "AND aff_lr.str_type = 'HOST' "
+                + "AND aff_lr.str_enforcement != 'DISABLED' "
+                + "AND NOT ("
+                    + "EXISTS ("
+                        + "SELECT 1 FROM limit_host aff_lh "
+                        + "WHERE aff_lh.pk_limit_record = aff_lr.pk_limit_record "
+                        + "AND aff_lh.str_host_name = SPLIT_PART(LOWER(:hostName), '.', 1)) "
+                    + "OR EXISTS ("
+                        + "SELECT 1 FROM proc aff_p "
+                        + "JOIN host aff_h ON aff_h.pk_host = aff_p.pk_host "
+                        + "JOIN layer_limit aff_pll ON aff_pll.pk_layer = aff_p.pk_layer "
+                        + "WHERE aff_pll.pk_limit_record = aff_lr.pk_limit_record "
+                        + "AND aff_h.str_name = :hostName)"
+                + ")"
+            + ") THEN 1 ELSE 0 END ASC, ";
+    // spotless:on
+
+    /**
+     * Lower bound of the pending scan: bookings after this instant have not yet had a chance to be
+     * observed by the license server.
+     *
+     * A limit that has never been reported has no ground truth, so every running proc of a bound
+     * layer is pending -- exactly the pre-settlement counting. A reported limit reaches back a
+     * settle window before its watermark, because a checkout takes time to appear on the license
+     * server: a frame dispatched just before the snapshot may be in neither. Hosts the snapshot
+     * already covers are de-duped against limit_host, so reaching back cannot double count.
+     *
+     * A reporter that stops therefore grows pending toward every running proc rather than opening a
+     * blind spot between the watermark and the window. That is the fail-closed direction and it is
+     * already bounded: past int_report_ttl the limit stops blocking altogether.
+     *
+     * Mirrored in LimitDaoJdbc.pendingBound/pendingFrames/pendingHosts, which feed the whiteboard's
+     * usage columns. The dispatch gate and the CueGUI "In Use" column must count identically, so
+     * any change to the counting rule has to be made in both places.
+     */
+    // spotless:off
+    private static final String PENDING_BOUND =
+            "CASE WHEN limit_record.ts_reported IS NULL THEN TO_TIMESTAMP(0) "
+            + "ELSE limit_record.ts_reported - ("
+                + SETTLE_WINDOW_TOKEN + " * INTERVAL '1 second') END";
+
+    /**
+     * Merged usage for the limit in scope: the precomputed settled row plus the live pending
+     * scan, in the limit's own unit (tokens for FRAME, distinct machines for HOST). Pending hosts
+     * the server already reports holding are settled, not pending, and are not counted twice.
+     * Evaluated only inside {@link #LIMIT_USAGE_CTE}, once per limit per query.
+     */
+    private static final String USAGE_EXPR =
+            "(CASE WHEN limit_record.str_type = 'HOST' THEN "
+                + "COALESCE(limit_usage.int_settled_hosts, 0) + ("
+                    + "SELECT COUNT(DISTINCT pnd.pk_host) FROM proc pnd "
+                    + "JOIN layer_limit pnd_ll ON pnd_ll.pk_layer = pnd.pk_layer "
+                    + "WHERE pnd_ll.pk_limit_record = limit_record.pk_limit_record "
+                    + "AND pnd.ts_dispatched > " + PENDING_BOUND + " "
+                    + "AND NOT EXISTS ("
+                        + "SELECT 1 FROM limit_host stl, host sth "
+                        + "WHERE stl.pk_limit_record = limit_record.pk_limit_record "
+                        + "AND sth.pk_host = pnd.pk_host "
+                        + "AND stl.str_host_name = SPLIT_PART(LOWER(sth.str_name), '.', 1))"
+                + ") "
+            + "ELSE "
+                + "COALESCE(limit_usage.int_settled_usage, 0) + ("
+                    + "SELECT COUNT(*) FROM proc pnd2 "
+                    + "JOIN layer_limit pnd2_ll ON pnd2_ll.pk_layer = pnd2.pk_layer "
+                    + "WHERE pnd2_ll.pk_limit_record = limit_record.pk_limit_record "
+                    + "AND pnd2.ts_dispatched > " + PENDING_BOUND + ") "
+            + "END)";
+    // spotless:on
+
+    /**
+     * Placeholder for the CTE's MATERIALIZED keyword, resolved by DispatcherDaoJdbc against the
+     * server version: "MATERIALIZED" on PostgreSQL 12+, empty on 11 where the keyword does not
+     * parse and every CTE is an optimization fence anyway.
+     */
+    public static final String CTE_MATERIALIZED_TOKEN = "__LIMIT_CTE_MATERIALIZED__";
+
+    /**
+     * Per-limit merged usage, computed once per query. Every ENFORCED, non-stale limit gets one
+     * row: id, thresholds and its {@link #USAGE_EXPR} value. Materialization is load-bearing: an
+     * inlined CTE lands inside {@link #limitFilter}'s NOT EXISTS and re-runs the pending scan for
+     * every candidate layer row, which benchmarked 17-45x slower on the job-finding query with
+     * never-reported limits (the steady state for FRAME limits, which have no external reporter).
+     * The CTE is only materialized if a bound layer actually probes it, so queries over unlimited
+     * work pay nothing.
+     *
+     * Public because FrameDaoJdbc prefixes its UPDATE_FRAME_STARTED with it: the frame-start
+     * last-chance check reuses the same counting rule rather than mirroring it.
+     */
+    // spotless:off
+    public static final String LIMIT_USAGE_CTE =
+            "WITH lim AS " + CTE_MATERIALIZED_TOKEN + " ("
+                + "SELECT "
+                    + "limit_record.pk_limit_record, "
+                    + "limit_record.str_type, "
+                    + "limit_record.int_soft_value, "
+                    + "limit_record.int_max_value, "
+                    + USAGE_EXPR + " AS usage_val "
+                + "FROM limit_record "
+                + "LEFT JOIN limit_usage "
+                    + "ON limit_usage.pk_limit_record = limit_record.pk_limit_record "
+                + "WHERE limit_record.str_enforcement = 'ENFORCED' "
+                + "AND (limit_record.int_report_ttl = 0 "
+                    + "OR limit_record.ts_reported IS NULL "
+                    + "OR limit_record.ts_reported > current_timestamp "
+                        + "- (limit_record.int_report_ttl * INTERVAL '1 second'))"
+            + ") ";
+    // spotless:on
+
+    /**
+     * The generous holding test: any external hold, or any running frame of a bound layer, counts
+     * as holding. A host that might still have the license is treated as though it does, so work
+     * packs onto it rather than lighting up a new machine.
+     *
+     * The proc probe nests its EXISTS so the planner drives from the host's procs (a handful)
+     * rather than the limit's bound layers (thousands under auto-tagging); as a flat join it
+     * sometimes picked the layer side, which multiplies across the filter's per-row evaluations.
+     */
+    private static String hostHolds(String hostAlias) {
+        // spotless:off
+        return "(EXISTS ("
+                    + "SELECT 1 FROM limit_host hld "
+                    + "WHERE hld.pk_limit_record = lim.pk_limit_record "
+                    + "AND hld.str_host_name = SPLIT_PART(LOWER("
+                        + hostAlias + ".str_name), '.', 1)) "
+                + "OR EXISTS ("
+                    + "SELECT 1 FROM proc hp "
+                    + "WHERE hp.pk_host = " + hostAlias + ".pk_host "
+                    + "AND EXISTS ("
+                        + "SELECT 1 FROM layer_limit hp_ll "
+                        + "WHERE hp_ll.pk_layer = hp.pk_layer "
+                        + "AND hp_ll.pk_limit_record = lim.pk_limit_record)))";
+        // spotless:on
+    }
+
+    /**
+     * Excludes layers bound to a limit with no headroom for this host. Joins the per-limit usage
+     * rows of {@link #LIMIT_USAGE_CTE} -- every query embedding this filter must be prefixed with
+     * that CTE -- and correlates only to the layer alias (and host alias, when the query has one),
+     * so no call site's argument array changes shape.
+     *
+     * A limit blocks only when ENFORCED and not stale (both enforced by the CTE's WHERE). Below
+     * soft_value (max_value when no soft threshold is set) any host may book. Above it, a host
+     * already holding one of the limit's tokens may still book -- all frames on a holding machine
+     * share the token, so the booking consumes nothing new -- while a host that would light up a
+     * new machine may not. Stated as NOT EXISTS(blocking limit) so a layer with no limits passes
+     * naturally.
+     *
+     * The local dispatch queries pass a null host alias and gate on max_value alone, so a
+     * workstation already holding a token is refused work the farm dispatcher would give it. That
+     * is a deliberate simplification, not a structural limit: those queries have no host table in
+     * scope, but their call sites do have the host name, and the holder test can be written against
+     * a bound name the way AFFINITY_ORDER_SQL does. Local bookings are a small share of the farm,
+     * so the extra binds were judged not worth it -- revisit if artists hit it on saturated HOST
+     * limits.
+     *
+     * Public because FrameDaoJdbc embeds it in the frame-start last-chance check; callers outside
+     * this class must resolve {@link #SETTLE_WINDOW_TOKEN} and {@link #CTE_MATERIALIZED_TOKEN}
+     * themselves.
+     */
+    public static String limitFilter(String layerAlias, String hostAlias) {
+        // spotless:off
+        String threshold = hostAlias == null
+                ? "AND lim.usage_val >= lim.int_max_value "
+                : "AND lim.usage_val >= "
+                    + "CASE WHEN lim.str_type = 'HOST' "
+                            + "AND lim.int_soft_value >= 0 "
+                        + "THEN lim.int_soft_value "
+                        + "ELSE lim.int_max_value END "
+                + "AND NOT ("
+                    + "lim.str_type = 'HOST' "
+                    + "AND " + hostHolds(hostAlias)
+                + ") ";
+        return "NOT EXISTS ("
+                + "SELECT 1 FROM layer_limit "
+                + "JOIN lim ON lim.pk_limit_record = layer_limit.pk_limit_record "
+                + "WHERE layer_limit.pk_layer = " + layerAlias + ".pk_layer "
+                + threshold
+            + ")";
+        // spotless:on
+    }
+
     // spotless:off
     public static final String FIND_JOBS_BY_SHOW =
             "/* FIND_JOBS_BY_SHOW */ "
+            + LIMIT_USAGE_CTE
             + "SELECT pk_job, int_priority, rank FROM ( "
                 + "SELECT "
                     + "ROW_NUMBER() OVER (ORDER BY int_priority DESC) AS rank, "
@@ -85,6 +295,7 @@ public class DispatchQuery {
                         + "AND job_resource.int_cores + layer.int_cores_min <= job_resource.int_max_cores "
                         + "AND host.str_tags ~* ('(?x)' || layer.str_tags) "
                         + "AND host.str_name = ? "
+                        + "AND " + limitFilter("layer", "host") + " "
             + ") AS t1 ) AS t2 WHERE rank < ?";
     // spotless:on
 
@@ -95,6 +306,7 @@ public class DispatchQuery {
     // spotless:off
     public static final String FIND_JOBS_BY_SHOW_PRIORITY_MODE =
             "/* FIND_JOBS_BY_SHOW_PRIORITY_MODE */ "
+            + LIMIT_USAGE_CTE
             + "SELECT pk_job, int_priority, rank FROM ( "
                 + "SELECT "
                     + "ROW_NUMBER() OVER (ORDER BY job_resource.int_priority DESC) AS rank, "
@@ -150,27 +362,7 @@ public class DispatchQuery {
                     + "AND job_resource.int_gpus + layer.int_gpus_min < job_resource.int_max_gpus "
                     + "AND host.str_tags ~* ('(?x)' || layer.str_tags || '\\y') "
                     + "AND host.str_name = ? "
-                    + "AND layer.pk_layer IN ("
-                        + "SELECT "
-                            + "l.pk_layer "
-                        + "FROM "
-                            + "layer l "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                        + "WHERE "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
-                    + ") "
+                    + "AND " + limitFilter("layer", "host") + " "
             + ") AS t1 WHERE rank < ?";
     // spotless:on
 
@@ -213,6 +405,7 @@ public class DispatchQuery {
     // spotless:off
     public static final String FIND_JOBS_BY_LOCAL =
             "/* FIND_JOBS_BY_LOCAL */ "
+            + LIMIT_USAGE_CTE
             + "SELECT pk_job, float_tier, rank "
             + "FROM ( "
                 + "SELECT "
@@ -273,27 +466,7 @@ public class DispatchQuery {
                         + "AND "
                             + "l.int_gpu_mem_min <= host_local.int_gpu_mem_idle "
                         + "AND "
-                            + "l.pk_layer IN ("
-                                + "SELECT "
-                                    + "la.pk_layer "
-                                + "FROM "
-                                    + "layer la "
-                                + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                                + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                                + "LEFT JOIN ("
-                                    + "SELECT "
-                                        + "limit_record.pk_limit_record, "
-                                        + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                                    + "FROM "
-                                        + "layer_limit "
-                                    + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                                    + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                                    + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                                + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                                + "WHERE "
-                                    + "sum_running.int_sum_running < limit_record.int_max_value "
-                                    + "OR sum_running.int_sum_running IS NULL "
-                            + ") "
+                            + limitFilter("l", "h") + " "
                     + ") "
             + ") AS t1 "
             + "WHERE rank < 5";
@@ -311,7 +484,8 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_UNDER_PROCED_JOB_BY_FACILITY =
-            "SELECT "
+            LIMIT_USAGE_CTE
+            + "SELECT "
                 + "1 "
             + "FROM "
                 + "job, "
@@ -382,27 +556,7 @@ public class DispatchQuery {
                     + "AND "
                         + "h.str_name = ? "
                     + "AND "
-                        + "l.pk_layer IN ("
-                            + "SELECT "
-                                + "la.pk_layer "
-                            + "FROM "
-                                + "layer la "
-                            + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                            + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                            + "LEFT JOIN ("
-                                + "SELECT "
-                                    + "limit_record.pk_limit_record, "
-                                    + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                                + "FROM "
-                                    + "layer_limit "
-                                + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                                + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                                + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                            + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                            + "WHERE "
-                                + "sum_running.int_sum_running < limit_record.int_max_value "
-                                + "OR sum_running.int_sum_running IS NULL "
-                        + ") "
+                        + limitFilter("l", "h") + " "
                 + ") "
             + "LIMIT 1";
     // spotless:on
@@ -419,7 +573,8 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS =
-            "SELECT "
+            LIMIT_USAGE_CTE
+            + "SELECT "
                 + "1 "
             + "FROM "
                 + "job, "
@@ -488,27 +643,7 @@ public class DispatchQuery {
                     + "AND "
                         + "h.str_name = ? "
                     + "AND "
-                        + "l.pk_layer IN ("
-                            + "SELECT "
-                                + "la.pk_layer "
-                            + "FROM "
-                                + "layer la "
-                            + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                            + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                            + "LEFT JOIN ("
-                                + "SELECT "
-                                    + "limit_record.pk_limit_record, "
-                                    + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                                + "FROM "
-                                    + "layer_limit "
-                                + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                                + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                                + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                            + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                            + "WHERE "
-                                + "sum_running.int_sum_running < limit_record.int_max_value "
-                                + "OR sum_running.int_sum_running IS NULL "
-                        + ") "
+                        + limitFilter("l", "h") + " "
                 + ") "
             + "LIMIT 1";
     // spotless:on
@@ -553,10 +688,11 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_PROC =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ( "
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
+                        + AFFINITY_ORDER_TOKEN
                         + "frame.int_dispatch_order ASC, "
                         + "frame.int_layer_order ASC "
                     + ") AS LINENUM, "
@@ -600,44 +736,31 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_job = job.pk_job "
                 + "AND "
-                    + "layer.int_cores_min <= ? "
+                    + "layer.int_cores_min <= :coresAvailable "
                 + "AND "
-                    + "layer.int_mem_min <= ? "
+                    + "layer.int_mem_min <= :memoryAvailable "
                 + "AND "
-                    + "layer.int_gpus_min <= ? "
+                    + "layer.int_gpus_min <= :gpusAvailable "
                 + "AND "
-                    + "layer.int_gpu_mem_min BETWEEN ? AND ? "
+                    + "layer.int_gpu_mem_min BETWEEN :gpuMemoryMin AND :gpuMemoryAvailable "
                 + "AND "
                     + "frame.str_state='WAITING' "
                 + "AND "
                     + "(layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp) "
                 + "AND "
-                    + "job.pk_job=? "
+                    + "job.pk_job=:jobId "
                 + "AND layer.pk_layer IN ( "
                     + "SELECT /*+ index (h i_str_host_tag) */ "
                         + "l.pk_layer "
                     + "FROM "
                         + "layer l "
-                    + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) "
-                    + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
-                    + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                    + "LEFT JOIN ("
-                        + "SELECT "
-                            + "limit_record.pk_limit_record, "
-                            + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                        + "FROM "
-                            + "layer_limit "
-                        + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                        + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                        + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                    + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                    + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = :hostName) "
                     + "WHERE "
-                        + "l.pk_job= ? "
+                        + "l.pk_job= :jobId "
                     + "AND "
-                        + "sum_running.int_sum_running < limit_record.int_max_value "
-                        + "OR sum_running.int_sum_running IS NULL "
+                        + limitFilter("l", "h") + " "
                 + ") "
-            + ") AS t1 WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= :frameLimit";
     // spotless:on
 
     /**
@@ -645,10 +768,11 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_HOST =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ( "
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
+                        + AFFINITY_ORDER_TOKEN
                         + "frame.int_dispatch_order ASC, "
                         + "frame.int_layer_order ASC "
                     + ") AS LINENUM, "
@@ -692,53 +816,40 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_job = job.pk_job "
                 + "AND "
-                    + "layer.int_cores_min <= ? "
+                    + "layer.int_cores_min <= :coresAvailable "
                 + "AND "
-                    + "layer.int_mem_min <= ? "
+                    + "layer.int_mem_min <= :memoryAvailable "
                 + "AND "
-                    + "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? "
+                    + "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= :threadMode "
                 + "AND "
-                    + "layer.int_gpus_min <= ? "
+                    + "layer.int_gpus_min <= :gpusAvailable "
                 + "AND "
-                    + "layer.int_gpu_mem_min BETWEEN ? AND ? "
+                    + "layer.int_gpu_mem_min BETWEEN :gpuMemoryMin AND :gpuMemoryAvailable "
                 + "AND "
                     + "frame.str_state='WAITING' "
                 + "AND "
                     + "(layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp) "
                 + "AND "
-                    + "job.pk_job=? "
+                    + "job.pk_job=:jobId "
                 + "AND "
                     + "layer.pk_layer IN ( "
                         + "SELECT /*+ index (h i_str_host_tag) */ "
                             + "l.pk_layer "
                         + "FROM "
                             + "layer l "
-                        + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                        + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = :hostName) "
                         + "WHERE "
-                            + "l.pk_job = ? "
+                            + "l.pk_job = :jobId "
                         + "AND "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
+                            + limitFilter("l", "h") + " "
                     + ") "
-            + ") AS t1 WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= :frameLimit";
     // spotless:on
 
 
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ( "
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
@@ -795,27 +906,7 @@ public class DispatchQuery {
                 + "AND "
                     + "job.pk_job=? "
                 + "AND "
-                    + "layer.pk_layer IN ("
-                        + "SELECT "
-                            + "la.pk_layer "
-                        + "FROM "
-                            + "layer la "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                        + "WHERE "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
-                    + ") "
+                    + limitFilter("layer", null) + " "
             + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 
@@ -824,7 +915,7 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ("
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
@@ -881,27 +972,7 @@ public class DispatchQuery {
                 + "AND "
                     + "job.pk_job=? "
                 + "AND "
-                    + "layer.pk_layer IN ("
-                        + "SELECT "
-                            + "la.pk_layer "
-                        + "FROM "
-                            + "layer la "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                        + "WHERE "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
-                    + ") "
+                    + limitFilter("layer", null) + " "
             + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 
@@ -913,10 +984,11 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ("
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
+                        + AFFINITY_ORDER_TOKEN
                         + "frame.int_dispatch_order ASC, "
                         + "frame.int_layer_order ASC "
                     + ") LINENUM, "
@@ -960,44 +1032,31 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_job = job.pk_job "
                 + "AND "
-                    + "layer.int_cores_min <= ? "
+                    + "layer.int_cores_min <= :coresAvailable "
                 + "AND "
-                    + "layer.int_mem_min <= ? "
+                    + "layer.int_mem_min <= :memoryAvailable "
                 + "AND "
-                    + "layer.int_gpus_min <= ? "
+                    + "layer.int_gpus_min <= :gpusAvailable "
                 + "AND "
-                    + "layer.int_gpu_mem_min <= ? "
+                    + "layer.int_gpu_mem_min <= :gpuMemoryAvailable "
                 + "AND "
                     + "frame.str_state='WAITING' "
                 + "AND "
                     + "(layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp) "
                 + "AND "
-                    + "job.pk_layer=? "
+                    + "layer.pk_layer=:layerId "
                 + "AND layer.pk_layer IN ( "
                     + "SELECT /*+ index (h i_str_host_tag) */ "
                         + "l.pk_layer "
                     + "FROM "
                         + "layer l "
-                    + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) "
-                    + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
-                    + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                    + "LEFT JOIN ("
-                        + "SELECT "
-                            + "limit_record.pk_limit_record, "
-                            + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                        + "FROM "
-                            + "layer_limit "
-                        + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                        + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                        + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                    + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                    + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = :hostName) "
                     + "WHERE "
-                        + "l.pk_layer= ? "
+                        + "l.pk_layer= :layerId "
                     + "AND "
-                        + "sum_running.int_sum_running < limit_record.int_max_value "
-                        + "OR sum_running.int_sum_running IS NULL "
+                        + limitFilter("l", "h") + " "
                 + ")"
-            + ") WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= :frameLimit";
     // spotless:on
 
     /**
@@ -1005,10 +1064,11 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ("
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
+                        + AFFINITY_ORDER_TOKEN
                         + "frame.int_dispatch_order ASC, "
                         + "frame.int_layer_order ASC "
                     + ") AS LINENUM, "
@@ -1052,53 +1112,40 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_job = job.pk_job "
                 + "AND "
-                    + "layer.int_cores_min <= ? "
+                    + "layer.int_cores_min <= :coresAvailable "
                 + "AND "
-                    + "layer.int_mem_min <= ? "
+                    + "layer.int_mem_min <= :memoryAvailable "
                 + "AND "
-                    + "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? "
+                    + "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= :threadMode "
                 + "AND "
-                    + "layer.int_gpus_min <= ? "
+                    + "layer.int_gpus_min <= :gpusAvailable "
                 + "AND "
-                    + "layer.int_gpu_mem_min <= ? "
+                    + "layer.int_gpu_mem_min <= :gpuMemoryAvailable "
                 + "AND "
                     + "frame.str_state='WAITING' "
                 + "AND "
                     + "(layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp) "
                 + "AND "
-                    + "layer.pk_layer=? "
+                    + "layer.pk_layer=:layerId "
                 + "AND "
                     + "layer.pk_layer IN ( "
                         + "SELECT /*+ index (h i_str_host_tag) */ "
                             + "l.pk_layer "
                         + "FROM "
                             + "layer l "
-                        + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags  || '\\y') AND h.str_name = ?) "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
+                        + "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags  || '\\y') AND h.str_name = :hostName) "
                         + "WHERE "
-                            + "l.pk_layer= ? "
+                            + "l.pk_layer= :layerId "
                         + "AND "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
+                            + limitFilter("l", "h") + " "
                     + ") "
-            + ") WHERE LINENUM <= ?";
+            + ") AS t1 WHERE LINENUM <= :frameLimit";
     // spotless:on
 
 
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ("
                 + "SELECT "
                     + "ROW_NUMBER() OVER ( ORDER BY "
@@ -1155,27 +1202,7 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_layer = ? "
                 + "AND "
-                    + "layer.pk_layer IN ("
-                        + "SELECT "
-                            + "la.pk_layer "
-                        + "FROM "
-                            + "layer la "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                        + "WHERE "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
-                    + ") "
+                    + limitFilter("layer", null) + " "
             + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 
@@ -1184,7 +1211,7 @@ public class DispatchQuery {
      */
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-            "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
+            LIMIT_USAGE_CTE + "SELECT " + FIND_DISPATCH_FRAME_COLUMNS
             + "FROM ("
                 + "SELECT "
                     + "ROW_NUMBER() OVER (ORDER BY "
@@ -1241,27 +1268,7 @@ public class DispatchQuery {
                 + "AND "
                     + "layer.pk_layer= ? "
                 + "AND "
-                    + "layer.pk_layer IN ("
-                        + "SELECT "
-                            + "la.pk_layer "
-                        + "FROM "
-                            + "layer la "
-                        + "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer "
-                        + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                        + "LEFT JOIN ("
-                            + "SELECT "
-                                + "limit_record.pk_limit_record, "
-                                + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                            + "FROM "
-                                + "layer_limit "
-                            + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                            + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                            + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                        + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                        + "WHERE "
-                            + "sum_running.int_sum_running < limit_record.int_max_value "
-                            + "OR sum_running.int_sum_running IS NULL "
-                    + ") "
+                    + limitFilter("layer", null) + " "
             + ") AS t1 WHERE LINENUM <= ?";
     // spotless:on
 

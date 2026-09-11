@@ -209,6 +209,44 @@ mod tests {
     }
 
     #[test]
+    fn frame_recovery_is_enabled_by_default() {
+        assert!(super::RunnerConfig::default().is_frame_recovery_enabled());
+    }
+
+    #[test]
+    fn load_file_reads_frame_recovery_switch() {
+        let mut config_file = Builder::new()
+            .suffix(".yaml")
+            .tempfile()
+            .expect("temp config file");
+        writeln!(config_file, "runner:\n  frame_recovery_enabled: false").expect("write config");
+
+        let config = Config::load_file(
+            config_file
+                .path()
+                .to_str()
+                .expect("config path should be valid UTF-8"),
+        )
+        .expect("config should load");
+
+        assert!(!config.runner.frame_recovery_enabled);
+        assert!(!config.runner.is_frame_recovery_enabled());
+    }
+
+    #[test]
+    fn reload_frame_recovery_reaches_previously_made_clones() {
+        // A clone taken before the reload (as every RunningFrame holds) must observe the new
+        // value — the live cell is shared across clones, not copied.
+        let config = super::RunnerConfig::default();
+        let clone_before_reload = config.clone();
+        assert!(clone_before_reload.is_frame_recovery_enabled());
+
+        config.reload_frame_recovery_enabled(false);
+
+        assert!(!clone_before_reload.is_frame_recovery_enabled());
+    }
+
+    #[test]
     fn compiled_exit_status_rules_seed_lazily_from_raw_fields() {
         let mut config = super::RunnerConfig::default();
         config.log_scan_last_lines = 25;
@@ -359,6 +397,15 @@ pub struct RunnerConfig {
     pub docker_mounts: Vec<DockerMountConfig>,
     pub docker_default_image: String,
     pub docker_images: HashMap<String, String>,
+    /// Whether frames run under the exit-status wrapper that records their exit code to an
+    /// exit file. That file is the only way a restarted RQD can learn the real outcome of a
+    /// frame it is no longer the parent of, so this flag is effectively the on/off switch for
+    /// frame recovery. When disabled, frames run their command directly (as they did before
+    /// recovery existed) and a recovered frame is reported as terminated.
+    ///
+    /// Live-reloaded (see `log_exit_status_rules_reload_interval`); read when a frame is
+    /// launched, so flipping it only affects frames started afterwards.
+    pub frame_recovery_enabled: bool,
     /// Number of trailing log lines scanned against `log_exit_status_rules` when a frame
     /// fails. Set to 0, or leave `log_exit_status_rules` empty, to disable log scanning.
     pub log_scan_last_lines: usize,
@@ -366,12 +413,20 @@ pub struct RunnerConfig {
     /// matching rule wins. Empty by default, which disables the feature.
     pub log_exit_status_rules: Vec<LogExitStatusRule>,
     /// How often the watcher re-reads the config file to pick up changes to
-    /// `log_exit_status_rules`/`log_scan_last_lines` without a restart (restarting RQD kills
-    /// running frames on Linux, where recover mode is not available). Set to 0 to disable
-    /// live reloading. Only these two keys are live-reloaded; every other config change still
-    /// requires a restart.
+    /// `log_exit_status_rules`, `log_scan_last_lines` and `frame_recovery_enabled` without a
+    /// restart (restarting RQD is disruptive to a host full of running frames). Set to 0 to
+    /// disable live reloading. Only those keys are live-reloaded; every other config change
+    /// still requires a restart.
     #[serde(with = "humantime_serde")]
     pub log_exit_status_rules_reload_interval: Duration,
+    /// Live value of `frame_recovery_enabled`, seeded lazily from the raw field on first
+    /// access and replaced by the config watcher on reload.
+    ///
+    /// Shares the same `Arc`-behind-clones trick as `compiled_exit_status_rules`: every
+    /// `RunningFrame` holds a config clone frozen at frame creation, so this cell is what
+    /// lets a reload reach the frames launched after it.
+    #[serde(skip)]
+    live_frame_recovery_enabled: Arc<RwLock<Option<bool>>>,
     /// Compiled form of `log_exit_status_rules`, seeded lazily on first access (forced at
     /// startup, see `async_main`) and replaced live by the config watcher on reload.
     ///
@@ -428,10 +483,12 @@ impl Default for RunnerConfig {
             docker_mounts: Vec::new(),
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),
+            frame_recovery_enabled: true,
             log_scan_last_lines: 50,
             log_exit_status_rules: Vec::new(),
             log_exit_status_rules_reload_interval: Duration::from_secs(300), // 5 min
             compiled_exit_status_rules: Arc::new(RwLock::new(None)),
+            live_frame_recovery_enabled: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -468,6 +525,40 @@ impl RunnerConfig {
         });
         *guard = Some(Arc::clone(&rule_set));
         rule_set
+    }
+
+    /// Returns whether frames should be launched under the exit-status wrapper, seeding the
+    /// shared cell from this config's raw field on first call.
+    ///
+    /// Always read this instead of the `frame_recovery_enabled` field: the field holds the
+    /// value loaded at startup, while this reflects the latest reload.
+    pub fn is_frame_recovery_enabled(&self) -> bool {
+        let guard = self
+            .live_frame_recovery_enabled
+            .read()
+            .unwrap_or_else(|err| err.into_inner());
+        if let Some(enabled) = *guard {
+            return enabled;
+        }
+        drop(guard);
+
+        let mut guard = self
+            .live_frame_recovery_enabled
+            .write()
+            .unwrap_or_else(|err| err.into_inner());
+        // Another thread may have seeded the cell between the read and write locks.
+        let enabled = guard.unwrap_or(self.frame_recovery_enabled);
+        *guard = Some(enabled);
+        enabled
+    }
+
+    /// Swaps `enabled` into the shared cell, so frames launched from now on — including by
+    /// config clones taken before this call — honour it.
+    pub fn reload_frame_recovery_enabled(&self, enabled: bool) {
+        *self
+            .live_frame_recovery_enabled
+            .write()
+            .unwrap_or_else(|err| err.into_inner()) = Some(enabled);
     }
 
     /// Compiles `rules` and swaps them into the shared cell, making them the set every frame —
@@ -639,21 +730,22 @@ impl Config {
     }
 }
 
-/// Periodically re-reads the config sources and applies changes to `log_exit_status_rules` and
-/// `log_scan_last_lines` to the live rule set, so operators can register new license-error
-/// patterns without restarting RQD.
+/// Periodically re-reads the config sources and applies changes to the keys that can be
+/// changed without a restart: `log_exit_status_rules`/`log_scan_last_lines`, so operators can
+/// register new license-error patterns, and `frame_recovery_enabled`, so frame recovery can be
+/// switched off on a misbehaving host without bouncing RQD.
 ///
-/// Only those two keys are live-reloaded; changes to anything else in the file are ignored
-/// until the next restart. A file that is missing, unreadable, or fails to parse leaves the
-/// current rules untouched (with a warning), so a half-written edit can never wipe the rules
-/// out from under running frames.
+/// Only those keys are live-reloaded; changes to anything else in the file are ignored until
+/// the next restart. A file that is missing, unreadable, or fails to parse leaves the current
+/// values untouched (with a warning), so a half-written edit can never wipe the rules out from
+/// under running frames.
 ///
 /// Runs forever; spawn it as a background task. Returns immediately when
 /// `log_exit_status_rules_reload_interval` is 0.
-pub async fn watch_exit_status_rules() {
+pub async fn watch_live_config() {
     let interval = CONFIG.runner.log_exit_status_rules_reload_interval;
     if interval.is_zero() {
-        info!("log_exit_status_rules live reload is disabled (reload interval = 0)");
+        info!("Config live reload is disabled (reload interval = 0)");
         return;
     }
 
@@ -661,6 +753,7 @@ pub async fn watch_exit_status_rules() {
         CONFIG.runner.log_scan_last_lines,
         CONFIG.runner.log_exit_status_rules.clone(),
     );
+    let mut last_recovery_enabled = CONFIG.runner.is_frame_recovery_enabled();
     let mut ticker = tokio::time::interval(interval);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     // The first tick of a tokio interval fires immediately; skip it, startup already
@@ -673,10 +766,22 @@ pub async fn watch_exit_status_rules() {
         let new_config = match Config::read_sources() {
             Ok(config) => config,
             Err(err) => {
-                warn!("Skipping log_exit_status_rules reload, config re-read failed: {err}");
+                warn!("Skipping config reload, config re-read failed: {err}");
                 continue;
             }
         };
+
+        let recovery_enabled = new_config.runner.frame_recovery_enabled;
+        if recovery_enabled != last_recovery_enabled {
+            CONFIG.runner.reload_frame_recovery_enabled(recovery_enabled);
+            info!(
+                "Reloaded frame_recovery_enabled={}. Frames launched from now on {} write an \
+                exit file",
+                recovery_enabled,
+                if recovery_enabled { "will" } else { "will not" }
+            );
+            last_recovery_enabled = recovery_enabled;
+        }
 
         let candidate = (
             new_config.runner.log_scan_last_lines,

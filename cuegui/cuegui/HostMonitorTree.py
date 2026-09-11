@@ -200,8 +200,27 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
+        self.addColumn("Licenses", 120, id=25,
+                       data=self.__licenseText,
+                       sort=lambda host: len(
+                           self.__hostLimits.get(host.data.name.lower().split('.')[0], [])),
+                       tip="Licenses this host currently holds.\n\n"
+                           "A host-based license is held while the host runs at least one\n"
+                           "frame that needs it; more frames on the same host are free.\n"
+                           "Names in parentheses are held outside of Cue, for example by\n"
+                           "an artist logged into the machine.")
 
         self.hostSearch = opencue.search.HostSearch()
+
+        # {normalized hostname: [limit names]}, rebuilt by _getUpdate from a single
+        # getLimitHolds() call: one extra RPC per refresh, independent of farm size.
+        # A failed refresh keeps the last good map rather than replacing it, so a hiccup
+        # does not silently reinterpret "no data" as "nobody holds anything".
+        self.__hostLimits = {}
+        self.__hostLimitsAvailable = False
+        # "license:<substring>" terms from the filter bar, applied client-side against
+        # the same map.
+        self.licenseFilters = []
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -302,12 +321,64 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if os_filters:
                 hosts = [host for host in hosts if host.data.os in os_filters]
 
+            holds = self.__getLimitHolds()
+            if holds is not None:
+                self.__hostLimits = holds
+                self.__hostLimitsAvailable = True
+
+            # Apply client-side license filtering against the holds map. Without a map there
+            # is nothing to match on, and matching nothing would empty the host list entirely;
+            # show every host instead.
+            if self.licenseFilters and self.__hostLimitsAvailable:
+                hosts = [host for host in hosts if self.__matchesLicenseFilter(host)]
+
             # Sorting by name here incase that makes displaying it faster
             hosts.sort(key=lambda host: host.data.name)
             return hosts
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
+
+    @staticmethod
+    def __normalizeHostName(name):
+        return name.lower().split('.')[0]
+
+    def __getLimitHolds(self):
+        """Builds the {hostname: [license names]} map from a single GetHolds call.
+
+        Externally-held licenses are parenthesized so an artist session on a render
+        host stays visible.
+
+        Deliberately unfiltered: the tree needs every host's licenses, so one farm-wide call
+        per refresh beats a per-host call. Callers that want a single host should pass
+        hostName to getLimitHolds instead.
+
+        :rtype:  dict or None
+        :return: the holds map, or None if it could not be fetched. None is distinct from
+                 an empty map, which legitimately means nobody holds anything.
+        """
+        hostLimits = {}
+        try:
+            for hold in opencue.api.getLimitHolds():
+                name = hold.limit_name
+                if hold.source in (opencue.api.limit_pb2.EXTERNAL,
+                                   opencue.api.limit_pb2.BOTH):
+                    name = "(%s)" % name
+                hostLimits.setdefault(self.__normalizeHostName(hold.host_name), []).append(name)
+        # pylint: disable=broad-except
+        except Exception as e:
+            logger.warning("Failed to fetch limit holds: %s", e)
+            return None
+        return hostLimits
+
+    def __licenseText(self, host):
+        return ",".join(sorted(self.__hostLimits.get(
+            self.__normalizeHostName(host.data.name), [])))
+
+    def __matchesLicenseFilter(self, host):
+        held = [name.strip('()').lower()
+                for name in self.__hostLimits.get(self.__normalizeHostName(host.data.name), [])]
+        return any(any(needle in name for name in held) for needle in self.licenseFilters)
 
     def _createItem(self, rpcObject, parent=None):
         """Creates and returns the proper item

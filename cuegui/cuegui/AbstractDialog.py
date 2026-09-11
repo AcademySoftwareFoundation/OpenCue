@@ -76,6 +76,15 @@ class CheckBoxSelectionMatrix(QtWidgets.QWidget):
         """Gets all checked boxes."""
         return [cb for cb in self.__checkBoxes if cb.isChecked()]
 
+    def markOption(self, name, tip):
+        """Marks the named checkbox with a tooltip and an italic label."""
+        for checkBox in self.__checkBoxes:
+            if str(checkBox.text()) == name:
+                checkBox.setToolTip(tip)
+                font = checkBox.font()
+                font.setItalic(True)
+                checkBox.setFont(font)
+
     def checkedOptions(self):
         """Gets text value of all checked boxes."""
         return [str(cb.text()) for cb in self.__checkBoxes if cb.isChecked()]

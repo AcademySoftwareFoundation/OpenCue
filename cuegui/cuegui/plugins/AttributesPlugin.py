@@ -399,10 +399,38 @@ class HostAttributes(AbstractAttributes):
 
     NAME = "Host"
 
+    @staticmethod
+    def preload(hostObject):
+        """Fetches the licenses this host currently holds, on the worker thread."""
+        try:
+            return {"holds": list(
+                opencue.api.getLimitHolds(hostName=hostObject.data.name))}
+        # pylint: disable=broad-except
+        except Exception as e:
+            logger.warning("Failed to fetch limit holds: %s", e)
+            return {"holds": []}
+
+    @staticmethod
+    def __licensesGroup(preload):
+        sourceNames = {opencue.api.limit_pb2.CUE: "held by Cue frames",
+                       opencue.api.limit_pb2.EXTERNAL: "held outside of Cue",
+                       opencue.api.limit_pb2.BOTH: "held by Cue frames and outside of Cue"}
+        licenses = {}
+        for hold in (preload or {}).get("holds", []):
+            description = "%d token(s), %s" % (
+                hold.tokens, sourceNames.get(hold.source, "unknown source"))
+            if hold.user:
+                description += ", user %s" % hold.user
+            if hold.report_time:
+                description += ", reported %ds ago" % max(
+                    0, int(time.time()) - hold.report_time)
+            licenses[hold.limit_name] = description
+        return licenses
+
     def dataSource(self, host, preload):
         """Returns host information structured as needed for the attributes list."""
-        del preload
         return {"hostname": host.data.name,
+                "licenses": self.__licensesGroup(preload),
                 "id": opencue.util.id(host),
                 "alloc": host.data.alloc_name,
                 "os": host.data.os,
@@ -451,5 +479,5 @@ class HostAttributes(AbstractAttributes):
                 },
                 "__childOrder":["id","hostname","os","alloc","tags","nimby","state",
                                 "lock","load","bootTime","pingTime","pingLast","cores",
-                                "memory","swap","mcp","raw"],
+                                "memory","swap","mcp","licenses","raw"],
             }

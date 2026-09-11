@@ -27,6 +27,8 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -41,6 +43,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.OwnerEntity;
@@ -131,6 +134,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private FrameSearchFactory frameSearchFactory;
     private ProcSearchFactory procSearchFactory;
+
+    private final String limitQueryBase;
+
+    @Autowired
+    public WhiteboardDaoJdbc(Environment env) {
+        this.limitQueryBase = LimitDaoJdbc
+                // Default mirrored in LimitDaoJdbc and DispatcherDaoJdbc; keep the three in step.
+                .limitQuery(env.getProperty("limit.settle_window_seconds", Integer.class, 120));
+    }
 
     @Override
     public Service getService(String id) {
@@ -374,9 +386,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public List<Limit> getLimits(LayerInterface layer) {
-        List<Limit> limits =
-                getJdbcTemplate().query(GET_LIMIT_FROM_LAYER_ID, LIMIT_MAPPER, layer.getLayerId());
-        return limits;
+        return getJdbcTemplate().query(
+                limitQueryBase
+                        + "WHERE EXISTS (SELECT 1 FROM layer_limit WHERE layer_limit.pk_layer = ? "
+                        + "AND layer_limit.pk_limit_record = limit_record.pk_limit_record)",
+                LIMIT_MAPPER, layer.getLayerId());
     }
 
     @Override
@@ -736,25 +750,20 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public Limit findLimit(String name) {
-        String findLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.str_name = ? " + "GROUP BY "
-                + "limit_record.str_name, " + "limit_record.pk_limit_record, "
-                + "limit_record.int_max_value";
-        return getJdbcTemplate().queryForObject(findLimitQuery, LIMIT_MAPPER, name);
+        return getJdbcTemplate().queryForObject(limitQueryBase + "WHERE limit_record.str_name = ?",
+                LIMIT_MAPPER, name);
     }
 
     @Override
     public Limit getLimit(String id) {
-        String getLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ? "
-                + "GROUP BY " + "limit_record.str_name, " + "limit_record.pk_limit_record, "
-                + "limit_record.int_max_value";
-        return getJdbcTemplate().queryForObject(getLimitQuery, LIMIT_MAPPER, id);
+        return getJdbcTemplate().queryForObject(
+                limitQueryBase + "WHERE limit_record.pk_limit_record = ?", LIMIT_MAPPER, id);
     }
 
     @Override
     public List<Limit> getLimits() {
-        String getLimitsQuery = QUERY_FOR_LIMIT + " GROUP BY " + "limit_record.str_name, "
-                + "limit_record.pk_limit_record, " + "limit_record.int_max_value";
-        return getJdbcTemplate().query(getLimitsQuery, LIMIT_MAPPER);
+        return getJdbcTemplate().query(limitQueryBase + "ORDER BY limit_record.str_name",
+                LIMIT_MAPPER);
     }
 
     /*
@@ -763,12 +772,29 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     public static final RowMapper<Limit> LIMIT_MAPPER = new RowMapper<Limit>() {
         public Limit mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return Limit.newBuilder().setId(SqlUtil.getString(rs, "pk_limit_record"))
-                    .setName(SqlUtil.getString(rs, "str_name"))
-                    .setMaxValue(rs.getInt("int_max_value"))
-                    .setCurrentRunning(rs.getInt("int_current_running")).build();
+            return toLimitProto(LimitDaoJdbc.mapLimitRow(rs));
         }
     };
+
+    /**
+     * Converts a LimitEntity to its wire form. The staleness and blocking flags are computed on the
+     * entity so the servant, the whiteboard and the GUI cannot disagree about the rule.
+     */
+    public static Limit toLimitProto(LimitEntity limit) {
+        return Limit.newBuilder().setId(limit.id).setName(limit.name).setMaxValue(limit.maxValue)
+                .setCurrentRunning(limit.getCurrentUsage()).setType(limit.type)
+                .setEnforcement(limit.enforcement).setSoftValue(limit.softValue)
+                .setCurrentUsage(limit.getCurrentUsage()).setSettledUsage(limit.settledUsage)
+                .setPendingUsage(limit.pendingUsage).setHostCount(limit.hostCount)
+                .setLastReportTime(limit.reportedTime / 1000)
+                .setReportSource(limit.reportSource == null ? "" : limit.reportSource)
+                .setReportTtl(limit.reportTtl).setReportStale(limit.isReportStale())
+                .setBlockingDisabled(!limit.isBlocking())
+                .setExitStatus(limit.exitStatus == null ? 0 : limit.exitStatus)
+                .setDelayMinutes(limit.delayMinutes).setAutoTag(limit.autoTag)
+                .setSpecLayerCount(limit.specLayerCount).setAutoLayerCount(limit.autoLayerCount)
+                .build();
+    }
 
     public static final RowMapper<Matcher> MATCHER_MAPPER = new RowMapper<Matcher>() {
         public Matcher mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -1820,46 +1846,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "facility.str_name "
             + "FROM "
                 + "facility ";
-    // spotless:on
-
-    // spotless:off
-    private static final String QUERY_FOR_LIMIT =
-            "SELECT "
-                + "limit_record.pk_limit_record, "
-                + "limit_record.str_name, "
-                + "limit_record.int_max_value, "
-                + "SUM(layer_stat.int_running_count) AS int_current_running "
-            + "FROM "
-                + "limit_record "
-            + "LEFT JOIN "
-                + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-            + "LEFT JOIN "
-                + "layer ON layer.pk_layer = layer_limit.pk_layer "
-            + "LEFT JOIN "
-                + "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
-    // spotless:on
-
-    // spotless:off
-    private static final String GET_LIMIT_FROM_LAYER_ID =
-            "SELECT "
-                + "limit_record.pk_limit_record, "
-                + "limit_record.str_name, "
-                + "limit_record.int_max_value, "
-                + "SUM(layer_stat.int_running_count) AS int_current_running "
-            + "FROM "
-                + "limit_record "
-            + "LEFT JOIN "
-                + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-            + "LEFT JOIN "
-                + "layer ON layer.pk_layer = layer_limit.pk_layer "
-            + "LEFT JOIN "
-                + "layer_stat ON layer_stat.pk_layer = layer.pk_layer "
-            + "WHERE "
-                + "layer_limit.pk_layer = ? "
-            + "GROUP BY "
-                + "limit_record.str_name, "
-                + "limit_record.pk_limit_record, "
-                + "limit_record.int_max_value";
     // spotless:on
 
     // spotless:off

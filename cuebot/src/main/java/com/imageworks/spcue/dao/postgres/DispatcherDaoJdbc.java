@@ -35,6 +35,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.AllocationInterface;
@@ -122,10 +124,80 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      */
     private SchedulingMode schedulingMode;
 
+    /**
+     * Seconds of bookings counted as pending by the limit gate; see limit.settle_window_seconds.
+     */
+    private final int limitSettleWindowSeconds;
+
+    /**
+     * Whether frame ordering prefers work this host can run without acquiring a new license; see
+     * dispatcher.limit.affinity_ordering_enabled.
+     */
+    private final boolean limitAffinityOrdering;
+
+    /**
+     * Query constants with their placeholder tokens resolved against configuration, cached per
+     * constant so the string work happens once.
+     */
+    private final ConcurrentHashMap<String, String> resolvedQueries =
+            new ConcurrentHashMap<String, String>();
+
+    private volatile NamedParameterJdbcTemplate namedJdbcTemplate;
+
     @Autowired
     public DispatcherDaoJdbc(Environment env) {
         this.schedulingMode = SchedulingMode.valueOf(
                 env.getProperty("dispatcher.scheduling_mode", String.class, "PRIORITY_ONLY"));
+        // Default mirrored in FrameDaoJdbc, LimitDaoJdbc and WhiteboardDaoJdbc; keep the four
+        // in step.
+        this.limitSettleWindowSeconds =
+                env.getProperty("limit.settle_window_seconds", Integer.class, 120);
+        this.limitAffinityOrdering =
+                env.getProperty("dispatcher.limit.affinity_ordering_enabled", Boolean.class, false);
+    }
+
+    /**
+     * MATERIALIZED keyword for the limit-usage CTE, or empty where the server predates it; see
+     * DispatchQuery.CTE_MATERIALIZED_TOKEN. Resolved lazily on first use.
+     */
+    private volatile String cteMaterialized;
+
+    private String cteMaterialized() {
+        String keyword = cteMaterialized;
+        if (keyword == null) {
+            Integer version =
+                    getJdbcTemplate().queryForObject("SHOW server_version_num", Integer.class);
+            keyword = (version != null && version >= 120000) ? "MATERIALIZED" : "";
+            cteMaterialized = keyword;
+        }
+        return keyword;
+    }
+
+    /**
+     * Resolves a query constant's placeholder tokens: the limit settle window, the affinity sort
+     * key (or nothing, when ordering is disabled), and the CTE materialization keyword.
+     */
+    private String q(String query) {
+        return resolvedQueries.computeIfAbsent(query,
+                k -> k.replace(SETTLE_WINDOW_TOKEN, String.valueOf(limitSettleWindowSeconds))
+                        .replace(AFFINITY_ORDER_TOKEN,
+                                limitAffinityOrdering ? AFFINITY_ORDER_SQL : "")
+                        .replace(CTE_MATERIALIZED_TOKEN, cteMaterialized()));
+    }
+
+    /**
+     * The frame-dispatch queries bind by name: the affinity sort key drops in and out of the ORDER
+     * BY with configuration, and it reuses the host name the tag subquery already binds, so
+     * argument position is not a stable contract for them.
+     */
+    private NamedParameterJdbcTemplate getNamedJdbcTemplate() {
+        NamedParameterJdbcTemplate template = namedJdbcTemplate;
+        if (template == null) {
+            // Cheap wrapper over the same JdbcTemplate; racing threads build equivalent ones.
+            template = new NamedParameterJdbcTemplate(getJdbcTemplate());
+            namedJdbcTemplate = template;
+        }
+        return template;
     }
 
     @Override
@@ -210,7 +282,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     @Override
                     public PreparedStatement createPreparedStatement(Connection conn)
                             throws SQLException {
-                        String query = handleInClause("str_os", FIND_JOBS_BY_SHOW_NO_GPU,
+                        String query = handleInClause("str_os", q(FIND_JOBS_BY_SHOW_NO_GPU),
                                 host.getOs().length);
                         PreparedStatement find_jobs_stmt = conn.prepareStatement(query);
 
@@ -236,7 +308,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     public PreparedStatement createPreparedStatement(Connection conn)
                             throws SQLException {
                         String query =
-                                handleInClause("str_os", findByShowQuery(), host.getOs().length);
+                                handleInClause("str_os", q(findByShowQuery()), host.getOs().length);
                         PreparedStatement find_jobs_stmt = conn.prepareStatement(query);
                         int index = 1;
                         find_jobs_stmt.setString(index++, s.getShowId());
@@ -317,7 +389,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         long lastTime = System.currentTimeMillis();
 
         if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
-            String query = handleInClause("str_os", FIND_JOBS_BY_GROUP_NO_GPU, host.getOs().length);
+            String query =
+                    handleInClause("str_os", q(FIND_JOBS_BY_GROUP_NO_GPU), host.getOs().length);
             ArrayList<Object> args = new ArrayList<Object>();
 
             args.add(g.getGroupId());
@@ -334,7 +407,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             prometheusMetrics.setBookingDurationMetric("findDispatchJobs by group nogpu query",
                     System.currentTimeMillis() - lastTime);
         } else {
-            String query = handleInClause("str_os", findByGroupQuery(), host.getOs().length);
+            String query = handleInClause("str_os", q(findByGroupQuery()), host.getOs().length);
             ArrayList<Object> args = new ArrayList<Object>();
 
             args.add(g.getGroupId());
@@ -363,14 +436,19 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         long lastTime = System.currentTimeMillis();
         List<DispatchFrame> frames;
         if (proc.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
+            frames = getJdbcTemplate().query(q(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC),
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.memoryReserved, proc.gpuMemoryReserved,
                     job.getJobId(), limit);
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.coresReserved, proc.memoryReserved,
-                    proc.gpusReserved, (proc.gpuMemoryReserved > 0) ? 1 : 0, proc.gpuMemoryReserved,
-                    job.getJobId(), proc.hostName, job.getJobId(), limit);
+            frames = getNamedJdbcTemplate().query(q(FIND_DISPATCH_FRAME_BY_JOB_AND_PROC),
+                    new MapSqlParameterSource().addValue("hostName", proc.hostName)
+                            .addValue("coresAvailable", proc.coresReserved)
+                            .addValue("memoryAvailable", proc.memoryReserved)
+                            .addValue("gpusAvailable", proc.gpusReserved)
+                            .addValue("gpuMemoryMin", (proc.gpuMemoryReserved > 0) ? 1 : 0)
+                            .addValue("gpuMemoryAvailable", proc.gpuMemoryReserved)
+                            .addValue("jobId", job.getJobId()).addValue("frameLimit", limit),
+                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
         }
 
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by job and proc query",
@@ -386,15 +464,21 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
+            frames = getJdbcTemplate().query(q(FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST),
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleMemory, host.idleGpuMemory,
                     job.getJobId(), limit);
 
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
-                    threadMode(host.threadMode), host.idleGpus, (host.idleGpuMemory > 0) ? 1 : 0,
-                    host.idleGpuMemory, job.getJobId(), host.getName(), job.getJobId(), limit);
+            frames = getNamedJdbcTemplate().query(q(FIND_DISPATCH_FRAME_BY_JOB_AND_HOST),
+                    new MapSqlParameterSource().addValue("hostName", host.getName())
+                            .addValue("coresAvailable", host.idleCores)
+                            .addValue("memoryAvailable", host.idleMemory)
+                            .addValue("threadMode", threadMode(host.threadMode))
+                            .addValue("gpusAvailable", host.idleGpus)
+                            .addValue("gpuMemoryMin", (host.idleGpuMemory > 0) ? 1 : 0)
+                            .addValue("gpuMemoryAvailable", host.idleGpuMemory)
+                            .addValue("jobId", job.getJobId()).addValue("frameLimit", limit),
+                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
         }
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by job and host query",
                 System.currentTimeMillis() - lastTime);
@@ -409,14 +493,18 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (proc.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
+            frames = getJdbcTemplate().query(q(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC),
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(), limit);
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER, proc.coresReserved, proc.memoryReserved,
-                    proc.gpusReserved, proc.gpuMemoryReserved, layer.getLayerId(),
-                    layer.getLayerId(), proc.hostName, limit);
+            frames = getNamedJdbcTemplate().query(q(FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC),
+                    new MapSqlParameterSource().addValue("hostName", proc.hostName)
+                            .addValue("coresAvailable", proc.coresReserved)
+                            .addValue("memoryAvailable", proc.memoryReserved)
+                            .addValue("gpusAvailable", proc.gpusReserved)
+                            .addValue("gpuMemoryAvailable", proc.gpuMemoryReserved)
+                            .addValue("layerId", layer.getLayerId()).addValue("frameLimit", limit),
+                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
         }
 
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and proc query",
@@ -432,15 +520,20 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            frames = getJdbcTemplate().query(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
+            frames = getJdbcTemplate().query(q(FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST),
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleMemory, host.idleGpuMemory,
                     layer.getLayerId(), limit);
 
         } else {
-            frames = getJdbcTemplate().query(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER, host.idleCores, host.idleMemory,
-                    threadMode(host.threadMode), host.idleGpus, host.idleGpuMemory,
-                    layer.getLayerId(), layer.getLayerId(), host.getName(), limit);
+            frames = getNamedJdbcTemplate().query(q(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST),
+                    new MapSqlParameterSource().addValue("hostName", host.getName())
+                            .addValue("coresAvailable", host.idleCores)
+                            .addValue("memoryAvailable", host.idleMemory)
+                            .addValue("threadMode", threadMode(host.threadMode))
+                            .addValue("gpusAvailable", host.idleGpus)
+                            .addValue("gpuMemoryAvailable", host.idleGpuMemory)
+                            .addValue("layerId", layer.getLayerId()).addValue("frameLimit", limit),
+                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
         }
 
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and host query",
@@ -463,7 +556,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
         long start = System.currentTimeMillis();
         try {
-            return getJdbcTemplate().queryForObject(FIND_UNDER_PROCED_JOB_BY_FACILITY,
+            return getJdbcTemplate().queryForObject(q(FIND_UNDER_PROCED_JOB_BY_FACILITY),
                     Integer.class, excludeJob.getShowId(), proc.getFacilityId(), proc.os,
                     excludeJob.getShowId(), proc.getFacilityId(), proc.os, proc.coresReserved,
                     proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
@@ -480,7 +573,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
         long start = System.currentTimeMillis();
         try {
-            return getJdbcTemplate().queryForObject(HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS,
+            return getJdbcTemplate().queryForObject(q(HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS),
                     Boolean.class, baseJob.priority, proc.getFacilityId(), proc.os,
                     proc.getFacilityId(), proc.os, proc.coresReserved, proc.memoryReserved,
                     proc.gpusReserved, proc.gpuMemoryReserved, proc.hostName);
@@ -497,7 +590,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
         long start = System.currentTimeMillis();
         if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
-            String query = handleInClause("str_os", FIND_JOBS_BY_SHOW_NO_GPU, host.getOs().length);
+            String query =
+                    handleInClause("str_os", q(FIND_JOBS_BY_SHOW_NO_GPU), host.getOs().length);
             ArrayList<Object> args = new ArrayList<Object>();
             args.add(show.getShowId());
             args.add(host.getFacilityId());
@@ -515,7 +609,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             prometheusMetrics.setBookingDurationMetric("findDispatchJobs by show nogpu query",
                     System.currentTimeMillis() - start);
         } else {
-            String query = handleInClause("str_os", findByShowQuery(), host.getOs().length);
+            String query = handleInClause("str_os", q(findByShowQuery()), host.getOs().length);
             ArrayList<Object> args = new ArrayList<Object>();
             args.add(show.getShowId());
             args.add(host.getFacilityId());
@@ -547,7 +641,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         LinkedHashSet<String> result = new LinkedHashSet<String>(5);
         long start = System.currentTimeMillis();
 
-        String query = handleInClause("str_os", FIND_JOBS_BY_LOCAL, host.getOs().length);
+        String query = handleInClause("str_os", q(FIND_JOBS_BY_LOCAL), host.getOs().length);
         ArrayList<Object> args = new ArrayList<Object>();
         args.add(host.getHostId());
         args.add(host.getFacilityId());

@@ -254,6 +254,47 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_shutdownIfCompleted(self, isPermissibleMock, yesNoMock):
+        job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='job-name', state=opencue_proto.job_pb2.PENDING,
+            job_stats=opencue_proto.job_pb2.JobStats(succeeded_frames=10)))
+        job.shutdownIfCompleted = mock.Mock()
+
+        self.job_actions.shutdownIfCompleted(rpcObjects=[job])
+
+        job.shutdownIfCompleted.assert_called_with()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_shutdownIfCompletedCanceled(self, isPermissibleMock, yesNoMock):
+        job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='job-name', state=opencue_proto.job_pb2.PENDING,
+            job_stats=opencue_proto.job_pb2.JobStats(succeeded_frames=10)))
+        job.shutdownIfCompleted = mock.Mock()
+
+        self.job_actions.shutdownIfCompleted(rpcObjects=[job])
+
+        job.shutdownIfCompleted.assert_not_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_shutdownIfCompletedSkipsUnfinishedJobs(self, isPermissibleMock, yesNoMock):
+        unfinished = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='unfinished', state=opencue_proto.job_pb2.PENDING,
+            job_stats=opencue_proto.job_pb2.JobStats(running_frames=1)))
+        unfinished.shutdownIfCompleted = mock.Mock()
+        completed = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='completed', state=opencue_proto.job_pb2.PENDING,
+            job_stats=opencue_proto.job_pb2.JobStats(succeeded_frames=10)))
+        completed.shutdownIfCompleted = mock.Mock()
+
+        self.job_actions.shutdownIfCompleted(rpcObjects=[unfinished, completed])
+
+        unfinished.shutdownIfCompleted.assert_not_called()
+        completed.shutdownIfCompleted.assert_called_with()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
     def test_eatDead(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name='job-name'))
         job.eatFrames = mock.Mock()
@@ -1764,15 +1805,14 @@ class LimitActionsTests(unittest.TestCase):
         self.limit_actions = cuegui.MenuActions.LimitActions(
             self.widgetMock, mock.Mock(), None, None)
 
-    @mock.patch('opencue.api.createLimit')
-    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
-    def test_create(self, getTextMock, createLimitMock):
-        limitName = 'newLimitName'
-        getTextMock.return_value = ('%s \t ' % limitName, True)
+    @mock.patch('cuegui.LimitDialogs.CreateLimitDialog')
+    def test_create(self, createDialogMock):
+        createDialogMock.return_value.exec_.return_value = True
 
         self.limit_actions.create()
 
-        createLimitMock.assert_called_with(limitName, 0)
+        createDialogMock.assert_called_with(self.widgetMock)
+        createDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):

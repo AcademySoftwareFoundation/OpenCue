@@ -1,7 +1,7 @@
 ---
 title: "Scheduler Accounting Reference"
-nav_order: 101
-parent: Reference
+nav_order: 102
+parent: "Developer Guide"
 layout: default
 linkTitle: "Scheduler Accounting"
 date: 2026-06-26

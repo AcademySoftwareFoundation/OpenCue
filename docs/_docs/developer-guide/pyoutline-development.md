@@ -1,6 +1,6 @@
 ---
 title: "PyOutline and PyCuerun Development Guide"
-nav_order: 108
+nav_order: 105
 parent: "Developer Guide"
 layout: default
 date: 2026-03-13

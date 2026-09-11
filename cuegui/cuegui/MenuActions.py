@@ -35,6 +35,7 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue_proto.job_pb2
+from opencue_proto import limit_pb2
 import FileSequence
 import opencue
 import opencue.wrappers.depend
@@ -51,6 +52,7 @@ import cuegui.EmailDialog
 import cuegui.FilterDialog
 import cuegui.GroupDialog
 import cuegui.LayerDialog
+import cuegui.LimitDialogs
 import cuegui.LocalBooking
 import cuegui.Logger
 import cuegui.PreviewWidget
@@ -424,6 +426,35 @@ class JobActions(AbstractActions):
         if jobs:
             for job in jobs:
                 job.resume()
+            self._update()
+
+    shutdownIfCompleted_info = [
+        "Shutdown If &Completed",
+        "Finish jobs that have no frames left to run but are still in the cue",
+        "markdone"]
+
+    def shutdownIfCompleted(self, rpcObjects=None):
+        jobs = [job for job in self._getOnlyJobObjects(rpcObjects)
+                if cuegui.Utils.isJobCompleted(job)]
+        if not jobs:
+            return
+        msg = ("These jobs have no frames left to run but have not left the cue.\n\n"
+               "Cuebot will check each one again and finish only those that are "
+               "actually complete. No running frames are stopped.")
+        if cuegui.Utils.questionBoxYesNo(self._caller, "Shutdown completed jobs?", msg,
+                                         [job.data.name for job in jobs]):
+            blocked_job_owners = []
+            for job in jobs:
+                if not cuegui.Utils.isPermissible(job):
+                    blocked_job_owners.append(job.username())
+                    continue
+                self.cuebotCall(job.shutdownIfCompleted,
+                                "Failed to shutdown %s" % job.data.name)
+            if blocked_job_owners:
+                cuegui.Utils.showErrorMessageBox(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
+                        "shutdown some of the selected jobs",
+                        ", ".join(blocked_job_owners)))
             self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -2323,15 +2354,8 @@ class LimitActions(AbstractActions):
 
     create_info = ["Create Limit", None, "configure"]
     def create(self, rpcObjects=None):
-        title = "Add Limit"
-        body = "Enter a name for the new limit."
-
-        (limit, choice) = self.getText(title, body, "")
-        if choice:
-            limit = limit.strip()
-            self.cuebotCall(opencue.api.createLimit,
-                            "Creating Limit {} has Failed.".format(limit),
-                            *[limit, 0])
+        dialog = cuegui.LimitDialogs.CreateLimitDialog(self._caller)
+        if dialog.exec_():
             self._update()
 
     delete_info = ["Delete Limit", None, "kill"]
@@ -2372,6 +2396,132 @@ class LimitActions(AbstractActions):
             (value, choice) = QtWidgets.QInputDialog.getText(self._caller, title, body)
             if choice:
                 self.cuebotCall(limits[0].rename, "Rename failed.", value)
+            self._update()
+
+    editSoftValue_info = ["Edit Soft Threshold", None, "configure"]
+    def editSoftValue(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits:
+            current = max(limit.softValue() for limit in limits)
+            title = "Edit Soft Threshold"
+            body = ("Usage above which only hosts already holding a token may book\n"
+                    "(0 or -1 means the same as the max value):")
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body,
+                                                            current, -1, 999999999)
+            if choice:
+                for limit in limits:
+                    self.cuebotCall(limit.setSoftValue,
+                                    "Set Soft Threshold on Limit %s Failed" % limit.name(),
+                                    int(value))
+                self._update()
+
+    def __setType(self, rpcObjects, limitType):
+        limits = self._getSelected(rpcObjects)
+        if not limits:
+            return
+        typeName = limit_pb2.LimitType.Name(limitType).capitalize()
+        # Switching the counting unit of an in-use limit moves the usage number a lot at
+        # once: FRAME -> HOST frees tokens and the farm surges, HOST -> FRAME can
+        # over-saturate it and stall booking until frames drain. Project the new usage so
+        # this is an informed decision, not a surprise.
+        warnings = []
+        for limit in limits:
+            if limit.limitType() == limitType or not limit.currentUsage():
+                continue
+            projected = (limit.hostCount() if limitType == limit_pb2.HOST
+                         else limit.settledUsage() + limit.pendingUsage())
+            warnings.append("%s: usage now %d, roughly %d of %d after the switch" % (
+                limit.name(), limit.currentUsage(), projected, limit.maxValue()))
+        if warnings and not cuegui.Utils.questionBoxYesNo(
+                self._caller, "Set Limit Type",
+                "Change the counting unit of in-use limits to %s?" % typeName, warnings):
+            return
+        for limit in limits:
+            self.cuebotCall(limit.setLimitType,
+                            "Set Type on Limit %s Failed" % limit.name(), limitType)
+        self._update()
+
+    setTypeFrame_info = ["Per frame", None, "configure"]
+    def setTypeFrame(self, rpcObjects=None):
+        self.__setType(rpcObjects, limit_pb2.FRAME)
+
+    setTypeHost_info = ["Per host", None, "configure"]
+    def setTypeHost(self, rpcObjects=None):
+        self.__setType(rpcObjects, limit_pb2.HOST)
+
+    def __setEnforcement(self, rpcObjects, enforcement):
+        limits = self._getSelected(rpcObjects)
+        for limit in limits:
+            self.cuebotCall(limit.setEnforcement,
+                            "Set Mode on Limit %s Failed" % limit.name(), enforcement)
+        if limits:
+            self._update()
+
+    setModeEnforced_info = ["Enforced", None, "configure"]
+    def setModeEnforced(self, rpcObjects=None):
+        self.__setEnforcement(rpcObjects, limit_pb2.ENFORCED)
+
+    setModeAdvisory_info = ["Advisory", None, "configure"]
+    def setModeAdvisory(self, rpcObjects=None):
+        self.__setEnforcement(rpcObjects, limit_pb2.ADVISORY)
+
+    setModeDisabled_info = ["Disabled", None, "configure"]
+    def setModeDisabled(self, rpcObjects=None):
+        self.__setEnforcement(rpcObjects, limit_pb2.DISABLED)
+
+    setReportTimeout_info = ["Set Report Timeout", None, "configure"]
+    def setReportTimeout(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits:
+            current = max(limit.reportTtl() for limit in limits) // 60
+            title = "Set Report Timeout"
+            body = ("Minutes after which an external report is considered stale and the\n"
+                    "limit stops blocking (0 disables staleness for internal-only "
+                    "limits):")
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body,
+                                                            current, 0, 999999)
+            if choice:
+                for limit in limits:
+                    self.cuebotCall(limit.setReportTtl,
+                                    "Set Report Timeout on Limit %s Failed" % limit.name(),
+                                    int(value) * 60)
+                self._update()
+
+    setFailureRule_info = ["Set Failure Rule", None, "configure"]
+    def setFailureRule(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits and len(limits) == 1:
+            dialog = cuegui.LimitDialogs.SetFailureRuleDialog(limits[0], self._caller)
+            if dialog.exec_():
+                self._update()
+
+    showHolds_info = ["Show License Holders", None, "view"]
+    def showHolds(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        for limit in limits:
+            cuegui.LimitDialogs.LimitHoldsDialog(limit, self._caller).show()
+
+    showBindings_info = ["Show Tagged Layers", None, "view"]
+    def showBindings(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        for limit in limits:
+            cuegui.LimitDialogs.LimitBindingsDialog(limit, self._caller).show()
+
+    removeAutoTagged_info = ["Remove Auto-Tagged Layers", None, "kill"]
+    def removeAutoTagged(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        for limit in limits:
+            autoCount = limit.autoLayerCount()
+            if not autoCount:
+                continue
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Remove Auto-Tagged Layers",
+                    "Remove %d auto-tagged layers from limit %s?\n"
+                    "Spec-declared bindings are untouched." % (autoCount, limit.name())):
+                self.cuebotCall(limit.clearBindings,
+                                "Removing auto-tagged layers from %s Failed" % limit.name(),
+                                [limit_pb2.AUTO])
+        if limits:
             self._update()
 
 

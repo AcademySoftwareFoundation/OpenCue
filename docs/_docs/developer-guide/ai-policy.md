@@ -2,7 +2,7 @@
 title: "Policy on AI Coding Assistants"
 linkTitle: "Policy on AI Coding Assistants"
 parent: "Developer Guide"
-nav_order: 89
+nav_order: 90
 layout: default
 date: 2026-03-25
 description: >

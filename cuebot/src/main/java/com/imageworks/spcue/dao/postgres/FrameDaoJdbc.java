@@ -81,6 +81,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         exclusions.addAll(LayerDelayRules.parse(env.getProperty("dispatcher.layer_delay.rules", ""))
                 .keySet());
         this.retryExclusions = exclusions.toArray(new Integer[0]);
+        // Default mirrored in DispatcherDaoJdbc, LimitDaoJdbc and WhiteboardDaoJdbc; keep the
+        // four in step.
+        this.limitSettleWindowSeconds =
+                env.getProperty("limit.settle_window_seconds", Integer.class, 120);
     }
 
     // spotless:off
@@ -202,9 +206,20 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         return result > 0;
     }
 
+    /**
+     * The frame-reservation step, carrying the last-chance limit and start-after checks. The
+     * dispatch queries evaluate DispatchQuery's limit gate once per find, but a batch of frames
+     * found under headroom is then started one by one: without a per-start re-check the whole batch
+     * would book and overshoot the limit. Reusing the gate's CTE and filter keeps the counting rule
+     * identical -- in particular a HOST limit at max never refuses a host already holding the
+     * token, where the old frame-count re-check starved holding machines.
+     *
+     * The gate's placeholder tokens are resolved lazily by {@link #updateFrameStartedSql}.
+     */
     // spotless:off
     private static final String UPDATE_FRAME_STARTED =
-            "UPDATE frame "
+            DispatchQuery.LIMIT_USAGE_CTE
+            + "UPDATE frame "
             + "SET "
                 + "str_state = ?, "
                 + "str_host = ?, "
@@ -219,30 +234,40 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + "WHERE pk_frame = ? "
             + "AND str_state = ? "
             + "AND int_version = ? "
-            + "AND frame.pk_layer IN ("
-                + "SELECT layer.pk_layer "
-                + "FROM layer "
-                + "LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer "
-                + "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record "
-                + "LEFT JOIN ("
-                    + "SELECT "
-                        + "limit_record.pk_limit_record, "
-                        + "SUM(layer_stat.int_running_count) AS int_sum_running "
-                    + "FROM layer_limit "
-                    + "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-                    + "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer "
-                    + "GROUP BY limit_record.pk_limit_record) AS sum_running "
-                    + "ON limit_record.pk_limit_record = sum_running.pk_limit_record "
-                + "WHERE ("
-                    + "sum_running.int_sum_running < limit_record.int_max_value "
-                    + "OR sum_running.int_sum_running IS NULL"
-                + ") "
+            + "AND EXISTS ("
+                + "SELECT 1 "
+                + "FROM layer, host "
+                + "WHERE layer.pk_layer = frame.pk_layer "
+                + "AND host.pk_host = ? "
                 + "AND ("
                     + "layer.ts_start_after IS NULL "
                     + "OR layer.ts_start_after <= current_timestamp"
                 + ") "
+                + "AND " + DispatchQuery.limitFilter("layer", "host")
             + ")";
     // spotless:on
+
+    private final int limitSettleWindowSeconds;
+    private volatile String updateFrameStartedSql;
+
+    /**
+     * UPDATE_FRAME_STARTED with the limit gate's placeholder tokens resolved. Lazy because the
+     * MATERIALIZED keyword depends on the server version, which needs a live connection.
+     */
+    private String updateFrameStartedSql() {
+        String sql = updateFrameStartedSql;
+        if (sql == null) {
+            Integer version =
+                    getJdbcTemplate().queryForObject("SHOW server_version_num", Integer.class);
+            sql = UPDATE_FRAME_STARTED
+                    .replace(DispatchQuery.SETTLE_WINDOW_TOKEN,
+                            String.valueOf(limitSettleWindowSeconds))
+                    .replace(DispatchQuery.CTE_MATERIALIZED_TOKEN,
+                            (version != null && version >= 120000) ? "MATERIALIZED" : "");
+            updateFrameStartedSql = sql;
+        }
+        return sql;
+    }
 
     // spotless:off
     private static final String UPDATE_FRAME_RETRIES =
@@ -258,10 +283,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         lockFrameForUpdate(frame, FrameState.WAITING);
 
         try {
-            int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
-                    FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                    proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
-                    frame.getFrameId(), FrameState.WAITING.toString(), frame.getVersion());
+            int result =
+                    getJdbcTemplate().update(updateFrameStartedSql(), FrameState.RUNNING.toString(),
+                            proc.hostName, proc.coresReserved, proc.memoryReserved,
+                            proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
+                            FrameState.WAITING.toString(), frame.getVersion(), proc.getHostId());
             if (result == 0) {
                 // Zero rows matched is also the normal outcome for a layer held back by its
                 // limit or its start-after gate, not only a version race.

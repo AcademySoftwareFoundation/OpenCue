@@ -35,6 +35,78 @@ service LimitInterface {
 
     rpc SetMaxValue(LimitSetMaxValueRequest) returns (LimitSetMaxValueResponse);
 
+    // Set how the limit counts tokens: per frame or per host.
+    rpc SetType(LimitSetTypeRequest) returns (LimitSetTypeResponse);
+
+    // Set whether the limit gates booking, only informs it, or is ignored.
+    rpc SetEnforcement(LimitSetEnforcementRequest) returns (LimitSetEnforcementResponse);
+
+    // Set the threshold above which only hosts already holding a token may
+    // book. 0 or -1 means "same as max_value". HOST limits only.
+    rpc SetSoftValue(LimitSetSoftValueRequest) returns (LimitSetSoftValueResponse);
+
+    // Set the seconds after which an external report is considered stale.
+    // 0 disables staleness entirely (internal-only limit).
+    rpc SetReportTtl(LimitSetReportTtlRequest) returns (LimitSetReportTtlResponse);
+
+    // Set the exit status, backoff and auto-tagging behavior in one call; they
+    // are only meaningful together. exit_status = 0 clears the rule.
+    rpc SetFailureRule(LimitSetFailureRuleRequest) returns (LimitSetFailureRuleResponse);
+
+    // Layers bound to a limit, optionally filtered by how they were bound.
+    rpc GetBindings(LimitGetBindingsRequest) returns (LimitGetBindingsResponse);
+
+    // Remove bindings from a limit, scoped by origin. The escape hatch for a
+    // mis-set exit status; SPEC bindings are never removable this way.
+    rpc ClearBindings(LimitClearBindingsRequest) returns (LimitClearBindingsResponse);
+
+    // Feed Cuebot the license server's current view. Each LimitReport fully
+    // replaces the hold set for its limit and advances its watermark.
+    rpc ReportUsage(LimitReportUsageRequest) returns (LimitReportUsageResponse);
+
+    // Current token holders, optionally filtered to one limit.
+    rpc GetHolds(LimitGetHoldsRequest) returns (LimitGetHoldsResponse);
+}
+
+
+// -------- Enums --------]
+
+// How a limit counts tokens against its maximum.
+enum LimitType {
+    // Each running frame consumes one token. Default; pre-existing behavior.
+    FRAME = 0;
+    // All frames on a single host share one token. For per-machine licenses
+    // such as Houdini/sesinetd, Katana or Mari. For a HOST limit, max_value is
+    // the maximum number of distinct machines the farm may spread across.
+    HOST = 1;
+}
+
+// Whether a limit gates booking, or only informs it.
+enum LimitEnforcement {
+    // Blocks booking at the thresholds. Default; pre-existing behavior.
+    ENFORCED = 0;
+    // Never blocks. Still biases dispatch toward hosts already holding a token,
+    // and still reports usage. Use when the license server does the enforcing.
+    ADVISORY = 1;
+    // Ignored by the dispatcher entirely; usage is still reported.
+    DISABLED = 2;
+}
+
+// Where a token hold came from.
+enum LimitHoldSource {
+    CUE = 0;         // a Cue frame is running on this host
+    EXTERNAL = 1;    // the license server reports this host holding
+    BOTH = 2;
+}
+
+// How a layer came to be bound to a limit.
+enum LimitBindSource {
+    // Declared in the job spec at launch. Never touched by automation.
+    SPEC = 0;
+    // Inferred from a frame failing with the limit's exit_status.
+    AUTO = 1;
+    // Added by an operator.
+    MANUAL = 2;
 }
 
 
@@ -44,7 +116,113 @@ message Limit {
     string id = 1;
     string name = 2;
     int32 max_value = 3;
+
+    // Deprecated: alias of current_usage, kept for wire compatibility.
     int32 current_running = 4;
+
+    LimitType type = 5;
+    LimitEnforcement enforcement = 6;
+
+    // Threshold above which only hosts already holding a token may book.
+    // -1 means "same as max_value". HOST limits only.
+    int32 soft_value = 7;
+
+    // Merged usage: settled + pending. What the dispatcher gates on.
+    int32 current_usage = 8;
+    // Reported by the license server as of last_report_time.
+    int32 settled_usage = 9;
+    // Booked since last_report_time and not yet visible to the server.
+    int32 pending_usage = 10;
+    // Distinct hosts holding at least one token.
+    int32 host_count = 11;
+
+    // Epoch seconds of the last accepted report; 0 if never reported.
+    int64 last_report_time = 12;
+    string report_source = 13;
+    // Seconds after which a report is stale; 0 disables staleness.
+    int32 report_ttl = 14;
+    bool report_stale = 15;
+    // True when the limit is not currently blocking, for any reason
+    // (ADVISORY, DISABLED, or stale). Saves clients recomputing the rule.
+    bool blocking_disabled = 16;
+
+    // Frame exit status meaning "this license was unavailable". 0 = no rule.
+    // Replaces the dispatcher.layer_delay.rules property. Must be > 1.
+    int32 exit_status = 17;
+    // Minutes to postpone a layer whose frame reported exit_status. 0 = never.
+    int32 delay_minutes = 18;
+    // Bind the failing frame's layer to this limit on exit_status.
+    bool auto_tag = 19;
+
+    // Layers currently bound to this limit, split by how they were bound.
+    int32 spec_layer_count = 20;
+    int32 auto_layer_count = 21;
+}
+
+// A layer bound to a limit.
+message LimitBinding {
+    string limit_id = 1;
+    string layer_id = 2;
+    string layer_name = 3;
+    string job_name = 4;
+    // Services declared on the layer, useful for spotting promotion candidates.
+    repeated string services = 5;
+    LimitBindSource source = 6;
+    int64 create_time = 7;
+}
+
+// A host currently holding at least one token of a limit.
+message LimitHold {
+    string limit_id = 1;
+    string limit_name = 2;
+    // Normalized short hostname, lowercased. The join key.
+    string host_name = 3;
+    // Cuebot host id, empty when the holder is not a registered render host.
+    string host_id = 4;
+    int32 tokens = 5;
+    string user = 6;
+    LimitHoldSource source = 7;
+    int64 report_time = 8;
+}
+
+// One host's checkout count as observed by the license server.
+message LimitHostUsage {
+    // Hostname as the license server reports it. Cuebot normalizes it.
+    string host_name = 1;
+    int32 tokens = 2;    // must be >= 1; omit rows with 0
+    string user = 3;
+}
+
+// A license server's full snapshot of one limit's holders.
+message LimitReport {
+    string limit_name = 1;
+    // Full snapshot of holders for this limit at the time of capture. An empty
+    // list is meaningful: it clears the hold set.
+    repeated LimitHostUsage hosts = 2;
+    // Optional. When > 0, also updates max_value so the pool size tracks the
+    // license server. When 0 or unset, max_value is left alone.
+    int32 total_licenses = 3;
+    // Optional. Epoch seconds the license server view was captured. When 0,
+    // Cuebot stamps receipt time. Supplying it makes the watermark accurate
+    // when the reporter itself is slow.
+    int64 capture_time = 4;
+}
+
+
+// Why a limit named in a usage report was not applied. Neither is an error.
+enum LimitReportSkipReason {
+    // Another reporter posted inside limit.min_report_interval_seconds.
+    RATE_LIMITED = 0;
+    // The snapshot is older than the limit's current watermark: the reporter's
+    // clock is behind, or a queued snapshot was replayed out of order. Applying
+    // it would move the watermark backwards and read as stale immediately.
+    OUT_OF_ORDER = 1;
+}
+
+// A limit the report left untouched, and why.
+message LimitReportSkip {
+    string limit_name = 1;
+    LimitReportSkipReason reason = 2;
 }
 
 
@@ -54,6 +232,12 @@ message Limit {
 message LimitCreateRequest {
     string name = 1;
     int32 max_value = 2;
+    LimitType type = 3;               // defaults to FRAME
+    LimitEnforcement enforcement = 4; // defaults to ENFORCED
+    int32 soft_value = 5;             // 0 or -1 means "same as max_value"
+    int32 exit_status = 6;            // 0 = no failure rule
+    int32 delay_minutes = 7;
+    bool auto_tag = 8;                // defaults to true when exit_status is set
 }
 
 message LimitCreateResponse {
@@ -107,3 +291,101 @@ message LimitSetMaxValueRequest {
 }
 
 message LimitSetMaxValueResponse {} // Empty
+
+// SetType
+message LimitSetTypeRequest {
+    string name = 1;
+    LimitType type = 2;
+}
+
+message LimitSetTypeResponse {} // Empty
+
+// SetEnforcement
+message LimitSetEnforcementRequest {
+    string name = 1;
+    LimitEnforcement enforcement = 2;
+}
+
+message LimitSetEnforcementResponse {} // Empty
+
+// SetSoftValue
+message LimitSetSoftValueRequest {
+    string name = 1;
+    int32 soft_value = 2;             // 0 or -1 means "same as max_value"
+}
+
+message LimitSetSoftValueResponse {} // Empty
+
+// SetReportTtl
+message LimitSetReportTtlRequest {
+    string name = 1;
+    int32 report_ttl = 2;
+}
+
+message LimitSetReportTtlResponse {} // Empty
+
+// SetFailureRule
+message LimitSetFailureRuleRequest {
+    string name = 1;
+    // 0 clears the rule. Otherwise must be > 1 and unclaimed by another limit.
+    int32 exit_status = 2;
+    int32 delay_minutes = 3;
+    bool auto_tag = 4;
+}
+
+message LimitSetFailureRuleResponse {} // Empty
+
+// GetBindings
+message LimitGetBindingsRequest {
+    string limit_name = 1;
+    // Empty means all origins.
+    repeated LimitBindSource sources = 2;
+    // Empty means all layers. Filters server-side so a caller asking whether a
+    // handful of layers are bound does not pull every binding on the farm.
+    repeated string layer_ids = 3;
+}
+
+message LimitGetBindingsResponse {
+    repeated LimitBinding bindings = 1;
+}
+
+// ClearBindings
+message LimitClearBindingsRequest {
+    string limit_name = 1;
+    // Only AUTO and MANUAL are accepted; SPEC bindings are never cleared here.
+    repeated LimitBindSource sources = 2;
+}
+
+message LimitClearBindingsResponse {
+    int32 removed = 1;
+}
+
+// ReportUsage
+message LimitReportUsageRequest {
+    repeated LimitReport reports = 1;
+    string source = 2;   // e.g. "sesictrl@lic01"
+}
+
+message LimitReportUsageResponse {
+    // Post-merge state of every limit named in the request.
+    repeated Limit limits = 1;
+    // Names in the request with no matching limit. Not an error.
+    repeated string unknown_limits = 2;
+    // Limits left untouched, with the reason. The rest of the batch still
+    // applies. Not an error.
+    repeated LimitReportSkip skipped_limits = 3;
+}
+
+// GetHolds
+message LimitGetHoldsRequest {
+    // Empty means all limits.
+    string limit_name = 1;
+    // Empty means all hosts. Short name or FQDN; matched against the normalized
+    // short hostname. Filters server-side so a caller asking about one machine does
+    // not pull every holder on the farm.
+    string host_name = 2;
+}
+
+message LimitGetHoldsResponse {
+    repeated LimitHold holds = 1;
+}

@@ -496,8 +496,24 @@ class LayerLimitsWidget(QtWidgets.QWidget):
         self._limits_widget = cuegui.LimitSelectionWidget.LimitSelectionWidget(
             limits=self.__all_limits.keys())
         self._limits_widget.enable_limits(current_limits)
+        self._limits_widget.mark_auto_limits(self.__findAutoLimits(current_limits))
         custom_layout.addWidget(self._limits_widget)
         layout.addLayout(custom_layout)
+
+    def __findAutoLimits(self, current_limits):
+        """Returns which of the layers' limits were bound by failure discovery rather
+        than declared by the submitter."""
+        layer_ids = [layer.id() for layer in self.__layers]
+        auto_limits = []
+        for limit_name in current_limits:
+            try:
+                if opencue.api.getLimitBindings(
+                        limit_name, sources=[opencue.api.limit_pb2.AUTO], layerIds=layer_ids):
+                    auto_limits.append(limit_name)
+            except opencue.exception.CueException:
+                # An older Cuebot has no bindings RPC; the marking simply degrades.
+                break
+        return auto_limits
 
     def apply(self):
         """

@@ -212,6 +212,8 @@ cargo build --release --features containerized_frames
    sudo systemctl start openrqd
    ```
 
+   Use the unit file shipped in `rust/crates/rqd/resources/openrqd.service`, or make sure your own sets `KillMode=process` — see [Frame Recovery Across Restarts](#frame-recovery-across-restarts).
+
 ### Docker Support (Experimental)
 
 The Rust RQD includes experimental support for running frames in Docker containers:
@@ -239,7 +241,54 @@ Key configuration sections:
 - Logging configuration
 - NIMBY (Not In My Back Yard) settings
 - Container runtime settings (when enabled)
+- Frame recovery across restarts (see below)
 - Log-based exit-status rules (see below)
+
+### Frame Recovery Across Restarts
+
+RQD can be restarted — for an upgrade, or for a config change that is not live-reloadable — without losing the frames running on the host. Frames are spawned in their own session (`setsid`), so they outlive the RQD process, and every running frame is snapshotted to `runner.snapshots_path`. On startup RQD reads those snapshots back and re-attaches to the frames it left behind.
+
+To report a frame's real outcome, RQD needs its exit status even though it is no longer the process's parent. Each frame therefore runs under a small wrapper script that records the exit code to an exit file in `runner.temp_path`, written with a write-then-rename so a recovering RQD can never read a half-written status. The wrapper also traps `SIGTERM`/`SIGINT`/`SIGHUP` and forwards them to the frame, so kill requests keep working for recovered frames.
+
+What a restarted RQD does with each snapshot:
+
+| State of the frame process | Reported to Cuebot |
+| --- | --- |
+| Still running | Re-attached: logs keep streaming, and the real exit status is reported when the frame finishes |
+| Finished during the downtime | The real exit status, read from the exit file |
+| Gone, leaving no exit file | Exit `1` / `SIGTERM`, so Cuebot reschedules the frame immediately instead of waiting for stuck-frame detection |
+
+A frame is matched by pid **and** the process start time recorded when it was spawned, so a pid the OS recycled while RQD was down is never mistaken for the frame.
+
+#### systemd requires `KillMode=process`
+
+On Linux the whole feature depends on systemd not killing the frames along with RQD. With the default `KillMode=control-group`, `systemctl restart openrqd` sends `SIGTERM` (and, after `TimeoutSec`, `SIGKILL`) to every process in the unit's cgroup — the frames included — regardless of the session they run in. The shipped unit file (`rust/crates/rqd/resources/openrqd.service`) sets:
+
+```ini
+[Service]
+KillMode=process
+```
+
+If you deploy your own unit file, carry that setting over, otherwise every restart kills the host's frames.
+
+#### Turning recovery off
+
+The exit-file harness is the on/off switch for the feature:
+
+```yaml
+runner:
+  # Default: true
+  frame_recovery_enabled: false
+```
+
+With it off, frames run their command directly — no wrapper, no exit file — exactly as RQD behaved before recovery existed. Snapshots are still written and still re-attached, so a frame is never silently lost; it is simply reported as terminated (exit `1` / `SIGTERM`) instead of with its real exit status.
+
+Behavior notes:
+
+- **Live-reloaded**: the flag is re-read on the same interval as the exit-status rules (`log_exit_status_rules_reload_interval`) and consulted when a frame is launched, so it can be flipped on a busy host without restarting RQD. Frames already running keep the wrapper they were launched with, and their exit files are still honored on recovery.
+- **Disable explicitly**: the default is `true`, so commenting the key out re-enables recovery at the next reload — set it to `false` rather than removing the line.
+- **Windows**: the exit-file harness is disabled, so recovery is not available there.
+- **Containerized frames**: recovery is not supported for frames run in Docker.
 
 ### Log-Based Exit-Status Rules
 
@@ -385,6 +434,7 @@ rust/
 - **NIMBY support**: Automatic idle detection and resource management
 - **Signal handling**: Graceful shutdown and frame cleanup
 - **Reservation system**: Resource allocation and management
+- **Frame recovery across restarts**: Frames survive an RQD restart and are re-attached from on-disk snapshots, keeping their real exit status
 - **Log-based exit-status rules**: Reclassify failed frames by matching their log output against configurable regex rules (e.g. flag license shortages)
 
 ### Experimental Features

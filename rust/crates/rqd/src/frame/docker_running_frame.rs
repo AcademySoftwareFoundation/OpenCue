@@ -158,10 +158,11 @@ impl RunningFrame {
         }
 
         command.with_become_user(self.uid, self.gid, self.request.user_name.clone());
-        let (_cmd, cmd_str) = command
-            .with_frame_cmd(self.request.command.clone())
-            .with_exit_file(self.exit_file_path.clone())
-            .build()?;
+        command.with_frame_cmd(self.request.command.clone());
+        if self.config.is_frame_recovery_enabled() {
+            command.with_exit_file(self.exit_file_path.clone());
+        }
+        let (_cmd, cmd_str) = command.build()?;
         let entrypoint = Some(vec![
             // Execute entrypoint file
             self.entrypoint_file_path.clone(),

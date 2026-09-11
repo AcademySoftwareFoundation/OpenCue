@@ -1,7 +1,7 @@
 ---
 title: "Distributed Scheduler Technical Reference"
-nav_order: 100
-parent: Reference
+nav_order: 101
+parent: "Developer Guide"
 layout: default
 linkTitle: "Distributed Scheduler"
 date: 2026-05-29

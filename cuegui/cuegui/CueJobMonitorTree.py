@@ -660,6 +660,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             menu.addSeparator()
             self.__menuActions.jobs().addAction(menu, "unbook")
             menu.addSeparator()
+            if jobTypes["completed"]:
+                self.__menuActions.jobs().addAction(menu, "shutdownIfCompleted")
             self.__menuActions.jobs().addAction(menu, "kill")
 
             # Dynamically add plugin actions for right-clicked job(s)

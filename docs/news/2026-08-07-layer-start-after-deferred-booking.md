@@ -2,7 +2,7 @@
 layout: default
 title: "August 7, 2026: Deferred Layer Booking with Start After"
 parent: News
-nav_order: 1
+nav_order: 2
 ---
 
 # Deferred Layer Booking with Start After
