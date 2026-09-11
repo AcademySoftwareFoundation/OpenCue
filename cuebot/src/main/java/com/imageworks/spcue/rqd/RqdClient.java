@@ -75,6 +75,22 @@ public interface RqdClient {
     public void rebootWhenIdle(HostInterface host);
 
     /**
+     * Restarts the RQD service on the host now. Running frames are not killed; they are recovered
+     * by the restarted service.
+     *
+     * @param host
+     */
+    public void restartRqdNow(HostInterface host);
+
+    /**
+     * Restarts the RQD service on the host once it becomes idle. RQD locks its cores and restarts
+     * after the running frames finish.
+     *
+     * @param host
+     */
+    public void restartRqdWhenIdle(HostInterface host);
+
+    /**
      * Attempts to launch a frame
      *
      * A failure is classified by what it proves about the frame's state: a plain

@@ -68,6 +68,10 @@ struct RqdClientCmd {
 enum ApiMethod {
     LaunchFrame(LaunchFrameCmd),
     KillFrame(KillFrameCmd),
+    /// Restart the rqd service now. Running frames are recovered by the restarted service
+    RestartRqdNow,
+    /// Restart the rqd service once the host becomes idle
+    RestartRqdIdle,
 }
 
 #[derive(StructOpt, Debug)]
@@ -132,6 +136,8 @@ impl DummyCuebotCli {
                             .kill_frame(cmd.frame_id.clone(), cmd.reason.clone())
                             .await
                     }
+                    ApiMethod::RestartRqdNow => client.restart_rqd_now().await,
+                    ApiMethod::RestartRqdIdle => client.restart_rqd_idle().await,
                 }
             }
         }

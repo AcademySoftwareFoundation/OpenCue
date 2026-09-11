@@ -34,7 +34,7 @@ use opencue_proto::{
     WithUuid,
 };
 use tonic::{async_trait, Request, Response};
-use tracing::info;
+use tracing::{info, warn};
 
 pub type MachineImpl = dyn Machine + Sync + Send;
 
@@ -213,26 +213,33 @@ impl RqdInterface for RqdServant {
         }
     }
 
-    /// [Deprecated] Restart the rqd process when it becomes idle
+    /// Restart the rqd service when the host becomes idle
     async fn restart_rqd_idle(
         &self,
-        request: Request<RqdStaticRestartIdleRequest>,
+        _request: Request<RqdStaticRestartIdleRequest>,
     ) -> Result<Response<RqdStaticRestartIdleResponse>> {
-        todo!(
-            "Deprecated method not implemented by this interface {:?}",
-            request
-        )
+        if let Err(err) = self.machine.restart_rqd_if_idle().await {
+            Err(tonic::Status::failed_precondition(format!(
+                "Failed to request rqd restart. {}",
+                err
+            )))?;
+        }
+        Ok(Response::new(RqdStaticRestartIdleResponse {}))
     }
 
-    /// [Deprecated] Restart rqd process now
+    /// Restart the rqd service now. Running frames are not killed and get recovered
+    /// by the restarted service.
     async fn restart_rqd_now(
         &self,
-        request: Request<RqdStaticRestartNowRequest>,
+        _request: Request<RqdStaticRestartNowRequest>,
     ) -> Result<Response<RqdStaticRestartNowResponse>> {
-        todo!(
-            "Deprecated method not implemented by this interface {:?}",
-            request
-        )
+        if let Err(err) = self.machine.restart_rqd_now().await {
+            Err(tonic::Status::failed_precondition(format!(
+                "Failed to restart rqd. {}",
+                err
+            )))?;
+        }
+        Ok(Response::new(RqdStaticRestartNowResponse {}))
     }
 
     /// [Deprecated] Turn off rqd when it becomes idle
@@ -268,11 +275,15 @@ impl RqdInterface for RqdServant {
         Ok(Response::new(RqdStaticUnlockResponse {}))
     }
 
-    /// Unlock all cores
+    /// Unlock all cores. Also aborts a pending reboot/restart-when-idle request, per the
+    /// documented contract of the idle RPCs.
     async fn unlock_all(
         &self,
         _request: Request<RqdStaticUnlockAllRequest>,
     ) -> Result<Response<RqdStaticUnlockAllResponse>> {
+        if let Some(cancelled) = self.machine.cancel_idle_action().await {
+            warn!("Unlock: cancelled pending idle action {:?}", cancelled);
+        }
         self.machine.unlock_all_cores().await;
         info!("Unlock: All cores have been unlocked");
 

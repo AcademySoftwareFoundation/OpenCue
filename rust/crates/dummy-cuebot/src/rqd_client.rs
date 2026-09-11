@@ -95,6 +95,24 @@ impl DummyRqdClient {
             .and(Ok(()))
     }
 
+    pub async fn restart_rqd_now(&self) -> Result<()> {
+        let mut client = self.client.lock().await;
+        client
+            .restart_rqd_now(pb::RqdStaticRestartNowRequest {})
+            .await
+            .into_diagnostic()
+            .and(Ok(()))
+    }
+
+    pub async fn restart_rqd_idle(&self) -> Result<()> {
+        let mut client = self.client.lock().await;
+        client
+            .restart_rqd_idle(pb::RqdStaticRestartIdleRequest {})
+            .await
+            .into_diagnostic()
+            .and(Ok(()))
+    }
+
     pub async fn kill_frame(&self, frame_id: String, reason: Option<String>) -> Result<()> {
         let mut client = self.client.lock().await;
         let mut request = pb::RqdStaticKillRunningFrameRequest {

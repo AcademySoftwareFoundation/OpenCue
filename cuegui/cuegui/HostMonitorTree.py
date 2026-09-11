@@ -407,6 +407,8 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.hosts().addAction(menu, "changeAllocation")
         self.__menuActions.hosts().addAction(menu, "delete")
         self.__menuActions.hosts().addAction(menu, "rebootWhenIdle")
+        self.__menuActions.hosts().addAction(menu, "restartServiceWhenIdle")
+        self.__menuActions.hosts().addAction(menu, "restartServiceNow")
         self.__menuActions.hosts().addAction(menu, "setRepair")
         self.__menuActions.hosts().addAction(menu, "clearRepair")
         menu.exec_(e.globalPos())

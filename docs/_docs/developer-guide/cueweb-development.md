@@ -1341,7 +1341,9 @@ can't be unlocked), **Take Ownership** only when `NIMBY_LOCKED` (CueGUI
 `OPEN_HOST_TAKE_OWNERSHIP_EVENT` and on confirm calls `takeHostOwnership` &rarr;
 `/api/host/action/takeownership` &rarr; `host.OwnerInterface/TakeOwnership` with
 the signed-in user as owner. **Reboot** unless `REBOOTING`, **Reboot when idle** unless
-`REBOOTING` / `REBOOT_WHEN_IDLE`, **Set Repair State** unless already `REPAIR`,
+`REBOOTING` / `REBOOT_WHEN_IDLE`, **Restart service now** / **Restart service
+when idle** only when `UP` (Cuebot refuses a service restart on any other
+state), **Set Repair State** unless already `REPAIR`,
 **Clear Repair State** only when `REPAIR`. **Comments…**, **View Procs**,
 **Edit Tags…**, **Rename Tag…**, **Change Allocation…**, and **Delete Host**
 are always enabled. Set/Clear Repair State both proxy

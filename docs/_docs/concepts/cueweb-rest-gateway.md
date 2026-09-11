@@ -337,7 +337,7 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |
 | **GroupInterface** | Resource groups (Monitor Cue tree + Send To Group) | `GetGroup`, `GetJobs`, `ReparentJobs`, `SetMinCores`, `SetMaxCores` |
-| **HostInterface** | Host management (Monitor Hosts) | `GetHosts`, `Lock`, `Unlock`, `Reboot`, `RebootWhenIdle`, `AddTags`, `RenameTag`, `SetAllocation`, `SetHardwareState`, `AddComment`, `Delete` |
+| **HostInterface** | Host management (Monitor Hosts) | `GetHosts`, `Lock`, `Unlock`, `Reboot`, `RebootWhenIdle`, `RestartRqdNow`, `RestartRqdWhenIdle`, `AddTags`, `RenameTag`, `SetAllocation`, `SetHardwareState`, `AddComment`, `Delete` |
 | **OwnerInterface** | Resource ownership | `GetOwner`, `TakeOwnership` |
 | **ProcInterface** | Process control (proc panel) | `GetProcs`, `Kill`, `Unbook` |
 | **DeedInterface** | Resource deeds | `GetOwner`, `GetHost` |

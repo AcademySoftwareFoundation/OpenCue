@@ -49,10 +49,16 @@ service RqdInterface {
     // Return the HostReport
     rpc ReportStatus(RqdStaticReportStatusRequest) returns (RqdStaticReportStatusResponse);
 
-    // [Deprecated] Restart the rqd process when it becomes idle
+    // Restart the rqd service once the host becomes idle (no running frames and no
+    // unreported frame completions). Cores are locked so no new frames are booked while
+    // waiting; UnlockAll aborts the request. Fails with FAILED_PRECONDITION when rqd is
+    // not running under a service supervisor able to bring it back up.
     rpc RestartRqdIdle(RqdStaticRestartIdleRequest) returns (RqdStaticRestartIdleResponse);
 
-    // [Deprecated] Restart rqd process now
+    // Restart the rqd service now. Running frames are not killed; they are recovered by
+    // the restarted service through its frame recovery mechanism. Fails with
+    // FAILED_PRECONDITION when the restart cannot work as advertised: no service
+    // supervisor, frame recovery disabled, or frames running on docker.
     rpc RestartRqdNow(RqdStaticRestartNowRequest) returns (RqdStaticRestartNowResponse);
 
     // [Deprecated] Turn off rqd when it becomes idle

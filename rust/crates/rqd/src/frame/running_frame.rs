@@ -161,6 +161,14 @@ pub struct RunningFrame {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     stats_frozen: AtomicBool,
+    /// Set once the frame is fully recovery-ready: the exit-file wrapper is in place and the
+    /// snapshot write succeeded. Read by the service-restart preconditions so RQD never exits
+    /// while a running frame could not be recovered. Transient by design (bincode snapshots
+    /// are positional): the recovery path re-arms it, since the snapshot's presence on disk is
+    /// exactly what got the frame recovered.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    recovery_armed: AtomicBool,
     /// Latest host-wide memory distribution, refreshed each monitor cycle. Read by the log
     /// footer of a failing frame to expose potential memory starvation from co-tenants.
     /// Transient host state, never persisted in frame snapshots.
@@ -304,6 +312,7 @@ impl RunningFrame {
             })),
             dangling_state_registed_at: RwLock::new(None),
             stats_frozen: AtomicBool::new(false),
+            recovery_armed: AtomicBool::new(false),
             latest_host_mem_snapshot: RwLock::new(None),
         }
     }
@@ -701,6 +710,7 @@ impl RunningFrame {
             self.log_path.clone(),
             self.config.clone(),
             self.config.run_as_user.then_some((self.uid, self.gid)),
+            recover_mode,
         );
         if let Err(err) = logger_base {
             error!("Failed to create log stream for {}: {}", self.log_path, err);
@@ -710,6 +720,13 @@ impl RunningFrame {
             return;
         }
         let logger = Arc::new(logger_base.unwrap());
+
+        if recover_mode {
+            // The snapshot that got this frame recovered is still on disk (it is only removed
+            // once the frame finishes), so the frame stays recovery-ready for a subsequent
+            // service restart.
+            self.recovery_armed.store(true, Ordering::SeqCst);
+        }
 
         let output = if recover_mode {
             self.recover_inner(Arc::clone(&logger)).await
@@ -797,8 +814,10 @@ impl RunningFrame {
         command.with_frame_cmd(self.request.command.clone());
         // The exit file is what lets a restarted RQD recover this frame's real exit status;
         // asking for it is also what wraps the command in the trap script. Gated by config so
-        // recovery can be switched off on a host without restarting RQD.
-        if self.config.is_frame_recovery_enabled() {
+        // recovery can be switched off on a host without restarting RQD. Read once so the
+        // wrapper and the snapshot below can't disagree if the live value flips mid-launch.
+        let recovery_enabled = self.config.is_frame_recovery_enabled();
+        if recovery_enabled {
             command.with_exit_file(self.exit_file_path.clone());
         }
         let (cmd, cmd_str) = command.build()?;
@@ -846,11 +865,23 @@ impl RunningFrame {
             self.taskset()
         );
 
-        // Make sure process has been spawned before creating a backup
-        let _ = self.create_snapshot().await;
+        // Make sure process has been spawned before creating a backup. Only written when frame
+        // recovery is on: without the exit-file wrapper a snapshot would make a restarted RQD
+        // "recover" this frame and misreport it as killed when no exit file is found. The
+        // frame counts as recovery-armed only when the snapshot write actually succeeded.
+        if recovery_enabled {
+            match self.create_snapshot().await {
+                Ok(()) => self.recovery_armed.store(true, Ordering::SeqCst),
+                Err(err) => warn!(
+                    "Failed to write snapshot for {}: {}. The frame will not survive a \
+                     service restart",
+                    self, err
+                ),
+            }
+        }
 
         // Spawn a new thread to follow frame logs
-        let (log_pipe_handle, sender) = self.spawn_logger(logger).await;
+        let (log_pipe_handle, sender) = self.spawn_logger(logger, false).await;
 
         let output = child.wait().await;
         // Send a signal to the logger thread
@@ -924,7 +955,10 @@ impl RunningFrame {
         let raw_stderr = Self::setup_raw_file(&self.raw_stderr_path).await?;
 
         command.with_frame_cmd(self.request.command.clone());
-        if self.config.is_frame_recovery_enabled() {
+        // Read once so the wrapper and the snapshot below can't disagree if the live value
+        // flips mid-launch.
+        let recovery_enabled = self.config.is_frame_recovery_enabled();
+        if recovery_enabled {
             command.with_exit_file(self.exit_file_path.clone());
         }
         let (cmd, cmd_str) = command.build()?;
@@ -952,9 +986,20 @@ impl RunningFrame {
 
         info!("Frame {self} started with pid {pid}");
 
-        let _ = self.create_snapshot().await;
+        // See the unix twin above: snapshots are only useful with frame recovery on, and the
+        // frame counts as recovery-armed only when the snapshot write actually succeeded.
+        if recovery_enabled {
+            match self.create_snapshot().await {
+                Ok(()) => self.recovery_armed.store(true, Ordering::SeqCst),
+                Err(err) => warn!(
+                    "Failed to write snapshot for {}: {}. The frame will not survive a \
+                     service restart",
+                    self, err
+                ),
+            }
+        }
 
-        let (log_pipe_handle, sender) = self.spawn_logger(logger).await;
+        let (log_pipe_handle, sender) = self.spawn_logger(logger, false).await;
 
         let output = child.wait().await;
         if sender.send(()).await.is_err() {
@@ -987,6 +1032,10 @@ impl RunningFrame {
 
     /// Spawns a new thread to pipe raw logs (stdout and stderr) into a logger
     ///
+    /// With `resume` set (frame recovery) piping starts at the raw files' current end instead
+    /// of byte 0, so the history that was already piped before the service restart is not
+    /// re-emitted (with restart-time timestamps, and re-POSTed when logging to Loki).
+    ///
     /// # Returns:
     /// * A tuple with a handle to the spawned thread and a mpsc::Sender that will signal the thread
     ///   to end.
@@ -995,6 +1044,7 @@ impl RunningFrame {
     async fn spawn_logger(
         &self,
         logger: FrameLogger,
+        resume: bool,
     ) -> (JoinHandle<Result<()>>, tokio::sync::mpsc::Sender<()>) {
         let raw_stdout_path = self.raw_stdout_path.clone();
         let raw_stderr_path = self.raw_stderr_path.clone();
@@ -1009,6 +1059,7 @@ impl RunningFrame {
             raw_stdout_path,
             raw_stderr_path,
             receiver,
+            resume,
         ));
         (handle, sender)
     }
@@ -1017,8 +1068,8 @@ impl RunningFrame {
     ///
     /// This function assumes the frame is already running with a valid PID.
     /// It will:
-    /// 1. Write header information to the log file
-    /// 2. Start following the raw stdout/stderr files
+    /// 1. Mark the resume point in the frame's log (which is appended to, not rotated)
+    /// 2. Resume following the raw stdout/stderr files from their current end
     /// 3. Wait for the process to complete
     /// 4. Read the exit status from the exit file or assume termination if not available
     ///
@@ -1030,15 +1081,19 @@ impl RunningFrame {
     /// # Errors
     /// Returns an error if the frame doesn't have a valid PID or if process monitoring fails
     pub(super) async fn recover_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
-        logger.writeln(self.write_header().as_str());
+        logger.writeln(
+            "=== rqd service restarted; log resumed. Output emitted while the service \
+             was down is not repeated here ===",
+        );
 
         let pid = self.pid().ok_or(miette!(
             "Invalid state. Trying to recover a frame that hasn't started. {}",
             self
         ))?;
 
-        // Spawn a new thread to follow frame logs
-        let (log_pipe_handle, logger_signal) = self.spawn_logger(logger).await;
+        // Spawn a new thread to follow frame logs, resuming from the raw files' current end
+        // (see spawn_logger) so the already-piped history is not duplicated.
+        let (log_pipe_handle, logger_signal) = self.spawn_logger(logger, true).await;
 
         info!("Frame {self} recovered with pid {pid}");
         self.wait().await?;
@@ -1073,6 +1128,12 @@ impl RunningFrame {
     ///
     /// This method safely accesses the thread-protected running state to retrieve
     /// the current PID of the frame process.
+    /// Whether this frame can survive a service restart: its exit-file wrapper is in place
+    /// and its snapshot was written successfully (or it was itself recovered from one).
+    pub(crate) fn is_recovery_armed(&self) -> bool {
+        self.recovery_armed.load(Ordering::SeqCst)
+    }
+
     pub(crate) fn pid(&self) -> Option<u32> {
         let state = self.state.read().unwrap_or_else(|err| err.into_inner());
         match *state {
@@ -1287,9 +1348,27 @@ impl RunningFrame {
         raw_stdout_path: String,
         raw_stderr_path: String,
         mut stop_flag: tokio::sync::mpsc::Receiver<()>,
+        resume: bool,
     ) -> Result<()> {
-        let mut stdout_position: u64 = 0;
-        let mut stderr_position: u64 = 0;
+        // On resume (frame recovery), skip what accumulated in the raw files before the
+        // restart: it was largely piped by the previous instance already, and re-emitting it
+        // would rewrite the whole formatted log with restart-time timestamps (and duplicate
+        // it in Loki). The trade-off is that output produced while the service was down is
+        // not replayed into the formatted log; recover_inner marks the gap in the log.
+        let (mut stdout_position, mut stderr_position): (u64, u64) = if resume {
+            (
+                tokio::fs::metadata(&raw_stdout_path)
+                    .await
+                    .map(|m| m.len())
+                    .unwrap_or(0),
+                tokio::fs::metadata(&raw_stderr_path)
+                    .await
+                    .map(|m| m.len())
+                    .unwrap_or(0),
+            )
+        } else {
+            (0, 0)
+        };
         let mut last_stdout_refresh = SystemTime::now();
         let mut last_stderr_refresh = SystemTime::now();
 

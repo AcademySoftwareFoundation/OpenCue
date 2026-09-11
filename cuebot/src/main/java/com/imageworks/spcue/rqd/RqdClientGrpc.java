@@ -47,6 +47,8 @@ import com.imageworks.spcue.grpc.rqd.RqdStaticUnlockAllRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticLaunchFrameRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticRebootIdleRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticRebootNowRequest;
+import com.imageworks.spcue.grpc.rqd.RqdStaticRestartIdleRequest;
+import com.imageworks.spcue.grpc.rqd.RqdStaticRestartNowRequest;
 import com.imageworks.spcue.grpc.rqd.RunFrame;
 import com.imageworks.spcue.grpc.rqd.RunningFrameGrpc;
 import com.imageworks.spcue.grpc.rqd.RunningFrameStatusRequest;
@@ -166,6 +168,34 @@ public final class RqdClientGrpc implements RqdClient {
             getStub(host.getName()).rebootIdle(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to reboot host: " + host.getName(), e);
+        }
+    }
+
+    public void restartRqdNow(HostInterface host) {
+        RqdStaticRestartNowRequest request = RqdStaticRestartNowRequest.newBuilder().build();
+
+        if (testMode) {
+            return;
+        }
+
+        try {
+            getStub(host.getName()).restartRqdNow(request);
+        } catch (StatusRuntimeException | ExecutionException e) {
+            throw new RqdClientException("failed to restart rqd on host: " + host.getName(), e);
+        }
+    }
+
+    public void restartRqdWhenIdle(HostInterface host) {
+        RqdStaticRestartIdleRequest request = RqdStaticRestartIdleRequest.newBuilder().build();
+
+        if (testMode) {
+            return;
+        }
+
+        try {
+            getStub(host.getName()).restartRqdIdle(request);
+        } catch (StatusRuntimeException | ExecutionException e) {
+            throw new RqdClientException("failed to restart rqd on host: " + host.getName(), e);
         }
     }
 

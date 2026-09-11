@@ -251,7 +251,11 @@ impl RunningFrame {
             self.taskset()
         );
 
-        let _ = self.create_snapshot().await;
+        // Snapshot recovery for docker frames is not supported yet (recover_snapshots skips
+        // them), so only write one when recovery is on, keeping parity with the unix runner.
+        if self.config.is_frame_recovery_enabled() {
+            let _ = self.create_snapshot().await;
+        }
         let mut log_watcher_handle = tokio::task::spawn(async move {
             while let Some(Ok(output)) = log_stream.next().await {
                 logger.write(output.into_bytes().as_ref());

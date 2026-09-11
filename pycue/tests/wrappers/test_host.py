@@ -138,6 +138,32 @@ class HostTests(unittest.TestCase):
             host_pb2.HostRebootRequest(host=host.data),
             timeout=mock.ANY)
 
+    def testRestartRqdWhenIdle(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.RestartRqdWhenIdle.return_value = host_pb2.HostRestartRqdWhenIdleResponse()
+        getStubMock.return_value = stubMock
+
+        host = opencue.wrappers.host.Host(
+            host_pb2.Host(name=TEST_HOST_NAME))
+        host.restartRqdWhenIdle()
+
+        stubMock.RestartRqdWhenIdle.assert_called_with(
+            host_pb2.HostRestartRqdWhenIdleRequest(host=host.data),
+            timeout=mock.ANY)
+
+    def testRestartRqdNow(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.RestartRqdNow.return_value = host_pb2.HostRestartRqdNowResponse()
+        getStubMock.return_value = stubMock
+
+        host = opencue.wrappers.host.Host(
+            host_pb2.Host(name=TEST_HOST_NAME))
+        host.restartRqdNow()
+
+        stubMock.RestartRqdNow.assert_called_with(
+            host_pb2.HostRestartRqdNowRequest(host=host.data),
+            timeout=mock.ANY)
+
     def testAddTags(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.AddTags.return_value = host_pb2.HostAddTagsResponse()

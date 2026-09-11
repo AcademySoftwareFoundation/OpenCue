@@ -271,6 +271,16 @@ KillMode=process
 
 If you deploy your own unit file, carry that setting over, otherwise every restart kills the host's frames.
 
+#### Remote service restart (`RestartRqdNow` / `RestartRqdIdle`)
+
+The Monitor Hosts "Restart service now" / "Restart service when idle" actions use frame recovery to bounce the RQD service without killing frames: RQD exits with code `42` and relies on the unit's `Restart=on-failure` to be brought back up, after which it recovers the running frames from their snapshots. RQD refuses the request (`FAILED_PRECONDITION`) when it cannot work as advertised:
+
+- no service supervisor is detected (systemd sets `INVOCATION_ID`; other supervised setups, e.g. a container with a restart policy, can opt in with `machine.allow_unsupervised_restart: true`),
+- `runner.frame_recovery_enabled` is off while frames are running, or
+- frames are running on Docker (`runner.run_on_docker`), where snapshot recovery is not supported yet.
+
+If you deploy your own unit file, keep `Restart=on-failure` (or `always`) alongside `KillMode=process`, and note that `RestartSec` sets the length of the service outage.
+
 #### Turning recovery off
 
 The exit-file harness is the on/off switch for the feature:

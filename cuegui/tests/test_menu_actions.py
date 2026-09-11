@@ -1462,6 +1462,27 @@ class HostActionsTests(unittest.TestCase):
 
         host.rebootWhenIdle.assert_called()
 
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_restartServiceWhenIdle(self):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(id='arbitrary-id'))
+        host.restartRqdWhenIdle = mock.MagicMock()
+
+        self.host_actions.restartServiceWhenIdle(
+            rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        host.restartRqdWhenIdle.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_restartServiceNow(self):
+        host = opencue.wrappers.host.Host(
+            opencue_proto.host_pb2.Host(id='arbitrary-id'))
+        host.restartRqdNow = mock.MagicMock()
+
+        self.host_actions.restartServiceNow(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        host.restartRqdNow.assert_called()
+
     @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_addTags(self, getTextMock):
         host = opencue.wrappers.host.Host(

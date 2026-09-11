@@ -723,7 +723,7 @@ The **Monitor Hosts** page (CueCommander &rarr; Monitor Hosts) is the OpenCueWeb
 
      ![Lock host](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_lock_host.png)
 
-   - **Reboot** confirms first because it kills running frames; **Reboot when idle** waits for frames to finish.
+   - **Reboot** confirms first because it kills running frames; **Reboot when idle** waits for frames to finish. **Restart service now** / **Restart service when idle** bounce only the RQD service (no machine reboot, frames survive via recovery) and need a host that is `UP` and running the Rust RQD.
 
      ![Reboot host](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_reboot_host.png)
 

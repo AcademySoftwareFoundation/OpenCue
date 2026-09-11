@@ -337,7 +337,7 @@ Open **CueCommander &rarr; Monitor Hosts** to see every render host with the ful
 ![OpenCueWeb Monitor Hosts page](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts.png)
 
 - Narrow the list with the **name/regex** box and the **Filter Allocation / HardwareState / LockState / OS** dropdowns (the filters are reflected in the URL, so a view is shareable).
-- Right-click a host for **Comments**, **View Procs**, **Lock / Unlock**, **Edit Tags / Rename Tag / Change Allocation**, **Reboot / Reboot when idle / Delete Host**, and **Set / Clear Repair State**.
+- Right-click a host for **Comments**, **View Procs**, **Lock / Unlock**, **Edit Tags / Rename Tag / Change Allocation**, **Reboot / Reboot when idle / Restart service now / Restart service when idle / Delete Host**, and **Set / Clear Repair State**.
 - **Left-click a host row** (or use **View Procs**, or the **Procs** box below the table) to list a host's running procs, then right-click a proc for **View Job / Unbook / Kill / Unbook and Kill**.
 
 ### Switch Cuebot facilities

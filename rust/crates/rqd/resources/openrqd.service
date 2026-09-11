@@ -12,6 +12,9 @@ StandardOutput=journal+console
 StandardError=journal+console
 SyslogIdentifier=openrqd
 TimeoutSec=5
+# Restart=on-failure also serves the RestartRqdNow/RestartRqdIdle RPCs: rqd
+# exits with a non-zero code (42) to request a service restart, while a clean
+# shutdown exits 0 and stays down.
 Restart=on-failure
 RestartSec=30
 # Only signal the main rqd process on stop/restart. With the default

@@ -139,6 +139,26 @@ class Host(object):
         """Causes the host to kill all running frames and reboot the machine."""
         self.stub.Reboot(host_pb2.HostRebootRequest(host=self.data), timeout=Cuebot.Timeout)
 
+    def restartRqdWhenIdle(self):
+        """Restarts the RQD service on the host once it becomes idle.
+
+        The host is put into the REBOOT_WHEN_IDLE state so no new frames are booked
+        while running frames finish; the restarted service's boot report returns it
+        to UP. The machine itself is not rebooted. Requires a host in the UP state
+        running an RQD with restart support (Rust RQD)."""
+        self.stub.RestartRqdWhenIdle(host_pb2.HostRestartRqdWhenIdleRequest(host=self.data),
+                                     timeout=Cuebot.Timeout)
+
+    def restartRqdNow(self):
+        """Restarts the RQD service on the host immediately.
+
+        Running frames are not killed; they are recovered by the restarted service.
+        The host shows as REBOOTING for the short restart window and returns to UP
+        with the restarted service's boot report. The machine itself is not rebooted.
+        Requires a host in the UP state running an RQD with restart support (Rust RQD)."""
+        self.stub.RestartRqdNow(host_pb2.HostRestartRqdNowRequest(host=self.data),
+                                timeout=Cuebot.Timeout)
+
     def addTags(self, tags):
         """Adds tags to a host.
 

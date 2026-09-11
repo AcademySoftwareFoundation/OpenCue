@@ -141,6 +141,11 @@ pub struct MachineConfig {
     pub nimby_start_retry_interval: Duration,
     pub nimby_display_xauthority_path: String,
     pub memory_oom_margin_percentage: u32,
+    /// Allow the RestartRqdNow/RestartRqdIdle RPCs to exit the process even when no service
+    /// supervisor is detected (systemd sets INVOCATION_ID). Enable only when something else
+    /// is in place to bring rqd back up, e.g. a container restart policy — otherwise a
+    /// restart request just shuts the host down.
+    pub allow_unsupervised_restart: bool,
 }
 
 impl Default for MachineConfig {
@@ -167,6 +172,7 @@ impl Default for MachineConfig {
             nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
             memory_oom_margin_percentage: 96,
+            allow_unsupervised_restart: false,
         }
     }
 }

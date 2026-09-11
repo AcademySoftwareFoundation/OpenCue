@@ -35,6 +35,12 @@ export type OpenHostRebootDetail = {
   hosts: Host[];
 };
 
+// Opens the RQD service restart confirmation dialog (HostRestartServiceDialog).
+export const OPEN_HOST_RESTART_SERVICE_EVENT = "cueweb:open-host-restart-service";
+export type OpenHostRestartServiceDetail = {
+  hosts: Host[];
+};
+
 // Opens the tag editor dialog (EditHostTagsDialog).
 export const OPEN_HOST_TAGS_EVENT = "cueweb:open-host-tags";
 export type OpenHostTagsDetail = {

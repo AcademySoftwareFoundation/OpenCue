@@ -81,7 +81,7 @@ The table below lists all 18 definitions, the interfaces in each, and how many e
 | `depend` (Depend Service) | DependInterface (3) | Routed |
 | `facility` (Facility Service) | AllocationInterface (14), FacilityInterface (5) | Routed |
 | `filter` (Filter Service) | ActionInterface (3), FilterInterface (16), MatcherInterface (3) | Routed |
-| `host` (Host Service) | DeedInterface (3), HostInterface (23), OwnerInterface (6), ProcInterface (13) | Routed |
+| `host` (Host Service) | DeedInterface (3), HostInterface (25), OwnerInterface (6), ProcInterface (13) | Routed |
 | `job` (Job Service) | FrameInterface (18), GroupInterface (20), JobInterface (42), LayerInterface (36) | Routed |
 | `limit` (Limit Service) | LimitInterface (7) | Routed |
 | `monitoring` (Monitoring Service) | MonitoringInterface (6) | Not routed |
@@ -93,7 +93,7 @@ The table below lists all 18 definitions, the interfaces in each, and how many e
 | `subscription` (Subscription Service) | SubscriptionInterface (5) | Routed |
 | `task` (Task Service) | TaskInterface (3) | Routed |
 
-Totals: **18 definitions, 28 interfaces, 304 published endpoints**, of which **273 across 22 interfaces are routed** by the gateway.
+Totals: **18 definitions, 28 interfaces, 306 published endpoints**, of which **275 across 22 interfaces are routed** by the gateway.
 
 The list is discovered at request time from `SWAGGER_DIR`, so `GET /swagger/` always reflects what the running gateway was built with.
 
@@ -132,7 +132,7 @@ Where an equivalent exists, use the routed interface instead:
 To check the routed set on your own deployment:
 
 ```bash
-# Publishes 304 endpoints
+# Publishes 306 endpoints
 curl -s http://localhost:8448/swagger/ \
   | grep -o '/swagger/specs/[a-zA-Z_]*\.swagger\.json' | sort -u \
   | while read -r s; do curl -s "http://localhost:8448$s" | jq '.paths | length'; done \

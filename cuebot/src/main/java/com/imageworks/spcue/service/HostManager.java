@@ -43,6 +43,30 @@ public interface HostManager {
     void rebootNow(HostInterface host);
 
     /**
+     * Restart the RQD service on the host now. Running frames are not killed; they are recovered by
+     * the restarted service. The machine itself is not rebooted. The host is put into the REBOOTING
+     * state so nothing is booked into the short service outage; the restarted RQD's boot report
+     * returns it to UP.
+     *
+     * Only allowed while the host is UP; RQD-side failures (unreachable host, restart preconditions
+     * not met, or an RQD version without restart support) propagate as
+     * {@link com.imageworks.spcue.rqd.RqdClientException} so the caller sees the refusal.
+     *
+     * @param host
+     */
+    void restartRqdNow(HostInterface host);
+
+    /**
+     * Restart the RQD service on the host once it becomes idle. The host is put into the
+     * REBOOT_WHEN_IDLE state (and RQD locks its cores) so no new frames are booked while running
+     * frames finish; the restarted RQD's boot report returns it to UP. The machine itself is not
+     * rebooted. Same UP-state and error-propagation contract as {@link #restartRqdNow}.
+     *
+     * @param host
+     */
+    void restartRqdWhenIdle(HostInterface host);
+
+    /**
      * Lock/unlock the specified host.
      *
      * @param host

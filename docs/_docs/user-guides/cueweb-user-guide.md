@@ -1121,7 +1121,7 @@ Right-click a host row to open its actions menu. After an action succeeds the af
 
 ![Host actions menu on the Monitor Hosts table](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_menu.png)
 
-The menu mirrors CueGUI's Monitor Hosts menu: **Comments…**, **View Procs**, **Lock Host** / **Unlock Host** / **Take Ownership**, **Edit Tags…** / **Rename Tag…** / **Change Allocation…**, **Reboot** / **Reboot when idle** / **Delete Host**, and **Set Repair State** / **Clear Repair State**. Items that don't apply to a host's current state are greyed out (for example **Unlock Host** unless the host is `LOCKED`, **Clear Repair State** unless it is in `REPAIR`).
+The menu mirrors CueGUI's Monitor Hosts menu: **Comments…**, **View Procs**, **Lock Host** / **Unlock Host** / **Take Ownership**, **Edit Tags…** / **Rename Tag…** / **Change Allocation…**, **Reboot** / **Reboot when idle** / **Restart service now** / **Restart service when idle** / **Delete Host**, and **Set Repair State** / **Clear Repair State**. Items that don't apply to a host's current state are greyed out (for example **Unlock Host** unless the host is `LOCKED`, **Clear Repair State** unless it is in `REPAIR`).
 
 #### Lock and unlock
 
@@ -1164,6 +1164,10 @@ Choosing it asks you to confirm; on success the host is owned by the signed-in u
 **Reboot when idle** schedules the reboot for when the host finishes its running frames - nothing is killed. Both entries are disabled while the host is already rebooting, and **Reboot when idle** is also disabled once it is already scheduled.
 
 ![Reboot when idle](/assets/images/cueweb/cueweb_cuecommander_monitor_hosts_reboot_host_when_idle.png)
+
+#### Restart the RQD service
+
+**Restart service now** restarts only the RQD service on the host - the machine is not rebooted, and running frames are not killed (the restarted service recovers them). OpenCueWeb asks you to confirm since the host drops out of the booking pool for the restart window: it shows as `REBOOTING` until the restarted service's boot report returns it to `UP`. **Restart service when idle** asks RQD to restart once it is fully idle - all running frames finished *and* their completion reports acknowledged by Cuebot (so no completion is lost across the restart); the host parks in `REBOOT_WHEN_IDLE` (no new frames are booked) and likewise returns to `UP` after the restart. Both entries are enabled only while the host is `UP`, and require an RQD with restart support (the Rust RQD running under a service supervisor such as systemd). To cancel a scheduled restart, unlock the host (which aborts RQD's pending restart) and set its hardware state back to `UP` (e.g. with `cueadmin -host <name> -fixed`).
 
 #### Delete host
 

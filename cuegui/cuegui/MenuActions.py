@@ -1952,6 +1952,45 @@ class HostActions(AbstractActions):
                                 "Reboot %s When Idle Failed" % host.data.name)
             self._update()
 
+    restartServiceWhenIdle_info = ["Restart service when idle", None, "retry"]
+
+    def restartServiceWhenIdle(self, rpcObjects=None):
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        title = "Confirm"
+        body = ("Send request to restart the RQD service when the host becomes idle?\n\n" +
+                "The host stops booking new frames (shown as REBOOT_WHEN_IDLE)\n" +
+                "and returns to UP once the service has restarted.\n" +
+                "The machine will NOT be rebooted.\n\n" +
+                "Requires a host in the UP state running the Rust RQD.")
+        if cuegui.Utils.questionBoxYesNo(self._caller,
+                                         title,
+                                         body,
+                                         [host.data.name for host in hosts]):
+            for host in hosts:
+                self.cuebotCall(host.restartRqdWhenIdle,
+                                "Restart service on %s When Idle Failed" % host.data.name)
+            self._update()
+
+    restartServiceNow_info = ["Restart service now", None, "retry"]
+
+    def restartServiceNow(self, rpcObjects=None):
+        hosts = self._getOnlyHostObjects(rpcObjects)
+        title = "Confirm"
+        body = ("Restart the RQD service now?\n\n" +
+                "Running frames are not killed and will be recovered by the\n" +
+                "restarted service. The host stops booking during the short\n" +
+                "restart window (shown as REBOOTING) and returns to UP after.\n" +
+                "The machine will NOT be rebooted.\n\n" +
+                "Requires a host in the UP state running the Rust RQD.")
+        if cuegui.Utils.questionBoxYesNo(self._caller,
+                                         title,
+                                         body,
+                                         [host.data.name for host in hosts]):
+            for host in hosts:
+                self.cuebotCall(host.restartRqdNow,
+                                "Restart service on %s Failed" % host.data.name)
+            self._update()
+
     addTags_info = ["Add Tags...", None, "configure"]
 
     def addTags(self, rpcObjects=None):

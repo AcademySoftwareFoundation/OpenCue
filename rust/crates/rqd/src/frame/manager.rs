@@ -215,6 +215,19 @@ impl FrameManager {
                 .map(Arc::new);
             match running_frame {
                 Ok(running_frame) => {
+                    // Recovering docker frames is not supported yet. Skip the snapshot (keeping
+                    // the file for manual inspection) instead of crashing: a todo!/panic here
+                    // would put the service in a startup crash-loop under its supervisor.
+                    if CONFIG.runner.run_on_docker {
+                        error!(
+                            "Skipping snapshot of {}: recovering docker frames is not \
+                             supported yet. The frame may still be running unmanaged; \
+                             remove {} to silence this on the next startup",
+                            running_frame, &path
+                        );
+                        continue;
+                    }
+
                     // Update reservations. If a thread_ids list exists, the frame was booked using affinity
                     if let Err(err) = match &running_frame.thread_ids {
                         Some(thread_ids) => {
@@ -240,9 +253,7 @@ impl FrameManager {
                     }
 
                     let resource_id = running_frame.request.resource_id();
-                    if CONFIG.runner.run_on_docker {
-                        todo!("Recovering frames when running on docker is not yet supported")
-                    } else if self.spawn_running_frame(running_frame, true).is_err() {
+                    if self.spawn_running_frame(running_frame, true).is_err() {
                         if let Err(err) = self.machine.release_cores(&resource_id).await {
                             warn!(
                                 "Failed to release cores reserved for {} during recover spawn error. {}",
@@ -343,6 +354,16 @@ impl FrameManager {
         {
             Err(FrameManagerError::InvalidHardwareState(
                 "Not launching, host HardwareState is not Up".to_string(),
+            ))?
+        }
+
+        // A reboot or service restart is pending. Accepting a frame would either extend the
+        // idle wait indefinitely or race the imminent process exit (a frame spawned right
+        // before the exit could die before its snapshot is written, leaking an unmanaged
+        // render that Cuebot would then double-book).
+        if self.machine.idle_action_pending().await {
+            Err(FrameManagerError::Aborted(
+                "Not launching, host has a pending reboot or rqd service restart".to_string(),
             ))?
         }
 

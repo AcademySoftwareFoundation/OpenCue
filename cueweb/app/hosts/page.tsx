@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HostLockDialog } from "@/components/ui/host-lock-dialog";
 import { HostRebootDialog } from "@/components/ui/host-reboot-dialog";
+import { HostRestartServiceDialog } from "@/components/ui/host-restart-service-dialog";
 import { EditHostTagsDialog } from "@/components/ui/edit-host-tags-dialog";
 import { HostMonitorDialogs } from "@/components/ui/host-monitor-dialogs";
 import { ProcMonitorPanel } from "@/components/ui/proc-monitor-panel";
@@ -293,6 +294,7 @@ function HostsPageInner() {
       {/* Dialogs opened by the host row context menu. */}
       <HostLockDialog />
       <HostRebootDialog />
+      <HostRestartServiceDialog />
       <EditHostTagsDialog />
       <HostMonitorDialogs />
     </div>

@@ -74,6 +74,8 @@ import {
   pauseJobGivenRow,
   rebootHostGivenRow,
   rebootHostWhenIdleGivenRow,
+  restartHostServiceGivenRow,
+  restartHostServiceWhenIdleGivenRow,
   requestCoresGivenRow,
   retryFrameGivenRow,
   retryJobsDeadFramesGivenRow,
@@ -687,6 +689,10 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
   const canReboot = hardwareState !== "REBOOTING";
   const canRebootWhenIdle =
     hardwareState !== "REBOOTING" && hardwareState !== "REBOOT_WHEN_IDLE";
+  // Cuebot refuses a service restart unless the host is UP (a DOWN host can't
+  // honor it; REBOOTING/REBOOT_WHEN_IDLE/REPAIR would be clobbered by it), so
+  // gate the entries the same way instead of surfacing a guaranteed failure.
+  const canRestartService = hardwareState === "UP";
 
   // CueGUI parity: a host is at rest in REPAIR when its hardware state is
   // REPAIR; Clear Repair only makes sense then.
@@ -763,6 +769,24 @@ export const HostContextMenu: React.FC<HostContextMenuProps> = ({
       onClick: rebootHostWhenIdleGivenRow,
       isActive: canRebootWhenIdle,
       component: <TbRefresh className="mr-1" size={14} color={canRebootWhenIdle ? undefined : "gray"} />,
+    },
+    {
+      // Restarts only the RQD service (no machine reboot); running frames
+      // are recovered by the restarted service.
+      label: "Restart service now",
+      onClick: restartHostServiceGivenRow,
+      isActive: canRestartService,
+      component: (
+        <TbRefresh className="mr-1" size={14} color={canRestartService ? undefined : "gray"} />
+      ),
+    },
+    {
+      label: "Restart service when idle",
+      onClick: restartHostServiceWhenIdleGivenRow,
+      isActive: canRestartService,
+      component: (
+        <TbRefresh className="mr-1" size={14} color={canRestartService ? undefined : "gray"} />
+      ),
     },
     {
       label: "Delete Host",
