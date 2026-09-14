@@ -10,6 +10,7 @@ name = "opencue_pyoutline"
 dynamic = ["version"]
 dependencies = [
     "typing_extensions; python_version < '3.12'",  # Unpack
+    "PyYAML>=6.0.1",
     "requests"
 ]
 requires-python = ">3.7"
