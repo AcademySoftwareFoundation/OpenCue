@@ -69,7 +69,8 @@ def launch(launcher, use_pycuerun=True):
     session = _get_restgateway_session()
     spec = launcher.serialize(use_pycuerun=use_pycuerun)
     json_data = {"spec": spec}
-    response = session.post(f"{CUEREST_GATEWAY_URL}/job.JobInterface/LaunchSpecAndWait", json=json_data)
+    response = session.post(f"{CUEREST_GATEWAY_URL}/job.JobInterface/LaunchSpecAndWait",
+                            json=json_data)
     jobs = response.json().get("jobs", {}).get("jobs", {})
     session.close()
 
