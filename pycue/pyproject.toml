@@ -9,6 +9,7 @@ name = "opencue_pycue"
 dynamic = ["version"]
 dependencies = [
     "opencue_proto",
+    "opencue_pyoutline",
     "PyYAML>=6.0.1",
     "future==1.0.0"
 ]
@@ -23,7 +24,7 @@ path = "../ci/generate_version_number.py"
 default-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
-packages = ["opencue", "FileSequence"]
+packages = ["opencue", "FileSequence", "outline_backend_cue.py"]
 
 # --- Pytest configuration ---
 [tool.pytest.ini_options]

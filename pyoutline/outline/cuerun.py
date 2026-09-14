@@ -56,7 +56,7 @@ def import_backend_module(name):
     Imports the specified backend queuing system module,
     """
     logger.info("importing [%s] backend module.", name)
-    return __import__("outline.backend.%s" % name,
+    return __import__("outline_backend_%s" % name,
                       globals(), locals(), [name])
 
 
