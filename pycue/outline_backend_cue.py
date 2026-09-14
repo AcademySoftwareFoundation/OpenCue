@@ -36,8 +36,8 @@ import outline.exception
 import outline.util
 import outline.versions.main
 
-from outline.backend._common import serialize
-from outline.backend._common import serialize_simple
+from outline.backend import serialize
+from outline.backend import serialize_simple
 
 __all__ = ["launch",
            "serialize",
