@@ -26,7 +26,7 @@ default-version = "0.0.0"
 pycuerun = "bin.pycuerun_main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["outline", "wrappers", "bin", "outline_backend_rest.py", "outline_backend_local.py"]
+packages = ["outline", "FileSequence", "wrappers", "bin", "outline_backend_rest.py", "outline_backend_local.py"]
 
 # --- Pytest configuration ---
 [tool.pytest.ini_options]
