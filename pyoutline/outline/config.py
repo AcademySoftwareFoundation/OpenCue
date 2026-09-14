@@ -74,14 +74,16 @@ def read_config_from_disk():
     """Loads configuration settings from config file on the local system.
 
     The configuration file used is, in order of preference:
+
     - Path defined by the OUTLINE_CONFIG_FILE environment variable.
     - Path defined by the OL_CONFIG environment variable.
     - Path within the config base directory (i.e. ~/.config/opencue/outline.cfg)
     - The default outline.cfg file which is distributed with the outline library.
-    - Override config options with environment variables if present.
-      Format: OUTLINE_<SECTION>_<OPTION>
-      Section and option names are converted to uppercase, with non-alphanumeric characters
-      (such as ':' in section names) replaced with '_'.
+
+    Options read from that file are then overridden by environment variables if present, using
+    the format ``OUTLINE_<SECTION>_<OPTION>``. Section and option names are converted to
+    uppercase, with non-alphanumeric characters (such as ``:`` in section names) replaced
+    with ``_``.
 
     :rtype: ConfigParser
     :return: config settings

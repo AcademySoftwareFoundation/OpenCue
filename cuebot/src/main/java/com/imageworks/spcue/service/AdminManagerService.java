@@ -15,8 +15,17 @@
 
 package com.imageworks.spcue.service;
 
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +35,10 @@ import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitExitStatusClaimedException;
 import com.imageworks.spcue.LimitInterface;
+import com.imageworks.spcue.LimitRule;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
@@ -37,6 +49,15 @@ import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
+import com.imageworks.spcue.grpc.limit.LimitBinding;
+import com.imageworks.spcue.grpc.limit.LimitEnforcement;
+import com.imageworks.spcue.grpc.limit.LimitHold;
+import com.imageworks.spcue.grpc.limit.LimitHostUsage;
+import com.imageworks.spcue.grpc.limit.LimitReport;
+import com.imageworks.spcue.grpc.limit.LimitReportSkip;
+import com.imageworks.spcue.grpc.limit.LimitReportSkipReason;
+import com.imageworks.spcue.grpc.limit.LimitType;
 import com.imageworks.spcue.service.JobSpec;
 
 @Transactional
@@ -44,6 +65,9 @@ public class AdminManagerService implements AdminManager {
 
     @SuppressWarnings("unused")
     private static final Logger logger = LogManager.getLogger(AdminManagerService.class);
+
+    @Autowired
+    private Environment env;
 
     private ShowDao showDao;
 
@@ -248,7 +272,18 @@ public class AdminManagerService implements AdminManager {
 
     @Override
     public String createLimit(String name, int maxValue) {
-        return limitDao.createLimit(name, maxValue);
+        return limitDao.createLimit(name, maxValue, LimitType.FRAME, LimitEnforcement.ENFORCED, -1);
+    }
+
+    @Override
+    public String createLimit(String name, int maxValue, LimitType type,
+            LimitEnforcement enforcement, int softValue, Integer exitStatus, int delayMinutes,
+            boolean autoTag) {
+        String limitId = limitDao.createLimit(name, maxValue, type, enforcement, softValue);
+        if (exitStatus != null && exitStatus != 0) {
+            setLimitFailureRule(limitDao.getLimit(limitId), exitStatus, delayMinutes, autoTag);
+        }
+        return limitId;
     }
 
     public void deleteLimit(LimitInterface limit) {
@@ -258,6 +293,11 @@ public class AdminManagerService implements AdminManager {
     @Override
     public LimitInterface findLimit(String name) {
         return limitDao.findLimit(name);
+    }
+
+    @Override
+    public List<String> findMissingLimitNames(Collection<String> names) {
+        return limitDao.findMissingLimitNames(names);
     }
 
     @Override
@@ -273,6 +313,154 @@ public class AdminManagerService implements AdminManager {
     @Override
     public void setLimitMaxValue(LimitInterface limit, int maxValue) {
         limitDao.setMaxValue(limit, maxValue);
+    }
+
+    @Override
+    public void setLimitType(LimitInterface limit, LimitType type) {
+        limitDao.setLimitType(limit, type);
+    }
+
+    @Override
+    public void setLimitEnforcement(LimitInterface limit, LimitEnforcement enforcement) {
+        limitDao.setEnforcement(limit, enforcement);
+    }
+
+    @Override
+    public void setLimitSoftValue(LimitInterface limit, int softValue) {
+        limitDao.setSoftValue(limit, softValue);
+    }
+
+    @Override
+    public void setLimitReportTtl(LimitInterface limit, int seconds) {
+        limitDao.setReportTtl(limit, seconds);
+    }
+
+    @Override
+    public void setLimitFailureRule(LimitInterface limit, int exitStatus, int delayMinutes,
+            boolean autoTag) {
+        if (delayMinutes < 0) {
+            throw new IllegalArgumentException("delay minutes must be >= 0");
+        }
+        if (exitStatus == 0) {
+            // Clear the rule. Existing AUTO bindings are left in place: turning a rule off is
+            // not the same as declaring everything it learned to be wrong.
+            limitDao.setFailureRule(limit, null, delayMinutes, autoTag);
+            return;
+        }
+        if (exitStatus <= 1) {
+            // Status 0 is success and 1 is the conventional catch-all failure; claiming either
+            // would tag nearly every failing layer on the farm.
+            throw new IllegalArgumentException("Exit status must be greater than 1: status 0 is "
+                    + "success and status 1 is the generic failure code.");
+        }
+        LimitRule claimed = limitDao.getFailureRules().get(exitStatus);
+        if (claimed != null && !claimed.limitId.equals(limit.getLimitId())) {
+            throw new LimitExitStatusClaimedException(exitStatus, claimed.limitName);
+        }
+        limitDao.setFailureRule(limit, exitStatus, delayMinutes, autoTag);
+    }
+
+    @Override
+    public List<LimitBinding> getLimitBindings(LimitInterface limit, Set<LimitBindSource> sources,
+            Collection<String> layerIds) {
+        return limitDao.getBindings(limit, sources, layerIds);
+    }
+
+    @Override
+    public int clearLimitBindings(LimitInterface limit, Set<LimitBindSource> sources) {
+        if (sources != null && sources.contains(LimitBindSource.SPEC)) {
+            throw new IllegalArgumentException(
+                    "SPEC bindings are declared by the submitter and cannot be bulk-removed.");
+        }
+        return limitDao.clearBindings(limit, sources);
+    }
+
+    @Override
+    public LimitReportResult reportLimitUsage(List<LimitReport> reports, String source) {
+        long now = System.currentTimeMillis();
+        long minIntervalMs =
+                1000L * env.getProperty("limit.min_report_interval_seconds", Integer.class, 5);
+
+        List<String> applied = new ArrayList<String>();
+        List<String> unknown = new ArrayList<String>();
+        List<LimitReportSkip> skipped = new ArrayList<LimitReportSkip>();
+
+        // A malformed snapshot is a reporter bug, not a race, so it rejects the whole request.
+        // Validate every report before writing anything: this class is @Transactional, and
+        // throwing mid-loop would silently roll back the limits already applied.
+        for (LimitReport report : reports) {
+            for (LimitHostUsage hold : report.getHostsList()) {
+                if (hold.getTokens() <= 0) {
+                    throw new IllegalArgumentException(
+                            "Host " + hold.getHostName() + " in limit " + report.getLimitName()
+                                    + " reports tokens <= 0; omit hosts holding nothing.");
+                }
+            }
+        }
+
+        for (LimitReport report : reports) {
+            LimitEntity limit;
+            try {
+                limit = limitDao.findLimit(report.getLimitName());
+            } catch (EmptyResultDataAccessException e) {
+                unknown.add(report.getLimitName());
+                continue;
+            }
+
+            // The watermark decides which bookings count as pending; a reporter-supplied capture
+            // time keeps it accurate when the reporter itself is slow. Never let it run ahead of
+            // the clock.
+            long captureMs =
+                    report.getCaptureTime() > 0 ? Math.min(report.getCaptureTime() * 1000L, now)
+                            : now;
+
+            // Applying a snapshot older than the watermark would move ts_reported backwards,
+            // which disarms the interval check and reads as stale at once -- the limit would
+            // stop blocking immediately after a report landed. Checked before the interval so a
+            // reporter that is both late and skewed hears about the clock, which is the durable
+            // problem, rather than about a race that will clear on its own.
+            if (captureMs < limit.reportedTime) {
+                skipped.add(skip(limit.name, LimitReportSkipReason.OUT_OF_ORDER));
+                continue;
+            }
+
+            // Losing the race to another reporter is normal and concerns only this limit; the
+            // rest of the batch must still apply or they drift stale and stop blocking.
+            if (limit.reportedTime > 0 && now - limit.reportedTime < minIntervalMs) {
+                skipped.add(skip(limit.name, LimitReportSkipReason.RATE_LIMITED));
+                continue;
+            }
+            Timestamp captureTime = new Timestamp(captureMs);
+
+            // The checks above read the watermark without a lock, so two concurrent reporters
+            // can both pass them. The conditional update is the authoritative admission: the
+            // loser blocks on the row, re-evaluates against the winner's watermark, and skips.
+            if (!limitDao.claimReportWatermark(limit, captureTime, source, minIntervalMs)) {
+                long winner = limitDao.getLimit(limit.getLimitId()).reportedTime;
+                skipped.add(skip(limit.name, captureMs < winner ? LimitReportSkipReason.OUT_OF_ORDER
+                        : LimitReportSkipReason.RATE_LIMITED));
+                continue;
+            }
+
+            limitDao.replaceExternalHolds(limit, report.getHostsList(), source, captureTime);
+            if (report.getTotalLicenses() > 0) {
+                limitDao.setMaxValue(limit, report.getTotalLicenses());
+            }
+            // Synchronous refresh so the report takes effect on the next dispatch, not the next
+            // maintenance tick.
+            limitDao.refreshUsage(limit);
+            applied.add(limit.getLimitId());
+        }
+        return new LimitReportResult(applied, unknown, skipped);
+    }
+
+    private static LimitReportSkip skip(String limitName, LimitReportSkipReason reason) {
+        return LimitReportSkip.newBuilder().setLimitName(limitName).setReason(reason).build();
+    }
+
+    @Override
+    public List<LimitHold> getLimitHolds(LimitInterface limit, String hostName) {
+        return limit == null ? limitDao.getHolds(hostName) : limitDao.getHolds(limit, hostName);
     }
 
     public AllocationDao getAllocationDao() {

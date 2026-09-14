@@ -66,7 +66,10 @@ docs/
 │   ├── user-guides/         # End-user documentation
 │   ├── other-guides/        # Advanced configuration and guides
 │   ├── reference/           # API and command reference
-│   └── tutorials/           # Step-by-step tutorials and guides
+│   ├── tutorials/           # Step-by-step tutorials and guides
+│   └── developer-guide/     # Contributor and development guides
+├── _news/                   # News entries, ordered by the date in the filename
+├── _releases/               # Release announcements, ordered by their `date` front matter
 ├── _sass/                   # Custom SCSS styles
 │   └── color_schemes/       # Custom color schemes
 ├── assets/                  # Static assets
@@ -81,10 +84,10 @@ docs/
 ├── .dockerignore            # Docker build exclusions
 ├── Makefile                 # Make-based Docker build commands
 ├── DOCKER.md                # Docker setup documentation
-├── extract_nav_orders.py    # Extract nav_order values from markdown files
-├── update_nav_order.py      # Update nav_order values in markdown files
-├── nav_order_index.txt      # Generated index of nav_order values
+├── validate_nav.py          # Navigation front matter validation (runs in build.sh and CI)
 ├── Gemfile                  # Ruby dependencies
+├── news.md                  # News listing page
+├── releases.md              # Releases listing page
 └── index.md                 # Homepage
 ```
 
@@ -158,132 +161,66 @@ The documentation supports advanced Markdown features:
 
 ## Navigation Order Management
 
-The `docs/` directory includes utilities for managing `nav_order` values across all documentation markdown files.
+`nav_order` is sorted **within each sibling group** -- pages that share the same `parent` and
+`grand_parent`. It is never compared across sections, so the numbers in one section are
+completely independent of every other section.
 
-### Files
+That gives two rules, and no scripts.
 
-#### `nav_order_index.txt`
-Index file containing all `nav_order` values and their corresponding file paths in the format:
+### Rule 1: number within your section, in steps of ten
+
+Every sibling group starts at 10 and counts up by 10:
+
 ```
-nav_order|file_path
+_docs/quick-starts/index.md              nav_order: 20   (top level)
+_docs/quick-starts/quick-start-linux.md  nav_order: 10   (inside Quick Starts)
+_docs/quick-starts/quick-start-mac.md    nav_order: 20
+_docs/quick-starts/quick-start-windows.md nav_order: 30
 ```
 
-Example:
-```
-1|./docs/_docs/index.md
-2|./docs/_docs/quick-starts/index.md
-```
+To insert a page between macOS and Windows, give it `nav_order: 25` and change nothing else.
+The gaps absorb nine insertions between any two pages before a section needs renumbering, and
+that renumbering only ever touches the one section.
 
-#### `extract_nav_orders.py`
-Script to extract `nav_order` values from all markdown files in the `_docs` directory and save them to `nav_order_index.txt`.
+Two sibling pages must never share a `nav_order`. just-the-docs renders ties in an
+unspecified order that can change between builds.
 
-**Usage:**
+### Rule 2: dated content is ordered by its date, never by nav_order
+
+News entries and release announcements are Jekyll collections sorted by date. They carry no
+`nav_order` and no `parent`.
+
+- **News** (`_news/`): name the file `YYYY-MM-DD-slug.md`. Jekyll reads the date from the
+  filename, so the front matter needs nothing but `title`.
+- **Releases** (`_releases/`): filenames are named after the version, so add
+  `date: YYYY-MM-DD` to the front matter.
+
+Adding a news post or a release means adding exactly one file. Nothing else changes.
+
+### Validating
+
+`validate_nav.py` enforces both rules and runs in `build.sh` and in CI:
+
 ```bash
-cd ./docs
-python3 extract_nav_orders.py
+cd docs
+python3 validate_nav.py
 ```
 
-**Output:**
-- Creates/updates `nav_order_index.txt` with current nav_order values
-- Reports number of files processed
-- Lists any files without nav_order values
+It reports:
 
-#### `update_nav_order.py`
-Script to update `nav_order` values in markdown files based on the values in `nav_order_index.txt`.
+- duplicate `nav_order` values within a sibling group
+- a `parent` that matches no page title, or whose target is missing `has_children: true`
+- a `grand_parent` that is not the parent of the named `parent`
+- `nav_order` or `parent` on a news or release entry
+- a news file that is not named `YYYY-MM-DD-slug.md`, or a release without a `date`
+- a page whose directory disagrees with the section it renders under (warning)
 
-**Usage:**
-```bash
-cd ./docs
+### Adding a new document
 
-# Dry run - see what would change without modifying files
-python3 update_nav_order.py --dry-run
-
-# Apply changes
-python3 update_nav_order.py
-```
-
-**Features:**
-- Updates existing `nav_order` values
-- Adds `nav_order` to files that don't have it
-- Preserves all other YAML front matter
-- Supports dry-run mode for preview
-
-### Workflow
-
-#### 1. Extract Current Navigation Order
-```bash
-python3 extract_nav_orders.py
-```
-
-This creates `nav_order_index.txt` with the current state of all documentation files.
-
-#### 2. Edit Navigation Order (Optional)
-Edit `nav_order_index.txt` to change nav_order values as needed. You can:
-- Reorder files by changing their nav_order numbers
-- Add new files
-- Remove files (delete the line)
-
-Format: `nav_order|file_path` (one per line, comments start with #)
-
-#### 3. Preview Changes
-```bash
-python3 update_nav_order.py --dry-run
-```
-
-Review the output to see what would be changed.
-
-#### 4. Apply Changes
-```bash
-python3 update_nav_order.py
-```
-
-This updates all markdown files with the new nav_order values.
-
-### Common Tasks
-
-**Reorder Documentation Sections:**
-1. Run `python3 extract_nav_orders.py` to get current state
-2. Edit `nav_order_index.txt` and change the nav_order numbers
-3. Run `python3 update_nav_order.py --dry-run` to preview
-4. Run `python3 update_nav_order.py` to apply
-
-**Find Duplicate nav_order Values:**
-```bash
-cat nav_order_index.txt | grep -v '^#' | cut -d'|' -f1 | sort -n | uniq -d
-```
-
-**View All Files in Order:**
-```bash
-cat nav_order_index.txt | grep -v '^#'
-```
-
-### Notes
-
-- The scripts only process files in the `_docs` directory
-- YAML front matter must be at the top of the file between `---` markers
-- Backup your files before running the update script
-- Use `--dry-run` to preview changes before applying them
-- The `nav_order` value controls the display order in the documentation navigation menu
-
-### Example: Adding a New Document
-
-1. Create your new markdown file with YAML front matter
-2. Run `python3 extract_nav_orders.py` to add it to the index
-3. Edit `nav_order_index.txt` to set the desired nav_order
-4. Run `python3 update_nav_order.py` to apply the change
-
-### Troubleshooting
-
-**"Index file not found" error:**
-- Run `extract_nav_orders.py` first to create the index file
-
-**"File not found" warning:**
-- A file in the index was deleted or moved
-- Remove the line from `nav_order_index.txt` or update the path
-
-**"Invalid YAML front matter" warning:**
-- Check that the file starts with `---` and has matching closing `---`
-- Ensure YAML syntax is correct
+1. Create the file in the directory of the section it belongs to.
+2. Set `title`, `parent` (the section index page's `title`), and a `nav_order` that fits
+   between its neighbours.
+3. Run `python3 validate_nav.py`.
 
 ## Dark Mode Support
 

@@ -2,7 +2,7 @@
 layout: default
 title: Deploying OpenCueWeb
 parent: Getting Started
-nav_order: 31
+nav_order: 110
 ---
 
 # Deploying OpenCueWeb

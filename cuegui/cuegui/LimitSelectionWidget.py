@@ -64,3 +64,16 @@ class LimitSelectionWidget(QtWidgets.QWidget):
         """
         limit_names = [str(limit.text()) for limit in self.limits.checkedBoxes()]
         return [limit.strip() for limit in limit_names if limit.strip()]
+
+    def mark_auto_limits(self, limit_names):
+        """Marks limits that were bound automatically from a frame failure, so an
+        inferred binding does not read as someone else's mistake.
+
+        @param limit_names: names of auto-bound limits
+        @type limit_names: iter<str>
+        """
+        for name in limit_names:
+            self.limits.markOption(
+                name,
+                "Cue added this limit automatically after a frame failed for want of "
+                "this license; the submitter did not declare it.")

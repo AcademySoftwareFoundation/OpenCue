@@ -1,6 +1,6 @@
 ---
 title: "PyCuerun Tutorial"
-nav_order: 89
+nav_order: 160
 parent: Tutorials
 layout: default
 date: 2026-03-13

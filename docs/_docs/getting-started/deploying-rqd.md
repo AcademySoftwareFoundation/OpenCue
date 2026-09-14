@@ -1,6 +1,6 @@
 ---
 title: "Deploying RQD"
-nav_order: 24
+nav_order: 40
 parent: Getting Started
 layout: default
 linkTitle: "Deploying RQD"

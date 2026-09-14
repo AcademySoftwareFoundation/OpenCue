@@ -59,6 +59,7 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.limit.Limit;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
@@ -200,6 +201,24 @@ public class JobManagerService implements JobManager {
         }
     }
 
+    /**
+     * Links a layer to the limits it references, failing the launch if any of them do not exist.
+     */
+    private void addLayerLimits(LayerDetail layer) {
+        if (layer.limits.isEmpty()) {
+            return;
+        }
+
+        List<String> missingLimits = limitDao.findMissingLimitNames(layer.limits);
+        if (!missingLimits.isEmpty()) {
+            throw new JobLaunchException("layer " + layer.name
+                    + " references limits that do not exist: " + String.join(", ", missingLimits)
+                    + ". These limits have to be created before the job can be launched.");
+        }
+
+        layer.limits.forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
+    }
+
     @Transactional(propagation = Propagation.REQUIRED)
     public JobDetail createJob(BuildableJob buildableJob) {
 
@@ -277,8 +296,7 @@ public class JobManagerService implements JobManager {
                 logger.info("creating layer " + layer.name + " range: " + layer.range);
                 layerDao.insertLayerDetail(layer);
                 layerDao.insertLayerEnvironment(layer, buildableLayer.env);
-                layer.limits.stream()
-                        .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
+                addLayerLimits(layer);
                 layer.outputs.stream().forEach(ln -> registerLayerOutput(layer, ln));
                 frameDao.insertFrames(layer, frames);
             }
@@ -468,7 +486,7 @@ public class JobManagerService implements JobManager {
 
     @Override
     public void addLayerLimit(LayerInterface layer, String limitId) {
-        layerDao.addLimit(layer, limitId);
+        layerDao.addLimit(layer, limitId, LimitBindSource.SPEC);
     }
 
     @Override

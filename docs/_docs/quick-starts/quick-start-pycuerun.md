@@ -1,6 +1,6 @@
 ---
 title: "PyCuerun Quick Start"
-nav_order: 7
+nav_order: 70
 parent: Quick Starts
 layout: default
 date: 2026-03-13

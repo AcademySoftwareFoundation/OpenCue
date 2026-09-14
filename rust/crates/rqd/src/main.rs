@@ -17,7 +17,7 @@ use tokio::{select, sync::oneshot};
 use tracing::{error, warn};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 use crate::frame::manager;
 use crate::{
     config::CONFIG,
@@ -69,10 +69,10 @@ async fn async_main() -> miette::Result<()> {
     // frame (and no frame later pays to recompile them).
     let _ = CONFIG.runner.compiled_exit_status_rules();
 
-    // Keep the exit-status rules editable without a restart (which would kill running frames
-    // on Linux): a watcher re-reads the config file periodically and swaps changed rules into
-    // the live set that all frames — including already-running ones — scan against.
-    tokio::spawn(config::watch_exit_status_rules());
+    // Keep the exit-status rules and the frame recovery switch editable without a restart
+    // (which is disruptive to a host full of running frames): a watcher re-reads the config
+    // file periodically and swaps changed values into the live cells frames read from.
+    tokio::spawn(config::watch_live_config());
 
     // Fail fast if the config requires elevated privileges the process does not hold,
     // instead of letting every frame fail later with an opaque error.
@@ -89,9 +89,15 @@ async fn async_main() -> miette::Result<()> {
     // Await for the confirmation machine_monitor has fully initialized
     let _machine_monitor_started = rx.await;
 
-    // Recovering frames is unstable on linux. Launched frames are somehow still bound
-    // to the rqd process and receive a kill signal when rqd stops
-    #[cfg(target_os = "macos")]
+    // Recover frames that survived an RQD restart. Frames run in their own session
+    // (setsid at spawn) so they are not killed alongside RQD; their exit status is
+    // recovered from the exit file written by the frame's entrypoint wrapper.
+    //
+    // Note for Linux deployments under systemd: the unit must set `KillMode=process`
+    // (see resources/openrqd.service). With the default `control-group` kill mode,
+    // systemd kills every process in the unit's cgroup on stop/restart — including
+    // the frames — regardless of their session or process group.
+    #[cfg(unix)]
     if let Err(err) = manager::instance().await?.recover_snapshots().await {
         warn!("Failed to recover frames from snapshot: {}", err);
     };

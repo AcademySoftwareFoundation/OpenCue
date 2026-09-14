@@ -1,6 +1,6 @@
 ---
 title: "Adding or removing limits"
-nav_order: 34
+nav_order: 10
 parent: User Guides
 layout: default
 linkTitle: "Adding or removing limits"

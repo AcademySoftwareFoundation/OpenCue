@@ -22,6 +22,7 @@ import mock
 
 import opencue_proto.job_pb2
 import opencue.wrappers.job
+import opencue.wrappers.layer
 import cuegui.Utils
 import cuegui.Constants
 
@@ -144,6 +145,38 @@ class UtilsViewerTests(unittest.TestCase):
                                                   "test",
                                                   test_mode=True)
         self.assertEqual('echo /test/something_1 /test/something_2', out)
+
+    @staticmethod
+    def _job(state=opencue_proto.job_pb2.PENDING, **stats):
+        return opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='job-name', state=state,
+            job_stats=opencue_proto.job_pb2.JobStats(**stats)))
+
+    def test_shouldReportCompletedJob(self):
+        self.assertTrue(cuegui.Utils.isJobCompleted(self._job(succeeded_frames=10)))
+        self.assertTrue(
+            cuegui.Utils.isJobCompleted(self._job(succeeded_frames=8, eaten_frames=2)))
+
+    def test_shouldReportJobWithOpenFramesAsIncomplete(self):
+        for open_state in ('waiting_frames', 'running_frames', 'dead_frames', 'depend_frames'):
+            self.assertFalse(
+                cuegui.Utils.isJobCompleted(self._job(succeeded_frames=9, **{open_state: 1})),
+                '%s should keep the job incomplete' % open_state)
+
+    def test_shouldReportFinishedJobAsIncomplete(self):
+        # A job that already left the cue has nothing left to shut down.
+        self.assertFalse(cuegui.Utils.isJobCompleted(
+            self._job(state=opencue_proto.job_pb2.FINISHED, succeeded_frames=10)))
+
+    def test_shouldReportNonJobAsIncomplete(self):
+        self.assertFalse(cuegui.Utils.isJobCompleted(opencue.wrappers.layer.Layer()))
+
+    def test_shouldCountCompletedJobs(self):
+        self.assertTrue(
+            cuegui.Utils.countJobTypes([self._job(running_frames=1),
+                                        self._job(succeeded_frames=10)])['completed'])
+        self.assertFalse(
+            cuegui.Utils.countJobTypes([self._job(running_frames=1)])['completed'])
 
 
 if __name__ == '__main__':

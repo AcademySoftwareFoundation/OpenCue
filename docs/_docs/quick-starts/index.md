@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Quick Starts
-nav_order: 2
+nav_order: 20
 has_children: true
 permalink: /docs/quick-starts
 ---

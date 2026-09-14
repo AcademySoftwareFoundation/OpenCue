@@ -56,6 +56,15 @@ else
     exit 1
 fi
 
+# Validate navigation front matter before building
+print_status "Validating navigation..."
+if python3 validate_nav.py; then
+    print_success "Navigation validation passed"
+else
+    print_error "Navigation validation failed"
+    exit 1
+fi
+
 # Clean previous build
 if [ -d "_site" ]; then
     print_status "Cleaning previous build..."

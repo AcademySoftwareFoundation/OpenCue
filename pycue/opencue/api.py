@@ -798,18 +798,42 @@ def getProcs(**options):
 # Limits
 #
 @util.grpcExceptionParser
-def createLimit(name, maxValue):
+def createLimit(name, maxValue, limitType=limit_pb2.FRAME, enforcement=limit_pb2.ENFORCED,
+                softValue=-1, exitStatus=0, delayMinutes=0, autoTag=True):
     """Create a new Limit with the given name and max value.
 
     :type name: str
     :param name: the name of the new Limit
     :type maxValue: int
-    :param maxValue: the maximum number of running frames for this limit
+    :param maxValue: the maximum number of running frames for this limit. For a HOST
+                     limit this is the maximum number of distinct machines the farm may
+                     spread across.
+    :type  limitType: limit_pb2.LimitType
+    :param limitType: FRAME counts one token per running frame; HOST counts one token per
+                      distinct host, for per-machine licenses like Houdini or Katana
+    :type  enforcement: limit_pb2.LimitEnforcement
+    :param enforcement: ENFORCED blocks booking; ADVISORY only biases dispatch toward
+                        hosts already holding a token
+    :type  softValue: int
+    :param softValue: usage above which only already-holding hosts may book.
+                      -1 means the same as maxValue.
+    :type  exitStatus: int
+    :param exitStatus: frame exit status meaning this license was unavailable.
+                       0 means no failure rule. Must otherwise be > 1.
+    :type  delayMinutes: int
+    :param delayMinutes: minutes to postpone a layer whose frame reported exitStatus.
+                         0 tags without ever delaying.
+    :type  autoTag: bool
+    :param autoTag: bind the failing frame's layer to this limit
     :rtype: opencue.wrappers.limit.Limit
     :return: the newly created Limit
     """
     return Limit(Cuebot.getStub('limit').Create(
-        limit_pb2.LimitCreateRequest(name=name, max_value=maxValue), timeout=Cuebot.Timeout))
+        limit_pb2.LimitCreateRequest(name=name, max_value=maxValue, type=limitType,
+                                     enforcement=enforcement, soft_value=softValue,
+                                     exit_status=exitStatus, delay_minutes=delayMinutes,
+                                     auto_tag=autoTag),
+        timeout=Cuebot.Timeout).limit)
 
 @util.grpcExceptionParser
 def getLimits():
@@ -830,3 +854,96 @@ def findLimit(name):
     :return: the matching Limit object"""
     return Limit(Cuebot.getStub('limit').Find(
         limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)
+
+@util.grpcExceptionParser
+def getLimitHolds(limitName=None, hostName=None):
+    """Returns the hosts currently holding at least one limit token.
+
+    :type  limitName: str
+    :param limitName: limit to filter on; None returns holds across every limit
+    :type  hostName: str
+    :param hostName: host to filter on, short name or FQDN; None returns every host
+    :rtype:  list<limit_pb2.LimitHold>
+    :return: current token holders
+    """
+    return list(Cuebot.getStub('limit').GetHolds(
+        limit_pb2.LimitGetHoldsRequest(limit_name=limitName or '', host_name=hostName or ''),
+        timeout=Cuebot.Timeout).holds)
+
+@util.grpcExceptionParser
+def getLimitBindings(limitName, sources=None, layerIds=None):
+    """Returns the layers bound to a limit, optionally filtered by origin.
+
+    :type  limitName: str
+    :param limitName: the limit to inspect
+    :type  sources: list<limit_pb2.LimitBindSource>
+    :param sources: binding origins to include; None means all
+    :type  layerIds: list<str>
+    :param layerIds: layers to restrict the answer to; None means all layers
+    :rtype:  list<limit_pb2.LimitBinding>
+    :return: layers bound to the limit
+    """
+    return list(Cuebot.getStub('limit').GetBindings(
+        limit_pb2.LimitGetBindingsRequest(limit_name=limitName, sources=sources or [],
+                                          layer_ids=layerIds or []),
+        timeout=Cuebot.Timeout).bindings)
+
+@util.grpcExceptionParser
+def clearLimitBindings(limitName, sources):
+    """Removes bindings from a limit. SPEC bindings are never removed.
+
+    The escape hatch for a mis-set exit status that auto-tagged the wrong layers.
+
+    :type  limitName: str
+    :param limitName: the limit to clear bindings from
+    :type  sources: list<limit_pb2.LimitBindSource>
+    :param sources: origins to remove; only AUTO and MANUAL are accepted
+    :rtype:  int
+    :return: number of bindings removed
+    """
+    return Cuebot.getStub('limit').ClearBindings(
+        limit_pb2.LimitClearBindingsRequest(limit_name=limitName, sources=sources),
+        timeout=Cuebot.Timeout).removed
+
+@util.grpcExceptionParser
+def reportLimitUsage(reports, source):
+    """Feeds Cuebot a license server's current view of checkouts.
+
+    Each report fully replaces the hold set for its limit and advances that limit's
+    settlement watermark. An empty host list in a report is meaningful: it clears the
+    limit's hold set. Limits absent from the request are untouched.
+
+    :type  reports: list<limit_pb2.LimitReport>
+    :param reports: one report per limit, e.g. built with :func:`buildLimitReport`
+    :type  source: str
+    :param source: reporter identity stored on each limit, e.g. "sesictrl@lic01"
+    :rtype:  limit_pb2.LimitReportUsageResponse
+    :return: post-merge state of every limit applied, plus any unknown limit names and
+             any names skipped because another reporter covered them moments ago
+    """
+    return Cuebot.getStub('limit').ReportUsage(
+        limit_pb2.LimitReportUsageRequest(reports=reports, source=source),
+        timeout=Cuebot.Timeout)
+
+def buildLimitReport(limit_name, host_tokens, total_licenses=0, capture_time=0):
+    """Builds a LimitReport from a {hostname: tokens} mapping.
+
+    :type  limit_name: str
+    :param limit_name: the limit the report applies to
+    :type  host_tokens: dict<str, int>
+    :param host_tokens: tokens held per hostname; hosts holding nothing must be omitted
+    :type  total_licenses: int
+    :param total_licenses: when > 0, also updates the limit's max value
+    :type  capture_time: int
+    :param capture_time: epoch seconds the license server view was captured; stamp it
+                         before polling the server, not after, so the settlement
+                         watermark stays accurate
+    :rtype:  limit_pb2.LimitReport
+    :return: the report, ready for :func:`reportLimitUsage`
+    """
+    return limit_pb2.LimitReport(
+        limit_name=limit_name,
+        hosts=[limit_pb2.LimitHostUsage(host_name=host, tokens=tokens)
+               for host, tokens in sorted(host_tokens.items())],
+        total_licenses=total_licenses,
+        capture_time=capture_time)

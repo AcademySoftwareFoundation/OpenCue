@@ -16,7 +16,9 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,6 +37,8 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitRule;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
@@ -137,10 +141,17 @@ public class FrameCompleteHandler {
 
     /**
      * Exit statuses that defer the whole layer's booking instead of consuming a retry or killing
-     * the frame, mapped to how long the layer is deferred. Parsed at startup from
-     * dispatcher.layer_delay.rules; empty (the default) disables the automatic backoff.
+     * the frame, mapped to how long the layer is deferred. Parsed at startup from the deprecated
+     * dispatcher.layer_delay.rules property; empty (the default) disables the automatic backoff.
+     * Statuses claimed by a limit's failure rule take precedence over entries here.
      */
     private volatile Map<Integer, Duration> delayRules;
+
+    /**
+     * Failure rules configured on limits, keyed by exit status. Unlike the property above these
+     * name the limit that was short, so a matching failure can bind the layer to it.
+     */
+    private LimitRuleCache limitRuleCache;
 
     public boolean getSatisfyDependOnlyOnFrameSuccess() {
         return satisfyDependOnlyOnFrameSuccess;
@@ -169,6 +180,13 @@ public class FrameCompleteHandler {
         satisfyDependOnlyOnFrameSuccess =
                 env.getProperty("depend.satisfy_only_on_frame_success", Boolean.class, true);
         delayRules = LayerDelayRules.parse(env.getProperty("dispatcher.layer_delay.rules", ""));
+        for (Map.Entry<Integer, Duration> entry : delayRules.entrySet()) {
+            logger.warn("dispatcher.layer_delay.rules is deprecated and will be removed; move "
+                    + "exit status " + entry.getKey() + " onto the limit it belongs to, e.g. "
+                    + "limit.setFailureRule(exitStatus=" + entry.getKey() + ", delayMinutes="
+                    + entry.getValue().toMinutes() + ", autoTag=True). Until then this entry "
+                    + "keeps working unless a limit claims the status.");
+        }
     }
 
     /**
@@ -229,8 +247,8 @@ public class FrameCompleteHandler {
             final FrameDetail frameDetail =
                     jobManager.getFrameDetail(report.getFrame().getFrameId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
-            final FrameState newFrameState =
-                    determineFrameState(job, layer, frame, report, frameDetail, delayRules);
+            final FrameState newFrameState = determineFrameState(job, layer, frame, report,
+                    frameDetail, effectiveDelayRules());
 
             int exitStatus = resolveExitStatus(report, frameDetail);
 
@@ -408,7 +426,7 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            applyLayerDelayRule(frame, resolveExitStatus(report, frameDetail), newFrameState);
+            applyLimitRule(frame, resolveExitStatus(report, frameDetail), newFrameState);
 
             if (satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState)) {
                 publishLayerCompletedTelemetry(frame);
@@ -757,7 +775,7 @@ public class FrameCompleteHandler {
 
         final int exitStatus = resolveExitStatus(report, frameDetail);
         final FrameState newFrameState =
-                determineFrameState(job, layer, frame, report, frameDetail, delayRules);
+                determineFrameState(job, layer, frame, report, frameDetail, effectiveDelayRules());
 
         if (!dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                 report.getFrame().getMaxRss())) {
@@ -798,31 +816,106 @@ public class FrameCompleteHandler {
 
         dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-        applyLayerDelayRule(frame, exitStatus, newFrameState);
+        applyLimitRule(frame, exitStatus, newFrameState);
 
         satisfyDependsAndCompleteLayerAndJob(job, frame, report, newFrameState);
     }
 
     /**
-     * Writes the layer-level backoff for an exit status configured in dispatcher.layer_delay.rules:
-     * pushes the layer's start-after gate a configured duration into the future so no frame of the
-     * layer re-books while the underlying condition (typically a license shortage) persists. The
-     * write is conditional monotonic, so an operator-set later time survives and the burst of
-     * reports from a layer's in-flight frames collapses into a single write.
+     * The delay statuses {@link #determineFrameState} should treat as "defer the layer instead of
+     * failing the frame": limit failure rules with a non-zero backoff, over the deprecated property
+     * entries. A pure-discovery rule (delay 0) deliberately does not change frame-state handling at
+     * all.
+     */
+    private Map<Integer, Duration> effectiveDelayRules() {
+        Map<Integer, LimitRule> dbRules =
+                limitRuleCache == null ? Collections.emptyMap() : limitRuleCache.all();
+        if (dbRules.isEmpty()) {
+            return delayRules;
+        }
+        Map<Integer, Duration> merged = new HashMap<Integer, Duration>(delayRules);
+        for (LimitRule rule : dbRules.values()) {
+            if (rule.delayMinutes > 0) {
+                merged.put(rule.exitStatus, Duration.ofMinutes(rule.delayMinutes));
+            } else {
+                // A limit claiming the status with no delay overrides any property entry.
+                merged.remove(rule.exitStatus);
+            }
+        }
+        return merged;
+    }
+
+    /**
+     * Applies the failure rule for an exit status: binds the failing frame's layer to the limit
+     * that claims the status (discovery -- layers rarely declare the licenses they need, so the
+     * farm learns coverage from failures) and writes the layer-level booking backoff. Falls back to
+     * the deprecated dispatcher.layer_delay.rules property for statuses no limit claims.
      *
-     * Skipped when the frame was EATEN: auto-eat wins over the delay rule, and nothing is going to
-     * retry an eaten frame, so a delay would only stretch the eating out and keep the job from
-     * finishing.
+     * Skipped when the frame was EATEN: auto-eat wins over the rule, and nothing is going to retry
+     * an eaten frame, so a delay would only stretch the eating out and keep the job from finishing.
+     *
+     * The delay applies whether or not the layer was already bound to the limit, exactly as the
+     * property behaved: the first failure is precisely the case where the layer is not yet tagged.
+     * Tag first, delay second -- if anything throws, keeping the discovery and losing the backoff
+     * is the better trade.
+     */
+    private void applyLimitRule(DispatchFrame frame, int exitStatus, FrameState newFrameState) {
+        if (newFrameState.equals(FrameState.EATEN)) {
+            return;
+        }
+        LimitRule rule = limitRuleCache == null ? null : limitRuleCache.forExitStatus(exitStatus);
+        if (rule == null) {
+            applyLegacyDelayRule(frame, exitStatus);
+            return;
+        }
+
+        if (rule.autoTag) {
+            try {
+                // addLimit returns false when the binding already existed, so a burst of failing
+                // frames logs and counts once, not once per frame.
+                if (layerDao.addLimit((LayerInterface) frame, rule.limitId, LimitBindSource.AUTO)) {
+                    logger.info("Auto-tagged layer " + frame.getLayerId() + " with limit "
+                            + rule.limitName + ": exit status " + exitStatus + " on frame "
+                            + frame.getName());
+                    if (prometheusMetrics != null) {
+                        prometheusMetrics.recordLimitAutoTag(rule.limitName);
+                    }
+                }
+            } catch (Exception e) {
+                // Discovery is best-effort. It must never fail a frame-complete.
+                logger.warn("Failed to auto-tag layer " + frame.getLayerId() + " with limit "
+                        + rule.limitName + ": " + e.getMessage());
+            }
+        }
+
+        if (rule.delayMinutes > 0) {
+            boolean delayed = layerDao.delayLayerForBackoff((LayerInterface) frame,
+                    Duration.ofMinutes(rule.delayMinutes),
+                    "Automatic backoff: limit " + rule.limitName + ", exit status " + exitStatus);
+            if (delayed) {
+                logger.info("Delayed layer " + frame.getLayerId() + " for " + rule.delayMinutes
+                        + " minutes: limit " + rule.limitName + ", exit status " + exitStatus
+                        + " on frame " + frame.getName());
+                if (prometheusMetrics != null) {
+                    prometheusMetrics.recordLimitDelay(rule.limitName, exitStatus);
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes the layer-level backoff for an exit status configured in the deprecated
+     * dispatcher.layer_delay.rules property: pushes the layer's start-after gate a configured
+     * duration into the future so no frame of the layer re-books while the underlying condition
+     * (typically a license shortage) persists. The write is conditional monotonic, so an
+     * operator-set later time survives and the burst of reports from a layer's in-flight frames
+     * collapses into a single write.
      *
      * Runs on the dispatch threadpool, so a queue rejection can drop the write. That is acceptable
      * and self-healing: the condition persists, the layer re-books, and the next matching report
      * writes the delay.
      */
-    private void applyLayerDelayRule(DispatchFrame frame, int exitStatus,
-            FrameState newFrameState) {
-        if (newFrameState.equals(FrameState.EATEN)) {
-            return;
-        }
+    private void applyLegacyDelayRule(DispatchFrame frame, int exitStatus) {
         Duration backoff = delayRules.get(exitStatus);
         if (backoff == null) {
             return;
@@ -836,6 +929,10 @@ public class FrameCompleteHandler {
                 prometheusMetrics.recordLayerDelay(exitStatus);
             }
         }
+    }
+
+    public void setLimitRuleCache(LimitRuleCache limitRuleCache) {
+        this.limitRuleCache = limitRuleCache;
     }
 
     /**

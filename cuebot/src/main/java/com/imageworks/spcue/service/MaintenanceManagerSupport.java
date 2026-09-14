@@ -33,6 +33,7 @@ import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
@@ -53,6 +54,8 @@ public class MaintenanceManagerSupport {
     private MaintenanceDao maintenanceDao;
 
     private ProcDao procDao;
+
+    private LimitDao limitDao;
 
     private FrameDao frameDao;
 
@@ -540,6 +543,24 @@ public class MaintenanceManagerSupport {
     }
 
     /**
+     * Recomputes every limit_usage summary row from the current limit_host holds. The report path
+     * refreshes its own limit synchronously; this timer keeps the rows honest for limits whose
+     * reporter has gone quiet and repairs any drift.
+     */
+    public void recalculateLimitUsage() {
+        if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_LIMIT_USAGE_RECALCULATION)) {
+            return;
+        }
+        try {
+            limitDao.refreshAllUsage();
+        } catch (Exception e) {
+            logger.warn("failed to recalculate limit usage: " + e);
+        } finally {
+            maintenanceDao.unlockTask(MaintenanceTask.LOCK_LIMIT_USAGE_RECALCULATION);
+        }
+    }
+
+    /**
      * Recovers frames stuck in DEPEND state due to transient failures during dependency
      * satisfaction. Runs in two phases:
      *
@@ -629,6 +650,10 @@ public class MaintenanceManagerSupport {
 
     public ProcDao getProcDao() {
         return procDao;
+    }
+
+    public void setLimitDao(LimitDao limitDao) {
+        this.limitDao = limitDao;
     }
 
     public void setProcDao(ProcDao procDao) {

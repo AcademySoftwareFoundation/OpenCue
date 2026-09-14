@@ -1,6 +1,6 @@
 ---
 title: "PyOutline API Reference"
-nav_order: 73
+nav_order: 110
 parent: Reference
 layout: default
 date: 2026-03-13

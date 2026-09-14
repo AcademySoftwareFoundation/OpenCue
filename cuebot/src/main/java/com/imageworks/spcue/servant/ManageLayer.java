@@ -118,6 +118,7 @@ import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLUResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
 import com.imageworks.spcue.grpc.limit.Limit;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.DependManager;
@@ -503,7 +504,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
             StreamObserver<LayerAddLimitResponse> responseObserver) {
         updateLayer(request.getLayer());
         if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-            layerDao.addLimit(layer, request.getLimitId());
+            layerDao.addLimit(layer, request.getLimitId(), LimitBindSource.MANUAL);
             responseObserver.onNext(LayerAddLimitResponse.newBuilder().build());
             responseObserver.onCompleted();
         }

@@ -42,17 +42,21 @@ pub trait FrameLoggerT {
 pub struct FrameLoggerBuilder {}
 
 impl FrameLoggerBuilder {
+    /// Builds the logger for a frame. With `resume` set (frame recovery after a service
+    /// restart) the file logger appends to the frame's existing log instead of rotating it
+    /// away, so the history stays in place for anyone tailing the file.
     pub fn from_cuebot(
         run_frame: RunFrame,
         path: String,
         runner_config: RunnerConfig,
         uid_gid: Option<(u32, u32)>,
+        resume: bool,
     ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
         if !run_frame.loki_url.is_empty() {
             FrameLokiLogger::init(run_frame)
                 .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         } else {
-            FrameFileLogger::init(path, runner_config.prepend_timestamp, uid_gid)
+            FrameFileLogger::init(path, runner_config.prepend_timestamp, uid_gid, resume)
                 .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         }
     }
@@ -69,8 +73,27 @@ impl FrameFileLogger {
         path: String,
         prepend_timestamp: bool,
         uid_gid: Option<(u32, u32)>,
+        resume: bool,
     ) -> Result<Self> {
         let log_path = Path::new(path.as_str());
+        if resume && log_path.exists() {
+            // Frame recovery after a service restart: append to the existing log instead of
+            // rotating it away, so the frame's history stays in the file artists are tailing.
+            let file = match fs::OpenOptions::new().append(true).open(log_path) {
+                Ok(file) => file,
+                Err(err) => {
+                    let diag = Self::describe_path_failure(log_path, uid_gid, Some(&err));
+                    return Err(err).into_diagnostic().wrap_err(format!(
+                        "failed to open frame log file {log_path:?} for resume{diag}"
+                    ));
+                }
+            };
+            return Ok(FrameFileLogger {
+                _path: path,
+                prepend_timestamp,
+                file_descriptor: Mutex::new(file),
+            });
+        }
         if log_path.exists() {
             Self::rotate_existing_files(&path)
                 .wrap_err_with(|| format!("failed to rotate existing frame log {log_path:?}"))?;
@@ -462,7 +485,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None, false).unwrap();
 
         // Write some test content
         let test_content = b"Test content";
@@ -483,7 +506,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp enabled
-        let logger = FrameFileLogger::init(temp_path.clone(), true, None).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), true, None, false).unwrap();
 
         // Write content with newlines to test timestamp prepending
         let test_content = b"Line 1\nLine 2\nLine 3";
@@ -511,7 +534,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None, false).unwrap();
 
         // Write binary data
         let binary_data = [0u8, 1u8, 2u8, 3u8, 4u8, 255u8];
@@ -532,7 +555,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled for simplicity
-        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None, false).unwrap();
 
         // Write multiple times
         logger.write(b"First write. ");
@@ -585,7 +608,7 @@ mod tests {
         }
 
         let log_path = locked.join("frame.rqlog");
-        let result = FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None);
+        let result = FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None, false);
 
         // Restore perms so the tempdir can be cleaned up.
         let _ = fs::set_permissions(&locked, Permissions::from_mode(0o755));
@@ -612,7 +635,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None, false).unwrap();
 
         // Write empty content
         logger.write(b"");

@@ -2,7 +2,7 @@
 title: "Troubleshooting rendering"
 layout: default
 parent: Other Guides
-nav_order: 51
+nav_order: 60
 linkTitle: "Troubleshooting rendering"
 date: 2019-02-22
 description: >

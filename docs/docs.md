@@ -1,7 +1,7 @@
 ---
 layout: default
 title: <i class='fas fa-book'></i>&nbsp;View Docs
-nav_order: 1001
+nav_order: 50
 permalink: /docs/
 ---
 

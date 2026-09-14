@@ -1,6 +1,6 @@
 ---
 title: "Getting Started with PyCuerun"
-nav_order: 33
+nav_order: 140
 parent: Getting Started
 layout: default
 date: 2026-03-13

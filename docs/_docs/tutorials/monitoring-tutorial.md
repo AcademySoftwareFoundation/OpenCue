@@ -1,6 +1,6 @@
 ---
 title: "Monitoring tutorial"
-nav_order: 86
+nav_order: 130
 parent: Tutorials
 layout: default
 linkTitle: "Monitoring tutorial"

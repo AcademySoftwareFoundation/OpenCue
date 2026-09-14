@@ -158,10 +158,11 @@ impl RunningFrame {
         }
 
         command.with_become_user(self.uid, self.gid, self.request.user_name.clone());
-        let (_cmd, cmd_str) = command
-            .with_frame_cmd(self.request.command.clone())
-            .with_exit_file(self.exit_file_path.clone())
-            .build()?;
+        command.with_frame_cmd(self.request.command.clone());
+        if self.config.is_frame_recovery_enabled() {
+            command.with_exit_file(self.exit_file_path.clone());
+        }
+        let (_cmd, cmd_str) = command.build()?;
         let entrypoint = Some(vec![
             // Execute entrypoint file
             self.entrypoint_file_path.clone(),
@@ -250,7 +251,11 @@ impl RunningFrame {
             self.taskset()
         );
 
-        let _ = self.create_snapshot().await;
+        // Snapshot recovery for docker frames is not supported yet (recover_snapshots skips
+        // them), so only write one when recovery is on, keeping parity with the unix runner.
+        if self.config.is_frame_recovery_enabled() {
+            let _ = self.create_snapshot().await;
+        }
         let mut log_watcher_handle = tokio::task::spawn(async move {
             while let Some(Ok(output)) = log_stream.next().await {
                 logger.write(output.into_bytes().as_ref());

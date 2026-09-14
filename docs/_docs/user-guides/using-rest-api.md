@@ -1,6 +1,6 @@
 ---
 title: "Cue REST API User Guide"
-nav_order: 42
+nav_order: 90
 parent: User Guides
 layout: default
 linkTitle: "Using the OpenCue REST API"

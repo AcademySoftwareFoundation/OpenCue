@@ -232,6 +232,24 @@ runner:
   #     typ: "bind"                # Mount type (bind, volume, tmpfs)
   #     bind_propagation: "rprivate" # Bind propagation mode
 
+  # Frame recovery across RQD restarts.
+  # When enabled, every frame runs under a small wrapper script that records its exit status
+  # to an exit file. A restarted RQD re-attaches to frames that are still running and reports
+  # the real exit status of frames that finished while it was down. When disabled, frames run
+  # their command directly (pre-recovery behaviour) and any frame recovered after a restart is
+  # reported to Cuebot as terminated (exit 1 / SIGTERM) so it gets rescheduled.
+  #
+  # Frame snapshots are written either way, so a restarted RQD always re-attaches to (and
+  # eventually reports on) the frames it left behind. This flag only controls whether the
+  # frame's real exit status survives the restart.
+  #
+  # This is the kill switch for the feature: it is reloaded live (see
+  # log_exit_status_rules_reload_interval below) and read when a frame is launched, so turning
+  # it off takes effect for frames started after the next reload tick, without restarting RQD.
+  # Frames already running keep the wrapper they were launched with.
+  # Default: true
+  # frame_recovery_enabled: true
+
   # Log-based exit-status reclassification.
   # When a frame fails (non-zero exit), RQD scans the last `log_scan_last_lines` lines of the
   # frame log and, on the first rule whose `regex` matches, reports `exit_status` to Cuebot
@@ -241,8 +259,9 @@ runner:
   #
   # `log_scan_last_lines` and `log_exit_status_rules` are reloaded live: RQD re-reads this
   # file every `log_exit_status_rules_reload_interval` and applies changes to these two keys
-  # without a restart, including to frames that were already running. Changes to any other
-  # key in this file still require a restart.
+  # without a restart, including to frames that were already running. The same interval also
+  # governs `frame_recovery_enabled` above. Changes to any other key in this file still
+  # require a restart.
   #
   # Number of trailing log lines to scan on failure (Default: 50)
   # log_scan_last_lines: 50

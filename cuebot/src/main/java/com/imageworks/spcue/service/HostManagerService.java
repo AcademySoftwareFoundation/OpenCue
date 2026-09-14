@@ -113,6 +113,54 @@ public class HostManagerService implements HostManager {
         }
     }
 
+    // SUPPORTS: don't pin a pooled DB connection for the duration of the blocking RQD call.
+    // The DAO reads/writes around it are single autocommitted statements.
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void restartRqdNow(HostInterface host) {
+        // Reuse the reboot hardware states: the drain-and-recover mechanics are identical, only
+        // the scope differs (service vs machine). Leaving UP stops booking, and the restarted
+        // RQD's boot report flips the host back to UP. The state is written BEFORE the RPC so
+        // the dispatcher cannot book a frame into the restart window while the request is in
+        // flight; a refused/failed request restores UP (safe: the guard just verified UP).
+        verifyRestartRqdAllowed(host);
+        hostDao.updateHostState(host, HardwareState.REBOOTING);
+        try {
+            rqdClient.restartRqdNow(host);
+        } catch (RuntimeException e) {
+            hostDao.updateHostState(host, HardwareState.UP);
+            throw e;
+        }
+    }
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void restartRqdWhenIdle(HostInterface host) {
+        // See restartRqdNow: REBOOT_WHEN_IDLE stops booking so the host actually drains, and
+        // clears via the boot report the restarted RQD sends once the drain completes. State
+        // first, then RPC, with UP restored when the request fails.
+        verifyRestartRqdAllowed(host);
+        hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);
+        try {
+            rqdClient.restartRqdWhenIdle(host);
+        } catch (RuntimeException e) {
+            hostDao.updateHostState(host, HardwareState.UP);
+            throw e;
+        }
+    }
+
+    /**
+     * A service restart may only be requested on a host in the UP state. Anything else either
+     * cannot honor it (DOWN) or would be silently cancelled by it: the restart's boot report flips
+     * REBOOTING/REBOOT_WHEN_IDLE/REPAIR handling on its head by racing a pending machine reboot or
+     * a repair hold.
+     */
+    private void verifyRestartRqdAllowed(HostInterface host) {
+        if (!hostDao.isHostUp(host)) {
+            throw new IllegalStateException("Cannot restart the RQD service on " + host.getName()
+                    + ": host is not in the UP state (it may be down, in repair,"
+                    + " or have a reboot pending)");
+        }
+    }
+
     @Override
     public void setHostStatistics(HostInterface host, long totalMemory, long freeMemory,
             long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,

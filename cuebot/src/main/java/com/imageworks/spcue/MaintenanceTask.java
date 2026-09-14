@@ -59,5 +59,10 @@ public enum MaintenanceTask {
     /**
      * Lock the stuck dependency recovery task.
      */
-    LOCK_STUCK_DEPENDENCY_RECOVERY
+    LOCK_STUCK_DEPENDENCY_RECOVERY,
+
+    /**
+     * Lock the limit_usage summary recalculation task.
+     */
+    LOCK_LIMIT_USAGE_RECALCULATION
 }

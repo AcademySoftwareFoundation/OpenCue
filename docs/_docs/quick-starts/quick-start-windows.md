@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Quick start for Windows
-nav_order: 5
+nav_order: 30
 parent: Quick Starts
 ---
 

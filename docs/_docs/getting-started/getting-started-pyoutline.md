@@ -1,6 +1,6 @@
 ---
 title: "Getting Started with PyOutline and PyCuerun"
-nav_order: 32
+nav_order: 120
 parent: Getting Started
 layout: default
 date: 2026-03-13

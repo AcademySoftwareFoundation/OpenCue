@@ -2,7 +2,7 @@
 layout: default
 title: REST Gateway Quick Start
 parent: Quick Starts
-nav_order: 8
+nav_order: 80
 ---
 
 # REST Gateway Quick Start

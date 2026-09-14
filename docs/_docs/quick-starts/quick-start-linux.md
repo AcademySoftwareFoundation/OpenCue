@@ -1,6 +1,6 @@
 ---
 title: "Quick start for Linux"
-nav_order: 3
+nav_order: 10
 parent: Quick Starts
 layout: default
 linkTitle: "Quick start for Linux"

@@ -84,7 +84,7 @@ def countObjectTypes(objects):
 def countJobTypes(objects):
     """Given a list of jobs, returns a count of how many jobs have each status."""
     results = {"paused": False, "unpaused": False, "hasDead": False,
-               "autoEating": False, "notEating": False}
+               "autoEating": False, "notEating": False, "completed": False}
 
     for obj in objects:
         if isJob(obj):
@@ -100,7 +100,33 @@ def countJobTypes(objects):
                 results["autoEating"] = True
             else:
                 results["notEating"] = True
+            if isJobCompleted(obj):
+                results["completed"] = True
     return results
+
+
+def isJobCompleted(job):
+    """Returns whether a job has no frames left to run but is still in the cue.
+
+    A job in this state has finished all of its work and should have left the cue on its
+    own; seeing it here means Cuebot lost the shutdown signal for it. The check mirrors
+    Cuebot's own JobDao.isJobComplete, minus checkpoint frames, which JobStats does not
+    publish. Cuebot re-runs the authoritative check when asked to shut the job down, so a
+    job that only looks complete here is simply left alone.
+
+    @type  job: opencue.wrappers.job.Job or opencue.wrappers.job.NestedJob
+    @param job: the job to check
+    @rtype:  bool
+    @return: whether the job has no frames left to run and has not left the cue"""
+    if not isJob(job):
+        return False
+    if isinstance(job, opencue.wrappers.job.NestedJob):
+        job = job.asJob()
+    if job.data.state != opencue.api.job_pb2.PENDING:
+        return False
+    stats = job.data.job_stats
+    return not (stats.waiting_frames or stats.running_frames
+                or stats.dead_frames or stats.depend_frames)
 
 
 def qvarToString(qv):

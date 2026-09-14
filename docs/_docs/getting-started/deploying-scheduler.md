@@ -1,6 +1,6 @@
 ---
 title: "Deploying the Distributed Scheduler"
-nav_order: 22
+nav_order: 20
 parent: Getting Started
 layout: default
 linkTitle: "Deploying the Distributed Scheduler"

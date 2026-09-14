@@ -1,6 +1,6 @@
 ---
 title: "PyOutline Tutorial"
-nav_order: 88
+nav_order: 150
 parent: Tutorials
 layout: default
 date: 2026-03-13

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: <i class='fas fa-code-branch'></i>&nbsp;Versions
-nav_order: 999
+nav_order: 40
 ---
 
 # OpenCue Documentation Versions

@@ -1,6 +1,6 @@
 ---
 title: "PyOutline User Guide"
-nav_order: 47
+nav_order: 120
 parent: "User Guides"
 layout: default
 date: 2026-03-13

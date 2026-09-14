@@ -19,6 +19,8 @@ import {
     unlockHosts,
     rebootHosts,
     rebootHostsWhenIdle,
+    restartHostsRqdNow,
+    restartHostsRqdWhenIdle,
     addHostTags,
     removeHostTags,
 } from '@/app/utils/action_utils';
@@ -178,6 +180,61 @@ describe('host action_utils', () => {
             expect(handleError).toHaveBeenCalledWith(
                 new Error('API Error'),
                 'Error performing action for: /api/host/action/rebootwhenidle',
+            );
+        });
+    });
+
+    describe('restartHostsRqdNow', () => {
+        it('posts one body per host to the restartrqdnow endpoint and toasts success', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            await restartHostsRqdNow([mockHost, mockHost2]);
+
+            expect(accessActionApi).toHaveBeenCalledWith(
+                '/api/host/action/restartrqdnow',
+                [
+                    JSON.stringify({ host: mockHost }),
+                    JSON.stringify({ host: mockHost2 }),
+                ],
+            );
+            expect(toastSuccess).toHaveBeenCalledWith('Restarting RQD service on 2 host(s)');
+            expect(handleError).not.toHaveBeenCalled();
+        });
+
+        it('routes API errors through handleError', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            await restartHostsRqdNow([mockHost]);
+
+            expect(handleError).toHaveBeenCalledWith(
+                new Error('API Error'),
+                'Error performing action for: /api/host/action/restartrqdnow',
+            );
+        });
+    });
+
+    describe('restartHostsRqdWhenIdle', () => {
+        it('posts one body per host to the restartrqdwhenidle endpoint and toasts success', async () => {
+            (accessActionApi as jest.Mock).mockResolvedValue({ success: true });
+
+            await restartHostsRqdWhenIdle([mockHost]);
+
+            expect(accessActionApi).toHaveBeenCalledWith(
+                '/api/host/action/restartrqdwhenidle',
+                [JSON.stringify({ host: mockHost })],
+            );
+            expect(toastSuccess).toHaveBeenCalledWith(
+                'Scheduled service restart-when-idle for 1 host(s)');
+        });
+
+        it('routes API errors through handleError', async () => {
+            (accessActionApi as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+            await restartHostsRqdWhenIdle([mockHost]);
+
+            expect(handleError).toHaveBeenCalledWith(
+                new Error('API Error'),
+                'Error performing action for: /api/host/action/restartrqdwhenidle',
             );
         });
     });

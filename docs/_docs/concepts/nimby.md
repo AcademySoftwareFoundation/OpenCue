@@ -1,6 +1,6 @@
 ---
 title: "NIMBY"
-nav_order: 15
+nav_order: 40
 parent: Concepts
 layout: default
 linkTitle: "NIMBY"

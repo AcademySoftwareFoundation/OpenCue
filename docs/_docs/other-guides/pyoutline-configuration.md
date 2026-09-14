@@ -1,6 +1,6 @@
 ---
 title: "Configuring PyOutline"
-nav_order: 65
+nav_order: 130
 parent: "Other Guides"
 layout: default
 date: 2026-03-13

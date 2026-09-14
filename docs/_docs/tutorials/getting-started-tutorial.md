@@ -2,7 +2,7 @@
 title: "Getting Started with OpenCue"
 layout: default
 parent: Tutorials
-nav_order: 74
+nav_order: 10
 linkTitle: "Getting Started with OpenCue"
 date: 2025-01-29
 description: >

@@ -130,19 +130,27 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostNameClearBtn = btn
 
     def __filterByHostNameHandle(self):
-        regex = str(self.__filterByHostName.text()).split()
+        terms = str(self.__filterByHostName.text()).split()
+        # "license:<name>" terms filter client-side on the licenses a host holds;
+        # everything else stays a server-side hostname regex.
+        regex = [term for term in terms if not term.lower().startswith('license:')]
+        licenses = [term[len('license:'):].lower() for term in terms
+                    if term.lower().startswith('license:') and term[len('license:'):]]
+        self.hostMonitorTree.licenseFilters = licenses
         if regex:
             self.hostMonitorTree.hostSearch.options['regex'] = regex
         else:
             self.hostMonitorTree.hostSearch.options['regex'] = []
-        if regex != self.__filterByHostNameLastInput:
-            self.__filterByHostNameLastInput = regex
+        if terms != self.__filterByHostNameLastInput:
+            self.__filterByHostNameLastInput = terms
             self.hostMonitorTree.updateRequest()
 
     def __filterByHostNameClear(self):
         self.__filterByHostNameLastInput = ""
         self.__filterByHostName.setText("")
         self.hostMonitorTree.hostSearch.options['regex'] = []
+        self.hostMonitorTree.licenseFilters = []
+        self.hostMonitorTree.updateRequest()
 
     # ==============================================================================
     # Menu to filter by allocation

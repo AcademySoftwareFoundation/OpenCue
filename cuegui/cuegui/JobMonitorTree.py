@@ -792,6 +792,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if jobType["autoEating"]:
             self.__menuActions.jobs().addAction(menu, "autoEatOff")
         menu.addSeparator()
+        if jobType["completed"]:
+            self.__menuActions.jobs().addAction(menu, "shutdownIfCompleted")
         self.__menuActions.jobs().addAction(menu, "kill")
 
         # Dynamically add plugin actions for right-clicked job(s)

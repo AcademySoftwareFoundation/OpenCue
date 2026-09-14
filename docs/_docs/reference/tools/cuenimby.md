@@ -1,6 +1,6 @@
 ---
 title: "CueNIMBY - NIMBY CLI and System Tray Application"
-nav_order: 68
+nav_order: 40
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default

@@ -1,6 +1,6 @@
 ---
 title: "PyOutline Concepts"
-nav_order: 19
+nav_order: 80
 parent: "Concepts"
 layout: default
 date: 2026-03-13

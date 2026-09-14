@@ -128,8 +128,9 @@ class RangeTests(unittest.TestCase):
         self.ol.set_frame_range('1000-2000')
         self.ol.get_layer('cmd').set_frame_range('1000-2000')
 
-        expectedFrameStr = ','.join([str(i) for i in range(1000, 2001)])
-        self.assertEqual(expectedFrameStr, self.ol.get_layer('cmd').get_frame_range())
+        # The intersection of two identical consecutive ranges stays consecutive,
+        # and is returned in compact form rather than as an enumerated frame list.
+        self.assertEqual('1000-2000', self.ol.get_layer('cmd').get_frame_range())
         self.assertEqual('1000-2000', self.ol.get_frame_range())
 
     def test_intersecting_range(self):
@@ -145,6 +146,23 @@ class RangeTests(unittest.TestCase):
         self.ol.get_layer('cmd').set_frame_range('1100-1200')
 
         self.assertFalse(self.ol.get_layer('cmd').get_frame_range())
+
+    def test_large_contiguous_range_is_compact(self):
+        # A layer's range is stored in a fixed-width database column on submission,
+        # so a large contiguous range must stay compact rather than being enumerated
+        # frame by frame.
+        self.ol.set_frame_range('1001-2301')
+        self.ol.get_layer('cmd').set_frame_range('1001-2301')
+
+        self.assertEqual('1001-2301', self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual('1001-2301', self.ol.get_frame_range())
+
+    def test_non_contiguous_range_is_compacted_by_run(self):
+        self.ol.set_frame_range('1-3,10,20-22')
+        self.ol.get_layer('cmd').set_frame_range('1-3,10,20-22')
+
+        self.assertEqual('1-3,10,20-22', self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual('1-3,10,20-22', self.ol.get_frame_range())
 
 
 class LayerTest(unittest.TestCase):
@@ -284,7 +302,9 @@ class LayerTest(unittest.TestCase):
         """
         self.assertEqual(self.ol.get_frame_range(), self.layer.get_frame_range())
         self.layer.set_frame_range('1-10')
-        self.assertEqual('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
+        # The intersection of two identical consecutive ranges stays consecutive,
+        # and is returned in compact form rather than as an enumerated frame list.
+        self.assertEqual('1-10', self.layer.get_frame_range())
 
     def test_get_set_chunk_size(self):
         """Test get/set of chunk size."""

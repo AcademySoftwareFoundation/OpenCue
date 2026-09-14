@@ -10,6 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -23,7 +24,7 @@ use async_trait::async_trait;
 use bytesize::KIB;
 use dashmap::DashMap;
 use itertools::Either;
-use miette::Result;
+use miette::{miette, Result};
 use opencue_proto::{
     host::{HardwareState, LockState},
     report::{HostReport, RenderHost},
@@ -97,11 +98,70 @@ pub struct MachineMonitor {
     completion_notify: Arc<Notify>,
     last_host_state: Arc<RwLock<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
-    reboot_when_idle: Mutex<bool>,
+    /// Action armed to run once the machine becomes idle. At most one action can be armed at a
+    /// time; arming a new one replaces the previous, and an operator unlock (UnlockAll) cancels
+    /// it (see [`Machine::cancel_idle_action`]).
+    idle_action: Mutex<Option<IdleAction>>,
+    /// Set once a service restart has been triggered (the process is about to exit with
+    /// [`RESTART_EXIT_CODE`]). Blocks new frame launches so a frame cannot be spawned into the
+    /// short window between the restart decision and the exit, where it could die before its
+    /// snapshot is written and leak an unmanaged render.
+    restarting: AtomicBool,
     #[cfg(feature = "nimby")]
     nimby: Arc<Option<Nimby>>,
     #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
+}
+
+/// Deferred action to execute when the machine becomes idle (no running frames and no
+/// frame-completion reports awaiting Cuebot's acknowledgement).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdleAction {
+    /// Reboot the whole machine (RebootIdle RPC).
+    Reboot,
+    /// Restart only the rqd service (RestartRqdIdle RPC).
+    RestartRqd,
+}
+
+/// Gate for firing an armed idle action: only when the machine is genuinely idle.
+/// Kept as a pure function so the no-firing-while-busy contract is unit-testable.
+fn resolve_idle_action(is_idle: bool, armed: Option<IdleAction>) -> Option<IdleAction> {
+    if is_idle {
+        armed
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod idle_action_tests {
+    use super::{resolve_idle_action, IdleAction};
+
+    /// Regression guard: an armed reboot/restart must never fire while the machine is busy.
+    /// The pre-restart_rqd code rebooted on the tick after the request even with frames running.
+    #[test]
+    fn armed_action_does_not_fire_while_busy() {
+        assert_eq!(resolve_idle_action(false, Some(IdleAction::Reboot)), None);
+        assert_eq!(resolve_idle_action(false, Some(IdleAction::RestartRqd)), None);
+    }
+
+    #[test]
+    fn armed_action_fires_when_idle() {
+        assert_eq!(
+            resolve_idle_action(true, Some(IdleAction::Reboot)),
+            Some(IdleAction::Reboot)
+        );
+        assert_eq!(
+            resolve_idle_action(true, Some(IdleAction::RestartRqd)),
+            Some(IdleAction::RestartRqd)
+        );
+    }
+
+    #[test]
+    fn nothing_fires_when_nothing_armed() {
+        assert_eq!(resolve_idle_action(true, None), None);
+        assert_eq!(resolve_idle_action(false, None), None);
+    }
 }
 
 /// A locally-finished frame awaiting completion acknowledgement from Cuebot, tagged with the instant
@@ -128,6 +188,11 @@ struct DeliveryPassStats {
     /// Entries still pending after the pass.
     remaining: usize,
 }
+
+/// Exit code used when rqd terminates on purpose to request a service restart from its
+/// supervisor. The systemd unit ships with `Restart=on-failure` (see resources/openrqd.service),
+/// so any non-zero exit brings the service back up, while a clean shutdown (exit 0) does not.
+pub const RESTART_EXIT_CODE: i32 = 42;
 
 static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
 
@@ -227,7 +292,8 @@ impl MachineMonitor {
             completion_notify: Arc::new(Notify::new()),
             last_host_state: Arc::new(RwLock::new(None)),
             interrupt: Mutex::new(None),
-            reboot_when_idle: Mutex::new(false),
+            idle_action: Mutex::new(None),
+            restarting: AtomicBool::new(false),
             #[cfg(feature = "nimby")]
             nimby,
             #[cfg(feature = "nimby")]
@@ -311,7 +377,7 @@ impl MachineMonitor {
                     }
                     _ = interval.tick() => {
                         self.collect_and_send_host_report().await?;
-                        self.check_reboot_flag().await;
+                        self.check_idle_action().await;
 
                         #[cfg(feature = "nimby")]
                         if let Some(nimby) = &*self.nimby {
@@ -432,13 +498,179 @@ impl MachineMonitor {
         Ok(())
     }
 
-    async fn check_reboot_flag(&self) {
-        if *self.reboot_when_idle.lock().await {
-            warn!("Machine became idle. Rebooting..");
-            if let Err(err) = self.system_manager.lock().await.reboot() {
-                error!("Failed to reboot when became idle. {err}");
-            };
+    /// The machine is idle when no frame is running and no frame-completion report is still
+    /// awaiting Cuebot's acknowledgement. The second condition matters: the pending store does
+    /// not survive a restart, so firing an idle action while it is non-empty would silently
+    /// drop completions and let Cuebot rebook already-finished frames.
+    fn is_idle(&self) -> bool {
+        self.running_frames_cache.is_empty() && self.pending_completions.is_empty()
+    }
+
+    /// Triggers a pending reboot or rqd service restart once the machine becomes idle.
+    /// A failed reboot stays armed and is retried on the next tick.
+    ///
+    /// The idleness check and the action consumption happen under the `idle_action` mutex so
+    /// a concurrent [`Machine::cancel_idle_action`] (UnlockAll) cannot report a cancellation
+    /// for an action that is nevertheless executed.
+    async fn check_idle_action(&self) {
+        if self.restarting.load(Ordering::SeqCst) {
+            return;
         }
+        let mut armed = self.idle_action.lock().await;
+        match resolve_idle_action(self.is_idle(), *armed) {
+            Some(IdleAction::Reboot) => {
+                // Deliberately not consumed: a failed reboot stays armed for the next tick,
+                // and a successful one takes the machine down anyway.
+                warn!("Machine became idle. Rebooting..");
+                if let Err(err) = self.system_manager.lock().await.reboot() {
+                    error!("Failed to reboot when became idle. {err}");
+                };
+            }
+            Some(IdleAction::RestartRqd) => {
+                warn!("Machine became idle. Restarting rqd service..");
+                armed.take();
+                drop(armed);
+                self.trigger_restart().await;
+            }
+            None => {}
+        }
+    }
+
+    /// Arms `action` to fire once the machine becomes idle, replacing (with a warning) any
+    /// previously armed action.
+    async fn arm_idle_action(&self, action: IdleAction) {
+        let mut idle_action = self.idle_action.lock().await;
+        if let Some(previous) = *idle_action {
+            if previous != action {
+                warn!(
+                    "Replacing pending idle action {:?} with {:?}",
+                    previous, action
+                );
+            }
+        }
+        *idle_action = Some(action);
+    }
+
+    /// Refuses a service restart in environments where it cannot work as advertised.
+    ///
+    /// * Without a service supervisor to bring the process back up, exiting with
+    ///   [`RESTART_EXIT_CODE`] just shuts the host down. systemd sets `INVOCATION_ID` for every
+    ///   service it runs; other supervised setups (e.g. a container with a restart policy) can
+    ///   opt in via `machine.allow_unsupervised_restart`.
+    /// * When frames must survive the restart, frame recovery has to be enabled and the frames
+    ///   must not be running on docker (snapshot recovery for docker frames is not supported).
+    fn validate_restart_preconditions(&self, must_recover_frames: bool) -> Result<()> {
+        let supervised = std::env::var("INVOCATION_ID").is_ok();
+        if !supervised && !self.maching_config.allow_unsupervised_restart {
+            return Err(miette!(
+                "Refusing to restart: rqd does not appear to be running under a service \
+                 supervisor (INVOCATION_ID is not set), so it would not be brought back up. \
+                 Set machine.allow_unsupervised_restart if a supervisor is in place"
+            ));
+        }
+        if must_recover_frames {
+            if !CONFIG.runner.is_frame_recovery_enabled() {
+                return Err(miette!(
+                    "Refusing to restart with running frames: frame recovery is disabled \
+                     (runner.frame_recovery_enabled), the frames would be misreported as killed"
+                ));
+            }
+            if CONFIG.runner.run_on_docker {
+                return Err(miette!(
+                    "Refusing to restart with running frames: recovering docker frames \
+                     (runner.run_on_docker) is not supported yet"
+                ));
+            }
+            // The global flag being on now doesn't mean every frame launched with it on, and
+            // an ignored snapshot-write failure would leave a frame unrecoverable. Check what
+            // each frame actually has instead of what the config currently says.
+            let not_ready: Vec<String> = self
+                .running_frames_cache
+                .iter()
+                .filter(|entry| !entry.value().is_recovery_armed())
+                .map(|entry| entry.value().to_string())
+                .collect();
+            if !not_ready.is_empty() {
+                return Err(miette!(
+                    "Refusing to restart: {} running frame(s) are not recovery-ready (still \
+                     starting, launched while recovery was disabled, or their snapshot write \
+                     failed): {}",
+                    not_ready.len(),
+                    not_ready.join(", ")
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Exits the process with [`RESTART_EXIT_CODE`] so the service supervisor brings up a fresh
+    /// instance, which recovers running frames from their snapshots. Before exiting, makes a
+    /// final bounded attempt to deliver any frame completions Cuebot has not acknowledged yet:
+    /// the pending store is in-memory and a completion lost here would let Cuebot rebook an
+    /// already-finished frame. The pass may overlap the delivery task's own pass; duplicate
+    /// reports are safe (delivery is at-least-once and Cuebot version-fences frame stops).
+    async fn trigger_restart(&self) {
+        warn!("Restarting rqd service on request. Running frames will be recovered after restart");
+        self.restarting.store(true, Ordering::SeqCst);
+
+        let pending_completions = Arc::clone(&self.pending_completions);
+        let report_client = Arc::clone(&self.report_client);
+        let last_host_state = Arc::clone(&self.last_host_state);
+        let running_frames_cache = Arc::clone(&self.running_frames_cache);
+        let send_timeout = self.maching_config.frame_complete_send_timeout;
+        tokio::spawn(async move {
+            // Give the grpc response that requested the restart a moment to flush.
+            time::sleep(Duration::from_millis(500)).await;
+
+            // A launch admitted concurrently with the restart decision (it passed the
+            // idle-action check before `restarting` was set) may still be between spawn and
+            // snapshot. Give such frames a bounded window to finish arming so the exit does
+            // not orphan an unrecoverable render.
+            let arm_deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                let pending_arm = running_frames_cache.iter().any(|entry| {
+                    !entry.value().is_recovery_armed()
+                        && matches!(
+                            entry.value().get_state_copy(),
+                            FrameState::Created(_) | FrameState::Running(_)
+                        )
+                });
+                if !pending_arm {
+                    break;
+                }
+                if Instant::now() >= arm_deadline {
+                    error!(
+                        "Restarting with frame(s) that are not recovery-ready; they may be \
+                         orphaned and later rebooked by Cuebot"
+                    );
+                    break;
+                }
+                time::sleep(Duration::from_millis(200)).await;
+            }
+            if !pending_completions.is_empty() {
+                let drain = Self::deliver_pending_completions(
+                    Arc::clone(&pending_completions),
+                    report_client,
+                    last_host_state,
+                    send_timeout,
+                );
+                // Bounded so an unreachable Cuebot delays the restart, but not indefinitely.
+                match time::timeout(send_timeout.saturating_mul(2), drain).await {
+                    Ok(stats) if stats.remaining > 0 => error!(
+                        "Restarting with {} undelivered frame completion(s); Cuebot will have \
+                         to recover them as lost frames",
+                        stats.remaining
+                    ),
+                    Err(_) => error!(
+                        "Final completion-delivery pass timed out; restarting with {} \
+                         undelivered frame completion(s)",
+                        pending_completions.len()
+                    ),
+                    Ok(_) => {}
+                }
+            }
+            std::process::exit(RESTART_EXIT_CODE);
+        });
     }
 
     async fn monitor_running_frames(&self) -> Result<()> {
@@ -1372,6 +1604,27 @@ pub trait Machine {
 
     async fn reboot_if_idle(&self) -> Result<()>;
 
+    /// Restart the rqd service once the machine becomes idle (no running frames and no
+    /// unacknowledged frame completions). Locks all cores so no new frames are booked while
+    /// waiting. Fails without arming anything when the restart preconditions are not met.
+    async fn restart_rqd_if_idle(&self) -> Result<()>;
+
+    /// Restart the rqd service without killing running frames. The process exits with
+    /// [`RESTART_EXIT_CODE`] and relies on the service supervisor (systemd) to bring it back
+    /// up, at which point running frames are recovered from their snapshots. Fails without
+    /// side effects when the restart preconditions are not met (no supervisor, frame recovery
+    /// disabled, or docker frames).
+    async fn restart_rqd_now(&self) -> Result<()>;
+
+    /// Cancels a pending reboot/restart-when-idle request, returning the cancelled action.
+    /// Wired to UnlockAll so an operator unlock aborts the request, matching the documented
+    /// contract of the idle RPCs.
+    async fn cancel_idle_action(&self) -> Option<IdleAction>;
+
+    /// Whether a reboot/restart is armed or in progress. New frame launches are refused while
+    /// this is set: they would either extend the drain indefinitely or race the imminent exit.
+    async fn idle_action_pending(&self) -> bool;
+
     async fn collect_host_report(&self) -> Result<HostReport>;
 
     async fn quit(&self);
@@ -1495,20 +1748,47 @@ impl Machine for MachineMonitor {
         // Prevent new frames from booking
         self.lock_all_cores().await;
 
-        if !self.running_frames_cache.is_empty() {
-            // Schedule reboot if the machine is not idle
-            let mut reboot_when_idle = self.reboot_when_idle.lock().await;
-
-            warn!("Machine set to reboot when idle");
-            *reboot_when_idle = true;
-        } else {
+        if self.is_idle() {
             // Reboot now
             let system = self.system_manager.lock().await;
 
             warn!("Rebooting machine on request");
             system.reboot()?;
+        } else {
+            warn!("Machine set to reboot when idle");
+            self.arm_idle_action(IdleAction::Reboot).await;
         }
         Ok(())
+    }
+
+    async fn restart_rqd_if_idle(&self) -> Result<()> {
+        // Frames drain before the restart fires, so recovery support is not required here.
+        self.validate_restart_preconditions(false)?;
+
+        // Prevent new frames from booking
+        self.lock_all_cores().await;
+
+        if self.is_idle() {
+            self.trigger_restart().await;
+        } else {
+            warn!("Rqd service set to restart when idle");
+            self.arm_idle_action(IdleAction::RestartRqd).await;
+        }
+        Ok(())
+    }
+
+    async fn restart_rqd_now(&self) -> Result<()> {
+        self.validate_restart_preconditions(!self.running_frames_cache.is_empty())?;
+        self.trigger_restart().await;
+        Ok(())
+    }
+
+    async fn cancel_idle_action(&self) -> Option<IdleAction> {
+        self.idle_action.lock().await.take()
+    }
+
+    async fn idle_action_pending(&self) -> bool {
+        self.restarting.load(Ordering::SeqCst) || self.idle_action.lock().await.is_some()
     }
 
     async fn collect_host_report(&self) -> Result<HostReport> {

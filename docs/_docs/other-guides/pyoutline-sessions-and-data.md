@@ -1,6 +1,6 @@
 ---
 title: "PyOutline Sessions and Data Exchange"
-nav_order: 67
+nav_order: 140
 parent: "Other Guides"
 layout: default
 date: 2026-03-13

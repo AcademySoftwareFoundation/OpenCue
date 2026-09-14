@@ -11,6 +11,9 @@ machine:
   worker_threads: 8
   facility: test
   monitor_interval: 3s
+  # Dev environment runs rqd by hand (no systemd), so let the RestartRqd* RPCs
+  # exit anyway for testing. The process stays down until relaunched manually.
+  allow_unsupervised_restart: true
   cpuinfo_path: "./rust/crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
   distro_release_path: "./rust/crates/rqd/resources/distro-release/rocky"
   proc_stat_path: "./rust/crates/rqd/resources/proc/stat"

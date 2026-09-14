@@ -63,6 +63,10 @@ import com.imageworks.spcue.grpc.host.HostRebootRequest;
 import com.imageworks.spcue.grpc.host.HostRebootResponse;
 import com.imageworks.spcue.grpc.host.HostRebootWhenIdleRequest;
 import com.imageworks.spcue.grpc.host.HostRebootWhenIdleResponse;
+import com.imageworks.spcue.grpc.host.HostRestartRqdNowRequest;
+import com.imageworks.spcue.grpc.host.HostRestartRqdNowResponse;
+import com.imageworks.spcue.grpc.host.HostRestartRqdWhenIdleRequest;
+import com.imageworks.spcue.grpc.host.HostRestartRqdWhenIdleResponse;
 import com.imageworks.spcue.grpc.host.HostRedirectToJobRequest;
 import com.imageworks.spcue.grpc.host.HostRedirectToJobResponse;
 import com.imageworks.spcue.grpc.host.HostRemoveTagsRequest;
@@ -81,6 +85,7 @@ import com.imageworks.spcue.grpc.host.HostUnlockRequest;
 import com.imageworks.spcue.grpc.host.HostUnlockResponse;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.ProcSeq;
+import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
@@ -182,6 +187,40 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
         hostManager.rebootNow(host);
         responseObserver.onNext(HostRebootResponse.newBuilder().build());
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void restartRqdNow(HostRestartRqdNowRequest request,
+            StreamObserver<HostRestartRqdNowResponse> responseObserver) {
+        HostInterface host = getHostInterface(request.getHost());
+        try {
+            hostManager.restartRqdNow(host);
+            responseObserver.onNext(HostRestartRqdNowResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        } catch (IllegalStateException e) {
+            responseObserver.onError(Status.FAILED_PRECONDITION.withDescription(e.getMessage())
+                    .withCause(e).asRuntimeException());
+        } catch (RqdClientException e) {
+            responseObserver.onError(Status.UNAVAILABLE.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void restartRqdWhenIdle(HostRestartRqdWhenIdleRequest request,
+            StreamObserver<HostRestartRqdWhenIdleResponse> responseObserver) {
+        HostInterface host = getHostInterface(request.getHost());
+        try {
+            hostManager.restartRqdWhenIdle(host);
+            responseObserver.onNext(HostRestartRqdWhenIdleResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        } catch (IllegalStateException e) {
+            responseObserver.onError(Status.FAILED_PRECONDITION.withDescription(e.getMessage())
+                    .withCause(e).asRuntimeException());
+        } catch (RqdClientException e) {
+            responseObserver.onError(Status.UNAVAILABLE.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

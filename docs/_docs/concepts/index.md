@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Concepts
-nav_order: 11
+nav_order: 30
 has_children: true
 permalink: /docs/concepts
 ---

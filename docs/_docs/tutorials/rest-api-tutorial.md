@@ -1,6 +1,6 @@
 ---
 title: "REST API Tutorial"
-nav_order: 84
+nav_order: 110
 parent: Tutorials
 layout: default
 linkTitle: "Getting Started with OpenCue REST API"

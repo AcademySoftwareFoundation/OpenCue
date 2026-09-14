@@ -508,6 +508,27 @@ export async function rebootHostsWhenIdle(hosts: Host[]): Promise<boolean> {
 }
 
 /**************************************/
+// Restart RQD service (service only, no machine reboot)
+/**************************************/
+
+// Restart the RQD service on the given hosts immediately. The machine is not
+// rebooted and running frames are not killed - they are recovered by the
+// restarted service. Batch-capable.
+export async function restartHostsRqdNow(hosts: Host[]): Promise<boolean> {
+  const endpoint = "/api/host/action/restartrqdnow";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  return performAction(endpoint, bodyAr, `Restarting RQD service on ${hosts.length} host(s)`);
+}
+
+// Ask RQD on the given hosts to restart its service once idle. RQD locks its
+// cores so no new frames are booked, then restarts after running frames finish.
+export async function restartHostsRqdWhenIdle(hosts: Host[]): Promise<boolean> {
+  const endpoint = "/api/host/action/restartrqdwhenidle";
+  const bodyAr = hosts.map(host => JSON.stringify({ host }));
+  return performAction(endpoint, bodyAr, `Scheduled service restart-when-idle for ${hosts.length} host(s)`);
+}
+
+/**************************************/
 // Host Tags (CueCommander parity)
 /**************************************/
 
@@ -1165,6 +1186,35 @@ export function rebootHostWhenIdleGivenRow(row: Row<any>) {
     // Only patch the row optimistically when the action actually succeeded;
     // performAction swallows errors (returning false) and toasts them, so a
     // failed request leaves the row at its true state instead of flickering.
+    if (!ok || typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("cueweb:hosts-changed", {
+        detail: { hostIds: [host.id], patch: { state: "REBOOT_WHEN_IDLE" } },
+      }),
+    );
+  });
+}
+
+// "Restart service now" routes through a confirmation dialog
+// (cueweb:open-host-restart-service -> HostRestartServiceDialog), mirroring
+// CueGUI: frames survive via recovery, but the host still drops out of the
+// booking pool for the restart window, so a misclick deserves a confirm step.
+export function restartHostServiceGivenRow(row: Row<any>) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("cueweb:open-host-restart-service", {
+      detail: { hosts: [row.original as Host] },
+    }),
+  );
+}
+
+// Restart-service-when-idle is non-destructive (Cuebot parks the host in
+// REBOOT_WHEN_IDLE and RQD restarts once running frames finish), so it fires
+// without a confirm step like reboot-when-idle, with the same optimistic
+// row patch on success.
+export function restartHostServiceWhenIdleGivenRow(row: Row<any>) {
+  const host = row.original as Host;
+  void restartHostsRqdWhenIdle([host]).then((ok) => {
     if (!ok || typeof window === "undefined") return;
     window.dispatchEvent(
       new CustomEvent("cueweb:hosts-changed", {

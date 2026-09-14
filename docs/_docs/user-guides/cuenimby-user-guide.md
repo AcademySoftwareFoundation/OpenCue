@@ -1,6 +1,6 @@
 ---
 title: "CueNIMBY User Guide"
-nav_order: 41
+nav_order: 80
 parent: User Guides
 layout: default
 linkTitle: "CueNIMBY user guide"

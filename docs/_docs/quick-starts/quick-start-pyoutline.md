@@ -1,6 +1,6 @@
 ---
 title: "PyOutline Quick Start"
-nav_order: 6
+nav_order: 50
 parent: Quick Starts
 layout: default
 date: 2026-03-13

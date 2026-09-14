@@ -1,6 +1,6 @@
 ---
 title: "PyCuerun User Guide"
-nav_order: 48
+nav_order: 130
 parent: "User Guides"
 layout: default
 date: 2026-03-13

@@ -22,8 +22,10 @@ import mock
 import qtpy.QtCore
 import qtpy.QtWidgets
 
+import opencue.exception
 import opencue.wrappers.host
 import opencue_proto.host_pb2
+import opencue_proto.limit_pb2
 
 import cuegui.HostMonitorTree
 import cuegui.ItemDelegate
@@ -32,10 +34,10 @@ import cuegui.Style
 from . import test_utils
 
 
-def _makeHost(free_mcp, total_mcp):
+def _makeHost(free_mcp, total_mcp, name='host01'):
     return opencue.wrappers.host.Host(
         opencue_proto.host_pb2.Host(
-            id='host-id', name='host01', free_mcp=free_mcp, total_mcp=total_mcp))
+            id='host-id', name=name, free_mcp=free_mcp, total_mcp=total_mcp))
 
 
 class TempCellHelpersTests(unittest.TestCase):
@@ -72,6 +74,79 @@ class TempCellHelpersTests(unittest.TestCase):
         # When total is unknown, sort by free amount so ordering is still
         # somewhat sensible.
         self.assertEqual(42, cuegui.HostMonitorTree._tempFreeRatio(host))
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class LicenseFilterTests(unittest.TestCase):
+    """The license filter matches against a holds map fetched per refresh."""
+
+    def setUp(self):
+        app = test_utils.createApplication()
+        app.settings = qtpy.QtCore.QSettings()
+        cuegui.Style.init()
+        # Kept as instance attr so the parent isn't garbage-collected mid-test.
+        self.parentWidget = qtpy.QtWidgets.QWidget()
+        self.tree = cuegui.HostMonitorTree.HostMonitorTree(self.parentWidget)
+        self.tree.licenseFilters = ['houdini']
+
+    @staticmethod
+    def _hold(host_name, limit_name, source=opencue_proto.limit_pb2.CUE):
+        return opencue_proto.limit_pb2.LimitHold(
+            host_name=host_name, limit_name=limit_name, source=source)
+
+    @mock.patch('opencue.api.getHosts')
+    @mock.patch('opencue.api.getLimitHolds')
+    def test_filterMatchesHostsHoldingTheLicense(self, holds_mock, hosts_mock):
+        hosts_mock.return_value = [_makeHost(1, 2, name='host01'),
+                                   _makeHost(1, 2, name='host02')]
+        holds_mock.return_value = [self._hold('host01', 'houdini')]
+
+        result = self.tree._getUpdate()
+
+        self.assertEqual(['host01'], [host.data.name for host in result])
+
+    @mock.patch('opencue.api.getHosts')
+    @mock.patch('opencue.api.getLimitHolds')
+    def test_holdsWithAnExternalComponentAreParenthesized(self, holds_mock, hosts_mock):
+        hosts_mock.return_value = [_makeHost(1, 2, name='host01')]
+        holds_mock.return_value = [
+            self._hold('host01', 'houdini'),
+            self._hold('host01', 'mari', source=opencue_proto.limit_pb2.EXTERNAL),
+            self._hold('host01', 'nuke', source=opencue_proto.limit_pb2.BOTH)]
+
+        self.tree._getUpdate()
+
+        # BOTH includes external usage, so it is marked like EXTERNAL; the Cue side of it is
+        # already visible through the host's running frames.
+        self.assertEqual(['(mari)', '(nuke)', 'houdini'],
+                         sorted(self.tree._HostMonitorTree__hostLimits.get('host01', [])))
+
+    @mock.patch('opencue.api.getHosts')
+    @mock.patch('opencue.api.getLimitHolds')
+    def test_holdsFailureKeepsTheLastGoodMap(self, holds_mock, hosts_mock):
+        hosts_mock.return_value = [_makeHost(1, 2, name='host01'),
+                                   _makeHost(1, 2, name='host02')]
+        holds_mock.return_value = [self._hold('host01', 'houdini')]
+        self.tree._getUpdate()
+
+        # A transient failure must not be read as "nobody holds anything", which would
+        # filter every host away and show an empty farm with no explanation.
+        holds_mock.side_effect = opencue.exception.CueException('cuebot hiccup')
+        result = self.tree._getUpdate()
+
+        self.assertEqual(['host01'], [host.data.name for host in result])
+
+    @mock.patch('opencue.api.getHosts')
+    @mock.patch('opencue.api.getLimitHolds')
+    def test_holdsNeverAvailableSkipsTheFilter(self, holds_mock, hosts_mock):
+        hosts_mock.return_value = [_makeHost(1, 2, name='host01'),
+                                   _makeHost(1, 2, name='host02')]
+        holds_mock.side_effect = opencue.exception.CueException('cuebot hiccup')
+
+        # With no map to match on, showing every host beats showing none.
+        result = self.tree._getUpdate()
+
+        self.assertEqual(['host01', 'host02'], [host.data.name for host in result])
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())

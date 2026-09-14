@@ -89,14 +89,23 @@ class RqdInterfaceServicer(opencue_proto.rqd_pb2_grpc.RqdInterfaceServicer):
         return opencue_proto.rqd_pb2.RqdStaticShutdownIdleResponse()
 
     def RestartRqdNow(self, request, context):
-        """RPC call that kills all running frames and restarts rqd"""
-        log.warning("Deprecated Request received: restartRqdNow. This request has no effect.")
+        """RPC call to restart the rqd service. Not supported by the deprecated Python RQD;
+           fails loudly instead of pretending success so callers see nothing was restarted.
+           Use the Rust RQD for service restart with frame recovery."""
+        log.warning("Request received: restartRqdNow. Not supported by Python RQD.")
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Restarting the RQD service is not supported by Python RQD; "
+                            "deploy the Rust RQD for this feature.")
         return opencue_proto.rqd_pb2.RqdStaticRestartNowResponse()
 
     def RestartRqdIdle(self, request, context):
-        """RPC call that that locks all cores and restarts rqd when idle.
-           unlockAll will abort the request."""
-        log.warning("Deprecated Request received: restartRqdIdle. This request has no effect.")
+        """RPC call to restart the rqd service when idle. Not supported by the deprecated
+           Python RQD; fails loudly instead of pretending success so callers see nothing
+           was scheduled. Use the Rust RQD for service restart with frame recovery."""
+        log.warning("Request received: restartRqdIdle. Not supported by Python RQD.")
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Restarting the RQD service is not supported by Python RQD; "
+                            "deploy the Rust RQD for this feature.")
         return opencue_proto.rqd_pb2.RqdStaticRestartIdleResponse()
 
     def RebootNow(self, request, context):

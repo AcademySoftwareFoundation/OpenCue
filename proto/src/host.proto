@@ -76,6 +76,19 @@ service HostInterface {
     // Redirect the given procs to the specified job.
     rpc RedirectToJob(HostRedirectToJobRequest) returns (HostRedirectToJobResponse);
 
+    // Restart the RQD service on the host immediately. Running frames are not killed; they are
+    // recovered by the restarted service. The machine itself is not rebooted. The host is put in
+    // the Rebooting state for the short restart window and returns to Up with the restarted
+    // service's boot report. Requires a host in the Up state and an RQD with restart support
+    // (Rust RQD under a service supervisor); refusals surface as FAILED_PRECONDITION/UNAVAILABLE.
+    rpc RestartRqdNow(HostRestartRqdNowRequest) returns (HostRestartRqdNowResponse);
+
+    // Ask the RQD service on the host to restart once it becomes idle. The host is put in the
+    // RebootWhenIdle state (and RQD locks its cores) so no new frames are booked while running
+    // frames finish; the restarted service's boot report returns it to Up. The machine itself is
+    // not rebooted. Same Up-state and RQD-support requirements as RestartRqdNow.
+    rpc RestartRqdWhenIdle(HostRestartRqdWhenIdleRequest) returns (HostRestartRqdWhenIdleResponse);
+
     // Remove a tag from this host.
     rpc RemoveTags(HostRemoveTagsRequest) returns (HostRemoveTagsResponse);
 
@@ -588,6 +601,20 @@ message HostRedirectToJobRequest {
 message HostRedirectToJobResponse {
     bool value = 1;
 }
+
+// RestartRqdNow
+message HostRestartRqdNowRequest {
+    Host host = 1;
+}
+
+message HostRestartRqdNowResponse {} // Empty
+
+// RestartRqdWhenIdle
+message HostRestartRqdWhenIdleRequest {
+    Host host = 1;
+}
+
+message HostRestartRqdWhenIdleResponse {} // Empty
 
 // RemoveTags
 message HostRemoveTagsRequest {

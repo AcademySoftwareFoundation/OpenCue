@@ -37,15 +37,41 @@ class LimitTests(unittest.TestCase):
 
     def testCreate(self, getStubMock):
         stubMock = mock.Mock()
-        stubMock.Create.return_value = limit_pb2.LimitCreateResponse()
+        stubMock.Create.return_value = limit_pb2.LimitCreateResponse(
+            limit=limit_pb2.Limit(id=TEST_LIMIT_ID, name=TEST_LIMIT_NAME,
+                                  max_value=TEST_LIMIT_MAX_VALUE))
         getStubMock.return_value = stubMock
 
         limit = opencue.wrappers.limit.Limit(
             limit_pb2.Limit(name=TEST_LIMIT_NAME, max_value=TEST_LIMIT_MAX_VALUE))
-        limit.create()
+        created = limit.create()
 
         stubMock.Create.assert_called_with(
             limit_pb2.LimitCreateRequest(name=TEST_LIMIT_NAME, max_value=TEST_LIMIT_MAX_VALUE),
+            timeout=mock.ANY)
+        # The wrapper must hold the created Limit, not the response envelope, or every
+        # accessor below name()/maxValue() raises AttributeError.
+        self.assertEqual(TEST_LIMIT_ID, created.id())
+        self.assertEqual(TEST_LIMIT_NAME, created.name())
+        self.assertEqual(limit_pb2.FRAME, created.limitType())
+
+    def testCreateSendsFullConfiguration(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Create.return_value = limit_pb2.LimitCreateResponse(
+            limit=limit_pb2.Limit(id=TEST_LIMIT_ID, name=TEST_LIMIT_NAME))
+        getStubMock.return_value = stubMock
+
+        limit = opencue.wrappers.limit.Limit(limit_pb2.Limit(
+            name=TEST_LIMIT_NAME, max_value=TEST_LIMIT_MAX_VALUE, type=limit_pb2.HOST,
+            enforcement=limit_pb2.ADVISORY, soft_value=30, exit_status=330, delay_minutes=2,
+            auto_tag=True))
+        limit.create()
+
+        stubMock.Create.assert_called_with(
+            limit_pb2.LimitCreateRequest(
+                name=TEST_LIMIT_NAME, max_value=TEST_LIMIT_MAX_VALUE, type=limit_pb2.HOST,
+                enforcement=limit_pb2.ADVISORY, soft_value=30, exit_status=330, delay_minutes=2,
+                auto_tag=True),
             timeout=mock.ANY)
 
     def testDelete(self, getStubMock):

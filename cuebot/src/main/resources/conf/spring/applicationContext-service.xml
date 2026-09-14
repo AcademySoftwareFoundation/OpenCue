@@ -308,6 +308,7 @@
     <property name="reportQueue" ref="reportQueue" />
     <property name="hostManager" ref="hostManager" />
     <property name="layerDao" ref="layerDao" />
+    <property name="limitDao" ref="limitDao" />
   </bean>
 
   <bean id="historicalManager" class="com.imageworks.spcue.service.HistoricalManagerService">
@@ -399,6 +400,11 @@
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
+    <property name="limitRuleCache" ref="limitRuleCache" />
+  </bean>
+
+  <bean id="limitRuleCache" class="com.imageworks.spcue.dispatcher.LimitRuleCache">
+    <property name="limitDao" ref="limitDao" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">
@@ -433,6 +439,7 @@
     <property name="jobManager" ref="jobManager" />
     <property name="dependManager" ref="dependManager" />
     <property name="rqdClient" ref="rqdClient" />
+    <property name="limitDao" ref="limitDao" />
   </bean>
 
   <bean id="hardwareCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
@@ -628,6 +635,20 @@
     <property name="repeatInterval" value="${maintenance.stuck_dependency_recovery_interval_ms}" />
   </bean>
 
+  <bean id="limitUsageRecalculation" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="maintenanceManager" />
+    <property name="targetMethod" value="recalculateLimitUsage" />
+    <property name="concurrent" value="false" />
+  </bean>
+
+  <bean id="limitUsageRecalculationTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="limitUsageRecalculation" />
+    <!-- delay 60 seconds to let the cue get up and running -->
+    <property name="startDelay" value="60000" />
+    <!-- repeat every limit.usage_refresh_seconds; the report path also refreshes synchronously -->
+    <property name="repeatInterval" value="#{${limit.usage_refresh_seconds:5} * 1000}" />
+  </bean>
+
   <bean id="orphanedFrameCheck" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
     <property name="targetObject" ref="maintenanceManager" />
     <property name="targetMethod" value="clearOrphanedFrames" />
@@ -664,6 +685,7 @@
         <ref bean="subscriptionRecalculationTrigger" />
         <ref bean="stuckDependencyRecoveryTrigger" />
         <ref bean="orphanedFrameCheckTrigger" />
+        <ref bean="limitUsageRecalculationTrigger" />
       </list>
     </property>
   </bean>

@@ -140,6 +140,8 @@ const ACTION_LABELS: Record<string, string> = {
   Unlock: "Unlock Host",
   Reboot: "Reboot Host",
   RebootWhenIdle: "Reboot When Idle",
+  RestartRqdNow: "Restart RQD Service",
+  RestartRqdWhenIdle: "Restart RQD Service When Idle",
   SetHardwareState: "Set Hardware State",
   SetAllocation: "Set Allocation",
   TakeOwnership: "Take Ownership",

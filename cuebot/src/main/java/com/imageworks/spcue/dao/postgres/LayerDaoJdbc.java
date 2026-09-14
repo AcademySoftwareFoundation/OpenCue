@@ -48,6 +48,7 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
+import com.imageworks.spcue.grpc.limit.LimitBindSource;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -857,9 +858,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     // spotless:off
+    // Idempotent under c_layer_limit_uk: auto-tagging calls this on every failing frame, and a
+    // duplicate row would double the layer's contribution to every usage aggregate.
     private static final String INSERT_LIMIT =
-            "INSERT INTO layer_limit (pk_layer_limit,pk_layer,pk_limit_record)"
-            + "VALUES (?,?,?)";
+            "INSERT INTO layer_limit (pk_layer_limit,pk_layer,pk_limit_record,str_source)"
+            + "VALUES (?,?,?,?) "
+            + "ON CONFLICT (pk_layer, pk_limit_record) DO NOTHING";
     // spotless:on
 
     // spotless:off
@@ -905,9 +909,15 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     };
 
     @Override
+    @Deprecated
     public void addLimit(LayerInterface layer, String limitId) {
-        getJdbcTemplate().update(INSERT_LIMIT, UUID.randomUUID().toString(), layer.getLayerId(),
-                limitId);
+        addLimit(layer, limitId, LimitBindSource.SPEC);
+    }
+
+    @Override
+    public boolean addLimit(LayerInterface layer, String limitId, LimitBindSource source) {
+        return getJdbcTemplate().update(INSERT_LIMIT, UUID.randomUUID().toString(),
+                layer.getLayerId(), limitId, source.toString()) > 0;
     }
 
     @Override

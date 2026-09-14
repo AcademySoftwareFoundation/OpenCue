@@ -91,6 +91,37 @@ class SerializeTest(unittest.TestCase):
         self.assertEqual(0, len(list(outlineXml.find('depends'))))
 
 
+class SerializeFrameRangeTest(unittest.TestCase):
+
+    """Tests that large frame ranges serialize compactly.
+
+    Cuebot stores a layer's range in a fixed-width database column, so a
+    range spanning thousands of frames must not be enumerated frame by
+    frame in the spec XML.
+    """
+
+    def setUp(self):
+        outline.Outline.current = None
+
+    def testLargeContiguousRangeIsCompactInSpec(self):
+        ol = outline.Outline(name='maya_render', frame_range='1001-2301')
+        layer = outline.Layer('defaultRenderLayer', range='1001-2301')
+        ol.add_layer(layer)
+        cleanup_layer = outline.Layer('Cleanup')
+        ol.add_layer(cleanup_layer)
+
+        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
+        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+
+        render_layer = next(
+            layer_el for layer_el in outlineXml.find('job').find('layers').findall('layer')
+            if layer_el.get('name') == 'defaultRenderLayer')
+        range_text = render_layer.find('range').text
+
+        self.assertEqual('1001-2301', range_text)
+        self.assertLess(len(range_text), 4000)
+
+
 class CoresTest(unittest.TestCase):
     def setUp(self):
         # Ensure to reset current

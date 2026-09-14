@@ -89,12 +89,30 @@ collections:
   docs:
     permalink: "/:collection/:path/"
     output: true
+  # News and releases are ordered by date, never by nav_order. News entries take their date
+  # from the YYYY-MM-DD prefix of the filename; releases declare `date` in front matter.
+  # The :output_ext suffix preserves the published /news/<slug>.html URLs.
   news:
-    permalink: "/:collection/:path/"
+    permalink: "/:collection/:path:output_ext"
     output: true
   releases:
-    permalink: "/:collection/:path/"
+    permalink: "/:collection/:path:output_ext"
     output: true
+
+# Dated entries are listed by their index page, not by the sidebar, so they stay out of the nav.
+defaults:
+  - scope:
+      path: ""
+      type: news
+    values:
+      layout: default
+      nav_exclude: true
+  - scope:
+      path: ""
+      type: releases
+    values:
+      layout: default
+      nav_exclude: true
 
 just_the_docs:
   # Define which collections are used in just-the-docs

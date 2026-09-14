@@ -2,7 +2,7 @@
 layout: default
 title: OpenCueWeb Reference
 parent: Reference
-nav_order: 71
+nav_order: 90
 ---
 
 # OpenCueWeb Reference
@@ -445,7 +445,7 @@ A host registry at `/hosts` (`cueweb/app/hosts/page.tsx`), the OpenCueWeb equiva
 | **Table** | Rendered by the shared `SimpleDataTable` with the `isHostsTable` flag and `viewsPageKey="hosts"` (saveable Views presets). Column show/hide persists to `localStorage["cueweb.hosts.columnVisibility"]`. |
 | **Filter bar** | Name/regex box plus four multi-select dropdowns - Allocation and OS (built from the loaded rows) and HardwareState (`UP`/`DOWN`/`REBOOTING`/`REBOOT_WHEN_IDLE`/`REPAIR`) and LockState (`OPEN`/`LOCKED`/`NIMBY_LOCKED`), plus Auto-refresh / Refresh / Clear. Filtering is client-side over the loaded rows; the active filters are mirrored in the URL query (`?q=&alloc=&hw=&lock=&os=`) so a filtered view is shareable. |
 | **Refresh** | Auto-refreshes every 30s. A failed poll keeps previously loaded rows; a failed first load renders an inline error with a **Retry** button. |
-| **Row actions** | A right-click `HostContextMenu` (`components/ui/context_menus/action-context-menu.tsx`): Comments…, View Procs, Lock / Unlock / Take Ownership, Edit Tags… / Rename Tag… / Change Allocation…, Reboot / Reboot when idle / Delete Host, Set Repair State / Clear Repair State. Action helpers in `app/utils/action_utils.ts` post to the `/api/host/action/*` proxies and return a success boolean from `performAction`; on success they fire a `cueweb:hosts-changed` event (`host-action-events.ts`) so the page optimistically patches the affected row and reconciles on the next fetch. Dialogs live in `host-monitor-dialogs.tsx` (Comments, Rename Tag, Change Allocation, Delete, Take Ownership), `host-lock-dialog.tsx`, `host-reboot-dialog.tsx`, and `edit-host-tags-dialog.tsx`. Take Ownership posts to `/api/host/action/takeownership` &rarr; `host.OwnerInterface/TakeOwnership` (owner = the signed-in user). |
+| **Row actions** | A right-click `HostContextMenu` (`components/ui/context_menus/action-context-menu.tsx`): Comments…, View Procs, Lock / Unlock / Take Ownership, Edit Tags… / Rename Tag… / Change Allocation…, Reboot / Reboot when idle / Restart service now / Restart service when idle / Delete Host, Set Repair State / Clear Repair State. Action helpers in `app/utils/action_utils.ts` post to the `/api/host/action/*` proxies and return a success boolean from `performAction`; on success they fire a `cueweb:hosts-changed` event (`host-action-events.ts`) so the page optimistically patches the affected row and reconciles on the next fetch. Dialogs live in `host-monitor-dialogs.tsx` (Comments, Rename Tag, Change Allocation, Delete, Take Ownership), `host-lock-dialog.tsx`, `host-reboot-dialog.tsx`, and `edit-host-tags-dialog.tsx`. Take Ownership posts to `/api/host/action/takeownership` &rarr; `host.OwnerInterface/TakeOwnership` (owner = the signed-in user). |
 | **Comment macros** | The host Comments dialog supports reusable predefined comments (CueGUI Comments parity), stored per browser in `localStorage["cueweb-comment-macros"]` via `app/utils/comment_macros.ts` (load/save/upsert/delete). |
 | **Gating** | Lock enabled when `OPEN`; Unlock when `LOCKED` (`NIMBY_LOCKED` can't be unlocked); Take Ownership enabled only when `NIMBY_LOCKED` (CueGUI `canTakeOwnership` parity); Reboot disabled while `REBOOTING`; Reboot when idle disabled while `REBOOTING`/`REBOOT_WHEN_IDLE`; Set Repair State disabled while already `REPAIR`; Clear Repair State enabled only while `REPAIR`. |
 | **Proc panel** | `ProcMonitorPanel` (`components/ui/proc-monitor-panel.tsx`) below the table lists procs for hosts entered in its box or sent via `VIEW_HOST_PROCS_EVENT`. The event is dispatched both by the menu's **View Procs** and by a **left-click on a host row** (the page's `onRowClick` fires it alongside the Attributes-panel selection). Loads via `/api/proc/getprocs` &rarr; `host.ProcInterface/GetProcs`; columns Name, Cores, Mem Reserved, Mem Used, GPU Used, Age, Unbooked, Frame, Job; per-proc right-click View Job / Unbook (`/api/proc/action/unbookone`) / Kill (`/api/proc/action/kill`) / Unbook and Kill. Auto-refreshes every 30s. |
@@ -1374,6 +1374,7 @@ OpenCueWeb communicates with these REST Gateway endpoints:
 | `host.HostInterface/GetComments` | List a host's comments (detail page Comments tab) |
 | `host.HostInterface/Lock` / `Unlock` | Lock / unlock a host |
 | `host.HostInterface/Reboot` / `RebootWhenIdle` | Reboot a host immediately / when idle |
+| `host.HostInterface/RestartRqdNow` / `RestartRqdWhenIdle` | Restart the RQD service immediately / when idle (no machine reboot) |
 | `host.HostInterface/AddTags` / `RemoveTags` | Add / remove host tags |
 
 ### OpenCueWeb Proxy Routes
@@ -1395,6 +1396,8 @@ The browser does not call REST Gateway directly; it goes through Next.js API pro
 | `POST /api/host/action/unlock` | `host.HostInterface/Unlock` |
 | `POST /api/host/action/reboot` | `host.HostInterface/Reboot` |
 | `POST /api/host/action/rebootwhenidle` | `host.HostInterface/RebootWhenIdle` |
+| `POST /api/host/action/restartrqdnow` | `host.HostInterface/RestartRqdNow` |
+| `POST /api/host/action/restartrqdwhenidle` | `host.HostInterface/RestartRqdWhenIdle` |
 | `POST /api/host/action/addtags` | `host.HostInterface/AddTags` (body `{ host, tags }`) |
 | `POST /api/host/action/removetags` | `host.HostInterface/RemoveTags` (body `{ host, tags }`) |
 | `POST /api/show/getactiveshows` | `show.ShowInterface/GetActiveShows` (unwraps `{shows:{shows:[...]}}` to a flat array) |

@@ -2,7 +2,7 @@
 title: "pycuerun command"
 layout: default
 parent: Reference
-nav_order: 61
+nav_order: 30
 linkTitle: "pycuerun command"
 date: 2019-05-23
 description: >
