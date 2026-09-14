@@ -29,8 +29,6 @@ import shutil
 import sys
 import tempfile
 
-from future.utils import with_metaclass
-
 
 logger = logging.getLogger("versions")
 
@@ -57,7 +55,7 @@ class Singleton(type):
         return cls._obj
 
 
-class Session(with_metaclass(Singleton, object)):
+class Session(metaclass=Singleton):
     """
     The Session class handles creation of the versioning session.
     """

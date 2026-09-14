@@ -29,7 +29,6 @@ import os
 import sys
 import unittest
 
-import future.types
 import mock
 
 import outline
@@ -216,28 +215,11 @@ class LayerTest(unittest.TestCase):
             outline.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
         self.layer.set_arg(intArgName, 872)
 
-        if sys.version_info[0] >= 3:
-            strArgName = 'some-str-arg'
-            self.layer.require_arg(strArgName, str)
-            self.assertRaises(
-                outline.LayerException, self.layer.set_arg, strArgName, {})
-            self.layer.set_arg(strArgName, 'py3-string')
-        else:
-            strArgName = 'some-str-arg'
-            self.layer.require_arg(strArgName, str)
-            self.assertRaises(
-                outline.LayerException, self.layer.set_arg, strArgName, {})
-            self.layer.set_arg(strArgName, 'standard-py2-string')
-            self.layer.set_arg(strArgName, 'py2-unicode')
-            self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
-
-            newstrArgName = 'some-newstr-arg'
-            self.layer.require_arg(newstrArgName, future.types.newstr)
-            self.assertRaises(
-                outline.LayerException, self.layer.set_arg, newstrArgName, {})
-            self.layer.set_arg(newstrArgName, 'standard-py2-string')
-            self.layer.set_arg(newstrArgName, 'py2-unicode')
-            self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
+        strArgName = 'some-str-arg'
+        self.layer.require_arg(strArgName, str)
+        self.assertRaises(
+            outline.LayerException, self.layer.set_arg, strArgName, {})
+        self.layer.set_arg(strArgName, 'py3-string')
 
     def test_require_arg(self):
         """
