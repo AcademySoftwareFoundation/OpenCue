@@ -23,7 +23,6 @@ import unittest
 import mock
 import pyfakefs.fake_filesystem_unittest
 
-import opencue
 import outline
 # The local import is necessary as `outline.config` will point to the ConfigParser after the
 # first import.
