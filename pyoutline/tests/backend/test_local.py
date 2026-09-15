@@ -28,8 +28,8 @@ import unittest
 import mock
 
 import outline
-import outline_backend_local
 import outline.cuerun
+import outline_backend_local
 
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
