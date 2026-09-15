@@ -34,3 +34,4 @@ from . import io
 from .layer import *
 from . import cuerun
 from .plugins import PluginManager
+from . import backend
