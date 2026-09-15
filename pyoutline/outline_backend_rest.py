@@ -29,9 +29,10 @@ import hashlib
 import hmac
 import json
 import logging
-import requests
 import sys
 import time
+
+import requests
 
 import outline
 import outline.depend
