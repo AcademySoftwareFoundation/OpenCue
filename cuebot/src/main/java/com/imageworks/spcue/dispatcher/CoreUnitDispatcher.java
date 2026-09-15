@@ -92,6 +92,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     private final long MEM_RESERVED_MIN;
     private final long MEM_GPU_RESERVED_DEFAULT;
     private final long MEM_GPU_RESERVED_MIN;
+    private final boolean SKIP_GPU_RESERVATION;
 
     private Environment env;
 
@@ -107,6 +108,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         MEM_RESERVED_MIN = getLongProperty("dispatcher.memory.mem_reserved_min");
         MEM_GPU_RESERVED_DEFAULT = getLongProperty("dispatcher.memory.mem_gpu_reserved_default");
         MEM_GPU_RESERVED_MIN = getLongProperty("dispatcher.memory.mem_gpu_reserved_min");
+        SKIP_GPU_RESERVATION = getBooleanProperty("dispatcher.gpu.skip_resource_reservation");
     }
 
     /*
@@ -117,10 +119,17 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     /*
-     * Return an integer value from the opencue.properties given a key
+     * Return a long value from the opencue.properties given a key
      */
     private long getLongProperty(String property) {
         return env.getRequiredProperty(property, Long.class);
+    }
+
+    /*
+     * Return a boolean value from the opencue.properties given a key
+     */
+    private boolean getBooleanProperty(String property) {
+        return env.getRequiredProperty(property, Boolean.class);
     }
 
     private Cache<String, String> getOrCreateJobLock() {
@@ -190,7 +199,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                         getIntProperty("dispatcher.job_query_max"));
 
             if (jobs.size() == 0) {
-                host.removeGpu();
+                // Only remove GPU resources if skip reservation is disabled (default behavior)
+                if (!SKIP_GPU_RESERVATION) {
+                    host.removeGpu();
+                }
                 jobs = null;
             }
         }
