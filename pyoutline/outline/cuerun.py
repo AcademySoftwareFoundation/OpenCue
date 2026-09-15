@@ -34,7 +34,7 @@ from . import constants
 from .layer import Frame
 from .loader import load_outline
 from . import util
-import outline.backend
+from . import backend
 
 logger = logging.getLogger("outline.cuerun")
 
@@ -226,8 +226,8 @@ class OutlineLauncher(object):
         if self.__outline.get_mode() < constants.OUTLINE_MODE_SETUP:
             self.setup()
         if use_pycuerun:
-            return outline.backend.serialize(self)
-        return outline.backend.serialize_simple(self)
+            return backend.serialize(self)
+        return backend.serialize_simple(self)
 
     def __get_backend_module(self):
         if self.__backend is None:

@@ -17,7 +17,7 @@ OpenCue backend module.
 
 Uses the OpenCue Python API to submit the given job to OpenCue for processing.
 
-See outline.backend.__init__.py for a description of the PyOutline backend system.
+See outline.backend for a description of the PyOutline backend system.
 """
 
 from __future__ import print_function

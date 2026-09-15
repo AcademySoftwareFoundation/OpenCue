@@ -30,8 +30,8 @@ from .exception import *
 from .loader import *
 from .session import *
 from .executor import *
-from . import io
 from .layer import *
-from . import cuerun
-from .plugins import PluginManager
 from . import backend
+from . import cuerun
+from . import io
+from .plugins import PluginManager
