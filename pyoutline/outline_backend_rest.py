@@ -156,7 +156,6 @@ def test(job):
             )
         except Exception:
             print("Excepted error while killing job: %s" % job_name, file=sys.stderr)
-            pass
         session.close()
 
 
