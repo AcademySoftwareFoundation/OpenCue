@@ -34,10 +34,10 @@ import outline.exception
 import outline.util
 import outline.versions.main
 
-import opencue
-
 from outline.backend import serialize
 from outline.backend import serialize_simple
+
+import opencue
 
 __all__ = ["launch",
            "serialize",

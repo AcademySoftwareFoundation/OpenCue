@@ -29,11 +29,13 @@ import xml.etree.ElementTree as ET
 import mock
 
 import opencue_proto.job_pb2
+import outline
+import outline.cuerun
+
 import opencue.wrappers.job
 
-import outline
 import outline_backend_cue
-import outline.cuerun
+
 from .. import test_utils
 
 
