@@ -9,7 +9,7 @@ name = "opencue_cuecmd"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
-    "opencue_pyoutline"
+    "opencue_pyoutline",
     'importlib-metadata>=0.12; python_version < "3.8"',
 ]
 requires-python = ">3.7"
