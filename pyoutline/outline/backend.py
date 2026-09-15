@@ -13,214 +13,31 @@
 #  limitations under the License.
 
 """
-OpenCue backend module.
+PyOutline output modules.
 
-Uses the OpenCue Python API to submit the given job to OpenCue for processing.
+PyOutline can be thought of as separate from OpenCue proper -- it is just a job specification
+after all, and could be used in any number of contexts.
 
-See outline.backend.__init__.py for a description of the PyOutline backend system.
+To this end, PyOutline supports launching jobs on any number of "backends", i.e. the system
+responsible for processing the job -- launching the job / frames, storing job state, etc.
+
+The main backend of course is OpenCue (`outline.backend.cue`), which launches the job on OpenCue.
+However this can be extended to support any job management system. We also include a "local"
+backend (`outline.backend.local`) which just runs the job on the current machine, using a SQLite
+database for storing state.
 """
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-
-from builtins import str
-import logging
 import os
-import sys
-import time
+import logging
+
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
-
 from packaging.version import Version
 
-import FileSequence
-import opencue
-
 import outline
-import outline.depend
-import outline.exception
-import outline.util
-import outline.versions.main
+import FileSequence
 
-
-logger = logging.getLogger("outline.backend.cue")
-
-__all__ = ["launch",
-           "serialize",
-           "serialize_simple"]
-
-JOB_WAIT_PERIOD_SEC = 5
-
-
-def build_command(launcher, layer):
-    """
-    Build and return a pycuerun shell command for the given layer.
-
-    :type  launcher : outline.cuerun.OutlineLauncher
-    :param launcher : The outline launcher.
-
-    :type  layer : Layer
-    :param layer : The layer to build a command for.
-
-    :rtype: list
-    :return: The shell command to run for a the given layer.
-    """
-    command = []
-
-    if layer.get_arg("strace"):
-        command.append("strace")
-        command.append("-ttt")
-        command.append("-T")
-        command.append("-e")
-        command.append("open,stat")
-        command.append("-f")
-        command.append("-o")
-        command.append("%s/strace.log" % layer.get_path())
-
-    if layer.get_arg("wrapper"):
-        wrapper = layer.get_arg("wrapper")
-    elif layer.get_arg("setshot", True):
-        wrapper = "%s/opencue_wrap_frame" % outline.config.get("outline", "wrapper_dir")
-    else:
-        wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.get(
-            "outline", "wrapper_dir")
-
-    command.append(wrapper)
-    command.append(outline.config.get("outline", "user_dir"))
-    command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
-    command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
-                                          layer.get_name()))
-    command.append("--version %s" % outline.versions.get_version("outline"))
-    repos = outline.versions.get_repos()
-    if repos and repos.strip():
-        command.append("--repos %s" % repos.strip())
-    command.append("--debug")
-
-    if launcher.get("dev"):
-        command.append("--dev")
-
-    if launcher.get("devuser"):
-        command.append("--dev-user %s" % launcher.get("devuser"))
-
-    return command
-
-
-def launch(launcher, use_pycuerun=True):
-    """
-    Launch the given L{OutlineLauncher}.
-
-    :type launcher: L{OutlineLauncher}
-    :param launcher: The OutlineLauncher to launch.
-    :type use_pycuerun: bool
-    :param use_pycuerun: Enable/Disable pycuerun.
-
-    :rtype: opencue.Entity.Job
-    :return: The opencue job that was launched.
-    """
-
-    if launcher.get("server"):
-        opencue.Cuebot.setHosts([launcher.get("server")])
-        logger.info("cuebot host set to: %s", launcher.get("server"))
-
-    jobs = opencue.api.launchSpecAndWait(launcher.serialize(use_pycuerun=use_pycuerun))
-
-    if launcher.get("wait"):
-        wait(jobs[0])
-    elif launcher.get("test"):
-        test(jobs[0])
-
-    return jobs
-
-
-def test(job):
-    """
-    Test the given job.  This function returns immediately
-    when the given job completes, or throws an L{OutlineException}
-    if the job fails in any way.
-
-    :type job: opencue.Entity.Job
-    :param job: The job to test.
-    """
-    logging.basicConfig(level=logging.DEBUG)
-    logger.info("Entering test mode for job: %s", job.data.name)
-
-    # Unpause the job.
-    job.resume()
-
-    try:
-        while True:
-            try:
-                job = opencue.api.getJob(job.name())
-                if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
-                    raise outline.exception.OutlineException(
-                        "Job test failed, dead or eaten frames on: %s" % job.data.name)
-                if job.data.state == opencue.api.job_pb2.FINISHED:
-                    break
-                logger.debug(
-                    "waiting on %s job to complete: %d/%d", job.data.name,
-                    job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
-            except opencue.CueException as ie:
-                raise outline.exception.OutlineException(
-                    "test for job %s failed: %s" % (job.data.name, ie))
-            time.sleep(5)
-    finally:
-        job.kill()
-
-
-def wait(job):
-    """
-    Wait for the given job to complete before returning.
-
-    :type job: opencue.Entity.Job
-    :param job: The job to wait on.
-    """
-    while True:
-        try:
-            if not opencue.api.isJobPending(job.data.name):
-                break
-            logger.debug(
-                "waiting on %s job to complete: %d/%d", job.data.name,
-                job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
-        except opencue.CueException as ie:
-            print(
-                "opencue error waiting on job: %s, %s. Will continue to wait." % (
-                    job.data.name, ie),
-                file=sys.stderr)
-        time.sleep(JOB_WAIT_PERIOD_SEC)
-
-
-def serialize(launcher):
-    """
-    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
-    using pycuerun to wrap the job commands.
-
-    :type launcher: L{OutlineLauncher}
-    :param launcher: The outline launcher being used to launch the job.
-
-    :rtype: str
-    :return: A opencue job specification.
-    """
-    return _serialize(launcher, use_pycuerun=True)
-
-
-def serialize_simple(launcher):
-    """
-    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
-    skipping the pycuerun wrapper in favor of launching the job commands directly.
-
-    :type launcher: L{OutlineLauncher}
-    :param launcher: The outline launcher being used to launch the job.
-
-    :rtype: str
-    :return: A opencue job specification.
-    """
-    return _serialize(launcher, use_pycuerun=False)
-
-
-def _warning_spec_version(spec_version, feature):
-    logger.warning("spec_version=%s doesn't support %s", spec_version, feature)
-
+logger = logging.getLogger("outline.backend._common")
 
 def _serialize(launcher, use_pycuerun):
     """
@@ -438,26 +255,11 @@ def _serialize(launcher, use_pycuerun):
     logger.debug(parseString(result).toprettyxml())
     return result
 
-
-def scrub_tags(tags):
-    """
-    Ensure that layer tags pass in as a string are formatted properly.
-    """
-    if isinstance(tags, str):
-        tags = [tag.strip() for tag in tags.split("|")
-                if tag.strip().isalnum()]
-    return " | ".join(tags)
-
-
-def bool_to_str(value):
-    """
-    If the given value evaluates to True, return
-    "True", else return "False"
-    """
-    if value:
-        return "True"
-    return "False"
-
+def sub_element(root, tag, text):
+    """Convenience method to create a sub element with text"""
+    e = Et.SubElement(root, tag)
+    e.text = text
+    return e
 
 def build_dependencies(ol, layer, all_depends):
     """
@@ -487,8 +289,106 @@ def build_dependencies(ol, layer, all_depends):
             sub_element(depend, "onlayer", dep.get_depend_on_layer().get_name())
 
 
-def sub_element(root, tag, text):
-    """Convenience method to create a sub element with text"""
-    e = Et.SubElement(root, tag)
-    e.text = text
-    return e
+def scrub_tags(tags):
+    """
+    Ensure that layer tags pass in as a string are formatted properly.
+    """
+    if isinstance(tags, str):
+        tags = [tag.strip() for tag in tags.split("|")
+                if tag.strip().isalnum()]
+    return " | ".join(tags)
+
+
+def bool_to_str(value):
+    """
+    If the given value evaluates to True, return
+    "True", else return "False"
+    """
+    if value:
+        return "True"
+    return "False"
+
+
+
+def serialize(launcher):
+    """
+    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
+    using pycuerun to wrap the job commands.
+
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The outline launcher being used to launch the job.
+
+    :rtype: str
+    :return: A opencue job specification.
+    """
+    return _serialize(launcher, use_pycuerun=True)
+
+
+def serialize_simple(launcher):
+    """
+    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
+    skipping the pycuerun wrapper in favor of launching the job commands directly.
+
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The outline launcher being used to launch the job.
+
+    :rtype: str
+    :return: A opencue job specification.
+    """
+    return _serialize(launcher, use_pycuerun=False)
+
+
+def _warning_spec_version(spec_version, feature):
+    logger.warning("spec_version=%s doesn't support %s", spec_version, feature)
+
+def build_command(launcher, layer):
+    """
+    Build and return a pycuerun shell command for the given layer.
+
+    :type  launcher : outline.cuerun.OutlineLauncher
+    :param launcher : The outline launcher.
+
+    :type  layer : Layer
+    :param layer : The layer to build a command for.
+
+    :rtype: list
+    :return: The shell command to run for a the given layer.
+    """
+    command = []
+
+    if layer.get_arg("strace"):
+        command.append("strace")
+        command.append("-ttt")
+        command.append("-T")
+        command.append("-e")
+        command.append("open,stat")
+        command.append("-f")
+        command.append("-o")
+        command.append("%s/strace.log" % layer.get_path())
+
+    if layer.get_arg("wrapper"):
+        wrapper = layer.get_arg("wrapper")
+    elif layer.get_arg("setshot", True):
+        wrapper = "%s/opencue_wrap_frame" % outline.config.get("outline", "wrapper_dir")
+    else:
+        wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.get(
+            "outline", "wrapper_dir")
+
+    command.append(wrapper)
+    command.append(outline.config.get("outline", "user_dir"))
+    command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
+    command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
+                                          layer.get_name()))
+    command.append("--version %s" % outline.versions.get_version("outline"))
+    repos = outline.versions.get_repos()
+    if repos and repos.strip():
+        command.append("--repos %s" % repos.strip())
+    command.append("--debug")
+
+    if launcher.get("dev"):
+        command.append("--dev")
+
+    if launcher.get("devuser"):
+        command.append("--dev-user %s" % launcher.get("devuser"))
+
+    return command

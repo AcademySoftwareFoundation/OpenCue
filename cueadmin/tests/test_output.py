@@ -18,13 +18,6 @@
 """Tests for cueadmin.output."""
 
 
-from __future__ import absolute_import, division, print_function
-
-# pylint: disable=wrong-import-order,wrong-import-position
-from future import standard_library
-
-standard_library.install_aliases()
-
 import contextlib
 import io
 import sys

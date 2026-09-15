@@ -34,7 +34,7 @@ from . import constants
 from .layer import Frame
 from .loader import load_outline
 from . import util
-
+from . import backend
 
 logger = logging.getLogger("outline.cuerun")
 
@@ -56,7 +56,7 @@ def import_backend_module(name):
     Imports the specified backend queuing system module,
     """
     logger.info("importing [%s] backend module.", name)
-    return __import__("outline.backend.%s" % name,
+    return __import__("outline_backend_%s" % name,
                       globals(), locals(), [name])
 
 
@@ -226,8 +226,8 @@ class OutlineLauncher(object):
         if self.__outline.get_mode() < constants.OUTLINE_MODE_SETUP:
             self.setup()
         if use_pycuerun:
-            return self.__get_backend_module().serialize(self)
-        return self.__get_backend_module().serialize_simple(self)
+            return backend.serialize(self)
+        return backend.serialize_simple(self)
 
     def __get_backend_module(self):
         if self.__backend is None:

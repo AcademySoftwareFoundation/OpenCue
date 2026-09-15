@@ -29,8 +29,6 @@ import shutil
 import sys
 import tempfile
 
-from future.utils import with_metaclass
-
 
 logger = logging.getLogger("versions")
 
@@ -57,7 +55,7 @@ class Singleton(type):
         return cls._obj
 
 
-class Session(with_metaclass(Singleton, object)):
+class Session(metaclass=Singleton):
     """
     The Session class handles creation of the versioning session.
     """
@@ -181,14 +179,16 @@ class Session(with_metaclass(Singleton, object)):
     # pylint: disable=broad-except,import-outside-toplevel
     @staticmethod
     def __run_manifest(path):
-        # pylint: disable=deprecated-module
-        import imp
+        import importlib.util
+        manifest_file = os.path.join(path, "manifest.py")
         try:
-            fob, path, desc = imp.find_module('manifest', [path])
-            imp.load_module("manifest", fob, path, desc)
-            fob.close()
+            spec = importlib.util.spec_from_file_location("manifest", manifest_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                sys.modules["manifest"] = module
+                spec.loader.exec_module(module)
         except Exception as e:
-            print("Failed to execute manifest file: %s" % e)
+            print(f"Failed to execute manifest file: {e}")
 
     def __lock_module(self, name, version):
         self.__modules[name] = str(version)

@@ -24,18 +24,21 @@ else
   pip install ./proto ${PIP_OPT}
 fi
 
-echo "Running lint for pycue/..."
-pip install ./pycue[test] ${PIP_OPT}
-cd pycue
-python -m pylint --rcfile=../ci/pylintrc_main FileSequence
-python -m pylint --rcfile=../ci/pylintrc_main opencue
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
 echo "Running lint for pyoutline/..."
 pip install ./pyoutline[test] ${PIP_OPT}
 cd pyoutline
+python -m pylint --rcfile=../ci/pylintrc_main FileSequence
+python -m pylint --rcfile=../ci/pylintrc_main outline_backend_local
+python -m pylint --rcfile=../ci/pylintrc_main outline_backend_rest
 python -m pylint --rcfile=../ci/pylintrc_main outline
+python -m pylint --rcfile=../ci/pylintrc_test tests
+cd ..
+
+echo "Running lint for pycue/..."
+pip install ./pycue[test] ${PIP_OPT}
+cd pycue
+python -m pylint --rcfile=../ci/pylintrc_main opencue
+python -m pylint --rcfile=../ci/pylintrc_main outline_backend_cue
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
