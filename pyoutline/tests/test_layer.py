@@ -26,7 +26,6 @@ from __future__ import division
 # need to preserve the existing Python 2 string type.
 from builtins import range
 import os
-import sys
 import unittest
 
 import mock
