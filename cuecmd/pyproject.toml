@@ -10,6 +10,7 @@ dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
     "opencue_pyoutline"
+    'importlib-metadata>=0.12; python_version < "3.8"',
 ]
 requires-python = ">3.7"
 description = "Cuecmd is a command-line tool for OpenCue that executes a list of commands as frames on the render farm. It enables batch processing by chunking commands and submitting them as OpenCue jobs."
