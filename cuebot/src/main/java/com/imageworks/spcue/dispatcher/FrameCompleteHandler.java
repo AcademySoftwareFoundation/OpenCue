@@ -21,6 +21,9 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
@@ -187,6 +190,34 @@ public class FrameCompleteHandler {
                     + entry.getValue().toMinutes() + ", autoTag=True). Until then this entry "
                     + "keeps working unless a limit claims the status.");
         }
+        OomMemoryTracker.INSTANCE.configure(
+                env.getProperty("dispatcher.oom_frame_bump_expire_hours", Long.class,
+                        OomMemoryTracker.DEFAULT_EXPIRE_HOURS),
+                env.getProperty("dispatcher.oom_streak_expire_hours", Long.class,
+                        OomMemoryTracker.DEFAULT_EXPIRE_HOURS));
+        int postCompleteQueueSize =
+                env.getProperty("maestro.post_complete_queue_size", Integer.class, 10000);
+        postCompleteExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(postCompleteQueueSize), r -> {
+                    Thread t = new Thread(r, "CompletionPostOps");
+                    t.setDaemon(true);
+                    return t;
+                }, new ThreadPoolExecutor.CallerRunsPolicy());
+    }
+
+    /**
+     * Did this frame exit because a limit's resource (typically an application license) was
+     * unavailable? True when a limit's failure rule with a booking backoff claims the exit status:
+     * the frame hit a contended resource, not a broken frame, so it is requeued WAITING without
+     * spending a retry. A pure-discovery rule (delay 0) deliberately does not change
+     * frame-completion behaviour.
+     */
+    private boolean isLimitDenied(int exitStatus) {
+        if (limitRuleCache == null) {
+            return false;
+        }
+        LimitRule rule = limitRuleCache.forExitStatus(exitStatus);
+        return rule != null && rule.delayMinutes > 0;
     }
 
     /**
@@ -197,6 +228,18 @@ public class FrameCompleteHandler {
      * instead. When the proc itself no longer exists the frame may be orphaned; see
      * {@link #finalizeOrphanedFrameComplete}.
      *
+     * Shows owned by the in-process Maestro use a completion drain: this report thread only
+     * resolves the report (pure reads) and queues it, and the scheduler tick applies every queued
+     * completion single-threaded, in tick order. One writer ends the races that happened when
+     * dozens of report threads processed completions concurrently: two duplicate reports
+     * interleaving with a job shutdown could throw mid-way and leave an orphaned proc behind, and
+     * one orphaned proc wedges Maestro's batch commit permanently. The resolve stays on the report
+     * threads because spread across them it is free, while done serially in the tick it would
+     * multiply tick time by the completion rate; in managed mode the ownership check also needs the
+     * resolved proc's show id, so the resolve must come first. There is deliberately no off switch
+     * (it would bring the orphan races back). Legacy-owned shows skip the drain and process the
+     * report to the end right here, on this thread.
+     *
      * @param report
      */
     public void handleFrameCompleteReport(final FrameCompleteReport report) {
@@ -205,6 +248,147 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
+        // Maestro-owned show: resolve here, apply in the tick (see header).
+        if (MaestroMode.enabled(env)) {
+            QueuedFrameCompletion resolved;
+            boolean schedulerOwned;
+            try {
+                resolved = resolveForDrain(report);
+                if (resolved == null) {
+                    return;
+                }
+                schedulerOwned = MaestroMode.schedules(env, showDao, resolved.proc.getShowId());
+            } catch (Exception e) {
+                // Same retry contract as processReportNow: a transient resolve
+                // failure must reach RQD as a retry signal, never as a raw
+                // runtime exception over gRPC.
+                throw new RqdRetryReportException("error resolving the frame complete "
+                        + "report for the scheduler drain, sending retry message to RQD " + e, e);
+            }
+            if (schedulerOwned) {
+                MaestroCompletionQueue.offer(resolved);
+                return;
+            }
+        }
+
+        processReportNow(report);
+    }
+
+    /**
+     * Resolve a queued report into everything the batched stop needs: proc, job, layer, frame,
+     * detail, the decided next state and the (possibly rewritten) exit status. Returns null when
+     * there is nothing left for the drain to apply: an orphaned frame (finalized here), a report
+     * superseded by a newer run of the same proc, or a duplicate whose proc is already gone. The
+     * orphan and ownership guards mirror {@link #processReportNow}, so a scheduler-owned show gets
+     * the same fences as a legacy one.
+     */
+    public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report) {
+        try {
+            final VirtualProc proc;
+            try {
+                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            } catch (EmptyResultDataAccessException e) {
+                finalizeOrphanedFrameComplete(report);
+                return null;
+            }
+
+            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
+                    + report.getFrame().getFrameId();
+
+            if (proc.frameId == null || !proc.frameId.equals(report.getFrame().getFrameId())) {
+                logger.info("Diverting superseded frame complete report for "
+                        + report.getFrame().getFrameName() + "; proc " + proc.getProcId() + " on "
+                        + proc.hostName + " no longer owns the frame ("
+                        + (proc.frameId == null ? "no frame assigned" : "now on " + proc.frameId)
+                        + ").");
+                if (prometheusMetrics != null) {
+                    prometheusMetrics.incrementFrameCompleteSuperseded(
+                            proc.frameId == null ? "no_owner" : "other_frame");
+                }
+                handleStaleReport(proc, report, key);
+                return null;
+            }
+
+            final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
+            final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
+            final FrameDetail frameDetail =
+                    jobManager.getFrameDetail(report.getFrame().getFrameId());
+            final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+            final FrameState newFrameState = determineFrameState(job, layer, frame, report,
+                    frameDetail, effectiveDelayRules());
+            int exitStatus = resolveExitStatus(report, frameDetail);
+            if (isLimitDenied(exitStatus)) {
+                logger.info("frame " + frame.getName() + " hit a limit's failure rule (exit "
+                        + exitStatus + "); requeueing without spending a retry");
+                exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
+            }
+            return new QueuedFrameCompletion(report, proc, job, layer, frameDetail, frame,
+                    newFrameState, exitStatus);
+        } catch (EmptyResultDataAccessException e) {
+            // Duplicate or stale report: the proc (or frame) is already gone.
+            // The single-threaded drain makes this the ONLY way a duplicate
+            // shows up; there is no concurrent twin to race.
+            logger.debug("drain: stale/duplicate completion report for frame "
+                    + report.getFrame().getFrameName() + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * The post-complete worker for the drain: one dedicated, NON-droppable thread. The drain's
+     * batched stop already did every write Maestro depends on (frame stopped, proc deleted,
+     * resources refunded), so the follow-up work per frame (depend satisfaction, layer/job
+     * completion checks, usage counters) can lag a little without hurting anyone; running it inside
+     * the tick would multiply the tick time by the completion rate, and putting it on dispatchQueue
+     * would let load-shedding silently drop depend satisfaction (a job then hangs forever). The
+     * queue is bounded (maestro.post_complete_queue_size) with a caller-runs overflow policy:
+     * nothing is ever dropped, but a sustained backlog turns into back-pressure on the drain
+     * instead of unbounded heap growth. Queue depth is reported on Maestro stat line. Initialized
+     * in the constructor (needs env for the bound).
+     */
+    private final ThreadPoolExecutor postCompleteExecutor;
+
+    /**
+     * Queue a drained (already stopped) completion's follow-up work on the post-complete worker.
+     * Called by Maestro's drain for every frame its batched stop won.
+     */
+    public void queuePostOps(final QueuedFrameCompletion c) {
+        postCompleteExecutor.execute(() -> {
+            try {
+                handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame, c.newFrameState,
+                        c.frameDetail);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete operations for frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        });
+    }
+
+    /**
+     * A drained completion whose frame was already transitioned by someone else (kill, eat, retry):
+     * the frame is not ours to touch, but the proc still has to go somewhere. Shares the report
+     * thread's disposal path, so the drain gets the same duplicate check and re-read fence.
+     */
+    public void handleStaleCompletion(final VirtualProc proc, final FrameCompleteReport report,
+            final String key) {
+        handleStaleReport(proc, report, key);
+    }
+
+    /**
+     * Process one completion report to the end: stop the frame, then run the post-complete
+     * operations. Legacy-owned shows enter here straight from the report thread; for
+     * scheduler-owned shows the drain calls this only as its per-report retry after a failed batch
+     * chunk.
+     *
+     * Post-complete work runs INLINE for scheduler-owned shows, and in test mode (the test thread's
+     * transaction must observe the writes). There is no rebook decision to defer, Maestro simply
+     * plans the freed cores next tick, and an async hop would leave the proc in limbo holding cores
+     * until the queued task ran. If the post-complete work throws, the proc is released anyway: an
+     * orphaned proc (proc row alive, frame back to WAITING) wedges the Maestro's batch commit
+     * permanently. Legacy shows and Rust (dispatcher.turn_off_booking) keep the async dispatchQueue
+     * hop, which defers the rebook-or-release decision.
+     */
+    public void processReportNow(final FrameCompleteReport report) {
         try {
             final VirtualProc proc;
             try {
@@ -251,13 +435,34 @@ public class FrameCompleteHandler {
                     frameDetail, effectiveDelayRules());
 
             int exitStatus = resolveExitStatus(report, frameDetail);
+            // Limit-denied frames persist SKIP_RETRY: the retry increment
+            // reads the STORED exit status, so recording the vendor's code
+            // would spend a retry on a license queue wait.
+            if (isLimitDenied(exitStatus)) {
+                logger.info("frame " + frame.getName() + " hit a limit's failure rule (exit "
+                        + exitStatus + "); requeueing without spending a retry");
+                exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
+            }
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
-                if (dispatcher.isTestMode()) {
-                    // Database modifications on a threadpool cannot be captured by the test thread
-                    handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
-                            frameDetail);
+                // Maestro-owned show or test mode: inline (see header). Database modifications
+                // on a threadpool cannot be captured by the test thread.
+                boolean schedulerOwnsShow = MaestroMode.schedules(env, showDao, proc.getShowId());
+                if (dispatcher.isTestMode() || schedulerOwnsShow) {
+                    try {
+                        handlePostFrameCompleteOperations(proc, report, job, frame, newFrameState,
+                                frameDetail);
+                    } catch (Exception e) {
+                        // Release the proc even on failure (see header).
+                        logger.warn("post-complete processing failed for frame " + frame.getName()
+                                + "; releasing the proc anyway: " + e);
+                        try {
+                            dispatchSupport.unbookProc(proc);
+                        } catch (Exception e2) {
+                            logger.warn("stale-proc release also failed for " + proc + ": " + e2);
+                        }
+                    }
                 } else {
                     queueDispatchTask(key, "handlePostFrameCompleteOperations",
                             () -> handlePostFrameCompleteOperations(proc, report, job, frame,
@@ -487,6 +692,17 @@ public class FrameCompleteHandler {
     }
 
     /**
+     * Whether the legacy per-host BookingQueue enqueues must be suppressed: booking is turned off,
+     * or the in-process Maestro owns this facility and reaches the host on its own tick. Mirrors
+     * the guard in HostReportHandler and keeps legacy booking threads from racing Maestro's batched
+     * commit for the same frames.
+     */
+    private boolean isBookingOff() {
+        return env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
+                || MaestroMode.facility(env);
+    }
+
+    /**
      * Publishes layer-completion metrics and events. Called only on the proc-backed path; the
      * orphaned path intentionally omits it. Safe to run after
      * {@link #satisfyDependsAndCompleteLayerAndJob}: optimizeLayer is skipped when the layer is
@@ -537,15 +753,34 @@ public class FrameCompleteHandler {
     }
 
     /**
-     * Prepares a memory-killed frame for retry: disables the memory optimizer and raises the layer
-     * memory requirement by the amount from the show's service override, the service default, or
-     * 2GB.
+     * Prepares a memory-killed frame for retry by raising its memory by the amount from the show's
+     * service override, the service default, or 2GB.
+     *
+     * The legacy dispatcher raises the whole LAYER and disables its optimizer (the original
+     * behavior, kept unchanged). The in-process Maestro instead bumps per FRAME so one hungry or
+     * spuriously-killed frame does not inflate every other frame and strand cores, escalating to
+     * the layer only after repeated OOMs in a row (see OomMemoryTracker).
      */
     private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
-        long increase = getMemoryIncrease(frame);
+        long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
+        if (MaestroMode.enabled(env)) {
+            // Leaves the layer optimizer on, so an escalated layer later settles at its true size.
+            int oomThreshold =
+                    env.getProperty("dispatcher.oom_layer_escalate_threshold", Integer.class, 3);
+            if (OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(), newReserved,
+                    oomThreshold)) {
+                jobManager.increaseLayerMemoryRequirement(frame, newReserved);
+                logger.info("Layer " + frame.getLayerId() + " OOMed " + oomThreshold
+                        + "x in a row; raised layer mem to: " + newReserved);
+            } else {
+                logger.info("Frame " + frame.getFrameId() + " OOM; per-frame mem bump to: "
+                        + newReserved);
+            }
+            return;
+        }
         jobManager.enableMemoryOptimizer(frame, false);
-        jobManager.increaseLayerMemoryRequirement(frame, proc.memoryReserved + increase);
-        logger.info("Increased mem usage to: " + (proc.memoryReserved + increase));
+        jobManager.increaseLayerMemoryRequirement(frame, newReserved);
+        logger.info("Increased mem usage to: " + newReserved);
     }
 
     private long getMemoryIncrease(DispatchFrame frame) {
@@ -642,7 +877,7 @@ public class FrameCompleteHandler {
          * can cause storms of booking requests that don't have a chance of finding a suitable frame
          * to run.
          */
-        if (!proc.isLocalDispatch && proc.coresReserved >= 100
+        if (!isBookingOff() && !proc.isLocalDispatch && proc.coresReserved >= 100
                 && dispatchSupport.isCueBookable(job)) {
             bookingQueue.execute(new DispatchBookHost(hostManager.getDispatchHost(proc.getHostId()),
                     dispatcher, env));
@@ -661,7 +896,8 @@ public class FrameCompleteHandler {
      * @return true if the proc was unbooked and its host queued for rebooking.
      */
     private boolean maybeTransferProcToNeedierJob(VirtualProc proc, DispatchJob job) {
-        if (proc.isLocalDispatch || randomNumber.nextInt(100) > Dispatcher.UNBOOK_FREQUENCY
+        if (isBookingOff() || proc.isLocalDispatch
+                || randomNumber.nextInt(100) > Dispatcher.UNBOOK_FREQUENCY
                 || System.currentTimeMillis() <= lastUnbook.get()) {
             return false;
         }
@@ -697,7 +933,8 @@ public class FrameCompleteHandler {
      * Books the next frame of the same job on the proc, unless the proc should be released first:
      * on scheduler-managed shows the standalone scheduler owns dispatch, and rebooking here would
      * race it and strand procs with reserved cores; and a host with a whole stranded core is
-     * rebooked through the booking queue so the extra cores can be picked up.
+     * rebooked through the booking queue so the extra cores can be picked up. When booking is off
+     * facility-wide the proc is released for the next Maestro tick instead of rebooked.
      */
     private void bookNextFrameOnProc(VirtualProc proc, DispatchJob job, DispatchFrame frame) {
         // Local dispatches are always Cuebot-managed.
@@ -706,7 +943,7 @@ public class FrameCompleteHandler {
             return;
         }
 
-        if (!proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
+        if (!isBookingOff() && !proc.isLocalDispatch && dispatchSupport.hasStrandedCores(proc)
                 && jobManager.isLayerThreadable(frame) && dispatchSupport.isJobBookable(job)) {
             int strandedCores = hostManager.getStrandedCoreUnits(proc);
             if (strandedCores >= 100) {
@@ -718,8 +955,16 @@ public class FrameCompleteHandler {
             }
         }
 
-        Dispatcher procDispatcher = proc.isLocalDispatch ? localDispatcher : dispatcher;
-        dispatchQueue.execute(new DispatchNextFrame(job, proc, procDispatcher));
+        // Under the in-process Maestro: never rebook here (it would race the batched commit);
+        // unbook instead, and Maestro rebooks next tick with the locality bonus preferring
+        // this host. Without the unbook the reserved cores would leak.
+        if (proc.isLocalDispatch) {
+            dispatchQueue.execute(new DispatchNextFrame(job, proc, localDispatcher));
+        } else if (!isBookingOff()) {
+            dispatchQueue.execute(new DispatchNextFrame(job, proc, dispatcher));
+        } else {
+            dispatchSupport.unbookProc(proc);
+        }
     }
 
     /**
@@ -970,6 +1215,12 @@ public class FrameCompleteHandler {
              */
             jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
                     report.getFrame().getMaxRss(), report.getRunTime());
+            if (MaestroMode.enabled(env)) {
+                // With the in-process Maestro, a success clears this frame's
+                // per-frame OOM bump. The layer's OOM streak is deliberately
+                // kept (see OomMemoryTracker.onSuccess).
+                OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
+            }
         }
 
         /*
@@ -1172,6 +1423,26 @@ public class FrameCompleteHandler {
     public synchronized void shutdown() {
         logger.info("Shutting down FrameCompleteHandler.");
         shutdown = true;
+        // Drain queued post-complete work (depend satisfaction, completion
+        // checks) before the JVM exits; the worker is a daemon thread, so
+        // without this the queue's contents would be silently abandoned and
+        // downstream frames would wait on a maintenance sweep.
+        postCompleteExecutor.shutdown();
+        long drainMs = env.getProperty("healthy_threadpool.shutdown_drain_ms", Long.class, 60000L);
+        try {
+            if (!postCompleteExecutor.awaitTermination(drainMs, TimeUnit.MILLISECONDS)) {
+                logger.warn("post-complete worker did not drain within " + drainMs + "ms; "
+                        + postCompleteExecutor.getQueue().size() + " queued operations abandoned"
+                        + " (recovered later by the depend maintenance sweep).");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Depth of the post-complete work queue, reported on Maestro stat line. */
+    public int getPostCompleteQueueDepth() {
+        return postCompleteExecutor.getQueue().size();
     }
 
     public HostManager getHostManager() {

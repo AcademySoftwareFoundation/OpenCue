@@ -301,6 +301,13 @@ public final class RqdClientGrpc implements RqdClient {
         try {
             getStub(proc.hostName).launchFrame(request);
         } catch (StatusRuntimeException e) {
+            // Log the underlying cause: the caller only sees a generic
+            // RqdClientException, which hides why the launch failed (e.g. an
+            // EMFILE "Too many open files" once the per-host channel cache
+            // exhausts the process FD limit at large farm scale).
+            logger.warn(
+                    "failed to launch frame on " + proc.hostName + ":" + rqdServerPort + ": " + e,
+                    e);
             if (LAUNCH_OUTCOME_UNKNOWN_CODES.contains(e.getStatus().getCode())) {
                 throw new RqdLaunchUnknownOutcomeException(
                         "failed to launch frame " + frame.getFrameId() + " on " + proc.hostName
@@ -310,6 +317,9 @@ public final class RqdClientGrpc implements RqdClient {
             throw new RqdClientException("failed to launch frame", e);
         } catch (ExecutionException e) {
             // The channel could not even be created; the request was never sent.
+            logger.warn(
+                    "failed to launch frame on " + proc.hostName + ":" + rqdServerPort + ": " + e,
+                    e);
             throw new RqdClientException("failed to launch frame", e);
         }
     }

@@ -1,0 +1,4 @@
+# Generated benchmark outputs — never commit these.
+*.csv
+*.png
+__pycache__/

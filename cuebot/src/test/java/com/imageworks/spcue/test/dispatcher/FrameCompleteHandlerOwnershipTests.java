@@ -46,6 +46,7 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -88,6 +89,12 @@ public class FrameCompleteHandlerOwnershipTests {
         Environment env = mock(Environment.class);
         when(env.getProperty(eq("depend.satisfy_only_on_frame_success"), eq(Boolean.class),
                 eq(true))).thenReturn(true);
+        // The constructor unboxes every numeric property it reads, so the defaults have to come
+        // back from the mock rather than as null.
+        when(env.getProperty(anyString(), eq(Long.class), anyLong()))
+                .thenAnswer(i -> i.getArgument(2));
+        when(env.getProperty(anyString(), eq(Integer.class), anyInt()))
+                .thenAnswer(i -> i.getArgument(2));
         handler = new FrameCompleteHandler(env);
 
         hostManager = mock(HostManager.class);

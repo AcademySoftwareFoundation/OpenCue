@@ -78,6 +78,7 @@ import com.imageworks.spcue.util.CueUtil;
 public class CoreUnitDispatcher implements Dispatcher {
     private static final Logger logger = LogManager.getLogger(CoreUnitDispatcher.class);
 
+
     private DispatchSupport dispatchSupport;
 
     private JobManager jobManager;
@@ -242,6 +243,19 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job) {
+        return dispatchHostFrames(host, job, "job", () -> dispatchSupport
+                .findNextDispatchFrames(job, host, getIntProperty("dispatcher.frame_query_max")));
+    }
+
+    /**
+     * Shared booking loop behind the per-job and per-layer {@code dispatchHost} variants: check
+     * show burst, run the scoped frame query, then book frames until the host or the dispatch caps
+     * run out. The layer variant passes the layer itself (a LayerInterface is also a JobInterface),
+     * so the burst / job-bookable checks work unchanged for both. {@code scope} only labels the log
+     * lines.
+     */
+    private List<VirtualProc> dispatchHostFrames(DispatchHost host, JobInterface job, String scope,
+            java.util.function.Supplier<List<DispatchFrame>> frameQuery) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
@@ -249,11 +263,10 @@ public class CoreUnitDispatcher implements Dispatcher {
             return procs;
         }
 
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(job, host,
-                getIntProperty("dispatcher.frame_query_max"));
+        List<DispatchFrame> frames = frameQuery.get();
 
         logger.info("Frames found: " + frames.size() + " for host " + host.getName() + " "
-                + host.idleCores + "/" + host.idleMemory + " on job " + job.getName());
+                + host.idleCores + "/" + host.idleMemory + " on " + scope + " " + job.getName());
 
         String[] selfishServices =
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");
@@ -262,7 +275,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             VirtualProc proc = VirtualProc.build(host, frame, selfishServices);
 
             if (frame.minCores <= 0 && !proc.canHandleNegativeCoresRequest) {
-                logger.debug("Cannot dispatch job, host is busy.");
+                logger.debug("Cannot dispatch " + scope + ", host is busy.");
                 break;
             }
 
@@ -318,7 +331,6 @@ public class CoreUnitDispatcher implements Dispatcher {
         }
 
         return procs;
-
     }
 
     public void dispatchProcToJob(VirtualProc proc, JobInterface job) {
@@ -346,12 +358,91 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer) {
-        throw new RuntimeException("not implemented)");
+        // Layer-exact dispatch for Maestro: book frames of the specific
+        // layer it scored and reserved this host for, not the whole job, by
+        // scoping the frame query to the layer.
+        return dispatchHostFrames(host, layer, "layer", () -> dispatchSupport
+                .findNextDispatchFrames(layer, host, getIntProperty("dispatcher.frame_query_max")));
     }
 
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, FrameInterface frame) {
         throw new RuntimeException("not implemented)");
+    }
+
+    @Override
+    public List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
+            long effMemKb, int planOffset, int planLimit) {
+        // The scheduler accounted planLimit frames for this (host, layer) slice;
+        // deliver exactly that. 0 = no slice info: legacy per-call trickle.
+        int bookMax =
+                planLimit > 0 ? planLimit : getIntProperty("dispatcher.job_frame_dispatch_max");
+        // Maestro-native lean read. Maestro already loaded this host and
+        // already enforced show-burst and job caps in-tick, so we skip the
+        // per-frame isShowAtOrOverBurst / isJobBookable DB round-trips the
+        // legacy dispatchHost makes (~15 per placement). One candidate query,
+        // then build procs and apply the in-memory resource fit checks; the
+        // Maestro commits the bookings in bulk. No writes, no RQD launch.
+        List<FrameBooking> bookings = new ArrayList<FrameBooking>();
+
+        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(layer, host,
+                Math.max(getIntProperty("dispatcher.frame_query_max"), bookMax), planOffset);
+
+        String[] selfishServices =
+                env.getProperty("dispatcher.frame.selfish.services", "").split(",");
+        for (DispatchFrame frame : frames) {
+
+            // Maestro sized this layer from its observed rss (LayerLiveMem):
+            // book the frames at that size, and reserve the memory the layer
+            // really uses, so the plan and the commit describe the same frame.
+            // 0 = no resize (no evidence, not threadable, or feature off).
+            if (effCores > frame.minCores && frame.threadable) {
+                frame.minCores = effCores;
+            }
+            if (effMemKb > frame.getMinMemory()) {
+                frame.setMinMemory(effMemKb);
+            }
+
+            VirtualProc proc;
+            try {
+                // expandThreadable=false: reserve exactly the requested cores. The
+                // Maestro scored and accounted this placement at the same figure,
+                // so the thread-mode grab-idle expansion would over-reserve and
+                // corrupt that accounting.
+                proc = VirtualProc.build(host, frame, false, selfishServices);
+            } catch (RuntimeException e) {
+                // build() can still throw on edge cases; stop planning this host
+                // and let a later tick retry.
+                break;
+            }
+
+            if (frame.minCores <= 0 && !proc.canHandleNegativeCoresRequest) {
+                break;
+            }
+
+            if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores)
+                    || host.idleMemory < frame.getMinMemory() || host.idleGpus < frame.minGpus
+                    || host.idleGpuMemory < frame.minGpuMemory) {
+                break;
+            }
+
+            bookings.add(new FrameBooking(frame, proc));
+            DispatchSupport.bookedProcs.getAndIncrement();
+            DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+            DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
+
+            host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved,
+                    proc.gpuMemoryReserved);
+            if (!host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, MEM_RESERVED_MIN,
+                    Dispatcher.GPU_UNITS_RESERVED_MIN, MEM_GPU_RESERVED_MIN)) {
+                break;
+            } else if (bookings.size() >= bookMax) {
+                break;
+            } else if (bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+                break;
+            }
+        }
+        return bookings;
     }
 
     @Override
