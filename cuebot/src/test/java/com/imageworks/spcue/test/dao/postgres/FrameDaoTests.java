@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -53,14 +54,18 @@ import com.imageworks.spcue.dao.postgres.FrameDaoJdbc;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.FrameBooking;
 import com.imageworks.spcue.dispatcher.FrameReservationException;
+import com.imageworks.spcue.dispatcher.QueuedFrameCompletion;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
 import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
+import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -810,5 +815,124 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
         assertEquals(1, results.getOverridesCount());
         assertEquals(overrideUpdate, results.getOverridesList().get(0));
+    }
+
+    /** Job whose pass_1 frames have no dependencies, so several frames start out WAITING. */
+    private JobDetail launchDispatchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
+        return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
+    }
+
+    private String readFrameState(String frameId) {
+        return jdbcTemplate.queryForObject("SELECT str_state FROM frame WHERE pk_frame=?",
+                String.class, frameId);
+    }
+
+    private int readFrameVersion(String frameId) {
+        return jdbcTemplate.queryForObject("SELECT int_version FROM frame WHERE pk_frame=?",
+                Integer.class, frameId);
+    }
+
+    /** Completion resolved at report time, as the scheduler's flush queues them. */
+    private QueuedFrameCompletion completion(DispatchFrame frame, VirtualProc proc, long maxRss) {
+        FrameCompleteReport report = FrameCompleteReport.newBuilder()
+                .setFrame(RunningFrameInfo.newBuilder().setMaxRss(maxRss).build()).setExitStatus(0)
+                .build();
+        return new QueuedFrameCompletion(report, proc, null, null, null, frame,
+                FrameState.SUCCEEDED, 0);
+    }
+
+    /**
+     * batchUpdateFramesStarted transitions the winners WAITING -> RUNNING with the proc's resources
+     * stamped, and a frame whose version moved on after the planning snapshot is a clean 0-row
+     * loser: untouched, no retry burned, mask false.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBatchUpdateFramesStartedFencesStaleVersion() {
+        DispatchHost host = createHost();
+        JobDetail job = launchDispatchJob();
+        FrameDetail detail1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail detail2 = frameDao.findFrameDetail(job, "0002-pass_1");
+        DispatchFrame frame1 = frameDao.getDispatchFrame(detail1.getId());
+        DispatchFrame frame2 = frameDao.getDispatchFrame(detail2.getId());
+        VirtualProc proc1 = buildProc(host, job, detail1);
+        VirtualProc proc2 = buildProc(host, job, detail2);
+
+        // Fresh frames carry int_exit_status=-1, which is on the retry-exclusion list; stamp a
+        // genuine failure status so the retry-consumption assertions below are meaningful.
+        jdbcTemplate.update("UPDATE frame SET int_exit_status = 1 WHERE pk_frame IN (?, ?)",
+                frame1.getFrameId(), frame2.getFrameId());
+
+        // A competing writer bumps frame2 after our planning snapshot.
+        jdbcTemplate.update("UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
+                frame2.getFrameId());
+
+        boolean[] won = frameDao.batchUpdateFramesStarted(
+                Arrays.asList(new FrameBooking(frame1, proc1), new FrameBooking(frame2, proc2)));
+
+        assertTrue(won[0]);
+        assertFalse(won[1]);
+
+        // Winner: RUNNING, proc resources stamped, version fenced forward, one retry consumed.
+        assertEquals(FrameState.RUNNING.toString(), readFrameState(frame1.getFrameId()));
+        assertEquals(frame1.version + 1, readFrameVersion(frame1.getFrameId()));
+        assertEquals(host.getName(), jdbcTemplate.queryForObject(
+                "SELECT str_host FROM frame WHERE pk_frame=?", String.class, frame1.getFrameId()));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_retries FROM frame WHERE pk_frame=?",
+                        Integer.class, frame1.getFrameId()));
+
+        // Loser: still WAITING and its retry budget untouched.
+        assertEquals(FrameState.WAITING.toString(), readFrameState(frame2.getFrameId()));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT int_retries FROM frame WHERE pk_frame=?",
+                        Integer.class, frame2.getFrameId()));
+    }
+
+    /**
+     * batchUpdateFramesStopped stops the winners (state + exit status + maxRss recorded) while a
+     * completion carrying a version older than the frame's current one loses cleanly and leaves the
+     * frame RUNNING for whoever owns it now.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBatchUpdateFramesStoppedFencesStaleVersion() {
+        DispatchHost host = createHost();
+        JobDetail job = launchDispatchJob();
+        FrameDetail detail1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail detail2 = frameDao.findFrameDetail(job, "0002-pass_1");
+        DispatchFrame frame1 = frameDao.getDispatchFrame(detail1.getId());
+        DispatchFrame frame2 = frameDao.getDispatchFrame(detail2.getId());
+        VirtualProc proc1 = buildProc(host, job, detail1);
+        VirtualProc proc2 = buildProc(host, job, detail2);
+
+        // Arrange: both frames RUNNING via the single-frame start path.
+        frameDao.updateFrameStarted(proc1, frame1);
+        frameDao.updateFrameStarted(proc2, frame2);
+
+        // frame1's completion carries the post-start version (a win); frame2's still carries the
+        // stale pre-start snapshot, as if a kill or retry had already moved the frame on.
+        DispatchFrame running1 = frameDao.getDispatchFrame(detail1.getId());
+        boolean[] won = frameDao.batchUpdateFramesStopped(
+                Arrays.asList(completion(running1, proc1, 4242), completion(frame2, proc2, 1)));
+
+        assertTrue(won[0]);
+        assertFalse(won[1]);
+
+        assertEquals(FrameState.SUCCEEDED.toString(), readFrameState(frame1.getFrameId()));
+        assertEquals(running1.version + 1, readFrameVersion(frame1.getFrameId()));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT int_exit_status FROM frame WHERE pk_frame=?",
+                        Integer.class, frame1.getFrameId()));
+        assertEquals(Long.valueOf(4242),
+                jdbcTemplate.queryForObject("SELECT int_mem_max_used FROM frame WHERE pk_frame=?",
+                        Long.class, frame1.getFrameId()));
+
+        // The stale completion did not stop the frame's current run.
+        assertEquals(FrameState.RUNNING.toString(), readFrameState(frame2.getFrameId()));
     }
 }

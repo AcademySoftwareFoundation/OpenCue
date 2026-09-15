@@ -134,6 +134,22 @@ public class DispatchSupportServiceLostProcTests {
     }
 
     @Test
+    public void staleCallerMustNotStopSomeoneElsesRun() {
+        // Ownership fence: when the delete no-ops, someone else already released this run and
+        // the frame may have been rebooked; lostProc must touch nothing.
+        when(procDao.deleteVirtualProc(any(VirtualProc.class))).thenReturn(false);
+
+        boolean released =
+                dispatchSupport.lostProc(proc, "stale walk", Dispatcher.EXIT_STATUS_DOWN_HOST);
+
+        org.junit.Assert.assertFalse(released);
+        verify(frameDao, never()).updateFrameStopped(any(FrameInterface.class),
+                any(FrameState.class), anyInt());
+        verify(frameDao, never()).updateFrameState(any(FrameInterface.class),
+                any(FrameState.class));
+    }
+
+    @Test
     public void skipsRqdKillForFailedKillExitStatus() {
         // The failed-kill path already attempted this exact kill, so lostProc must not re-issue it.
         // Since that kill demonstrably failed and the host still looks Up, the release is deferred

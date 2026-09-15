@@ -349,4 +349,25 @@ public class FrameCompleteHandlerLimitRuleTests extends TransactionalTest {
         assertEquals("Automatic backoff: exit status 332", delayed.startAfterReason);
         assertEquals(FrameState.WAITING, frameDao.getFrameDetail(proc.getFrameId()).state);
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimedStatusSpendsNoRetry() {
+        // A limit shortage is a contended resource, not a broken frame: the stored status
+        // must become SKIP_RETRY so the requeue never consumes one of the frame's retries.
+        createRuleLimit(5, true);
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test0");
+
+        VirtualProc proc = bookOneFrame(job);
+        reportFrameComplete(proc, LICENSE_EXIT_STATUS);
+
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT int_retries FROM frame WHERE pk_frame=?",
+                        Integer.class, proc.getFrameId()));
+        assertEquals(
+                Integer.valueOf(com.imageworks.spcue.grpc.job.FrameExitStatus.SKIP_RETRY_VALUE),
+                jdbcTemplate.queryForObject("SELECT int_exit_status FROM frame WHERE pk_frame=?",
+                        Integer.class, proc.getFrameId()));
+    }
 }

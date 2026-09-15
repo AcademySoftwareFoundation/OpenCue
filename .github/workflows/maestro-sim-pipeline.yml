@@ -1,0 +1,168 @@
+name: OpenCue Maestro Sim Pipeline
+
+# Runs a subset of the Maestro farm simulator's self-test battery
+# (sandbox/maestro-sim/simulate.py --verify): a real cuebot against a real
+# Postgres, driven over gRPC by a fake render farm, asserting the scheduler's
+# behavioural invariants end to end. These are the checks unit tests cannot be --
+# "the cap held under a deep backlog", "no licence pool was ever oversubscribed"
+# -- because they only mean anything with frames actually flowing.
+#
+# When it runs — and when it deliberately doesn't:
+#   - Pull requests: only when Maestro's code, the SQL it dispatches through, the
+#     properties that configure it, the migrations that shape those tables, or
+#     the simulator itself change. Each scenario costs minutes of runner time, so
+#     a CueGUI or docs change must not pay for it.
+#   - The paths filter is scoped by what Maestro DEPENDS ON, not by what is named
+#     after it. The bug that motivated this workflow lived in
+#     dao/postgres/FrameDaoJdbc.java -- Maestro could not book a single frame --
+#     and a filter listing only dispatcher/** would have sailed straight past it.
+#   - Nightly on master: catches regressions that slipped through the filter.
+#   - Manually (workflow_dispatch): to run any scenario, including the ones kept
+#     out of the gate below.
+#
+# Which scenarios gate, and why only these:
+#   Every scenario here runs on a 17-host farm and asserts a BINARY invariant --
+#   a cap was never exceeded, a pool was never oversubscribed. They are cheap and
+#   they cannot be half-true.
+#
+#   Deliberately NOT gated:
+#     - the full-farm scenarios (PRODENV, OOM, DEPENDS, LOCALITY, TAGS_GPU,
+#       TAGMAX, FAILOVER): 1553 hosts is too much for a 2-vCPU runner, and their
+#       throughput floors would measure the runner rather than the scheduler.
+#     - the statistically scored ones (PRIORITY's Spearman rho, LOCALITY's
+#       affinity rate, TAGMAX's race fraction): thresholds calibrated on real
+#       hardware become coin flips on a shared runner. Same reasoning
+#       scheduler-stress-pipeline.yml applies to its own throughput numbers.
+#   Run those locally, or through workflow_dispatch, where the result means
+#   something.
+#
+# Each job invokes the scenario through SIM_VERIFY_ONLY rather than by passing
+# simulate.py flags directly. That matters: the battery's definitions carry each
+# scenario's tuned farm size, frame-duration compression and environment, and
+# applies the throughput floor that stops a dead farm from "passing" an invariant
+# it never exercised. Re-specifying flags here would let CI drift away from what
+# --verify actually certifies.
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "cuebot/src/main/java/com/imageworks/spcue/dispatcher/**"
+      # The dispatch SQL and the DAOs Maestro books through.
+      - "cuebot/src/main/java/com/imageworks/spcue/dao/postgres/**"
+      - "cuebot/src/main/resources/opencue.properties"
+      - "cuebot/src/main/resources/conf/ddl/postgres/migrations/**"
+      - "sandbox/maestro-sim/**"
+      - ".github/workflows/maestro-sim-pipeline.yml"
+  schedule:
+    # Nightly on master, offset from the top of the hour.
+    - cron: "41 8 * * *"
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: "Comma-separated scenario names (default: the gated set)"
+        required: false
+      seconds:
+        description: "Per-scenario watch window in seconds (default 180)"
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sim:
+    runs-on: ubuntu-22.04
+    # A scenario is ~4 minutes of simulation on top of a cuebot build and a
+    # fresh database; the ceiling is for a hang, not for normal slowness.
+    timeout-minutes: 30
+
+    strategy:
+      # One scenario per job: the wall clock is then the slowest single scenario
+      # rather than the sum of all of them. fail-fast off so a single failure
+      # still leaves the others' verdicts (and logs) to compare against.
+      fail-fast: false
+      matrix:
+        scenario: [LIMIT, FOLDER, LICENSE, LICENSE_NO_HOSTS]
+
+    env:
+      # simulate.py runs its OWN Postgres cluster (it initdb's a fresh one per
+      # run so no state carries between runs), so this points at the server
+      # binaries, not at a service container.
+      SIM_PG_BIN: /usr/lib/postgresql/14/bin
+      # Keep Gradle's cache where actions/setup-java expects it, instead of the
+      # sim's default private gradle home, so dependencies are cached between
+      # runs.
+      SIM_GRADLE_HOME: /home/runner/.gradle
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The sim only reads the repo, so don't leave the token on disk.
+          persist-credentials: false
+
+      - name: Install Postgres server binaries
+        # initdb and pg_ctl live in the server package; the runner image ships
+        # only the client tools by default.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-14
+          "${SIM_PG_BIN}/initdb" --version
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: "17"
+          distribution: temurin
+          cache: gradle
+
+      - name: Set up the simulator
+        # Creates the venv with the gRPC deps and generates opencue_proto/ from
+        # the repo's own .proto sources.
+        working-directory: sandbox/maestro-sim
+        run: ./setup.sh
+
+      - name: Build cuebot
+        # Done as its own step so a compile break is reported as a build failure
+        # rather than surfacing later as "cuebot did not become ready".
+        working-directory: cuebot
+        run: ./gradlew assemble -g "${SIM_GRADLE_HOME}" --no-daemon --console=plain
+
+      - name: Run scenario ${{ matrix.scenario }}
+        working-directory: sandbox/maestro-sim
+        env:
+          SIM_VERIFY_ONLY: ${{ github.event.inputs.scenarios || matrix.scenario }}
+          SIM_VERIFY_SECONDS: ${{ github.event.inputs.seconds || '180' }}
+        run: |
+          # pipefail so tee cannot mask a failing verdict: --verify exits
+          # non-zero when any scenario fails, and that exit code IS the gate.
+          set -o pipefail
+          ./venv/bin/python simulate.py --verify 2>&1 | tee /tmp/maestro-sim-run.log
+
+      - name: Summarise
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### ${{ matrix.scenario }}"
+            echo '```'
+            # The battery's own summary block: the verdict plus the throughput
+            # the scenario actually achieved, which is half of what it certifies.
+            sed -n '/=== SIM VERIFY ===/,$p' /tmp/maestro-sim-run.log 2>/dev/null \
+              || echo "no verdict recorded (the run died before reaching one)"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Archive scenario logs and graphs
+        # Only on failure: the graphs and per-scenario logs are what make a
+        # behavioural failure diagnosable after the runner is gone.
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-sim-${{ matrix.scenario }}
+          path: |
+            /tmp/maestro-sim/verify/
+            /tmp/maestro-sim-run.log
+            /tmp/cuebot-new.log
+            sandbox/maestro-sim/*.log
+          retention-days: 7
+          if-no-files-found: warn

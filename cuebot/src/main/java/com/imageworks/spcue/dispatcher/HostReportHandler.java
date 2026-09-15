@@ -101,6 +101,16 @@ public class HostReportHandler {
     @Autowired
     private PrometheusMetricsCollector prometheusMetrics;
 
+    // Live farm-health ledger for the in-process scheduler's metrics; optional
+    // so report handling never depends on it.
+    @Autowired(required = false)
+    private FarmHealth farmHealth;
+
+    // Live per-layer rss ledger for the scheduler's launch-time core grant; optional
+    // so report handling never depends on it.
+    @Autowired(required = false)
+    private LayerLiveMem layerLiveMem;
+
     // Reconcile idle resources roughly every 10 minutes per host.
     // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
     private static final long RECONCILE_INTERVAL_MS = 600_000;
@@ -173,6 +183,10 @@ public class HostReportHandler {
 
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
+        if (farmHealth != null)
+            farmHealth.record(report.getHost());
+        if (layerLiveMem != null)
+            layerLiveMem.record(report.getFramesList());
         try {
             // Record Prometheus metric for host report
             if (prometheusMetrics != null) {
@@ -318,8 +332,14 @@ public class HostReportHandler {
                 msg = "The cue has no pending jobs";
             }
 
+            // When Maestro owns the whole facility it owns dispatch:
+            // suppress the legacy per-host BookingQueue enqueue so the two paths
+            // never both run. In 'managed' (per-show) mode the legacy dispatcher
+            // still runs for non-managed shows (its query already excludes
+            // b_scheduler_managed shows), so we do NOT suppress it globally there.
             boolean bookingOff =
-                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false);
+                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
+                            || MaestroMode.facility(env);
             /*
              * If a message was set, the host is not bookable. Log the message and move on.
              */

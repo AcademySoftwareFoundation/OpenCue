@@ -182,6 +182,44 @@ public interface DispatchSupport {
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame);
 
     /**
+     * The janitor sweep: delete every proc whose frame is no longer RUNNING (older than the given
+     * age) and refund its host resources. Catches orphans on frames that never get planned again
+     * (job finished or killed), which the commit-time eviction cannot reach. Returns how many were
+     * swept.
+     */
+    int sweepOrphanedProcs(int olderThanSeconds);
+
+    /**
+     * Commit a chunk of queued frame completions as ONE transaction: host rows pre-locked (sorted,
+     * the same global order as the booking commit), every frame stopped with the state+version
+     * guard in one batch (stat triggers fire on pre-locked counter rows), winners' max-RSS marks
+     * coalesced per layer/job, and winners' procs batch-deleted with all release-side resource
+     * credits applied. Returns the winner mask aligned to the input.
+     */
+    boolean[] stopFramesBatch(java.util.List<QueuedFrameCompletion> completions);
+
+    /**
+     * Batch variant of {@link #startFrameAndProc}: commits many planned bookings in one transaction
+     * with batched statements, version-guarded frame RUNNING transition, proc INSERT, and host idle
+     * decrement, instead of one transaction and ~6 round-trips per frame. The
+     * subscription/layer/job/ folder/point counters are NOT written here; Maestro batches those
+     * separately. Frames that lost their optimistic version race are dropped.
+     *
+     * @param bookings the planned (frame, proc) pairs from the planning phase
+     * @return the subset of bookings that were actually committed (winners)
+     */
+    public java.util.List<FrameBooking> startFramesAndProcsBatch(
+            java.util.List<FrameBooking> bookings);
+
+    /**
+     * Publish FRAME_STARTED monitoring events for a batch of committed bookings. Deliberately
+     * separate from {@link #startFramesAndProcsBatch} so the caller invokes it OUTSIDE the commit
+     * transaction: a slow publish (e.g. a Kafka metadata refresh) must never extend the lock window
+     * of the booking commit.
+     */
+    void publishFrameStartedEvents(java.util.List<FrameBooking> winners);
+
+    /**
      * This method clears out a proc that was lost track of. This can happen if the host fails and
      * the proc fails to report in, a network outage occurs, or something of that nature.
      *
@@ -225,13 +263,17 @@ public interface DispatchSupport {
      * Unbooks a proc with no message
      *
      * @param proc
+     * @return true if this call deleted the proc row. False means someone else already released
+     *         this run; the caller owns nothing and must not touch the frame.
      */
-    void unbookProc(VirtualProc proc);
+    boolean unbookProc(VirtualProc proc);
 
     /**
      * Unbooks a virtual proc. Takes a reason which is printed to the console.
+     *
+     * @return true if this call deleted the proc row (see the one-arg overload).
      */
-    void unbookProc(VirtualProc proc, String reason);
+    boolean unbookProc(VirtualProc proc, String reason);
 
     /**
      * Returns the next N frames to be dispatched from the specified job.
@@ -263,6 +305,13 @@ public interface DispatchSupport {
      * @return
      */
     List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
+
+    /**
+     * Same, skipping the first {@code offset} dispatchable frames (disjoint slices for parallel
+     * same-layer plans).
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit,
+            int offset);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.

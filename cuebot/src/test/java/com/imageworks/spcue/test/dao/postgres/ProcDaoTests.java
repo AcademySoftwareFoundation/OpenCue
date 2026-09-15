@@ -17,7 +17,10 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Resource;
 
 import org.junit.After;
@@ -25,7 +28,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -78,6 +83,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Autowired
     private Environment env;
 
+    @Autowired
+    private ConfigurableEnvironment springEnv;
+
     @Resource
     ProcDao procDao;
 
@@ -119,6 +127,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     private static String PK_ALLOC = "00000000-0000-0000-0000-000000000000";
 
+    /**
+     * Name of the test-scoped property source that flips dispatcher.scheduler_manages_resources;
+     * added per-test and always removed in an @After hook so it cannot leak into other tests.
+     */
+    private static final String SCHEDULER_MANAGES_PROPS = "procDaoTestsSchedulerManages";
+
     private long MEM_RESERVED_DEFAULT;
     private long MEM_GPU_RESERVED_DEFAULT;
 
@@ -157,6 +171,18 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // @Rollback rolls back the DB row but leaves the in-process Guava cache populated; clear
         // it so the next test reads the (rolled-back) value from the DB instead of stale cache.
         showDao.invalidateSchedulerManagedCache();
+    }
+
+    @After
+    public void removeSchedulerManagesPropertyOverride() {
+        // Idempotent: only tests that injected the override actually have one to remove.
+        springEnv.getPropertySources().remove(SCHEDULER_MANAGES_PROPS);
+    }
+
+    /** Injects dispatcher.scheduler_manages_resources=true for the current test only. */
+    private void enableExternalSchedulerAccounting() {
+        springEnv.getPropertySources().addFirst(new MapPropertySource(SCHEDULER_MANAGES_PROPS,
+                Collections.singletonMap("dispatcher.scheduler_manages_resources", Boolean.TRUE)));
     }
 
     @Test
@@ -925,8 +951,10 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     }
 
     /**
-     * Cuebot-managed show: deleteVirtualProc should decrement the five PG accounting tables exactly
-     * as before PR-B. Regression guard for the default branch.
+     * Cuebot-managed show: deleteVirtualProc decrements the five PG accounting tables. With
+     * dispatcher.scheduler_manages_resources at its default (false) the decrement-skip gate in
+     * ProcDaoJdbc is closed, so this is the path every show takes regardless of the
+     * b_scheduler_managed flag. Regression guard for the default branch.
      */
     @Test
     @Transactional
@@ -966,10 +994,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     }
 
     /**
-     * Scheduler-managed show: deleteVirtualProc must <em>not</em> decrement the five PG accounting
-     * tables. The Rust scheduler's recompute will rewrite them from SUM(proc) on a 2-min cadence
-     * (PR-C). For PR-B this only asserts the SQL chokepoint behavior; the release NOTIFY itself is
-     * covered by {@code AccountingNotifierTests}.
+     * Show flagged {@code b_scheduler_managed=true} AND
+     * {@code dispatcher.scheduler_manages_resources=true}: deleteVirtualProc must <em>not</em>
+     * decrement the five PG accounting tables. Only then does an EXTERNAL scheduler own them (its
+     * recompute rewrites them from SUM(proc)); the release is announced via NOTIFY instead. The
+     * skip requires BOTH conditions — the property is injected with high precedence for this test
+     * only and removed in an @After hook.
      */
     @Test
     @Transactional
@@ -997,7 +1027,10 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         int folderCoresAfterInsert = readFolderCores(proc.jobId);
         int pointCoresAfterInsert = readPointCores(proc.jobId);
 
-        // Flip the show to scheduler-managed; the ShowDao writer-cache refresh means the next
+        // Both halves of the gate: the property (removed by the @After hook) ...
+        enableExternalSchedulerAccounting();
+
+        // ... and the show flag. The ShowDao writer-cache refresh means the next
         // isSchedulerManaged() call sees true immediately on this Cuebot. The @After hook clears
         // the cache so this transient flip doesn't leak into other tests.
         ShowEntity show = showDao.getShowDetail(proc.showId);
@@ -1005,12 +1038,306 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         procDao.deleteVirtualProc(proc);
 
-        // Scheduler-managed: the five tables are NOT decremented (Rust owns recompute).
+        // External-scheduler-managed: the five tables are NOT decremented (recompute owns them).
         assertEquals(subCoresAfterInsert, readSubCores(proc.showId, proc.allocationId));
         assertEquals(layerCoresAfterInsert, readLayerCores(proc.layerId));
         assertEquals(jobCoresAfterInsert, readJobCores(proc.jobId));
         assertEquals(folderCoresAfterInsert, readFolderCores(proc.jobId));
         assertEquals(pointCoresAfterInsert, readPointCores(proc.jobId));
+    }
+
+    /**
+     * Show flagged {@code b_scheduler_managed=true} but dispatcher.scheduler_manages_resources left
+     * at its default (false): the decrements still happen. This is the fail-safe default — the
+     * in-process Maestro's 'managed' mode uses the same show flag, but its bookings increment these
+     * tables, so its releases must decrement them or the counters ratchet upward until every cap
+     * looks full.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testProcDestroyedManagedShowWithoutPropertyStillDecrements() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+
+        int subCoresAfterInsert = readSubCores(proc.showId, proc.allocationId);
+        int layerCoresAfterInsert = readLayerCores(proc.layerId);
+        int jobCoresAfterInsert = readJobCores(proc.jobId);
+        int folderCoresAfterInsert = readFolderCores(proc.jobId);
+        int pointCoresAfterInsert = readPointCores(proc.jobId);
+
+        // Only the show flag; the property stays at its default (false).
+        ShowEntity show = showDao.getShowDetail(proc.showId);
+        showDao.updateSchedulerManaged(show, true);
+
+        procDao.deleteVirtualProc(proc);
+
+        // The flag alone does not open the skip gate: decrements happen as usual.
+        assertEquals(subCoresAfterInsert - 100, readSubCores(proc.showId, proc.allocationId));
+        assertEquals(layerCoresAfterInsert - 100, readLayerCores(proc.layerId));
+        assertEquals(jobCoresAfterInsert - 100, readJobCores(proc.jobId));
+        assertEquals(folderCoresAfterInsert - 100, readFolderCores(proc.jobId));
+        assertEquals(pointCoresAfterInsert - 100, readPointCores(proc.jobId));
+    }
+
+    /**
+     * reserveHostResourcesBatch aggregates the demand of several procs on the same host into one
+     * guarded decrement, and refundHostResourcesBatch restores the same idle counters exactly.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testReserveAndRefundHostResourcesBatch() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 200);
+
+        long idleCores = readHostIdleCores(host.id);
+        long idleMem = readHostIdleMem(host.id);
+
+        Set<String> affordable = procDao.reserveHostResourcesBatch(Arrays.asList(proc1, proc2));
+
+        assertEquals(Collections.singleton(host.id), affordable);
+        assertEquals(idleCores - 300, readHostIdleCores(host.id));
+        assertEquals(idleMem - 200000, readHostIdleMem(host.id));
+
+        procDao.refundHostResourcesBatch(Arrays.asList(proc1, proc2));
+
+        assertEquals(idleCores, readHostIdleCores(host.id));
+        assertEquals(idleMem, readHostIdleMem(host.id));
+    }
+
+    /**
+     * The reservation guard is per-host and aggregated: two procs that each fit individually but
+     * together exceed the host's idle cores leave the host out of the affordable set and its idle
+     * counters completely untouched (0-row guarded update, no partial reservation).
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testReserveHostResourcesBatchRefusesOverCommittedHost() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        long idleCores = readHostIdleCores(host.id);
+        long idleMem = readHostIdleMem(host.id);
+
+        // Individually affordable, aggregate demand = idleCores + 100.
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, (int) idleCores);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+
+        Set<String> affordable = procDao.reserveHostResourcesBatch(Arrays.asList(proc1, proc2));
+
+        assertTrue(affordable.isEmpty());
+        assertEquals(idleCores, readHostIdleCores(host.id));
+        assertEquals(idleMem, readHostIdleMem(host.id));
+    }
+
+    /**
+     * batchInsertVirtualProcs writes only the proc rows: host idle is debited by the up-front
+     * reserveHostResourcesBatch (the commit-path sequence) and must not be debited a second time by
+     * the insert, unlike the single-proc insertVirtualProc which does both.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBatchInsertVirtualProcsWritesRowsWithoutTouchingHostIdle() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+
+        long idleCores = readHostIdleCores(host.id);
+        procDao.reserveHostResourcesBatch(Arrays.asList(proc1, proc2));
+        long idleCoresAfterReserve = readHostIdleCores(host.id);
+        assertEquals(idleCores - 200, idleCoresAfterReserve);
+
+        procDao.batchInsertVirtualProcs(Arrays.asList(proc1, proc2));
+
+        assertEquals(2, countProcsOnHost(host.id));
+        assertTrue(procDao.verifyRunningProc(proc1.getId(), frame1.getId()));
+        assertTrue(procDao.verifyRunningProc(proc2.getId(), frame2.getId()));
+        // The insert itself did not double-debit the host.
+        assertEquals(idleCoresAfterReserve, readHostIdleCores(host.id));
+    }
+
+    /**
+     * batchDeleteVirtualProcs removes the rows, refunds host idle and credits the accounting tables
+     * exactly once: mirror image of what two single-proc inserts debited, and a repeat call on the
+     * same (already deleted) procs is a no-op with no second refund.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBatchDeleteVirtualProcsRefundsAndCreditsExactlyOnce() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        long idleCoresBeforeInsert = readHostIdleCores(host.id);
+        int jobCoresBeforeInsert = readJobCores(job.id);
+
+        // Single-proc inserts debit host idle AND the accounting tables (+100 each), so the batch
+        // delete must credit both back symmetrically.
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+        procDao.insertVirtualProc(proc1);
+        procDao.insertVirtualProc(proc2);
+
+        assertEquals(idleCoresBeforeInsert - 200, readHostIdleCores(host.id));
+        assertEquals(jobCoresBeforeInsert + 200, readJobCores(job.id));
+        int subCoresAfterInsert = readSubCores(proc1.showId, proc1.allocationId);
+        int layerCoresAfterInsert = readLayerCores(proc1.layerId);
+
+        List<VirtualProc> deleted = procDao.batchDeleteVirtualProcs(Arrays.asList(proc1, proc2));
+
+        assertEquals(2, deleted.size());
+        assertEquals(0, countProcsOnHost(host.id));
+        assertEquals(idleCoresBeforeInsert, readHostIdleCores(host.id));
+        assertEquals(jobCoresBeforeInsert, readJobCores(job.id));
+        assertEquals(subCoresAfterInsert - 200, readSubCores(proc1.showId, proc1.allocationId));
+        assertEquals(layerCoresAfterInsert - 200, readLayerCores(proc1.layerId));
+
+        // Repeat delete: the procs no longer exist, so nothing comes back and
+        // nothing is refunded or credited a second time.
+        assertTrue(procDao.batchDeleteVirtualProcs(Arrays.asList(proc1, proc2)).isEmpty());
+        assertEquals(idleCoresBeforeInsert, readHostIdleCores(host.id));
+        assertEquals(jobCoresBeforeInsert, readJobCores(job.id));
+    }
+
+    /**
+     * deleteStaleProcsByFrames reaps only procs sitting on the listed frames, returns the corpse
+     * with its host/allocation keys populated (for the caller's orphan-render kill), and
+     * refunds/credits only what the reaped proc held.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteStaleProcsByFramesOnlyReapsListedFrames() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+        procDao.insertVirtualProc(proc1);
+        procDao.insertVirtualProc(proc2);
+
+        long idleCoresAfterInsert = readHostIdleCores(host.id);
+        int jobCoresAfterInsert = readJobCores(job.id);
+
+        List<VirtualProc> stale = procDao.deleteStaleProcsByFrames(Arrays.asList(frame1.id));
+
+        assertEquals(1, stale.size());
+        VirtualProc corpse = stale.get(0);
+        assertEquals(proc1.getProcId(), corpse.getProcId());
+        assertEquals(host.name, corpse.hostName);
+        assertEquals(host.allocationId, corpse.allocationId);
+
+        // Only the listed frame's proc died; its neighbor survives untouched.
+        assertEquals(1, countProcsOnHost(host.id));
+        assertTrue(procDao.verifyRunningProc(proc2.getId(), frame2.getId()));
+
+        // Refund and credit cover exactly the reaped proc's share.
+        assertEquals(idleCoresAfterInsert + 100, readHostIdleCores(host.id));
+        assertEquals(jobCoresAfterInsert - 100, readJobCores(job.id));
+    }
+
+    /**
+     * deleteOrphanedProcs honors both halves of its predicate: a proc is swept only when its frame
+     * is not RUNNING and its booking is older than the cutoff. A fresh proc survives the sweep and
+     * so does an old proc whose frame is genuinely RUNNING.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteOrphanedProcsHonorsCutoffAndFrameState() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+        procDao.insertVirtualProc(proc1);
+        procDao.insertVirtualProc(proc2);
+
+        long idleCoresAfterInsert = readHostIdleCores(host.id);
+
+        // Both frames are non-RUNNING, but both bookings are fresh: nothing is swept.
+        assertTrue(procDao.deleteOrphanedProcs(300).isEmpty());
+
+        // Age proc1 past the cutoff: its non-RUNNING frame makes it a corpse.
+        jdbcTemplate.update("UPDATE proc SET ts_booked = current_timestamp - interval '1' hour "
+                + "WHERE pk_proc = ?", proc1.getProcId());
+
+        List<VirtualProc> swept = procDao.deleteOrphanedProcs(300);
+        assertEquals(1, swept.size());
+        assertEquals(proc1.getProcId(), swept.get(0).getProcId());
+        assertEquals(idleCoresAfterInsert + 100, readHostIdleCores(host.id));
+
+        // Age proc2 too, but put its frame in RUNNING: an active render is never swept.
+        jdbcTemplate.update("UPDATE proc SET ts_booked = current_timestamp - interval '1' hour "
+                + "WHERE pk_proc = ?", proc2.getProcId());
+        jdbcTemplate.update("UPDATE frame SET str_state = 'RUNNING' WHERE pk_frame = ?", frame2.id);
+
+        assertTrue(procDao.deleteOrphanedProcs(300).isEmpty());
+        assertEquals(1, countProcsOnHost(host.id));
+    }
+
+    /** Proc with the real allocation and accounting keys set, as the batch commit path builds. */
+    private VirtualProc buildBatchProc(DispatchHost host, JobDetail job, FrameDetail frame,
+            int cores) {
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = cores;
+        proc.memoryReserved = 100000;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+        return proc;
+    }
+
+    private long readHostIdleCores(String hostId) {
+        return jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host WHERE pk_host=?",
+                Long.class, hostId);
+    }
+
+    private long readHostIdleMem(String hostId) {
+        return jdbcTemplate.queryForObject("SELECT int_mem_idle FROM host WHERE pk_host=?",
+                Long.class, hostId);
+    }
+
+    private int countProcsOnHost(String hostId) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM proc WHERE pk_host=?",
+                Integer.class, hostId);
     }
 
     private int readSubCores(String showId, String allocId) {

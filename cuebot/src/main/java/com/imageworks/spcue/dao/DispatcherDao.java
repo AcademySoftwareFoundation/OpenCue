@@ -154,6 +154,14 @@ public interface DispatcherDao {
     List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
     /**
+     * Same, skipping the first {@code offset} dispatchable frames. Lets several hosts plan the SAME
+     * layer in one tick on disjoint frame slices (the plans run in parallel and would otherwise all
+     * pull the same head of the waiting list).
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit,
+            int offset);
+
+    /**
      * Return Scheduling Mode selected
      *
      * @return
