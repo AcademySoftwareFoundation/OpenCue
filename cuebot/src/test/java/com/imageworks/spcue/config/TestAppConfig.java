@@ -34,8 +34,7 @@ import org.springframework.context.annotation.PropertySource;
         "classpath:conf/spring/applicationContext-service.xml",
         "classpath:conf/spring/applicationContext-jms.xml",
         "classpath:conf/spring/applicationContext-criteria.xml",
-        "classpath:conf/spring/applicationContext-monitoring.xml",
-        "classpath:conf/spring/applicationContext-accounting.xml"})
+        "classpath:conf/spring/applicationContext-monitoring.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class TestAppConfig {

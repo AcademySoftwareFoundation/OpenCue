@@ -213,11 +213,15 @@ class Show(object):
         return response
 
     def setSchedulerManaged(self, value):
-        """Sets whether accounting for this show is owned by the Rust scheduler.
+        """Sets which scheduler owns this show.
+
+        When True, Maestro owns the show while running in managed mode
+        (``maestro.enabled=managed``) and the legacy dispatcher excludes it. Setting this
+        on a show with no Maestro managed mode running strands it: nothing dispatches it.
 
         :type  value: bool
-        :param value: True to hand accounting to the Rust scheduler, False to keep
-            Cuebot-managed (default)
+        :param value: True to hand the show to Maestro's managed mode, False to leave it
+            to the legacy dispatcher (default)
         :rtype:  show_pb2.ShowSetSchedulerManagedResponse
         :return: response is empty
         """
@@ -227,10 +231,10 @@ class Show(object):
         return response
 
     def schedulerManaged(self):
-        """Returns whether accounting for this show is owned by the Rust scheduler.
+        """Returns whether this show is flagged for Maestro's managed mode.
 
         :rtype:  bool
-        :return: True if scheduler-managed, False if Cuebot-managed
+        :return: True if the show is scheduler-managed, False if the legacy dispatcher owns it
         """
         return self.data.scheduler_managed
 

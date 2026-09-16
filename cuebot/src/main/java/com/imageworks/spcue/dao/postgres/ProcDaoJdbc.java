@@ -47,13 +47,11 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.service.AccountingNotifier;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
@@ -62,24 +60,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     @Autowired
     private Environment env;
-
-    @Autowired
-    private ShowDao showDao;
-
-    @Autowired
-    private AccountingNotifier accountingNotifier;
-
-    /**
-     * Does an EXTERNAL scheduler (the standalone Rust one) own the five PG accounting tables via
-     * its periodic recompute? Only then may a release skip the decrements in favor of a NOTIFY. The
-     * per-show b_scheduler_managed flag alone is NOT enough: the in-process Maestro's 'managed'
-     * mode uses the same flag, but ITS bookings increment these tables (the batched resource-delta
-     * flush), so its releases must decrement them or the counters ratchet upward until every cap
-     * looks full.
-     */
-    private boolean externalSchedulerOwnsAccounting() {
-        return env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
-    }
 
     // spotless:off
     private static final String VERIFY_RUNNING_PROC =
@@ -423,26 +403,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         getJdbcTemplate().batchUpdate(REFUND_HOST_RESOURCES, hostRows);
 
         // 3. Accounting-table credits, mirroring procDestroyed's non-local
-        // branch per proc: scheduler-managed shows keep their NOTIFY-based
-        // accounting; everything else accumulates coalesced decrements.
+        // branch per proc as coalesced decrements.
         java.util.SortedMap<String, long[]> bySub = new java.util.TreeMap<String, long[]>();
         java.util.SortedMap<String, long[]> byLayer = new java.util.TreeMap<String, long[]>();
         java.util.SortedMap<String, long[]> byJob = new java.util.TreeMap<String, long[]>();
-        // Same ownership gate as procDestroyed: only an EXTERNAL scheduler's
-        // shows may skip the decrements (see externalSchedulerOwnsAccounting).
-        boolean externalOwns = externalSchedulerOwnsAccounting();
-        Map<String, Boolean> managedByShow = new HashMap<String, Boolean>();
         for (VirtualProc proc : deleted) {
             if (proc.getShowId() == null || proc.getAllocationId() == null
                     || proc.getLayerId() == null || proc.getJobId() == null) {
                 // A corpse missing accounting keys was never debited to those
                 // tables; the host refund above is all it gets.
-                continue;
-            }
-            boolean managed = externalOwns && managedByShow.computeIfAbsent(proc.getShowId(),
-                    k -> showDao.isSchedulerManaged(k));
-            if (managed) {
-                accountingNotifier.notifyRelease(proc);
                 continue;
             }
             long[] s = bySub.computeIfAbsent(proc.getShowId() + "\t" + proc.getAllocationId(),
@@ -1213,17 +1182,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
      * Updates proc counts for the host, subscription, layer, job, folder, and proc point when a
      * proc is destroyed.
      *
-     * <p>
-     * For shows flagged {@code b_scheduler_managed=true} (and non-local dispatch), the five PG
-     * accounting tables (subscription / layer_resource / job_resource / folder_resource / point)
-     * are <em>not</em> decremented here — the standalone Rust scheduler owns recompute from
-     * {@code SUM(proc)} on a few minutes cadence. Instead, a release delta is emitted via Postgres
-     * {@code NOTIFY} inside this transaction. The host idle counters always update because Cuebot's
-     * own host-report path consumes them regardless of who owns dispatch.
-     *
-     * <p>
-     * Local dispatches are always Cuebot-managed, regardless of the show flag.
-     *
      * @param proc
      */
     private void procDestroyed(VirtualProc proc) {
@@ -1236,8 +1194,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.getHostId());
 
         if (proc.isLocalDispatch) {
-            // Local dispatches are completely handled by cuebot (no integration with the
-            // scheduler) — preserved verbatim regardless of show.b_scheduler_managed.
             getJdbcTemplate().update(
                     "UPDATE " + "layer_resource " + "SET " + "int_cores = int_cores - ?,"
                             + "int_gpus = int_gpus - ? " + "WHERE " + "pk_layer = ?",
@@ -1259,15 +1215,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             return;
         }
 
-        if (externalSchedulerOwnsAccounting() && showDao.isSchedulerManaged(proc.getShowId())) {
-            // Skip the five PG accounting tables; the Rust scheduler owns recompute. Emit a release
-            // delta via NOTIFY inside this (the unbook) transaction so it is delivered iff the
-            // DELETE proc commits.
-            accountingNotifier.notifyRelease(proc);
-            return;
-        }
-
-        // Cuebot-managed non-local: today's exact behavior.
         getJdbcTemplate().update("UPDATE " + "subscription " + "SET " + "int_cores = int_cores - ?,"
                 + "int_gpus = int_gpus - ? " + "WHERE " + "pk_show = ? " + "AND " + "pk_alloc = ?",
                 proc.coresReserved, proc.gpusReserved, proc.getShowId(), proc.getAllocationId());

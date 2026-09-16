@@ -1,4 +1,4 @@
-"""NEW vs RUST -- 3 graphs: DB reads/s, DB writes/s, DB health (contention)."""
+"""NEW vs OLD -- 3 graphs: DB reads/s, DB writes/s, DB health (contention)."""
 import os
 import re
 import matplotlib; matplotlib.use("Agg")
@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # Directory holding <tag>_dbstat.csv and <tag>_sim.log produced by a run. Override
 # with SIM_BENCH_DIR; defaults to the legacy scratch dir used during development.
 CMP = os.environ.get("SIM_BENCH_DIR", "/tmp/cmp2")
-RUNS = [("new", "new (inline-dispose)", "#1f77b4"), ("rust", "rust", "#d62728")]
+RUNS = [("new", "new (Maestro)", "#1f77b4"), ("old", "old (legacy dispatcher)", "#d62728")]
 WATCH = 185
 
 def sod(h):

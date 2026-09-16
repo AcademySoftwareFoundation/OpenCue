@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "OpenCue Maestro (in-process scheduler) metrics: throughput, per-show farm share, tick health, group outcomes and fragmentation. Mirrors the Rust scheduler's metrics module.",
+  "description": "OpenCue Maestro (in-process scheduler) metrics: throughput, per-show farm share, tick health, group outcomes and fragmentation.",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 1,

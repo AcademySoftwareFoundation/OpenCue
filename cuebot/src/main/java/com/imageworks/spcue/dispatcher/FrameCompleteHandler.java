@@ -385,8 +385,9 @@ public class FrameCompleteHandler {
      * plans the freed cores next tick, and an async hop would leave the proc in limbo holding cores
      * until the queued task ran. If the post-complete work throws, the proc is released anyway: an
      * orphaned proc (proc row alive, frame back to WAITING) wedges the Maestro's batch commit
-     * permanently. Legacy shows and Rust (dispatcher.turn_off_booking) keep the async dispatchQueue
-     * hop, which defers the rebook-or-release decision.
+     * permanently. Legacy-owned shows keep the async dispatchQueue hop, which defers the
+     * rebook-or-release decision; with dispatcher.turn_off_booking=true that decision always comes
+     * out as release.
      */
     public void processReportNow(final FrameCompleteReport report) {
         try {
@@ -931,10 +932,11 @@ public class FrameCompleteHandler {
 
     /**
      * Books the next frame of the same job on the proc, unless the proc should be released first:
-     * on scheduler-managed shows the standalone scheduler owns dispatch, and rebooking here would
-     * race it and strand procs with reserved cores; and a host with a whole stranded core is
-     * rebooked through the booking queue so the extra cores can be picked up. When booking is off
-     * facility-wide the proc is released for the next Maestro tick instead of rebooked.
+     * on shows flagged {@code b_scheduler_managed} Maestro owns dispatch, and rebooking here would
+     * race its batched commit and strand procs with reserved cores; and a host with a whole
+     * stranded core is rebooked through the booking queue so the extra cores can be picked up. When
+     * booking is off facility-wide the proc is released for the next Maestro tick instead of
+     * rebooked.
      */
     private void bookNextFrameOnProc(VirtualProc proc, DispatchJob job, DispatchFrame frame) {
         // Local dispatches are always Cuebot-managed.

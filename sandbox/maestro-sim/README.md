@@ -25,8 +25,7 @@ several bugs.
 | `status_pinger.py` / `status_pinger_fast.py` | older empty-frame heartbeat (kept; superseded by `rqd_report.py`) |
 | `fake_license.py [secs]` | fake license server: three pools (hengine host-based, katana + maya floating), counts the farm's own usage plus artist holds, deliberately sampled behind |
 | `license_reporter.py [secs]` | the external reporter: creates the limit records and feeds the server's view to cuebot over `LimitInterface.ReportUsage` (cuebot never polls a license server itself) |
-| `fake_rqd.py [threads]` | fake RQD gRPC server on :8444; runs+completes frames. Used by new, old, and `rust --rust-real-launch`. `threads`=completion-report concurrency (1=serial, 64=concurrent RQDs) |
-| `rqd_complete.py [int] [memfail]` | default `--mode rust`: polls the proc table for frames the Rust scheduler booked (dry-run) and reports them complete to cuebot after their `sim_model` run-time — the DB-poll analogue of `fake_rqd.py` |
+| `fake_rqd.py [threads]` | fake RQD gRPC server on :8444; runs+completes frames. `threads`=completion-report concurrency (1=serial, 64=concurrent RQDs) |
 | `gen_jobs.py` | submit a realistic job mix via LaunchSpec |
 | `feed.py [dur] [target]` | paced feeder: hold a sustained backlog of ~`target` waiting frames |
 | `drain_test.py <label> <njobs> <seed>` | submit a fixed backlog, time to drain (NEW vs OLD races) |
@@ -112,7 +111,7 @@ Run `python metrics.py 120` against a live run anytime.
 #### Mode & scale
 | Flag | Default | What it does |
 |---|---|---|
-| `--mode new\|old\|rust` | `new` | `new` = OpenCue Maestro, the E-PVM scheduler (`Maestro.java`); `old` = the legacy report-driven dispatcher; `rust` = the standalone Rust scheduler (see below). |
+| `--mode new\|old` | `new` | `new` = OpenCue Maestro, the E-PVM scheduler (`Maestro.java`); `old` = the legacy report-driven dispatcher. |
 | `--cuebots N` | `2` | Cuebot instances against one Postgres. All race the advisory lock so one plans per tick, exercising leader election / HA. Use `1` for a single instance. |
 | `--hosts j,r,e` | full farm | Shrink the farm to these large,medium,small counts (e.g. `2,3,5`) for legible, watchable debugging. |
 
@@ -173,45 +172,6 @@ Run `python metrics.py 120` against a live run anytime.
 Any run with `--feed`, `--strand`, `--stats`, or `--metrics` also auto-records
 utilization and DB load and renders graphs at the end (under `/tmp`, override
 with `SIM_GRAPH_DIR`).
-
-## Rust scheduler mode (`--mode rust`)
-`--mode rust` drives the **standalone Rust scheduler** (`rust/crates/scheduler`,
-the `cue-scheduler` binary) instead of cuebot's in-process Maestro. Like
-`--mode new` (and unlike the legacy report-driven booker) it is a **pull/poll
-scheduler**: a feed loop queries Postgres for pending work, reads host
-availability from its own DB-backed cache, scores with E-PVM, and books — it is
-not triggered by RQD reports.
-
-How the stack is wired in this mode:
-- a throwaway **Redis** is started for the scheduler's accounting;
-- the sim show is flagged `show.b_scheduler_managed=true` (migration V45 makes
-  cuebot's own dispatch skip it); non-rust runs force it back to false;
-- **one cuebot** runs with `maestro.enabled=false` + `dispatcher.turn_off_booking=true`:
-  it never plans or books, it only handles RQD reports/completions and maintains
-  frame/layer/job stats;
-- `scheduler_sim.yaml` is generated (Postgres + Redis coords, E-PVM) and
-  `cue-scheduler` is launched against the sim DB;
-- **by default it runs dry-run:** the scheduler books straight into Postgres (no
-  real RQD launch) and **`rqd_complete.py`** polls the proc table and reports each
-  booked frame complete to cuebot after its `sim_model` run-time. This is the
-  practical mode — fast enough to fill the farm.
-
-> `--rust-real-launch` flips the scheduler to call `LaunchFrame` on `fake_rqd`
-> like `--mode new` (an equal-footing comparison: both pay the launch cost).
-> Because `cue-scheduler` is a native binary, the JVM hosts file cuebot uses
-> can't redirect its per-host RQD dials (`http://<host.name>:8444`) to fake_rqd,
-> so the sim compiles `resolve_local.c` into a `getaddrinfo` `LD_PRELOAD` shim
-> (the native analog of the JVM hosts file; needs `gcc`) and preloads it onto the
-> scheduler. **Caveat:** the Rust scheduler awaits each launch inline through a
-> single dispatcher actor, so real-launch is launch-latency-bound and far slower
-> than dry-run — useful to observe the launch cost, not for throughput.
-
-Prereqs: `redis-server` on PATH and a built binary (`cd ../../rust && cargo build
--p scheduler`; override the path with `SIM_SCHEDULER_BIN`); plus `gcc` for
-`--rust-real-launch`. Example:
-```
-python simulate.py --mode rust --feed 240 --stats 220
-```
 
 ## Prereqs (one-time)
 **Automatic:** run `./setup.sh` from this directory. It creates `venv/`, installs

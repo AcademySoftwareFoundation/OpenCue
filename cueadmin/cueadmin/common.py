@@ -315,10 +315,10 @@ def getParser():
         action="store",
         nargs=2,
         metavar="SHOW ON|OFF",
-        help="Set whether accounting for the given show is owned by the Rust "
-        "scheduler. When ON, Cuebot stops updating accounting tables "
-        "transactionally for this show and the Rust scheduler reconciles "
-        "them from the proc table.",
+        help="Set which scheduler owns the given show. When ON, Maestro owns "
+        "the show while running in managed mode (maestro.enabled=managed), and "
+        "the legacy dispatcher skips it. Turning it ON with no Maestro managed "
+        "mode running strands the show: nothing will dispatch it.",
     )
     #
     # Allocation

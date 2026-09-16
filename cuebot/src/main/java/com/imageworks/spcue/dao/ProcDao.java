@@ -167,10 +167,9 @@ public interface ProcDao {
      * the subscription/layer_resource/job_resource/folder_resource/point decrements summed per key)
      * instead of ~7 single-row updates per proc. Semantically a batched {@code deleteVirtualProc}:
      * reserved amounts are taken from the DELETE's RETURNING clause (the live database values,
-     * immune to the stale-reservation race), a proc already deleted by someone else is skipped
-     * entirely, and scheduler-managed shows keep their NOTIFY-based accounting instead of the table
-     * decrements. Callers must not pass local-dispatch procs (their release touches different
-     * tables and stays on the per-proc path).
+     * immune to the stale-reservation race), and a proc already deleted by someone else is skipped
+     * entirely. Callers must not pass local-dispatch procs (their release touches different tables
+     * and stays on the per-proc path).
      *
      * @param procs the procs to delete; non-local only
      * @return the subset actually deleted, with reserved fields refreshed from the database
