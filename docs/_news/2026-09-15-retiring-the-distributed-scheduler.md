@@ -161,10 +161,13 @@ nothing changes. It was gated behind a separate service you had to run on purpos
 
 **If you are looking for what to run instead**, Maestro is the answer, and it is off by default. It
 rolls out per show via `maestro.enabled=managed`, takes the whole facility with
-`maestro.enabled=facility`, and rolls back by setting the flag to `no` — no restart, no migration,
-no new process. See the [OpenCue Maestro developer guide](/docs/developer-guide/maestro/) for the
-design, the full configuration table, the operator-visible semantics change around priority, and the
-known failure modes.
+`maestro.enabled=facility`, and rolls back by setting `maestro.enabled=no`. That property is read
+from Cuebot's configuration at startup, so changing it takes effect on the next Cuebot restart;
+within `managed` mode, handing individual shows to Maestro and back costs nothing but a
+`b_scheduler_managed` flip — no restart, no migration, no new process. See the
+[OpenCue Maestro developer guide](/docs/developer-guide/maestro/) for the design, the full
+configuration table, the operator-visible semantics change around priority, and the known failure
+modes.
 
 ## A note on calling it
 

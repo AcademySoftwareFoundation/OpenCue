@@ -668,9 +668,11 @@ largest host in a group) is deliberately a fixed constant, not a property:
 loosening it reintroduces the small-frame flooding it exists to prevent.
 
 **Rollback** is a single flag: set `maestro.enabled=no` and the legacy
-dispatcher resumes. Progressive rollout works the same way in reverse: in
-`managed` mode, clearing a show's `b_scheduler_managed` flag hands it straight
-back to the legacy dispatcher with no restart.
+dispatcher resumes on the next Cuebot restart (the property is read from
+configuration at startup; nothing refreshes it in place). Progressive rollout
+works the same way in reverse, and needs no restart at all: in `managed` mode,
+clearing a show's `b_scheduler_managed` flag hands it straight back to the
+legacy dispatcher.
 
 ---
 

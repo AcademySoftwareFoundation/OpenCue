@@ -722,13 +722,26 @@ def license_env():
     }
 
 
+def maestro_enabled(sim_mode):
+    """The maestro.enabled value cuebot will run with: SIM_MAESTRO_ENABLED when set,
+    else facility for --mode new and no otherwise.
+
+    Normalized (trimmed, lowercased) exactly like MaestroMode.mode does on the Java
+    side, so the string handed to cuebot and the one this harness tests against can
+    never disagree -- an untrimmed " managed " would otherwise put cuebot in managed
+    mode while set_scheduler_managed left every show on the legacy dispatcher.
+    """
+    raw = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if sim_mode == "new" else "no")
+    return raw.strip().lower() or "no"
+
+
 def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
                  max_grantees=8, backfill=True,
                  frame_cores_max=0):
     # maestro.enabled is a tri-state rollout switch: no | facility | managed
     # (back-compat true=facility/false=no). Default new->facility, else->no;
     # override with SIM_MAESTRO_ENABLED (e.g. "managed" for per-show testing).
-    enabled = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if mode == "new" else "no")
+    enabled = maestro_enabled(mode)
     resv = "true" if reservations else "false"
     bf = "true" if backfill else "false"
     log(f"starting cuebot (mode={mode}, maestro.enabled={enabled}, "
@@ -830,7 +843,7 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
     jar = os.path.join(CUEBOT_DIR, "build", "libs", "cuebot.jar")
     if not os.path.exists(jar):
         sys.exit(f"cuebot jar not found at {jar} (ensure_cuebot_built should have built it)")
-    enabled = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if mode == "new" else "no")
+    enabled = maestro_enabled(mode)
     # cuebot in the sim only talks to LOCAL services: postgres on 127.0.0.1, and
     # fake_rqd (the hosts file above maps every farm hostname to 127.0.0.1). But
     # it dials RQD BY HOSTNAME (e.g. jaime0001), and if the environment set a JVM
@@ -2340,7 +2353,7 @@ def main():
     # Hand the show to Maestro when it runs in per-show 'managed' mode. Otherwise
     # force the flag OFF so a leftover true can't make cuebot's legacy dispatch
     # skip the show (migration V45 filters b_scheduler_managed=false).
-    set_scheduler_managed(os.environ.get("SIM_MAESTRO_ENABLED") == "managed")
+    set_scheduler_managed(maestro_enabled(args.mode) == "managed")
     ensure_cuebot_built()
     # LICENSE test: the license server must be answering BEFORE cuebot's first
     # poll, so Maestro starts from a real sample instead of a failed fetch
