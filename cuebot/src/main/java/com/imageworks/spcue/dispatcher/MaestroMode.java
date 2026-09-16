@@ -20,16 +20,16 @@ import org.springframework.core.env.Environment;
 
 /**
  * Interprets {@code maestro.enabled} as a tri-state progressive-rollout switch (rather than a plain
- * boolean), so the in-process Maestro can be turned on for one show at a time, the same per-show
- * model the standalone Rust scheduler uses via {@code show.b_scheduler_managed}:
+ * boolean), so the in-process Maestro can be turned on for one show at a time via the
+ * {@code show.b_scheduler_managed} column:
  *
  * <ul>
  * <li>{@code no}: Maestro off; the legacy dispatcher owns every show.</li>
  * <li>{@code facility}: Maestro plans ALL shows; legacy booking globally suppressed (this is the
  * old {@code maestro.enabled=true} behaviour).</li>
  * <li>{@code managed}: Maestro plans only shows flagged {@code b_scheduler_managed=true} (set per
- * show via the show API, exactly like Rust); the legacy dispatcher keeps the rest. The legacy
- * dispatch query already excludes managed shows, so the two partition cleanly.</li>
+ * show via the show API); the legacy dispatcher keeps the rest. The legacy dispatch query already
+ * excludes managed shows, so the two partition cleanly.</li>
  * </ul>
  *
  * Back-compat: {@code "true"} maps to {@code facility}, {@code "false"} to {@code no}. Show

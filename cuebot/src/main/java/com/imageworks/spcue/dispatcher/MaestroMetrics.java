@@ -31,25 +31,25 @@ import io.prometheus.client.Gauge;
 import io.prometheus.client.Histogram;
 
 /**
- * Central home for the in-process Maestro's Prometheus metrics, mirroring the Rust scheduler's
- * metrics module. Maestro tallies a plain {@link TickStats} during a tick and hands it over once
- * via {@link #recordTick}; all Prometheus wiring lives here and never throws into the tick.
- * Recording is a no-op unless {@code metrics.prometheus.collector} is enabled.
+ * Central home for the in-process Maestro's Prometheus metrics. Maestro tallies a plain
+ * {@link TickStats} during a tick and hands it over once via {@link #recordTick}; all Prometheus
+ * wiring lives here and never throws into the tick. Recording is a no-op unless
+ * {@code metrics.prometheus.collector} is enabled.
  */
 @Component
 public class MaestroMetrics {
 
     private static final Logger logger = LogManager.getLogger(MaestroMetrics.class);
 
-    // Per-group tick outcome (Rust pass_terminated_reason_total). "Produced no
-    // work" is 'no work' (nothing eligible) + 'no fit' (farm saturated).
+    // Per-group tick outcome. "Produced no work" is 'no work' (nothing
+    // eligible) + 'no fit' (farm saturated).
     private static final Counter groupPass = Counter.build().name("cue_maestro_group_pass_total")
             .help("Maestro per-group tick outcomes by reason: booked; "
                     + "'no fit' (work waiting, farm saturated); 'no work' (nothing eligible); "
                     + "'query error' (candidate query failed, usually a bad tag)")
             .labelNames("env", "cuebot_host", "reason").register();
 
-    // Host-spec groups seen this tick (Rust clusters_total).
+    // Host-spec groups seen this tick.
     private static final Gauge groups = Gauge.build().name("cue_maestro_groups_total")
             .help("Host-spec groups seen in the most recent scheduler tick")
             .labelNames("env", "cuebot_host").register();
@@ -75,13 +75,13 @@ public class MaestroMetrics {
             .help("Whole cores in use per show, summed live from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
-    // Frames booked per show (Rust frames_dispatched_total); rate() = throughput.
+    // Frames booked per show; rate() = throughput.
     private static final Counter framesDispatched =
             Counter.build().name("cue_maestro_frames_dispatched_total")
                     .help("Frames booked by the scheduler per show; apply rate() for throughput")
                     .labelNames("env", "cuebot_host", "show").register();
 
-    // Tick wall-clock (Rust recompute_cycle_duration_seconds).
+    // Tick wall-clock.
     private static final Histogram tickDuration =
             Histogram.build().name("cue_maestro_tick_duration_seconds")
                     .help("Maestro tick wall-clock duration in seconds")

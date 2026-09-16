@@ -523,10 +523,10 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     /**
      * Drives a frame completion through the proc-reuse branch (the job still has a WAITING frame,
      * so it stays dispatchable) and asserts whether the scheduler-managed release path fired. When
-     * the show is scheduler-managed, the standalone scheduler owns dispatch, so Cuebot must release
-     * (unbook) the proc here instead of rebooking it on the same proc — otherwise the proc lingers
-     * with pk_frame=NULL holding reserved cores. The release is identified by the unique reason
-     * string passed to unbookProc, which makes this independent of the nondeterministic downstream
+     * the show is flagged {@code b_scheduler_managed}, Maestro owns dispatch, so Cuebot must
+     * release (unbook) the proc here instead of rebooking it on the same proc — otherwise the proc
+     * lingers with pk_frame=NULL holding reserved cores. The release is identified by the unique
+     * reason string passed to unbookProc, which makes this independent of the nondeterministic
      * dispatch.
      *
      * <p>

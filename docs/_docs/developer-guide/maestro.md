@@ -662,7 +662,6 @@ already takes most of the load off it.
 | `maestro.plan_zero_warn_ticks` | `40` | Consecutive ticks a layer may plan but commit zero frames before a WARN names it (a commit-time gate Maestro does not model is rejecting it). |
 | `dispatcher.job_frame_dispatch_max` | `8` | Max frames of one job booked onto a host per tick. |
 | `dispatcher.host_frame_dispatch_max` | `12` | Max frames booked onto a host per tick. |
-| `dispatcher.scheduler_manages_resources` | `false` | Set true only when an EXTERNAL scheduler owns the accounting tables via its own recompute: Cuebot then skips increments and decrements for `b_scheduler_managed` shows. Maestro's own `managed` mode leaves this false — its bookings and releases both go through Cuebot. |
 
 The reservation **width gate** (`RESERVATION_MIN_HOST_FRACTION`, 0.5 of the
 largest host in a group) is deliberately a fixed constant, not a property:

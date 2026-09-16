@@ -31,8 +31,7 @@ name: OpenCue Maestro Sim Pipeline
 #       throughput floors would measure the runner rather than the scheduler.
 #     - the statistically scored ones (PRIORITY's Spearman rho, LOCALITY's
 #       affinity rate, TAGMAX's race fraction): thresholds calibrated on real
-#       hardware become coin flips on a shared runner. Same reasoning
-#       scheduler-stress-pipeline.yml applies to its own throughput numbers.
+#       hardware become coin flips on a shared runner.
 #   Run those locally, or through workflow_dispatch, where the result means
 #   something.
 #

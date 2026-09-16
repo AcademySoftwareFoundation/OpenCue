@@ -1,9 +1,9 @@
-"""2x2 grid: {new,rust} x {compress2,compress8}. Steady-state medians (t90-180)."""
+"""2x2 grid: {new,old} x {compress2,compress8}. Steady-state medians (t90-180)."""
 import os
 import statistics as st
 CMP = os.environ.get("SIM_BENCH_DIR", "/tmp/cmp2")
 # logical tag -> file prefix
-CELLS=[("new  @2","before"),("new  @8","new8"),("rust @2","rust2"),("rust @8","rust8")]
+CELLS=[("new  @2","before"),("new  @8","new8"),("old  @2","old2"),("old  @8","old8")]
 def sod(h):
     a=list(map(int,h.split(":"))); return a[0]*3600+a[1]*60+a[2]
 def sim_t0(pre):
@@ -48,9 +48,9 @@ def med_csv(pre,suffix,colidx,lo,hi,rate=False):
             if lo<=t<=hi and colidx < len(c): v.append(c[colidx])
     return st.median(v) if v else None
 # dbstat cols (after ts): 0 commits,1 rollbacks,2 tup_ret,3 tup_fetch,4 ins,5 upd,6 del,7 deadlk,8 blks_read,9 blks_hit,10 active,11 lockwait
-# cpu cols (after ts): 0 total_cpu%,1 cuebot,2 postgres,3 scheduler,4 python
+# cpu cols (after ts): 0 total_cpu%,1 cuebot,2 postgres,3 python
 LO,HI=90,180
-print(f"{'cell':8} {'util%':>6} {'done/s':>7} {'orphan':>7} {'reads/s':>9} {'writes/s':>9} {'rollbk/s':>8} {'lockwt':>6} {'CPU%':>5} {'pg':>5} {'cuebot':>6} {'rust':>5} {'py':>5}")
+print(f"{'cell':8} {'util%':>6} {'done/s':>7} {'orphan':>7} {'reads/s':>9} {'writes/s':>9} {'rollbk/s':>8} {'lockwt':>6} {'CPU%':>5} {'pg':>5} {'cuebot':>6} {'py':>5}")
 for name,pre in CELLS:
     util=med_sim(pre,"util",LO,HI); done=med_sim(pre,"done/s",LO,HI); orp=med_sim(pre,"orphan",LO,HI)
     def rd(): 
@@ -61,6 +61,6 @@ for name,pre in CELLS:
         return sum(x for x in xs if x is not None) if any(x is not None for x in xs) else None
     reads=rd(); writes=wr(); rb=med_csv(pre,"dbstat",1,LO,HI,True); lw=med_csv(pre,"dbstat",11,LO,HI,False)
     cpu=med_csv(pre,"cpu",0,LO,HI,False); pg=med_csv(pre,"cpu",2,LO,HI,False)
-    cb=med_csv(pre,"cpu",1,LO,HI,False); ru=med_csv(pre,"cpu",3,LO,HI,False); py=med_csv(pre,"cpu",4,LO,HI,False)
+    cb=med_csv(pre,"cpu",1,LO,HI,False); py=med_csv(pre,"cpu",3,LO,HI,False)
     def f(x,d=0): return ("%.{}f".format(d)%x) if x is not None else "-"
-    print(f"{name:8} {f(util):>6} {f(done):>7} {f(orp):>7} {f(reads):>9} {f(writes):>9} {f(rb,1):>8} {f(lw,2):>6} {f(cpu):>5} {f(pg,2):>5} {f(cb,2):>6} {f(ru,2):>5} {f(py,2):>5}")
+    print(f"{name:8} {f(util):>6} {f(done):>7} {f(orp):>7} {f(reads):>9} {f(writes):>9} {f(rb,1):>8} {f(lw,2):>6} {f(cpu):>5} {f(pg,2):>5} {f(cb,2):>6} {f(py,2):>5}")

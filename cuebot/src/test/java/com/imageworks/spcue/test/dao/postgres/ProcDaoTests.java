@@ -28,9 +28,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.MapPropertySource;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -83,9 +81,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Autowired
     private Environment env;
 
-    @Autowired
-    private ConfigurableEnvironment springEnv;
-
     @Resource
     ProcDao procDao;
 
@@ -127,12 +122,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     private static String PK_ALLOC = "00000000-0000-0000-0000-000000000000";
 
-    /**
-     * Name of the test-scoped property source that flips dispatcher.scheduler_manages_resources;
-     * added per-test and always removed in an @After hook so it cannot leak into other tests.
-     */
-    private static final String SCHEDULER_MANAGES_PROPS = "procDaoTestsSchedulerManages";
-
     private long MEM_RESERVED_DEFAULT;
     private long MEM_GPU_RESERVED_DEFAULT;
 
@@ -171,18 +160,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // @Rollback rolls back the DB row but leaves the in-process Guava cache populated; clear
         // it so the next test reads the (rolled-back) value from the DB instead of stale cache.
         showDao.invalidateSchedulerManagedCache();
-    }
-
-    @After
-    public void removeSchedulerManagesPropertyOverride() {
-        // Idempotent: only tests that injected the override actually have one to remove.
-        springEnv.getPropertySources().remove(SCHEDULER_MANAGES_PROPS);
-    }
-
-    /** Injects dispatcher.scheduler_manages_resources=true for the current test only. */
-    private void enableExternalSchedulerAccounting() {
-        springEnv.getPropertySources().addFirst(new MapPropertySource(SCHEDULER_MANAGES_PROPS,
-                Collections.singletonMap("dispatcher.scheduler_manages_resources", Boolean.TRUE)));
     }
 
     @Test
@@ -951,10 +928,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     }
 
     /**
-     * Cuebot-managed show: deleteVirtualProc decrements the five PG accounting tables. With
-     * dispatcher.scheduler_manages_resources at its default (false) the decrement-skip gate in
-     * ProcDaoJdbc is closed, so this is the path every show takes regardless of the
-     * b_scheduler_managed flag. Regression guard for the default branch.
+     * deleteVirtualProc decrements the five PG accounting tables. Every show takes this path;
+     * regression guard against a release that frees the proc without crediting its resources back.
      */
     @Test
     @Transactional
@@ -994,17 +969,14 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     }
 
     /**
-     * Show flagged {@code b_scheduler_managed=true} AND
-     * {@code dispatcher.scheduler_manages_resources=true}: deleteVirtualProc must <em>not</em>
-     * decrement the five PG accounting tables. Only then does an EXTERNAL scheduler own them (its
-     * recompute rewrites them from SUM(proc)); the release is announced via NOTIFY instead. The
-     * skip requires BOTH conditions — the property is injected with high precedence for this test
-     * only and removed in an @After hook.
+     * A show flagged {@code b_scheduler_managed=true} decrements exactly like any other. Maestro's
+     * 'managed' mode uses that flag, and its bookings increment these tables, so its releases must
+     * decrement them or the counters ratchet upward until every cap looks full.
      */
     @Test
     @Transactional
     @Rollback(true)
-    public void testProcDestroyedSchedulerManagedShowSkipsAccountingDecrement() {
+    public void testProcDestroyedManagedShowStillDecrements() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
@@ -1027,65 +999,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         int folderCoresAfterInsert = readFolderCores(proc.jobId);
         int pointCoresAfterInsert = readPointCores(proc.jobId);
 
-        // Both halves of the gate: the property (removed by the @After hook) ...
-        enableExternalSchedulerAccounting();
-
-        // ... and the show flag. The ShowDao writer-cache refresh means the next
-        // isSchedulerManaged() call sees true immediately on this Cuebot. The @After hook clears
-        // the cache so this transient flip doesn't leak into other tests.
         ShowEntity show = showDao.getShowDetail(proc.showId);
         showDao.updateSchedulerManaged(show, true);
 
         procDao.deleteVirtualProc(proc);
 
-        // External-scheduler-managed: the five tables are NOT decremented (recompute owns them).
-        assertEquals(subCoresAfterInsert, readSubCores(proc.showId, proc.allocationId));
-        assertEquals(layerCoresAfterInsert, readLayerCores(proc.layerId));
-        assertEquals(jobCoresAfterInsert, readJobCores(proc.jobId));
-        assertEquals(folderCoresAfterInsert, readFolderCores(proc.jobId));
-        assertEquals(pointCoresAfterInsert, readPointCores(proc.jobId));
-    }
-
-    /**
-     * Show flagged {@code b_scheduler_managed=true} but dispatcher.scheduler_manages_resources left
-     * at its default (false): the decrements still happen. This is the fail-safe default — the
-     * in-process Maestro's 'managed' mode uses the same show flag, but its bookings increment these
-     * tables, so its releases must decrement them or the counters ratchet upward until every cap
-     * looks full.
-     */
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testProcDestroyedManagedShowWithoutPropertyStillDecrements() {
-        DispatchHost host = createHost();
-        JobDetail job = launchJob();
-        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
-
-        VirtualProc proc = new VirtualProc();
-        proc.allocationId = host.allocationId;
-        proc.coresReserved = 100;
-        proc.hostId = host.id;
-        proc.hostName = host.name;
-        proc.jobId = job.id;
-        proc.frameId = frame.id;
-        proc.layerId = frame.layerId;
-        proc.showId = frame.showId;
-
-        procDao.insertVirtualProc(proc);
-
-        int subCoresAfterInsert = readSubCores(proc.showId, proc.allocationId);
-        int layerCoresAfterInsert = readLayerCores(proc.layerId);
-        int jobCoresAfterInsert = readJobCores(proc.jobId);
-        int folderCoresAfterInsert = readFolderCores(proc.jobId);
-        int pointCoresAfterInsert = readPointCores(proc.jobId);
-
-        // Only the show flag; the property stays at its default (false).
-        ShowEntity show = showDao.getShowDetail(proc.showId);
-        showDao.updateSchedulerManaged(show, true);
-
-        procDao.deleteVirtualProc(proc);
-
-        // The flag alone does not open the skip gate: decrements happen as usual.
+        // The flag does not change release accounting: decrements happen as usual.
         assertEquals(subCoresAfterInsert - 100, readSubCores(proc.showId, proc.allocationId));
         assertEquals(layerCoresAfterInsert - 100, readLayerCores(proc.layerId));
         assertEquals(jobCoresAfterInsert - 100, readJobCores(proc.jobId));
@@ -1226,6 +1145,49 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertTrue(procDao.batchDeleteVirtualProcs(Arrays.asList(proc1, proc2)).isEmpty());
         assertEquals(idleCoresBeforeInsert, readHostIdleCores(host.id));
         assertEquals(jobCoresBeforeInsert, readJobCores(job.id));
+    }
+
+    /**
+     * The batched release path ignores {@code b_scheduler_managed} exactly like the single-proc one
+     * ({@link #testProcDestroyedManagedShowStillDecrements}): Maestro's 'managed' mode books
+     * through these same tables, so a flagged show must still get every accounting credit back.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBatchDeleteVirtualProcsManagedShowStillCredits() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
+
+        long idleCoresBeforeInsert = readHostIdleCores(host.id);
+
+        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
+        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
+        procDao.insertVirtualProc(proc1);
+        procDao.insertVirtualProc(proc2);
+
+        int subCoresAfterInsert = readSubCores(proc1.showId, proc1.allocationId);
+        int layerCoresAfterInsert = readLayerCores(proc1.layerId);
+        int jobCoresAfterInsert = readJobCores(proc1.jobId);
+        int folderCoresAfterInsert = readFolderCores(proc1.jobId);
+        int pointCoresAfterInsert = readPointCores(proc1.jobId);
+
+        // The @After hook clears the flag cache so this write cannot leak into other tests.
+        ShowEntity show = showDao.getShowDetail(proc1.showId);
+        showDao.updateSchedulerManaged(show, true);
+
+        List<VirtualProc> deleted = procDao.batchDeleteVirtualProcs(Arrays.asList(proc1, proc2));
+
+        assertEquals(2, deleted.size());
+        assertEquals(0, countProcsOnHost(host.id));
+        assertEquals(idleCoresBeforeInsert, readHostIdleCores(host.id));
+        assertEquals(subCoresAfterInsert - 200, readSubCores(proc1.showId, proc1.allocationId));
+        assertEquals(layerCoresAfterInsert - 200, readLayerCores(proc1.layerId));
+        assertEquals(jobCoresAfterInsert - 200, readJobCores(proc1.jobId));
+        assertEquals(folderCoresAfterInsert - 200, readFolderCores(proc1.jobId));
+        assertEquals(pointCoresAfterInsert - 200, readPointCores(proc1.jobId));
     }
 
     /**

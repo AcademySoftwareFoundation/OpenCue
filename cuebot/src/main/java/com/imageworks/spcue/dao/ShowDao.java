@@ -132,7 +132,9 @@ public interface ShowDao {
     void updateActive(ShowInterface s, boolean enabled);
 
     /**
-     * Set whether accounting for this show is owned by the Rust scheduler.
+     * Set which scheduler owns this show. When true, Maestro owns the show while running in managed
+     * mode ({@code maestro.enabled=managed}) and the legacy dispatch query excludes it; a show
+     * flagged with no Maestro managed mode running is dispatched by nothing.
      *
      * @param s
      * @param value
@@ -150,14 +152,6 @@ public interface ShowDao {
      * @return true if b_scheduler_managed is set on the show
      */
     boolean isSchedulerManaged(String showId);
-
-    /**
-     * Return the number of shows currently flagged scheduler-managed. Used at boot by the
-     * accounting NOTIFY publisher to emit a visibility warning when publishing is disabled.
-     *
-     * @return count of rows with b_scheduler_managed = true
-     */
-    int countSchedulerManagedShows();
 
     /**
      * Invalidate the in-process scheduler-managed flag cache. Production code does not need this —
