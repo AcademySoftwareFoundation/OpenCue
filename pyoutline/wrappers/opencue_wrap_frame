@@ -16,7 +16,14 @@ endif
 set dir=$1
 
 # Reset the value of TMPDIR
-setenv framedir /mcp/${CUE_JOB}/${CUE_FRAME}
+# OL_FRAME_TMPDIR_ROOT is set from the outline.cfg "frame_tmp_dir" option
+# (see pyoutline/outline/outline.cfg), defaulting to /mcp.
+if ($?OL_FRAME_TMPDIR_ROOT) then
+    set tmpdir_root = "$OL_FRAME_TMPDIR_ROOT"
+else
+    set tmpdir_root = /mcp
+endif
+setenv framedir ${tmpdir_root}/${CUE_JOB}/${CUE_FRAME}
 rm -rf $framedir
 mkdir -p $framedir
 if ($? != 0) then
