@@ -267,20 +267,33 @@ export default function MonitorCuePage() {
 
   // Active shows for the "Shows" menu; restore the prior selection.
   React.useEffect(() => {
+    let cancelled = false;
+
     getActiveShows()
       .then((data) => {
+        if (cancelled) return;
+
         setShows(data);
         const stored = window.localStorage.getItem(selectedShowsKey);
+
         if (stored) {
           try {
             const names: string[] = JSON.parse(stored);
             setSelectedShows(names.filter((n) => data.some((s) => s.name === n)));
           } catch {
-            /* ignore */
+            setSelectedShows([]);
           }
+        } else {
+          setSelectedShows([]);
         }
       })
-      .catch((err) => handleError(err, "Could not load shows"));
+      .catch((err) => {
+        if (!cancelled) handleError(err, "Could not load shows");
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedShowsKey]);
 
   const persistShows = React.useCallback((names: string[]) => {
