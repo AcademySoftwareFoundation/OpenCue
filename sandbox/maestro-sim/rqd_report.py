@@ -200,15 +200,17 @@ def _send_one(stub, name, cores, mem_kb, frames, now):
         return 1
 
 
-def ping_round(stub, pool):
+def ping_round(stubs, pool):
     now = int(time.time())
     running = running_by_host()
     # Fire all host reports CONCURRENTLY (see REPORT_THREADS). gRPC channels are
     # thread-safe for concurrent unary calls, so a busy cuebot no longer
-    # serializes the round behind per-report latency.
-    futs = [pool.submit(_send_one, stub, name, cores, mem_kb,
+    # serializes the round behind per-report latency. With several stubs (a
+    # spread, see main) each host always reports to the same cuebot, the way
+    # a service registry pins an RQD to one of several cuebots.
+    futs = [pool.submit(_send_one, stubs[i % len(stubs)], name, cores, mem_kb,
                         running.get(name, []), now)
-            for name, cores, mem_kb in HOSTS]
+            for i, (name, cores, mem_kb) in enumerate(HOSTS)]
     failed = sum(f.result() for f in futs)
     return sum(len(v) for v in running.values()), failed
 
@@ -226,17 +228,30 @@ def main():
     chan = grpc.insecure_channel(cuebots[idx])
     grpc.channel_ready_future(chan).result(timeout=15)
     stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
+    # SIM_CUEBOT_GRPC_SPREAD (comma-separated) spreads the hosts over several
+    # cuebots at once, each host pinned to one of them (fake_rqd sends the
+    # host's completions to the same one): the MIGRATE scenario's three cuebots
+    # behind one service registry. No failover in that mode.
+    spread = [a.strip() for a in os.environ.get("SIM_CUEBOT_GRPC_SPREAD", "").split(",")
+              if a.strip()]
+    stubs = [stub]
+    if spread:
+        stubs = [report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(a))
+                 for a in spread]
+        print(f"host reports spread over cuebots {spread}, each host pinned to one",
+              flush=True)
     rounds = 0
     with ThreadPoolExecutor(max_workers=REPORT_THREADS) as pool:
         while True:
             t0 = time.time()
-            nframes, failed = ping_round(stub, pool)
-            if failed == len(HOSTS) and len(cuebots) > 1:
+            nframes, failed = ping_round(stubs, pool)
+            if failed == len(HOSTS) and len(cuebots) > 1 and not spread:
                 idx = (idx + 1) % len(cuebots)
                 print(f"whole round failed; failing over to cuebot {cuebots[idx]}",
                       flush=True)
                 chan = grpc.insecure_channel(cuebots[idx])
                 stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
+                stubs = [stub]
             rounds += 1
             print(f"report round {rounds}: {len(HOSTS)} hosts, {nframes} running "
                   f"frames in {time.time()-t0:.2f}s "

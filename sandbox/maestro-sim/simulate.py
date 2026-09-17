@@ -393,6 +393,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_gpustrand.py", "gpustrand_watch.py",
                      "inject_showtier.py", "showtier_watch.py",
+                     "inject_migrate.py", "migrate_watch.py",
                      "inject_slice.py", "slice_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
@@ -746,7 +747,7 @@ def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
     # maestro.enabled is a tri-state rollout switch: no | facility | managed
     # (back-compat true=facility/false=no). Default new->facility, else->no;
     # override with SIM_MAESTRO_ENABLED (e.g. "managed" for per-show testing).
-    enabled = maestro_enabled(mode)
+    enabled = os.environ.get("SIM_MAESTRO_ENABLED_0") or maestro_enabled(mode)
     resv = "true" if reservations else "false"
     bf = "true" if backfill else "false"
     log(f"starting cuebot (mode={mode}, maestro.enabled={enabled}, "
@@ -848,7 +849,7 @@ def start_extra_cuebot(instance, mode, reservations=True, block_seconds=60,
     jar = os.path.join(CUEBOT_DIR, "build", "libs", "cuebot.jar")
     if not os.path.exists(jar):
         sys.exit(f"cuebot jar not found at {jar} (ensure_cuebot_built should have built it)")
-    enabled = maestro_enabled(mode)
+    enabled = os.environ.get(f"SIM_MAESTRO_ENABLED_{instance}") or maestro_enabled(mode)
     # cuebot in the sim only talks to LOCAL services: postgres on 127.0.0.1, and
     # fake_rqd (the hosts file above maps every farm hostname to 127.0.0.1). But
     # it dials RQD BY HOSTNAME (e.g. jaime0001), and if the environment set a JVM
@@ -1160,6 +1161,12 @@ def start_showtier_injector(duration):
           f"{FARM}/inject_showtier.log")
 
 
+def start_migrate_injector(duration):
+    log(f"starting MIGRATE flood (one show on Maestro, five legacy, three cuebots) "
+        f"for {duration}s ...")
+    spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_migrate.log")
+
+
 def start_slice_injector(duration):
     log(f"starting SLICE (one wide layer on three large hosts) for {duration}s ...")
     spawn(["inject_slice.py", str(duration)], f"{FARM}/inject_slice.log")
@@ -1241,6 +1248,13 @@ def set_scheduler_managed(managed):
     psql(f"UPDATE show SET b_scheduler_managed={val} "
          f"WHERE str_name LIKE 'sim%' OR str_name LIKE 'show%';")
     log(f"  show b_scheduler_managed={val}")
+
+
+def set_show_managed(show):
+    """Hand ONE show to Maestro's managed mode and leave the rest to the legacy
+    dispatcher: the MIGRATE topology, one show migrated at a time."""
+    psql(f"UPDATE show SET b_scheduler_managed=true WHERE str_name='{show}';")
+    log(f"  show {show} b_scheduler_managed=true (Maestro); the other shows stay legacy")
 
 
 # ---------------------------------------------------------------- main
@@ -1517,6 +1531,17 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{tm.group(1) if tm else '?'} showB {tm.group(2) if tm else '?'}, "
                     f"gap {tm.group(3) if tm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "MIGRATE":
+        # The watcher's verdict is the whole check: no cross-booking between the
+        # two dispatchers, progress on both sides, procs clean, no double launch.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"migrate: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"one show on Maestro, five on legacy: "
+                    f"{sm.group(1) if sm else 'no summary'}")
     if name == "SLICE":
         # The watcher's verdict is the whole check: every large host's first
         # slice is the accounted size. Fail-first: the per-call cap cuts it.
@@ -2008,6 +2033,22 @@ def run_verify():
                         "--parity-test", str(D), "--feed", str(D)]),
         ("PARITY_NEW", ["--hosts", "2,3,5", "--parity-test", str(D),
                         "--feed", str(D)]),
+        # MIGRATE: the rollout topology. Three cuebots share the host and
+        # completion reports, each host pinned to one of them and its
+        # completions with it, as an RQD behind a service registry. Cuebots
+        # 0 and 1 run the legacy dispatcher (--mode old: maestro.enabled=no,
+        # fast host reports); cuebot 2 runs Maestro in managed mode and,
+        # like any pool member, still books the legacy shows on the reports
+        # it receives. One show is flagged b_scheduler_managed and five stay
+        # legacy, all six flooded on one farm. Asserts the partition
+        # (neither dispatcher books the other's show), progress on both
+        # sides, no released proc left behind (whichever cuebot receives a
+        # managed show's completion releases the proc instead of rebooking
+        # it) and no double launch.
+        ("MIGRATE", ["--hosts", "3,4,10", "--mode", "old", "--cuebots", "3",
+                     "--migrate-test", str(max(D, 180))],
+         {"SIM_MAESTRO_ENABLED_2": "managed",
+          "SIM_CUEBOT_GRPC_SPREAD": "localhost:8443,localhost:8453,localhost:8463"}),
         # LOCALITY: the same-layer locality bonus must steer refills, measured
         # on the FULL farm (1553 hosts, all three host classes) under the
         # standard sustained feed -- the realistic regime, like OOM and
@@ -2253,6 +2294,15 @@ def main():
                          "farm. Assert that the allocation splits in proportion to "
                          "subscription size (equal tiers) with nobody above burst, "
                          "the legacy dispatcher's show walk.")
+    ap.add_argument("--migrate-test", type=int, default=0, metavar="SECS",
+                    help="MIGRATE test: three cuebots share the host and completion reports "
+                         "(SIM_CUEBOT_GRPC_SPREAD); cuebots 0 and 1 are the legacy dispatcher, "
+                         "cuebot 2 is Maestro in managed mode (SIM_MAESTRO_ENABLED_2=managed) "
+                         "and books the legacy shows on its reports too. One show "
+                         "(SIM_MIGRATE_SHOW, default showA) is flagged managed, five stay "
+                         "legacy, all flooded. Assert that neither dispatcher books the "
+                         "other's show, both make progress, no released proc is left "
+                         "behind and no frame launches twice.")
     ap.add_argument("--slice-test", type=int, default=0, metavar="SECS",
                     help="SLICE test: one wide one-core layer on three large "
                          "hosts. Assert that the first slice delivered on every "
@@ -2564,6 +2614,8 @@ def main():
     # force the flag OFF so a leftover true can't make cuebot's legacy dispatch
     # skip the show (migration V45 filters b_scheduler_managed=false).
     set_scheduler_managed(maestro_enabled(args.mode) == "managed")
+    if args.migrate_test:
+        set_show_managed(os.environ.get("SIM_MIGRATE_SHOW", "showA"))
     ensure_cuebot_built()
     # LICENSE test: the license server must be answering BEFORE cuebot's first
     # poll, so Maestro starts from a real sample instead of a failed fetch
@@ -2625,6 +2677,8 @@ def main():
         start_gpustrand_injector(args.gpustrand_test)
     if args.showtier_test:
         start_showtier_injector(args.showtier_test)
+    if args.migrate_test:
+        start_migrate_injector(args.migrate_test)
     if args.slice_test:
         start_slice_injector(args.slice_test)
     if args.completionstorm_test:
@@ -2651,7 +2705,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test or args.solofill_test
              or args.health_test or args.strandgrow_test
-             or args.gpustrand_test or args.showtier_test or args.slice_test
+             or args.gpustrand_test or args.showtier_test or args.migrate_test or args.slice_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2713,6 +2767,11 @@ def main():
             f"for {args.showtier_test}s ...")
         subprocess.run([VENV_PY, "showtier_watch.py",
                         str(args.showtier_test), "3"], cwd=FARM)
+    elif args.migrate_test:
+        log(f"watching MIGRATE (one show on Maestro, five legacy, three cuebots) "
+            f"for {args.migrate_test}s ...")
+        subprocess.run([VENV_PY, "migrate_watch.py", str(args.migrate_test), "3",
+                        RQD_LOG, "http://localhost:8082/metrics"], cwd=FARM)
     elif args.slice_test:
         log(f"watching SLICE (a slice delivers what Maestro accounted) "
             f"for {args.slice_test}s ...")

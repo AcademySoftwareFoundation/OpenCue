@@ -64,6 +64,7 @@ torn-down sim that writes its own graphs — then prints a PASS/FAIL summary
 | **SHOWTIER** | two shows of equal priority, subscription sizes one quarter and three quarters of an allocation, split it in proportion to size and nobody runs above its burst |
 | **SLICE** | the plan read delivers the slice Maestro accounted (`frame_query_max` frames on a large idle host), not the legacy per-call trickle |
 | **SOLOFILL** | a one-layer job fills the farm as fast as a fifty-layer job of equal size: both are fully booked at the mark (ratio near 1) with zero dropped launches |
+| **MIGRATE** | the rollout topology: three cuebots share the host and completion reports; cuebots 0 and 1 run the legacy dispatcher on five shows, cuebot 2 runs Maestro in managed mode on one flagged show and books the legacy shows on its own reports too; neither dispatcher books the other's show, both make progress on one farm, no released proc is left behind and nothing launches twice |
 | **TAGMAX** | Maestro's cross-group layer dedup under maximal fragmentation: 120 capability tags shatter the full farm into host-spec groups while 30% of layers are run-anywhere (`general`, a candidate in every group at once), and `raceLost` (planned frames that lost the `frame.int_version` race at commit) must stay a small fraction of planned — proof no layer is re-planned across groups only to lose every copy but one |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
