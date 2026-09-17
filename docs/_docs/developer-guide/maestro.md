@@ -64,7 +64,8 @@ procs first). That pipeline:
 2. **Group**: bucket hosts by spec key `(alloc, facility, normalized_tags,
    os, has_gpu, thread_mode==ALL)` (`groupByHostSpec`). On a homogeneous farm this is a handful of
    groups, which is what collapses the per-host query storm into a few
-   queries per tick.
+   queries per tick. A host's own name is not part of its spec: a tag that
+   names a host is a pin (§3.10), read once per tick beside the groups.
 3. **For each group:**
    1. **Candidate query**: one query per group
       (`readLayerCandidatesForGroup`, `SELECT_CANDIDATES_FOR_GROUP`) for the
@@ -510,7 +511,8 @@ limit's budget (frame tokens or machine seats) is exhausted. `held` = every fitt
 reserved for a wide job. `share` = every fitting host already holds the layer's
 per-host share while other work waits (the soft cap yielding to nobody), or was
 planned for it this tick. `strand` = every fitting host keeps the bundle an
-idle resource needs for waiting work (§3.1). The buckets reuse the why-not precedence
+idle resource needs for waiting work (§3.1). `no host` = the layer's tags name
+no host at all (a stale machine list, §3.10). The buckets reuse the why-not precedence
 (`waitlistReason`), cost no extra query, and are published as the gauge
 `cue_maestro_waiting_frames{reason}`. The "What's holding frames" Grafana
 panel shows each BLOCKED bucket as a share of the weighed waitlist: all zero
@@ -579,6 +581,55 @@ the sim farm), an untouched non-threadable control, and the cores back at
 work. The pre-feature disease (every frame at 1 core, ~10% core utilisation
 on a memory-full farm) was demonstrated fail-first against the unmodified
 scheduler.
+
+### 3.10 Pins (machine lists and local renders)
+
+A tag that names a host is a pin, not a spec. That is how a task is sent to a
+list of machines and how a local render is sent to one workstation: cuebot
+tags every host with its own name at creation, and the legacy match is an OR
+over the layer's tags, so a layer whose tags are host names matches exactly
+those hosts. Maestro's group key strips the name (a spec says what kind of
+machine, never which one), so such a layer matches no group; it is read
+separately.
+
+**The design.** A pinned layer is a candidate only on the hosts it names, and
+on those hosts it obeys every other rule unchanged: its show's subscription
+in that host's allocation, facility, OS, thread mode, fit, caps, reservations,
+limit seats, the soft per-host cap and cache warmth. It never widens to the
+host's group. A layer tagged with a spec and a name runs anywhere the spec
+allows plus on the named host: it is a group candidate as well, and the
+group's copy wins in that group.
+
+**The mechanism.** One extra read per tick (`SELECT_PINNED_CANDIDATES`,
+`readPinnedCandidates`) returns a row per (layer, named host) for the waiting
+layers whose tags are not all spec tags; the bind is the tick's set of spec
+tags, a few dozen strings. The host is resolved and checked in SQL exactly as
+the group query checks a group: UP and OPEN, the job's facility, its OS list,
+the thread-mode rule, and a host big enough for one frame. `attachPins` turns
+the rows into one candidate per (layer, host-spec group), each carrying its
+pinned hosts, filed under the groups those hosts belong to; a machine list
+that spans two specs becomes two candidates of one layer, and the tick-wide
+layer dedup and backlog already handle that. `planGroup` adds them to the
+group's candidates, skipping a layer the group query already returned. Inside
+the group the pinned candidate's visit list is its pinned hosts in the group's
+idle subset and nothing else (`placeOnce`); the class scan is skipped. The
+strand and yield tests ask a pinned candidate only about its own hosts
+(`pinsAllow`), and a pinned reservation targets its pins.
+
+**Visibility.** A layer none of whose names resolves, and that has no spec
+tag either, waits with the reason `no host` (§3.8). Pins are exact host
+names, the string cuebot itself tagged the host with.
+
+**Bound.** One query over the waiting layers with a non-spec tag per tick,
+then O(pins) per pinned candidate; pins never fracture a group.
+
+**Verification.** The PIN scenario (§8) pins five layers to lists of one to
+four hosts, one list spanning two specs, one with a dead name beside a real
+one and one with dead names only, beside a general flood that keeps the farm
+full. Every pinned frame must run on its list, each real pin must complete
+frames, the group count must stay at the number of specs, and the dead pin
+must show `no host`. Fail-first on the tree before this feature: the four real
+pins completed 0 frames each at 100% utilisation.
 
 ## 4. Concurrency model
 
@@ -754,16 +805,12 @@ legacy dispatcher.
   one candidate query per host, the very storm grouping avoids. Maestro
   logs a throttled WARNING (at most once every few minutes) so it is caught
   without flooding the log.
-- **Bare-hostname tag pins are not honored**: cuebot auto-adds each host's own
-  name as a tag, and `normalizeTags` strips it from the group key (that is what
-  prevents the group explosion above). As a result a layer tagged with *only* a
-  bare hostname (`layer.tags == "<hostname>"`, the legacy exclusive-pin idiom)
-  matches no group and never dispatches under Maestro — its frames sit
-  `WAITING`. The legacy dispatcher honors such pins (it matches the host's raw
-  tags), so this is a silent difference for `maestro.enabled` shows. A layer
-  that carries a shared tag alongside the hostname still dispatches on the shared
-  tag. If exclusive hostname pinning is needed, keep those shows on the legacy
-  dispatcher (or route via a dedicated allocation/tag instead of a host name).
+- **A pin that names no host**: cuebot auto-adds each host's own name as a
+  tag and `normalizeTags` strips it from the group key (that is what prevents
+  the group explosion above); a layer tagged with host names is placed through
+  the pinned read instead (§3.10). A name that resolves to no UP and OPEN host
+  in the job's facility waits with the reason `no host`, so a stale machine
+  list shows on the waitlist panel instead of sitting `WAITING` in silence.
 
 **Observability.** Per-tick detail is DEBUG; INFO carries one consolidated
 `Maestro stat:` line per `maestro.stat_interval_seconds` (default 5 minutes):

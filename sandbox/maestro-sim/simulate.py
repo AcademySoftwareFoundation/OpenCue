@@ -388,6 +388,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_capdrop.py", "capdrop_watch.py",
                      "inject_prodenv.py", "prodenv_watch.py",
                      "inject_layercap.py", "layercap_watch.py",
+                     "inject_pin.py", "pin_watch.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
                      "inject_solofill.py", "solofill_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
@@ -1167,6 +1168,12 @@ def start_migrate_injector(duration):
     spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_migrate.log")
 
 
+def start_pin_injector(duration):
+    log(f"starting PIN load (five layers pinned to machine lists beside a general "
+        f"flood) for {duration}s ...")
+    spawn(["inject_pin.py", str(duration)], f"{FARM}/inject_pin.log")
+
+
 def start_slice_injector(duration):
     log(f"starting SLICE (one wide layer on three large hosts) for {duration}s ...")
     spawn(["inject_slice.py", str(duration)], f"{FARM}/inject_slice.log")
@@ -1542,6 +1549,16 @@ def _verify_check(name, gdir, logp, cblog):
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, (f"one show on Maestro, five on legacy: "
                     f"{sm.group(1) if sm else 'no summary'}")
+    if name == "PIN":
+        # The watcher's verdict is the whole check: pinned layers run only on
+        # their hosts and make progress, groups stay whole, a dead pin is visible.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"pin: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"layers pinned to machine lists: {sm.group(1) if sm else 'no summary'}"
     if name == "SLICE":
         # The watcher's verdict is the whole check: every large host's first
         # slice is the accounted size. Fail-first: the per-call cap cuts it.
@@ -2049,6 +2066,16 @@ def run_verify():
                      "--migrate-test", str(max(D, 180))],
          {"SIM_MAESTRO_ENABLED_2": "managed",
           "SIM_CUEBOT_GRPC_SPREAD": "localhost:8443,localhost:8453,localhost:8463"}),
+        # PIN: a layer whose tags are host names runs on those hosts and only
+        # there (a machine list, or a local render on one workstation). Four
+        # capability tags give the small farm several host specs, so one list
+        # spans two specs. Five pinned layers at priority 200 face a general
+        # flood at 100 that keeps the farm full. Asserts that every pinned
+        # frame ran on its list, that each real pin completes frames, that
+        # the host-spec group count stays at the number of specs (pins must
+        # not fracture the grouping) and that a pin naming no host shows a
+        # waitlist reason.
+        ("PIN", ["--hosts", "3,4,10", "--tags", "4", "--pin-test", str(D)]),
         # LOCALITY: the same-layer locality bonus must steer refills, measured
         # on the FULL farm (1553 hosts, all three host classes) under the
         # standard sustained feed -- the realistic regime, like OOM and
@@ -2303,6 +2330,11 @@ def main():
                          "legacy, all flooded. Assert that neither dispatcher books the "
                          "other's show, both make progress, no released proc is left "
                          "behind and no frame launches twice.")
+    ap.add_argument("--pin-test", type=int, default=0, metavar="SECS",
+                    help="PIN test: five layers pinned to machine lists (host-name tags) "
+                         "against a general flood. Assert that pinned frames run only on "
+                         "their lists, that each real pin makes progress, that the host-spec "
+                         "group count stays whole and that a dead pin shows a reason.")
     ap.add_argument("--slice-test", type=int, default=0, metavar="SECS",
                     help="SLICE test: one wide one-core layer on three large "
                          "hosts. Assert that the first slice delivered on every "
@@ -2681,6 +2713,8 @@ def main():
         start_migrate_injector(args.migrate_test)
     if args.slice_test:
         start_slice_injector(args.slice_test)
+    if args.pin_test:
+        start_pin_injector(args.pin_test)
     if args.completionstorm_test:
         start_completionstorm_injector(args.completionstorm_test)
     if args.doublerender_test:
@@ -2706,6 +2740,7 @@ def main():
              or args.layercap_solo_test or args.solofill_test
              or args.health_test or args.strandgrow_test
              or args.gpustrand_test or args.showtier_test or args.migrate_test or args.slice_test
+             or args.pin_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2772,6 +2807,10 @@ def main():
             f"for {args.migrate_test}s ...")
         subprocess.run([VENV_PY, "migrate_watch.py", str(args.migrate_test), "3",
                         RQD_LOG, "http://localhost:8082/metrics"], cwd=FARM)
+    elif args.pin_test:
+        log(f"watching PIN (pinned layers run only on their hosts) for {args.pin_test}s ...")
+        subprocess.run([VENV_PY, "pin_watch.py", str(args.pin_test), "3",
+                        "http://localhost:8080/metrics"], cwd=FARM)
     elif args.slice_test:
         log(f"watching SLICE (a slice delivers what Maestro accounted) "
             f"for {args.slice_test}s ...")

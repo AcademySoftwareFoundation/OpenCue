@@ -227,6 +227,9 @@ public class Maestro extends JdbcDaoSupport {
     // True once this tick's limit budgets are loaded; reset by clearTickScratch.
     /* package for tests */ boolean limitBudgetsResolved = false;
     private final Set<String> seenLayerIds = new HashSet<>();
+    private final Map<HostSpecKey, List<LayerCandidate>> pinnedByGroup = new HashMap<>(); // consumed
+                                                                                          // by
+                                                                                          // planGroup()
     private final List<ReservationRequest> reservationReqs = new ArrayList<>();
     // Waitlist tally: the last outcome seen for each candidate layer that still had waiting
     // frames, and that count. tallyWaitlist folds them into the tick stats and the stat line.
@@ -612,6 +615,85 @@ public class Maestro extends JdbcDaoSupport {
             + "LIMIT  ? ";
     // spotless:on
 
+    // Pinned layers: the same row as the group query, one per (layer, named
+    // host), for the waiting layers whose tags are not all host-spec tags.
+    // The host join carries the group query's per-host predicates, so a
+    // named host that is down, locked, in another facility or OS, or too
+    // small yields no row; a layer none of whose names resolves yields one
+    // row with a null host. Binds: thread mode ALL, the spec tags (csv,
+    // lower case), the facility-mode flag, the row limit.
+    // spotless:off
+    private static final String SELECT_PINNED_CANDIDATES =
+            "SELECT "
+            + "  l.pk_layer, "
+            + "  l.pk_job, "
+            + "  j.pk_show, "
+            + "  l.int_cores_min, "
+            + "  l.int_mem_min, "
+            + "  l.b_threadable, "
+            + "  l.int_cores_max, "
+            + "  l.int_gpus_min, "
+            + "  l.int_gpu_mem_min, "
+            + "  jr.int_priority, "
+            + "  jr.int_cores       AS job_cores_in_use, "
+            + "  jr.int_max_cores   AS job_max_cores, "
+            + "  COALESCE(sub.int_cores, 0) AS show_cores_in_use, "
+            + "  COALESCE(sub.int_burst, 0) AS show_burst, "
+            + "  COALESCE(sub.int_size, 0)  AS show_size, "
+            + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
+            + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
+            + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
+            + "  (SELECT string_agg(ll.pk_limit_record, ',') "
+            + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
+            + "  j.pk_folder AS folder_id, "
+            + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
+            + "  COALESCE(fu.folder_cores, 0)   AS folder_running, "
+            + "  h.pk_host AS pin_host, "
+            + "  l.str_tags "
+            + "FROM   layer l "
+            + "JOIN   job j           ON j.pk_job  = l.pk_job "
+            + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
+            + "JOIN   show sh         ON sh.pk_show = j.pk_show "
+            + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
+            + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
+            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
+            + "LEFT JOIN ("
+            + "    SELECT j2.pk_folder, "
+            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
+            + "    FROM   job j2 "
+            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
+            + "                               AND fr2.int_max_cores <> -1 "
+            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
+            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
+            + "    WHERE  j2.str_state = 'PENDING' "
+            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
+            + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
+            + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
+            + "       ON h.str_name = ANY(string_to_array(replace(l.str_tags, ' ', ''), '|')) "
+            + "      AND hs.str_state = 'UP' "
+            + "      AND h.str_lock_state = 'OPEN' "
+            + "      AND j.pk_facility = a.pk_facility "
+            + "      AND (j.str_os IS NULL OR j.str_os = '' "
+            + "           OR j.str_os = ANY(string_to_array(hs.str_os, ','))) "
+            + "      AND (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) "
+            + "          >= (CASE WHEN h.int_thread_mode = ? THEN 1 ELSE 0 END) "
+            + "      AND l.int_cores_min <= h.int_cores "
+            + "LEFT JOIN subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = h.pk_alloc "
+            + "WHERE  j.str_state = 'PENDING' "
+            + "  AND  j.b_paused  = false "
+            + "  AND  NOT (string_to_array(lower(replace(l.str_tags, ' ', '')), '|') "
+            + "            <@ string_to_array(?, ',')) "
+            + "  AND  (h.pk_host IS NULL "
+            + "        OR (sub.pk_subscription IS NOT NULL AND sub.int_cores < sub.int_burst)) "
+            + "  AND  jr.int_cores  < jr.int_max_cores "
+            + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
+            + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
+            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "  AND (? OR sh.b_scheduler_managed = true) "
+            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            + "LIMIT  ? ";
+    // spotless:on
+
     // ---- row mappers ------------------------------------------------------
 
     private static final RowMapper<BookableHost> HOST_MAPPER = new RowMapper<BookableHost>() {
@@ -670,6 +752,10 @@ public class Maestro extends JdbcDaoSupport {
                     return c;
                 }
             };
+
+    private static final RowMapper<PinRow> PINNED_MAPPER =
+            (rs, i) -> new PinRow(CANDIDATE_MAPPER.mapRow(rs, i), rs.getString("pin_host"),
+                    rs.getString("str_tags"));
 
     // ---- tick -------------------------------------------------------------
 
@@ -873,12 +959,12 @@ public class Maestro extends JdbcDaoSupport {
         // tick), so a cause that spiked for a single tick still shows here.
         String waitlist = String.format(
                 " | waitlist total=%d flowing=%d capacity=%d nofit=%d limit=%d license=%d held=%d"
-                        + " share=%d strand=%d",
+                        + " share=%d strand=%d nohost=%d",
                 winWaitTotalMax, winWaitMax.getOrDefault("flowing", 0L),
                 winWaitMax.getOrDefault("capacity", 0L), winWaitMax.getOrDefault("no fit", 0L),
                 winWaitMax.getOrDefault("limit", 0L), winWaitMax.getOrDefault("no license", 0L),
                 winWaitMax.getOrDefault("held", 0L), winWaitMax.getOrDefault("share", 0L),
-                winWaitMax.getOrDefault("strand", 0L));
+                winWaitMax.getOrDefault("strand", 0L), winWaitMax.getOrDefault("no host", 0L));
 
         logger.info(String.format(
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
@@ -1172,6 +1258,7 @@ public class Maestro extends JdbcDaoSupport {
         limitSeats.clear();
         limitBudgetsResolved = false;
         seenLayerIds.clear();
+        pinnedByGroup.clear();
         reservationReqs.clear();
         waitReasonByLayer.clear();
         waitFramesByLayer.clear();
@@ -1201,6 +1288,7 @@ public class Maestro extends JdbcDaoSupport {
         List<LayerCandidate> candidates;
         try {
             candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            addPinned(candidates, pinnedByGroup.get(spec), idleGroup);
             // Size threadable layers from their observed rss before anything scores or
             // fits them, against the studio's memory-per-core policy ratio (or, when
             // none is set, this group's own derived one); 1-core layers with no
@@ -1327,6 +1415,7 @@ public class Maestro extends JdbcDaoSupport {
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
         bindTickState(allHosts);
+        readPinnedCandidates(groups, hostById);
 
         // 3. PLAN each host-spec group in priority order.
         int dispatched = 0;
@@ -1976,7 +2065,7 @@ public class Maestro extends JdbcDaoSupport {
                 continue;
             }
             i++;
-            if (o == c || !fitsOnHost(o, h))
+            if (o == c || !pinsAllow(o, h) || !fitsOnHost(o, h))
                 continue;
             if (layerFramesOn(h, o) >= layerHostCap(h, o))
                 continue;
@@ -2084,7 +2173,8 @@ public class Maestro extends JdbcDaoSupport {
                 continue;
             }
             i++;
-            if (o != c && hostCanEverFit(o, h) && openToPlace(o) && !hostSeatBlocked(h, o))
+            if (o != c && pinsAllow(o, h) && hostCanEverFit(o, h) && openToPlace(o)
+                    && !hostSeatBlocked(h, o))
                 return true;
         }
         return false;
@@ -2582,21 +2672,147 @@ public class Maestro extends JdbcDaoSupport {
 
     static Map<HostSpecKey, List<BookableHost>> groupByHostSpec(List<BookableHost> hosts) {
         Map<HostSpecKey, List<BookableHost>> groups = new LinkedHashMap<>();
-        for (BookableHost h : hosts) {
-            HostSpecKey k = new HostSpecKey(h.pkAlloc, h.pkFacility,
-                    // Cuebot auto-adds each host's own name as a tag. Drop it
-                    // from the grouping key, otherwise every host falls into a
-                    // group of one and the per-group candidate query runs once
-                    // per host instead of once per real spec.
-                    normalizeTags(h.tagsRaw, h.hostName), h.os,
-                    // GPU presence is a static hardware property: use totals,
-                    // not idle. A fully-booked GPU host (gpusIdle == 0) must
-                    // still group as a GPU host so its candidate query filters
-                    // for GPU layers and the GPU-weighted score protects it.
-                    h.gpusTotal > 0 || h.gpuMemTotal > 0, h.threadMode == ThreadMode.ALL_VALUE);
-            groups.computeIfAbsent(k, x -> new ArrayList<>()).add(h);
-        }
+        for (BookableHost h : hosts)
+            groups.computeIfAbsent(hostSpecKey(h), x -> new ArrayList<>()).add(h);
         return groups;
+    }
+
+    /**
+     * A host's spec: what kind of machine it is, never which one. Cuebot auto-adds each host's own
+     * name as a tag; the key drops it, otherwise every host falls into a group of one and the
+     * per-group candidate query runs once per host instead of once per real spec. A name in a
+     * layer's tags is a pin instead (see {@link #readPinnedCandidates}). GPU presence is a static
+     * hardware property, so it uses totals, not idle: a fully-booked GPU host must still group as a
+     * GPU host so its candidate query filters for GPU layers and the GPU-weighted score protects
+     * it.
+     */
+    static HostSpecKey hostSpecKey(BookableHost h) {
+        return new HostSpecKey(h.pkAlloc, h.pkFacility, normalizeTags(h.tagsRaw, h.hostName), h.os,
+                h.gpusTotal > 0 || h.gpuMemTotal > 0, h.threadMode == ThreadMode.ALL_VALUE);
+    }
+
+    /**
+     * Pins: a tag that names a host is a pin, not a spec. A layer pinned to hosts is a candidate
+     * only on the hosts it names and obeys every other rule there (its show's subscription in that
+     * host's allocation, facility, OS, thread mode, fit, caps, reservations, seats and the soft
+     * per-host cap), and it never widens to the host's group. The legacy match is an OR over the
+     * layer's tags, so a layer tagged with a spec and a name runs anywhere the spec allows plus on
+     * the named host; that layer is a group candidate as well and the group's copy wins there.
+     *
+     * One read per tick returns a row per (layer, named host) for the waiting layers whose tags are
+     * not all spec tags, with the host resolved and checked in SQL exactly as the group query
+     * checks a group (see SELECT_PINNED_CANDIDATES). The rows become one candidate per (layer,
+     * host-spec group), each carrying its pinned hosts, filed under the groups those hosts belong
+     * to; planGroup adds them to the group's candidates. A layer none of whose names resolves, and
+     * that has no spec tag either, waits with the reason "no host" so a stale machine list is
+     * visible in the waitlist instead of silent.
+     *
+     * Bound: one query over the waiting layers with a non-spec tag, then O(rows).
+     */
+    private void readPinnedCandidates(Map<HostSpecKey, List<BookableHost>> groups,
+            Map<String, BookableHost> hostById) {
+        Set<String> specTags = new HashSet<>();
+        for (HostSpecKey k : groups.keySet())
+            for (String t : k.tagsNormalized.split("\\s+"))
+                if (!t.isEmpty())
+                    specTags.add(t.toLowerCase());
+        if (specTags.isEmpty())
+            return;
+        int limit = env.getProperty("maestro.layer_candidates_per_group_max", Integer.class, 2000);
+        List<PinRow> rows;
+        try {
+            rows = getJdbcTemplate().query(SELECT_PINNED_CANDIDATES, PINNED_MAPPER,
+                    ThreadMode.ALL_VALUE, String.join(",", specTags), MaestroMode.facility(env),
+                    limit);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: pinned candidate query failed; no pinned layer is planned this"
+                    + " tick: " + e.getMessage());
+            return;
+        }
+        pinnedByGroup
+                .putAll(attachPins(rows, hostById, specTags, waitReasonByLayer, waitFramesByLayer));
+    }
+
+    /**
+     * Turn the pinned rows into one candidate per (layer, host-spec group), each holding the pinned
+     * hosts of that group. A row whose host is not in this tick's snapshot resolves nothing; a
+     * layer with no resolved host and no spec tag is filed under the waitlist reason "no host" with
+     * its waiting frames. Bound: O(rows).
+     */
+    static Map<HostSpecKey, List<LayerCandidate>> attachPins(List<PinRow> rows,
+            Map<String, BookableHost> hostById, Set<String> specTags,
+            Map<String, String> waitReason, Map<String, Integer> waitFrames) {
+        Map<HostSpecKey, List<LayerCandidate>> out = new HashMap<>();
+        Map<HostSpecKey, Map<String, LayerCandidate>> byLayer = new HashMap<>();
+        Set<String> resolved = new HashSet<>();
+        List<PinRow> unresolved = new ArrayList<>();
+        for (PinRow r : rows) {
+            BookableHost h = r.hostId == null ? null : hostById.get(r.hostId);
+            if (h == null) {
+                unresolved.add(r);
+                continue;
+            }
+            HostSpecKey k = hostSpecKey(h);
+            Map<String, LayerCandidate> inGroup = byLayer.computeIfAbsent(k, x -> new HashMap<>());
+            LayerCandidate c = inGroup.get(r.row.layerId);
+            if (c == null) {
+                c = r.row;
+                c.pinnedHosts = new ArrayList<>();
+                c.pinnedIds = new HashSet<>();
+                inGroup.put(c.layerId, c);
+                out.computeIfAbsent(k, x -> new ArrayList<>()).add(c);
+            }
+            c.pinnedHosts.add(h);
+            c.pinnedIds.add(h.hostId);
+            resolved.add(c.layerId);
+        }
+        for (PinRow r : unresolved) {
+            if (resolved.contains(r.row.layerId) || namesSpecTag(r.tags, specTags))
+                continue;
+            waitReason.put(r.row.layerId, "no host");
+            waitFrames.put(r.row.layerId, r.row.waitingFrameCount);
+        }
+        return out;
+    }
+
+    /** Whether any token of a layer's tag regex is a host-spec tag (case-insensitive). */
+    static boolean namesSpecTag(String layerTags, Set<String> specTags) {
+        if (layerTags == null)
+            return false;
+        for (String t : layerTags.replace(" ", "").split("\\|"))
+            if (specTags.contains(t.toLowerCase()))
+                return true;
+        return false;
+    }
+
+    /**
+     * Add a group's pinned candidates to its candidate list, skipping a layer the group query
+     * already returned (a layer tagged with a spec and a name), and cut each one's visit list to
+     * its pinned hosts that are in the group's idle subset: those are the hosts the class index
+     * holds, so a pinned placement moves a host the index knows. Bound: O(candidates + pins).
+     */
+    static void addPinned(List<LayerCandidate> candidates, List<LayerCandidate> pinned,
+            List<BookableHost> idleGroup) {
+        if (pinned == null || pinned.isEmpty())
+            return;
+        Set<String> present = new HashSet<>();
+        for (LayerCandidate c : candidates)
+            present.add(c.layerId);
+        Set<BookableHost> idle = new HashSet<>(idleGroup);
+        for (LayerCandidate c : pinned) {
+            if (!present.add(c.layerId))
+                continue;
+            c.pinnedIdle = new ArrayList<>();
+            for (BookableHost h : c.pinnedHosts)
+                if (idle.contains(h))
+                    c.pinnedIdle.add(h);
+            candidates.add(c);
+        }
+    }
+
+    /** A pinned candidate wants only its own hosts; an unpinned one wants any. */
+    static boolean pinsAllow(LayerCandidate o, BookableHost h) {
+        return o.pinnedIds == null || o.pinnedIds.contains(h.hostId);
     }
 
     /**
@@ -2743,10 +2959,10 @@ public class Maestro extends JdbcDaoSupport {
             // layer appears in several groups; a layer that books its whole backlog away drops
             // off the waitlist.
             if (c.waitingFrameCount > 0) {
-                waitReasonByLayer.put(c.layerId,
-                        placed ? "flowing"
-                                : waitlistReason(c, idle, folderInUse, limitUsable, limitSeatPools,
-                                        limitSeats));
+                waitReasonByLayer.put(c.layerId, placed ? "flowing"
+                        : waitlistReason(c,
+                                c.pinnedIdle != null ? new GroupViews.IdleView(c.pinnedIdle) : idle,
+                                folderInUse, limitUsable, limitSeatPools, limitSeats));
                 waitFramesByLayer.put(c.layerId, c.waitingFrameCount);
             } else if (placed) {
                 waitReasonByLayer.remove(c.layerId);
@@ -2774,7 +2990,8 @@ public class Maestro extends JdbcDaoSupport {
                 boolean qualified = blocked && debt >= reservationBlockMs && wideEnough;
                 boolean holdsResv = layerHoldsReservation(c.layerId);
                 if (holdsResv || qualified) {
-                    reservationReqs.add(new ReservationRequest(c, fullHosts));
+                    reservationReqs.add(new ReservationRequest(c,
+                            c.pinnedHosts != null ? c.pinnedHosts : fullHosts));
                 }
                 // Trace reservation decisions for every candidate so we can
                 // see why wide-job layers never accumulate enough debt.
@@ -2932,8 +3149,9 @@ public class Maestro extends JdbcDaoSupport {
             if (probeHeadroom <= 0)
                 return 0;
         }
-        Pick p = pickHost(c, classes.candidates(c, limitSeatPools, limitSeats), limitSeatPools,
-                limitSeats);
+        List<BookableHost> visit = c.pinnedIdle != null ? c.pinnedIdle
+                : classes.candidates(c, limitSeatPools, limitSeats);
+        Pick p = pickHost(c, visit, limitSeatPools, limitSeats);
         BookableHost best = p.best;
         int bestStrandFree = p.bestStrandFree;
         boolean overCap = false;
@@ -4077,6 +4295,9 @@ public class Maestro extends JdbcDaoSupport {
         String folderId;
         int folderMax;
         int folderRunning;
+        List<BookableHost> pinnedHosts; // consumed by addPinned() and the epilogue's reservation
+        Set<String> pinnedIds; // consumed by pinsAllow()
+        List<BookableHost> pinnedIdle; // consumed by placeOnce()
 
         /** Whether the layer has enough history to bound a frame's runtime. */
         boolean hasRuntimeEstimate() {
@@ -4090,6 +4311,18 @@ public class Maestro extends JdbcDaoSupport {
      * reservation (rather than looking it up from the current candidate set) means an override
      * decision works even when the owner layer doesn't appear in the current group's candidates.
      */
+    static final class PinRow {
+        final LayerCandidate row;
+        final String hostId;
+        final String tags;
+
+        PinRow(LayerCandidate row, String hostId, String tags) {
+            this.row = row;
+            this.hostId = hostId;
+            this.tags = tags;
+        }
+    }
+
     static final class Reservation {
         final String layerId;
         final int priority;
