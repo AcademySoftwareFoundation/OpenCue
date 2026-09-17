@@ -16,12 +16,13 @@ import java.util.TreeSet;
 /**
  * The hosts of a group in classes of equal state, so a slot's host scan visits one host per class
  * instead of every host. Every fact the scan reads for a (host, candidate) pair is a fact of the
- * host alone (its totals, its idle resources, the layers planned on it this tick and the frames
- * each layer holds on it), a fact of the candidate alone, or one of three facts that name both: the
- * host is warm for the candidate's layer, it holds a seat in one of the candidate's HOST limits, or
- * it is reserved. Hosts equal in the host facts and clear of the pair facts get the same verdict
- * and the same score for any candidate, so the scan evaluates the lowest-index host of each class
- * and lets it stand for the class; the hosts with a pair fact are evaluated one by one.
+ * host alone (its totals, its idle resources, the layers planned on it this tick, the frames each
+ * layer holds on it and the warmth claims of the waiting layers on it), a fact of the candidate
+ * alone, or one of three facts that name both: the host is warm for the candidate's layer, it holds
+ * a seat in one of the candidate's HOST limits, or it is reserved. Hosts equal in the host facts
+ * and clear of the pair facts get the same verdict and the same score for any candidate, so the
+ * scan evaluates the lowest-index host of each class and lets it stand for the class; the hosts
+ * with a pair fact are evaluated one by one.
  *
  * Bound: O(classes + reserved + warm(c) + seated(c)) per slot, O(log I) per placement.
  */
@@ -32,12 +33,15 @@ final class HostClasses {
         private final long[] state;
         private final Set<String> planned;
         private final Map<String, Integer> frames;
+        private final String claimLayer;
 
         Key(Maestro.BookableHost h) {
             state = new long[] {h.coresTotal, h.memTotal, h.gpusTotal, h.gpuMemTotal, h.coresIdle,
-                    h.memIdle, h.gpusIdle, h.gpuMemIdle};
+                    h.memIdle, h.gpusIdle, h.gpuMemIdle, Double.doubleToLongBits(h.claim),
+                    Double.doubleToLongBits(h.claimNext)};
             planned = new HashSet<>(h.planned.keySet());
             frames = new HashMap<>(h.layerFrames);
+            claimLayer = h.claimLayer;
         }
 
         @Override
@@ -46,12 +50,12 @@ final class HostClasses {
                 return false;
             Key k = (Key) o;
             return Arrays.equals(state, k.state) && planned.equals(k.planned)
-                    && frames.equals(k.frames);
+                    && frames.equals(k.frames) && Objects.equals(claimLayer, k.claimLayer);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(Arrays.hashCode(state), planned, frames);
+            return Objects.hash(Arrays.hashCode(state), planned, frames, claimLayer);
         }
     }
 

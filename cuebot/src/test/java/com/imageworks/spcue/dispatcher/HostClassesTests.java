@@ -47,6 +47,7 @@ public class HostClassesTests {
             s.layerHostMaxFrac = rnd.nextBoolean() ? 0.25 : 0;
             s.bindWaiting(candidates);
             s.reachNeeds = Maestro.reachNeedsOf(candidates);
+            s.bindWarmClaims(hosts, candidates);
             HostClasses classes = new HostClasses(hosts);
             for (int slot = 0; slot < 25; slot++) {
                 Maestro.LayerCandidate c = candidates.get(rnd.nextInt(candidates.size()));
@@ -69,5 +70,58 @@ public class HostClassesTests {
                 classes.move(best);
             }
         }
+    }
+
+    /** The price of a host is the credit its strongest other waiting claimant would receive. */
+    @Test
+    public void thePriceIsTheClaimantsCredit() {
+        Maestro s = new Maestro();
+        Maestro.BookableHost h = Fix.host("0", 1600, Fix.GB * 64, 0, 0);
+        h.ix = 0;
+        h.layersRunning.add("l1");
+        h.warmth = new HashMap<>();
+        h.warmth.put("l2", 10L);
+        h.odometer = 26;
+        Maestro.LayerCandidate c1 = Fix.candidate("l1", 100, Fix.GB, 0, 0, 3);
+        Maestro.LayerCandidate c2 = Fix.candidate("l2", 100, Fix.GB, 0, 0, 3);
+        Maestro.LayerCandidate c3 = Fix.candidate("l3", 100, Fix.GB, 0, 0, 3);
+        List<Maestro.LayerCandidate> candidates = Arrays.asList(c1, c2, c3);
+        List<Maestro.BookableHost> hosts = Arrays.asList(h);
+        s.bindWarmClaims(hosts, candidates);
+        double live = s.warmCredit(h, c1);
+        double cache = s.warmCredit(h, c2);
+        assertEquals(8.0, live, 0);
+        assertEquals(8.0 * (1 - 16.0 / 64), cache, 1e-9);
+        assertEquals(live, Maestro.otherClaim(h, c3), 0);
+        assertEquals(live, Maestro.otherClaim(h, c2), 0);
+        assertEquals(cache, Maestro.otherClaim(h, c1), 0);
+        // A layer with nothing waiting holds no claim.
+        c1.waitingFrameCount = 0;
+        s.bindWarmClaims(hosts, candidates);
+        assertEquals(cache, Maestro.otherClaim(h, c3), 0);
+        assertEquals(0.0, Maestro.otherClaim(h, c2), 0);
+    }
+
+    /**
+     * A cold host of equal state beats a host warm for another waiting layer; alone, the warm host
+     * is taken.
+     */
+    @Test
+    public void theColdHostOfEqualStateWins() {
+        Maestro s = new Maestro();
+        Maestro.BookableHost warm = Fix.host("0", 1600, Fix.GB * 64, 0, 0);
+        warm.ix = 0;
+        warm.layersRunning.add("l2");
+        Maestro.BookableHost cold = Fix.host("1", 1600, Fix.GB * 64, 0, 0);
+        cold.ix = 1;
+        Maestro.LayerCandidate c1 = Fix.candidate("l1", 100, Fix.GB, 0, 0, 3);
+        Maestro.LayerCandidate c2 = Fix.candidate("l2", 100, Fix.GB, 0, 0, 3);
+        List<Maestro.LayerCandidate> candidates = Arrays.asList(c1, c2);
+        Map<String, Set<String>> seats = new HashMap<>();
+        s.bindWaiting(candidates);
+        s.bindWarmClaims(Arrays.asList(warm, cold), candidates);
+        assertSame(cold, s.pickHost(c1, Arrays.asList(warm, cold), null, seats).best);
+        assertSame(warm, s.pickHost(c1, Arrays.asList(warm), null, seats).best);
+        assertSame(warm, s.pickHost(c2, Arrays.asList(warm, cold), null, seats).best);
     }
 }

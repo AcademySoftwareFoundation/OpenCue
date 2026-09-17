@@ -2144,6 +2144,78 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
+     * The warmth credit of candidate c on host h: the full bonus while c still runs there, the
+     * bonus decayed by the foreign frames landed since while its cache is warm, else zero.
+     */
+    double warmCredit(BookableHost h, LayerCandidate c) {
+        if (!localityEnabled)
+            return 0;
+        if (h.layersRunning != null && h.layersRunning.contains(c.layerId))
+            return localityBonus;
+        if (localityWindowFrames > 0) {
+            Long seen = warmthOn(h, c);
+            if (seen != null) {
+                long foreign = h.odometer - seen;
+                if (foreign >= 0 && foreign < localityWindowFrames)
+                    return localityBonus * (1.0 - (double) foreign / localityWindowFrames);
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * The warmth claims on each host of the group: the two strongest credits a waiting candidate of
+     * the group would receive there, and the layer of the strongest. A placement by another layer
+     * wipes that warmth, and the scan charges the strongest claim of a layer other than the one
+     * placing as the price of the host, symmetric to the credit (see pickHost).
+     *
+     * Bound: O(W) over the hosts' running layers and warmth entries.
+     */
+    void bindWarmClaims(List<BookableHost> hosts, List<LayerCandidate> candidates) {
+        Map<String, LayerCandidate> waiting = new HashMap<>();
+        if (localityEnabled) {
+            for (LayerCandidate c : candidates) {
+                if (c.waitingFrameCount > 0)
+                    waiting.put(c.layerId, c);
+            }
+        }
+        for (BookableHost h : hosts) {
+            h.claimLayer = null;
+            h.claim = 0;
+            h.claimNext = 0;
+            if (waiting.isEmpty())
+                continue;
+            claimFrom(h, h.layersRunning, waiting);
+            claimFrom(h, h.warmth == null ? null : h.warmth.keySet(), waiting);
+        }
+    }
+
+    private void claimFrom(BookableHost h, Set<String> layers,
+            Map<String, LayerCandidate> waiting) {
+        if (layers == null)
+            return;
+        for (String layerId : layers) {
+            LayerCandidate c = waiting.get(layerId);
+            if (c == null)
+                continue;
+            double v = warmCredit(h, c);
+            if (v > h.claim) {
+                if (!layerId.equals(h.claimLayer))
+                    h.claimNext = h.claim;
+                h.claimLayer = layerId;
+                h.claim = v;
+            } else if (v > h.claimNext && !layerId.equals(h.claimLayer)) {
+                h.claimNext = v;
+            }
+        }
+    }
+
+    /** The price of h for c: the strongest warmth claim on h of a waiting layer other than c's. */
+    static double otherClaim(BookableHost h, LayerCandidate c) {
+        return c.layerId.equals(h.claimLayer) ? h.claimNext : h.claim;
+    }
+
+    /**
      * Most frames of candidate c one host may hold when the per-host layer cap is on: the
      * configured fraction of the host's cores, never below 8 frames so small hosts still anchor a
      * cache-warm batch. Uncapped when the knob is 0 or the layer reserves no cores.
@@ -2598,6 +2670,7 @@ public class Maestro extends JdbcDaoSupport {
         }
         reachNeeds = reachNeedsOf(candidates);
         bindWaiting(candidates);
+        bindWarmClaims(hosts, candidates);
         classes = new HostClasses(hosts);
 
         // Placement slots: every slot goes first to the show with the lowest
@@ -3014,29 +3087,11 @@ public class Maestro extends JdbcDaoSupport {
                 continue;
             }
             double score = placementScore(h, c, reachNeeds);
-            // Locality bonus: prefer a host already running this layer so
-            // a freed core is refilled by the same layer (same-machine
-            // locality, formerly the reactive DispatchNextFrame path).
-            if (localityEnabled) {
-                Set<String> layersHere = h.layersRunning;
-                if (layersHere != null && layersHere.contains(c.layerId)) {
-                    score -= localityBonus;
-                } else if (localityWindowFrames > 0) {
-                    // Cache warmth: the host ran this layer and few
-                    // foreign frames displaced its cache since, so
-                    // pull the layer back with a decayed bonus. Never
-                    // larger than the live bonus; fit/reservations
-                    // are filtered before scoring.
-                    Long seen = warmthOn(h, c);
-                    if (seen != null) {
-                        long foreign = h.odometer - seen;
-                        if (foreign >= 0 && foreign < localityWindowFrames) {
-                            score -= localityBonus
-                                    * (1.0 - (double) foreign / localityWindowFrames);
-                        }
-                    }
-                }
-            }
+            // Locality: the credit for the host's own warmth for this layer, and the price of
+            // the strongest warmth another waiting layer holds there, which this placement
+            // would wipe. Symmetric, so a cold host of equal state beats a host warm for
+            // someone else by exactly their credit, and the only fitting host is still taken.
+            score += otherClaim(h, c) - warmCredit(h, c);
             // Seat bonus for HOST-type limits: packing onto an
             // already-seated machine consumes no new seat, which is the
             // whole point when seats are the scarce resource. Applied per
@@ -3964,6 +4019,9 @@ public class Maestro extends JdbcDaoSupport {
         int ix; // consumed by pickHost()
         int stamp; // consumed by HostClasses.candidates()
         HostClasses.Bucket bucket; // consumed by HostClasses.move()
+        String claimLayer; // consumed by otherClaim()
+        double claim; // consumed by otherClaim()
+        double claimNext; // consumed by otherClaim()
     }
 
     static final class LayerCandidate {
