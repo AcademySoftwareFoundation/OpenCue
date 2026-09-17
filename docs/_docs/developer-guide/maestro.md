@@ -70,16 +70,21 @@ procs first). That pipeline:
       (`readLayerCandidatesForGroup`, `SELECT_CANDIDATES_FOR_GROUP`) for the
       dispatchable layers that match the group, ranked by a **priority-weighted
       lottery** (§3.5), not a strict priority sort.
-   2. **Dispatch** (`dispatchGroupWithScoring`): for each candidate in that
-      lottery order, score every fitting host, pick the lowest score, record the
-      placement, and decrement the in-memory snapshot. A candidate that stays
+   2. **Dispatch** (`dispatchGroupWithScoring`): placement runs in slots. Each
+      slot goes to a candidate drawn by show tier and then by priority weight
+      (§3.5); it scores the hosts it can still use, takes the lowest score,
+      records a slice there and decrements the in-memory snapshot. Slots repeat
+      until no candidate can place, so a lone layer takes every fitting host in
+      one tick and contending layers share the tick. A candidate that stays
       blocked long enough and is wide enough records a reservation *request*.
 4. **Grant reservations**: after all groups, order the requests by a
    priority-weighted lottery and reconcile each grantee's reservation count
    under the per-class and max-grantees caps (section 3.2).
-5. **Commit**: read each recorded placement's frames in parallel by host
-   (`planHost`, read-only), write them all in one batched transaction
-   (`startFramesAndProcsBatch`), then fire the RQD launches fire-and-forget.
+5. **Commit**: read one frame window per planned layer, plan each recorded
+   placement from its slice of that window (`planFrames`, in memory), write
+   the bookings in host-aligned chunks of bounded size, one transaction each
+   (`startFramesAndProcsBatch`), and launch every committed booking on RQD
+   right after its chunk lands.
 6. **Sweep**: drop reservations whose layer no longer appears in any
    candidate set.
 
@@ -188,6 +193,17 @@ place a frame that does not fit or override a reservation. Disable with
 layer this live signal disappears; the cache-warmth window (§3.7) carries it
 across the gap.
 
+**Idle resources keep their bundle.** A GPU is reachable only through a core
+and some memory, so CPU-only work that takes the cores of a GPU host leaves the
+GPU idle and out of reach. Host resources are one table (cores, memory, GPUs,
+GPU memory) and *reach* is the share of a resource that waiting work can still
+use given the other resources it must take with it. The score prices a
+resource nobody waiting asks for by its reach, and a host is refused to a
+candidate while a waiting candidate that needs one of its idle resources could
+ever fit there (`strandFreeFrames`): the slice is cut to what lies beyond the
+bundle, zero puts the host off limits, and a full host drains toward the
+bundle as its frames finish. Nothing is protected while nobody waits.
+
 ### 3.2 Reservations (EASY/Maui backfill)
 
 A wide layer can be starved indefinitely by a stream of small frames: every
@@ -269,22 +285,28 @@ the big job" practice.
 ### 3.3 Plan reads and batched commit
 
 Maestro never writes bookings during placement; it just records the
-`(host, layer)` pairings it chose. After all groups, `doTick` reads each
-pairing's frames in parallel by host (`planHost`, read-only, on a small read
-pool), then writes every booking for the tick in one batched transaction
-(`startFramesAndProcsBatch`: batched frame UPDATE + proc INSERT + host UPDATE).
-Frames lost to a `frame.int_version` race are dropped from the batch and retried
-next tick. The RQD launches fire afterward fire-and-forget on a launch pool, so
-a slow RQD never stalls the tick. Each frame reserves exactly the layer's requested cores: `planHost` builds
+`(host, layer)` slices it chose, each sized to the frames it charged the host
+and every cap for. After all groups, `doTick` reads one frame window per
+planned layer and thread-mode class on the read pool, hands each placement its
+slice of the window (`planFrames`, in memory, no per-host query), then writes
+the bookings in host-aligned chunks of at most `COMMIT_CHUNK_FRAMES` frames,
+one batched transaction each (`startFramesAndProcsBatch`: batched frame UPDATE
++ proc INSERT + host UPDATE), so a tick that books a whole cold farm never
+holds every host row in one transaction. Frames lost to a `frame.int_version`
+race are dropped from the batch and retried next tick. The RQD launches of a
+chunk fire right after its transaction, fire-and-forget on a launch pool with
+an unbounded queue: a committed booking is always launched, and a slow RQD
+shows as launch latency, never as lost work. Each frame reserves exactly the
+layer's requested cores: `planFrames` builds
 procs with the dispatcher's thread-mode idle-core expansion (grab-idle) turned
 off, so the cores committed match the cores Maestro scored and decremented.
 Grab-idle would silently reserve more than planned and corrupt the snapshot;
 Maestro fills hosts by planning several placements, not by one frame
 ballooning to consume the box.
 
-This keeps the *decisions* on one thread (no races) while parallelizing the part
-that dominates tick time as the farm fills: the per-host reads. The writes stay
-one batched, atomic commit.
+This keeps the *decisions* on one thread (no races) while parallelizing the
+window reads; the plans are in-memory arithmetic over the windows. The writes
+stay batched and atomic per chunk.
 
 ### 3.4 Leader election (sticky)
 
@@ -344,6 +366,19 @@ handed out in priority-weighted lottery order too (`sortByPriorityLottery`;
 §3.2), so a low-priority wide job still wins a grant now and then and is not
 starved by a higher-priority stream. Reservations are firm, so a lottery win is
 never clawed back.
+
+**The lottery is drawn again for every placement slot.** Within a group the
+candidate query's draw only fills the pool. Each placement slot then goes to a
+candidate drawn from the pool with probability proportional to its priority,
+among the candidates that can still place, until none can (`SlotDraw`, a
+Fenwick tree per show). A tick's capacity therefore splits by priority however
+much of it there is: a lone layer takes every fitting host in one tick, and
+contending layers share each tick in proportion to their weight. Before
+priority comes the show tier: a slot is offered to the shows of the lowest tier
+first, the tier being the show's cores in use over its subscription size
+(`showTier`), the legacy dispatcher's show walk, so two shows of equal priority
+split an allocation in proportion to subscription size and nobody runs above
+its burst.
 
 ### 3.6 Limit-gated placement (application licenses)
 
@@ -441,6 +476,14 @@ footprint — hence the `maestro.locality_window_frames` knob (default 64,
 production data ever shows the average too coarse, the odometer can weight
 each booking by its memory reservation instead of counting 1.
 
+**The credit has a price.** The warmth a placement wipes belongs to someone:
+a host's score adds the strongest warmth claim of another waiting layer, the
+same value that layer would be credited there (`bindWarmClaims`,
+`otherClaim`). A cold host of equal state therefore beats a host warm for
+someone else by exactly that credit, while the only fitting host is still
+taken. On a loaded farm every host is warm for somebody and the price cancels,
+so it only moves placements that had a free choice.
+
 **The dial.** One counter reports both localities in production:
 `cue_maestro_booked_frames_locality_total{kind}`, counted in planned frames
 at each booking decision from the very signals the bonus scored. `live_warm`
@@ -464,7 +507,10 @@ cannot cover one frame; nothing is wrong). `no fit` = idle cores exist but none
 fits (slivers too small for a wide frame, or memory / gpu short): the shape
 mismatch worth investigating. `limit` = a job, show or folder cap. `no license` = an enforced
 limit's budget (frame tokens or machine seats) is exhausted. `held` = every fitting host is
-reserved for a wide job. The buckets reuse the why-not precedence
+reserved for a wide job. `share` = every fitting host already holds the layer's
+per-host share while other work waits (the soft cap yielding to nobody), or was
+planned for it this tick. `strand` = every fitting host keeps the bundle an
+idle resource needs for waiting work (§3.1). The buckets reuse the why-not precedence
 (`waitlistReason`), cost no extra query, and are published as the gauge
 `cue_maestro_waiting_frames{reason}`. The "What's holding frames" Grafana
 panel shows each BLOCKED bucket as a share of the weighed waitlist: all zero
@@ -623,9 +669,14 @@ tick, hosts bucketed into a few static spec groups, then one candidate-layer
 query per group. On a homogeneous farm that is O(G) heavy queries per tick
 (G = distinct host specs, a small constant) instead of O(H) per report cycle
 (H = hosts), so heavy DB query load stops scaling with farm size. The only
-per-host work left is the read-only plan phase, which is light and runs in
-parallel; placement scoring is O(candidates x hosts), but that is in-memory
-arithmetic over the snapshot, not database work.
+per-layer work left is the read-only frame window, which runs in parallel;
+placement is in-memory arithmetic over the snapshot, linear in hosts and in
+candidates per tick. A slot visits one host per class of equal state plus the
+candidate's warm, seated and reserved hosts (`HostClasses`), the draw costs
+O(log C) per slot (`SlotDraw`), and the cap counters, the strand test and the
+epilogue walk cells, needer lists and sorted views instead of nested scans. On
+the simulated 1,553-host farm the cold-fill placement fell from 1.2 s to
+0.13 s.
 
 **Roughly 10x less DB traffic overall.** Together these move the design from "a
 transaction per booking decision plus a heavy join per host report" to
@@ -643,9 +694,8 @@ already takes most of the load off it.
 | Property | Default | Meaning |
 |---|---|---|
 | `maestro.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (Maestro owns all shows, legacy BookingQueue globally suppressed), or `managed` (Maestro owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
-| `maestro.read_pool_size` | = launch pool size | Threads for the parallel per-host plan reads (read-only, DB-bound). |
-| `maestro.launch_pool_size` | `8` | Threads for the fire-and-forget RQD launches after the batched commit. |
-| `maestro.launch_queue_size` | `16384` | Bound on queued launches; on overflow a launch is dropped and recovered by RQD report reconciliation. |
+| `maestro.read_pool_size` | = launch pool size | Threads for the parallel frame-window reads (read-only, DB-bound). |
+| `maestro.launch_pool_size` | `8` | Threads for the fire-and-forget RQD launches after each committed chunk; the launch queue is unbounded, so a committed booking is always launched. |
 | `maestro.layer_candidates_per_group_max` | `2000` | Cap on candidate layers fetched per group per tick. |
 | `maestro.reservations_enabled` | `true` | Enable reservations and backfill. When off, pure placement scoring. |
 | `maestro.reservation_block_seconds` | `300` | Net blocked time a layer must accrue before it may reserve. |
@@ -684,13 +734,19 @@ legacy dispatcher.
   another Cuebot becomes leader on its next tick. Placement resumes at once,
   but reservations re-arm only as blocked layers re-accrue
   `reservation_block_seconds` (the block-time bucket is in-memory).
-- **Slow batched commit**: the commit is synchronous, so a slow transaction
-  delays the next tick directly (no worker pool hides it). This is the one
-  place where DB latency gates the tick rate; the future-work batching and
-  row-fetch reductions (sections 8 and 9) target it.
-- **Slow RQD launch**: absorbed by the fire-and-forget launch pool; on a full
-  launch queue the launch is dropped and recovered by RQD report
-  reconciliation, so it never stalls the tick.
+- **Slow batched commit**: the chunked commits are synchronous, so slow
+  transactions delay the next tick directly (no worker pool hides them). This
+  is the one place where DB latency gates the tick rate; the chunks bound how
+  long any one transaction holds its host rows.
+- **Slow RQD launch**: absorbed by the fire-and-forget launch pool over an
+  unbounded queue, so it never stalls the tick and no committed booking is
+  left unlaunched; a slow sink shows as launch latency.
+- **Completion storm**: post-completion work (depend satisfaction, usage
+  counters, layer and job completion) never runs on the Maestro thread. One
+  worker files it in batches of queued completions, and above
+  `maestro.post_complete_queue_size` the handler answers RQD with the retry
+  signal before the ack, so RQD holds the report and redials and no acked
+  completion is ever dropped.
 - **Empty snapshot** (no UP/OPEN hosts): tick is a no-op; reservations are
   left intact.
 - **Spec-group explosion**: if the host-spec group count approaches the host

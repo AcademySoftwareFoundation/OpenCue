@@ -59,6 +59,11 @@ torn-down sim that writes its own graphs — then prints a PASS/FAIL summary
 | **DEPENDS** | dependency correctness: no frame ever RUNS with unsatisfied depends, while depends satisfy and previously-gated frames run (coverage floors) |
 | **FAILOVER** | HA / leader election: the leader cuebot is killed mid-run and the standby takes over booking AND keeps accepting submissions (all clients re-dial the survivor like a real farm's multi-cuebot config) |
 | **TAGS_GPU** | one mixed run where capability tags AND a GPU slice fragment the farm at once: zero tag/GPU placement violations, GPUs and GPU memory never oversubscribed, every tag pool still runs work |
+| **COMPLETIONSTORM** | post-completion work never runs on the Maestro thread: under a storm of ~145 completions/s the tick stays calm, the backlog is refused to RQD before the ack above the bound, and nothing is dropped after an ack |
+| **GPUSTRAND** | a CPU-only flood on a farm with GPU hosts, then a GPU job: while GPU frames wait, the count of hosts holding an idle GPU behind CPU work never rises and reaches zero, and all GPUs run |
+| **SHOWTIER** | two shows of equal priority, subscription sizes one quarter and three quarters of an allocation, split it in proportion to size and nobody runs above its burst |
+| **SLICE** | the plan read delivers the slice Maestro accounted (`frame_query_max` frames on a large idle host), not the legacy per-call trickle |
+| **SOLOFILL** | a one-layer job fills the farm as fast as a fifty-layer job of equal size: both are fully booked at the mark (ratio near 1) with zero dropped launches |
 | **TAGMAX** | Maestro's cross-group layer dedup under maximal fragmentation: 120 capability tags shatter the full farm into host-spec groups while 30% of layers are run-anywhere (`general`, a candidate in every group at once), and `raceLost` (planned frames that lost the `frame.int_version` race at commit) must stay a small fraction of planned — proof no layer is re-planned across groups only to lose every copy but one |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
