@@ -200,7 +200,17 @@ def pool_sizes(payload, usage):
 
 def main():
     deadline = time.time() + DURATION
-    chan = grpc.insecure_channel(spec.GRPC)
+    # Cuebot failover, like a real reporter's multi-cuebot config: when a
+    # report fails (the cuebot we dial died, as when the FAILOVER scenario
+    # kills the leader), re-dial the next address from
+    # SIM_CUEBOT_GRPC_FALLBACKS, as fake_rqd and rqd_report do. Reports that
+    # keep going to a dead cuebot leave the limits stale past their TTL, and a
+    # stale limit stops gating, so the survivor would book past every pool.
+    cuebots = [spec.GRPC] + [a.strip() for a in
+                            os.environ.get("SIM_CUEBOT_GRPC_FALLBACKS", "").split(",")
+                            if a.strip()]
+    idx = 0
+    chan = grpc.insecure_channel(cuebots[idx])
     stub = limit_pb2_grpc.LimitInterfaceStub(chan)
 
     for _ in range(30):
@@ -215,7 +225,7 @@ def main():
 
     mode = ("counts-only: SetMaxValue, no hold snapshot" if NO_HOSTS
             else "holder snapshots via ReportUsage")
-    print(f"[reporter] {mode} to {spec.GRPC} every {POLL_S}s "
+    print(f"[reporter] {mode} to {cuebots[idx]} every {POLL_S}s "
           f"as '{SOURCE}' for {DURATION}s", flush=True)
 
     sent, skipped = 0, 0
@@ -250,6 +260,11 @@ def main():
                     flush=True)
         except Exception as e:
             print(f"[reporter] report failed: {e}", flush=True)
+            if len(cuebots) > 1:
+                idx = (idx + 1) % len(cuebots)
+                chan = grpc.insecure_channel(cuebots[idx])
+                stub = limit_pb2_grpc.LimitInterfaceStub(chan)
+                print(f"[reporter] failing over to cuebot {cuebots[idx]}", flush=True)
         time.sleep(POLL_S)
     print(f"[reporter] done: {sent} reports accepted, {skipped} limits skipped", flush=True)
 

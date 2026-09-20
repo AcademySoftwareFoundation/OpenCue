@@ -33,6 +33,7 @@ import sys
 import time
 import heapq
 import random
+import subprocess
 import threading
 from concurrent import futures
 
@@ -62,6 +63,52 @@ _CUEBOTS = [CUEBOT] + [a.strip() for a in
 _cuebot_idx = 0
 _report = report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(_CUEBOTS[0]))
 _report_swap_lock = threading.Lock()
+# SIM_CUEBOT_GRPC_SPREAD (comma-separated) spreads completions over several
+# cuebots at once: the MIGRATE scenario's three cuebots behind one service
+# registry. A completion follows its host, as an RQD dials one cuebot for its
+# host reports and its completions alike: rqd_report pins host i to
+# spread[i % n], and the same index is used here. The proc-to-host map comes
+# from the proc table once a second (a frame runs far longer than that); a
+# frame whose proc is not mapped yet falls back to its id. Failover stays off
+# in spread mode.
+_SPREAD = [report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(a.strip()))
+           for a in os.environ.get("SIM_CUEBOT_GRPC_SPREAD", "").split(",") if a.strip()]
+_HOST_IDX = {name: i for i, (name, _c, _m) in enumerate(spec.all_hosts())}
+_proc_host = {}       # consumed by _completion_stub()
+_proc_host_lock = threading.Lock()
+
+
+def _refresh_proc_hosts():
+    """Grow the proc id -> host index map from the proc table once a second.
+    Entries are never dropped: a proc row is deleted only after its completion
+    lands, and a completion may still be retrying then."""
+    q = spec.psql_cmd() + ["-c", "SELECT p.pk_proc, h.str_name FROM proc p"
+                                 " JOIN host h ON h.pk_host=p.pk_host;"]
+    while True:
+        try:
+            out = subprocess.run(q, capture_output=True, text=True, timeout=10).stdout
+            fresh = {}
+            for line in out.splitlines():
+                pk, _, name = line.partition("|")
+                if name in _HOST_IDX:
+                    fresh[pk] = _HOST_IDX[name]
+            with _proc_host_lock:
+                _proc_host.update(fresh)
+        except Exception:
+            pass
+        time.sleep(1.0)
+
+
+def _completion_stub(frame):
+    if _SPREAD:
+        with _proc_host_lock:
+            idx = _proc_host.get(frame.resource_id)
+        if idx is None:
+            with _heap_lock:
+                _stats["spread_miss"] += 1
+            idx = hash(frame.frame_id)
+        return _SPREAD[idx % len(_SPREAD)]
+    return _report
 
 
 def _failover_report_stub():
@@ -84,7 +131,7 @@ _seq = 0
 # is reported exactly once.
 _alive = {}           # frame_id -> RunningFrameInfo
 _stats = {"launched": 0, "completed": 0, "mem_failed": 0, "oom_killed": 0, "failed": 0,
-          "report_retries": 0,
+          "report_retries": 0, "spread_miss": 0,
           # work + latency instrumentation
           "core_points": 0,        # sum of reserved core-points launched (100==1 core)
           "work_cs": 0.0,          # sum of (cores * sim_duration) -> core-seconds of work
@@ -134,6 +181,30 @@ _DUR_SHORT_S = float(os.environ.get("SIM_DUR_SHORT_S", "12"))
 _DUR_LONG_S = float(os.environ.get("SIM_DUR_LONG_S", "120"))
 
 
+ALIVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "rqd_alive.txt")  # consumed by rqd_report.running_by_host()
+
+
+def _dump_alive():
+    """Publish the ids of the frames this RQD runs right now (atomic replace), so
+    the host reports carry what RQD runs and not what cuebot booked."""
+    try:
+        with _heap_lock:
+            ids = list(_alive.keys())
+        tmp = ALIVE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            f.write("\n".join(ids))
+        os.replace(tmp, ALIVE_FILE)
+    except Exception:
+        pass
+
+
+def _alive_publisher():
+    while True:
+        _dump_alive()
+        time.sleep(0.5)
+
+
 def _claim(frame_id):
     """Pop a frame from the alive set exactly once. Returns the frame if THIS call
     won the claim (it was still running), else None (already completed or killed).
@@ -156,42 +227,42 @@ def _send_completion(frame, due_time, killed=False):
     report = report_pb2.FrameCompleteReport(
         host=_DUMMY_HOST, frame=frame, exit_status=exit_status, exit_signal=0, run_time=1)
     t0 = time.time()
-    # The real RQD (post #2473) holds a completion report and retries until
-    # cuebot ACCEPTS it: cuebot answers overload with a retry signal, and a
-    # dropped report would lose the completion forever. Model that contract:
-    # redial the same cuebot with a one second backoff, try the next cuebot
-    # every third failure (so a leader kill still fails over), and give up
-    # only after 90 attempts, which counts as "failed" like a dead farm.
-    attempt = 0
-    while True:
-        try:
-            _report.ReportRunningFrameCompletion(
+    # postFrameAction in rqd/rqd/rqcore.py deletes the frame before it sends the
+    # report, and the channel makes at most four attempts (sim_model.rqd_rpc), so
+    # a report refused or unreachable four times is lost: nothing sends it again,
+    # the frame is gone from this RQD's host reports, and only cuebot's
+    # maintenance reclaims the proc. Between attempts the channel reconnects;
+    # behind a balancer that lands on the next cuebot, which the re-dial models.
+    # A spread pins a host to one cuebot (MIGRATE) and never re-dials, like a
+    # static CUEBOT_HOSTNAME.
+    def redial(attempt):
+        with _heap_lock:
+            _stats["report_retries"] += 1
+        if len(_CUEBOTS) > 1 and not _SPREAD:
+            _failover_report_stub()
+
+    try:
+        sim_model.rqd_rpc(
+            lambda: _completion_stub(frame).ReportRunningFrameCompletion(
                 report_pb2.RqdReportRunningFrameCompletionRequest(
-                    frame_complete_report=report))
-            ack = (time.time() - t0) * 1000.0
-            with _heap_lock:
-                if killed:
-                    _stats["oom_killed"] += 1
-                elif mem_fail:
-                    _stats["mem_failed"] += 1
-                else:
-                    _stats["completed"] += 1
-                _stats["ack_ms_sum"] += ack
-                if ack > _stats["ack_ms_max"]:
-                    _stats["ack_ms_max"] = ack
-                _stats["lag_ms_sum"] += max(0.0, (t0 - due_time) * 1000.0)
-            return
-        except grpc.RpcError:
-            attempt += 1
-            with _heap_lock:
-                _stats["report_retries"] += 1
-            if attempt >= 90:
-                with _heap_lock:
-                    _stats["failed"] += 1
-                return
-            if len(_CUEBOTS) > 1 and attempt % 3 == 0:
-                _failover_report_stub()
-            time.sleep(1.0)
+                    frame_complete_report=report)),
+            redial)
+    except grpc.RpcError:
+        with _heap_lock:
+            _stats["failed"] += 1
+        return
+    ack = (time.time() - t0) * 1000.0
+    with _heap_lock:
+        if killed:
+            _stats["oom_killed"] += 1
+        elif mem_fail:
+            _stats["mem_failed"] += 1
+        else:
+            _stats["completed"] += 1
+        _stats["ack_ms_sum"] += ack
+        if ack > _stats["ack_ms_max"]:
+            _stats["ack_ms_max"] = ack
+        _stats["lag_ms_sum"] += max(0.0, (t0 - due_time) * 1000.0)
 
 
 def _completion_loop():
@@ -289,8 +360,10 @@ def _stats_loop():
                         if _MEM_FAILURE_RATE > 0 else "")
         # Real host-OOM kills from cuebot's balancer (shown once any have happened).
         oom_str = f" oomKilled={_stats['oom_killed']}" if _stats["oom_killed"] else ""
+        miss_str = f" spreadMiss={_stats['spread_miss']}" if _SPREAD else ""
         print(f"  [rqd] launched={_stats['launched']} completed={_stats['completed']}"
-              f"{mem_fail_str}{oom_str} pending={pending} failed={_stats['failed']} "
+              f" alive={len(_alive)}"
+              f"{mem_fail_str}{oom_str}{miss_str} pending={pending} failed={_stats['failed']} "
               f"reportRetries={_stats['report_retries']} "
               f"cores_launched={cp//100} work_coreSec={cs:.0f} "
               f"ackMs_avg={ack_avg:.1f} ackMs_max={_stats['ack_ms_max']:.0f} "
@@ -304,10 +377,16 @@ def serve():
     server.start()
     threading.Thread(target=_completion_loop, daemon=True).start()
     threading.Thread(target=_stats_loop, daemon=True).start()
+    threading.Thread(target=_alive_publisher, daemon=True).start()
+    if _SPREAD:
+        threading.Thread(target=_refresh_proc_hosts, daemon=True).start()
     mem_str = (f", mem_failure_rate={_MEM_FAILURE_RATE:.0%}"
                if _MEM_FAILURE_RATE > 0 else "")
     print(f"fake RQD listening on :{RQD_PORT}, reporting to {CUEBOT} "
           f"(reporter threads={_REPORTER_THREADS}{mem_str})", flush=True)
+    if _SPREAD:
+        print("completions follow their host over cuebots "
+              + os.environ.get("SIM_CUEBOT_GRPC_SPREAD", ""), flush=True)
     server.wait_for_termination()
 
 

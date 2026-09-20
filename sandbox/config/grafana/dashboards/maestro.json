@@ -191,7 +191,7 @@
     {
       "type": "timeseries",
       "title": "Utilisation",
-      "description": "Cores running as a share of the whole farm, from the live show_cores ledger (no SQL: plus on the batch commit, minus on the drain). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand.",
+      "description": "Cores running as a share of the whole farm, from the live show_cores ledger (no SQL: plus on the batch commit, minus on the drain). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand. Waiting frames (right axis) is the waitlist the tick weighed: the waiting frames of the layers Maestro considered, all reasons, so demand and usage read together.",
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
@@ -204,7 +204,6 @@
           "unit": "percent",
           "decimals": 1,
           "min": 0,
-          "max": 100,
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "smooth",
@@ -227,6 +226,45 @@
                   "mode": "fixed",
                   "fixedColor": "green"
                 }
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "waiting frames"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "frames waiting"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
               }
             ]
           }
@@ -234,7 +272,7 @@
       },
       "options": {
         "legend": {
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -246,6 +284,11 @@
           "expr": "sum(cue_maestro_show_cores) / scalar(max(cue_maestro_farm_cores_total)) * 100",
           "legendFormat": "utilisation",
           "refId": "A"
+        },
+        {
+          "expr": "sum(cue_maestro_waiting_frames)",
+          "legendFormat": "waiting frames",
+          "refId": "B"
         }
       ]
     },
