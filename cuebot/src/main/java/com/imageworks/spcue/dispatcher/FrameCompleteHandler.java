@@ -454,84 +454,127 @@ public class FrameCompleteHandler {
     }
 
     /**
-     * File one scoop of completions as a batch. The per-frame pieces (event publish, delay rules,
-     * memory-failure retries, frame-level depends) loop as before; the counters go through
-     * updateUsageCountersBatch in one round trip per statement; and the completion checks run once
-     * per DISTINCT layer and job instead of once per frame, so three hundred frames of one job ask
-     * "is the job done" once. The proc branches of the per-frame path are skipped entirely: this
-     * path only ever files completions the batched stop already released, so there is no proc left
-     * to unbook, transfer or rebook. Any failure falls back to the per-frame filing for the whole
-     * scoop, the same shape as the drain's own fallback.
+     * File one scoop of completions as a batch, in three phases that each fail alone. Phase one is
+     * per frame (event publish, delay rules, memory-failure retries, frame-level depends,
+     * fileFrame): a frame that throws costs its own filing, the rest of the scoop goes on. Phase
+     * two files the usage counters of the whole scoop in one transaction (fileCounters): when it
+     * fails it rolled back as a whole, so each frame's counters are then filed alone and a bad row
+     * costs one frame. Phase three runs the completion checks once per DISTINCT layer and job
+     * instead of once per frame (fileLayer, fileJob), so three hundred frames of one job ask "is
+     * the job done" once; each check fails alone. Nothing is filed twice: the counters in
+     * particular are written once, by the batch or by the per-frame fallback, never by both, and no
+     * failure replays the scoop through the per-frame path. The proc branches of that path are
+     * skipped entirely: this path only ever files completions the batched stop already released, so
+     * there is no proc left to unbook, transfer or rebook.
      */
     private void batchPostOps(List<QueuedFrameCompletion> scoop) {
+        Map<String, QueuedFrameCompletion> byLayer =
+                new LinkedHashMap<String, QueuedFrameCompletion>();
+        Map<String, QueuedFrameCompletion> byJob =
+                new LinkedHashMap<String, QueuedFrameCompletion>();
+        for (QueuedFrameCompletion c : scoop) {
+            try {
+                fileFrame(c, byLayer, byJob);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete filing of frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+        fileCounters(scoop);
+        for (QueuedFrameCompletion c : byLayer.values()) {
+            try {
+                fileLayer(c);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete check of layer " + c.frame.getLayerId() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+        for (QueuedFrameCompletion c : byJob.values()) {
+            try {
+                fileJob(c);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete check of job " + c.job.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+    }
+
+    /**
+     * Phase one of batchPostOps: one frame's own filing, and its layer and job put up for phase
+     * three. A layer's representative is a succeeded frame when the layer saw one, so optimizeLayer
+     * reads a real render's cores, memory and run time; otherwise the first eaten frame, which only
+     * feeds the completion check.
+     */
+    private void fileFrame(QueuedFrameCompletion c, Map<String, QueuedFrameCompletion> byLayer,
+            Map<String, QueuedFrameCompletion> byJob) {
+        publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState, c.proc);
+        applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail), c.newFrameState);
+        if (isMemoryFailure(c.report, c.frameDetail)) {
+            retryFrameWithRaisedMemory(c.proc, c.frame);
+        }
+        boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
+        if (succeeded) {
+            OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
+        }
+        boolean dependEligible = succeeded
+                || (!satisfyDependOnlyOnFrameSuccess && c.newFrameState.equals(FrameState.EATEN));
+        if (dependEligible) {
+            satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(c.frame),
+                    "frame " + c.frame.getName() + " (id=" + c.frame.getFrameId() + ")",
+                    c.job.getName(), c.job.getJobId());
+            if (succeeded) {
+                byLayer.put(c.frame.getLayerId(), c);
+            } else {
+                byLayer.putIfAbsent(c.frame.getLayerId(), c);
+            }
+        }
+        if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
+            byJob.putIfAbsent(c.frame.getJobId(), c);
+        }
+    }
+
+    /**
+     * Phase two of batchPostOps: the usage counters of the whole scoop in one transaction, one
+     * round trip per statement. When it fails, the transaction rolled back as a whole, so each
+     * frame's counters are filed alone, each in its own guard, and none is written twice.
+     */
+    private void fileCounters(List<QueuedFrameCompletion> scoop) {
         try {
-            Map<String, QueuedFrameCompletion> byLayer =
-                    new LinkedHashMap<String, QueuedFrameCompletion>();
-            Map<String, Boolean> layerSawSuccess = new LinkedHashMap<String, Boolean>();
-            Map<String, QueuedFrameCompletion> byJob =
-                    new LinkedHashMap<String, QueuedFrameCompletion>();
-            for (QueuedFrameCompletion c : scoop) {
-                publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState,
-                        c.proc);
-                applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail),
-                        c.newFrameState);
-                if (isMemoryFailure(c.report, c.frameDetail)) {
-                    retryFrameWithRaisedMemory(c.proc, c.frame);
-                }
-                boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
-                if (succeeded) {
-                    OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
-                }
-                boolean dependEligible = succeeded || (!satisfyDependOnlyOnFrameSuccess
-                        && c.newFrameState.equals(FrameState.EATEN));
-                if (dependEligible) {
-                    final QueuedFrameCompletion cc = c;
-                    satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(cc.frame),
-                            "frame " + cc.frame.getName() + " (id=" + cc.frame.getFrameId() + ")",
-                            cc.job.getName(), cc.job.getJobId());
-                    byLayer.putIfAbsent(c.frame.getLayerId(), c);
-                    layerSawSuccess.merge(c.frame.getLayerId(), succeeded, Boolean::logicalOr);
-                }
-                if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
-                    byJob.putIfAbsent(c.frame.getJobId(), c);
-                }
-            }
-
             dispatchSupport.updateUsageCountersBatch(scoop);
-
-            for (Map.Entry<String, QueuedFrameCompletion> e : byLayer.entrySet()) {
-                final QueuedFrameCompletion c = e.getValue();
-                boolean isLayerComplete = jobManager.isLayerComplete(c.frame);
-                if (isLayerComplete) {
-                    satisfyDependsWithRetry(
-                            () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) c.frame),
-                            "layer " + c.frame.getLayerId(), c.job.getName(), c.job.getJobId());
-                    publishLayerCompletedTelemetry(c.frame);
-                } else if (layerSawSuccess.getOrDefault(e.getKey(), false)) {
-                    jobManager.optimizeLayer(c.frame, c.report.getFrame().getNumCores(),
-                            c.report.getFrame().getMaxRss(), c.report.getRunTime());
-                }
-            }
-
-            for (QueuedFrameCompletion c : byJob.values()) {
-                if (jobManager.isJobComplete(c.job)) {
-                    c.job.state = JobState.FINISHED;
-                    jobManagerSupport.queueShutdownJob(c.job, new Source("natural"), false);
-                }
-            }
+            return;
         } catch (RuntimeException e) {
-            logger.warn("batched post-complete filing of " + scoop.size()
-                    + " completions failed, retrying per frame: "
+            logger.warn("batched usage counters of " + scoop.size()
+                    + " completions failed, filing them per frame: "
                     + CueExceptionUtil.getStackTrace(e));
-            for (QueuedFrameCompletion c : scoop) {
-                try {
-                    handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame,
-                            c.newFrameState, c.frameDetail);
-                } catch (RuntimeException e2) {
-                    logger.warn("post-complete operations for frame " + c.frame.getName()
-                            + " failed: " + CueExceptionUtil.getStackTrace(e2));
-                }
+        }
+        for (QueuedFrameCompletion c : scoop) {
+            try {
+                dispatchSupport.updateUsageCounters(c.frame, c.report.getExitStatus());
+            } catch (RuntimeException e) {
+                logger.warn("usage counters of frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
             }
+        }
+    }
+
+    /** Phase three of batchPostOps for one layer: the completion check, else the optimizer. */
+    private void fileLayer(final QueuedFrameCompletion c) {
+        if (jobManager.isLayerComplete(c.frame)) {
+            satisfyDependsWithRetry(
+                    () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) c.frame),
+                    "layer " + c.frame.getLayerId(), c.job.getName(), c.job.getJobId());
+            publishLayerCompletedTelemetry(c.frame);
+        } else if (c.newFrameState.equals(FrameState.SUCCEEDED)) {
+            jobManager.optimizeLayer(c.frame, c.report.getFrame().getNumCores(),
+                    c.report.getFrame().getMaxRss(), c.report.getRunTime());
+        }
+    }
+
+    /** Phase three of batchPostOps for one job: the completion check. */
+    private void fileJob(QueuedFrameCompletion c) {
+        if (jobManager.isJobComplete(c.job)) {
+            c.job.state = JobState.FINISHED;
+            jobManagerSupport.queueShutdownJob(c.job, new Source("natural"), false);
         }
     }
 

@@ -123,6 +123,7 @@ public class Maestro extends JdbcDaoSupport {
     // hardware out of the box; a studio can pin its core-selling ratio instead.
     static final int PROBE_FRAMES = 8;
     static final int COMMIT_CHUNK_FRAMES = 500; // consumed by commitInChunks()
+    static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
     private volatile long memPerCoreKb = 0;
 
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
@@ -656,7 +657,8 @@ public class Maestro extends JdbcDaoSupport {
             + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
             + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
             + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
-            + "       ON h.str_name = ANY(string_to_array(replace(l.str_tags, ' ', ''), '|')) "
+            + "       ON lower(h.str_name) = "
+            + "          ANY(string_to_array(lower(replace(l.str_tags, ' ', '')), '|')) "
             + "      AND hs.str_state = 'UP' "
             + "      AND h.str_lock_state = 'OPEN' "
             + "      AND j.pk_facility = a.pk_facility "
@@ -1450,7 +1452,9 @@ public class Maestro extends JdbcDaoSupport {
      * once; one transaction for all of it would hold every booked host row and stat row for minutes
      * and show nothing until the end. A chunk holds its locks for a bounded window, lands its procs
      * as it goes, and launches them as it goes. Each chunk commits with its own resource deltas, so
-     * procs and their mirrors still land together or not at all.
+     * procs and their mirrors still land together or not at all. A chunk is one unit of failure:
+     * one that fails rolls back alone (commitChunk) and the loop goes on, so one failed chunk never
+     * aborts the tick.
      */
     private List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
         List<FrameBooking> committed = new ArrayList<>();
@@ -1460,21 +1464,43 @@ public class Maestro extends JdbcDaoSupport {
             while (end < planned.size() && planned.get(end).proc.getHostId()
                     .equals(planned.get(end - 1).proc.getHostId()))
                 end++;
-            final List<FrameBooking> chunk = new ArrayList<>(planned.subList(start, end));
-            List<FrameBooking> won = txTemplate().execute(status -> {
+            committed.addAll(commitChunk(new ArrayList<>(planned.subList(start, end))));
+            start = end;
+        }
+        return committed;
+    }
+
+    /**
+     * Commit one chunk in its own transaction, then publish and launch it outside that transaction:
+     * a slow publish never extends the lock window, and the frames start while the later chunks are
+     * still committing instead of after the last. A chunk whose transaction fails rolls back alone:
+     * its frames stay WAITING for the next tick, the chunks committed before it keep their procs,
+     * deltas and launches, and the chunks after it still commit. The in-memory snapshot stays
+     * decremented for the rest of the tick, the same under-booking a lost version race leaves, and
+     * the next snapshot corrects it. A failed event publish is logged and never keeps a committed
+     * chunk from its launch.
+     */
+    private List<FrameBooking> commitChunk(final List<FrameBooking> chunk) {
+        List<FrameBooking> won;
+        try {
+            won = txTemplate().execute(status -> {
                 List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
                 applyResourceDeltas(w);
                 return w;
             });
-            // Publish and launch this chunk now, outside its transaction: a slow
-            // publish never extends the lock window, and the frames start while
-            // the later chunks are still committing instead of after the last.
-            dispatchSupport.publishFrameStartedEvents(won);
-            launchCommitted(won);
-            committed.addAll(won);
-            start = end;
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: commit of a chunk of " + chunk.size() + " bookings failed and"
+                    + " rolled back; its frames wait for the next tick: " + e.getMessage());
+            return Collections.emptyList();
         }
-        return committed;
+        try {
+            dispatchSupport.publishFrameStartedEvents(won);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: frame-started events of a chunk of " + won.size()
+                    + " bookings failed: " + e.getMessage());
+        }
+        launchCommitted(won);
+        return won;
     }
 
     /**
@@ -1775,11 +1801,30 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Bean lifecycle: give up leadership promptly on shutdown so a standby can take over without
-     * waiting for the OS to tear down the socket.
+     * Bean lifecycle. Give up leadership first, so a standby takes over without waiting for the OS
+     * to tear down the socket, then drain the launch pool: every booking a tick committed is
+     * RUNNING in the database, and a launch still queued here is the only thing that will start it.
+     * The drain waits at most LAUNCH_DRAIN_MAX_S; a launch that misses it is an orphan the proc
+     * sweep resets, as after a crash.
      */
     public void onShutdown() {
         closeLeaderConn();
+        drainLaunchPool();
+    }
+
+    private void drainLaunchPool() {
+        ExecutorService pool = launchPool;
+        if (pool == null)
+            return;
+        pool.shutdown();
+        try {
+            if (!pool.awaitTermination(LAUNCH_DRAIN_MAX_S, TimeUnit.SECONDS)) {
+                logger.warn("Maestro: launch pool did not drain within " + LAUNCH_DRAIN_MAX_S
+                        + "s; the launches still queued are left to the proc sweep");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private boolean acquireLeaderLock(Connection conn) throws SQLException {

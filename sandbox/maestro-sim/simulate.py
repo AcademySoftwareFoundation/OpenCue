@@ -76,6 +76,7 @@ PGBIN = os.environ.get("SIM_PG_BIN", "/usr/lib/postgresql/16/bin")
 PGDATA = os.environ.get("SIM_PGDATA", "/tmp/pgdata")
 PG_PORT = int(os.environ.get("SIM_PG_PORT", "5433"))
 GRPC_PORT = 8443
+STORM_DRAIN_S = 45   # consumed by start_completionstorm_injector() and its watcher call
 SHOW = "10000000-0000-0000-0000-000000000003"
 TOTAL_HOSTS = 1553   # full farm; overridden by --hosts (small-farm debug mode)
 CUEBOT_LOG = os.environ.get("SIM_CUEBOT_LOG", "/tmp/cuebot.log")
@@ -1140,7 +1141,8 @@ def start_strandgrow_injector(duration):
 
 def start_completionstorm_injector(duration):
     log(f"starting COMPLETIONSTORM flood (one-core frames completing faster "
-        f"than one post-op worker can file) for {duration}s ...")
+        f"than one post-op worker can file) for {duration}s, then its jobs "
+        f"pause so the watcher can see the backlog drain ...")
     spawn(["inject_completionstorm.py", str(duration)],
           f"{FARM}/inject_completionstorm.log")
 
@@ -1507,11 +1509,13 @@ def _verify_check(name, gdir, logp, cblog):
         except Exception:
             txt = ""
         qm = re.search(r"peak postQ (\d+)", txt)
+        fm = re.search(r"final postQ (\d+)", txt)
         tm = re.search(r"peak avgTick (\d+)ms", txt)
         dm = re.search(r"lost (\d+)", txt)
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, (f"completion rate vs the post-op worker: peak postQ "
-                    f"{qm.group(1) if qm else '?'}, peak avgTick "
+                    f"{qm.group(1) if qm else '?'}, final postQ "
+                    f"{fm.group(1) if fm else '?'}, peak avgTick "
                     f"{tm.group(1) if tm else '?'}ms, lost "
                     f"{dm.group(1) if dm else '?'}")
     if name == "DOUBLERENDER":
@@ -1871,7 +1875,8 @@ def run_verify():
         # the booking rate) of one second frames on 80 small hosts complete
         # ~145/s. Asserts that the tick stays calm, that the fake RQD lost
         # no report (every completion was accepted within the RQD channel's
-        # four attempts) and that the backlog drained.
+        # four attempts) and that the backlog drained: the injector pauses
+        # its jobs STORM_DRAIN_S before the end, so the drain is measured.
         ("COMPLETIONSTORM", ["--hosts", "0,0,80", "--cuebots", "1",
                              "--completionstorm-test", str(max(D, 240))],
          {"SIM_DUR_LONG_S": "1", "SIM_STORM_JOBS": "400",
@@ -2145,11 +2150,14 @@ def main():
                          "layers (4 cores + 1 GPU + gpu_memory, cpu mem = half the "
                          "gpu mem). GPU layers place only on GPU hosts (enforced by "
                          "cuebot). Default 0 (no GPU). Typical: 0.1.")
-    ap.add_argument("--reservations", action="store_true",
+    ap.add_argument("--reservations", dest="reservations", action="store_true",
+                    default=True,
                     help="enable Maestro's host reservations for blocked "
                          "layers (EASY/Maui-style: time gate + per-class cap). "
-                         "Default off. Use with --strand to show big jobs no "
-                         "longer starve.")
+                         "This is the default; --no-reservations or "
+                         "SIM_RESERVATIONS=0 turns them off.")
+    ap.add_argument("--no-reservations", dest="reservations", action="store_false",
+                    help="run Maestro without host reservations.")
     ap.add_argument("--reservation-block-seconds", type=int, default=60,
                     metavar="SECS",
                     help="how long a layer must be continuously blocked before "
@@ -2530,12 +2538,13 @@ def main():
     # Whole-host wide jobs (--strand-cores > 64) need the per-frame clamp
     # raised (core-points) so cuebot does not cap them back to 64.
     frame_cores_max = args.strand_cores * 100 if args.strand_cores > 64 else 0
-    start_cuebot(args.mode, os.environ.get('SIM_RESERVATIONS', '1') != '0',
+    reservations = args.reservations and os.environ.get('SIM_RESERVATIONS', '1') != '0'
+    start_cuebot(args.mode, reservations,
                  args.reservation_block_seconds, args.reservation_max_fraction,
                  args.reservation_max_grantees, args.backfill,
                  frame_cores_max=frame_cores_max)
     for i in range(1, max(1, args.cuebots)):
-        start_extra_cuebot(i, args.mode, os.environ.get('SIM_RESERVATIONS', '1') != '0',
+        start_extra_cuebot(i, args.mode, reservations,
                            args.reservation_block_seconds, args.reservation_max_fraction,
                            args.reservation_max_grantees, args.backfill,
                            frame_cores_max=frame_cores_max)
@@ -2582,7 +2591,7 @@ def main():
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
     if args.completionstorm_test:
-        start_completionstorm_injector(args.completionstorm_test)
+        start_completionstorm_injector(max(60, args.completionstorm_test - STORM_DRAIN_S))
     if args.doublerender_test:
         start_doublerender_injector(args.doublerender_test)
     if lic_secs:
@@ -2669,7 +2678,7 @@ def main():
         log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
             f"worker) for {args.completionstorm_test}s ...")
         subprocess.run([VENV_PY, "completionstorm_watch.py",
-                        str(args.completionstorm_test), "5"], cwd=FARM)
+                        str(args.completionstorm_test), "5", str(STORM_DRAIN_S)], cwd=FARM)
     elif args.doublerender_test:
         log(f"watching DOUBLERENDER (swept corpse proc vs its still-running "
             f"render) for {args.doublerender_test}s ...")

@@ -10,12 +10,16 @@ nothing is lost, the queue absorbed the storm and the worker drained it.
 Reads the farm through psql (procs, done count), Maestro's own stat lines
 through the cuebot log (avgTick, postQ) and the fake RQD's stats line
 (lost reports, retries), all beside this scenario on the same machine.
-PASS      : a calm tick and zero lost reports, reached either way: the
-            storm filled the queue and the worker drained it, or the
-            worker outran the storm and the queue never filled.
-FAIL      : any window's avgTick over the bar, or any lost report.
+The injector pauses its jobs DRAIN_S before the window ends, so the last
+postQ sample is taken after the storm: a worker that kept up shows zero.
+PASS      : a calm tick, zero lost reports and an empty backlog at the end,
+            reached either way: the storm filled the queue and the worker
+            drained it, or the worker outran the storm and the queue never
+            filled.
+FAIL      : any window's avgTick over the bar, any lost report, or a
+            backlog still there at the end.
 INCONCLUSIVE: too few frames completed; the storm never took hold.
-usage: completionstorm_watch.py [duration_s] [interval_s]
+usage: completionstorm_watch.py [duration_s] [interval_s] [drain_s]
 """
 import os, re, subprocess, sys, time
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +28,7 @@ import farm_spec as spec
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 240
 INTERVAL = float(sys.argv[2]) if len(sys.argv) > 2 else 5.0
+DRAIN_S = int(sys.argv[3]) if len(sys.argv) > 3 else 45
 TOKEN = "simstorm"
 CUEBOT_LOG = os.environ.get("SIM_STORM_CUEBOT_LOG", "/tmp/cuebot-new.log")
 RQD_LOG = os.environ.get("SIM_STORM_RQD_LOG", os.path.join(_HERE, "rqd.log"))
@@ -68,7 +73,8 @@ def read_cuebot():
 def main():
     print(f"watching COMPLETIONSTORM for {DURATION}s. The storm must fill the "
           f"post-op queue (postQ >= {STORM_MIN_POSTQ}); PASS then needs every "
-          f"window's avgTick <= {TICK_MAX_MS}ms and zero lost reports.\n",
+          f"window's avgTick <= {TICK_MAX_MS}ms, zero lost reports and an empty "
+          f"backlog at the end, {DRAIN_S}s after the storm's jobs pause.\n",
           flush=True)
     t0 = time.time()
     while time.time() - t0 < DURATION:
@@ -86,8 +92,8 @@ def main():
     done = scalar("SELECT count(*) FROM frame f JOIN job j ON j.pk_job=f.pk_job"
                   f" WHERE j.str_name LIKE '%{TOKEN}%' AND f.str_state='SUCCEEDED';")
     print("\n==== COMPLETIONSTORM VERDICT ====", flush=True)
-    print(f"peak postQ {q_pk}; peak avgTick {tick_pk}ms; lost {drops}; "
-          f"frames done {done}", flush=True)
+    print(f"peak postQ {q_pk}; final postQ {q}; peak avgTick {tick_pk}ms; "
+          f"lost {drops}; frames done {done}", flush=True)
     if drops > 0:
         print(f"FAIL: the fake RQD lost {drops} completion reports: refused or "
               f"unreachable past the RQD channel's four attempts, so those "
@@ -98,10 +104,15 @@ def main():
               f"full post-op queue ran its filing on the Maestro thread: tick "
               f"time multiplied by the completion rate, exactly what the "
               f"worker's own comment forbids.", flush=True)
+    elif q > 0:
+        print(f"FAIL: the backlog did not drain: postQ still {q} at the end, "
+              f"{DRAIN_S}s after the storm's jobs paused; the worker fell "
+              f"behind the storm for good.", flush=True)
     elif q_pk >= STORM_MIN_POSTQ:
         print(f"PASS: the storm filled the queue (peak {q_pk}) and the tick "
               f"stayed calm (peak {tick_pk}ms) with zero lost reports; the "
-              f"queue absorbed the storm and the worker drained it.", flush=True)
+              f"queue absorbed the storm and the worker drained it to zero.",
+              flush=True)
     elif done >= MIN_DONE:
         print(f"PASS: the worker OUTRAN the storm (peak postQ {q_pk} over "
               f"{done} completions) with a calm tick (peak {tick_pk}ms) and "

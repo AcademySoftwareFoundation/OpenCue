@@ -13,12 +13,14 @@ frame DURATION, not from farm size, and the box running the sim is never
 starved: 640 procs of two second frames complete ~320 frames per second,
 far past one worker at ~5-10 ms per post-op. The disease (a queue that
 overflows onto the Maestro thread) shows as tick inflation; the cure (an
-unbounded queue plus a retry signal to RQD at the door) shows as a calm
-tick, zero dropped completions, and RQD redial traffic instead.
+unbounded queue that one worker files in batched scoops) shows as a calm
+tick, zero lost completions, and a backlog that drains to zero once the
+storm ends. The injector pauses its jobs before the watch window ends, so
+the watcher measures that drain instead of assuming it.
 
 usage: inject_completionstorm.py [duration_s]
 """
-import os, sys, time
+import os, subprocess, sys, time
 import grpc
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, "opencue_proto"))
@@ -51,6 +53,15 @@ def one_job(name, frames):
             f'    <layers>\n{layer}\n    </layers>\n  </job>\n')
 
 
+def pause_jobs():
+    """End the storm: pause its jobs so no new frame books. The frames still
+    running finish within a second, and the worker's backlog must then drain
+    to zero, which the watcher's last sample asserts."""
+    subprocess.run(spec.psql_cmd() + ["-c", "UPDATE job SET b_paused = true "
+                   f"WHERE str_name LIKE 'sim-test-{TOKEN}%';"],
+                   capture_output=True, text=True, timeout=30)
+
+
 def main():
     chan = grpc.insecure_channel(CUEBOT)
     grpc.channel_ready_future(chan).result(timeout=15)
@@ -64,7 +75,8 @@ def main():
     t0 = time.time()
     while time.time() - t0 < DURATION:
         time.sleep(5)
-    print("injector done", flush=True)
+    pause_jobs()
+    print("injector done: jobs paused, the backlog must now drain", flush=True)
 
 
 if __name__ == "__main__":

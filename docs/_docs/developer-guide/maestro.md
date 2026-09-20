@@ -79,14 +79,19 @@ procs first). That pipeline:
    priority-weighted lottery and reconcile each grantee's reservation count
    under the per-class and max-grantees caps (section 3.2).
 5. **Commit**: read each recorded placement's frames in parallel by host
-   (`planHost`, read-only), write them all in one batched transaction
-   (`startFramesAndProcsBatch`), then fire the RQD launches fire-and-forget.
+   (`planHost`, read-only), then write them in host-aligned chunks of about
+   `COMMIT_CHUNK_FRAMES` frames (`commitInChunks`). Each chunk is its own
+   transaction (`startFramesAndProcsBatch`), published and handed to the
+   launch pool as soon as it lands. A chunk that fails rolls back alone: its
+   frames stay WAITING for the next tick, and the chunks before and after it
+   still commit. One failed chunk never aborts the tick.
 6. **Sweep**: drop reservations whose layer no longer appears in any
    candidate set.
 
 Steps 1-4 run single-threaded, so the decisions never race. The only
-parallelism is in step 5's plan-phase reads (one task per host); the write is a
-single batched commit and the launches fire afterward fire-and-forget.
+parallelism is in step 5's plan-phase reads (one task per host); the writes
+are the chunk transactions on the planning thread, and the launches run on
+the launch pool.
 
 ### The keystone: stateless between ticks
 
@@ -98,10 +103,11 @@ is the single source of truth.** Three properties fall out of that one decision 
 and they are why the rest of the design stays simple:
 
 - **Fire-and-forget launches.** The launch outcome never feeds back into planning
-  state, so the tick never waits on RQD. A dropped or lost launch leaves a frame
-  RUNNING in the DB that RQD never received; the orphaned-proc reaper resets it and
-  the *next* snapshot re-reads the corrected state. Launch latency never gates
-  booking (sections 4 and 7).
+  state, so the tick never waits on RQD. The launch queue is unbounded, so a
+  committed booking is always launched; a launch lost to a crash leaves a frame
+  RUNNING in the DB that RQD never received, the orphaned-proc reaper resets it and
+  the *next* snapshot re-reads the corrected state. A planned shutdown drains the
+  launch pool first. Launch latency never gates booking (sections 4 and 7).
 - **Stateless failover.** The leader keeps only the advisory lock and the in-memory
   reservation hint. If it dies, the next Cuebot takes the lock and reconstructs an
   identical picture from the DB within a tick or two — nothing to persist, migrate,
@@ -272,11 +278,13 @@ the big job" practice.
 Maestro never writes bookings during placement; it just records the
 `(host, layer)` pairings it chose. After all groups, `doTick` reads each
 pairing's frames in parallel by host (`planHost`, read-only, on a small read
-pool), then writes every booking for the tick in one batched transaction
-(`startFramesAndProcsBatch`: batched frame UPDATE + proc INSERT + host UPDATE).
-Frames lost to a `frame.int_version` race are dropped from the batch and retried
-next tick. The RQD launches fire afterward fire-and-forget on a launch pool, so
-a slow RQD never stalls the tick. Each frame reserves exactly the layer's requested cores: `planHost` builds
+pool), then writes the bookings in host-aligned chunks (`commitInChunks`), each
+chunk one batched transaction (`startFramesAndProcsBatch`: batched frame UPDATE
++ proc INSERT + host UPDATE) that is launched as soon as it lands. Frames lost
+to a `frame.int_version` race are dropped from the chunk and retried next tick;
+a chunk whose transaction fails rolls back alone and its frames wait the same
+way. The RQD launches run on a launch pool, so a slow RQD never stalls the
+tick. Each frame reserves exactly the layer's requested cores: `planHost` builds
 procs with the dispatcher's thread-mode idle-core expansion (grab-idle) turned
 off, so the cores committed match the cores Maestro scored and decremented.
 Grab-idle would silently reserve more than planned and corrupt the snapshot;
@@ -571,8 +579,8 @@ asks a pinned candidate only about its own hosts (`pinsAllow`), and a pinned
 reservation targets its pins.
 
 **Visibility.** A layer none of whose names resolves, and that has no spec
-tag either, waits with the reason `no host` (§3.8). Pins are exact host
-names, the string cuebot itself tagged the host with.
+tag either, waits with the reason `no host` (§3.8). Pins are host names,
+matched without regard to case, as the legacy tag match (`~*`) is.
 
 **Bound.** One query over the waiting layers with a non-spec tag per tick,
 then O(pins) per pinned candidate; pins never fracture a group.
@@ -625,13 +633,12 @@ under-packed for the rest of the tick. The next tick's fresh snapshot
 corrects it. Failures bias toward **under-booking** (waste a little capacity
 for one tick), never over-booking.
 
-**Drift is bounded to a single tick** because the batched commit is
-synchronous on the planning thread: when it returns, the database fully
-reflects this tick's bookings, so the next snapshot re-grounds on reality.
-Only the RQD launches run afterward, fire-and-forget on the launch pool, so a
-slow or sluggish RQD never stalls the next tick. There is no commit worker
-pool and no drain barrier to wait on; the single transaction is the
-synchronization point.
+**Drift is bounded to a single tick** because the chunked commit is
+synchronous on the planning thread: when the last chunk returns, the database
+fully reflects this tick's bookings, so the next snapshot re-grounds on reality.
+Only the RQD launches run on the launch pool, so a slow or sluggish RQD never
+stalls the next tick. There is no commit worker pool and no drain barrier to
+wait on; the chunk transactions are the synchronization point.
 
 ---
 
@@ -695,8 +702,7 @@ already takes most of the load off it.
 |---|---|---|
 | `maestro.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (Maestro owns all shows, legacy BookingQueue globally suppressed), or `managed` (Maestro owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
 | `maestro.read_pool_size` | = launch pool size | Threads for the parallel per-host plan reads (read-only, DB-bound). |
-| `maestro.launch_pool_size` | `8` | Threads for the fire-and-forget RQD launches after the batched commit. |
-| `maestro.launch_queue_size` | `16384` | Bound on queued launches; on overflow a launch is dropped and recovered by RQD report reconciliation. |
+| `maestro.launch_pool_size` | `8` | Threads for the RQD launches of each committed chunk. The queue in front of them is unbounded. |
 | `maestro.layer_candidates_per_group_max` | `2000` | Cap on candidate layers fetched per group per tick. |
 | `maestro.reservations_enabled` | `true` | Enable reservations and backfill. When off, pure placement scoring. |
 | `maestro.reservation_block_seconds` | `300` | Net blocked time a layer must accrue before it may reserve. |
@@ -735,13 +741,18 @@ legacy dispatcher.
   another Cuebot becomes leader on its next tick. Placement resumes at once,
   but reservations re-arm only as blocked layers re-accrue
   `reservation_block_seconds` (the block-time bucket is in-memory).
-- **Slow batched commit**: the commit is synchronous, so a slow transaction
-  delays the next tick directly (no worker pool hides it). This is the one
-  place where DB latency gates the tick rate; the future-work batching and
-  row-fetch reductions (sections 8 and 9) target it.
-- **Slow RQD launch**: absorbed by the fire-and-forget launch pool; on a full
-  launch queue the launch is dropped and recovered by RQD report
-  reconciliation, so it never stalls the tick.
+- **Slow commit**: a chunk's transaction is synchronous on the planning
+  thread, so a slow database delays the next tick directly (no worker pool
+  hides it). The chunk bounds the lock window and the wait. This is the one
+  place where DB latency gates the tick rate.
+- **Failed chunk**: the chunk rolls back alone and is logged. Its frames stay
+  WAITING for the next tick, the chunks before it keep their procs and
+  launches, and the chunks after it still commit. The tick goes on.
+- **Slow RQD launch**: absorbed by the launch pool. Its queue is unbounded, so
+  a committed booking is always launched and a slow RQD shows as launch
+  latency, never as lost work. A launch is refused only while the pool shuts
+  down; a planned shutdown (`onShutdown`) releases the leader lock, so a
+  standby takes over at once, then drains the pool for up to thirty seconds.
 - **Empty snapshot** (no UP/OPEN hosts): tick is a no-op; reservations are
   left intact.
 - **Spec-group explosion**: if the host-spec group count approaches the host

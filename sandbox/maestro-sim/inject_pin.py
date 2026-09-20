@@ -9,13 +9,16 @@ at 100 that keeps the farm full, so a pinned layer must win the free cores
 of its own hosts:
 
   one    one small host (a local render)
-  pair   two hosts of one capability tag (one host spec)
+  pair   two hosts of one capability tag (one host spec), named in
+         upper case: a pin matches its host whatever the case
   span   four hosts across two capability tags (two host specs)
   mixed  one real host and one name that exists nowhere
   dead   two names that exist nowhere, so nothing may ever run
 
 The host lists come from the host table once every host has registered,
-and the watcher reads them back from the layers' tags. Pinned frames are
+and the watcher reads them back from the layers' tags. Cuebot stores a
+layer's tags as typed, so the pair's upper-case names reach the pin query
+as typed and only a case-blind match places them. Pinned frames are
 short (durshort), so placement, not run time, decides how many complete.
 
 usage: inject_pin.py [duration_s]
@@ -102,7 +105,7 @@ def pin_lists(by_cap):
             pool[cap].remove(h)
         return picked
     span = take(caps[0], 2) + take(caps[1], 2)
-    pair = take(caps[2], 2) if len(caps) > 2 else take(caps[0], 2)
+    pair = [h.upper() for h in (take(caps[2], 2) if len(caps) > 2 else take(caps[0], 2))]
     one = take(caps[-1], 1, prefer="small")
     mixed = take(caps[0], 1) + ["nosuchhost01"]
     dead = ["nosuchhost02", "nosuchhost03"]
