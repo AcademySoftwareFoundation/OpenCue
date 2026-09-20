@@ -243,10 +243,11 @@ public class FrameCompleteHandler {
      * interleaving with a job shutdown could throw mid-way and leave an orphaned proc behind, and
      * one orphaned proc wedges Maestro's batch commit permanently. The resolve stays on the report
      * threads because spread across them it is free, while done serially in the tick it would
-     * multiply tick time by the completion rate; in managed mode the ownership check also needs the
-     * resolved proc's show id, so the resolve must come first. There is deliberately no off switch
-     * (it would bring the orphan races back). Legacy-owned shows skip the drain and process the
-     * report to the end right here, on this thread.
+     * multiply tick time by the completion rate. Ownership is decided before anything else: in
+     * managed mode the show flag is read from the proc first, so a legacy-owned report never meets
+     * the drain's resolve, whatever the mode switch says. There is deliberately no off switch (it
+     * would bring the orphan races back). Legacy-owned shows skip the drain and process the report
+     * to the end right here, on this thread.
      *
      * @param report
      */
@@ -256,16 +257,24 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        // Maestro-owned show: resolve here, apply in the tick (see header).
+        // Maestro-owned show: resolve here, apply in the tick (see header). In
+        // facility mode every show is Maestro's and nothing is read; in managed
+        // mode the proc's show flag decides, read once and handed to the resolve.
         if (MaestroMode.enabled(env)) {
+            VirtualProc owned = null;
+            if (!MaestroMode.facility(env)) {
+                owned = ownedProc(report);
+                if (owned == null) {
+                    processReportNow(report);
+                    return;
+                }
+            }
             QueuedFrameCompletion resolved;
-            boolean schedulerOwned;
             try {
-                resolved = resolveForDrain(report);
+                resolved = resolveForDrain(report, owned);
                 if (resolved == null) {
                     return;
                 }
-                schedulerOwned = MaestroMode.schedules(env, showDao, resolved.proc.getShowId());
             } catch (Exception e) {
                 // Same retry contract as processReportNow: a transient resolve
                 // failure must reach RQD as a retry signal, never as a raw
@@ -273,13 +282,28 @@ public class FrameCompleteHandler {
                 throw new RqdRetryReportException("error resolving the frame complete "
                         + "report for the scheduler drain, sending retry message to RQD " + e, e);
             }
-            if (schedulerOwned) {
-                MaestroCompletionQueue.offer(resolved);
-                return;
-            }
+            MaestroCompletionQueue.offer(resolved);
+            return;
         }
 
         processReportNow(report);
+    }
+
+    /**
+     * Managed mode: the report's proc when its show is flagged for Maestro, else null. Null also
+     * when the proc is gone: the legacy path finalizes the orphan, as it does in every mode. A
+     * transient read failure becomes the retry signal, never a raw exception over gRPC.
+     */
+    private VirtualProc ownedProc(FrameCompleteReport report) {
+        try {
+            VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            return showDao.isSchedulerManaged(proc.getShowId()) ? proc : null;
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        } catch (Exception e) {
+            throw new RqdRetryReportException("error reading the show of the frame complete "
+                    + "report, sending retry message to RQD " + e, e);
+        }
     }
 
     /**
@@ -291,10 +315,16 @@ public class FrameCompleteHandler {
      * the same fences as a legacy one.
      */
     public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report) {
+        return resolveForDrain(report, null);
+    }
+
+    /** As above, with the proc already read by the caller; null reads it here. */
+    public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report, VirtualProc known) {
         try {
             final VirtualProc proc;
             try {
-                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+                proc = known != null ? known
+                        : hostManager.getVirtualProc(report.getFrame().getResourceId());
             } catch (EmptyResultDataAccessException e) {
                 finalizeOrphanedFrameComplete(report);
                 return null;
@@ -449,7 +479,7 @@ public class FrameCompleteHandler {
                     retryFrameWithRaisedMemory(c.proc, c.frame);
                 }
                 boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
-                if (succeeded && MaestroMode.enabled(env)) {
+                if (succeeded) {
                     OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
                 }
                 boolean dependEligible = succeeded || (!satisfyDependOnlyOnFrameSuccess
@@ -901,11 +931,13 @@ public class FrameCompleteHandler {
      * The legacy dispatcher raises the whole LAYER and disables its optimizer (the original
      * behavior, kept unchanged). The in-process Maestro instead bumps per FRAME so one hungry or
      * spuriously-killed frame does not inflate every other frame and strand cores, escalating to
-     * the layer only after repeated OOMs in a row (see OomMemoryTracker).
+     * the layer only after repeated OOMs in a row (see OomMemoryTracker). The policy follows the
+     * show's owner, not the mode switch: only Maestro's launch applies the per-frame bump, so a
+     * legacy show on a managed-mode cuebot keeps the layer raise its dispatcher reads.
      */
     private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
         long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
-        if (MaestroMode.enabled(env)) {
+        if (MaestroMode.schedules(env, showDao, proc.getShowId())) {
             // Leaves the layer optimizer on, so an escalated layer later settles at its true size.
             int oomThreshold =
                     env.getProperty("dispatcher.oom_layer_escalate_threshold", Integer.class, 3);
@@ -1358,12 +1390,10 @@ public class FrameCompleteHandler {
              */
             jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
                     report.getFrame().getMaxRss(), report.getRunTime());
-            if (MaestroMode.enabled(env)) {
-                // With the in-process Maestro, a success clears this frame's
-                // per-frame OOM bump. The layer's OOM streak is deliberately
-                // kept (see OomMemoryTracker.onSuccess).
-                OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
-            }
+            // A success clears the per-frame OOM bump Maestro may have given
+            // this frame. The layer's OOM streak is deliberately kept (see
+            // OomMemoryTracker.onSuccess).
+            OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
         }
 
         /*

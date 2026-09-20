@@ -29,10 +29,13 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.dispatcher.OomMemoryTracker;
+import com.imageworks.spcue.dispatcher.MaestroCompletionQueue;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -47,6 +50,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -71,6 +75,7 @@ public class FrameCompleteHandlerOwnershipTests {
     private static final String OTHER_FRAME_ID = "00000000-0000-0000-0000-0000000000f2";
     private static final String JOB_ID = "00000000-0000-0000-0000-0000000000a1";
     private static final String LAYER_ID = "00000000-0000-0000-0000-0000000000b1";
+    private static final String SHOW_ID = "00000000-0000-0000-0000-0000000000c1";
 
     private FrameCompleteHandler handler;
     private HostManager hostManager;
@@ -80,12 +85,21 @@ public class FrameCompleteHandlerOwnershipTests {
     private Dispatcher dispatcher;
     private DispatchQueue dispatchQueue;
     private PrometheusMetricsCollector prometheusMetrics;
+    private ShowDao showDao;
 
     private VirtualProc proc;
     private FrameCompleteReport report;
 
     @Before
     public void setup() {
+        wire(null);
+    }
+
+    /**
+     * Build the handler under a Maestro mode (null = the property is unset, the legacy dispatcher
+     * owns every show).
+     */
+    private void wire(String maestroMode) {
         Environment env = mock(Environment.class);
         when(env.getProperty(eq("depend.satisfy_only_on_frame_success"), eq(Boolean.class),
                 eq(true))).thenReturn(true);
@@ -95,6 +109,7 @@ public class FrameCompleteHandlerOwnershipTests {
                 .thenAnswer(i -> i.getArgument(2));
         when(env.getProperty(anyString(), eq(Integer.class), anyInt()))
                 .thenAnswer(i -> i.getArgument(2));
+        when(env.getProperty("maestro.enabled", "no")).thenReturn(maestroMode);
         handler = new FrameCompleteHandler(env);
 
         hostManager = mock(HostManager.class);
@@ -106,6 +121,7 @@ public class FrameCompleteHandlerOwnershipTests {
         // Mocked rather than instantiated: the real collector registers static Prometheus
         // counters, which throws on double registration across tests.
         prometheusMetrics = mock(PrometheusMetricsCollector.class);
+        showDao = mock(ShowDao.class);
 
         handler.setHostManager(hostManager);
         handler.setJobManager(jobManager);
@@ -115,6 +131,7 @@ public class FrameCompleteHandlerOwnershipTests {
         handler.setDispatchQueue(dispatchQueue);
         handler.setJobManagerSupport(mock(JobManagerSupport.class));
         handler.setPrometheusMetrics(prometheusMetrics);
+        handler.setShowDao(showDao);
 
         // Run queued dispatch tasks inline so redirect/unbook effects can be asserted directly.
         doAnswer(new Answer<Void>() {
@@ -130,6 +147,7 @@ public class FrameCompleteHandlerOwnershipTests {
         proc.id = RESOURCE_ID;
         proc.jobId = JOB_ID;
         proc.frameId = FRAME_ID;
+        proc.showId = SHOW_ID;
         proc.hostName = "render-host-01";
 
         report = FrameCompleteReport.newBuilder()
@@ -457,5 +475,93 @@ public class FrameCompleteHandlerOwnershipTests {
 
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
                 anyInt(), anyLong());
+    }
+
+    // ---- ownership decides the Maestro policies, not the mode switch ----------------------
+
+    /** A running frame of the fixture's job, wired for a report that stops it. */
+    private DispatchFrame wireRunningFrame() {
+        DispatchJob job = new DispatchJob();
+        job.id = JOB_ID;
+        job.state = JobState.PENDING;
+        job.maxRetries = 3;
+        LayerDetail layer = new LayerDetail();
+        layer.id = LAYER_ID;
+        FrameDetail frameDetail = new FrameDetail();
+        frameDetail.id = FRAME_ID;
+        frameDetail.state = FrameState.RUNNING;
+        DispatchFrame frame = new DispatchFrame();
+        frame.id = FRAME_ID;
+        frame.state = FrameState.RUNNING;
+        frame.layerId = LAYER_ID;
+        frame.jobId = JOB_ID;
+        when(hostManager.getVirtualProc(RESOURCE_ID)).thenReturn(proc);
+        when(jobManager.getDispatchJob(JOB_ID)).thenReturn(job);
+        when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
+        when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
+        when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
+                .thenReturn(true);
+        return frame;
+    }
+
+    /**
+     * Managed mode, a show still on the legacy dispatcher: its OOM raises the layer, the raise
+     * legacy reads at the next launch, and leaves no per-frame bump behind. Before the fix the mode
+     * switch alone chose Maestro's per-frame policy, which the legacy launch never applies, so the
+     * frame OOMed three times before its layer was raised.
+     */
+    @Test
+    public void legacyShowOomInManagedModeRaisesTheLayer() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(false);
+        DispatchFrame frame = wireRunningFrame();
+        report = report.toBuilder().setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(jobManager, times(1)).increaseLayerMemoryRequirement(eq(frame), anyLong());
+        verify(jobManager, times(1)).enableMemoryOptimizer(frame, false);
+        assertEquals(0L, OomMemoryTracker.INSTANCE.frameBumpKb(FRAME_ID));
+    }
+
+    /** Managed mode, a legacy show: the report is processed to the end on the legacy path. */
+    @Test
+    public void legacyShowReportInManagedModeTakesTheLegacyPath() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(false);
+        DispatchFrame frame = wireRunningFrame();
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.SUCCEEDED), anyInt(),
+                anyLong());
+    }
+
+    /** Managed mode, a legacy show: the report is resolved once, on the legacy path only. */
+    @Test
+    public void legacyShowReportInManagedModeIsResolvedOnce() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(false);
+        wireRunningFrame();
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(jobManager, times(1)).getDispatchJob(JOB_ID);
+    }
+
+    /** Managed mode, a Maestro show: the report is resolved and queued for the tick's drain. */
+    @Test
+    public void managedShowReportInManagedModeIsQueuedForTheDrain() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        DispatchFrame frame = wireRunningFrame();
+        MaestroCompletionQueue.drain();
+
+        handler.handleFrameCompleteReport(report);
+
+        assertEquals(1, MaestroCompletionQueue.drain().size());
+        verify(dispatchSupport, never()).stopFrame(eq(frame), any(FrameState.class), anyInt(),
+                anyLong());
     }
 }
