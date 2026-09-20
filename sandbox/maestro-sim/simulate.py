@@ -390,6 +390,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_layercap.py", "layercap_watch.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
                      "inject_solofill.py", "solofill_watch.py",
+                     "inject_pin.py", "pin_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
@@ -1156,6 +1157,12 @@ def start_layercap_injector(duration):
     spawn(["inject_layercap.py", str(duration)], f"{FARM}/inject_layercap.log")
 
 
+def start_pin_injector(duration):
+    log(f"starting PIN load (five layers pinned to machine lists beside a general "
+        f"flood) for {duration}s ...")
+    spawn(["inject_pin.py", str(duration)], f"{FARM}/inject_pin.log")
+
+
 def start_solofill_injector(duration):
     log(f"starting SOLOFILL (one-layer job vs many-layer job of equal frames "
         f"on the idle farm) for {duration}s")
@@ -1424,6 +1431,16 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{pm.group(1) if pm else '?'} frames on "
                     f"{pm.group(2) if pm else '?'} hosts, "
                     f"{om.group(1) if om else '?'} hosts over cap")
+    if name == "PIN":
+        # The watcher's verdict is the whole check: pinned layers run only on
+        # their hosts and make progress, groups stay whole, a dead pin is visible.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"pin: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"layers pinned to machine lists: {sm.group(1) if sm else 'no summary'}"
     if name == "SOLOFILL":
         # The watcher's verdict is the whole check: at the mark the one-layer
         # job must keep pace with the many-layer job of equal frames.
@@ -1798,6 +1815,16 @@ def run_verify():
         # at a speed set by its layer count. Fail-first: A/B near 0.02. Frames
         # run 90s: still up at the 120s mark, done before the run ends.
         ("SOLOFILL", ["--solofill-test", str(max(D, 150))], {"SIM_DUR_LONG_S": "90"}),
+        # PIN: a layer whose tags are host names runs on those hosts and only
+        # there (a machine list, or a local render on one workstation). Four
+        # capability tags give the small farm several host specs, so one list
+        # spans two specs. Five pinned layers at priority 200 face a general
+        # flood at 100 that keeps the farm full. Asserts that every pinned
+        # frame ran on its list, that each real pin completes frames, that
+        # the host-spec group count stays at the number of specs (pins must
+        # not fracture the grouping) and that a pin naming no host shows a
+        # waitlist reason.
+        ("PIN", ["--hosts", "3,4,10", "--tags", "4", "--pin-test", str(D)]),
         # STRANDGROW: 1-core layers whose frames REALLY hold 18G of rss (the
         # fake RQD pins their reported rss; declarations are not trusted). The
         # first wave books at the ask (no evidence yet), then the scheduler
@@ -2157,6 +2184,11 @@ def main():
                          "on an idle farm must go past the per-host layer "
                          "cap (contention rule, nobody waiting) and reach "
                          "high core utilisation instead of stranding.")
+    ap.add_argument("--pin-test", type=int, default=0, metavar="SECS",
+                    help="PIN test: five layers pinned to machine lists (host-name tags) "
+                         "against a general flood. Assert that pinned frames run only on "
+                         "their lists, that each real pin makes progress, that the host-spec "
+                         "group count stays whole and that a dead pin shows a reason.")
     ap.add_argument("--solofill-test", type=int, default=0, metavar="SECS",
                     help="SOLOFILL test: a one-layer job and a many-layer job "
                          "of equal frames start together on an idle farm; "
@@ -2491,6 +2523,8 @@ def main():
         start_layercap_solo_injector(args.layercap_solo_test)
     if args.solofill_test:
         start_solofill_injector(args.solofill_test)
+    if args.pin_test:
+        start_pin_injector(args.pin_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
     if args.completionstorm_test:
@@ -2515,7 +2549,7 @@ def main():
     watch = (args.strand or args.priority_starve or args.priority_spread
              or args.limit_test or args.license_test or args.poison_test
              or args.capdrop_test or args.prodenv_test or args.layercap_test
-             or args.layercap_solo_test or args.solofill_test
+             or args.layercap_solo_test or args.solofill_test or args.pin_test
              or args.health_test or args.strandgrow_test
              or args.completionstorm_test
              or args.doublerender_test
@@ -2558,6 +2592,10 @@ def main():
             f"for {args.layercap_solo_test}s ...")
         subprocess.run([VENV_PY, "layercap_solo_watch.py",
                         str(args.layercap_solo_test), "5"], cwd=FARM)
+    elif args.pin_test:
+        log(f"watching PIN (pinned layers run only on their hosts) for {args.pin_test}s ...")
+        subprocess.run([VENV_PY, "pin_watch.py", str(args.pin_test), "3",
+                        "http://localhost:8080/metrics"], cwd=FARM)
     elif args.solofill_test:
         log(f"watching SOLOFILL (one-layer vs many-layer fill on an idle farm) "
             f"for {args.solofill_test}s ...")

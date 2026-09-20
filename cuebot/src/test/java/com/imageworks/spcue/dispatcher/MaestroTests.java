@@ -17,8 +17,11 @@ package com.imageworks.spcue.dispatcher;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Test;
@@ -32,6 +35,8 @@ import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -663,5 +668,91 @@ public class MaestroTests {
         s.runTick();
         s.runTick();
         assertFalse("the latch must stay clear across repeated failures", tickLatchHeld(s));
+    }
+
+    // ---- pins ---------------------------------------------------------------
+
+    private static Maestro.BookableHost specHost(String id, String tags) {
+        Maestro.BookableHost h = host("alloc", tags + " host" + id, "rhel9", 8 * CORE, 32 * GB, 0,
+                0, 8 * CORE, 32 * GB, 0, 0);
+        h.hostId = id;
+        h.hostName = "host" + id;
+        h.pkFacility = "fac";
+        return h;
+    }
+
+    private static Maestro.LayerCandidate pinnedLayer(String layerId, int waiting) {
+        Maestro.LayerCandidate c = layer(CORE, 512L << 10, 0, 0);
+        c.layerId = layerId;
+        c.waitingFrameCount = waiting;
+        return c;
+    }
+
+    private static Maestro.PinRow pinRow(String layerId, String hostId, String tags) {
+        return new Maestro.PinRow(pinnedLayer(layerId, 30), hostId, tags);
+    }
+
+    @Test
+    public void attachPinsFilesEachLayerUnderTheGroupsOfItsHosts() {
+        Maestro.BookableHost a = specHost("a", "general capa");
+        Maestro.BookableHost b = specHost("b", "general capa");
+        Maestro.BookableHost c = specHost("c", "general capb");
+        Map<String, Maestro.BookableHost> byId = new HashMap<>();
+        for (Maestro.BookableHost h : Arrays.asList(a, b, c))
+            byId.put(h.hostId, h);
+        Set<String> spec = new HashSet<>(Arrays.asList("general", "capa", "capb"));
+        Map<String, String> reason = new HashMap<>();
+        Map<String, Integer> frames = new HashMap<>();
+        List<Maestro.PinRow> rows = Arrays.asList(pinRow("L1", "a", "hosta | hostb | hostc"),
+                pinRow("L1", "b", "hosta | hostb | hostc"),
+                pinRow("L1", "c", "hosta | hostb | hostc"), pinRow("L2", null, "nosuchhost"),
+                pinRow("L3", null, "general | nosuchhost"), pinRow("L4", "zz", "hostzz"));
+        Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> out =
+                Maestro.attachPins(rows, byId, spec, reason, frames);
+
+        // L1 spans two specs: one candidate per group, each with that group's pins.
+        List<Maestro.LayerCandidate> inA = out.get(Maestro.hostSpecKey(a));
+        List<Maestro.LayerCandidate> inC = out.get(Maestro.hostSpecKey(c));
+        assertEquals(1, inA.size());
+        assertEquals(Arrays.asList(a, b), inA.get(0).pinnedHosts);
+        assertTrue(inA.get(0).pinnedIds.containsAll(Arrays.asList("a", "b")));
+        assertEquals(1, inC.size());
+        assertEquals(Arrays.asList(c), inC.get(0).pinnedHosts);
+        assertEquals(2, out.size());
+        // A dead pin waits with its reason; a spec-tagged layer is a group candidate, not dead;
+        // a host outside the tick's snapshot resolves nothing.
+        assertEquals("no host", reason.get("L2"));
+        assertEquals(Integer.valueOf(30), frames.get("L2"));
+        assertNull(reason.get("L3"));
+        assertEquals("no host", reason.get("L4"));
+    }
+
+    @Test
+    public void addPinnedSkipsLayersTheGroupHasAndVisitsOnlyIdlePins() {
+        Maestro.BookableHost a = specHost("a", "general");
+        Maestro.BookableHost b = specHost("b", "general");
+        b.coresIdle = 0;
+        Maestro.LayerCandidate already = pinnedLayer("L1", 10);
+        List<Maestro.LayerCandidate> candidates = new ArrayList<>(Arrays.asList(already));
+        Maestro.LayerCandidate dup = pinnedLayer("L1", 10);
+        Maestro.LayerCandidate pinned = pinnedLayer("L4", 10);
+        for (Maestro.LayerCandidate c : Arrays.asList(dup, pinned)) {
+            c.pinnedHosts = new ArrayList<>(Arrays.asList(a, b));
+            c.pinnedIds = new HashSet<>(Arrays.asList("a", "b"));
+        }
+        Maestro.addPinned(candidates, Arrays.asList(dup, pinned), Arrays.asList(a));
+        assertEquals(2, candidates.size());
+        assertSame(already, candidates.get(0));
+        assertSame(pinned, candidates.get(1));
+        assertEquals(Arrays.asList(a), pinned.pinnedIdle);
+        assertNull(already.pinnedIdle);
+        // A pinned candidate wants only its own hosts; an unpinned one wants any.
+        Maestro.BookableHost other = specHost("z", "general");
+        assertTrue(Maestro.pinsAllow(pinned, a));
+        assertFalse(Maestro.pinsAllow(pinned, other));
+        assertTrue(Maestro.pinsAllow(already, other));
+        assertTrue(
+                Maestro.namesSpecTag("general | hosta", new HashSet<>(Arrays.asList("general"))));
+        assertFalse(Maestro.namesSpecTag("hosta | hostb", new HashSet<>(Arrays.asList("general"))));
     }
 }

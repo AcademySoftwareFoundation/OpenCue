@@ -59,6 +59,7 @@ torn-down sim that writes its own graphs — then prints a PASS/FAIL summary
 | **DEPENDS** | dependency correctness: no frame ever RUNS with unsatisfied depends, while depends satisfy and previously-gated frames run (coverage floors) |
 | **FAILOVER** | HA / leader election: the leader cuebot is killed mid-run and the standby takes over booking AND keeps accepting submissions (all clients re-dial the survivor like a real farm's multi-cuebot config) |
 | **TAGS_GPU** | one mixed run where capability tags AND a GPU slice fragment the farm at once: zero tag/GPU placement violations, GPUs and GPU memory never oversubscribed, every tag pool still runs work |
+| **PIN** | a layer whose tags are host names runs on those hosts and only there (a machine list, or a local render on one workstation): every pinned frame ran on its list, each real pin completes frames against a full farm, the host-spec group count stays at the number of specs, and a pin naming no host shows a waitlist reason |
 | **TAGMAX** | Maestro's cross-group layer dedup under maximal fragmentation: 120 capability tags shatter the full farm into host-spec groups while 30% of layers are run-anywhere (`general`, a candidate in every group at once), and `raceLost` (planned frames that lost the `frame.int_version` race at commit) must stay a small fraction of planned — proof no layer is re-planned across groups only to lose every copy but one |
 
 **Run it exactly as `python simulate.py --verify` — do not add or change flags.**
