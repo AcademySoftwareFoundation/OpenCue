@@ -847,6 +847,23 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 + "int_clock_time_fail = int_clock_time_fail + ?,"
                 + "int_frame_fail_count = int_frame_fail_count + 1 "
             + "WHERE pk_layer = ? ";
+    // The batch form: one row per layer with both outcomes and the clock extremes, one statement.
+    // The low moves only for a row with successes (its guard) and a zero low counts as unset, as
+    // the per-frame statement treats it.
+    private static final String UPDATE_LAYER_USAGE_BATCH =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + ?,"
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + ?,"
+                + "int_clock_time_high = GREATEST(int_clock_time_high, ?),"
+                + "int_clock_time_low = CASE WHEN ? = 0 THEN int_clock_time_low "
+                    + "ELSE LEAST(NULLIF(int_clock_time_low, 0), ?) END "
+            + "WHERE pk_layer = ? ";
     // spotless:on
 
     @Override
@@ -869,22 +886,15 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     /**
-     * The batched form of updateUsage: the same four statements, one JDBC round trip each for a
-     * whole batch of completions instead of three or four per frame. Row shapes: success {coreTime,
-     * gpuTime, clockTime, pk_layer}, high and low {clockTime, pk_layer, clockTime}, fail {coreTime,
-     * clockTime, pk_layer}.
+     * The batched form of updateUsage: one row per layer, {coreTime, gpuTime, clockTime, successes,
+     * failCore, failClock, failures, high, successes, low, pk_layer}, in one statement for a whole
+     * scoop of completions, so the rows lock in the order they are given. The high only raises the
+     * column; the low moves only for a row with successes.
      */
     @Override
-    public void updateUsageBatch(List<Object[]> success, List<Object[]> high, List<Object[]> low,
-            List<Object[]> fail) {
-        if (!success.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_SUCCESS, success);
-        if (!high.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_HIGH, high);
-        if (!low.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_LOW, low);
-        if (!fail.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_FAIL, fail);
+    public void updateUsageBatch(List<Object[]> rows) {
+        if (!rows.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_BATCH, rows);
     }
 
     // spotless:off

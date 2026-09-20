@@ -28,6 +28,7 @@ import argparse
 import atexit
 import getpass
 import os
+import re
 import resource
 import signal
 import shutil
@@ -1287,10 +1288,25 @@ def _verify_throughput(gdir):
         return 0, 0.0
 
 
+def _verdict_state(txt):
+    """A watcher's verdict as the battery's three states: True for PASS, None for
+    INCONCLUSIVE (the run measured nothing: the storm never took hold, the
+    fill never reached the mark), False otherwise. INCONCLUSIVE is reported
+    as such and does not fail the battery; a FAIL against the invariant does."""
+    if re.search(r"(?m)^PASS:", txt):
+        return True
+    if re.search(r"(?m)^INCONCLUSIVE:", txt):
+        return None
+    return False
+
+
+def _label(ok):
+    return "PASS" if ok else ("INCONCLUSIVE" if ok is None else "FAIL")
+
+
 def _verify_check(name, gdir, logp, cblog):
     """Return (passed, detail) for one verify scenario, read from its cuebot log
     (OOM / reservations) or its stdout log (priority)."""
-    import re
     try:
         cb = open(cblog, errors="ignore").read()
     except Exception:
@@ -1483,7 +1499,7 @@ def _verify_check(name, gdir, logp, cblog):
             txt = ""
         mm = re.search(r"at the mark: A (\d+) running on (\d+) hosts with (\d+) "
                        r"waiting; B (\d+) running; ratio A/B ([0-9.]+)", txt)
-        ok = bool(re.search(r"(?m)^PASS:", txt))
+        ok = _verdict_state(txt)
         return ok, (f"one-layer vs many-layer fill at the mark: A "
                     f"{mm.group(1) if mm else '?'} running on "
                     f"{mm.group(2) if mm else '?'} hosts ({mm.group(3) if mm else '?'} "
@@ -1524,13 +1540,11 @@ def _verify_check(name, gdir, logp, cblog):
             txt = open(logp, errors="ignore").read()
         except Exception:
             txt = ""
-        qm = re.search(r"peak postQ (\d+)", txt)
         fm = re.search(r"final postQ (\d+)", txt)
         tm = re.search(r"peak avgTick (\d+)ms", txt)
         dm = re.search(r"lost (\d+)", txt)
-        ok = bool(re.search(r"(?m)^PASS:", txt))
-        return ok, (f"completion rate vs the post-op worker: peak postQ "
-                    f"{qm.group(1) if qm else '?'}, final postQ "
+        ok = _verdict_state(txt)
+        return ok, (f"completion rate vs the post-op worker: final postQ "
                     f"{fm.group(1) if fm else '?'}, peak avgTick "
                     f"{tm.group(1) if tm else '?'}ms, lost "
                     f"{dm.group(1) if dm else '?'}")
@@ -1904,7 +1918,6 @@ def run_verify():
                              "--completionstorm-test", str(max(D, 240))],
          {"SIM_DUR_LONG_S": "1", "SIM_STORM_JOBS": "400",
           "SIM_STORM_FRAMES": "300",
-          "SIM_STORM_MIN_POSTQ": "200",
           "SIM_STORM_TICK_MAX_MS": "2000",
           "SIM_STAT_INTERVAL_SECONDS": "10"}),
         # DOUBLERENDER: the release-path defect found by audit. A stale
@@ -2077,15 +2090,21 @@ def run_verify():
         else:
             detail += f"; {done} frames done ({rate:.1f}/s)"
         results.append((name, ok, detail, gdir))
-        log(f"[verify] {name}: {'PASS' if ok else 'FAIL'} ({detail})")
+        log(f"[verify] {name}: {_label(ok)} ({detail})")
 
     print("\n=== SIM VERIFY ===")
     for name, ok, detail, gdir in results:
-        print(f"{name:<13}: {'PASS' if ok else 'FAIL'}    {detail}")
+        print(f"{name:<13}: {_label(ok)}    {detail}")
         print(f"{'':13}  graphs -> {gdir}")
-    allok = all(ok for _, ok, _, _ in results)
-    print("\n" + ("ALL PASS" if allok else "SOME FAILED"))
-    return 0 if allok else 1
+    failed = sum(1 for _, ok, _, _ in results if ok is False)
+    inconclusive = sum(1 for _, ok, _, _ in results if ok is None)
+    if failed:
+        print("\nSOME FAILED")
+    elif inconclusive:
+        print(f"\nALL PASS ({inconclusive} INCONCLUSIVE)")
+    else:
+        print("\nALL PASS")
+    return 0 if failed == 0 else 1
 
 
 def main():

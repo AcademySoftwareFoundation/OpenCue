@@ -124,10 +124,11 @@ public interface ShowDao {
     void updateFrameCounters(ShowInterface s, int exitStatus);
 
     /**
-     * The batched form of updateFrameCounters: one JDBC round trip per outcome for a whole batch of
-     * completions. Rows are {pk_show}.
+     * The batched form of updateFrameCounters: one statement, one JDBC round trip, for a whole
+     * batch of completions, one row per show carrying both outcomes. Rows are {successes, failures,
+     * pk_show}.
      */
-    void updateFrameCountersBatch(java.util.List<Object[]> success, java.util.List<Object[]> fail);
+    void updateFrameCountersBatch(java.util.List<Object[]> rows);
 
     /**
      * Set the enabled status of a show to true/false.

@@ -257,36 +257,45 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        // Maestro-owned show: resolve here, apply in the tick (see header). In
-        // facility mode every show is Maestro's and nothing is read; in managed
-        // mode the proc's show flag decides, read once and handed to the resolve.
-        if (MaestroMode.enabled(env)) {
-            VirtualProc owned = null;
-            if (!MaestroMode.facility(env)) {
-                owned = ownedProc(report);
-                if (owned == null) {
-                    processReportNow(report);
-                    return;
-                }
-            }
-            QueuedFrameCompletion resolved;
-            try {
-                resolved = resolveForDrain(report, owned);
-                if (resolved == null) {
-                    return;
-                }
-            } catch (Exception e) {
-                // Same retry contract as processReportNow: a transient resolve
-                // failure must reach RQD as a retry signal, never as a raw
-                // runtime exception over gRPC.
-                throw new RqdRetryReportException("error resolving the frame complete "
-                        + "report for the scheduler drain, sending retry message to RQD " + e, e);
-            }
-            MaestroCompletionQueue.offer(resolved);
+        // Who files this report. Mode off: legacy, on this thread. Facility
+        // mode: Maestro owns every show, nothing is read here. Managed mode:
+        // the proc's show flag decides, read once and handed to the resolve.
+        if (!MaestroMode.enabled(env)) {
+            processReportNow(report);
             return;
         }
+        if (MaestroMode.facility(env)) {
+            queueForDrain(report, null);
+            return;
+        }
+        VirtualProc owned = ownedProc(report);
+        if (owned == null) {
+            processReportNow(report);
+        } else {
+            queueForDrain(report, owned);
+        }
+    }
 
-        processReportNow(report);
+    /**
+     * Maestro's path: resolve the report here, on the report thread (pure reads), and hand the
+     * resolved completion to the tick's drain (see the class header). A transient resolve failure
+     * becomes the retry signal to RQD, the same contract as processReportNow, never a raw exception
+     * over gRPC. The known proc is the one ownedProc read in managed mode; null lets the resolve
+     * read it.
+     */
+    private void queueForDrain(FrameCompleteReport report, VirtualProc known) {
+        QueuedFrameCompletion resolved;
+        try {
+            resolved = resolveForDrain(report, known);
+        } catch (Exception e) {
+            throw new RqdRetryReportException(
+                    "error resolving the frame complete "
+                            + "report for the scheduler drain, sending retry message to RQD " + e,
+                    e);
+        }
+        if (resolved != null) {
+            MaestroCompletionQueue.offer(resolved);
+        }
     }
 
     /**
@@ -501,21 +510,16 @@ public class FrameCompleteHandler {
 
     /**
      * Phase one of batchPostOps: one frame's own filing, and its layer and job put up for phase
-     * three. A layer's representative is a succeeded frame when the layer saw one, so optimizeLayer
-     * reads a real render's cores, memory and run time; otherwise the first eaten frame, which only
-     * feeds the completion check.
+     * three. The depends and the registration come first (satisfyDependsWithRetry never throws),
+     * then the event publish, the limit rule and the memory retry each in their own guard, so a
+     * failing step costs that step alone and never the frame's depends or its layer's and job's
+     * completion checks. A layer's representative is a succeeded frame when the layer saw one, so
+     * optimizeLayer reads a real render's cores, memory and run time; otherwise the first eaten
+     * frame, which only feeds the completion check.
      */
     private void fileFrame(QueuedFrameCompletion c, Map<String, QueuedFrameCompletion> byLayer,
             Map<String, QueuedFrameCompletion> byJob) {
-        publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState, c.proc);
-        applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail), c.newFrameState);
-        if (isMemoryFailure(c.report, c.frameDetail)) {
-            retryFrameWithRaisedMemory(c.proc, c.frame);
-        }
         boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
-        if (succeeded) {
-            OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
-        }
         boolean dependEligible = succeeded
                 || (!satisfyDependOnlyOnFrameSuccess && c.newFrameState.equals(FrameState.EATEN));
         if (dependEligible) {
@@ -530,6 +534,27 @@ public class FrameCompleteHandler {
         }
         if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
             byJob.putIfAbsent(c.frame.getJobId(), c);
+        }
+        if (succeeded) {
+            OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
+        }
+        String name = c.frame.getName();
+        guard(() -> publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState,
+                c.proc), "event of frame " + name);
+        guard(() -> applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail),
+                c.newFrameState), "limit rule of frame " + name);
+        if (isMemoryFailure(c.report, c.frameDetail)) {
+            guard(() -> retryFrameWithRaisedMemory(c.proc, c.frame),
+                    "memory retry of frame " + name);
+        }
+    }
+
+    /** One step of a frame's filing: a failure is logged and costs that step only. */
+    private void guard(Runnable step, String what) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            logger.warn("post-complete " + what + " failed: " + CueExceptionUtil.getStackTrace(e));
         }
     }
 
@@ -549,7 +574,7 @@ public class FrameCompleteHandler {
         }
         for (QueuedFrameCompletion c : scoop) {
             try {
-                dispatchSupport.updateUsageCounters(c.frame, c.report.getExitStatus());
+                dispatchSupport.updateUsageCounters(c.frame, c.exitStatus);
             } catch (RuntimeException e) {
                 logger.warn("usage counters of frame " + c.frame.getName() + " failed: "
                         + CueExceptionUtil.getStackTrace(e));
@@ -844,7 +869,7 @@ public class FrameCompleteHandler {
              */
             boolean unbookProc = proc.unbooked;
 
-            dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+            dispatchSupport.updateUsageCounters(frame, resolveExitStatus(report, frameDetail));
 
             applyLimitRule(frame, resolveExitStatus(report, frameDetail), newFrameState);
 
@@ -1277,7 +1302,7 @@ public class FrameCompleteHandler {
             prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
         }
 
-        dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+        dispatchSupport.updateUsageCounters(frame, exitStatus);
 
         applyLimitRule(frame, exitStatus, newFrameState);
 

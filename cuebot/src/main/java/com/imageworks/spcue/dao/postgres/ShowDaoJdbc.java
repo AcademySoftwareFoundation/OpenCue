@@ -290,7 +290,9 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     @Override
     public void updateFrameCounters(ShowInterface s, int exitStatus) {
         String col = "int_frame_success_count = int_frame_success_count + 1";
-        if (exitStatus > 0) {
+        if (exitStatus != 0) {
+            // A signal-killed frame (negative status) failed too, as the job
+            // and layer counters have always counted it.
             col = "int_frame_fail_count = int_frame_fail_count + 1";
         }
         getJdbcTemplate().update("UPDATE show_stats SET " + col + " WHERE pk_show=?",
@@ -298,26 +300,22 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     }
 
     // spotless:off
-    private static final String INCREMENT_FRAME_SUCCESS =
+    // The batch form: one row per show with both counts, one statement per scoop.
+    private static final String INCREMENT_FRAME_COUNTS =
             "UPDATE show_stats "
-            + "SET int_frame_success_count = int_frame_success_count + 1 "
-            + "WHERE pk_show = ?";
-    private static final String INCREMENT_FRAME_FAIL =
-            "UPDATE show_stats "
-            + "SET int_frame_fail_count = int_frame_fail_count + 1 "
+            + "SET int_frame_success_count = int_frame_success_count + ?, "
+                + "int_frame_fail_count = int_frame_fail_count + ? "
             + "WHERE pk_show = ?";
     // spotless:on
 
     /**
-     * The batched form of updateFrameCounters: the same one-row increments, one JDBC round trip per
-     * outcome for a whole batch of completions instead of one per frame. Rows are {pk_show}.
+     * The batched form of updateFrameCounters: one row per show, {successes, failures, pk_show}, in
+     * one statement for a whole scoop of completions, so the rows lock in the order they are given.
      */
     @Override
-    public void updateFrameCountersBatch(List<Object[]> success, List<Object[]> fail) {
-        if (!success.isEmpty())
-            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_SUCCESS, success);
-        if (!fail.isEmpty())
-            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_FAIL, fail);
+    public void updateFrameCountersBatch(List<Object[]> rows) {
+        if (!rows.isEmpty())
+            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_COUNTS, rows);
     }
 
     @Override

@@ -122,11 +122,17 @@ public class FrameCompleteHandlerScoopTests {
         return completion(frameId, FrameState.SUCCEEDED, 1, "show");
     }
 
-    /**
-     * All completions share one layer and one job; the show names the frame to the metrics mock.
-     */
     private static QueuedFrameCompletion completion(String frameId, FrameState state, int runTime,
             String show) {
+        return completion(frameId, state, runTime, show, 0, 0);
+    }
+
+    /**
+     * All completions share one layer and one job; the show names the frame to the metrics mock.
+     * The resolved exit status is what the drain computed; the report carries the raw one.
+     */
+    private static QueuedFrameCompletion completion(String frameId, FrameState state, int runTime,
+            String show, int exitStatus, int reportExitStatus) {
         DispatchJob job = new DispatchJob();
         job.id = "job";
         DispatchFrame frame = new DispatchFrame();
@@ -137,13 +143,12 @@ public class FrameCompleteHandlerScoopTests {
         FrameDetail detail = new FrameDetail();
         detail.id = frameId;
         detail.state = FrameState.RUNNING;
-        FrameCompleteReport report =
-                FrameCompleteReport
-                        .newBuilder().setRunTime(runTime).setFrame(RunningFrameInfo.newBuilder()
-                                .setFrameId(frameId).setNumCores(8).setMaxRss(1000L).build())
-                        .build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setRunTime(runTime)
+                .setExitStatus(reportExitStatus).setFrame(RunningFrameInfo.newBuilder()
+                        .setFrameId(frameId).setNumCores(8).setMaxRss(1000L).build())
+                .build();
         return new QueuedFrameCompletion(report, new VirtualProc(), job, new LayerDetail(), detail,
-                frame, state, 0);
+                frame, state, exitStatus);
     }
 
     /**
@@ -216,5 +221,50 @@ public class FrameCompleteHandlerScoopTests {
         handler.queuePostOps(completion("f2"));
         verify(dispatchSupport, timeout(5000).times(2)).updateUsageCountersBatch(any());
         verify(dispatchSupport, never()).updateUsageCounters(any(), anyInt());
+    }
+
+    @Test
+    public void theCounterFallbackFilesTheResolvedExitStatus() {
+        // A cuebot memory kill stored the memory-failure code on the frame while
+        // the report says 1: the drain resolved the completion to the memory
+        // code, the batch files it, so the per-frame fallback must file it too.
+        doThrow(new RuntimeException("boom")).when(dispatchSupport).updateUsageCountersBatch(any());
+        handler.queuePostOps(completion("f1", FrameState.DEAD, 1, "show",
+                Dispatcher.EXIT_STATUS_MEMORY_FAILURE, 1));
+        verify(dispatchSupport, timeout(5000)).updateUsageCounters(any(),
+                eq(Dispatcher.EXIT_STATUS_MEMORY_FAILURE));
+        verify(dispatchSupport, never()).updateUsageCounters(any(), eq(1));
+    }
+
+    @Test
+    public void theLegacyPathFilesTheResolvedExitStatus() {
+        DispatchJob job = new DispatchJob();
+        job.id = "job";
+        DispatchFrame frame = new DispatchFrame();
+        frame.id = "f1";
+        frame.layerId = "layer";
+        frame.jobId = "job";
+        FrameDetail detail = new FrameDetail();
+        detail.id = "f1";
+        detail.exitStatus = Dispatcher.EXIT_STATUS_MEMORY_FAILURE;
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setExitStatus(1)
+                .setFrame(RunningFrameInfo.newBuilder().setFrameId("f1").build()).build();
+        VirtualProc proc = new VirtualProc();
+        proc.unbooked = true;
+        handler.handlePostFrameCompleteOperations(proc, report, job, frame, FrameState.DEAD,
+                detail);
+        verify(dispatchSupport).updateUsageCounters(any(),
+                eq(Dispatcher.EXIT_STATUS_MEMORY_FAILURE));
+    }
+
+    @Test
+    public void aFailingPublishStillReachesTheJobCheck() {
+        // The event publish is a side step: its failure must not cost the frame
+        // its depends or its layer's and job's completion checks.
+        doThrow(new RuntimeException("kafka down")).when(prometheusMetrics)
+                .recordFrameCompleted(any(), eq("bad"), any());
+        handler.queuePostOps(completion("f1", FrameState.SUCCEEDED, 1, "bad"));
+        verify(jobManager, timeout(5000)).isLayerComplete(any());
+        verify(jobManager, timeout(5000)).isJobComplete(any());
     }
 }

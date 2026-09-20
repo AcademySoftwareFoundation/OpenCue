@@ -15,6 +15,8 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.lang.reflect.Field;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -22,14 +24,30 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.report.FrameCompleteReport;
+import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -38,6 +56,18 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the pure, side-effect-free logic in {@link Maestro}: tag normalization, host
@@ -754,5 +784,430 @@ public class MaestroTests {
         assertTrue(
                 Maestro.namesSpecTag("general | hosta", new HashSet<>(Arrays.asList("general"))));
         assertFalse(Maestro.namesSpecTag("hosta | hostb", new HashSet<>(Arrays.asList("general"))));
+    }
+
+    // ---- the slot draw and the tick-wide backlog --------------------------
+
+    private static Maestro.LayerCandidate candidate(String layerId, int priority, int waiting) {
+        Maestro.LayerCandidate c = new Maestro.LayerCandidate();
+        c.layerId = layerId;
+        c.priority = priority;
+        c.waitingFrameCount = waiting;
+        return c;
+    }
+
+    @Test
+    public void aSlotGoesToTheCandidateWhoseWeightBandHoldsTheDraw() {
+        // Bands laid end to end in list order: [0,100) [100,400) [400,401); a
+        // priority of zero weighs one, like the query's GREATEST, and a draw
+        // past the last band stays on the last candidate.
+        List<Maestro.LayerCandidate> active =
+                Arrays.asList(candidate("a", 100, 1), candidate("b", 300, 1), candidate("c", 0, 1));
+        assertEquals(0, Maestro.drawSlot(active, 0));
+        assertEquals(0, Maestro.drawSlot(active, 99));
+        assertEquals(1, Maestro.drawSlot(active, 100));
+        assertEquals(1, Maestro.drawSlot(active, 399));
+        assertEquals(2, Maestro.drawSlot(active, 400));
+        assertEquals(2, Maestro.drawSlot(active, 1000));
+    }
+
+    @Test
+    public void aLayerPlannedInAnEarlierGroupKeepsOnlyItsRemainder() {
+        Maestro.LayerCandidate planned = candidate("a", 100, 10);
+        planned.placedThisTick = true;
+        Maestro.LayerCandidate fresh = candidate("b", 100, 7);
+        Map<String, Integer> plannedByLayer = new HashMap<>();
+        plannedByLayer.put("a", 4);
+        Set<String> seen = new HashSet<>();
+        Maestro.takeTickWideRemainder(Arrays.asList(planned, fresh), plannedByLayer, seen);
+        assertEquals("the frames planned in the earlier group are gone", 6,
+                planned.waitingFrameCount);
+        assertEquals("an unplanned layer keeps its whole backlog", 7, fresh.waitingFrameCount);
+        assertFalse("the placement flag starts the group clear", planned.placedThisTick);
+        assertEquals(new HashSet<>(Arrays.asList("a", "b")), seen);
+    }
+
+    // ---- the commit chunks and the leader ---------------------------------
+
+    private static FrameBooking bookingOn(String hostId) {
+        VirtualProc p = new VirtualProc();
+        p.hostId = hostId;
+        return new FrameBooking(new DispatchFrame(), p);
+    }
+
+    @Test
+    public void aChunkNeverSplitsAHost() {
+        // 3 on host a, 499 on host b, 2 on host c: the cut at COMMIT_CHUNK_FRAMES
+        // falls inside host b and moves to its last booking.
+        List<FrameBooking> planned = new ArrayList<>();
+        for (int i = 0; i < 3; i++)
+            planned.add(bookingOn("a"));
+        for (int i = 0; i < 499; i++)
+            planned.add(bookingOn("b"));
+        for (int i = 0; i < 2; i++)
+            planned.add(bookingOn("c"));
+        int end = Maestro.chunkEnd(planned, 0);
+        assertEquals(502, end);
+        assertEquals("the next chunk starts on a new host", "c", planned.get(end).proc.hostId);
+        assertEquals(504, Maestro.chunkEnd(planned, end));
+    }
+
+    private static void set(Maestro s, String field, Object value) throws Exception {
+        Field f = Maestro.class.getDeclaredField(field);
+        f.setAccessible(true);
+        f.set(s, value);
+    }
+
+    /**
+     * A Maestro whose lock connection is the given one and whose transaction template runs its
+     * callbacks straight through a mocked manager, so a chunk that reaches the commit really calls
+     * the batch start.
+     */
+    private static Maestro schedulerWithLeaderConn(Connection conn) throws Exception {
+        Maestro s = new Maestro();
+        set(s, "leaderConn", conn);
+        set(s, "transactionManager", mock(PlatformTransactionManager.class));
+        return s;
+    }
+
+    @Test
+    public void aLeaderThatLostTheLockCommitsNoFurtherChunk() throws Exception {
+        Connection lost = mock(Connection.class);
+        when(lost.isValid(anyInt())).thenReturn(false);
+        when(lost.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        Maestro s = schedulerWithLeaderConn(lost);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        List<FrameBooking> committed = s.commitInChunks(Arrays.asList(bookingOn("a")));
+        assertTrue("nothing commits without the lock", committed.isEmpty());
+        verify(support, never()).startFramesAndProcsBatch(any());
+    }
+
+    @Test
+    public void aLeaderThatHoldsTheLockCommitsTheChunk() throws Exception {
+        Connection held = mock(Connection.class);
+        when(held.isValid(anyInt())).thenReturn(true);
+        Maestro s = schedulerWithLeaderConn(held);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        s.commitInChunks(Arrays.asList(bookingOn("a")));
+        verify(support).startFramesAndProcsBatch(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> map(Maestro s, String field) throws Exception {
+        Field f = Maestro.class.getDeclaredField(field);
+        f.setAccessible(true);
+        return (Map<String, Object>) f.get(s);
+    }
+
+    @Test
+    public void aLostLockTakesThePlannersMemoryWithIt() throws Exception {
+        Maestro s = schedulerWithLeaderConn(null);
+        String[] fields = {"reservations", "blockedDebtMs", "lastSeenMs", "warmthByHostLayer",
+                "bookingsByHost"};
+        for (String f : fields)
+            map(s, f).put("stale", f.equals("reservations") ? null : Long.valueOf(1L));
+        s.demote();
+        for (String f : fields)
+            assertTrue(f + " must not outlive the lock", map(s, f).isEmpty());
+    }
+
+    // ---- the launch of one booking ----------------------------------------
+
+    @Test
+    public void anUnknownLaunchOutcomeIsResolvedBeforeAnyRelease() {
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
+                .runFrame(any(), any());
+        s.launchOne(fb);
+        verify(support).resolveUnknownLaunchOutcome(fb.proc, fb.frame);
+        verify(support, never()).unbookProc(any());
+        verify(support, never()).clearFrame(any());
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
+    }
+
+    @Test
+    public void aDefiniteLaunchFailureRollsTheBookingBack() {
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        doThrow(new DispatcherException("refused")).when(support).runFrame(any(), any());
+        when(support.clearFrame(fb.frame)).thenReturn(true);
+        s.launchOne(fb);
+        verify(support, never()).resolveUnknownLaunchOutcome(any(), any());
+        InOrder release = inOrder(support, rqd);
+        release.verify(support).unbookProc(fb.proc);
+        release.verify(support).clearFrame(fb.frame);
+        release.verify(rqd).killFrame(eq(fb.proc), any());
+    }
+
+    // ---- the second review pass: each finding with the test that failed first ----
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, long[]> deltas(Maestro s, String field) throws Exception {
+        Field f = Maestro.class.getDeclaredField(field);
+        f.setAccessible(true);
+        return (Map<String, long[]>) f.get(s);
+    }
+
+    @Test
+    public void aFailedChunkLeavesNoDeltasForTheNext() throws Exception {
+        // A flush that throws inside the chunk's transaction leaves the deltas
+        // it had not drained in the buffers; they must not be credited by the
+        // next chunk to procs that never existed.
+        Connection held = mock(Connection.class);
+        when(held.isValid(anyInt())).thenReturn(true);
+        Maestro s = schedulerWithLeaderConn(held);
+        DispatchSupport support = mock(DispatchSupport.class);
+        when(support.startFramesAndProcsBatch(any()))
+                .thenThrow(new RuntimeException("flush deadlock"));
+        s.setDispatchSupport(support);
+        String[] buffers = {"subDeltas", "layerDeltas", "jobDeltas"};
+        for (String b : buffers)
+            deltas(s, b).put("left by the failed flush", new long[] {1, 2});
+        assertTrue(s.commitInChunks(Arrays.asList(bookingOn("a"))).isEmpty());
+        for (String b : buffers)
+            assertTrue(b + " must not reach the next chunk", deltas(s, b).isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aLockLostBetweenChunksStopsAtTheBoundaryAndDemotes() throws Exception {
+        Connection conn = mock(Connection.class);
+        when(conn.isValid(anyInt())).thenReturn(true, false);
+        when(conn.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        Maestro s = schedulerWithLeaderConn(conn);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        map(s, "reservations").put("stale", null);
+        List<FrameBooking> planned = new ArrayList<>();
+        for (int i = 0; i < 3; i++)
+            planned.add(bookingOn("a"));
+        for (int i = 0; i < 499; i++)
+            planned.add(bookingOn("b"));
+        for (int i = 0; i < 2; i++)
+            planned.add(bookingOn("c"));
+        s.commitInChunks(planned);
+        ArgumentCaptor<List<FrameBooking>> chunk = ArgumentCaptor.forClass(List.class);
+        verify(support, times(1)).startFramesAndProcsBatch(chunk.capture());
+        assertEquals("the first chunk, whole, before the lock went", 502, chunk.getValue().size());
+        assertTrue("the memory went with the lock", map(s, "reservations").isEmpty());
+    }
+
+    @Test
+    public void onShutdownLeavesThePlannersMemoryToTheTickThread() throws Exception {
+        Maestro s = schedulerWithLeaderConn(null);
+        map(s, "reservations").put("mine", null);
+        s.onShutdown();
+        assertEquals("the shutdown thread never touches the tick's maps", 1,
+                map(s, "reservations").size());
+    }
+
+    @Test
+    public void onShutdownWaitsForTheTickInFlight() throws Exception {
+        Maestro s = schedulerWithLeaderConn(null);
+        Field f = Maestro.class.getDeclaredField("tickInFlight");
+        f.setAccessible(true);
+        AtomicBoolean inFlight = (AtomicBoolean) f.get(s);
+        inFlight.set(true);
+        Thread tick = new Thread(() -> {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            inFlight.set(false);
+        });
+        long t0 = System.currentTimeMillis();
+        tick.start();
+        s.onShutdown();
+        assertFalse("shutdown returned only after the tick ended", inFlight.get());
+        assertTrue("shutdown waited for the tick to end", System.currentTimeMillis() - t0 >= 250);
+        tick.join();
+    }
+
+    @Test
+    public void aTickThatRacesTheShutdownTakesNoLeadership() throws Exception {
+        // The shutdown thread released the lock; the tick in flight must not
+        // take it back on a fresh connection and commit into the JVM going down.
+        Connection fresh = mock(Connection.class);
+        when(fresh.isValid(anyInt())).thenReturn(true);
+        when(fresh.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        Maestro s = schedulerWithLeaderConn(null);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        s.onShutdown();
+        assertFalse("no leadership while shutting down", s.ensureLeadership());
+        set(s, "leaderConn", fresh);
+        assertTrue(s.commitInChunks(Arrays.asList(bookingOn("a"))).isEmpty());
+        verify(support, never()).startFramesAndProcsBatch(any());
+    }
+
+    @Test
+    public void anUnknownLaunchOutcomeWhoseResolutionFailsKeepsTheBooking() {
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
+                .runFrame(any(), any());
+        doThrow(new RuntimeException("rqd unreachable")).when(support)
+                .resolveUnknownLaunchOutcome(any(), any());
+        s.launchOne(fb);
+        verify(support, never()).unbookProc(any());
+        verify(support, never()).clearFrame(any());
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
+    }
+
+    @Test
+    public void aLaunchThatWaitedTooLongIsRolledBackUnsent() {
+        // Past half the orphan age the maintenance pass may have released the
+        // proc and the frame may run elsewhere: never sent, never killed.
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        when(support.clearFrame(fb.frame)).thenReturn(true);
+        fb.committedMs = System.currentTimeMillis() - Maestro.LAUNCH_MAX_AGE_MS - 1000;
+        s.launchOne(fb);
+        verify(support, never()).runFrame(any(), any());
+        verify(support).unbookProc(fb.proc);
+        verify(support).clearFrame(fb.frame);
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
+        assertTrue("the bound stays inside the orphan age",
+                Maestro.LAUNCH_MAX_AGE_MS < ProcDao.ORPHAN_AGE_SECONDS * 1000L);
+    }
+
+    @Test
+    public void aRollbackWhoseClearMissedNeverKills() {
+        // The clear matched no row: the frame moved on to another run, and a
+        // kill addressed by host and frame would hit that run.
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        doThrow(new DispatcherException("refused")).when(support).runFrame(any(), any());
+        when(support.clearFrame(fb.frame)).thenReturn(false);
+        s.launchOne(fb);
+        verify(support).unbookProc(fb.proc);
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
+    }
+
+    @Test
+    public void aCutOnAHostBoundaryDoesNotExtend() {
+        List<FrameBooking> planned = new ArrayList<>();
+        for (int i = 0; i < Maestro.COMMIT_CHUNK_FRAMES; i++)
+            planned.add(bookingOn("a"));
+        planned.add(bookingOn("b"));
+        assertEquals(Maestro.COMMIT_CHUNK_FRAMES, Maestro.chunkEnd(planned, 0));
+        List<FrameBooking> one = new ArrayList<>();
+        for (int i = 0; i < 1200; i++)
+            one.add(bookingOn("a"));
+        assertEquals("one host is one chunk however large", 1200, Maestro.chunkEnd(one, 0));
+    }
+
+    @Test
+    public void aLayerThatBookedItsWholeBacklogEntersWithNothing() {
+        Maestro.LayerCandidate c = candidate("a", 100, 10);
+        Map<String, Integer> plannedByLayer = new HashMap<>();
+        plannedByLayer.put("a", 10);
+        Maestro.takeTickWideRemainder(Arrays.asList(c), plannedByLayer, new HashSet<>());
+        assertEquals(0, c.waitingFrameCount);
+    }
+
+    private static QueuedFrameCompletion completionOn(String hostId, String layerId) {
+        VirtualProc p = new VirtualProc();
+        p.hostId = hostId;
+        p.layerId = layerId;
+        p.coresReserved = 100;
+        DispatchFrame f = new DispatchFrame();
+        f.show = "show";
+        return new QueuedFrameCompletion(FrameCompleteReport.getDefaultInstance(), p,
+                new DispatchJob(), new LayerDetail(), new FrameDetail(), f, FrameState.SUCCEEDED,
+                0);
+    }
+
+    /** A Maestro whose drain wins every stop and hands the post-ops to a mocked handler. */
+    private static Maestro drainingScheduler(Connection conn) throws Exception {
+        Maestro s = schedulerWithLeaderConn(conn);
+        DispatchSupport support = mock(DispatchSupport.class);
+        when(support.stopFramesBatch(any())).thenAnswer(i -> {
+            boolean[] won = new boolean[((List<?>) i.getArgument(0)).size()];
+            java.util.Arrays.fill(won, true);
+            return won;
+        });
+        s.setDispatchSupport(support);
+        s.setFrameCompleteHandler(mock(FrameCompleteHandler.class));
+        set(s, "localityWindowFrames", 64);
+        return s;
+    }
+
+    @Test
+    public void aStandbyDrainStampsNoWarmth() throws Exception {
+        MaestroCompletionQueue.drain();
+        Maestro s = drainingScheduler(null);
+        MaestroCompletionQueue.offer(completionOn("h", "l"));
+        s.drainResolvedCompletions();
+        assertTrue("a standby has no odometer to stamp against",
+                map(s, "warmthByHostLayer").isEmpty());
+    }
+
+    @Test
+    public void theLeadersDrainStampsWarmth() throws Exception {
+        MaestroCompletionQueue.drain();
+        Maestro s = drainingScheduler(mock(Connection.class));
+        MaestroCompletionQueue.offer(completionOn("h", "l"));
+        s.drainResolvedCompletions();
+        assertTrue(map(s, "warmthByHostLayer").containsKey("h|l"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aDeletedLayerCostsOnlyItsOwnSlice() throws Exception {
+        // Two layers vanish mid-tick on the host: the third still plans, and
+        // the two failures are counted once for the tick, not warned per layer.
+        Maestro s = new Maestro();
+        set(s, "env", new MockEnvironment());
+        ExecutorService pool = Executors.newFixedThreadPool(1);
+        set(s, "readPool", pool);
+        try {
+            HostManager hosts = mock(HostManager.class);
+            when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
+            JobManager jobs = mock(JobManager.class);
+            LayerInterface good = mock(LayerInterface.class);
+            when(jobs.getLayer("gone")).thenThrow(new RuntimeException("no such layer"));
+            when(jobs.getLayer("gone2")).thenThrow(new RuntimeException("no such layer"));
+            when(jobs.getLayer("good")).thenReturn(good);
+            Dispatcher dispatcher = mock(Dispatcher.class);
+            when(dispatcher.planHost(any(), eq(good), anyInt(), anyLong(), anyInt(), anyInt()))
+                    .thenReturn(Arrays.asList(bookingOn("host1")));
+            s.setHostManager(hosts);
+            s.setJobManager(jobs);
+            s.setDispatcher(dispatcher);
+            ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
+                    new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
+            List<FrameBooking> planned = s.planBookings();
+            assertEquals("the host's other layer stands", 1, planned.size());
+            Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
+            f.setAccessible(true);
+            assertEquals("both failures counted for the tick's one report", 2, f.getInt(s));
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

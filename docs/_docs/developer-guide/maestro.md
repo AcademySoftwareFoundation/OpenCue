@@ -71,9 +71,15 @@ procs first). That pipeline:
       (`readLayerCandidatesForGroup`, `SELECT_CANDIDATES_FOR_GROUP`) for the
       dispatchable layers that match the group, ranked by a **priority-weighted
       lottery** (§3.5), not a strict priority sort.
-   2. **Dispatch** (`dispatchGroupWithScoring`): for each candidate in that
-      lottery order, score every fitting host, pick the lowest score, record the
-      placement, and decrement the in-memory snapshot. A candidate that stays
+   2. **Dispatch** (`dispatchGroupWithScoring`): placement slots by lottery.
+      Every slot goes to a candidate drawn with probability proportional to its
+      job priority among the candidates that can still place (`drawSlot`); the
+      winner scores every fitting host, takes the lowest score, records the
+      placement and decrements the in-memory snapshot (`placeOnce`). Slots
+      repeat until no candidate can place, so a lone layer takes every fitting
+      host in one tick and contending layers share the tick in proportion to
+      their weight. A layer planned in an earlier group enters with only its
+      remaining frames (`takeTickWideRemainder`). A candidate that stays
       blocked long enough and is wide enough records a reservation *request*.
 4. **Grant reservations**: after all groups, order the requests by a
    priority-weighted lottery and reconcile each grantee's reservation count
@@ -473,8 +479,12 @@ cannot cover one frame; nothing is wrong). `no fit` = idle cores exist but none
 fits (slivers too small for a wide frame, or memory / gpu short): the shape
 mismatch worth investigating. `limit` = a job, show or folder cap. `no license` = an enforced
 limit's budget (frame tokens or machine seats) is exhausted. `held` = every fitting host is
-reserved for a wide job. `no host` = the layer's tags name no host at all (a
-stale machine list, §3.10). The buckets reuse the why-not precedence
+reserved for a wide job. `share` = every fitting host already holds the layer's
+per-host share (the soft cap, `maestro.layer_host_max_frac`) while other work
+waits, or was planned for
+the layer this tick and takes its next slice next tick. `no host` = the
+layer's tags name no host at all (a stale machine list, §3.10). The buckets
+reuse the why-not precedence
 (`waitlistReason`), cost no extra query, and are published as the gauge
 `cue_maestro_waiting_frames{reason}`. The "What's holding frames" Grafana
 panel shows each BLOCKED bucket as a share of the weighed waitlist: all zero
@@ -717,8 +727,8 @@ already takes most of the load off it.
 | `maestro.layer_host_max_frac` | `0.25` | SOFT per-host layer cap: one layer may hold at most this fraction of a host's cores (as frames, floor 8), so a flood spills across hosts instead of blanketing one. The cap yields when it is the only blocker: a fitting idle host that only the cap refuses is given to the layer (rss-proven layers only), so a lone farm-sized layer fills the farm instead of stranding it. On a busy farm no such host exists and the cap holds. 0 disables. |
 | `maestro.mem_per_core` | `0` | Memory-per-core ratio (KB) for rss-driven layer sizing (§3.9). 0 (the default) derives it from each group's own hosts; set e.g. 4194304 to pin 4G/core studio-wide. |
 | `maestro.plan_zero_warn_ticks` | `40` | Consecutive ticks a layer may plan but commit zero frames before a WARN names it (a commit-time gate Maestro does not model is rejecting it). |
-| `dispatcher.job_frame_dispatch_max` | `8` | Max frames of one job booked onto a host per tick. |
-| `dispatcher.host_frame_dispatch_max` | `12` | Max frames booked onto a host per tick. |
+| `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings; a Maestro slice is sized by the planner and delivered whole. |
+| `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. A Maestro slice delivers the size the planner accounted (up to `frame_query_max`), not this cap. |
 
 The reservation **width gate** (`RESERVATION_MIN_HOST_FRACTION`, 0.5 of the
 largest host in a group) is deliberately a fixed constant, not a property:
@@ -732,6 +742,20 @@ clearing a show's `b_scheduler_managed` flag hands it straight back to the
 legacy dispatcher.
 
 ---
+
+### 6.1 Several cuebots in managed mode
+
+Run every cuebot in the same mode during a migration. The report of a
+managed show's frame lands on whichever cuebot its host reports to. A cuebot
+in mode `no` files it on the legacy path, including the legacy layer raise on
+an OOM, so the show sees two memory policies at once. Two ledgers are exact
+only when one cuebot files every managed report: the per-show cores and
+running frames gauges (this leader's bookings minus the drains it saw), and
+the per-frame OOM bump, which lives in the cuebot that handled the OOM and is
+read by the leader's plan. With several managed-mode cuebots the gauges drift
+above the truth until a show drains to zero, and a bump recorded on a standby
+is not applied. Both need a shared home (a read the tick already makes for
+the affinity map, and a frame column); they are tracked for the next series.
 
 ## 7. Failure modes
 
@@ -748,11 +772,35 @@ legacy dispatcher.
 - **Failed chunk**: the chunk rolls back alone and is logged. Its frames stay
   WAITING for the next tick, the chunks before it keep their procs and
   launches, and the chunks after it still commit. The tick goes on.
+- **Failed launch**: a launch whose RPC failed without proof that the frame
+  never started is resolved before anything is released (`launchOne`): the
+  frame may be running on the host, so two not-running polls are required,
+  and the booking is kept otherwise (with `dispatcher.launch_confirm_budget_ms`
+  at zero the legacy release-first rollback applies instead). A definite
+  failure unbooks the proc, clears the frame on the version the batch start
+  kept in step, and kills on the host only when the clear matched: a clear
+  that matched no row means the frame moved on, and a kill addressed by host
+  and frame would hit the new run. A launch that waited more than half the
+  orphan age in the pool's queue (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so
+  150 s) is rolled back unsent and without a kill: at the orphan age the
+  maintenance pass releases the proc and the next tick rebooks the frame.
+- **Leader loss mid-commit**: the chunk loop checks the lock connection before
+  each chunk and demotes when it is gone; the frames left stay WAITING for the
+  next leader, which plans from the database. The lost leader's reservations,
+  blocked debt, warmth and odometers go with the lock, on the tick thread.
+  The probe is one `isValid(1)` per chunk; a probe that times out on a loaded
+  server demotes a leader that still held the lock. That is the chosen side:
+  one takeover and a rebuilt planner memory cost less than a chunk committed
+  without the lock.
+- **Failed chunk, second order**: a flush that fails leaves nothing for the
+  next chunk; the deltas of a rolled-back chunk are discarded with it.
 - **Slow RQD launch**: absorbed by the launch pool. Its queue is unbounded, so
   a committed booking is always launched and a slow RQD shows as launch
   latency, never as lost work. A launch is refused only while the pool shuts
-  down; a planned shutdown (`onShutdown`) releases the leader lock, so a
-  standby takes over at once, then drains the pool for up to thirty seconds.
+  down; a planned shutdown (`onShutdown`) marks itself, releases the leader
+  lock, so a standby takes over at once, waits for a tick in flight, then
+  drains the pool for up to thirty seconds. A tick that raced the shutdown
+  takes no leadership and commits no further chunk.
 - **Empty snapshot** (no UP/OPEN hosts): tick is a no-op; reservations are
   left intact.
 - **Spec-group explosion**: if the host-spec group count approaches the host
@@ -773,7 +821,7 @@ legacy dispatcher.
 ```
 Maestro stat: win=300s ticks=920 skipped=0 lockLost=12 avgTick=556ms maxTick=1840ms
   | farm hosts=1553 idleHosts=9 cores=57088 idleCores=74 util=99.9% groups=5
-  | flow committed=98210 planned=104900 raceLost=6690 launchDropped=0 drained=98180
+  | flow committed=98210 planned=104900 raceLost=6690 drained=98180 postQ=0
   | resv held=52 reservedCores=418 granted=31 reqs=11 backfilled=88 backfilledCores=176
 ```
 
@@ -782,7 +830,8 @@ the previous tick still ran, `lockLost` = another Cuebot held the lock, avg/max
 tick), farm fill (hosts, idle hosts, cores, idle cores, utilization, host-spec
 group count), throughput and loss (committed procs, frames planned, `raceLost` =
 frames lost to the version race, RQD launches dropped, frame-completions
-`drained`), and reservation/backfill activity (reservations held and the cores
+`drained`, the post-complete queue's depth at the stat), and
+reservation/backfill activity (reservations held and the cores
 they hold, newly granted, requested, frames backfilled and the cores they
 reclaimed). When any license pool is active a fifth `lic` segment follows (seats
 booked, held, trimmed). Every Cuebot emits it,

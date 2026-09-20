@@ -40,10 +40,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -58,17 +59,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.postgres.DispatchQuery;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.service.JobManager;
 
 /**
  * Single-threaded Maestro: one Cuebot holds a Postgres advisory lock and plans each tick while the
  * rest idle as warm standbys. Placement is serial so decisions never race; only the per-host plan
- * reads fan out on a pool, and every booking for a tick commits in one batched transaction.
- * Persistent reservations hold hosts for blocked wide layers until enough cores free up.
+ * reads fan out on a pool, and a tick's bookings commit in host-aligned chunks, each its own
+ * transaction, launched as they land. Persistent reservations hold hosts for blocked wide layers
+ * until enough cores free up.
  *
  * Gated by maestro.enabled (default false). See docs/_docs/developer-guide/maestro.md for the full
  * model.
@@ -124,6 +128,9 @@ public class Maestro extends JdbcDaoSupport {
     static final int PROBE_FRAMES = 8;
     static final int COMMIT_CHUNK_FRAMES = 500; // consumed by commitInChunks()
     static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
+    static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
+    // consumed by launchOne()
+    static final long LAUNCH_MAX_AGE_MS = ProcDao.ORPHAN_AGE_SECONDS * 1000L / 2;
     private volatile long memPerCoreKb = 0;
 
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
@@ -193,6 +200,8 @@ public class Maestro extends JdbcDaoSupport {
     // This Cuebot's planning-leadership lock connection, or null when standby. Sticky and raw (not
     // pooled, so Hikari cannot reap it and drop the lock). See maestro.md for the failover model.
     private volatile Connection leaderConn = null;
+    // consumed by ensureLeadership() and leaderAlive()
+    private volatile boolean shuttingDown = false;
 
     // Live host reservations, persistent across ticks: host id -> claiming (layer, priority).
     // Maestro-thread only (single-writer); empty after failover. See maestro.md for the model.
@@ -262,14 +271,9 @@ public class Maestro extends JdbcDaoSupport {
     // signature of a Maestro-vs-dispatch eligibility mismatch. Warns at plan_zero_warn_ticks.
     private final Map<String, Integer> planZeroStreak = new ConcurrentHashMap<>();
 
-    // Small bounded pool for post-commit RQD launches (one gRPC per frame); a full queue drops
-    // the launch (launchDropped) rather than blocking Maestro.
-    private volatile ExecutorService launchPool;
-
-    // Launches dropped because the launch queue was full; the frame is RUNNING in the DB, reconcile
-    // recovers it.
-    private final java.util.concurrent.atomic.AtomicLong launchDropped =
-            new java.util.concurrent.atomic.AtomicLong(0);
+    // Fixed pool over an unbounded queue for the post-commit RQD launches (one gRPC per frame);
+    // see startSchedulerPoolsIfNeeded and launchOne.
+    private volatile ThreadPoolExecutor launchPool;
 
     // Pool for the plan phase: per-host plan reads (planHost) run in parallel, one task per host
     // (serial within a host so the capacity decrement is correct). Commit is still single/batched.
@@ -325,6 +329,7 @@ public class Maestro extends JdbcDaoSupport {
     private long summaryMaxTickMs = 0; // slowest single tick in the window
     private int summaryLockLost = 0; // attempts another Cuebot held the lock
     private long summaryPlanned = 0; // frames the plan phase produced
+    private int summaryPlanFailures = 0; // consumed by maybeLogStat()
     private int summaryGranted = 0; // new reservations granted
     private int summaryBackfilled = 0; // frames placed onto a reserved host
     private long summaryBackfilledCores = 0; // core-points placed via EASY backfill
@@ -332,7 +337,6 @@ public class Maestro extends JdbcDaoSupport {
     private long summaryLicenseBooked = 0; // frames booked against a license pool
     private long summaryLicenseHeld = 0; // candidates held back by a license pool
     private long summaryLicenseTrimmed = 0; // planned frames a pool could not cover
-    private long summaryLaunchDroppedAt = 0; // launchDropped count at window start
     private final java.util.concurrent.atomic.AtomicInteger summarySkipped =
             new java.util.concurrent.atomic.AtomicInteger(0);
     // Farm fill for the stat line, captured in snapshotFarmFill (stage 1) before placement
@@ -426,11 +430,8 @@ public class Maestro extends JdbcDaoSupport {
                     t.setDaemon(true);
                     return t;
                 }, (r, ex) -> {
-                    long n = launchDropped.incrementAndGet();
-                    if (n % 1000 == 1) {
-                        logger.warn("Maestro: launch rejected, pool shutting down"
-                                + " (total dropped=" + n + "); RQD reconciliation will recover");
-                    }
+                    logger.warn("Maestro: launch rejected, pool shutting down;"
+                            + " RQD reconciliation will recover");
                 });
         launchPool = pool;
         // Read pool for the parallel plan phase. Reads are DB-bound (they block
@@ -815,7 +816,7 @@ public class Maestro extends JdbcDaoSupport {
      * the host/layer cache-warmth entry (this host just ran this layer, so its caches are hot) with
      * the host's booking odometer; a lost one is handled as stale. Returns the number drained.
      */
-    private int drainResolvedCompletions() {
+    int drainResolvedCompletions() {
         if (frameCompleteHandler == null)
             return 0;
         List<QueuedFrameCompletion> resolved = MaestroCompletionQueue.drain();
@@ -841,7 +842,10 @@ public class Maestro extends JdbcDaoSupport {
                     if (runningFramesLive > 0)
                         runningFramesLive--;
                     if (won[i]) {
-                        if (localityEnabled && localityWindowFrames > 0
+                        // Warmth is the leader's ledger: a standby never advances
+                        // the odometers, so its stamps would neither expire nor mean
+                        // anything.
+                        if (leaderConn != null && localityEnabled && localityWindowFrames > 0
                                 && c.proc.getLayerId() != null) {
                             warmthByHostLayer.put(c.proc.getHostId() + "|" + c.proc.getLayerId(),
                                     bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
@@ -904,7 +908,6 @@ public class Maestro extends JdbcDaoSupport {
         long nowMs = System.currentTimeMillis();
         if (lastSummaryMs == 0) { // first call: start the window, do not emit
             lastSummaryMs = nowMs;
-            summaryLaunchDroppedAt = launchDropped.get();
             return;
         }
         if (nowMs - lastSummaryMs < statIntervalMs)
@@ -918,8 +921,6 @@ public class Maestro extends JdbcDaoSupport {
                 : 0.0;
         long avgTick = summaryTicks > 0 ? summaryTickMs / summaryTicks : 0;
         long raceLost = Math.max(0, summaryPlanned - summaryDispatched);
-        long dropNow = launchDropped.get();
-        long droppedInWindow = dropNow - summaryLaunchDroppedAt;
         int skipped = summarySkipped.getAndSet(0);
 
         // Cores currently held by the wide-job reservation feature: the sum of the
@@ -953,14 +954,15 @@ public class Maestro extends JdbcDaoSupport {
         logger.info(String.format(
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
-                        + " | flow committed=%d planned=%d raceLost=%d launchDropped=%d drained=%d postQ=%d"
+                        + " | flow committed=%d planned=%d raceLost=%d drained=%d"
+                        + " postQ=%d planFail=%d"
                         + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
-                summaryPlanned, raceLost, droppedInWindow, summaryDrained,
+                summaryPlanned, raceLost, summaryDrained,
                 frameCompleteHandler == null ? 0 : frameCompleteHandler.getPostCompleteQueueDepth(),
-                reservations.size(), reservedCp / CORE_POINTS_PER_CORE, summaryGranted,
-                lastReservationReqs, summaryBackfilled,
+                summaryPlanFailures, reservations.size(), reservedCp / CORE_POINTS_PER_CORE,
+                summaryGranted, lastReservationReqs, summaryBackfilled,
                 summaryBackfilledCores / CORE_POINTS_PER_CORE, lic, waitlist));
 
         lastSummaryMs = nowMs;
@@ -970,6 +972,7 @@ public class Maestro extends JdbcDaoSupport {
         summaryMaxTickMs = 0;
         summaryLockLost = 0;
         summaryPlanned = 0;
+        summaryPlanFailures = 0;
         summaryGranted = 0;
         summaryBackfilled = 0;
         summaryBackfilledCores = 0;
@@ -977,7 +980,6 @@ public class Maestro extends JdbcDaoSupport {
         summaryLicenseBooked = 0;
         summaryLicenseHeld = 0;
         summaryLicenseTrimmed = 0;
-        summaryLaunchDroppedAt = dropNow;
         winWaitMax.clear();
         winWaitTotalMax = 0;
     }
@@ -1412,12 +1414,13 @@ public class Maestro extends JdbcDaoSupport {
         long tRead = System.currentTimeMillis();
         tickPlanned = planned.size();
 
-        // 4b. COMMIT the survivors and their resource accounting in ONE transaction, then
-        // launch them. DispatchSupportService is REQUIRED, so the batch joins this
-        // transaction rather than opening its own: procs and the counters that mirror them
-        // commit together or not at all. Splitting them let a crash in between leave procs
-        // whose cores were never added, while the release path subtracts them regardless,
-        // and four of the five mirrors have no repair job to undo that.
+        // 4b. COMMIT the survivors and their resource accounting in host-aligned chunks, each
+        // chunk one transaction, launched as it lands (commitInChunks). DispatchSupportService
+        // is REQUIRED, so the batch joins the chunk's transaction rather than opening its own:
+        // procs and the counters that mirror them commit together or not at all. Splitting them
+        // let a crash in between leave procs whose cores were never added, while the release
+        // path subtracts them regardless, and four of the five mirrors have no repair job to
+        // undo that.
         List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
         recordCommitted(committed, stats);
@@ -1454,20 +1457,38 @@ public class Maestro extends JdbcDaoSupport {
      * as it goes, and launches them as it goes. Each chunk commits with its own resource deltas, so
      * procs and their mirrors still land together or not at all. A chunk is one unit of failure:
      * one that fails rolls back alone (commitChunk) and the loop goes on, so one failed chunk never
-     * aborts the tick.
+     * aborts the tick. A leader that lost the planning lock stops before its next chunk: the frames
+     * left stay WAITING for the next leader, which plans from the database, so two Maestros never
+     * commit the same plan.
      */
-    private List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
+    List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
         List<FrameBooking> committed = new ArrayList<>();
         int start = 0;
         while (start < planned.size()) {
-            int end = Math.min(start + COMMIT_CHUNK_FRAMES, planned.size());
-            while (end < planned.size() && planned.get(end).proc.getHostId()
-                    .equals(planned.get(end - 1).proc.getHostId()))
-                end++;
+            if (!leaderAlive()) {
+                logger.warn("Maestro: leadership lost mid-commit, " + (planned.size() - start)
+                        + " planned frames left for the next leader");
+                demote();
+                break;
+            }
+            int end = chunkEnd(planned, start);
             committed.addAll(commitChunk(new ArrayList<>(planned.subList(start, end))));
             start = end;
         }
         return committed;
+    }
+
+    /**
+     * The end of the chunk that starts at start: COMMIT_CHUNK_FRAMES bookings, extended past the
+     * cut to the last booking of the host that straddles it, so a host's bookings never split
+     * across two transactions.
+     */
+    static int chunkEnd(List<FrameBooking> planned, int start) {
+        int end = Math.min(start + COMMIT_CHUNK_FRAMES, planned.size());
+        while (end < planned.size()
+                && planned.get(end).proc.getHostId().equals(planned.get(end - 1).proc.getHostId()))
+            end++;
+        return end;
     }
 
     /**
@@ -1477,8 +1498,9 @@ public class Maestro extends JdbcDaoSupport {
      * its frames stay WAITING for the next tick, the chunks committed before it keep their procs,
      * deltas and launches, and the chunks after it still commit. The in-memory snapshot stays
      * decremented for the rest of the tick, the same under-booking a lost version race leaves, and
-     * the next snapshot corrects it. A failed event publish is logged and never keeps a committed
-     * chunk from its launch.
+     * the next snapshot corrects it. The resource deltas a failed flush left in the buffers are
+     * discarded with the chunk, so the next chunk credits only its own procs. A failed event
+     * publish is logged and never keeps a committed chunk from its launch.
      */
     private List<FrameBooking> commitChunk(final List<FrameBooking> chunk) {
         List<FrameBooking> won;
@@ -1491,6 +1513,7 @@ public class Maestro extends JdbcDaoSupport {
         } catch (RuntimeException e) {
             logger.warn("Maestro: commit of a chunk of " + chunk.size() + " bookings failed and"
                     + " rolled back; its frames wait for the next tick: " + e.getMessage());
+            discardResourceDeltas();
             return Collections.emptyList();
         }
         try {
@@ -1504,6 +1527,50 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
+     * The plan read of one (host, layer) slice: the frames planHost books for the layer on the host
+     * at the rss resize Maestro scored with ({cores, memKb}; absent = the layer's own ask), from
+     * the slice's offset and for its size. A layer that plans but yields zero bookable frames for
+     * plan_zero_warn_ticks ticks in a row is warned.
+     */
+    private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId, String layerId,
+            int planZeroWarnTicks) {
+        LayerInterface layer = jobManager.getLayer(layerId);
+        long[] rz = layerResize.get(layerId);
+        int[] slice = planSliceByHostLayer.get(hostId + "|" + layerId);
+        List<FrameBooking> got = dispatcher.planHost(host, layer, rz != null ? (int) rz[0] : 0,
+                rz != null ? rz[1] : 0, slice != null ? slice[0] : 0, slice != null ? slice[1] : 0);
+        if (got.isEmpty()) {
+            int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
+            if (streak % planZeroWarnTicks == 0) {
+                logger.warn("Maestro: layer " + layerId + " planned " + streak
+                        + " consecutive ticks (last host " + host.getName()
+                        + ") but planHost found 0 bookable frames each time."
+                        + " A dispatch-query gate Maestro does not model is"
+                        + " rejecting it (thread mode, limit, local booking, ...):"
+                        + " enable DEBUG on this class and read the 'Maestro"
+                        + " unplaced'/'explain' lines for the candidate-side view.");
+            }
+        } else {
+            planZeroStreak.remove(layerId);
+        }
+        return got;
+    }
+
+    /**
+     * One line per tick for the plan reads that threw, host tasks and layer slices together, with
+     * the first cause: a database that fails under every host would otherwise write one warning per
+     * host and layer every tick. The window count goes on the stat line (planFail).
+     */
+    private void reportPlanFailures(int failedTasks, int tasks, int failedLayers, String cause) {
+        int failed = failedTasks + failedLayers;
+        if (failed == 0)
+            return;
+        summaryPlanFailures += failed;
+        logger.warn("Maestro: " + failedTasks + " of " + tasks + " host plans and " + failedLayers
+                + " layer plans failed this tick, the rest stand; first cause: " + cause);
+    }
+
+    /**
      * Read each planned placement's next frames and build procs in memory (no DB writes),
      * parallelized across hosts on the bounded read pool, the dominant tick cost as the farm fills.
      * One task per host (not one thread), run at maestro.read_pool_size concurrency: a host is
@@ -1513,9 +1580,10 @@ public class Maestro extends JdbcDaoSupport {
      * frames for plan_zero_warn_ticks ticks in a row is warned (a commit-time gate Maestro does not
      * model is silently rejecting it, which would otherwise starve in silence). Returns the planned
      * bookings, or null if the wait was interrupted (the caller then aborts the tick before
-     * committing).
+     * committing). A host task or a layer slice that throws costs its own bookings only; the
+     * failures are counted and reported once per tick (reportPlanFailures).
      */
-    private List<FrameBooking> planBookings() {
+    List<FrameBooking> planBookings() {
         int planZeroWarnTicks = env.getProperty("maestro.plan_zero_warn_ticks", Integer.class, 40);
         lastPlacements = 0;
         Set<String> plannedLayerIds = new HashSet<>();
@@ -1524,6 +1592,8 @@ public class Maestro extends JdbcDaoSupport {
             plannedLayerIds.addAll(ls);
         }
         List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
+        AtomicInteger failedLayers = new AtomicInteger();
+        AtomicReference<String> firstCause = new AtomicReference<>();
         for (Map.Entry<String, List<String>> e : plannedByHost.entrySet()) {
             final String hostId = e.getKey();
             final List<String> layerIds = e.getValue();
@@ -1531,29 +1601,16 @@ public class Maestro extends JdbcDaoSupport {
                 List<FrameBooking> out = new ArrayList<>();
                 DispatchHost host = hostManager.getDispatchHost(hostId);
                 for (String layerId : layerIds) {
-                    LayerInterface layer = jobManager.getLayer(layerId);
-                    // The rss resize Maestro scored with, so the commit books the
-                    // same shape. {cores, memKb}; absent = book the layer's own ask.
-                    long[] rz = layerResize.get(layerId);
-                    int[] slice = planSliceByHostLayer.get(hostId + "|" + layerId);
-                    List<FrameBooking> got = dispatcher.planHost(host, layer,
-                            rz != null ? (int) rz[0] : 0, rz != null ? rz[1] : 0,
-                            slice != null ? slice[0] : 0, slice != null ? slice[1] : 0);
-                    if (got.isEmpty()) {
-                        int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
-                        if (streak % planZeroWarnTicks == 0) {
-                            logger.warn("Maestro: layer " + layerId + " planned " + streak
-                                    + " consecutive ticks (last host " + host.getName()
-                                    + ") but planHost found 0 bookable frames each time."
-                                    + " A dispatch-query gate Maestro does not model is"
-                                    + " rejecting it (thread mode, limit, local booking, ...):"
-                                    + " enable DEBUG on this class and read the 'Maestro"
-                                    + " unplaced'/'explain' lines for the candidate-side view.");
-                        }
-                    } else {
-                        planZeroStreak.remove(layerId);
+                    // One layer is one unit: a layer deleted mid-tick costs its
+                    // own slice, never the host's other layers; the failure is
+                    // counted and reported once per tick, below.
+                    try {
+                        out.addAll(planLayerOnHost(host, hostId, layerId, planZeroWarnTicks));
+                    } catch (RuntimeException ex) {
+                        failedLayers.incrementAndGet();
+                        firstCause.compareAndSet(null, "layer " + layerId + " on host "
+                                + host.getName() + ": " + ex.getMessage());
                     }
-                    out.addAll(got);
                 }
                 return out;
             });
@@ -1561,16 +1618,18 @@ public class Maestro extends JdbcDaoSupport {
         plannedByHost.clear();
 
         List<FrameBooking> planned = new ArrayList<>();
+        int failedTasks = 0;
         try {
             for (Future<List<FrameBooking>> f : readPool.invokeAll(tasks)) {
                 try {
                     planned.addAll(f.get());
                 } catch (ExecutionException ee) {
-                    logger.debug("Maestro: plan task failed: "
-                            + (ee.getCause() != null ? ee.getCause().getMessage()
-                                    : ee.getMessage()));
+                    failedTasks++;
+                    firstCause.compareAndSet(null, "host task: "
+                            + (ee.getCause() != null ? ee.getCause().toString() : ee.toString()));
                 }
             }
+            reportPlanFailures(failedTasks, tasks.size(), failedLayers.get(), firstCause.get());
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             return null;
@@ -1675,9 +1734,10 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Launch the committed bookings: fire each one's RQD launch on the launch pool. A launch that
-     * fails post-commit unbooks the proc, returns the frame to WAITING, and kills it on RQD, all on
-     * the launch thread so the tick is never blocked.
+     * Launch the committed bookings: fire each one's RQD launch on the launch pool, stamped with
+     * the commit time. Each launch is its own unit (launchOne): an unknown outcome is resolved
+     * before any release and a definite failure rolls its booking back, all on the launch thread so
+     * the tick is never blocked.
      *
      * This is also where locality cache-warmth is stamped, since the committed set is in hand:
      * every commit advances its host's odometer (displacing older cache), and a layer returning to
@@ -1695,25 +1755,71 @@ public class Maestro extends JdbcDaoSupport {
                 }
             }
         }
+        long now = System.currentTimeMillis();
         for (FrameBooking b : committed) {
             final FrameBooking fb = b;
-            launchPool.execute(() -> {
-                try {
-                    dispatchSupport.runFrame(fb.proc, fb.frame);
-                } catch (RuntimeException e) {
-                    logger.warn("Maestro: RQD launch failed for " + fb.proc.getName() + " on frame "
-                            + fb.frame.getFrameId() + ": " + e.getMessage()
-                            + ", unbooking and clearing frame");
-                    try {
-                        dispatchSupport.unbookProc(fb.proc);
-                        dispatchSupport.clearFrame(fb.frame);
-                        rqdClient.killFrame(fb.proc, "launch failed during scheduler dispatch");
-                    } catch (RuntimeException ce) {
-                        logger.debug("Maestro: launch-failure cleanup partial for "
-                                + fb.frame.getFrameId() + ": " + ce.getMessage());
-                    }
-                }
-            });
+            fb.committedMs = now;
+            launchPool.execute(() -> launchOne(fb));
+        }
+    }
+
+    /**
+     * Launch one committed booking on its host. A launch whose RPC failed without proof that the
+     * frame never started (RqdLaunchUnknownOutcomeException) is resolved before anything is
+     * released: the frame may be running on the host, so DispatchSupport confirms twice that it is
+     * not and keeps the booking otherwise, the double-run guard the legacy dispatcher uses. A
+     * definite failure, one the request never left with, rolls the booking back (rollbackLaunch). A
+     * launch that waited in the queue longer than LAUNCH_MAX_AGE_MS, half the orphan age
+     * (ProcDao.ORPHAN_AGE_SECONDS), is rolled back unsent and without a kill: at the orphan age the
+     * maintenance pass releases the proc, which never pinged, and the next tick rebooks the frame,
+     * so a later launch would start it a second time. Half leaves the pass cadence, the RPC and the
+     * first host report their time whatever the interval is set to. Either way the failure is this
+     * launch's alone; the pool goes on with the next.
+     */
+    void launchOne(FrameBooking fb) {
+        long waitedMs = fb.committedMs > 0 ? System.currentTimeMillis() - fb.committedMs : 0;
+        if (waitedMs > LAUNCH_MAX_AGE_MS) {
+            logger.warn("Maestro: launch of " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + " waited " + waitedMs / 1000
+                    + "s in the queue; rolling the booking back unsent");
+            rollbackLaunch(fb, false);
+            return;
+        }
+        try {
+            dispatchSupport.runFrame(fb.proc, fb.frame);
+        } catch (RqdLaunchUnknownOutcomeException e) {
+            logger.warn("Maestro: launch outcome unknown for " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + ", resolving before any release: " + e.getMessage());
+            try {
+                dispatchSupport.resolveUnknownLaunchOutcome(fb.proc, fb.frame);
+            } catch (RuntimeException re) {
+                logger.warn("Maestro: launch outcome resolution failed for " + fb.frame.getFrameId()
+                        + ", booking kept: " + re.getMessage());
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: RQD launch failed for " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + ": " + e.getMessage()
+                    + ", unbooking and clearing frame");
+            rollbackLaunch(fb, true);
+        }
+    }
+
+    /**
+     * Roll a booking back after a launch failure: unbook the proc, clear the frame on the version
+     * this tick started (the batch start kept it in step), and kill on the host only when the
+     * launch was sent and the clear matched. A clear that matched no row means the frame moved on
+     * (released and rebooked, its version advanced), and the kill, addressed by host and frame,
+     * would hit the new run. A partial cleanup is logged; the proc sweep finishes it.
+     */
+    private void rollbackLaunch(FrameBooking fb, boolean sent) {
+        try {
+            dispatchSupport.unbookProc(fb.proc);
+            boolean cleared = dispatchSupport.clearFrame(fb.frame);
+            if (sent && cleared)
+                rqdClient.killFrame(fb.proc, "launch failed during scheduler dispatch");
+        } catch (RuntimeException ce) {
+            logger.warn("Maestro: launch-failure cleanup partial for " + fb.frame.getFrameId()
+                    + ": " + ce.getMessage());
         }
     }
 
@@ -1733,8 +1839,14 @@ public class Maestro extends JdbcDaoSupport {
      *
      * The isValid() ping each tick doubles as a keepalive, so an otherwise-idle lock connection is
      * never dropped by a firewall/NAT idle timeout.
+     *
+     * While onShutdown runs (shuttingDown) there is no leadership to have: a tick that raced the
+     * shutdown must not take back the lock the shutdown thread just released and commit into a JVM
+     * that is going down.
      */
-    private boolean ensureLeadership() {
+    boolean ensureLeadership() {
+        if (shuttingDown)
+            return false;
         Connection held = leaderConn;
         if (held != null) {
             try {
@@ -1745,7 +1857,7 @@ public class Maestro extends JdbcDaoSupport {
                 // treated as dead below
             }
             logger.warn("Maestro: planning-lock connection lost; demoting to standby");
-            closeLeaderConn();
+            demote();
             return false;
         }
         Connection conn = null;
@@ -1786,8 +1898,45 @@ public class Maestro extends JdbcDaoSupport {
         return c;
     }
 
-    /** Release (if the connection is still alive) and close the leadership connection. */
-    private void closeLeaderConn() {
+    /**
+     * Whether this cuebot still holds the planning lock: the lock connection is alive and no
+     * shutdown is under way. One isValid(1) per chunk: a probe that times out on a loaded server
+     * demotes a leader that still held the lock, the chosen side, since one takeover and a rebuilt
+     * planner memory cost less than a chunk committed without the lock.
+     */
+    private boolean leaderAlive() {
+        Connection held = leaderConn;
+        try {
+            return !shuttingDown && held != null && held.isValid(1);
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Demote, on the tick thread: release the lock and forget what only a leader may hold. The next
+     * leader plans from the database, not from this Maestro's memory: reservations, blocked debt,
+     * warmth and odometers go with the lock (forgetLeaderMemory).
+     */
+    void demote() {
+        closeLeaderConn();
+        forgetLeaderMemory();
+    }
+
+    /** The planner's memory, cleared on demotion. Tick thread only: these are plain maps. */
+    void forgetLeaderMemory() {
+        reservations.clear();
+        blockedDebtMs.clear();
+        lastSeenMs.clear();
+        warmthByHostLayer.clear();
+        bookingsByHost.clear();
+    }
+
+    /**
+     * Release (if the connection is still alive) and close the leadership connection. Only the
+     * lock: the memory goes on the tick thread (demote), never from the shutdown thread.
+     */
+    void closeLeaderConn() {
         Connection held = leaderConn;
         leaderConn = null;
         if (held != null) {
@@ -1801,15 +1950,36 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Bean lifecycle. Give up leadership first, so a standby takes over without waiting for the OS
-     * to tear down the socket, then drain the launch pool: every booking a tick committed is
-     * RUNNING in the database, and a launch still queued here is the only thing that will start it.
-     * The drain waits at most LAUNCH_DRAIN_MAX_S; a launch that misses it is an orphan the proc
-     * sweep resets, as after a crash.
+     * Bean lifecycle. Mark the shutdown first, so a tick that raced it takes no leadership and
+     * commits no further chunk; give up the lock, so a standby takes over without waiting for the
+     * OS to tear down the socket; wait, bounded by TICK_END_WAIT_MAX_S, for a tick in flight, so
+     * its chunks reach the pool before it closes; then drain the launch pool: every booking a tick
+     * committed is RUNNING in the database, and a launch still queued here is the only thing that
+     * will start it. The drain waits at most LAUNCH_DRAIN_MAX_S; a launch that misses it is an
+     * orphan the proc sweep resets, as after a crash. The planner's memory is left to the tick
+     * thread; this thread never touches it.
      */
     public void onShutdown() {
+        shuttingDown = true;
         closeLeaderConn();
+        awaitTickEnd();
         drainLaunchPool();
+    }
+
+    private void awaitTickEnd() {
+        long deadline = System.currentTimeMillis() + 1000L * TICK_END_WAIT_MAX_S;
+        while (tickInFlight.get() && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        if (tickInFlight.get()) {
+            logger.warn("Maestro: a tick is still in flight at shutdown; the launches it has not"
+                    + " handed to the pool are left to the proc sweep");
+        }
     }
 
     private void drainLaunchPool() {
@@ -2539,15 +2709,7 @@ public class Maestro extends JdbcDaoSupport {
             if (h.coresTotal > maxGroupHostCores)
                 maxGroupHostCores = h.coresTotal;
         }
-        // Prologue, once per candidate: register with the sweep and take the
-        // tick-wide remainder. A layer planned in an earlier host-spec group
-        // this tick keeps only its remaining frames here, so the groups share
-        // one backlog and every plan's slice stays disjoint.
-        for (LayerCandidate c : candidates) {
-            seenLayerIds.add(c.layerId);
-            c.waitingFrameCount -= plannedFramesByLayer.getOrDefault(c.layerId, 0);
-            c.placedThisTick = false;
-        }
+        takeTickWideRemainder(candidates, plannedFramesByLayer, seenLayerIds);
 
         // Placement slots by lottery: every slot goes to a candidate drawn with
         // probability proportional to its job priority among the candidates
@@ -2567,10 +2729,8 @@ public class Maestro extends JdbcDaoSupport {
             }
         }
         while (!active.isEmpty()) {
-            long r = (long) (ThreadLocalRandom.current().nextDouble() * weightSum);
-            int idx = 0;
-            while (idx < active.size() - 1 && (r -= lotteryWeight(active.get(idx))) >= 0)
-                idx++;
+            int idx =
+                    drawSlot(active, (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
             LayerCandidate c = active.get(idx);
             int got = placeOnce(c, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
@@ -2682,6 +2842,32 @@ public class Maestro extends JdbcDaoSupport {
     /** The draw weight of a candidate: its job priority, floored at 1 like the query's GREATEST. */
     private static long lotteryWeight(LayerCandidate c) {
         return Math.max(1, c.priority);
+    }
+
+    /**
+     * The winner of one slot: the candidate whose weight band holds the draw r, the bands being the
+     * active candidates' lotteryWeight laid end to end in list order, r in [0, weightSum). The last
+     * candidate absorbs any rounding, so a draw never falls outside the list.
+     */
+    static int drawSlot(List<LayerCandidate> active, long r) {
+        int idx = 0;
+        while (idx < active.size() - 1 && (r -= lotteryWeight(active.get(idx))) >= 0)
+            idx++;
+        return idx;
+    }
+
+    /**
+     * Prologue of a group, once per candidate: register it with the sweep and take its tick-wide
+     * remainder. A layer planned in an earlier host-spec group this tick keeps only its remaining
+     * frames here, so the groups share one backlog and every plan's slice stays disjoint.
+     */
+    static void takeTickWideRemainder(List<LayerCandidate> candidates,
+            Map<String, Integer> plannedByLayer, Set<String> seenLayerIds) {
+        for (LayerCandidate c : candidates) {
+            seenLayerIds.add(c.layerId);
+            c.waitingFrameCount -= plannedByLayer.getOrDefault(c.layerId, 0);
+            c.placedThisTick = false;
+        }
     }
 
     /** Tick-wide cap state of one candidate, read fresh at every slot and once in the epilogue. */
@@ -3220,19 +3406,6 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Predict the number of additional frames of c (beyond the first) that could be dispatched to h
-     * within this tick. Shared by placementScore (which uses it to compute stranding) and the
-     * dispatch loop (which uses it to estimate the frames a single commit will book).
-     *
-     * Caps applied (mirroring the dispatcher's per-frame fit checks): physical fit on each
-     * dimension, job int_max_cores (matches isJobBookable), and show int_burst (matches
-     * isShowAtOrOverBurst).
-     *
-     * The per-call caps host_frame_dispatch_max and job_frame_dispatch_max are not applied here
-     * because they bound a single dispatch call, not the per-tick total. The dispatch loop applies
-     * job_frame_dispatch_max when estimating a single commit's worth of frames.
-     */
-    /**
      * Frames one commit may book for candidate c on host best: the minimum of every sizing rule,
      * each term named. Zero or less means stop booking this candidate this tick. A soft-cap grant
      * (overCap) skips the per-host layer-cap term; the cap already yielded for this booking.
@@ -3406,16 +3579,24 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Apply this tick's accumulated resource deltas as one UPDATE per row. Runs on Maestro thread
-     * right after the batch commit, so no accumulation races it. On a SQL error the deltas are
-     * merged back so the next tick retries them rather than silently dropping accounting.
-     * Subscription/layer rows missing (deleted mid-tick) simply update zero rows; folder/point use
-     * the job subquery and likewise no-op if the job is gone.
+     * Apply a chunk's accumulated resource deltas as one UPDATE per row, inside the chunk's
+     * transaction and on the Maestro thread, so no accumulation races it. A SQL error rolls the
+     * chunk back: the deltas already drained go with it, and commitChunk discards the rest
+     * (discardResourceDeltas), so a failed chunk never credits the next one. Subscription/layer
+     * rows missing (deleted mid-tick) simply update zero rows; folder/point use the job subquery
+     * and likewise no-op if the job is gone.
      */
     private void flushResourceDeltas() {
         flushSubDeltas();
         flushLayerDeltas();
         flushJobDeltas();
+    }
+
+    /** Drop the deltas a failed chunk left behind, so the next chunk credits only its own procs. */
+    void discardResourceDeltas() {
+        subDeltas.clear();
+        layerDeltas.clear();
+        jobDeltas.clear();
     }
 
     private void flushSubDeltas() {

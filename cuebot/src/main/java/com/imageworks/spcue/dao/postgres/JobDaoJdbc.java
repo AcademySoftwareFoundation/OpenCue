@@ -1006,6 +1006,19 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 + "int_clock_time_fail = int_clock_time_fail + ?,"
                 + "int_frame_fail_count = int_frame_fail_count + 1 "
             + "WHERE pk_job = ? ";
+    // The batch form: one row per job with both outcomes and the clock high, one statement.
+    private static final String UPDATE_JOB_USAGE_BATCH =
+            "UPDATE job_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + ?,"
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + ?,"
+                + "int_clock_time_high = GREATEST(int_clock_time_high, ?) "
+            + "WHERE pk_job = ? ";
     // spotless:on
 
     public void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus) {
@@ -1025,19 +1038,14 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     /**
-     * The batched form of updateUsage: the same three statements, one JDBC round trip each for a
-     * whole batch of completions instead of two or three per frame. Row shapes: success {coreTime,
-     * gpuTime, clockTime, pk_job}, high {clockTime, pk_job, clockTime}, fail {coreTime, clockTime,
-     * pk_job}.
+     * The batched form of updateUsage: one row per job, {coreTime, gpuTime, clockTime, successes,
+     * failCore, failClock, failures, high, pk_job}, in one statement for a whole scoop of
+     * completions, so the rows lock in the order they are given. The high only raises the column.
      */
     @Override
-    public void updateUsageBatch(List<Object[]> success, List<Object[]> high, List<Object[]> fail) {
-        if (!success.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_SUCCESS, success);
-        if (!high.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_HIGH, high);
-        if (!fail.isEmpty())
-            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_FAIL, fail);
+    public void updateUsageBatch(List<Object[]> rows) {
+        if (!rows.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_JOB_USAGE_BATCH, rows);
     }
 
     public void updateEmail(JobInterface job, String email) {
