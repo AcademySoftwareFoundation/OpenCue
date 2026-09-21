@@ -3,18 +3,15 @@
 Opencue [Rust](https://www.rust-lang.org/) modules:
 
 Project crates:
- * scheduler: Standalone scheduler service that replaces scheduling logic from Cuebot
  * rqd: rewrite of [OpenCue/rqd](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rqd)
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
  * monitoring-indexer: OpenCue monitoring event indexer (Kafka to Elasticsearch)
- * scheduler: A job scheduler to run alongside Cuebot
 
 Sample configuration files are available in the `config/` directory:
  * `config/rqd.yaml` - RQD configuration
  * `config/rqd.fake_linux.yaml` - RQD configuration for simulating Linux on macOS
  * `config/monitoring-indexer.yaml` - Monitoring indexer configuration
- * `config/scheduler.yaml` - Scheduler configuration
 
 ## Build Instructions
 
@@ -76,38 +73,3 @@ target/release/dummy-cuebot rqd-client launch-frame /PATH-TO-OPENCUE/Opencue/rus
 - You can monitor the logs in the terminal where you started the RQD service to see the progress and status of the frame execution.
 - You can follow the logs for jobs created by dummy-cuebot on `/tmp/rqd/test_job.test_frame.rqlog`
 
-## Running the Scheduler
-
-The scheduler is a standalone service that handles job scheduling and frame dispatch. 
-
-1. Run the scheduler with a configuration file:
-
-```bash
-env OPENCUE_SCHEDULER_CONFIG=/PATH-TO-OPENCUE/OpenCue/rust/config/scheduler.yaml target/release/cue-scheduler
-```
-
-Or specify scheduling parameters via command-line arguments:
-
-```bash
-target/release/cue-scheduler --facility <facility>
-```
-
-**Notes:**
-- Configuration is loaded from `config/scheduler.yaml` or the path specified by `OPENCUE_SCHEDULER_CONFIG`
-- Command-line arguments override configuration file values
-- Which shows the scheduler owns is controlled by the `show.b_scheduler_managed`
-  database column (`cueadmin -scheduler-managed <show> on|off`), not by flags. The
-  scheduler auto-loads every cluster for scheduler-managed shows and refreshes
-  that set periodically, so toggling a show takes effect without a restart.
-- The scheduler can be run in dry-run mode for testing (set `rqd.dry_run_mode: true` in config)
-
-2. Run the scheduler using Docker:
-
-```bash
-docker build -f Dockerfile.scheduler -t opencue/scheduler .
-docker run -v /path/to/config:/etc/cue-scheduler opencue/scheduler
-```
-
-**Notes:**
-- Mount your configuration file to `/etc/cue-scheduler/scheduler.yaml` in the container
-- See `Dockerfile.scheduler` for the container build configuration

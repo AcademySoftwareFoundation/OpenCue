@@ -265,25 +265,6 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testCountSchedulerManagedShows() {
-        // No shows are scheduler-managed by default.
-        assertEquals(0, showDao.countSchedulerManagedShows());
-
-        // Flip the pipe show; count should be 1.
-        ShowEntity pipe = showDao.findShowDetail(SHOW_NAME);
-        showDao.updateSchedulerManaged(pipe, true);
-        assertEquals(1, showDao.countSchedulerManagedShows());
-
-        // Flip a second show; count should be 2. Use 'edu' since 'fx' is just an alias
-        // for 'pipe' in the test fixtures.
-        ShowEntity edu = showDao.findShowDetail("edu");
-        showDao.updateSchedulerManaged(edu, true);
-        assertEquals(2, showDao.countSchedulerManagedShows());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testArchiveShow() {
         // Create a show to be archived
         ShowEntity showToArchive = new ShowEntity();

@@ -108,9 +108,10 @@ service ShowInterface {
     // sets a show's default min Gpus
     rpc SetDefaultMinGpus(ShowSetDefaultMinGpusRequest) returns (ShowSetDefaultMinGpusResponse);
 
-    // Sets whether accounting for this show is owned by the Rust scheduler.
-    // When true, Cuebot stops updating accounting tables transactionally for this show;
-    // the Rust scheduler reconciles them from `proc`.
+    // Sets which scheduler owns this show (the `show.b_scheduler_managed` flag).
+    // When true, Maestro owns the show while running in managed mode
+    // (`maestro.enabled=managed`) and the legacy dispatch query excludes it. A show
+    // flagged with no Maestro managed mode running is dispatched by nothing.
     rpc SetSchedulerManaged(ShowSetSchedulerManagedRequest) returns (ShowSetSchedulerManagedResponse);
 
     // Archives a show by creating an alias to another show and renaming the original show

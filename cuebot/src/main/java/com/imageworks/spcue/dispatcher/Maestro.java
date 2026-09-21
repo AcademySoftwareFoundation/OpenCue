@@ -369,9 +369,7 @@ public class Maestro extends JdbcDaoSupport {
     // ---- batched resource accounting --------------------------------------
     // The legacy per-proc resource UPDATEs serialize on a few hot rows and dominate commit cost at
     // scale. Instead Maestro records per-row deltas and flushes one UPDATE per row after the
-    // batch commit. Off only when scheduler_manages_resources is true (the Rust scheduler owns the
-    // resource tables then). Set in startSchedulerPoolsIfNeeded. See maestro.md section 5.
-    private volatile boolean batchResourceAccounting = true;
+    // batch commit. See maestro.md section 5.
     // Per-row delta buffers: value is {cores, gpus}. Written on Maestro
     // thread when the batch commit's winners are accounted, then drained in
     // flushResourceDeltas right after the commit.
@@ -413,11 +411,6 @@ public class Maestro extends JdbcDaoSupport {
         // 5 minutes; lower it for a live incident, raise it to quiet the log.
         statIntervalMs =
                 1000L * env.getProperty("maestro.stat_interval_seconds", Integer.class, 300);
-        // Batch resource accounting unless the Rust scheduler owns those tables
-        // via its periodic recompute (scheduler_manages_resources). In that mode
-        // procCreated writes nothing and we must not either.
-        batchResourceAccounting =
-                !env.getProperty("dispatcher.scheduler_manages_resources", Boolean.class, false);
         // Bounded pool so launches never run on the tick thread (a slow RQD sink would stall the
         // tick). On a full queue we drop the launch and count it: the frame is already running in
         // the DB, so RQD report reconciliation recovers it, and the tick never waits on RQD.
@@ -1531,10 +1524,10 @@ public class Maestro extends JdbcDaoSupport {
      * Mirror the winners' cores and gpus into the subscription, layer, job, folder and point
      * counters. Called INSIDE the booking transaction, so a failure here rolls the bookings back
      * with it and there is nothing left over to retry: the procs those deltas describe never
-     * existed. Skipped entirely when the Rust scheduler owns those tables.
+     * existed.
      */
     private void applyResourceDeltas(List<FrameBooking> committed) {
-        if (!batchResourceAccounting || committed.isEmpty()) {
+        if (committed.isEmpty()) {
             return;
         }
         List<VirtualProc> procs = new ArrayList<>(committed.size());
@@ -3005,9 +2998,6 @@ public class Maestro extends JdbcDaoSupport {
      * the job subquery and likewise no-op if the job is gone.
      */
     private void flushResourceDeltas() {
-        if (!batchResourceAccounting) {
-            return;
-        }
         flushSubDeltas();
         flushLayerDeltas();
         flushJobDeltas();

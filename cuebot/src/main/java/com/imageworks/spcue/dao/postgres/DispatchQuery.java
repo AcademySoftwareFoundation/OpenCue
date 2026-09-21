@@ -1274,8 +1274,9 @@ public class DispatchQuery {
 
     /**
      * Looks for shows that are under their burst for a particular type of proc. The show has to be
-     * at least one whole proc under their burst to be considered for booking. Scheduler-managed
-     * shows are excluded; their dispatch is owned by the standalone Rust scheduler.
+     * at least one whole proc under their burst to be considered for booking. Shows flagged
+     * {@code b_scheduler_managed} are excluded here because Maestro's managed mode owns them; a
+     * show left flagged with no Maestro managed mode running is therefore dispatched by nothing.
      */
     // spotless:off
     public static final String FIND_SHOWS =

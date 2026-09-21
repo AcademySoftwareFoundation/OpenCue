@@ -22,11 +22,6 @@ Examples:
   # fresh NEW, submit a fixed 30-job backlog and just leave it running
   python simulate.py --mode new --jobs 30
 
-  # fresh RUST scheduler: the standalone cue-scheduler binary plans+books while
-  # cuebot runs with booking off as the completion engine (needs Redis + a built
-  # rust/ cue-scheduler; see "Rust scheduler mode" in README.md)
-  python simulate.py --mode rust --feed 240 --stats 220
-
 Run metrics any time against the live run:  python metrics.py 120
 """
 import argparse
@@ -92,23 +87,6 @@ SIM_HOSTS_FILE = f"{FARM}/sim_hosts"
 RQD_LOG = f"{FARM}/rqd.log"
 PINGER_LOG = f"{FARM}/pinger.log"
 FEED_LOG = f"{FARM}/feed.log"
-
-# --- Rust scheduler (--mode rust) ----------------------------------------
-# The standalone cue-scheduler binary (rust/crates/scheduler) can drive the sim
-# instead of cuebot's Maestro. It books straight into Postgres and uses Redis for
-# accounting. By default it runs dry-run (no RQD launch; rqd_complete.py drives
-# completion) -- the practical mode. --rust-real-launch flips it to launch on
-# fake_rqd like --mode new (see start_rust_scheduler / ensure_resolver_shim), but
-# it's launch-latency-bound and much slower. Build with `cargo build -p scheduler`
-# in rust/; override the path with SIM_SCHEDULER_BIN.
-REPO_ROOT = os.path.dirname(CUEBOT_DIR)
-SCHEDULER_BIN = os.environ.get(
-    "SIM_SCHEDULER_BIN",
-    os.path.join(REPO_ROOT, "rust", "target", "debug", "cue-scheduler"))
-SCHEDULER_YAML = os.path.join(FARM, "scheduler_sim.yaml")
-SCHEDULER_LOG = os.environ.get("SIM_SCHEDULER_LOG", "/tmp/cue-scheduler.log")
-RUST_COMPLETE_LOG = f"{FARM}/rqd_complete.log"
-REDIS_PORT = int(os.environ.get("SIM_REDIS_PORT", "6379"))
 
 PSQL = [f"{PGBIN}/psql", "-h", "127.0.0.1",
         "-p", str(PG_PORT), "-U", "cue", "-d", "cuebot", "-A", "-t"]
@@ -396,7 +374,7 @@ def kill_until_gone(patterns, what="processes", tries=6):
 # these from a previous run survive, so teardown verifies they are gone and the
 # SIGTERM/SIGINT/atexit handlers kill the ones this harness started.
 SCHED_PATTERNS = ["build/libs/cuebot.jar", "CuebotApplication", "gradlew bootRun",
-                  "cue-scheduler", "fake_rqd.py", "rqd_report.py", "rqd_complete.py"]
+                  "fake_rqd.py", "rqd_report.py"]
 
 # Workload + helper scripts this harness starts (everything EXCEPT cuebot/RQD,
 # which are SCHED_PATTERNS). Killed on teardown and on the way out.
@@ -744,19 +722,31 @@ def license_env():
     }
 
 
+def maestro_enabled(sim_mode):
+    """The maestro.enabled value cuebot will run with: SIM_MAESTRO_ENABLED when set,
+    else facility for --mode new and no otherwise.
+
+    Normalized (trimmed, lowercased) exactly like MaestroMode.mode does on the Java
+    side, so the string handed to cuebot and the one this harness tests against can
+    never disagree -- an untrimmed " managed " would otherwise put cuebot in managed
+    mode while set_scheduler_managed left every show on the legacy dispatcher.
+    """
+    raw = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if sim_mode == "new" else "no")
+    return raw.strip().lower() or "no"
+
+
 def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
-                 max_grantees=8, backfill=True, booking_off=False,
+                 max_grantees=8, backfill=True,
                  frame_cores_max=0):
     # maestro.enabled is a tri-state rollout switch: no | facility | managed
     # (back-compat true=facility/false=no). Default new->facility, else->no;
     # override with SIM_MAESTRO_ENABLED (e.g. "managed" for per-show testing).
-    enabled = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if mode == "new" else "no")
+    enabled = maestro_enabled(mode)
     resv = "true" if reservations else "false"
     bf = "true" if backfill else "false"
     log(f"starting cuebot (mode={mode}, maestro.enabled={enabled}, "
         f"reservations={resv}, block={block_seconds}s, "
-        f"max_frac={max_fraction}, max_grantees={max_grantees}, backfill={bf}, "
-        f"booking_off={booking_off}) ...")
+        f"max_frac={max_fraction}, max_grantees={max_grantees}, backfill={bf}) ...")
     # Point cuebot's JVM at our private hosts file so every farm name resolves
     # to 127.0.0.1 (where fake_rqd listens) without touching /etc/hosts. The
     # forked bootRun application JVM inherits JAVA_TOOL_OPTIONS from this env, so
@@ -796,10 +786,6 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
         # this many seconds -- lowered from the 300s default so the live tail's
         # bf[] backfill counter updates often (override with SIM_STAT_INTERVAL_SECONDS).
         "MAESTRO_STAT_INTERVAL_SECONDS": os.environ.get("SIM_STAT_INTERVAL_SECONDS", "30"),
-        # --mode rust: maestro.enabled=false AND booking off, so cuebot only
-        # handles RQD reports/completions (frame + layer/job stat bookkeeping)
-        # and never dispatches -- the Rust scheduler owns all booking.
-        "DISPATCHER_TURN_OFF_BOOKING": "true" if booking_off else "false",
     })
     env.update(license_env())
     # Raise the per-frame core clamp (core-points) so whole-host wide jobs are
@@ -857,7 +843,7 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
     jar = os.path.join(CUEBOT_DIR, "build", "libs", "cuebot.jar")
     if not os.path.exists(jar):
         sys.exit(f"cuebot jar not found at {jar} (ensure_cuebot_built should have built it)")
-    enabled = os.environ.get("SIM_MAESTRO_ENABLED") or ("facility" if mode == "new" else "no")
+    enabled = maestro_enabled(mode)
     # cuebot in the sim only talks to LOCAL services: postgres on 127.0.0.1, and
     # fake_rqd (the hosts file above maps every farm hostname to 127.0.0.1). But
     # it dials RQD BY HOSTNAME (e.g. jaime0001), and if the environment set a JVM
@@ -1207,152 +1193,17 @@ def start_parity_injector(duration, mode):
     spawn(["inject_parity.py", str(duration), mode], f"{FARM}/inject_parity.log")
 
 
-# ------------------------------------------------------- Rust scheduler (rust)
-def start_redis():
-    """Start a throwaway Redis for the Rust scheduler's accounting (no
-    persistence). Reused if one is already up; the scheduler force-reseeds Redis
-    from Postgres on startup, so a stale instance is harmless."""
-    if port_open(REDIS_PORT):
-        log(f"redis already up on :{REDIS_PORT}")
-        return
-    log(f"starting redis on :{REDIS_PORT} (ephemeral, no persistence) ...")
-    logf = open("/tmp/redis-sim.log", "w")
-    subprocess.Popen(
-        ["redis-server", "--port", str(REDIS_PORT), "--save", "",
-         "--appendonly", "no", "--dir", "/tmp"],
-        stdout=logf, stderr=subprocess.STDOUT, start_new_session=True)
-    for _ in range(30):
-        if port_open(REDIS_PORT):
-            log("  redis up")
-            return
-        time.sleep(1)
-    sys.exit("redis failed to start; see /tmp/redis-sim.log")
-
-
 def set_scheduler_managed(managed):
-    """Flip the sim show's b_scheduler_managed flag. true hands the show to the
-    Rust scheduler (and, via migration V45, makes cuebot's own dispatch skip it);
-    false restores it to cuebot, so a later --mode new/old run is never left
-    stranded by a previous --mode rust run."""
+    """Flip the sim show's b_scheduler_managed flag: true hands the show to
+    Maestro's per-show 'managed' mode (and, via migration V45, makes cuebot's
+    legacy dispatch skip it); false restores it to the legacy dispatcher, so a
+    later run is never left stranded by a previous managed run."""
     val = "true" if managed else "false"
     # All sim shows (the base 'sim' plus showA..showE) get the same flag, so a
     # multi-show run hands every show to the same scheduler.
     psql(f"UPDATE show SET b_scheduler_managed={val} "
          f"WHERE str_name LIKE 'sim%' OR str_name LIKE 'show%';")
     log(f"  show b_scheduler_managed={val}")
-
-
-def write_scheduler_yaml(tick_ms, facility, dry_run=True):
-    """Write the cue-scheduler config: point it at the sim's Postgres and Redis,
-    E-PVM placement (the same family the --mode new Maestro uses). dry_run=True
-    (default) books in the DB without a real RQD launch (rqd_complete.py drives
-    completion) -- the practical mode. dry_run=False (--rust-real-launch) makes the
-    scheduler call LaunchFrame on fake_rqd, the same path --mode new uses, for an
-    equal-footing comparison; it's launch-latency-bound and much slower."""
-    interval_s = max(1, tick_ms // 1000)
-    cfg = f"""logging:
-  level: info,sqlx=warn
-database:
-  db_host: 127.0.0.1
-  db_port: {PG_PORT}
-  db_name: cuebot
-  db_user: cue
-  db_pass: ""
-rqd:
-  dry_run_mode: {str(dry_run).lower()}
-queue:
-  monitor_interval: {interval_s}s
-  # Sim-tuned for responsiveness (production uses longer to cut idle DB load):
-  # empty_sleep = how long a cluster naps after a pass with no work; reload =
-  # how often the managed-show cluster set is re-derived from live host tags
-  # (so a farm registered just before startup, or grown mid-run, is picked up).
-  cluster_empty_sleep: 5s
-  cluster_reload_interval: 30s
-  # Dispatch fan-out. Defaults are 3/3; with a real RQD launch awaited inline in
-  # the dispatch path, low concurrency means booking is launch-latency-bound. Bump
-  # both so many jobs/clusters dispatch (and launch) concurrently.
-  stream:
-    cluster_buffer_size: 8
-    job_buffer_size: 64
-  host_booking_strategy:
-    type: epvm
-    max_candidates: 500
-    weights: {{ cores: 1.0, mem: 1.0, gpus: 2.0, gpu_mem: 1.0, gpu_count_reservation: 2.0, gpu_mem_reservation: 2.0 }}
-accounting:
-  redis:
-    host: 127.0.0.1
-    port: {REDIS_PORT}
-scheduler:
-  facility: {facility}
-"""
-    with open(SCHEDULER_YAML, "w") as f:
-        f.write(cfg)
-    log(f"  wrote scheduler config {SCHEDULER_YAML}")
-
-
-def ensure_resolver_shim():
-    """Compile (once) the getaddrinfo LD_PRELOAD shim (resolve_local.c) and return
-    the .so path. The Rust scheduler is a native binary, so the JVM hosts file
-    (-Djdk.net.hosts.file) cuebot uses can't redirect its per-host RQD dials
-    (http://<host.name>:8444) to fake_rqd. The shim is the native analog: glibc
-    getaddrinfo is intercepted and every named lookup sent to loopback (every sim
-    target -- Postgres, Redis, each farm host's RQD -- is local). Only needed for
-    --rust-real-launch. The .c source is committed; the .so is a build artifact."""
-    src = os.path.join(SIM_DIR, "resolve_local.c")
-    so = os.path.join(FARM, "resolve_local.so")
-    if not os.path.exists(so):
-        r = subprocess.run(["gcc", "-shared", "-fPIC", "-o", so, src, "-ldl"],
-                           capture_output=True, text=True)
-        if r.returncode != 0:
-            sys.exit(f"failed to build resolver shim from {src}:\n{r.stderr}")
-        log(f"  built RQD resolver shim {so}")
-    return so
-
-
-def start_rust_scheduler(facility, ld_preload=None):
-    """Launch the real cue-scheduler binary against the sim's Postgres + Redis.
-    With ld_preload set (non-dry-run), the scheduler's per-host RQD dials resolve
-    to fake_rqd via the getaddrinfo shim."""
-    if not os.path.exists(SCHEDULER_BIN):
-        sys.exit(
-            f"cue-scheduler binary not found at {SCHEDULER_BIN}.\n"
-            f"  Build it:  (cd {os.path.join(REPO_ROOT, 'rust')} && "
-            f"cargo build -p scheduler)\n"
-            f"  or set SIM_SCHEDULER_BIN to its path.")
-    log(f"starting Rust scheduler (cue-scheduler, facility={facility}, E-PVM, "
-        f"{'real-launch' if ld_preload else 'dry-run'}) ...")
-    env = dict(os.environ)
-    env["OPENCUE_SCHEDULER_CONFIG"] = SCHEDULER_YAML
-    if ld_preload:
-        env["LD_PRELOAD"] = (ld_preload + " " + env["LD_PRELOAD"]) \
-            if env.get("LD_PRELOAD") else ld_preload
-    logf = open(SCHEDULER_LOG, "w")
-    subprocess.Popen([SCHEDULER_BIN, "--facility", facility], cwd=FARM,
-                     stdout=logf, stderr=subprocess.STDOUT,
-                     start_new_session=True, env=env)
-    for i in range(60):
-        txt = read_text(SCHEDULER_LOG)
-        if "Starting scheduler feed" in txt:
-            log(f"  Rust scheduler up after ~{i}s (metrics :9090)")
-            return
-        if "panicked" in txt or "Failed to load config" in txt or "Error:" in txt:
-            sys.exit(f"cue-scheduler failed to start; see {SCHEDULER_LOG}")
-        time.sleep(1)
-    log(f"  WARN Rust scheduler start not confirmed; see {SCHEDULER_LOG}")
-
-
-def start_rust_completer(mem_failure_rate=0.0):
-    """Start the DB-poll completion driver (rqd_complete.py): it finds frames the
-    Rust scheduler booked (dry-run) and reports them complete to cuebot after their
-    modeled run-time -- the dry-run analogue of fake_rqd."""
-    log("starting Rust-scheduler completion driver (rqd_complete, DB-poll) ...")
-    spawn(["rqd_complete.py", "0.5", str(mem_failure_rate)], RUST_COMPLETE_LOG)
-    for _ in range(30):
-        if "polling proc table" in read_text(RUST_COMPLETE_LOG):
-            log("  completion driver up")
-            return
-        time.sleep(1)
-    log(f"  WARN completion driver start not confirmed; see {RUST_COMPLETE_LOG}")
 
 
 # ---------------------------------------------------------------- main
@@ -2084,12 +1935,8 @@ def main():
     ensure_buildable()
     ensure_proto_stubs()
     ap = argparse.ArgumentParser(description="One-command fresh scheduler sim")
-    ap.add_argument("--mode", choices=["new", "old", "rust"], default="new",
-                    help="new=cuebot's E-PVM Maestro; old=legacy cuebot booking; "
-                         "rust=the standalone cue-scheduler binary "
-                         "(rust/crates/scheduler) plans+books while cuebot runs "
-                         "with booking off as the completion engine. rust mode "
-                         "needs Redis and a built cue-scheduler binary.")
+    ap.add_argument("--mode", choices=["new", "old"], default="new",
+                    help="new=cuebot's E-PVM Maestro; old=legacy cuebot booking.")
     ap.add_argument("--cuebots", type=int, default=2, metavar="N",
                     help="number of cuebot instances to run against the same "
                          "Postgres (default 2). All race the advisory lock so one "
@@ -2118,16 +1965,6 @@ def main():
                          "fully utilized (cores still booked) while almost nothing "
                          "completes. 64 keeps reporting off the critical path at "
                          "full-farm scale so throughput reflects the scheduler.")
-    ap.add_argument("--rust-real-launch", action="store_true",
-                    help="--mode rust ONLY: run the Rust scheduler non-dry-run so it "
-                         "actually calls LaunchFrame on fake_rqd (same RQD path as "
-                         "--mode new), instead of the default dry-run + rqd_complete.py "
-                         "DB-poll. Resolves farm host names to fake_rqd via the "
-                         "resolve_local.c LD_PRELOAD getaddrinfo shim (needs gcc). "
-                         "NOTE: the Rust scheduler awaits each launch inline through a "
-                         "single dispatcher actor, so this is launch-latency-bound and "
-                         "far slower than dry-run -- useful to observe the launch cost, "
-                         "not for throughput. Dry-run is the practical default.")
     ap.add_argument("--compress", type=float, default=None,
                     help="sim duration compression (SIM_COMPRESS); higher=longer "
                          "frames=lower lifecycle rate. Default uses sim_model's 0.27")
@@ -2140,7 +1977,7 @@ def main():
     ap.add_argument("--heartbeat-interval", type=float, default=None,
                     help="seconds the reporter SLEEPS between full report rounds. "
                          "Mode-aware default (override to pin any value): 5.0 for "
-                         "NEW, 0.1 for OLD and rust. OLD's report-driven booker only "
+                         "NEW, 0.1 for OLD. OLD's report-driven booker only "
                          "books a host WHEN it reports, so it needs the fast "
                          "heartbeat or the farm never fills. NEW (Maestro) is "
                          "the opposite: its cuebot books AND processes reports, so a "
@@ -2148,10 +1985,7 @@ def main():
                          "real farm) overruns the host-report handler (~200ms DB "
                          "work each), completions back up, frames pile up in RUNNING "
                          "holding cores, util pegs at 100% and throughput collapses; "
-                         "5s keeps it ahead. rust's cuebot has booking OFF (it only "
-                         "drains completions via rqd_complete through the same "
-                         "handler), so it absorbs the 0.1s cadence fine and that is "
-                         "what it was validated under. Also keeps proc.ts_ping fresh "
+                         "5s keeps it ahead. Also keeps proc.ts_ping fresh "
                          "for the 300s orphan sweep.")
     ap.add_argument("--hosts", type=str, default=None,
                     help="SMALL-FARM debug mode: 'large,medium,small' counts, e.g. "
@@ -2458,14 +2292,12 @@ def main():
     # Heartbeat default is mode-aware (see --heartbeat-interval): only NEW needs
     # the slow 5s rate, because its cuebot books AND processes reports, so a 0.1s
     # flood (1553 hosts x ~10/s) overruns the report handler and stalls it. OLD
-    # needs 0.1s for its report-driven booker; rust's cuebot has booking OFF (it
-    # only drains completions via rqd_complete through the same handler), so it
-    # absorbs 0.1s fine and was validated there, and stays at 0.1s too.
+    # needs 0.1s for its report-driven booker.
     if args.heartbeat_interval is None:
         args.heartbeat_interval = 5.0 if args.mode == "new" else 0.1
 
-    # Mode-specific cuebot log, so a later run in a different mode (e.g. rust
-    # after new) does not clobber this run's scheduler stats / backfill numbers.
+    # Mode-specific cuebot log, so a later run in a different mode does not
+    # clobber this run's scheduler stats / backfill numbers.
     # Honors an explicit SIM_CUEBOT_LOG override.
     global CUEBOT_LOG
     if not os.environ.get("SIM_CUEBOT_LOG"):
@@ -2516,16 +2348,12 @@ def main():
     install_cleanup_handlers()   # reap this run's children on any exit path
     teardown()
     ensure_postgres()
-    rust = (args.mode == "rust")
-    if rust:
-        start_redis()
     write_sim_hosts_file()
     nhosts = reset_db()
-    # Hand the show to whichever scheduler owns it: the standalone Rust scheduler
-    # (rust mode), or the Java Maestro in per-show 'managed' mode. Otherwise force
-    # the flag OFF so a leftover true can't make cuebot's own dispatch skip the
-    # show (migration V45 filters b_scheduler_managed=false).
-    set_scheduler_managed(rust or os.environ.get("SIM_MAESTRO_ENABLED") == "managed")
+    # Hand the show to Maestro when it runs in per-show 'managed' mode. Otherwise
+    # force the flag OFF so a leftover true can't make cuebot's legacy dispatch
+    # skip the show (migration V45 filters b_scheduler_managed=false).
+    set_scheduler_managed(maestro_enabled(args.mode) == "managed")
     ensure_cuebot_built()
     # LICENSE test: the license server must be answering BEFORE cuebot's first
     # poll, so Maestro starts from a real sample instead of a failed fetch
@@ -2533,56 +2361,24 @@ def main():
     lic_secs = args.license_test or (args.failover_test if args.with_licenses else 0)
     if lic_secs:
         start_license_server(lic_secs + 120)
-    if rust:
-        # One cuebot, scheduler OFF + booking OFF: it neither plans nor books, it
-        # only handles RQD reports/completions and maintains frame/layer/job
-        # stats. The cue-scheduler binary does all planning and booking.
-        start_cuebot("old", booking_off=True)
-        # Bring the farm up (registered + reporting UP) BEFORE the scheduler: it
-        # derives its cluster set from live host tags at startup and only reloads
-        # every queue.cluster_reload_interval, so a scheduler started against an
-        # empty farm idles until the first reload. Started last, against a ready
-        # farm, it plans from its very first tick -- like production.
-        ensure_hosts(nhosts, expected_hosts)
-        start_pinger(args.heartbeat_interval, expected_hosts)
-        real = args.rust_real_launch
-        write_scheduler_yaml(int(os.environ.get("SIM_TICK_MS", "3000")),
-                             farm_spec.FACILITY, dry_run=not real)
-        if real:
-            # --rust-real-launch: fake_rqd is the RQD for rust too -- the scheduler
-            # calls LaunchFrame on it (same path as --mode new) and it drives
-            # completion. Started before the scheduler so the first launches land.
-            # The scheduler dials each host by name (http://<host.name>:8444); the
-            # LD_PRELOAD shim resolves those to fake_rqd on loopback (the native
-            # analog of cuebot's JVM hosts file).
-            start_fake_rqd(args.reporter_threads, args.mem_failure_rate)
-            start_rust_scheduler(farm_spec.FACILITY,
-                                 ld_preload=ensure_resolver_shim())
-        else:
-            # Default: dry-run. The scheduler books straight into Postgres (no RQD
-            # launch); rqd_complete.py polls the proc table and reports each booked
-            # frame complete to cuebot after its sim_model run-time.
-            start_rust_scheduler(farm_spec.FACILITY)
-            start_rust_completer(args.mem_failure_rate)
-    else:
-        # Whole-host wide jobs (--strand-cores > 64) need the per-frame clamp
-        # raised (core-points) so cuebot does not cap them back to 64.
-        frame_cores_max = args.strand_cores * 100 if args.strand_cores > 64 else 0
-        start_cuebot(args.mode, args.reservations,
-                     args.reservation_block_seconds, args.reservation_max_fraction,
-                     args.reservation_max_grantees, args.backfill,
-                     frame_cores_max=frame_cores_max)
-        for i in range(1, max(1, args.cuebots)):
-            start_extra_cuebot(i, args.mode, args.reservations,
-                               args.reservation_block_seconds, args.reservation_max_fraction,
-                               args.reservation_max_grantees, args.backfill,
-                               frame_cores_max=frame_cores_max)
-        if args.cuebots > 1:
-            log(f"{args.cuebots} cuebots up, sharing the Postgres advisory lock "
-                f"(one plans per tick)")
-        ensure_hosts(nhosts, expected_hosts)
-        start_fake_rqd(args.reporter_threads, args.mem_failure_rate)
-        start_pinger(args.heartbeat_interval, expected_hosts)
+    # Whole-host wide jobs (--strand-cores > 64) need the per-frame clamp
+    # raised (core-points) so cuebot does not cap them back to 64.
+    frame_cores_max = args.strand_cores * 100 if args.strand_cores > 64 else 0
+    start_cuebot(args.mode, args.reservations,
+                 args.reservation_block_seconds, args.reservation_max_fraction,
+                 args.reservation_max_grantees, args.backfill,
+                 frame_cores_max=frame_cores_max)
+    for i in range(1, max(1, args.cuebots)):
+        start_extra_cuebot(i, args.mode, args.reservations,
+                           args.reservation_block_seconds, args.reservation_max_fraction,
+                           args.reservation_max_grantees, args.backfill,
+                           frame_cores_max=frame_cores_max)
+    if args.cuebots > 1:
+        log(f"{args.cuebots} cuebots up, sharing the Postgres advisory lock "
+            f"(one plans per tick)")
+    ensure_hosts(nhosts, expected_hosts)
+    start_fake_rqd(args.reporter_threads, args.mem_failure_rate)
+    start_pinger(args.heartbeat_interval, expected_hosts)
 
     if args.jobs:
         submit_jobs(args.jobs, args.seed)
@@ -2624,14 +2420,8 @@ def main():
 
     log(f"stack is UP and fresh in {time.time()-t0:.0f}s  "
         f"(mode={args.mode}).")
-    if rust:
-        completer = f"rqd={RQD_LOG}" if real else f"complete={RUST_COMPLETE_LOG}"
-        log(f"logs: cuebot={CUEBOT_LOG}  scheduler={SCHEDULER_LOG}  "
-            f"{completer}  pinger={PINGER_LOG}"
-            + (f"  feed={FEED_LOG}" if args.feed else ""))
-    else:
-        log(f"logs: cuebot={CUEBOT_LOG}  rqd={RQD_LOG}  pinger={PINGER_LOG}"
-            + (f"  feed={FEED_LOG}" if args.feed else ""))
+    log(f"logs: cuebot={CUEBOT_LOG}  rqd={RQD_LOG}  pinger={PINGER_LOG}"
+        + (f"  feed={FEED_LOG}" if args.feed else ""))
 
     # Live consolidated stats (util, frames/s, DB, and BIG-job/stranded when
     # big jobs are present) stream by default for the duration of whatever phase
