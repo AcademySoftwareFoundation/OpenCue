@@ -50,6 +50,7 @@ __all__ = ["launch",
 logger = logging.getLogger("outline.backend.rest")
 
 JOB_WAIT_PERIOD_SEC = 5
+TIMEOUT = 10
 CUEREST_GATEWAY_URL = outline.config.get("backend:rest", "cuerest_gateway_url")
 CUEREST_SESSION = None
 
@@ -71,7 +72,9 @@ def launch(launcher, use_pycuerun=True):
     spec = launcher.serialize(use_pycuerun=use_pycuerun)
     json_data = {"spec": spec}
     response = session.post(f"{CUEREST_GATEWAY_URL}/job.JobInterface/LaunchSpecAndWait",
-                            json=json_data)
+                            json=json_data,
+                            timeout=TIMEOUT)
+    response.raise_for_status()
     jobs = response.json().get("jobs", {}).get("jobs", {})
     session.close()
 
@@ -103,6 +106,7 @@ def test(job):
         session.post(
             f"{CUEREST_GATEWAY_URL}/job.JobInterface/Resume",
             json={"job": {"id": job_id, "name": job_name}},
+            timeout=TIMEOUT,
         ).raise_for_status()
 
         while True:
@@ -110,6 +114,7 @@ def test(job):
                 pending_response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/IsJobPending",
                     json={"name": job_name},
+                    timeout=TIMEOUT,
                 )
                 pending_response.raise_for_status()
                 is_pending = pending_response.json().get("value", False)
@@ -119,6 +124,7 @@ def test(job):
                 response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
                     json={"name": job_name},
+                    timeout=TIMEOUT,
                 )
                 if response.status_code == 404:
                     break
@@ -153,6 +159,7 @@ def test(job):
             session.post(
                 f"{CUEREST_GATEWAY_URL}/job.JobInterface/Kill",
                 json={"job": {"id": job_id, "name": job_name}},
+                timeout=TIMEOUT,
             )
         except Exception:
             print("Excepted error while killing job: %s" % job_name, file=sys.stderr)
@@ -174,6 +181,7 @@ def wait(job):
                 response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/IsJobPending",
                     json={"name": job_name},
+                    timeout=TIMEOUT,
                 )
                 response.raise_for_status()
                 is_pending = response.json().get("value", False)
@@ -183,6 +191,7 @@ def wait(job):
                 job_response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
                     json={"name": job_name},
+                    timeout=TIMEOUT,
                 )
                 job_response.raise_for_status()
                 job_data = job_response.json().get("job", {})
