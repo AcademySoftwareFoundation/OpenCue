@@ -742,6 +742,25 @@ def maestro_enabled(sim_mode):
     return raw.strip().lower() or "no"
 
 
+def forward_env(instance):
+    """Per-instance completion-forward relay config (the FORWARD scenario):
+    SIM_MAESTRO_FORWARD_{i} sets maestro.forward_completions_to on cuebot i,
+    with optional deadline / breaker-cooldown overrides (the ambiguity arm
+    shrinks cuebot 1's deadline below the ACK latency and its cooldown so the
+    breaker keeps probing). Empty dict when the instance does not forward."""
+    targets = os.environ.get(f"SIM_MAESTRO_FORWARD_{instance}")
+    if not targets:
+        return {}
+    env = {"MAESTRO_FORWARD_COMPLETIONS_TO": targets}
+    deadline = os.environ.get(f"SIM_MAESTRO_FORWARD_DEADLINE_{instance}")
+    if deadline:
+        env["MAESTRO_FORWARD_DEADLINE_MS"] = deadline
+    cooldown = os.environ.get(f"SIM_MAESTRO_FORWARD_COOLDOWN_{instance}")
+    if cooldown:
+        env["MAESTRO_FORWARD_BREAKER_COOLDOWN_S"] = cooldown
+    return env
+
+
 def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
                  max_grantees=8, backfill=True,
                  frame_cores_max=0):
@@ -794,6 +813,7 @@ def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
         # bf[] backfill counter updates often (override with SIM_STAT_INTERVAL_SECONDS).
         "MAESTRO_STAT_INTERVAL_SECONDS": os.environ.get("SIM_STAT_INTERVAL_SECONDS", "30"),
     })
+    env.update(forward_env(0))
     env.update(license_env())
     # Raise the per-frame core clamp (core-points) so whole-host wide jobs are
     # not capped back to 64; only when asked (0 keeps cuebot's default).
@@ -884,6 +904,7 @@ def start_extra_cuebot(instance, mode, reservations=True, block_seconds=60,
         "CUEBOT_GRPC_RQD_SERVER_PORT": str(rqd),
         "SERVER_PORT": str(web),
     })
+    env.update(forward_env(instance))
     # Same licensing DATA as instance 0, but via the script: provider flavour,
     # so a promoted standby exercises the vendor-CLI transport for real.
     env.update(license_env())
@@ -1153,6 +1174,13 @@ def start_migrate_injector(duration):
     log(f"starting MIGRATE flood (one show on Maestro, five legacy, three cuebots) "
         f"for {duration}s ...")
     spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_migrate.log")
+
+
+def start_forward_injector(duration):
+    log(f"starting FORWARD flood (MIGRATE's workload on the isolated-leader "
+        f"topology: managed cuebot off the report spread, legacy cuebots "
+        f"forward its completions) for {duration}s ...")
+    spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_forward.log")
 
 
 def start_slice_injector(duration):
@@ -1482,6 +1510,19 @@ def _verify_check(name, gdir, logp, cblog):
         sm = re.search(r"migrate: (.*)", txt)
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, (f"one show on Maestro, five on legacy: "
+                    f"{sm.group(1) if sm else 'no summary'}")
+    if name == "FORWARD":
+        # The watcher's verdict is the whole check: forwarding carried the
+        # managed show to the isolated cuebot's drain (fail-first), steady
+        # fallbacks near zero, breaker fallback + resumption around the
+        # outage, partition intact, effectively-once under the ambiguity arm.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"forward: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"completion forwarding to the isolated cuebot: "
                     f"{sm.group(1) if sm else 'no summary'}")
     if name == "PIN":
         # The watcher's verdict is the whole check: pinned layers run only on
@@ -2012,6 +2053,29 @@ def run_verify():
                      "--migrate-test", str(max(D, 180))],
          {"SIM_MAESTRO_ENABLED_2": "managed",
           "SIM_CUEBOT_GRPC_SPREAD": "localhost:8443,localhost:8453,localhost:8463"}),
+        # FORWARD: the completion-forward relay on the isolated-leader
+        # rollout topology. MIGRATE's three-cuebot infrastructure, but the
+        # managed cuebot is EXCLUDED from the report spread (the isolated
+        # pair is on an address no RQD knows) and both legacy cuebots
+        # forward the managed show's completions to it over the report gRPC
+        # (maestro.forward_completions_to), so Maestro's completion drain
+        # takes production-shaped load it would otherwise first meet at the
+        # facility flip. Cuebot 0 forwards with the default deadline (the
+        # steady arm); cuebot 1 with a 2ms deadline and 2s breaker cooldown
+        # (the ambiguity arm: timed-out-but-delivered forwards
+        # double-process, and the version-guarded stop must resolve every
+        # race). Mid-run the harness SIGKILLs the managed cuebot for one
+        # outage window and restarts it (the kill-switch arm). Fail-first:
+        # without the forwarding flag (or the feature) the forwarded and
+        # drained counts are zero and the scenario fails.
+        ("FORWARD", ["--hosts", "3,4,10", "--mode", "old", "--cuebots", "3",
+                     "--forward-test", str(max(D, 300))],
+         {"SIM_MAESTRO_ENABLED_2": "managed",
+          "SIM_CUEBOT_GRPC_SPREAD": "localhost:8443,localhost:8453",
+          "SIM_MAESTRO_FORWARD_0": "localhost:8463",
+          "SIM_MAESTRO_FORWARD_1": "localhost:8463",
+          "SIM_MAESTRO_FORWARD_DEADLINE_1": "2",
+          "SIM_MAESTRO_FORWARD_COOLDOWN_1": "2"}),
         # LOCALITY: the same-layer locality bonus must steer refills, measured
         # on the FULL farm (1553 hosts, all three host classes) under the
         # standard sustained feed -- the realistic regime, like OOM and
@@ -2295,6 +2359,17 @@ def main():
                          "legacy, all flooded. Assert that neither dispatcher books the "
                          "other's show, both make progress, no released proc is left "
                          "behind and no frame launches twice.")
+    ap.add_argument("--forward-test", type=int, default=0, metavar="SECS",
+                    help="FORWARD test: MIGRATE's three-cuebot spread on the "
+                         "isolated-leader topology -- the managed cuebot is excluded "
+                         "from the report spread (SIM_CUEBOT_GRPC_SPREAD lists only "
+                         "cuebots 0 and 1) and both legacy cuebots forward the managed "
+                         "show's completions to it (SIM_MAESTRO_FORWARD_0/1). Cuebot 1 "
+                         "forwards with a tiny deadline (the ambiguity arm); mid-run the "
+                         "managed cuebot is SIGKILLed for one outage window and "
+                         "restarted (the kill-switch arm). Assert forwarding carries "
+                         "the show (fail-first), the drain files it, fallback + "
+                         "resumption around the outage, partition, effectively-once.")
     ap.add_argument("--pin-test", type=int, default=0, metavar="SECS",
                     help="PIN test: five layers pinned to machine lists (host-name tags) "
                          "against a general flood. Assert that pinned frames run only on "
@@ -2360,7 +2435,7 @@ def main():
                          "procs whose layer already ran somewhere, the fraction "
                          "landing on a host already running that layer. Needs a "
                          "churning farm: pair with --feed. PASS gate "
-                         "SIM_LOCALITY_MIN_HIT (default 0.15; calibrated ON~29% vs OFF~1.3% full-farm); disable the bonus "
+                         "SIM_LOCALITY_MIN_HIT (default 0.15; calibrated ON~29%% vs OFF~1.3%% full-farm); disable the bonus "
                          "for a control run with SIM_LOCALITY_ENABLED=false.")
     ap.add_argument("--depend-test", type=int, default=0, metavar="SECS",
                     help="DEPENDS test: with the feeder's dependency trees, assert "
@@ -2514,6 +2589,10 @@ def main():
         os.environ.setdefault("SIM_CUEBOT_GRPC_FALLBACKS",
                               f"localhost:{GRPC_PORT + 10}")
 
+    if args.forward_test and args.cuebots < 3:
+        sys.exit("--forward-test needs --cuebots >= 3 (two legacy forwarders and "
+                 "the isolated managed cuebot)")
+
     # Heartbeat default is mode-aware (see --heartbeat-interval): only NEW needs
     # the slow 5s rate, because its cuebot books AND processes reports, so a 0.1s
     # flood (1553 hosts x ~10/s) overruns the report handler and stalls it. OLD
@@ -2579,7 +2658,7 @@ def main():
     # force the flag OFF so a leftover true can't make cuebot's legacy dispatch
     # skip the show (migration V45 filters b_scheduler_managed=false).
     set_scheduler_managed(maestro_enabled(args.mode) == "managed")
-    if args.migrate_test:
+    if args.migrate_test or args.forward_test:
         set_show_managed(os.environ.get("SIM_MIGRATE_SHOW", "showA"))
     ensure_cuebot_built()
     # LICENSE test: the license server must be answering BEFORE cuebot's first
@@ -2641,6 +2720,8 @@ def main():
         start_pin_injector(args.pin_test)
     if args.migrate_test:
         start_migrate_injector(args.migrate_test)
+    if args.forward_test:
+        start_forward_injector(args.forward_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
     if args.slice_test:
@@ -2669,6 +2750,7 @@ def main():
              or args.capdrop_test or args.prodenv_test or args.layercap_test
              or args.layercap_solo_test or args.solofill_test or args.pin_test
              or args.health_test or args.strandgrow_test or args.migrate_test
+             or args.forward_test
              or args.slice_test
              or args.completionstorm_test
              or args.doublerender_test
@@ -2716,6 +2798,45 @@ def main():
             f"for {args.migrate_test}s ...")
         subprocess.run([VENV_PY, "migrate_watch.py", str(args.migrate_test), "3",
                         RQD_LOG, "http://localhost:8082/metrics"], cwd=FARM)
+    elif args.forward_test:
+        # FORWARD: the watcher observes; this harness runs the kill-switch arm
+        # (SIGKILL the managed cuebot mid-run, restart it after one outage
+        # window) from a side thread, the FAILOVER pattern with a recovery.
+        D = args.forward_test
+        # Kill at 40% so the run keeps a full resume window after the
+        # outage plus the restarted cuebot's startup time.
+        kill_at = int(D * 0.4)
+        outage = int(os.environ.get("SIM_FORWARD_OUTAGE_S", "60"))
+
+        def _forward_killswitch():
+            time.sleep(kill_at)
+            try:
+                pid = int(open("/tmp/sim-cuebot-2.pid").read().strip())
+                os.kill(pid, signal.SIGKILL)
+                log(f"[forward] KILLED managed cuebot (instance 2, pid {pid}); "
+                    f"restart in {outage}s -- fallback + breaker window")
+            except Exception as e:
+                log(f"[forward] could not kill managed cuebot: {e}")
+                return
+            time.sleep(outage)
+            log("[forward] restarting managed cuebot (instance 2) ...")
+            try:
+                start_extra_cuebot(2, args.mode, reservations,
+                                   args.reservation_block_seconds,
+                                   args.reservation_max_fraction,
+                                   args.reservation_max_grantees, args.backfill,
+                                   frame_cores_max=frame_cores_max)
+            except SystemExit as e:
+                log(f"[forward] managed cuebot restart failed: {e}")
+
+        import threading
+        killer = threading.Thread(target=_forward_killswitch, daemon=True)
+        killer.start()
+        log(f"watching FORWARD (isolated managed cuebot fed by completion "
+            f"forwarding; kill-switch at t={kill_at}s for {outage}s) for {D}s ...")
+        subprocess.run([VENV_PY, "forward_watch.py", str(D), "3", RQD_LOG,
+                        str(kill_at), str(outage)], cwd=FARM)
+        killer.join(timeout=30)
     elif args.pin_test:
         log(f"watching PIN (pinned layers run only on their hosts) for {args.pin_test}s ...")
         subprocess.run([VENV_PY, "pin_watch.py", str(args.pin_test), "3",

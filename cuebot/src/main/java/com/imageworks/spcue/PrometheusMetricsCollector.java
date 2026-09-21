@@ -149,6 +149,14 @@ public class PrometheusMetricsCollector {
                     + "the reported frame (the run was superseded)")
             .labelNames("env", "cuebot_host", "reason").register();
 
+    private static final Counter completionForwardCounter = Counter.build()
+            .name("cue_completion_forward_total")
+            .help("Managed-show frame complete reports offered to the Maestro completion-forward "
+                    + "relay: forwarded (ACKed by the isolated deployment), fallback_error "
+                    + "(forward failed, processed locally), fallback_breaker (breaker open, "
+                    + "processed locally without a forward attempt)")
+            .labelNames("env", "cuebot_host", "outcome").register();
+
     private static final Counter frameCompleteDroppedCounter =
             Counter.build().name("cue_frame_complete_dropped_total")
                     .help("Frame complete reports that could not be applied to their frame; "
@@ -473,6 +481,17 @@ public class PrometheusMetricsCollector {
      */
     public void incrementFrameCompleteSuperseded(String reason) {
         frameCompleteSupersededCounter.labels(this.deployment_environment, this.cuebot_host, reason)
+                .inc();
+    }
+
+    /**
+     * Increment cue_completion_forward_total metric
+     *
+     * @param outcome what became of the managed-show report: "forwarded", "fallback_error" or
+     *        "fallback_breaker"
+     */
+    public void incrementCompletionForward(String outcome) {
+        completionForwardCounter.labels(this.deployment_environment, this.cuebot_host, outcome)
                 .inc();
     }
 

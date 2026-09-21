@@ -120,6 +120,7 @@ public class FrameCompleteHandler {
     private LayerDao layerDao;
     private Environment env;
     private KafkaEventPublisher kafkaEventPublisher;
+    private MaestroCompletionForwarder completionForwarder;
     private MonitoringEventBuilder monitoringEventBuilder;
     private PrometheusMetricsCollector prometheusMetrics;
 
@@ -257,11 +258,23 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        // Who files this report. Mode off: legacy, on this thread. Facility
-        // mode: Maestro owns every show, nothing is read here. Managed mode:
-        // the proc's show flag decides, read once and handed to the resolve.
+        // Who files this report. Mode off: legacy, on this thread -- unless the
+        // completion-forward relay hands a managed show's report to the
+        // isolated Maestro deployment (gating the hook on mode-off means the
+        // leader can never forward to itself, loop protection by
+        // construction). Facility mode: Maestro owns every show, nothing is
+        // read here. Managed mode: the proc's show flag decides, read once
+        // and handed to the resolve.
         if (!MaestroMode.enabled(env)) {
-            processReportNow(report);
+            if (completionForwarder == null) {
+                processReportNow(report);
+                return;
+            }
+            MaestroCompletionForwarder.Outcome outcome =
+                    completionForwarder.forwardIfManaged(report);
+            if (!outcome.forwarded()) {
+                processReportNow(report, outcome.proc());
+            }
             return;
         }
         if (MaestroMode.facility(env)) {
@@ -629,13 +642,25 @@ public class FrameCompleteHandler {
      * out as release.
      */
     public void processReportNow(final FrameCompleteReport report) {
+        processReportNow(report, null);
+    }
+
+    /**
+     * As above, with the report's proc already read by the caller (the completion-forward relay
+     * reads it to learn the show); null reads it here.
+     */
+    public void processReportNow(final FrameCompleteReport report, final VirtualProc knownProc) {
         try {
             final VirtualProc proc;
-            try {
-                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
-            } catch (EmptyResultDataAccessException e) {
-                finalizeOrphanedFrameComplete(report);
-                return;
+            if (knownProc != null) {
+                proc = knownProc;
+            } else {
+                try {
+                    proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+                } catch (EmptyResultDataAccessException e) {
+                    finalizeOrphanedFrameComplete(report);
+                    return;
+                }
             }
 
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() + "_"
@@ -1801,6 +1826,14 @@ public class FrameCompleteHandler {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public MaestroCompletionForwarder getCompletionForwarder() {
+        return completionForwarder;
+    }
+
+    public void setCompletionForwarder(MaestroCompletionForwarder completionForwarder) {
+        this.completionForwarder = completionForwarder;
     }
 
     public LayerDao getLayerDao() {
