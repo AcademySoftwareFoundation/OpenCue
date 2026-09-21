@@ -91,7 +91,7 @@ Make sure you also complete the following steps:
 To build and run the Rust RQD Docker image from source:
 
 ```shell
-docker build -t opencue/rqd -f rust/Dockerfile.rqd rust/
+docker build -t opencue/rqd -f rust/Dockerfile.rqd .
 docker run -td --name rqd01 --env OPENRQD__GRPC__CUEBOT_ENDPOINTS=${CUEBOT_HOSTNAME}:8443 --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
 ```
 
@@ -171,7 +171,7 @@ started up:
 
 ## Alternative: Rust RQD
 
-OpenCue now offers a high-performance Rust implementation of RQD with improved resource efficiency and experimental features. For more information, see [Rust RQD Reference](/OpenCue/docs/reference/rust-rqd).
+OpenCue now offers a high-performance Rust implementation of RQD with improved resource efficiency and experimental features. For more information, see [Rust RQD Reference](/docs/reference/rust-rqd).
 
 ## What's next?
 
