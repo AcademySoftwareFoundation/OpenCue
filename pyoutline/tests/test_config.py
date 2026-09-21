@@ -134,6 +134,24 @@ class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual('1.9', config.get('outline', 'spec_version'))
         self.assertEqual('cloud', config.get('outline', 'facility'))
 
+    def test__should_override_options_with_env_vars(self):
+        config_file_path = '/path/to/outline.cfg'
+        self.fs.create_file(config_file_path, contents=USER_CONFIG)
+        os.environ['OUTLINE_CONFIG_FILE'] = config_file_path
+
+        os.environ['OUTLINE_OUTLINE_FACILITY'] = 'custom_facility'
+        os.environ['OUTLINE_OUTLINE_SPEC_VERSION'] = '2.0'
+        os.environ['OUTLINE_PLUGIN_LOCAL_ENABLE'] = '0'
+
+        try:
+            config = read_config_from_disk()
+            self.assertEqual('custom_facility', config.get('outline', 'facility'))
+            self.assertEqual('2.0', config.get('outline', 'spec_version'))
+            self.assertEqual('0', config.get('plugin:local', 'enable'))
+        finally:
+            del os.environ['OUTLINE_OUTLINE_FACILITY']
+            del os.environ['OUTLINE_OUTLINE_SPEC_VERSION']
+            del os.environ['OUTLINE_PLUGIN_LOCAL_ENABLE']
 
 if __name__ == '__main__':
     unittest.main()
