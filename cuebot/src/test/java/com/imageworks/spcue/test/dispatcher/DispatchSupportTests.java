@@ -327,6 +327,35 @@ public class DispatchSupportTests extends TransactionalTest {
         }
     }
 
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void aBumpedFrameThatCannotFitCostsOnlyItself() {
+        // A layer's frames are uniform except for a per-frame OOM bump. When
+        // only the bump no longer fits the host, the bumped frame is skipped
+        // and the rest of the slice the planner accounted is still delivered;
+        // the old break abandoned the whole tail.
+        DispatchFrame bumped = frame("0002-pass_1");
+        long bump = getHost().idleMemory * 2;
+        OomMemoryTracker.INSTANCE.onOom(bumped.getFrameId(), bumped.getLayerId(), bump, 1000);
+        try {
+            LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
+            List<FrameBooking> plan = dispatcher.planHost(getHost(), layer, 0, 0, 0, 10);
+            boolean sawBumped = false;
+            boolean sawLater = false;
+            for (FrameBooking b : plan) {
+                if (b.frame.getFrameId().equals(bumped.getFrameId()))
+                    sawBumped = true;
+                if (b.frame.getName().compareTo("0002-pass_1") > 0)
+                    sawLater = true;
+            }
+            assertFalse("the un-fittable bumped frame is not in the plan", sawBumped);
+            assertTrue("the slice continues past the bumped frame", sawLater);
+        } finally {
+            OomMemoryTracker.INSTANCE.onSuccess(bumped.getFrameId());
+        }
+    }
+
     // ---- the batch stop ---------------------------------------------------
 
     private QueuedFrameCompletion completionOf(DispatchFrame frame, VirtualProc proc) {

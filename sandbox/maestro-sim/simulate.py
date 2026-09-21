@@ -1292,7 +1292,10 @@ def _verdict_state(txt):
     """A watcher's verdict as the battery's three states: True for PASS, None for
     INCONCLUSIVE (the run measured nothing: the storm never took hold, the
     fill never reached the mark), False otherwise. INCONCLUSIVE is reported
-    as such and does not fail the battery; a FAIL against the invariant does."""
+    under its own label so the cause is visible, but it does NOT pass the
+    battery: a run that measured nothing certified nothing, and "too few
+    completions" is itself a symptom of the regressions these scenarios
+    exist to catch. One rule for every watcher: only PASS passes."""
     if re.search(r"(?m)^PASS:", txt):
         return True
     if re.search(r"(?m)^INCONCLUSIVE:", txt):
@@ -2101,10 +2104,13 @@ def run_verify():
     if failed:
         print("\nSOME FAILED")
     elif inconclusive:
-        print(f"\nALL PASS ({inconclusive} INCONCLUSIVE)")
+        # An inconclusive run measured nothing, so it certified nothing; it
+        # fails the battery like a FAIL, under its own label for diagnosis.
+        print(f"\nSOME INCONCLUSIVE ({inconclusive}): a run that measured "
+              "nothing certified nothing")
     else:
         print("\nALL PASS")
-    return 0 if failed == 0 else 1
+    return 0 if failed == 0 and inconclusive == 0 else 1
 
 
 def main():

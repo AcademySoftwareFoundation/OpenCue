@@ -406,6 +406,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             // at that size here, so the commit's capacity gate sees the sum
             // the plan reserved and never drops the host for a bump it did
             // not know about.
+            long baseMemKb = frame.getMinMemory();
             long bump = OomMemoryTracker.INSTANCE.frameBumpKb(frame.getFrameId());
             if (bump > frame.getMinMemory()) {
                 frame.setMinMemory(bump);
@@ -429,8 +430,17 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores)
-                    || host.idleMemory < frame.getMinMemory() || host.idleGpus < frame.minGpus
-                    || host.idleGpuMemory < frame.minGpuMemory) {
+                    || host.idleGpus < frame.minGpus || host.idleGpuMemory < frame.minGpuMemory) {
+                break;
+            }
+            if (host.idleMemory < frame.getMinMemory()) {
+                // A layer's frames are uniform except for a per-frame OOM bump.
+                // When only the bump fails to fit, the bumped frame costs
+                // itself and waits for a roomier host; the rest of the slice
+                // the planner accounted is still delivered.
+                if (host.idleMemory >= baseMemKb) {
+                    continue;
+                }
                 break;
             }
 

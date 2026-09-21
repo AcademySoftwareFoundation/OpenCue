@@ -131,6 +131,9 @@ public class Maestro extends JdbcDaoSupport {
     static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
     // consumed by launchOne()
     static final long LAUNCH_MAX_AGE_MS = ProcDao.ORPHAN_AGE_SECONDS * 1000L / 2;
+    // Consecutive failed liveness probes before leaderAlive() gives the lock up. A single
+    // isValid(1) timeout on a loaded server must not demote a leader that still holds the lock.
+    static final int LEADER_PROBE_STRIKES = 2;
     private volatile long memPerCoreKb = 0;
 
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
@@ -202,6 +205,8 @@ public class Maestro extends JdbcDaoSupport {
     private volatile Connection leaderConn = null;
     // consumed by ensureLeadership() and leaderAlive()
     private volatile boolean shuttingDown = false;
+    // Consecutive leaderAlive() probe misses; tick thread only. See LEADER_PROBE_STRIKES.
+    private int leaderProbeMisses = 0;
 
     // Live host reservations, persistent across ticks: host id -> claiming (layer, priority).
     // Maestro-thread only (single-writer); empty after failover. See maestro.md for the model.
@@ -1900,17 +1905,42 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * Whether this cuebot still holds the planning lock: the lock connection is alive and no
-     * shutdown is under way. One isValid(1) per chunk: a probe that times out on a loaded server
-     * demotes a leader that still held the lock, the chosen side, since one takeover and a rebuilt
-     * planner memory cost less than a chunk committed without the lock.
+     * shutdown is under way. A closed connection is a definite loss (the session, and with it the
+     * advisory lock, is gone) and demotes at once. A failed isValid(1) probe is ambiguous -- a dead
+     * server or merely a loaded one -- so a single miss is tolerated and only LEADER_PROBE_STRIKES
+     * consecutive misses demote: one blip must not cost every live reservation and all cache
+     * warmth, while a truly dead session at worst commits one more chunk, whose frame-version
+     * guards fence it against the next leader.
      */
     private boolean leaderAlive() {
-        Connection held = leaderConn;
-        try {
-            return !shuttingDown && held != null && held.isValid(1);
-        } catch (SQLException e) {
+        if (shuttingDown) {
             return false;
         }
+        Connection held = leaderConn;
+        if (held == null) {
+            return false;
+        }
+        boolean ok;
+        try {
+            if (held.isClosed()) {
+                leaderProbeMisses = 0;
+                return false;
+            }
+            ok = held.isValid(1);
+        } catch (SQLException e) {
+            ok = false;
+        }
+        if (ok) {
+            leaderProbeMisses = 0;
+            return true;
+        }
+        if (++leaderProbeMisses < LEADER_PROBE_STRIKES) {
+            logger.warn("Maestro: leadership probe miss " + leaderProbeMisses + " of "
+                    + LEADER_PROBE_STRIKES + "; keeping the lock");
+            return true;
+        }
+        leaderProbeMisses = 0;
+        return false;
     }
 
     /**

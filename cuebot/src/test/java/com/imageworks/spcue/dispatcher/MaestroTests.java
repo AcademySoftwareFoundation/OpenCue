@@ -873,6 +873,9 @@ public class MaestroTests {
     @Test
     public void aLeaderThatLostTheLockCommitsNoFurtherChunk() throws Exception {
         Connection lost = mock(Connection.class);
+        // A closed connection is a definite loss: the session, and with it the
+        // advisory lock, is gone. No probe tolerance applies.
+        when(lost.isClosed()).thenReturn(true);
         when(lost.isValid(anyInt())).thenReturn(false);
         when(lost.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
         Maestro s = schedulerWithLeaderConn(lost);
@@ -983,6 +986,9 @@ public class MaestroTests {
     @SuppressWarnings("unchecked")
     public void aLockLostBetweenChunksStopsAtTheBoundaryAndDemotes() throws Exception {
         Connection conn = mock(Connection.class);
+        // The connection closes between the chunks: a definite loss, which
+        // demotes at the next boundary with no probe tolerance.
+        when(conn.isClosed()).thenReturn(false, true);
         when(conn.isValid(anyInt())).thenReturn(true, false);
         when(conn.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
         Maestro s = schedulerWithLeaderConn(conn);
@@ -1001,6 +1007,43 @@ public class MaestroTests {
         verify(support, times(1)).startFramesAndProcsBatch(chunk.capture());
         assertEquals("the first chunk, whole, before the lock went", 502, chunk.getValue().size());
         assertTrue("the memory went with the lock", map(s, "reservations").isEmpty());
+    }
+
+    @Test
+    public void aSingleProbeMissKeepsTheLockAndTheMemory() throws Exception {
+        // isValid times out once on a loaded server, then recovers. One blip
+        // must not cost the leadership and every live reservation.
+        Connection conn = mock(Connection.class);
+        when(conn.isValid(anyInt())).thenReturn(false, true);
+        Maestro s = schedulerWithLeaderConn(conn);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        map(s, "reservations").put("mine", null);
+        List<FrameBooking> planned = new ArrayList<>();
+        for (int i = 0; i < 500; i++)
+            planned.add(bookingOn("a"));
+        planned.add(bookingOn("b"));
+        s.commitInChunks(planned);
+        verify(support, times(2)).startFramesAndProcsBatch(any());
+        assertEquals("one miss keeps the planner's memory", 1, map(s, "reservations").size());
+    }
+
+    @Test
+    public void twoConsecutiveProbeMissesDemote() throws Exception {
+        Connection conn = mock(Connection.class);
+        when(conn.isValid(anyInt())).thenReturn(false, false);
+        when(conn.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        Maestro s = schedulerWithLeaderConn(conn);
+        DispatchSupport support = mock(DispatchSupport.class);
+        s.setDispatchSupport(support);
+        map(s, "reservations").put("stale", null);
+        List<FrameBooking> planned = new ArrayList<>();
+        for (int i = 0; i < 500; i++)
+            planned.add(bookingOn("a"));
+        planned.add(bookingOn("b"));
+        s.commitInChunks(planned);
+        verify(support, times(1)).startFramesAndProcsBatch(any());
+        assertTrue("the second consecutive miss demotes", map(s, "reservations").isEmpty());
     }
 
     @Test

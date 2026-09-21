@@ -47,6 +47,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -522,6 +523,28 @@ public class FrameCompleteHandlerOwnershipTests {
 
         verify(jobManager, times(1)).increaseLayerMemoryRequirement(eq(frame), anyLong());
         verify(jobManager, times(1)).enableMemoryOptimizer(frame, false);
+        assertEquals(0L, OomMemoryTracker.INSTANCE.frameBumpKb(FRAME_ID));
+    }
+
+    /**
+     * A legacy cuebot (maestro.enabled=no) receiving the OOM of a Maestro-owned show, the mixed
+     * MIGRATE topology: the per-frame bump lives in the dispatching cuebot's tracker so it cannot
+     * apply here, and the DB layer raise is the one lever that reaches the Maestro dispatcher --
+     * but the optimizer stays ON, so Maestro can settle the layer back to its true size. Before the
+     * fix the mode switch alone chose the full legacy policy and disabled the optimizer on a show
+     * it does not dispatch.
+     */
+    @Test
+    public void managedShowOomOnALegacyCuebotRaisesTheLayerButKeepsTheOptimizer() {
+        wire("no");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        DispatchFrame frame = wireRunningFrame();
+        report = report.toBuilder().setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(jobManager, times(1)).increaseLayerMemoryRequirement(eq(frame), anyLong());
+        verify(jobManager, never()).enableMemoryOptimizer(any(), anyBoolean());
         assertEquals(0L, OomMemoryTracker.INSTANCE.frameBumpKb(FRAME_ID));
     }
 

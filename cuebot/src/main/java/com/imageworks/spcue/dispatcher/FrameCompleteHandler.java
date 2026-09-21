@@ -999,9 +999,12 @@ public class FrameCompleteHandler {
      * The legacy dispatcher raises the whole LAYER and disables its optimizer (the original
      * behavior, kept unchanged). The in-process Maestro instead bumps per FRAME so one hungry or
      * spuriously-killed frame does not inflate every other frame and strand cores, escalating to
-     * the layer only after repeated OOMs in a row (see OomMemoryTracker). The policy follows the
-     * show's owner, not the mode switch: only Maestro's launch applies the per-frame bump, so a
-     * legacy show on a managed-mode cuebot keeps the layer raise its dispatcher reads.
+     * the layer only after repeated OOMs in a row (see OomMemoryTracker). The per-frame bump only
+     * works on the cuebot that dispatches the show (the tracker is in-process), so a Maestro-owned
+     * frame whose report lands on a legacy cuebot in a mixed fleet still gets the DB-visible layer
+     * raise -- the one lever that reaches the Maestro dispatcher -- but keeps its optimizer ON:
+     * disabling it belongs to the legacy policy, and would stop Maestro from settling the layer
+     * back to its true size. A legacy show keeps the original treatment everywhere.
      */
     private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
         long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
@@ -1020,7 +1023,9 @@ public class FrameCompleteHandler {
             }
             return;
         }
-        jobManager.enableMemoryOptimizer(frame, false);
+        if (!showDao.isSchedulerManaged(proc.getShowId())) {
+            jobManager.enableMemoryOptimizer(frame, false);
+        }
         jobManager.increaseLayerMemoryRequirement(frame, newReserved);
         logger.info("Increased mem usage to: " + newReserved);
     }
