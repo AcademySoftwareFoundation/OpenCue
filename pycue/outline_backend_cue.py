@@ -43,7 +43,7 @@ __all__ = ["launch",
            "serialize",
            "serialize_simple"]
 
-logger = logging.getLogger("outline.backend.cue")
+logger = logging.getLogger("outline_backend_cue")
 
 JOB_WAIT_PERIOD_SEC = 5
 

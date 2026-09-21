@@ -47,7 +47,7 @@ __all__ = ["launch",
            "serialize",
            "serialize_simple"]
 
-logger = logging.getLogger("outline.backend.rest")
+logger = logging.getLogger("outline_backend_rest")
 
 JOB_WAIT_PERIOD_SEC = 5
 TIMEOUT = 10
@@ -173,24 +173,14 @@ def wait(job):
     :type job: dict
     :param job: The job data dictionary to wait on.
     """
-    job_name = job.get("name") if isinstance(job, dict) else job.data.name
+    job_id = job.get("id") if isinstance(job, dict) else job.data.id
     session = _get_restgateway_session()
     try:
         while True:
             try:
-                response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/IsJobPending",
-                    json={"name": job_name},
-                    timeout=TIMEOUT,
-                )
-                response.raise_for_status()
-                is_pending = response.json().get("value", False)
-                if not is_pending:
-                    break
-
                 job_response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
-                    json={"name": job_name},
+                    json={"id": job_id},
                     timeout=TIMEOUT,
                 )
                 job_response.raise_for_status()
@@ -199,14 +189,14 @@ def wait(job):
 
                 logger.debug(
                     "waiting on %s job to complete: %d/%d",
-                    job_name,
+                    job_id,
                     stats.get("succeeded_frames", 0),
                     stats.get("total_frames", 0),
                 )
             except requests.RequestException as ie:
                 print(
                     "opencue error waiting on job: %s, %s. Will continue to wait."
-                    % (job_name, ie),
+                    % (job_id, ie),
                     file=sys.stderr,
                 )
             time.sleep(JOB_WAIT_PERIOD_SEC)
