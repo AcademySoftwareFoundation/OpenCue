@@ -94,7 +94,7 @@ def test(job):
     try:
         while True:
             try:
-                job = opencue.api.getJob(job.name())
+                job = opencue.api.getJob(job.id())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     raise outline.exception.OutlineException(
                         "Job test failed, dead or eaten frames on: %s" % job.data.name)
