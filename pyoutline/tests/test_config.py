@@ -134,6 +134,7 @@ class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual('1.9', config.get('outline', 'spec_version'))
         self.assertEqual('cloud', config.get('outline', 'facility'))
 
+    @mock.patch.dict(os.environ)
     def test__should_override_options_with_env_vars(self):
         config_file_path = '/path/to/outline.cfg'
         self.fs.create_file(config_file_path, contents=USER_CONFIG)
