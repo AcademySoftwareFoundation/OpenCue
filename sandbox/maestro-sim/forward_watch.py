@@ -43,10 +43,11 @@ INCONCLUSIVE: the farm never filled, or the metrics never answered.
 
 usage: forward_watch.py [duration_s] [interval_s] [fake_rqd log] [kill_at_s] [outage_s]
 """
-import os, re, subprocess, sys, time, urllib.request
+import os, re, sys, time, urllib.request
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
-import farm_spec as spec
+import migrate_common as mc
+from migrate_common import counts_by_show, strays, util, parse_show_counter
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 300
 INTERVAL = float(sys.argv[2]) if len(sys.argv) > 2 else 3.0
@@ -56,7 +57,6 @@ OUTAGE = int(sys.argv[5]) if len(sys.argv) > 5 else 60
 
 MANAGED = os.environ.get("SIM_MIGRATE_SHOW", "showA")
 LEGACY = [s for s in ("sim", "showA", "showB", "showC", "showD", "showE") if s != MANAGED]
-TOKEN = "simmigrate"
 METRICS = {i: f"http://localhost:{8080 + i}/metrics" for i in range(3)}
 CUEBOT2_LOG = os.environ.get("SIM_CUEBOT_LOG", "/tmp/cuebot-old.log").replace(
     ".log", "-2.log")
@@ -68,54 +68,16 @@ CRASH_GRACE_S = 120.0
 MIN_UTIL = 85.0
 MIN_DONE_MANAGED = 100
 MIN_DONE_EACH = 20
-MIN_FORWARDED = 100
-MIN_DRAINED = 50
+# forwarded accrues only from cuebot 0's ~half of the report spread (cuebot
+# 1's tiny-deadline forwards fail by design) minus the outage and breaker
+# windows, so its floor sits well below MIN_DONE_MANAGED; with the feature
+# off it is exactly 0 (fail-first). drained undercounts forwarded (stat
+# windows, restart truncation, ACKed-but-lost at the kill), so lower again.
+MIN_FORWARDED = 30
+MIN_DRAINED = 20
 MIN_DONE_OUTAGE = 20
 MIN_AMBIG_ATTEMPTS = 10
 STEADY_FALLBACK_TOL = 20
-PSQL = spec.psql_cmd()
-
-
-def q(sql):
-    try:
-        return subprocess.run(PSQL + ["-c", sql], capture_output=True, text=True,
-                              timeout=15).stdout.strip().splitlines()
-    except Exception:
-        return []
-
-
-def counts_by_show():
-    """{show: [running, succeeded, dead, waiting]} for the flood jobs."""
-    out = {}
-    for r in q("SELECT s.str_name,"
-               " sum(CASE WHEN f.str_state='RUNNING' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='SUCCEEDED' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='DEAD' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='WAITING' THEN 1 ELSE 0 END)"
-               " FROM frame f JOIN job j ON j.pk_job=f.pk_job"
-               " JOIN show s ON s.pk_show=j.pk_show"
-               f" WHERE j.str_name LIKE '%{TOKEN}%' GROUP BY s.str_name;"):
-        name, running, done, dead, wait = r.split("|")
-        out[name] = [int(running), int(done), int(dead), int(wait)]
-    return out
-
-
-def strays():
-    """Run identities out of step: procs whose frame is gone or not RUNNING,
-    and RUNNING flood frames without a proc."""
-    procs = q("SELECT p.pk_proc FROM proc p LEFT JOIN frame f ON f.pk_frame=p.pk_frame"
-              " WHERE f.pk_frame IS NULL OR f.str_state<>'RUNNING';")
-    frames = q("SELECT f.pk_frame FROM frame f JOIN job j ON j.pk_job=f.pk_job"
-               " LEFT JOIN proc p ON p.pk_frame=f.pk_frame"
-               f" WHERE j.str_name LIKE '%{TOKEN}%' AND f.str_state='RUNNING'"
-               " AND p.pk_proc IS NULL;")
-    return set(procs) | set(frames)
-
-
-def util():
-    rows = q("SELECT round(100.0 * sum(int_cores - int_cores_idle) / sum(int_cores), 1)"
-             " FROM host;")
-    return float(rows[0]) if rows and rows[0].strip() else 0.0
 
 
 def metrics_text(instance):
@@ -131,17 +93,6 @@ def forward_counts(body):
     if body:
         for m in re.finditer(
                 r'cue_completion_forward_total\{[^}]*outcome="([^"]+)"[^}]*\}\s+([0-9.eE+]+)',
-                body):
-            out[m.group(1)] = out.get(m.group(1), 0) + int(float(m.group(2)))
-    return out
-
-
-def maestro_booked(body):
-    """{show: frames} from Maestro's dispatch counter; {} while it is not up."""
-    out = {}
-    if body:
-        for m in re.finditer(
-                r'cue_maestro_frames_dispatched_total\{[^}]*show="([^"]+)"[^}]*\}\s+([0-9.eE+]+)',
                 body):
             out[m.group(1)] = out.get(m.group(1), 0) + int(float(m.group(2)))
     return out
@@ -193,15 +144,6 @@ class DrainTail:
         return self.total
 
 
-def double_launches():
-    if not RQD_LOG:
-        return 0
-    try:
-        return sum(1 for l in open(RQD_LOG, errors="ignore") if "DOUBLE LAUNCH" in l)
-    except Exception:
-        return 0
-
-
 def main():
     print(f"watching FORWARD for {DURATION}s: {MANAGED} managed on the isolated cuebot 2 "
           f"(no RQD reports it), legacy cuebots 0 and 1 forward its completions there "
@@ -218,7 +160,7 @@ def main():
     orphans = 0
     crash_strays = 0
     metrics_seen = False
-    dbl0 = double_launches()
+    dbl0 = mc.double_launches(RQD_LOG)
 
     # Phase snapshots (filled as the run crosses its marks). The resume
     # snapshot is taken at the first sample where the restarted managed
@@ -226,8 +168,18 @@ def main():
     # from actual readiness, not a guessed startup time.
     steady = None          # (fwd0, managed_done) last sample before the kill mark
     resume_snap = None     # (fwd0, managed_done) once cuebot 2 is back
+    resume_t = None        # watcher time of that sample
     kill_end = KILL_AT + OUTAGE if KILL_AT else 0
     grace_end = kill_end + CRASH_GRACE_S if KILL_AT else 0
+    # The legacy cuebots never restart, so their last successfully scraped
+    # counters are exact; one transient scrape failure must not zero a phase
+    # snapshot or the final verdict.
+    f0_last, f1_last = {}, {}
+    # Largest managed-show dispatch burst between two samples: the partition
+    # check's tolerance for frames Maestro dispatched between the last scrape
+    # of its counter and the SIGKILL (states the DB sees, the counter cannot).
+    booked_prev = 0
+    booked_delta_max = 0
 
     while time.time() - t0 < DURATION:
         t = time.time() - t0
@@ -236,18 +188,30 @@ def main():
         c = counts_by_show()
         m = c.get(MANAGED, [0, 0, 0, 0])
         leg_done = sum(c[s][1] for s in LEGACY if s in c)
-        f0 = forward_counts(metrics_text(0))
-        f1 = forward_counts(metrics_text(1))
+        b0, b1 = metrics_text(0), metrics_text(1)
+        if b0 is not None:
+            f0_last = forward_counts(b0)
+        if b1 is not None:
+            f1_last = forward_counts(b1)
+        f0, f1 = f0_last, f1_last
         m2 = metrics_text(2)
         if m2 is not None:
             metrics_seen = True
-            booked.sample(maestro_booked(m2))
+            booked.sample(parse_show_counter(m2, "cue_maestro_frames_dispatched_total"))
+            cur_booked = booked.total(MANAGED)
+            booked_delta_max = max(booked_delta_max, cur_booked - booked_prev)
+            booked_prev = cur_booked
         drained = drain.poll()
 
         now = time.time()
         cur = strays()
         first_seen = {k: first_seen.get(k, now) for k in cur}
-        in_crash_window = lambda seen: KILL_AT and KILL_AT - 10 <= seen - t0 <= grace_end
+        # The exemption ends shortly after the restarted cuebot actually
+        # answers again, so the post-restart half of the run (including the
+        # ambiguity races) is judged; the fixed grace is only the bound while
+        # the restart is still pending.
+        crash_end = (resume_t + 30) if resume_t is not None else grace_end
+        in_crash_window = lambda seen: KILL_AT and KILL_AT - 10 <= seen - t0 <= crash_end
         aged = sum(1 for seen in first_seen.values()
                    if now - seen > ORPHAN_AGE_S and not in_crash_window(seen))
         crash_strays = max(crash_strays, sum(1 for seen in first_seen.values()
@@ -262,6 +226,7 @@ def main():
             steady = (dict(f0), m[1])
         if KILL_AT and resume_snap is None and t > kill_end and m2 is not None:
             resume_snap = (dict(f0), m[1])
+            resume_t = t
 
         print(f"t={t:5.0f} | util {u:5.1f}% | {MANAGED}: run {m[0]:4d} done {m[1]:5d} "
               f"booked {booked.total(MANAGED):5d} drained {drained:5d} | "
@@ -269,24 +234,32 @@ def main():
               f"err0 {f0.get('fallback_error', 0):3d} brk0 {f0.get('fallback_breaker', 0):4d} | "
               f"fwd1 {f1.get('forwarded', 0):5d} err1 {f1.get('fallback_error', 0):4d} "
               f"brk1 {f1.get('fallback_breaker', 0):4d} | stray {len(cur):3d} "
-              f"orphans {aged:d} | double {double_launches() - dbl0}", flush=True)
+              f"orphans {aged:d} | double {mc.double_launches(RQD_LOG) - dbl0}", flush=True)
         time.sleep(INTERVAL)
 
     c = counts_by_show()
     m = c.get(MANAGED, [0, 0, 0, 0])
     started = m[0] + m[1] + m[2]
-    f0 = forward_counts(metrics_text(0))
-    f1 = forward_counts(metrics_text(1))
+    b0, b1 = metrics_text(0), metrics_text(1)
+    if b0 is not None:
+        f0_last = forward_counts(b0)
+    if b1 is not None:
+        f1_last = forward_counts(b1)
+    f0, f1 = f0_last, f1_last
     m2 = metrics_text(2)
     if m2 is not None:
         metrics_seen = True
-        booked.sample(maestro_booked(m2))
+        booked.sample(parse_show_counter(m2, "cue_maestro_frames_dispatched_total"))
     drained = drain.poll()
     booked_managed = booked.total(MANAGED)
     cross_legacy = max(0, started - booked_managed)
+    # Frames Maestro dispatched between its last successful scrape and the
+    # SIGKILL are in the DB's started count but can never reach the counter;
+    # tolerate up to the largest observed per-sample dispatch burst.
+    cross_tol = max(50, booked_delta_max) if KILL_AT else 0
     cross_maestro = sum(booked.total(s) for s in LEGACY)
     leg_done = {s: c.get(s, [0, 0, 0, 0])[1] for s in LEGACY}
-    dbl = double_launches() - dbl0
+    dbl = mc.double_launches(RQD_LOG) - dbl0
     forwarded = f0.get("forwarded", 0) + f1.get("forwarded", 0)
     ambig_attempts = f1.get("forwarded", 0) + f1.get("fallback_error", 0)
 
@@ -298,8 +271,13 @@ def main():
         steady_fallbacks = (steady[0].get("fallback_error", 0)
                             + steady[0].get("fallback_breaker", 0))
         if resume_snap is not None:
+            # Engagement counts errors too: the first breaker_failures outage
+            # reports land in fallback_error before the breaker opens, and a
+            # low-traffic window may never see a fourth report.
             breaker_hits = (resume_snap[0].get("fallback_breaker", 0)
-                            - steady[0].get("fallback_breaker", 0))
+                            + resume_snap[0].get("fallback_error", 0)
+                            - steady[0].get("fallback_breaker", 0)
+                            - steady[0].get("fallback_error", 0))
             outage_done = resume_snap[1] - steady[1]
             resumed_fwd = f0.get("forwarded", 0) - resume_snap[0].get("forwarded", 0)
 
@@ -337,9 +315,10 @@ def main():
         print(f"FAIL: {steady_fallbacks} managed-show completions fell back to the "
               f"legacy path on cuebot 0 before the kill (> {STEADY_FALLBACK_TOL}); "
               f"forwarding is flapping under steady state.", flush=True)
-    elif cross_legacy > 0:
-        print(f"FAIL: the legacy dispatcher booked {cross_legacy} frames of the managed "
-              f"show {MANAGED}.", flush=True)
+    elif cross_legacy > cross_tol:
+        print(f"FAIL: {cross_legacy} managed-show starts exceed Maestro's dispatch "
+              f"counter by more than the unsampled-kill tolerance ({cross_tol}); the "
+              f"legacy dispatcher booked the managed show {MANAGED}.", flush=True)
     elif cross_maestro > 0:
         print(f"FAIL: Maestro booked {cross_maestro} frames of legacy shows.", flush=True)
     elif any(n < MIN_DONE_EACH for n in leg_done.values()):
@@ -348,14 +327,14 @@ def main():
     elif KILL_AT and steady is not None and resume_snap is None:
         print("FAIL: the managed cuebot never answered its metrics again after the "
               "outage window; the restart did not come back.", flush=True)
-    elif KILL_AT and breaker_hits is not None and breaker_hits <= 0:
-        print(f"FAIL: the managed cuebot was down for {OUTAGE}s but cuebot 0's breaker "
-              f"never took a report (fallback_breaker unchanged); the kill switch did "
-              f"not engage.", flush=True)
     elif KILL_AT and outage_done is not None and outage_done < MIN_DONE_OUTAGE:
         print(f"FAIL: the managed show completed only {outage_done} frames while the "
               f"managed cuebot was down (< {MIN_DONE_OUTAGE}); the local fallback did "
               f"not carry it.", flush=True)
+    elif KILL_AT and breaker_hits is not None and breaker_hits <= 0:
+        print(f"FAIL: the managed cuebot was down for {OUTAGE}s but cuebot 0 recorded "
+              f"no fallback at all (no error, no breaker); the kill switch did not "
+              f"engage.", flush=True)
     elif KILL_AT and resumed_fwd is not None and resumed_fwd <= 0:
         print("FAIL: no completion was forwarded after the managed cuebot restarted; "
               "forwarding did not resume.", flush=True)

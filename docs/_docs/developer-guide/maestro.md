@@ -778,7 +778,14 @@ threads. A timed-out-but-delivered forward double-processes; the
 version-guarded stop and the run-ownership fences resolve it exactly like a
 duplicate report, visible in the stale/superseded counters. Outcomes are
 counted in `cue_completion_forward_total{outcome}` (`forwarded`,
-`fallback_error`, `fallback_breaker`) on the forwarding cuebots. The hook is
+`fallback_error`, `fallback_breaker`) on the forwarding cuebots. Two limits
+to know: the ACK mirrors the RQD contract -- it means the pair resolved and
+QUEUED the completion, not that it was durably filed, so a receiver crash
+before its next tick loses the queued completion until host-report
+reconciliation reclaims the frame (facility mode's documented crash
+contract); and the breaker trips only on failed attempts, so a slow-but-ACKing
+receiver is not a breaker condition -- each managed report waits at most one
+`forward_deadline_ms` on a report thread, which is the accepted tax. The hook is
 gated on `maestro.enabled=no`, so a Maestro cuebot can never forward to
 itself; when the facility flips and no legacy cuebot remains, the relay is
 inert and gets deleted. The FORWARD simulator scenario (nightly) covers the

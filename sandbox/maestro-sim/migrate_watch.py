@@ -31,10 +31,11 @@ INCONCLUSIVE: the farm never filled, so the split was not contended.
 
 usage: migrate_watch.py [duration_s] [interval_s] [fake_rqd log] [maestro metrics url]
 """
-import os, re, subprocess, sys, time, urllib.request
+import os, sys, time
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
-import farm_spec as spec
+import migrate_common as mc
+from migrate_common import TOKEN, counts_by_show, strays, util
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 180
 INTERVAL = float(sys.argv[2]) if len(sys.argv) > 2 else 3.0
@@ -42,76 +43,18 @@ RQD_LOG = sys.argv[3] if len(sys.argv) > 3 else ""
 METRICS_URL = sys.argv[4] if len(sys.argv) > 4 else "http://localhost:8082/metrics"
 MANAGED = os.environ.get("SIM_MIGRATE_SHOW", "showA")
 LEGACY = [s for s in ("sim", "showA", "showB", "showC", "showD", "showE") if s != MANAGED]
-TOKEN = "simmigrate"
 ORPHAN_AGE_S = 30.0
 MIN_UTIL = 85.0
 MIN_DONE_MANAGED = 100
 MIN_DONE_EACH = 20
-PSQL = spec.psql_cmd()
-
-
-def q(sql):
-    try:
-        return subprocess.run(PSQL + ["-c", sql], capture_output=True, text=True,
-                              timeout=15).stdout.strip().splitlines()
-    except Exception:
-        return []
-
-
-def counts_by_show():
-    """{show: (running, succeeded, dead, waiting)} for the flood jobs."""
-    out = {}
-    for r in q("SELECT s.str_name,"
-               " sum(CASE WHEN f.str_state='RUNNING' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='SUCCEEDED' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='DEAD' THEN 1 ELSE 0 END),"
-               " sum(CASE WHEN f.str_state='WAITING' THEN 1 ELSE 0 END)"
-               " FROM frame f JOIN job j ON j.pk_job=f.pk_job"
-               " JOIN show s ON s.pk_show=j.pk_show"
-               f" WHERE j.str_name LIKE '%{TOKEN}%' GROUP BY s.str_name;"):
-        name, running, done, dead, wait = r.split("|")
-        out[name] = [int(running), int(done), int(dead), int(wait)]
-    return out
-
-
-def strays():
-    """Run identities out of step: the pk of every proc whose frame is gone or
-    not RUNNING, and of every RUNNING flood frame that has no proc."""
-    procs = q("SELECT p.pk_proc FROM proc p LEFT JOIN frame f ON f.pk_frame=p.pk_frame"
-              " WHERE f.pk_frame IS NULL OR f.str_state<>'RUNNING';")
-    frames = q("SELECT f.pk_frame FROM frame f JOIN job j ON j.pk_job=f.pk_job"
-               " LEFT JOIN proc p ON p.pk_frame=f.pk_frame"
-               f" WHERE j.str_name LIKE '%{TOKEN}%' AND f.str_state='RUNNING'"
-               " AND p.pk_proc IS NULL;")
-    return set(procs) | set(frames)
-
-
-def util():
-    rows = q("SELECT round(100.0 * sum(int_cores - int_cores_idle) / sum(int_cores), 1)"
-             " FROM host;")
-    return float(rows[0]) if rows and rows[0].strip() else 0.0
 
 
 def maestro_booked():
-    """{show: frames} from Maestro's own counter on cuebot 1; {} while it is not up."""
-    try:
-        body = urllib.request.urlopen(METRICS_URL, timeout=10).read().decode()
-    except Exception:
-        return {}
-    out = {}
-    for m in re.finditer(r'cue_maestro_frames_dispatched_total\{[^}]*show="([^"]+)"[^}]*\}\s+([0-9.eE+]+)',
-                         body):
-        out[m.group(1)] = out.get(m.group(1), 0) + int(float(m.group(2)))
-    return out
+    return mc.maestro_booked_from(METRICS_URL)
 
 
 def double_launches():
-    if not RQD_LOG:
-        return 0
-    try:
-        return sum(1 for l in open(RQD_LOG, errors="ignore") if "DOUBLE LAUNCH" in l)
-    except Exception:
-        return 0
+    return mc.double_launches(RQD_LOG)
 
 
 def main():

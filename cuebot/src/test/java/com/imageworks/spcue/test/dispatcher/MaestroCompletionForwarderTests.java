@@ -279,11 +279,12 @@ public class MaestroCompletionForwarderTests {
     }
 
     /**
-     * A forward failure processes the report locally: same proc, no re-read, and no exception
+     * A forward failure processes the report locally with a FRESH proc read (the pre-send snapshot
+     * is up to a deadline stale, and the run-ownership fence must not judge it), and no exception
      * surfaces to the gRPC layer (RQD already delivered its report successfully).
      */
     @Test
-    public void forwardFailureFallsBackLocallyWithoutRereadOrException() {
+    public void forwardFailureFallsBackLocallyWithFreshProcRead() {
         when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
         RecordingForwarder fwd = forwarder(TARGET_A);
         fwd.failing.add(TARGET_A);
@@ -292,10 +293,36 @@ public class MaestroCompletionForwarderTests {
         handler.handleFrameCompleteReport(report);
 
         assertEquals(List.of(TARGET_A), fwd.attempts);
-        verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
+        verify(hostManager, times(2)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
                 eq(FrameState.SUCCEEDED), anyInt(), anyLong());
         verify(prometheusMetrics, times(1)).incrementCompletionForward("fallback_error");
+    }
+
+    /**
+     * The ownership fence judges the POST-send proc: a frame freed and rebooked while the forward
+     * attempt was in flight must be diverted by the fresh read, never stopped off the stale
+     * pre-send snapshot.
+     */
+    @Test
+    public void forwardFailureFenceJudgesFreshProc() {
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        RecordingForwarder fwd = forwarder(TARGET_A);
+        fwd.failing.add(TARGET_A);
+        handler.setCompletionForwarder(fwd);
+
+        VirtualProc freed = new VirtualProc();
+        freed.id = RESOURCE_ID;
+        freed.jobId = JOB_ID;
+        freed.frameId = null;
+        freed.showId = SHOW_ID;
+        freed.hostName = "render-host-01";
+        when(hostManager.getVirtualProc(RESOURCE_ID)).thenReturn(proc, freed);
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(dispatchSupport, never()).stopFrame(any(DispatchFrame.class), any(FrameState.class),
+                anyInt(), anyLong());
     }
 
     /**

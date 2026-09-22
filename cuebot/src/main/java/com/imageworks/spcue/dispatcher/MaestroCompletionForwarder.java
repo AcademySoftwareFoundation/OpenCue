@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.grpc.ManagedChannel;
@@ -28,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
@@ -61,8 +63,9 @@ public class MaestroCompletionForwarder {
     /**
      * What became of one report offered to the forwarder: either it was forwarded (ACKed by the
      * isolated deployment, nothing left to do locally), or the legacy path must process it, handed
-     * the proc the forwarder already read so it is never read twice (null when the forwarder never
-     * got that far).
+     * the proc the forwarder read when that snapshot is still fresh (null when the forwarder never
+     * read it, or when a send attempt made the snapshot deadline-stale and the legacy path must
+     * re-read).
      */
     public static final class Outcome {
         private static final Outcome FORWARDED = new Outcome(true, null);
@@ -103,12 +106,16 @@ public class MaestroCompletionForwarder {
     private final ConcurrentHashMap<String, ManagedChannel> channels = new ConcurrentHashMap<>();
 
     /**
-     * Breaker state, deliberately minimal and approximate: races between report threads only cost
-     * an extra probe, never a lost report (every non-forwarded report is processed locally).
+     * Breaker state, deliberately minimal and approximate: races between report threads can cost a
+     * spurious open (in-flight failures landing after a successful probe) or an extra probe, never
+     * a lost report (every non-forwarded report is processed locally). The half-open probe itself
+     * is single-flight via {@code probeInFlight}.
      */
     private final AtomicInteger consecutiveFailures = new AtomicInteger();
+    private final AtomicBoolean probeInFlight = new AtomicBoolean();
     private volatile long openUntil = 0;
     private volatile int targetIndex = 0;
+    private volatile long lastWarnMs = 0;
 
     @Autowired
     public MaestroCompletionForwarder(Environment env) {
@@ -142,13 +149,20 @@ public class MaestroCompletionForwarder {
             return Outcome.notAttempted(null);
         }
 
-        // The proc is read here only to learn the show; it is handed to the legacy path on every
-        // non-forwarded outcome, so this path never reads it twice. Any read failure (proc gone,
-        // transient DB error) falls through to the legacy path, which owns those contracts.
+        // The proc is read here only to learn the show; on every outcome decided WITHOUT a wire
+        // wait it is handed to the legacy path, so those paths never read it twice. An outcome
+        // decided after a send attempt deliberately does NOT reuse it: the attempt can last the
+        // whole deadline, and the run-ownership fence in processReportNow must judge a fresh
+        // snapshot, not one from before the wait (a frame freed and rebooked inside that window
+        // would slip past a stale fence and re-open the free-then-rebook cascade).
         VirtualProc proc;
         try {
             proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+        } catch (EmptyResultDataAccessException e) {
+            // Unknown proc: the legacy path finalizes the orphan, as it does in every mode.
+            return Outcome.notAttempted(null);
         } catch (Exception e) {
+            warnRateLimited("reading the report's proc failed; processing locally: " + e);
             return Outcome.notAttempted(null);
         }
 
@@ -156,6 +170,7 @@ public class MaestroCompletionForwarder {
         try {
             managed = showDao.isSchedulerManaged(proc.getShowId());
         } catch (Exception e) {
+            warnRateLimited("reading the show's scheduler flag failed; processing locally: " + e);
             managed = false;
         }
         if (!managed) {
@@ -167,12 +182,30 @@ public class MaestroCompletionForwarder {
             return Outcome.notAttempted(proc);
         }
 
+        // Half-open: after the cooldown exactly ONE report probes; the rest keep the instant
+        // fallback until the probe settles, so a still-down leader never stalls a herd of report
+        // threads for a deadline each at every cooldown expiry.
+        boolean probing = consecutiveFailures.get() >= breakerFailures;
+        if (probing && !probeInFlight.compareAndSet(false, true)) {
+            count("fallback_breaker");
+            return Outcome.notAttempted(proc);
+        }
+
         // One attempt per report: retrying is the breaker's job across reports, not this report's
         // job. The report must never wait longer than one deadline before its guaranteed local
         // fallback.
         int idx = targetIndex;
         String target = targets.get(idx % targets.size());
         try {
+            if (probing) {
+                // The outage grew gRPC's exponential connect backoff; without this reset the
+                // probe fails instantly against TRANSIENT_FAILURE and actual resumption waits
+                // on the backoff (up to minutes), not the configured cooldown.
+                ManagedChannel channel = channels.get(target);
+                if (channel != null) {
+                    channel.resetConnectBackoff();
+                }
+            }
             send(target, RqdReportRunningFrameCompletionRequest.newBuilder()
                     .setFrameCompleteReport(report).build());
             onForwardSuccess();
@@ -184,7 +217,11 @@ public class MaestroCompletionForwarder {
             targetIndex = (idx + 1) % targets.size();
             onForwardFailure(target, e);
             count("fallback_error");
-            return Outcome.notAttempted(proc);
+            return Outcome.notAttempted(null);
+        } finally {
+            if (probing) {
+                probeInFlight.set(false);
+            }
         }
     }
 
@@ -228,6 +265,21 @@ public class MaestroCompletionForwarder {
         }
     }
 
+    /**
+     * WARN at most once a minute: these read failures repeat once per report when persistent, and a
+     * silent catch would make the relay silently inert with no line explaining why.
+     */
+    private void warnRateLimited(String message) {
+        long now = System.currentTimeMillis();
+        if (now - lastWarnMs >= 60_000) {
+            lastWarnMs = now;
+            logger.warn("Maestro completion forward: " + message);
+        } else {
+            logger.debug("Maestro completion forward: " + message);
+        }
+    }
+
+    /** Shut down the per-target channels; called by Spring on context destroy. */
     public void shutdown() {
         for (ManagedChannel channel : channels.values()) {
             channel.shutdown();

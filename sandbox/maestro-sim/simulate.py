@@ -394,7 +394,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_solofill.py", "solofill_watch.py",
                      "inject_pin.py", "pin_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
-                     "inject_migrate.py", "migrate_watch.py",
+                     "inject_migrate.py", "migrate_watch.py", "forward_watch.py",
                      "inject_slice.py", "slice_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
@@ -2240,7 +2240,7 @@ def main():
                          "0.1s flood from 1553 hosts (~10 reports/host/s, ~100x a "
                          "real farm) overruns the host-report handler (~200ms DB "
                          "work each), completions back up, frames pile up in RUNNING "
-                         "holding cores, util pegs at 100% and throughput collapses; "
+                         "holding cores, util pegs at 100%% and throughput collapses; "
                          "5s keeps it ahead. Also keeps proc.ts_ping fresh "
                          "for the 300s orphan sweep.")
     ap.add_argument("--hosts", type=str, default=None,
