@@ -105,15 +105,15 @@ def test(job):
         # Unpause the job.
         session.post(
             f"{CUEREST_GATEWAY_URL}/job.JobInterface/Resume",
-            json={"job": {"id": job_id, "name": job_name}},
+            json={"job": {"id": job_id}},
             timeout=TIMEOUT,
         ).raise_for_status()
 
         while True:
             try:
                 response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
-                    json={"name": job_name},
+                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/GetJob",
+                    json={"id": job_id},
                     timeout=TIMEOUT,
                 )
                 if response.status_code == 404:
@@ -148,7 +148,7 @@ def test(job):
         try:
             session.post(
                 f"{CUEREST_GATEWAY_URL}/job.JobInterface/Kill",
-                json={"job": {"id": job_id, "name": job_name}},
+                json={"job": {"id": job_id}},
                 timeout=TIMEOUT,
             )
         except Exception:
@@ -169,12 +169,14 @@ def wait(job):
         while True:
             try:
                 job_response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
+                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/GetJob",
                     json={"id": job_id},
                     timeout=TIMEOUT,
                 )
                 job_response.raise_for_status()
                 job_data = job_response.json().get("job", {})
+                if job_data.get("state") in ("FINISHED", 1):
+                    break
                 stats = job_data.get("job_stats", {})
 
                 logger.debug(
