@@ -26,6 +26,7 @@ import com.imageworks.spcue.VirtualProc;
 public final class FrameBooking {
     public final DispatchFrame frame;
     public final VirtualProc proc;
+    public long committedMs; // consumed by Maestro.launchOne()
 
     public FrameBooking(DispatchFrame frame, VirtualProc proc) {
         this.frame = frame;

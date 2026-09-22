@@ -28,6 +28,7 @@ import argparse
 import atexit
 import getpass
 import os
+import re
 import resource
 import signal
 import shutil
@@ -76,6 +77,7 @@ PGBIN = os.environ.get("SIM_PG_BIN", "/usr/lib/postgresql/16/bin")
 PGDATA = os.environ.get("SIM_PGDATA", "/tmp/pgdata")
 PG_PORT = int(os.environ.get("SIM_PG_PORT", "5433"))
 GRPC_PORT = 8443
+STORM_DRAIN_S = 45   # consumed by start_completionstorm_injector() and its watcher call
 SHOW = "10000000-0000-0000-0000-000000000003"
 TOTAL_HOSTS = 1553   # full farm; overridden by --hosts (small-farm debug mode)
 CUEBOT_LOG = os.environ.get("SIM_CUEBOT_LOG", "/tmp/cuebot.log")
@@ -389,7 +391,12 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_prodenv.py", "prodenv_watch.py",
                      "inject_layercap.py", "layercap_watch.py",
                      "inject_layercap_solo.py", "layercap_solo_watch.py",
+                     "inject_solofill.py", "solofill_watch.py",
+                     "inject_pin.py", "pin_watch.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
+                     "inject_migrate.py", "migrate_watch.py",
+                     "inject_slice.py", "slice_watch.py",
+                     "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
                      "live_stats.py",
@@ -735,13 +742,13 @@ def maestro_enabled(sim_mode):
     return raw.strip().lower() or "no"
 
 
-def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
+def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
                  max_grantees=8, backfill=True,
                  frame_cores_max=0):
     # maestro.enabled is a tri-state rollout switch: no | facility | managed
     # (back-compat true=facility/false=no). Default new->facility, else->no;
     # override with SIM_MAESTRO_ENABLED (e.g. "managed" for per-show testing).
-    enabled = maestro_enabled(mode)
+    enabled = os.environ.get("SIM_MAESTRO_ENABLED_0") or maestro_enabled(mode)
     resv = "true" if reservations else "false"
     bf = "true" if backfill else "false"
     log(f"starting cuebot (mode={mode}, maestro.enabled={enabled}, "
@@ -819,7 +826,7 @@ def start_cuebot(mode, reservations=False, block_seconds=60, max_fraction=0.5,
     sys.exit(f"cuebot did not become ready; see {CUEBOT_LOG}")
 
 
-def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
+def start_extra_cuebot(instance, mode, reservations=True, block_seconds=60,
                        max_fraction=0.5, max_grantees=8, backfill=True,
                        frame_cores_max=0):
     """Launch an ADDITIONAL cuebot (instance >= 1) from the built jar, on offset
@@ -843,7 +850,7 @@ def start_extra_cuebot(instance, mode, reservations=False, block_seconds=60,
     jar = os.path.join(CUEBOT_DIR, "build", "libs", "cuebot.jar")
     if not os.path.exists(jar):
         sys.exit(f"cuebot jar not found at {jar} (ensure_cuebot_built should have built it)")
-    enabled = maestro_enabled(mode)
+    enabled = os.environ.get(f"SIM_MAESTRO_ENABLED_{instance}") or maestro_enabled(mode)
     # cuebot in the sim only talks to LOCAL services: postgres on 127.0.0.1, and
     # fake_rqd (the hosts file above maps every farm hostname to 127.0.0.1). But
     # it dials RQD BY HOSTNAME (e.g. jaime0001), and if the environment set a JVM
@@ -1134,6 +1141,25 @@ def start_strandgrow_injector(duration):
           f"{FARM}/inject_strandgrow.log")
 
 
+def start_completionstorm_injector(duration):
+    log(f"starting COMPLETIONSTORM flood (one-core frames completing faster "
+        f"than one post-op worker can file) for {duration}s, then its jobs "
+        f"pause so the watcher can see the backlog drain ...")
+    spawn(["inject_completionstorm.py", str(duration)],
+          f"{FARM}/inject_completionstorm.log")
+
+
+def start_migrate_injector(duration):
+    log(f"starting MIGRATE flood (one show on Maestro, five legacy, three cuebots) "
+        f"for {duration}s ...")
+    spawn(["inject_migrate.py", str(duration)], f"{FARM}/inject_migrate.log")
+
+
+def start_slice_injector(duration):
+    log(f"starting SLICE (one wide layer on three large hosts) for {duration}s ...")
+    spawn(["inject_slice.py", str(duration)], f"{FARM}/inject_slice.log")
+
+
 def start_doublerender_injector(duration):
     log(f"starting DOUBLERENDER (stale unfenced frame-stop on running "
         f"frames; real sweep + rebook decide the verdict) for {duration}s ...")
@@ -1145,6 +1171,18 @@ def start_layercap_injector(duration):
     log(f"starting LAYERCAP flood (one deep 1-core layer; the cap must stop it "
         f"from blanketing any host, for {duration}s) ...")
     spawn(["inject_layercap.py", str(duration)], f"{FARM}/inject_layercap.log")
+
+
+def start_pin_injector(duration):
+    log(f"starting PIN load (five layers pinned to machine lists beside a general "
+        f"flood) for {duration}s ...")
+    spawn(["inject_pin.py", str(duration)], f"{FARM}/inject_pin.log")
+
+
+def start_solofill_injector(duration):
+    log(f"starting SOLOFILL (one-layer job vs many-layer job of equal frames "
+        f"on the idle farm) for {duration}s")
+    spawn(["inject_solofill.py", str(duration)], f"{FARM}/inject_solofill.log")
 
 
 def start_layercap_solo_injector(duration):
@@ -1206,6 +1244,13 @@ def set_scheduler_managed(managed):
     log(f"  show b_scheduler_managed={val}")
 
 
+def set_show_managed(show):
+    """Hand ONE show to Maestro's managed mode and leave the rest to the legacy
+    dispatcher: the MIGRATE topology, one show migrated at a time."""
+    psql(f"UPDATE show SET b_scheduler_managed=true WHERE str_name='{show}';")
+    log(f"  show {show} b_scheduler_managed=true (Maestro); the other shows stay legacy")
+
+
 # ---------------------------------------------------------------- main
 def _verify_peak_util(gdir):
     """Peak util_pct (%) from a scenario's util CSV, or 0 if unreadable."""
@@ -1243,10 +1288,28 @@ def _verify_throughput(gdir):
         return 0, 0.0
 
 
+def _verdict_state(txt):
+    """A watcher's verdict as the battery's three states: True for PASS, None for
+    INCONCLUSIVE (the run measured nothing: the storm never took hold, the
+    fill never reached the mark), False otherwise. INCONCLUSIVE is reported
+    under its own label so the cause is visible, but it does NOT pass the
+    battery: a run that measured nothing certified nothing, and "too few
+    completions" is itself a symptom of the regressions these scenarios
+    exist to catch. One rule for every watcher: only PASS passes."""
+    if re.search(r"(?m)^PASS:", txt):
+        return True
+    if re.search(r"(?m)^INCONCLUSIVE:", txt):
+        return None
+    return False
+
+
+def _label(ok):
+    return "PASS" if ok else ("INCONCLUSIVE" if ok is None else "FAIL")
+
+
 def _verify_check(name, gdir, logp, cblog):
     """Return (passed, detail) for one verify scenario, read from its cuebot log
     (OOM / reservations) or its stdout log (priority)."""
-    import re
     try:
         cb = open(cblog, errors="ignore").read()
     except Exception:
@@ -1409,6 +1472,42 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{pm.group(1) if pm else '?'} frames on "
                     f"{pm.group(2) if pm else '?'} hosts, "
                     f"{om.group(1) if om else '?'} hosts over cap")
+    if name == "MIGRATE":
+        # The watcher's verdict is the whole check: no cross-booking between the
+        # two dispatchers, progress on both sides, procs clean, no double launch.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"migrate: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"one show on Maestro, five on legacy: "
+                    f"{sm.group(1) if sm else 'no summary'}")
+    if name == "PIN":
+        # The watcher's verdict is the whole check: pinned layers run only on
+        # their hosts and make progress, groups stay whole, a dead pin is visible.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        sm = re.search(r"pin: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"layers pinned to machine lists: {sm.group(1) if sm else 'no summary'}"
+    if name == "SOLOFILL":
+        # The watcher's verdict is the whole check: at the mark the one-layer
+        # job must keep pace with the many-layer job of equal frames.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        mm = re.search(r"at the mark: A (\d+) running on (\d+) hosts with (\d+) "
+                       r"waiting; B (\d+) running; ratio A/B ([0-9.]+)", txt)
+        ok = _verdict_state(txt)
+        return ok, (f"one-layer vs many-layer fill at the mark: A "
+                    f"{mm.group(1) if mm else '?'} running on "
+                    f"{mm.group(2) if mm else '?'} hosts ({mm.group(3) if mm else '?'} "
+                    f"waiting) vs B {mm.group(4) if mm else '?'}; A/B "
+                    f"{mm.group(5) if mm else '?'}")
     if name == "STRANDGROW":
         # The watcher's verdict is the whole check: memory-heavy threadable
         # frames book at their metric share, the non-threadable control does
@@ -1427,6 +1526,31 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{fm.group(4) if fm else '?'} frames, ctrl max "
                     f"{cm.group(1) if cm else '?'}, peak core util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "SLICE":
+        # The watcher's verdict is the whole check: every large host's first
+        # slice is the accounted size. Fail-first: the per-call cap cuts it.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        fm = re.search(r"first deliveries: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"first slices: {fm.group(1) if fm else '?'}"
+    if name == "COMPLETIONSTORM":
+        # The watcher's verdict is the whole check: the tick must stay calm
+        # under the storm and the fake RQD must have lost no report.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        fm = re.search(r"final postQ (\d+)", txt)
+        tm = re.search(r"peak avgTick (\d+)ms", txt)
+        dm = re.search(r"lost (\d+)", txt)
+        ok = _verdict_state(txt)
+        return ok, (f"completion rate vs the post-op worker: final postQ "
+                    f"{fm.group(1) if fm else '?'}, peak avgTick "
+                    f"{tm.group(1) if tm else '?'}ms, lost "
+                    f"{dm.group(1) if dm else '?'}")
     if name == "DOUBLERENDER":
         # The watcher's verdict is the whole check: after the injected stale
         # frame-stop, the swept corpse's render must be killed, not left to
@@ -1745,6 +1869,24 @@ def run_verify():
         ("LAYERCAP_SOLO", ["--hosts", "3,4,10",
                            "--layercap-solo-test", str(max(D, 240))],
          {"SIM_LAYER_HOST_MAX_FRAC": "0.25"}),
+        # SOLOFILL: a one-layer job and a fifty-layer job of equal frames
+        # start together on the idle FULL farm (a small farm hides this: one
+        # host per tick covers 17 hosts in a minute). At 120s the one-layer
+        # job must hold at least half of the other's running frames, or a
+        # layer's fill rate is a per-tick allowance and a job fills the farm
+        # at a speed set by its layer count. Fail-first: A/B near 0.02. Frames
+        # run 90s: still up at the 120s mark, done before the run ends.
+        ("SOLOFILL", ["--solofill-test", str(max(D, 150))], {"SIM_DUR_LONG_S": "90"}),
+        # PIN: a layer whose tags are host names runs on those hosts and only
+        # there (a machine list, or a local render on one workstation). Four
+        # capability tags give the small farm several host specs, so one list
+        # spans two specs. Five pinned layers at priority 200 face a general
+        # flood at 100 that keeps the farm full. Asserts that every pinned
+        # frame ran on its list, that each real pin completes frames, that
+        # the host-spec group count stays at the number of specs (pins must
+        # not fracture the grouping) and that a pin naming no host shows a
+        # waitlist reason.
+        ("PIN", ["--hosts", "3,4,10", "--tags", "4", "--pin-test", str(D)]),
         # STRANDGROW: 1-core layers whose frames REALLY hold 18G of rss (the
         # fake RQD pins their reported rss; declarations are not trusted). The
         # first wave books at the ask (no evidence yet), then the scheduler
@@ -1756,6 +1898,31 @@ def run_verify():
         ("STRANDGROW", ["--hosts", "3,4,10",
                         "--strandgrow-test", str(max(D, 240))],
          {"SIM_RSS_PIN": "simstrandgrow=18"}),
+        # SLICE: Maestro sizes a slice at frame_query_max and charges the
+        # host and every cap for it; the plan read must deliver that slice.
+        # Fail-first: the read breaks at host_frame_dispatch_max (12) even
+        # when it was handed a slice of 20, so eight frames per slice wait a
+        # tick and the host carries phantom reservation.
+        ("SLICE", ["--hosts", "3,1,1", "--slice-test", "90"],
+         {"SIM_DUR_LONG_S": "20"}),
+        # COMPLETIONSTORM: the completion path against the post-op worker. A
+        # finished frame's urgent work happens in the batched stop inside the
+        # tick; the slow follow-up (depends, job completion checks, usage) goes
+        # to ONE background worker through a queue, and Maestro must never
+        # do that filing itself: tick time would multiply by the completion
+        # rate, as the worker's own comment states. 400 single-layer jobs on
+        # purpose (Maestro commits once per layer per tick, so layers set
+        # the booking rate) of one second frames on 80 small hosts complete
+        # ~145/s. Asserts that the tick stays calm, that the fake RQD lost
+        # no report (every completion was accepted within the RQD channel's
+        # four attempts) and that the backlog drained: the injector pauses
+        # its jobs STORM_DRAIN_S before the end, so the drain is measured.
+        ("COMPLETIONSTORM", ["--hosts", "0,0,80", "--cuebots", "1",
+                             "--completionstorm-test", str(max(D, 240))],
+         {"SIM_DUR_LONG_S": "1", "SIM_STORM_JOBS": "400",
+          "SIM_STORM_FRAMES": "300",
+          "SIM_STORM_TICK_MAX_MS": "2000",
+          "SIM_STAT_INTERVAL_SECONDS": "10"}),
         # DOUBLERENDER: the release-path defect found by audit. A stale
         # lostProc (maintenance walking a minutes-old proc list) stops a frame
         # that was already released and rebooked -- the stop is unfenced, so
@@ -1829,6 +1996,22 @@ def run_verify():
                         "--parity-test", str(D), "--feed", str(D)]),
         ("PARITY_NEW", ["--hosts", "2,3,5", "--parity-test", str(D),
                         "--feed", str(D)]),
+        # MIGRATE: the rollout topology. Three cuebots share the host and
+        # completion reports, each host pinned to one of them and its
+        # completions with it, as an RQD behind a service registry. Cuebots
+        # 0 and 1 run the legacy dispatcher (--mode old: maestro.enabled=no,
+        # fast host reports); cuebot 2 runs Maestro in managed mode and,
+        # like any pool member, still books the legacy shows on the reports
+        # it receives. One show is flagged b_scheduler_managed and five stay
+        # legacy, all six flooded on one farm. Asserts the partition
+        # (neither dispatcher books the other's show), progress on both
+        # sides, no released proc left behind (whichever cuebot receives a
+        # managed show's completion releases the proc instead of rebooking
+        # it) and no double launch.
+        ("MIGRATE", ["--hosts", "3,4,10", "--mode", "old", "--cuebots", "3",
+                     "--migrate-test", str(max(D, 180))],
+         {"SIM_MAESTRO_ENABLED_2": "managed",
+          "SIM_CUEBOT_GRPC_SPREAD": "localhost:8443,localhost:8453,localhost:8463"}),
         # LOCALITY: the same-layer locality bonus must steer refills, measured
         # on the FULL farm (1553 hosts, all three host classes) under the
         # standard sustained feed -- the realistic regime, like OOM and
@@ -1910,15 +2093,24 @@ def run_verify():
         else:
             detail += f"; {done} frames done ({rate:.1f}/s)"
         results.append((name, ok, detail, gdir))
-        log(f"[verify] {name}: {'PASS' if ok else 'FAIL'} ({detail})")
+        log(f"[verify] {name}: {_label(ok)} ({detail})")
 
     print("\n=== SIM VERIFY ===")
     for name, ok, detail, gdir in results:
-        print(f"{name:<13}: {'PASS' if ok else 'FAIL'}    {detail}")
+        print(f"{name:<13}: {_label(ok)}    {detail}")
         print(f"{'':13}  graphs -> {gdir}")
-    allok = all(ok for _, ok, _, _ in results)
-    print("\n" + ("ALL PASS" if allok else "SOME FAILED"))
-    return 0 if allok else 1
+    failed = sum(1 for _, ok, _, _ in results if ok is False)
+    inconclusive = sum(1 for _, ok, _, _ in results if ok is None)
+    if failed:
+        print("\nSOME FAILED")
+    elif inconclusive:
+        # An inconclusive run measured nothing, so it certified nothing; it
+        # fails the battery like a FAIL, under its own label for diagnosis.
+        print(f"\nSOME INCONCLUSIVE ({inconclusive}): a run that measured "
+              "nothing certified nothing")
+    else:
+        print("\nALL PASS")
+    return 0 if failed == 0 and inconclusive == 0 else 1
 
 
 def main():
@@ -2006,11 +2198,14 @@ def main():
                          "layers (4 cores + 1 GPU + gpu_memory, cpu mem = half the "
                          "gpu mem). GPU layers place only on GPU hosts (enforced by "
                          "cuebot). Default 0 (no GPU). Typical: 0.1.")
-    ap.add_argument("--reservations", action="store_true",
+    ap.add_argument("--reservations", dest="reservations", action="store_true",
+                    default=True,
                     help="enable Maestro's host reservations for blocked "
                          "layers (EASY/Maui-style: time gate + per-class cap). "
-                         "Default off. Use with --strand to show big jobs no "
-                         "longer starve.")
+                         "This is the default; --no-reservations or "
+                         "SIM_RESERVATIONS=0 turns them off.")
+    ap.add_argument("--no-reservations", dest="reservations", action="store_false",
+                    help="run Maestro without host reservations.")
     ap.add_argument("--reservation-block-seconds", type=int, default=60,
                     metavar="SECS",
                     help="how long a layer must be continuously blocked before "
@@ -2054,6 +2249,16 @@ def main():
                          "accounting mirror (job_resource.int_cores) keeps "
                          "tracking SUM(procs) instead of wedging on the legacy "
                          "verify trigger.")
+    ap.add_argument("--completionstorm-test", type=int, default=0, metavar="SECS",
+                    help="COMPLETIONSTORM test: complete one-core frames faster "
+                         "than the single post-complete worker can file the "
+                         "follow-up work, and assert the tick never does that "
+                         "filing itself and no acked completion is dropped.")
+    ap.add_argument("--slice-test", type=int, default=0, metavar="SECS",
+                    help="SLICE test: one wide one-core layer on three large "
+                         "hosts. Assert that the first slice delivered on every "
+                         "large host is the slice Maestro accounted "
+                         "(frame_query_max), not a smaller per-call cap.")
     ap.add_argument("--strandgrow-test", type=int, default=0, metavar="SECS",
                     help="STRANDGROW test: flood threadable 1-core layers "
                          "whose frames really hold 18G of rss and assert the "
@@ -2081,6 +2286,26 @@ def main():
                          "on an idle farm must go past the per-host layer "
                          "cap (contention rule, nobody waiting) and reach "
                          "high core utilisation instead of stranding.")
+    ap.add_argument("--migrate-test", type=int, default=0, metavar="SECS",
+                    help="MIGRATE test: three cuebots share the host and completion reports "
+                         "(SIM_CUEBOT_GRPC_SPREAD); cuebots 0 and 1 are the legacy dispatcher, "
+                         "cuebot 2 is Maestro in managed mode (SIM_MAESTRO_ENABLED_2=managed) "
+                         "and books the legacy shows on its reports too. One show "
+                         "(SIM_MIGRATE_SHOW, default showA) is flagged managed, five stay "
+                         "legacy, all flooded. Assert that neither dispatcher books the "
+                         "other's show, both make progress, no released proc is left "
+                         "behind and no frame launches twice.")
+    ap.add_argument("--pin-test", type=int, default=0, metavar="SECS",
+                    help="PIN test: five layers pinned to machine lists (host-name tags) "
+                         "against a general flood. Assert that pinned frames run only on "
+                         "their lists, that each real pin makes progress, that the host-spec "
+                         "group count stays whole and that a dead pin shows a reason.")
+    ap.add_argument("--solofill-test", type=int, default=0, metavar="SECS",
+                    help="SOLOFILL test: a one-layer job and a many-layer job "
+                         "of equal frames start together on an idle farm; "
+                         "at the mark the one-layer job must hold at least "
+                         "half of the other's running frames, or a layer's "
+                         "fill rate is a per-tick allowance.")
     ap.add_argument("--health-test", type=int, default=0, metavar="SECS",
                     help="HEALTH test: assert the cue_farm_health_* Prometheus "
                          "family reports the fake farm's deterministic health "
@@ -2354,6 +2579,8 @@ def main():
     # force the flag OFF so a leftover true can't make cuebot's legacy dispatch
     # skip the show (migration V45 filters b_scheduler_managed=false).
     set_scheduler_managed(maestro_enabled(args.mode) == "managed")
+    if args.migrate_test:
+        set_show_managed(os.environ.get("SIM_MIGRATE_SHOW", "showA"))
     ensure_cuebot_built()
     # LICENSE test: the license server must be answering BEFORE cuebot's first
     # poll, so Maestro starts from a real sample instead of a failed fetch
@@ -2364,12 +2591,13 @@ def main():
     # Whole-host wide jobs (--strand-cores > 64) need the per-frame clamp
     # raised (core-points) so cuebot does not cap them back to 64.
     frame_cores_max = args.strand_cores * 100 if args.strand_cores > 64 else 0
-    start_cuebot(args.mode, args.reservations,
+    reservations = args.reservations and os.environ.get('SIM_RESERVATIONS', '1') != '0'
+    start_cuebot(args.mode, reservations,
                  args.reservation_block_seconds, args.reservation_max_fraction,
                  args.reservation_max_grantees, args.backfill,
                  frame_cores_max=frame_cores_max)
     for i in range(1, max(1, args.cuebots)):
-        start_extra_cuebot(i, args.mode, args.reservations,
+        start_extra_cuebot(i, args.mode, reservations,
                            args.reservation_block_seconds, args.reservation_max_fraction,
                            args.reservation_max_grantees, args.backfill,
                            frame_cores_max=frame_cores_max)
@@ -2407,8 +2635,18 @@ def main():
         start_layercap_injector(args.layercap_test)
     if args.layercap_solo_test:
         start_layercap_solo_injector(args.layercap_solo_test)
+    if args.solofill_test:
+        start_solofill_injector(args.solofill_test)
+    if args.pin_test:
+        start_pin_injector(args.pin_test)
+    if args.migrate_test:
+        start_migrate_injector(args.migrate_test)
     if args.strandgrow_test:
         start_strandgrow_injector(args.strandgrow_test)
+    if args.slice_test:
+        start_slice_injector(args.slice_test)
+    if args.completionstorm_test:
+        start_completionstorm_injector(max(60, args.completionstorm_test - STORM_DRAIN_S))
     if args.doublerender_test:
         start_doublerender_injector(args.doublerender_test)
     if lic_secs:
@@ -2429,8 +2667,10 @@ def main():
     watch = (args.strand or args.priority_starve or args.priority_spread
              or args.limit_test or args.license_test or args.poison_test
              or args.capdrop_test or args.prodenv_test or args.layercap_test
-             or args.layercap_solo_test
-             or args.health_test or args.strandgrow_test
+             or args.layercap_solo_test or args.solofill_test or args.pin_test
+             or args.health_test or args.strandgrow_test or args.migrate_test
+             or args.slice_test
+             or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
@@ -2471,11 +2711,34 @@ def main():
             f"for {args.layercap_solo_test}s ...")
         subprocess.run([VENV_PY, "layercap_solo_watch.py",
                         str(args.layercap_solo_test), "5"], cwd=FARM)
+    elif args.migrate_test:
+        log(f"watching MIGRATE (one show on Maestro, five legacy, three cuebots) "
+            f"for {args.migrate_test}s ...")
+        subprocess.run([VENV_PY, "migrate_watch.py", str(args.migrate_test), "3",
+                        RQD_LOG, "http://localhost:8082/metrics"], cwd=FARM)
+    elif args.pin_test:
+        log(f"watching PIN (pinned layers run only on their hosts) for {args.pin_test}s ...")
+        subprocess.run([VENV_PY, "pin_watch.py", str(args.pin_test), "3",
+                        "http://localhost:8080/metrics"], cwd=FARM)
+    elif args.solofill_test:
+        log(f"watching SOLOFILL (one-layer vs many-layer fill on an idle farm) "
+            f"for {args.solofill_test}s ...")
+        subprocess.run([VENV_PY, "solofill_watch.py",
+                        str(args.solofill_test), "5"], cwd=FARM)
     elif args.strandgrow_test:
         log(f"watching STRANDGROW (memory-heavy frames vs the launch-time "
             f"core grant) for {args.strandgrow_test}s ...")
         subprocess.run([VENV_PY, "strandgrow_watch.py",
                         str(args.strandgrow_test), "5"], cwd=FARM)
+    elif args.slice_test:
+        log(f"watching SLICE (a slice delivers what Maestro accounted) "
+            f"for {args.slice_test}s ...")
+        subprocess.run([VENV_PY, "slice_watch.py", str(args.slice_test)], cwd=FARM)
+    elif args.completionstorm_test:
+        log(f"watching COMPLETIONSTORM (completion rate vs the post-op "
+            f"worker) for {args.completionstorm_test}s ...")
+        subprocess.run([VENV_PY, "completionstorm_watch.py",
+                        str(args.completionstorm_test), "5", str(STORM_DRAIN_S)], cwd=FARM)
     elif args.doublerender_test:
         log(f"watching DOUBLERENDER (swept corpse proc vs its still-running "
             f"render) for {args.doublerender_test}s ...")

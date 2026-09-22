@@ -195,3 +195,38 @@ def duration_seconds(core_points):
     # nearest known bucket
     nearest = min(_cores, key=lambda c: abs(c - cores))
     return max(MIN_SECONDS, _minutes[nearest] * COMPRESS)
+
+
+# ---- the real RQD's report channel (rqd/rqd/rqnetwork.py) --------------------
+# One channel per RQD, dialed to one cuebot, wrapped in
+# RetryOnRpcErrorClientInterceptor(max_attempts=4, ExponentialBackoff(init 100 ms,
+# cap 1600 ms, x2), status_for_retry=(UNAVAILABLE,)). UNAVAILABLE is the status
+# cuebot's CueServerInterceptor gives its retry signal. So one RPC is tried at
+# most four times with sleeps of 100, 200 and 400 ms between the attempts; any
+# other status, or the fourth failure, raises to the caller. RQD_TIMEOUT is 10000,
+# read by gRPC as seconds, so no deadline ever fires.
+RQD_MAX_ATTEMPTS = 4
+RQD_BACKOFF_INIT_MS = 100
+RQD_BACKOFF_MAX_MS = 1600
+RQD_BACKOFF_MULTIPLIER = 2
+
+
+def rqd_rpc(call, on_retry=None):
+    """Run one report RPC as the real RQD's channel does: retry `call` on
+    UNAVAILABLE up to RQD_MAX_ATTEMPTS with the exponential backoff between the
+    attempts, run `on_retry(attempt)` before each sleep, and raise the last
+    error to the caller."""
+    import grpc
+    import time
+    for attempt in range(RQD_MAX_ATTEMPTS):
+        try:
+            return call()
+        except grpc.RpcError as err:
+            last = attempt == RQD_MAX_ATTEMPTS - 1
+            if last or err.code() != grpc.StatusCode.UNAVAILABLE:
+                raise
+            if on_retry is not None:
+                on_retry(attempt)
+            backoff_ms = min(RQD_BACKOFF_INIT_MS * RQD_BACKOFF_MULTIPLIER ** attempt,
+                             RQD_BACKOFF_MAX_MS)
+            time.sleep(backoff_ms / 1000.0)

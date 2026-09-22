@@ -458,6 +458,9 @@ public class DispatchSupportService implements DispatchSupport {
                 b.proc.jobId = b.frame.getJobId();
                 b.proc.layerId = b.frame.getLayerId();
                 b.proc.showId = b.frame.getShowId();
+                // The batch start advanced int_version by one; keep the frame
+                // in step so a guarded clear after a failed launch matches.
+                b.frame.version++;
                 winners.add(b);
                 winnerProcs.add(b.proc);
             } else {
@@ -761,6 +764,109 @@ public class DispatchSupportService implements DispatchSupport {
         } catch (Exception e) {
             logger.info("Unable to find and update resource usage for " + "frame, " + frame
                     + " while updating frame with " + "exit status " + exitStatus + "," + e);
+        }
+    }
+
+    /**
+     * The batched form of updateUsageCounters, for the post-complete worker's scoop. Reads each
+     * frame's resource usage (still one SELECT per frame; the aggregated read is a later step),
+     * then files the show, job and layer counters aggregated per key (UsageTally): one row per
+     * show, job and layer carrying the frame count and the summed times, plus the highest clock
+     * time per job and layer and the lowest per layer, so five hundred completions of one show are
+     * one write on its stats row instead of five hundred row versions under one lock. Each table
+     * takes one statement per scoop with its rows in key order, so two workers holding the same
+     * rows lock them in one order, within the statement and across the tables; several statements
+     * per table could not promise that (a key in one worker's success statement and in the other's
+     * failure statement locks in opposite orders). A frame is a success when its resolved exit
+     * status is zero, the rule the job and layer counters always used; a signal-killed frame
+     * (negative status) is a failure. A frame whose usage read fails is skipped with a log line,
+     * exactly like the per-frame form.
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateUsageCountersBatch(List<QueuedFrameCompletion> batch) {
+        // Sorted keys: two workers holding the same rows lock them in one order.
+        Map<String, UsageTally> shows = new TreeMap<String, UsageTally>();
+        Map<String, UsageTally> jobs = new TreeMap<String, UsageTally>();
+        Map<String, UsageTally> layers = new TreeMap<String, UsageTally>();
+        for (QueuedFrameCompletion c : batch) {
+            final ResourceUsage usage;
+            try {
+                usage = frameDao.getResourceUsage(c.frame);
+            } catch (Exception e) {
+                logger.info("Unable to find and update resource usage for frame, " + c.frame
+                        + " while updating frame with exit status " + c.exitStatus + "," + e);
+                continue;
+            }
+            boolean succeeded = c.exitStatus == 0;
+            shows.computeIfAbsent(c.frame.getShowId(), k -> new UsageTally()).add(succeeded, usage);
+            jobs.computeIfAbsent(c.frame.getJobId(), k -> new UsageTally()).add(succeeded, usage);
+            layers.computeIfAbsent(c.frame.getLayerId(), k -> new UsageTally()).add(succeeded,
+                    usage);
+        }
+        showDao.updateFrameCountersBatch(UsageTally.showRows(shows));
+        jobDao.updateUsageBatch(UsageTally.usageRows(jobs, false));
+        layerDao.updateUsageBatch(UsageTally.usageRows(layers, true));
+    }
+
+    /**
+     * One key's share of a scoop for updateUsageCountersBatch: the counts and the summed times of
+     * its succeeded and failed frames, and the clock extremes of the succeeded ones, which are the
+     * only ones the high and low columns ever tracked. The row builders produce the DAO batch rows,
+     * one per key, for the one statement each table takes.
+     */
+    static final class UsageTally {
+        long successCount, successCore, successGpu, successClock;
+        long failCount, failCore, failClock;
+        long high = 0;
+        long low = Long.MAX_VALUE;
+
+        void add(boolean succeeded, ResourceUsage usage) {
+            long clock = usage.getClockTimeSeconds();
+            if (succeeded) {
+                successCount++;
+                successCore += usage.getCoreTimeSeconds();
+                successGpu += usage.getGpuTimeSeconds();
+                successClock += clock;
+                high = Math.max(high, clock);
+                low = Math.min(low, clock);
+            } else {
+                failCount++;
+                failCore += usage.getCoreTimeSeconds();
+                failClock += clock;
+            }
+        }
+
+        /** {successes, failures, key} per show. */
+        static List<Object[]> showRows(Map<String, UsageTally> byKey) {
+            List<Object[]> rows = new ArrayList<Object[]>();
+            for (Map.Entry<String, UsageTally> e : byKey.entrySet())
+                rows.add(new Object[] {e.getValue().successCount, e.getValue().failCount,
+                        e.getKey()});
+            return rows;
+        }
+
+        /**
+         * {successCore, successGpu, successClock, successes, failCore, failClock, failures, high,
+         * key} per job. A layer row carries {successes, low} before the key as well: the guard and
+         * the value of its low column, which moves only for a row with successes. A row without a
+         * success passes 0 for both extremes, and 0 never raises a high.
+         */
+        static List<Object[]> usageRows(Map<String, UsageTally> byKey, boolean withLow) {
+            List<Object[]> rows = new ArrayList<Object[]>();
+            for (Map.Entry<String, UsageTally> e : byKey.entrySet()) {
+                UsageTally t = e.getValue();
+                long low = t.successCount > 0 ? t.low : 0;
+                if (withLow)
+                    rows.add(new Object[] {t.successCore, t.successGpu, t.successClock,
+                            t.successCount, t.failCore, t.failClock, t.failCount, t.high,
+                            t.successCount, low, e.getKey()});
+                else
+                    rows.add(new Object[] {t.successCore, t.successGpu, t.successClock,
+                            t.successCount, t.failCore, t.failClock, t.failCount, t.high,
+                            e.getKey()});
+            }
+            return rows;
         }
     }
 
