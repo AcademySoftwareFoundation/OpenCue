@@ -258,13 +258,15 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        // Who files this report. Mode off: legacy, on this thread -- unless the
-        // completion-forward relay hands a managed show's report to the
-        // isolated Maestro deployment (gating the hook on mode-off means the
-        // leader can never forward to itself, loop protection by
-        // construction). Facility mode: Maestro owns every show, nothing is
-        // read here. Managed mode: the proc's show flag decides, read once
-        // and handed to the resolve.
+        // Who files this report:
+        // - Mode off: the legacy path, on this thread. When the
+        // completion-forward relay is configured, a managed show's report
+        // is forwarded to the isolated Maestro deployment instead, and any
+        // relay failure falls back to the legacy path. Only mode-off
+        // cuebots forward, so a Maestro cuebot can never forward to itself.
+        // - Facility mode: Maestro owns every show; queue for the drain.
+        // - Managed mode: the proc's show flag decides, read once and handed
+        // to the resolve.
         if (!MaestroMode.enabled(env)) {
             if (completionForwarder == null) {
                 processReportNow(report);

@@ -132,7 +132,9 @@ public class MaestroCompletionForwarder {
         this.breakerCooldownMs =
                 1000L * env.getProperty("maestro.forward_breaker_cooldown_s", Long.class, 30L);
         if (!targets.isEmpty()) {
-            logger.info("Maestro completion forwarding enabled to " + targets + " (deadline "
+            // WARN, not INFO: this changes where managed-show completions are
+            // filed, and an operator reading the log must see it.
+            logger.warn("Maestro completion forwarding enabled to " + targets + " (deadline "
                     + deadlineMs + "ms, breaker opens after " + breakerFailures
                     + " consecutive failures for " + (breakerCooldownMs / 1000) + "s)");
         }
