@@ -232,14 +232,20 @@ def main():
         # the kill can land just before t reaches KILL_AT; keep the steady
         # snapshot strictly clear of it by re-taking it only well before the
         # mark, leaving kill-moment fallbacks to the outage phase.
-        if KILL_AT and t < KILL_AT - 10:
+        # Phase snapshots latch only from a successful count sample (a failed
+        # counts_by_show() returns {} and would bake a zero baseline into the
+        # outage arithmetic); a missed boundary sample defers to the next
+        # successful one, which is conservative in every direction.
+        counts_ok = MANAGED in c
+        if KILL_AT and t < KILL_AT - 10 and counts_ok:
             steady = (dict(f0), m[1])
         # Outage progress baselines at the kill boundary itself (a DB count,
         # immune to the killer-clock skew that moves the counter snapshot
         # early), so pre-kill completions cannot satisfy the outage floor.
-        if KILL_AT and kill_done is None and t >= KILL_AT:
+        if KILL_AT and kill_done is None and t >= KILL_AT and counts_ok:
             kill_done = m[1]
-        if KILL_AT and resume_snap is None and t > kill_end and m2 is not None:
+        if (KILL_AT and resume_snap is None and t > kill_end and m2 is not None
+                and counts_ok):
             resume_snap = (dict(f0), m[1])
             resume_t = t
 
