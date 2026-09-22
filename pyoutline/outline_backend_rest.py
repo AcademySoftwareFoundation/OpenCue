@@ -77,12 +77,13 @@ def launch(launcher, use_pycuerun=True):
     response.raise_for_status()
     jobs = response.json().get("jobs", {}).get("jobs", {})
     session.close()
-
-    if launcher.get("wait"):
-        wait(jobs[0])
-    elif launcher.get("test"):
-        test(jobs[0])
-    return jobs
+    if len(jobs) > 0:
+        if launcher.get("wait"):
+            wait(jobs[0])
+        elif launcher.get("test"):
+            test(jobs[0])
+        return jobs[0]
+    return None
 
 
 def test(job):
