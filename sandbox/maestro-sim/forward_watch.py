@@ -167,6 +167,7 @@ def main():
     # cuebot answers its metrics again, so the resume window is measured
     # from actual readiness, not a guessed startup time.
     steady = None          # (fwd0, managed_done) last sample before the kill mark
+    kill_done = None       # managed done count at the kill boundary itself
     resume_snap = None     # (fwd0, managed_done) once cuebot 2 is back
     resume_t = None        # watcher time of that sample
     kill_end = KILL_AT + OUTAGE if KILL_AT else 0
@@ -199,13 +200,22 @@ def main():
             metrics_seen = True
             booked.sample(parse_show_counter(m2, "cue_maestro_frames_dispatched_total"))
             cur_booked = booked.total(MANAGED)
-            booked_delta_max = max(booked_delta_max, cur_booked - booked_prev)
+            # Only pre-kill bursts calibrate the partition tolerance: the
+            # first post-restart scrape folds in everything dispatched since
+            # the new process started and would inflate it.
+            if not KILL_AT or t < KILL_AT:
+                booked_delta_max = max(booked_delta_max, cur_booked - booked_prev)
             booked_prev = cur_booked
         drained = drain.poll()
 
         now = time.time()
         cur = strays()
-        first_seen = {k: first_seen.get(k, now) for k in cur}
+        if cur is None:
+            # Sampling failed; keep the existing ages rather than restarting
+            # every stray's orphan clock.
+            cur = set(first_seen)
+        else:
+            first_seen = {k: first_seen.get(k, now) for k in cur}
         # The exemption ends shortly after the restarted cuebot actually
         # answers again, so the post-restart half of the run (including the
         # ambiguity races) is judged; the fixed grace is only the bound while
@@ -224,6 +234,11 @@ def main():
         # mark, leaving kill-moment fallbacks to the outage phase.
         if KILL_AT and t < KILL_AT - 10:
             steady = (dict(f0), m[1])
+        # Outage progress baselines at the kill boundary itself (a DB count,
+        # immune to the killer-clock skew that moves the counter snapshot
+        # early), so pre-kill completions cannot satisfy the outage floor.
+        if KILL_AT and kill_done is None and t >= KILL_AT:
+            kill_done = m[1]
         if KILL_AT and resume_snap is None and t > kill_end and m2 is not None:
             resume_snap = (dict(f0), m[1])
             resume_t = t
@@ -278,7 +293,8 @@ def main():
                             + resume_snap[0].get("fallback_error", 0)
                             - steady[0].get("fallback_breaker", 0)
                             - steady[0].get("fallback_error", 0))
-            outage_done = resume_snap[1] - steady[1]
+            outage_done = resume_snap[1] - (kill_done if kill_done is not None
+                                            else steady[1])
             resumed_fwd = f0.get("forwarded", 0) - resume_snap[0].get("forwarded", 0)
 
     print("\n==== FORWARD VERDICT ====", flush=True)

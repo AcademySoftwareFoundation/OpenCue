@@ -35,7 +35,7 @@ import os, sys, time
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 import migrate_common as mc
-from migrate_common import TOKEN, counts_by_show, strays, util
+from migrate_common import counts_by_show, strays, util
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 180
 INTERVAL = float(sys.argv[2]) if len(sys.argv) > 2 else 3.0
@@ -80,7 +80,12 @@ def main():
         leg_done = sum(c[s][1] for s in LEGACY if s in c)
         now = time.time()
         cur = strays()
-        first_seen = {k: first_seen.get(k, now) for k in cur}
+        if cur is None:
+            # Sampling failed; keep the existing ages rather than restarting
+            # every stray's orphan clock.
+            cur = set(first_seen)
+        else:
+            first_seen = {k: first_seen.get(k, now) for k in cur}
         aged = sum(1 for seen in first_seen.values() if now - seen > ORPHAN_AGE_S)
         orphans = max(orphans, aged)
         inflight_peak = max(inflight_peak, len(cur))

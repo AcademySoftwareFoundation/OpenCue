@@ -15,24 +15,30 @@ PSQL = spec.psql_cmd()
 
 
 def q(sql):
+    """Result lines, [] for an empty result, None when the query FAILED --
+    callers judging absence (strays) must not mistake a sampling failure for
+    an empty farm."""
     try:
-        return subprocess.run(PSQL + ["-c", sql], capture_output=True, text=True,
-                              timeout=15).stdout.strip().splitlines()
+        r = subprocess.run(PSQL + ["-c", sql], capture_output=True, text=True,
+                           timeout=15)
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip().splitlines()
     except Exception:
-        return []
+        return None
 
 
 def counts_by_show():
     """{show: [running, succeeded, dead, waiting]} for the flood jobs."""
     out = {}
-    for r in q("SELECT s.str_name,"
+    for r in (q("SELECT s.str_name,"
                " sum(CASE WHEN f.str_state='RUNNING' THEN 1 ELSE 0 END),"
                " sum(CASE WHEN f.str_state='SUCCEEDED' THEN 1 ELSE 0 END),"
                " sum(CASE WHEN f.str_state='DEAD' THEN 1 ELSE 0 END),"
                " sum(CASE WHEN f.str_state='WAITING' THEN 1 ELSE 0 END)"
                " FROM frame f JOIN job j ON j.pk_job=f.pk_job"
                " JOIN show s ON s.pk_show=j.pk_show"
-               f" WHERE j.str_name LIKE '%{TOKEN}%' GROUP BY s.str_name;"):
+                f" WHERE j.str_name LIKE '%{TOKEN}%' GROUP BY s.str_name;") or []):
         name, running, done, dead, wait = r.split("|")
         out[name] = [int(running), int(done), int(dead), int(wait)]
     return out
@@ -40,19 +46,23 @@ def counts_by_show():
 
 def strays():
     """Run identities out of step: the pk of every proc whose frame is gone or
-    not RUNNING, and of every RUNNING flood frame that has no proc."""
+    not RUNNING, and of every RUNNING flood frame that has no proc. None when
+    sampling failed (the watchers keep their existing ages rather than
+    restarting every stray's orphan clock on an empty answer)."""
     procs = q("SELECT p.pk_proc FROM proc p LEFT JOIN frame f ON f.pk_frame=p.pk_frame"
               " WHERE f.pk_frame IS NULL OR f.str_state<>'RUNNING';")
     frames = q("SELECT f.pk_frame FROM frame f JOIN job j ON j.pk_job=f.pk_job"
                " LEFT JOIN proc p ON p.pk_frame=f.pk_frame"
                f" WHERE j.str_name LIKE '%{TOKEN}%' AND f.str_state='RUNNING'"
                " AND p.pk_proc IS NULL;")
+    if procs is None or frames is None:
+        return None
     return set(procs) | set(frames)
 
 
 def util():
     rows = q("SELECT round(100.0 * sum(int_cores - int_cores_idle) / sum(int_cores), 1)"
-             " FROM host;")
+             " FROM host;") or []
     return float(rows[0]) if rows and rows[0].strip() else 0.0
 
 

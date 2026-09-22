@@ -769,7 +769,10 @@ the completion pipeline would stay dormant until the facility flip. Setting
 managed show's `FrameCompleteReport` is relayed, unmodified, into the pair's
 own report servant, so the drain path validated in production is byte-for-byte
 the facility-mode path and the leader cannot tell a forwarded report from a
-direct one. It also answers §6.1's split-ledger concern for that topology:
+direct one (including the transport: the same plaintext, unauthenticated
+report gRPC the RQDs use, so the relay must stay on the trusted internal
+network -- it adds no new trust boundary and must not be given one to cross).
+It also answers §6.1's split-ledger concern for that topology:
 with forwarding healthy, one cuebot files every managed report. One attempt
 per report with a short deadline; every failure falls back to the local legacy
 path (never a retry signal to RQD -- RQD already delivered its report), and a
