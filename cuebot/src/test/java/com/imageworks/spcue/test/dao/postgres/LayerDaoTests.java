@@ -858,4 +858,36 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 "Set by testuser");
         assertEquals(baseline, layerDao.getDelayedLayerCount());
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateUsageBatchEachColumnByItsOwnValue() {
+        // One row per layer, every value distinct, so a swapped parameter
+        // changes exactly one column; the first row lands on a fresh layer
+        // whose low is still zero. A row without successes leaves both
+        // extremes, a longer success leaves them, a shorter one lowers the low.
+        LayerDetail layer = getLayer();
+        long[][] rows = {{11L, 13L, 17L, 3L, 19L, 29L, 2L, 23L, 3L, 5L},
+                {0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L}, {0L, 0L, 0L, 1L, 0L, 0L, 0L, 9L, 1L, 9L},
+                {0L, 0L, 0L, 1L, 0L, 0L, 0L, 4L, 1L, 4L}};
+        for (long[] r : rows) {
+            Object[] row = new Object[r.length + 1];
+            for (int i = 0; i < r.length; i++)
+                row[i] = r[i];
+            row[r.length] = layer.getId();
+            layerDao.updateUsageBatch(java.util.Collections.singletonList(row));
+        }
+        String[] columns =
+                {"int_core_time_success", "int_gpu_time_success", "int_clock_time_success",
+                        "int_frame_success_count", "int_clock_time_high", "int_clock_time_low",
+                        "int_core_time_fail", "int_clock_time_fail", "int_frame_fail_count"};
+        long[] expected = {11, 13, 17, 5, 23, 4, 19, 29, 2};
+        for (int i = 0; i < columns.length; i++) {
+            assertEquals(columns[i], Long.valueOf(expected[i]),
+                    jdbcTemplate.queryForObject(
+                            "SELECT " + columns[i] + " FROM layer_usage WHERE pk_layer=?",
+                            Long.class, layer.getId()));
+        }
+    }
 }

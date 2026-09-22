@@ -449,6 +449,13 @@ public interface DispatchSupport {
     void updateUsageCounters(FrameInterface frame, int exitStatus);
 
     /**
+     * The batched form of updateUsageCounters for the post-complete worker: reads each frame's
+     * resource usage, then files the show, job and layer counters with one JDBC round trip per
+     * statement for the whole batch instead of four to six per frame.
+     */
+    void updateUsageCountersBatch(java.util.List<QueuedFrameCompletion> batch);
+
+    /**
      * Sets a frame to running if there is a proc with the frame.
      *
      * @param frame

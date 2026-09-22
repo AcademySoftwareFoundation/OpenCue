@@ -16,14 +16,18 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
@@ -195,14 +199,18 @@ public class FrameCompleteHandler {
                         OomMemoryTracker.DEFAULT_EXPIRE_HOURS),
                 env.getProperty("dispatcher.oom_streak_expire_hours", Long.class,
                         OomMemoryTracker.DEFAULT_EXPIRE_HOURS));
-        int postCompleteQueueSize =
-                env.getProperty("maestro.post_complete_queue_size", Integer.class, 10000);
+        // One worker for ordering; an UNBOUNDED queue so this executor's
+        // overflow cannot exist as a code path. Maestro must never file
+        // post-complete work itself (tick time would multiply by the
+        // completion rate), and a completion that reached cuebot is never
+        // refused: the queue's depth is the completion rate times the time
+        // the worker stands still, a few kilobytes per entry.
         postCompleteExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(postCompleteQueueSize), r -> {
+                new LinkedBlockingQueue<Runnable>(), r -> {
                     Thread t = new Thread(r, "CompletionPostOps");
                     t.setDaemon(true);
                     return t;
-                }, new ThreadPoolExecutor.CallerRunsPolicy());
+                });
     }
 
     /**
@@ -235,10 +243,11 @@ public class FrameCompleteHandler {
      * interleaving with a job shutdown could throw mid-way and leave an orphaned proc behind, and
      * one orphaned proc wedges Maestro's batch commit permanently. The resolve stays on the report
      * threads because spread across them it is free, while done serially in the tick it would
-     * multiply tick time by the completion rate; in managed mode the ownership check also needs the
-     * resolved proc's show id, so the resolve must come first. There is deliberately no off switch
-     * (it would bring the orphan races back). Legacy-owned shows skip the drain and process the
-     * report to the end right here, on this thread.
+     * multiply tick time by the completion rate. Ownership is decided before anything else: in
+     * managed mode the show flag is read from the proc first, so a legacy-owned report never meets
+     * the drain's resolve, whatever the mode switch says. There is deliberately no off switch (it
+     * would bring the orphan races back). Legacy-owned shows skip the drain and process the report
+     * to the end right here, on this thread.
      *
      * @param report
      */
@@ -248,30 +257,62 @@ public class FrameCompleteHandler {
                     + "cuebot not accepting packets.");
         }
 
-        // Maestro-owned show: resolve here, apply in the tick (see header).
-        if (MaestroMode.enabled(env)) {
-            QueuedFrameCompletion resolved;
-            boolean schedulerOwned;
-            try {
-                resolved = resolveForDrain(report);
-                if (resolved == null) {
-                    return;
-                }
-                schedulerOwned = MaestroMode.schedules(env, showDao, resolved.proc.getShowId());
-            } catch (Exception e) {
-                // Same retry contract as processReportNow: a transient resolve
-                // failure must reach RQD as a retry signal, never as a raw
-                // runtime exception over gRPC.
-                throw new RqdRetryReportException("error resolving the frame complete "
-                        + "report for the scheduler drain, sending retry message to RQD " + e, e);
-            }
-            if (schedulerOwned) {
-                MaestroCompletionQueue.offer(resolved);
-                return;
-            }
+        // Who files this report. Mode off: legacy, on this thread. Facility
+        // mode: Maestro owns every show, nothing is read here. Managed mode:
+        // the proc's show flag decides, read once and handed to the resolve.
+        if (!MaestroMode.enabled(env)) {
+            processReportNow(report);
+            return;
         }
+        if (MaestroMode.facility(env)) {
+            queueForDrain(report, null);
+            return;
+        }
+        VirtualProc owned = ownedProc(report);
+        if (owned == null) {
+            processReportNow(report);
+        } else {
+            queueForDrain(report, owned);
+        }
+    }
 
-        processReportNow(report);
+    /**
+     * Maestro's path: resolve the report here, on the report thread (pure reads), and hand the
+     * resolved completion to the tick's drain (see the class header). A transient resolve failure
+     * becomes the retry signal to RQD, the same contract as processReportNow, never a raw exception
+     * over gRPC. The known proc is the one ownedProc read in managed mode; null lets the resolve
+     * read it.
+     */
+    private void queueForDrain(FrameCompleteReport report, VirtualProc known) {
+        QueuedFrameCompletion resolved;
+        try {
+            resolved = resolveForDrain(report, known);
+        } catch (Exception e) {
+            throw new RqdRetryReportException(
+                    "error resolving the frame complete "
+                            + "report for the scheduler drain, sending retry message to RQD " + e,
+                    e);
+        }
+        if (resolved != null) {
+            MaestroCompletionQueue.offer(resolved);
+        }
+    }
+
+    /**
+     * Managed mode: the report's proc when its show is flagged for Maestro, else null. Null also
+     * when the proc is gone: the legacy path finalizes the orphan, as it does in every mode. A
+     * transient read failure becomes the retry signal, never a raw exception over gRPC.
+     */
+    private VirtualProc ownedProc(FrameCompleteReport report) {
+        try {
+            VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            return showDao.isSchedulerManaged(proc.getShowId()) ? proc : null;
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        } catch (Exception e) {
+            throw new RqdRetryReportException("error reading the show of the frame complete "
+                    + "report, sending retry message to RQD " + e, e);
+        }
     }
 
     /**
@@ -283,10 +324,16 @@ public class FrameCompleteHandler {
      * the same fences as a legacy one.
      */
     public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report) {
+        return resolveForDrain(report, null);
+    }
+
+    /** As above, with the proc already read by the caller; null reads it here. */
+    public QueuedFrameCompletion resolveForDrain(FrameCompleteReport report, VirtualProc known) {
         try {
             final VirtualProc proc;
             try {
-                proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+                proc = known != null ? known
+                        : hostManager.getVirtualProc(report.getFrame().getResourceId());
             } catch (EmptyResultDataAccessException e) {
                 finalizeOrphanedFrameComplete(report);
                 return null;
@@ -341,27 +388,219 @@ public class FrameCompleteHandler {
      * completion checks, usage counters) can lag a little without hurting anyone; running it inside
      * the tick would multiply the tick time by the completion rate, and putting it on dispatchQueue
      * would let load-shedding silently drop depend satisfaction (a job then hangs forever). The
-     * queue is bounded (maestro.post_complete_queue_size) with a caller-runs overflow policy:
-     * nothing is ever dropped, but a sustained backlog turns into back-pressure on the drain
-     * instead of unbounded heap growth. Queue depth is reported on Maestro stat line. Initialized
-     * in the constructor (needs env for the bound).
+     * queue is UNBOUNDED so neither of those failure modes exists as a code path, and nothing is
+     * refused at the intake either: the RQD channel makes at most four attempts per report
+     * (rqd/rqd/rqnetwork.py) and postFrameAction deletes the frame before the send, so a report
+     * refused past those attempts is lost for good. The queue's depth is the completion rate times
+     * the time the worker stands still, a few kilobytes per entry, and it is reported on the
+     * Maestro stat line as postQ.
      */
     private final ThreadPoolExecutor postCompleteExecutor;
 
+    // consumed by queuePostOps()
+    private final LinkedBlockingQueue<QueuedFrameCompletion> postCompleteQueue =
+            new LinkedBlockingQueue<QueuedFrameCompletion>();
+
+    // consumed by queuePostOps()
+    private final AtomicBoolean scoopScheduled = new AtomicBoolean(false);
+
+    // consumed by batchPostOps(); one scoop is one batch of filings
+    private static final int POST_COMPLETE_SCOOP_MAX = 500;
+
     /**
-     * Queue a drained (already stopped) completion's follow-up work on the post-complete worker.
-     * Called by Maestro's drain for every frame its batched stop won.
+     * Queue a drained (already stopped) completion's follow-up work for the post-complete worker.
+     * Called by Maestro's drain for every frame its batched stop won. Completions land on a data
+     * queue rather than as closures, so the worker can scoop hundreds at a time and file them as a
+     * batch (batchPostOps): counters in one round trip per statement, completion checks once per
+     * distinct layer and job. The scoop task reschedules itself while work remains, so the executor
+     * holds at most one task and the queue depth is the real backlog.
      */
     public void queuePostOps(final QueuedFrameCompletion c) {
+        postCompleteQueue.offer(c);
+        scheduleScoop();
+    }
+
+    private void scheduleScoop() {
+        if (!scoopScheduled.compareAndSet(false, true))
+            return;
+        try {
+            submitScoop();
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // Only possible during shutdown, after the executor stopped taking
+            // work: never let it reach the drain (the Maestro thread). What is
+            // still queued is abandoned to the maintenance sweep, exactly like
+            // an overrun of the shutdown drain window.
+            scoopScheduled.set(false);
+            logger.warn("post-complete worker is shut down; " + postCompleteQueue.size()
+                    + " queued completions left to the maintenance sweep.");
+        }
+    }
+
+    private void submitScoop() {
         postCompleteExecutor.execute(() -> {
+            List<QueuedFrameCompletion> scoop =
+                    new ArrayList<QueuedFrameCompletion>(POST_COMPLETE_SCOOP_MAX);
             try {
-                handlePostFrameCompleteOperations(c.proc, c.report, c.job, c.frame, c.newFrameState,
-                        c.frameDetail);
-            } catch (RuntimeException e) {
-                logger.warn("post-complete operations for frame " + c.frame.getName() + " failed: "
-                        + CueExceptionUtil.getStackTrace(e));
+                while (true) {
+                    scoop.clear();
+                    postCompleteQueue.drainTo(scoop, POST_COMPLETE_SCOOP_MAX);
+                    if (scoop.isEmpty())
+                        return;
+                    batchPostOps(scoop);
+                }
+            } finally {
+                // The flag goes down whatever ended the task, the empty queue
+                // or an Error out of a batch, so no failure can leave the
+                // intake without a worker; an Error costs that one scoop's
+                // bookkeeping, its frames are stopped already. A completion
+                // that arrived between the last drain and the flag going down
+                // would be stranded: re-arm for it.
+                scoopScheduled.set(false);
+                if (!postCompleteQueue.isEmpty())
+                    scheduleScoop();
             }
         });
+    }
+
+    /**
+     * File one scoop of completions as a batch, in three phases that each fail alone. Phase one is
+     * per frame (event publish, delay rules, memory-failure retries, frame-level depends,
+     * fileFrame): a frame that throws costs its own filing, the rest of the scoop goes on. Phase
+     * two files the usage counters of the whole scoop in one transaction (fileCounters): when it
+     * fails it rolled back as a whole, so each frame's counters are then filed alone and a bad row
+     * costs one frame. Phase three runs the completion checks once per DISTINCT layer and job
+     * instead of once per frame (fileLayer, fileJob), so three hundred frames of one job ask "is
+     * the job done" once; each check fails alone. Nothing is filed twice: the counters in
+     * particular are written once, by the batch or by the per-frame fallback, never by both, and no
+     * failure replays the scoop through the per-frame path. The proc branches of that path are
+     * skipped entirely: this path only ever files completions the batched stop already released, so
+     * there is no proc left to unbook, transfer or rebook.
+     */
+    private void batchPostOps(List<QueuedFrameCompletion> scoop) {
+        Map<String, QueuedFrameCompletion> byLayer =
+                new LinkedHashMap<String, QueuedFrameCompletion>();
+        Map<String, QueuedFrameCompletion> byJob =
+                new LinkedHashMap<String, QueuedFrameCompletion>();
+        for (QueuedFrameCompletion c : scoop) {
+            try {
+                fileFrame(c, byLayer, byJob);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete filing of frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+        fileCounters(scoop);
+        for (QueuedFrameCompletion c : byLayer.values()) {
+            try {
+                fileLayer(c);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete check of layer " + c.frame.getLayerId() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+        for (QueuedFrameCompletion c : byJob.values()) {
+            try {
+                fileJob(c);
+            } catch (RuntimeException e) {
+                logger.warn("post-complete check of job " + c.job.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+    }
+
+    /**
+     * Phase one of batchPostOps: one frame's own filing, and its layer and job put up for phase
+     * three. The depends and the registration come first (satisfyDependsWithRetry never throws),
+     * then the event publish, the limit rule and the memory retry each in their own guard, so a
+     * failing step costs that step alone and never the frame's depends or its layer's and job's
+     * completion checks. A layer's representative is a succeeded frame when the layer saw one, so
+     * optimizeLayer reads a real render's cores, memory and run time; otherwise the first eaten
+     * frame, which only feeds the completion check.
+     */
+    private void fileFrame(QueuedFrameCompletion c, Map<String, QueuedFrameCompletion> byLayer,
+            Map<String, QueuedFrameCompletion> byJob) {
+        boolean succeeded = c.newFrameState.equals(FrameState.SUCCEEDED);
+        boolean dependEligible = succeeded
+                || (!satisfyDependOnlyOnFrameSuccess && c.newFrameState.equals(FrameState.EATEN));
+        if (dependEligible) {
+            satisfyDependsWithRetry(() -> jobManagerSupport.satisfyWhatDependsOn(c.frame),
+                    "frame " + c.frame.getName() + " (id=" + c.frame.getFrameId() + ")",
+                    c.job.getName(), c.job.getJobId());
+            if (succeeded) {
+                byLayer.put(c.frame.getLayerId(), c);
+            } else {
+                byLayer.putIfAbsent(c.frame.getLayerId(), c);
+            }
+        }
+        if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
+            byJob.putIfAbsent(c.frame.getJobId(), c);
+        }
+        if (succeeded) {
+            OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
+        }
+        String name = c.frame.getName();
+        guard(() -> publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState,
+                c.proc), "event of frame " + name);
+        guard(() -> applyLimitRule(c.frame, resolveExitStatus(c.report, c.frameDetail),
+                c.newFrameState), "limit rule of frame " + name);
+        if (isMemoryFailure(c.report, c.frameDetail)) {
+            guard(() -> retryFrameWithRaisedMemory(c.proc, c.frame),
+                    "memory retry of frame " + name);
+        }
+    }
+
+    /** One step of a frame's filing: a failure is logged and costs that step only. */
+    private void guard(Runnable step, String what) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            logger.warn("post-complete " + what + " failed: " + CueExceptionUtil.getStackTrace(e));
+        }
+    }
+
+    /**
+     * Phase two of batchPostOps: the usage counters of the whole scoop in one transaction, one
+     * round trip per statement. When it fails, the transaction rolled back as a whole, so each
+     * frame's counters are filed alone, each in its own guard, and none is written twice.
+     */
+    private void fileCounters(List<QueuedFrameCompletion> scoop) {
+        try {
+            dispatchSupport.updateUsageCountersBatch(scoop);
+            return;
+        } catch (RuntimeException e) {
+            logger.warn("batched usage counters of " + scoop.size()
+                    + " completions failed, filing them per frame: "
+                    + CueExceptionUtil.getStackTrace(e));
+        }
+        for (QueuedFrameCompletion c : scoop) {
+            try {
+                dispatchSupport.updateUsageCounters(c.frame, c.exitStatus);
+            } catch (RuntimeException e) {
+                logger.warn("usage counters of frame " + c.frame.getName() + " failed: "
+                        + CueExceptionUtil.getStackTrace(e));
+            }
+        }
+    }
+
+    /** Phase three of batchPostOps for one layer: the completion check, else the optimizer. */
+    private void fileLayer(final QueuedFrameCompletion c) {
+        if (jobManager.isLayerComplete(c.frame)) {
+            satisfyDependsWithRetry(
+                    () -> jobManagerSupport.satisfyWhatDependsOn((LayerInterface) c.frame),
+                    "layer " + c.frame.getLayerId(), c.job.getName(), c.job.getJobId());
+            publishLayerCompletedTelemetry(c.frame);
+        } else if (c.newFrameState.equals(FrameState.SUCCEEDED)) {
+            jobManager.optimizeLayer(c.frame, c.report.getFrame().getNumCores(),
+                    c.report.getFrame().getMaxRss(), c.report.getRunTime());
+        }
+    }
+
+    /** Phase three of batchPostOps for one job: the completion check. */
+    private void fileJob(QueuedFrameCompletion c) {
+        if (jobManager.isJobComplete(c.job)) {
+            c.job.state = JobState.FINISHED;
+            jobManagerSupport.queueShutdownJob(c.job, new Source("natural"), false);
+        }
     }
 
     /**
@@ -630,7 +869,7 @@ public class FrameCompleteHandler {
              */
             boolean unbookProc = proc.unbooked;
 
-            dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+            dispatchSupport.updateUsageCounters(frame, resolveExitStatus(report, frameDetail));
 
             applyLimitRule(frame, resolveExitStatus(report, frameDetail), newFrameState);
 
@@ -760,11 +999,16 @@ public class FrameCompleteHandler {
      * The legacy dispatcher raises the whole LAYER and disables its optimizer (the original
      * behavior, kept unchanged). The in-process Maestro instead bumps per FRAME so one hungry or
      * spuriously-killed frame does not inflate every other frame and strand cores, escalating to
-     * the layer only after repeated OOMs in a row (see OomMemoryTracker).
+     * the layer only after repeated OOMs in a row (see OomMemoryTracker). The per-frame bump only
+     * works on the cuebot that dispatches the show (the tracker is in-process), so a Maestro-owned
+     * frame whose report lands on a legacy cuebot in a mixed fleet still gets the DB-visible layer
+     * raise -- the one lever that reaches the Maestro dispatcher -- but keeps its optimizer ON:
+     * disabling it belongs to the legacy policy, and would stop Maestro from settling the layer
+     * back to its true size. A legacy show keeps the original treatment everywhere.
      */
     private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
         long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
-        if (MaestroMode.enabled(env)) {
+        if (MaestroMode.schedules(env, showDao, proc.getShowId())) {
             // Leaves the layer optimizer on, so an escalated layer later settles at its true size.
             int oomThreshold =
                     env.getProperty("dispatcher.oom_layer_escalate_threshold", Integer.class, 3);
@@ -779,7 +1023,9 @@ public class FrameCompleteHandler {
             }
             return;
         }
-        jobManager.enableMemoryOptimizer(frame, false);
+        if (!showDao.isSchedulerManaged(proc.getShowId())) {
+            jobManager.enableMemoryOptimizer(frame, false);
+        }
         jobManager.increaseLayerMemoryRequirement(frame, newReserved);
         logger.info("Increased mem usage to: " + newReserved);
     }
@@ -1061,7 +1307,7 @@ public class FrameCompleteHandler {
             prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
         }
 
-        dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
+        dispatchSupport.updateUsageCounters(frame, exitStatus);
 
         applyLimitRule(frame, exitStatus, newFrameState);
 
@@ -1217,12 +1463,10 @@ public class FrameCompleteHandler {
              */
             jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
                     report.getFrame().getMaxRss(), report.getRunTime());
-            if (MaestroMode.enabled(env)) {
-                // With the in-process Maestro, a success clears this frame's
-                // per-frame OOM bump. The layer's OOM streak is deliberately
-                // kept (see OomMemoryTracker.onSuccess).
-                OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
-            }
+            // A success clears the per-frame OOM bump Maestro may have given
+            // this frame. The layer's OOM streak is deliberately kept (see
+            // OomMemoryTracker.onSuccess).
+            OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
         }
 
         /*
@@ -1434,7 +1678,7 @@ public class FrameCompleteHandler {
         try {
             if (!postCompleteExecutor.awaitTermination(drainMs, TimeUnit.MILLISECONDS)) {
                 logger.warn("post-complete worker did not drain within " + drainMs + "ms; "
-                        + postCompleteExecutor.getQueue().size() + " queued operations abandoned"
+                        + postCompleteQueue.size() + " queued completions abandoned"
                         + " (recovered later by the depend maintenance sweep).");
             }
         } catch (InterruptedException e) {
@@ -1444,7 +1688,7 @@ public class FrameCompleteHandler {
 
     /** Depth of the post-complete work queue, reported on Maestro stat line. */
     public int getPostCompleteQueueDepth() {
-        return postCompleteExecutor.getQueue().size();
+        return postCompleteQueue.size();
     }
 
     public HostManager getHostManager() {

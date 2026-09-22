@@ -712,4 +712,29 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
         assertEquals(job.maxCoreUnits, 42000);
         assertEquals(job.maxGpuUnits, 42);
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateUsageBatchEachColumnByItsOwnValue() {
+        // One row per job, every value distinct, so a swapped parameter changes
+        // exactly one column; a second row without successes leaves the high.
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        jobLauncher.launch(spec);
+        JobInterface job = jobDao.findJob(spec.getJobs().get(0).detail.name);
+        jobDao.updateUsageBatch(java.util.Collections
+                .singletonList(new Object[] {11L, 13L, 17L, 3L, 19L, 29L, 2L, 23L, job.getId()}));
+        jobDao.updateUsageBatch(java.util.Collections
+                .singletonList(new Object[] {0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, job.getId()}));
+        String[] columns = {"int_core_time_success", "int_gpu_time_success",
+                "int_clock_time_success", "int_frame_success_count", "int_clock_time_high",
+                "int_core_time_fail", "int_clock_time_fail", "int_frame_fail_count"};
+        long[] expected = {11, 13, 17, 3, 23, 19, 29, 2};
+        for (int i = 0; i < columns.length; i++) {
+            assertEquals(columns[i], Long.valueOf(expected[i]),
+                    jdbcTemplate.queryForObject(
+                            "SELECT " + columns[i] + " FROM job_usage WHERE pk_job=?", Long.class,
+                            job.getId()));
+        }
+    }
 }

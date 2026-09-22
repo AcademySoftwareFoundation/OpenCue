@@ -34,6 +34,9 @@ import com.imageworks.spcue.grpc.host.HardwareState;
  */
 public interface ProcDao {
 
+    // consumed by ProcDaoJdbc.ORPHANED_PROC_INTERVAL and Maestro.LAUNCH_MAX_AGE_MS
+    long ORPHAN_AGE_SECONDS = 300;
+
     /**
      * Returns the amount of reserved memory a proc has
      *
@@ -298,6 +301,10 @@ public interface ProcDao {
     List<VirtualProc> findOrphanedVirtualProcs();
 
     /**
+     * The procs whose last ping is older than ORPHAN_AGE_SECONDS, oldest first, at most limit of
+     * them. A proc that has not pinged for that long has no host report behind it, and the
+     * maintenance pass reclaims it (lostProc). The same age bounds how long Maestro lets a launch
+     * wait in its queue before it rolls the booking back unsent (LAUNCH_MAX_AGE_MS).
      *
      * @return
      */

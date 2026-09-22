@@ -40,6 +40,17 @@ import sim_model
 import sim_mem
 
 CUEBOT = spec.GRPC
+ALIVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "rqd_alive.txt")  # consumed by running_by_host()
+
+
+def _alive_ids():
+    """Frame ids the fake RQD runs right now, or None before it published any."""
+    try:
+        with open(ALIVE_FILE) as f:
+            return set(line.strip() for line in f if line.strip())
+    except FileNotFoundError:
+        return None
 INTERVAL = float(sys.argv[1]) if len(sys.argv) > 1 else 0.1
 # Reports are sent CONCURRENTLY across this many threads. A serial round of 1553
 # synchronous ReportStatus RPCs collapses to cuebot's per-report latency (and
@@ -97,6 +108,14 @@ def running_by_host():
         by_host.setdefault(c[0], []).append(
             (c[1], c[2], c[3], c[4], c[5], c[6], int(c[7]), int(c[8]),
              int(c[9]), int(c[10]), int(c[11])))
+    # A real RQD reports the frames it runs, not the procs cuebot booked: a
+    # frame whose completion report was lost is gone from its reports and only
+    # cuebot's maintenance reclaims the proc. fake_rqd publishes its running
+    # frame ids every half second; cuebot kills nothing for being absent from
+    # a report, so that lag is harmless.
+    alive = _alive_ids()
+    if alive is not None:
+        by_host = {h: [r for r in rows if r[1] in alive] for h, rows in by_host.items()}
     return by_host
 
 
@@ -193,32 +212,40 @@ def _send_one(stub, name, cores, mem_kb, frames, now):
         core_info=report_pb2.CoreDetail(
             total_cores=cp, idle_cores=max(0, cp - booked_cp),
             locked_cores=0, booked_cores=booked_cp))
+    # Sent as the real RQD's channel sends it (sim_model.rqd_rpc: four attempts,
+    # backoff, UNAVAILABLE only); a report that still fails is dropped and the
+    # next interval sends a fresh one, as rqcore's interval thread does.
     try:
-        stub.ReportStatus(report_pb2.RqdReportStatusRequest(host_report=report))
+        sim_model.rqd_rpc(lambda: stub.ReportStatus(
+            report_pb2.RqdReportStatusRequest(host_report=report)))
         return 0
     except grpc.RpcError:
         return 1
 
 
-def ping_round(stub, pool):
+def ping_round(stubs, pool):
     now = int(time.time())
     running = running_by_host()
     # Fire all host reports CONCURRENTLY (see REPORT_THREADS). gRPC channels are
     # thread-safe for concurrent unary calls, so a busy cuebot no longer
-    # serializes the round behind per-report latency.
-    futs = [pool.submit(_send_one, stub, name, cores, mem_kb,
+    # serializes the round behind per-report latency. With several stubs (a
+    # spread, see main) each host always reports to the same cuebot, the way
+    # a service registry pins an RQD to one of several cuebots.
+    futs = [pool.submit(_send_one, stubs[i % len(stubs)], name, cores, mem_kb,
                         running.get(name, []), now)
-            for name, cores, mem_kb in HOSTS]
+            for i, (name, cores, mem_kb) in enumerate(HOSTS)]
     failed = sum(f.result() for f in futs)
     return sum(len(v) for v in running.values()), failed
 
 
 def main():
-    # Cuebot failover, like a real RQD's multi-cuebot config: when a whole
-    # report round fails (the cuebot we dial died -- e.g. the FAILOVER verify
-    # scenario killing the leader), re-dial the next address from
+    # Cuebot failover, the balancer in front of a multi-cuebot farm: when a
+    # whole report round fails (the cuebot we dial died -- e.g. the FAILOVER
+    # verify scenario killing the leader), re-dial the next address from
     # SIM_CUEBOT_GRPC_FALLBACKS so host+frame status keeps flowing to the
-    # surviving cuebot and procs never age into DOWN.
+    # surviving cuebot and procs never age into DOWN. A real RQD's own channel
+    # reconnects to the address it dialed; the balancer is what lands it on the
+    # survivor.
     cuebots = [CUEBOT] + [a.strip() for a in
                           os.environ.get("SIM_CUEBOT_GRPC_FALLBACKS", "").split(",")
                           if a.strip()]
@@ -226,17 +253,30 @@ def main():
     chan = grpc.insecure_channel(cuebots[idx])
     grpc.channel_ready_future(chan).result(timeout=15)
     stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
+    # SIM_CUEBOT_GRPC_SPREAD (comma-separated) spreads the hosts over several
+    # cuebots at once, each host pinned to one of them (fake_rqd sends the
+    # host's completions to the same one): the MIGRATE scenario's three cuebots
+    # behind one service registry. No failover in that mode.
+    spread = [a.strip() for a in os.environ.get("SIM_CUEBOT_GRPC_SPREAD", "").split(",")
+              if a.strip()]
+    stubs = [stub]
+    if spread:
+        stubs = [report_pb2_grpc.RqdReportInterfaceStub(grpc.insecure_channel(a))
+                 for a in spread]
+        print(f"host reports spread over cuebots {spread}, each host pinned to one",
+              flush=True)
     rounds = 0
     with ThreadPoolExecutor(max_workers=REPORT_THREADS) as pool:
         while True:
             t0 = time.time()
-            nframes, failed = ping_round(stub, pool)
-            if failed == len(HOSTS) and len(cuebots) > 1:
+            nframes, failed = ping_round(stubs, pool)
+            if failed == len(HOSTS) and len(cuebots) > 1 and not spread:
                 idx = (idx + 1) % len(cuebots)
                 print(f"whole round failed; failing over to cuebot {cuebots[idx]}",
                       flush=True)
                 chan = grpc.insecure_channel(cuebots[idx])
                 stub = report_pb2_grpc.RqdReportInterfaceStub(chan)
+                stubs = [stub]
             rounds += 1
             print(f"report round {rounds}: {len(HOSTS)} hosts, {nframes} running "
                   f"frames in {time.time()-t0:.2f}s "

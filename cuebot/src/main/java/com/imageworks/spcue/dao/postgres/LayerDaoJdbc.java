@@ -821,40 +821,80 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         }, layer.getLayerId());
     }
 
+    // spotless:off
+    private static final String UPDATE_LAYER_USAGE_SUCCESS =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + 1 "
+            + "WHERE pk_layer = ? ";
+    private static final String UPDATE_LAYER_USAGE_HIGH =
+            "UPDATE layer_usage "
+            + "SET int_clock_time_high = ? "
+            + "WHERE pk_layer = ? "
+            + "AND int_clock_time_high < ?";
+    private static final String UPDATE_LAYER_USAGE_LOW =
+            "UPDATE layer_usage "
+            + "SET int_clock_time_low = ? "
+            + "WHERE pk_layer = ? "
+            + "AND (? < int_clock_time_low OR int_clock_time_low = 0)";
+    private static final String UPDATE_LAYER_USAGE_FAIL =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + 1 "
+            + "WHERE pk_layer = ? ";
+    // The batch form: one row per layer with both outcomes and the clock extremes, one statement.
+    // The low moves only for a row with successes (its guard) and a zero low counts as unset, as
+    // the per-frame statement treats it.
+    private static final String UPDATE_LAYER_USAGE_BATCH =
+            "UPDATE layer_usage "
+            + "SET "
+                + "int_core_time_success = int_core_time_success + ?,"
+                + "int_gpu_time_success = int_gpu_time_success + ?,"
+                + "int_clock_time_success = int_clock_time_success + ?,"
+                + "int_frame_success_count = int_frame_success_count + ?,"
+                + "int_core_time_fail = int_core_time_fail + ?,"
+                + "int_clock_time_fail = int_clock_time_fail + ?,"
+                + "int_frame_fail_count = int_frame_fail_count + ?,"
+                + "int_clock_time_high = GREATEST(int_clock_time_high, ?),"
+                + "int_clock_time_low = CASE WHEN ? = 0 THEN int_clock_time_low "
+                    + "ELSE LEAST(NULLIF(int_clock_time_low, 0), ?) END "
+            + "WHERE pk_layer = ? ";
+    // spotless:on
+
     @Override
     public void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus) {
 
         if (exitStatus == 0) {
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET "
-                            + "int_core_time_success = int_core_time_success + ?,"
-                            + "int_gpu_time_success = int_gpu_time_success + ?,"
-                            + "int_clock_time_success = int_clock_time_success + ?,"
-                            + "int_frame_success_count = int_frame_success_count + 1 " + "WHERE "
-                            + "pk_layer = ? ",
-                    usage.getCoreTimeSeconds(), usage.getGpuTimeSeconds(),
-                    usage.getClockTimeSeconds(), layer.getLayerId());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_SUCCESS, usage.getCoreTimeSeconds(),
+                    usage.getGpuTimeSeconds(), usage.getClockTimeSeconds(), layer.getLayerId());
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET " + "int_clock_time_high = ? " + "WHERE "
-                            + "pk_layer = ? " + "AND " + "int_clock_time_high < ?",
-                    usage.getClockTimeSeconds(), layer.getLayerId(), usage.getClockTimeSeconds());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_HIGH, usage.getClockTimeSeconds(),
+                    layer.getLayerId(), usage.getClockTimeSeconds());
 
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET " + "int_clock_time_low = ? " + "WHERE "
-                            + "pk_layer = ? " + "AND "
-                            + "(? < int_clock_time_low OR int_clock_time_low = 0)",
-                    usage.getClockTimeSeconds(), layer.getLayerId(), usage.getClockTimeSeconds());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_LOW, usage.getClockTimeSeconds(),
+                    layer.getLayerId(), usage.getClockTimeSeconds());
         } else {
-            getJdbcTemplate().update(
-                    "UPDATE " + "layer_usage " + "SET "
-                            + "int_core_time_fail = int_core_time_fail + ?,"
-                            + "int_clock_time_fail = int_clock_time_fail + ?,"
-                            + "int_frame_fail_count = int_frame_fail_count + 1 " + "WHERE "
-                            + "pk_layer = ? ",
-                    usage.getCoreTimeSeconds(), usage.getClockTimeSeconds(), layer.getLayerId());
+            getJdbcTemplate().update(UPDATE_LAYER_USAGE_FAIL, usage.getCoreTimeSeconds(),
+                    usage.getClockTimeSeconds(), layer.getLayerId());
         }
+    }
+
+    /**
+     * The batched form of updateUsage: one row per layer, {coreTime, gpuTime, clockTime, successes,
+     * failCore, failClock, failures, high, successes, low, pk_layer}, in one statement for a whole
+     * scoop of completions, so the rows lock in the order they are given. The high only raises the
+     * column; the low moves only for a row with successes.
+     */
+    @Override
+    public void updateUsageBatch(List<Object[]> rows) {
+        if (!rows.isEmpty())
+            getJdbcTemplate().batchUpdate(UPDATE_LAYER_USAGE_BATCH, rows);
     }
 
     // spotless:off
