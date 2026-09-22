@@ -111,16 +111,6 @@ def test(job):
 
         while True:
             try:
-                pending_response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/IsJobPending",
-                    json={"name": job_name},
-                    timeout=TIMEOUT,
-                )
-                pending_response.raise_for_status()
-                is_pending = pending_response.json().get("value", False)
-                if not is_pending:
-                    break
-
                 response = session.post(
                     f"{CUEREST_GATEWAY_URL}/job.JobInterface/FindJob",
                     json={"name": job_name},
