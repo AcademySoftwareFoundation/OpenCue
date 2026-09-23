@@ -206,7 +206,10 @@ services:
       # created by pycuerun on the host
       - ${HOME}/.opencue/sessions:${HOME}/.opencue/sessions
       - /tmp/opencue:/tmp/opencue
-      - /var/folders:/var/folders:ro
+      # macOS-only: $TMPDIR lives under /var/folders there.
+      # On Linux /tmp/opencue above covers it, and podman
+      # (unlike docker) will not create a missing source dir.
+      # - /var/folders:/var/folders:ro
     restart: unless-stopped
     # Uncomment for Loki logging (requires loki service)
     # logging:
