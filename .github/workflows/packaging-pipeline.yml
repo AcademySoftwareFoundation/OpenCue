@@ -337,9 +337,13 @@ jobs:
         run: |
           set -e
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          # --push exports the result straight to the registry. The buildx
+          # docker-container driver set up above keeps the image in the build
+          # cache rather than the local image store, so a separate docker push
+          # would not find it.
           docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
-            ${{ matrix.BUILD_FLAGS }}
-          docker push ${image_name}
+            ${{ matrix.BUILD_FLAGS }} \
+            --push
 
   upload_python_packages_test:
     needs:
