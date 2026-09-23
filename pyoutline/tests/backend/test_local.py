@@ -96,7 +96,7 @@ class BackendOverrideTest(unittest.TestCase):
     def setUp(self):
         outline.Outline.current = None
 
-    def testOverrideBackendWithEnvVar(self):
+    def testOverrideBackend(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         ol = outline.load_outline(path)
 
