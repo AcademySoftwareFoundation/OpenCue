@@ -18,10 +18,6 @@
 Tests for the outline_backend_rest module.
 """
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-
 import os
 import unittest
 import xml.etree.ElementTree as ET
@@ -289,7 +285,10 @@ class LaunchTest(unittest.TestCase):
             'job': {
                 'id': 'job-123',
                 'state': 'FINISHED',
-                'jobStats': {'deadFrames': 0, 'eatenFrames': 0, 'succeededFrames': 1, 'totalFrames': 1}
+                'jobStats': {'deadFrames': 0,
+                             'eatenFrames': 0,
+                             'succeededFrames': 1,
+                             'totalFrames': 1}
             }
         }
         kill_resp = mock.MagicMock(spec=requests.Response)
@@ -329,7 +328,8 @@ class LaunchTest(unittest.TestCase):
 
         self.assertIn('dead or eaten frames', str(ctx.exception))
         # Ensures kill was still invoked in finally block
-        self.assertEqual(f"{GATEWAY_URL}/job.JobInterface/Kill", session.post.call_args_list[-1][0][0])
+        self.assertEqual(f"{GATEWAY_URL}/job.JobInterface/Kill",
+                         session.post.call_args_list[-1][0][0])
         session.close.assert_called_once()
 
 
