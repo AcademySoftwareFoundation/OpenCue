@@ -33,6 +33,7 @@ import sys
 import time
 
 import requests
+from requests.auth import AuthBase
 
 import outline
 import outline.depend
@@ -216,7 +217,34 @@ def _get_jwt_token():
     )
     return f'{m}.{s}'
 
+
+class BearerAuth(AuthBase):
+    """Authentication handler that sets Bearer token and retries on 401."""
+
+    def __init__(self, token_func):
+        self.token_func = token_func
+        self.token = self.token_func()
+
+    def __call__(self, r):
+        r.headers["Authorization"] = f"Bearer {self.token}"
+        r.register_hook("response", self.handle_401)
+        return r
+
+    def handle_401(self, r, **kwargs):
+        if r.status_code == 401:
+            r.content  # Consume response body to release the connection
+            self.token = self.token_func()
+
+            prep = r.request.copy()
+            prep.headers["Authorization"] = f"Bearer {self.token}"
+
+            _response = r.connection.send(prep, **kwargs)
+            _response.history.append(r)
+            return _response
+        return r
+
+
 def _get_restgateway_session():
     rest_gateway_session = requests.Session()
-    rest_gateway_session.headers.update({"Authorization": f"Bearer {_get_jwt_token()}"})
+    rest_gateway_session.auth = BearerAuth(_get_jwt_token)
     return rest_gateway_session
