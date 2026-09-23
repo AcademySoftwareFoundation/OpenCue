@@ -260,7 +260,7 @@ class BearerAuth(AuthBase):
         :return: The retry response or the original response if status was not 401.
         """
         if r.status_code == 401:
-            r.content  # Consume response body to release the connection
+            _ = r.content  # Consume response body to release the connection
             self.token = self.token_func()
 
             prep = r.request.copy()
