@@ -15,6 +15,7 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
@@ -1252,5 +1253,72 @@ public class MaestroTests {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    // ---- the soft cap yields a host only another candidate can use --------
+
+    private static Maestro.LayerCandidate other() {
+        Maestro.LayerCandidate o = layer(CORE, GB, 0, 0);
+        o.layerId = "other";
+        o.jobId = "otherJob";
+        o.rssProven = true;
+        o.folderMax = -1;
+        return o;
+    }
+
+    /** Whether some candidate other than c could still use h, as the soft cap asks it. */
+    private static boolean othersWant(Maestro s, Maestro.BookableHost h, Maestro.LayerCandidate c,
+            Maestro.LayerCandidate o) throws Exception {
+        Method m = null;
+        for (Method x : Maestro.class.getDeclaredMethods())
+            if (x.getName().equals("othersWant"))
+                m = x;
+        m.setAccessible(true);
+        return (Boolean) m.invoke(s, h, c, Arrays.asList(c, o), "alloc", new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                new HashMap<>());
+    }
+
+    @Test
+    public void aCandidateThatCanPlaceWantsTheHost() throws Exception {
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        assertTrue(othersWant(new Maestro(), freeHost(16 * CORE, 32 * GB, 0, 0), c, other()));
+    }
+
+    @Test
+    public void aCandidateOutOfProbeHeadroomDoesNotWantTheHost() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate o = other();
+        o.rssProven = false;
+        set(s, "layerRunningFrames", new HashMap<>(Map.of(o.layerId, Maestro.PROBE_FRAMES)));
+        assertFalse(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), layer(CORE, GB, 0, 0), o));
+    }
+
+    @Test
+    public void aCandidateAtItsFolderCeilingDoesNotWantTheHost() throws Exception {
+        Maestro.LayerCandidate o = other();
+        o.folderId = "folder";
+        o.folderMax = 4 * CORE;
+        o.folderRunning = 4 * CORE;
+        assertFalse(othersWant(new Maestro(), freeHost(16 * CORE, 32 * GB, 0, 0),
+                layer(CORE, GB, 0, 0), o));
+    }
+
+    @Test
+    public void aCandidateShutOutByAReservationDoesNotWantTheHost() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
+        set(s, "reservationsEnabled", true);
+        map(s, "reservations").put(h.hostId, new Maestro.Reservation("owner", 100, 8 * CORE));
+        assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), other()));
+    }
+
+    @Test
+    public void aCandidateThatPlannedTheHostThisTickDoesNotWantItAgain() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
+        Maestro.LayerCandidate o = other();
+        map(s, "planSliceByHostLayer").put(h.hostId + "|" + o.layerId, new int[] {0, 1});
+        assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), o));
     }
 }

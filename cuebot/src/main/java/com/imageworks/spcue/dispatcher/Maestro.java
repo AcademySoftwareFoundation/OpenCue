@@ -2114,59 +2114,53 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The soft cap's yield test: whether another candidate of this group could still use host h.
-     * True when some other layer has waiting frames, fits the host as it stands now, is under its
-     * own per-host cap there, and is not held by its job cap, show burst or a full limit, all read
-     * against the tick-wide usage maps. The cap is a contention rule: while other work waits for a
-     * machine, no layer takes more than its share of it; with nobody else able to use the machine,
-     * holding the cap would only strand it. Candidates later in the draw count as waiting, which is
-     * the point: the yield must not run ahead of their turn.
+     * The soft cap's yield test: whether another candidate of this group could still place on host
+     * h. It asks every gate placeOnce asks: waiting frames, pins, fit, its own per-host cap, the
+     * candidate gate (job cap, show burst, folder ceiling, FRAME limits), the probe headroom and
+     * the host gates of hostOpenTo. The cap is a contention rule: while other work could use a
+     * machine, no layer takes more than its share of it; with nobody else able to use it, holding
+     * the cap would only strand it. Candidates later in the draw count, which is the point: the
+     * yield must not run ahead of their turn.
      */
     private boolean othersWant(BookableHost h, LayerCandidate c, List<LayerCandidate> candidates,
             String groupAllocId, Map<String, Integer> jobCoresUsed,
-            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> showCoresUsed, Map<String, Integer> folderUsed,
+            Map<String, Integer> tReadyByHost, Map<String, LimitBudget> limitBudgets,
             Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
         for (LayerCandidate o : candidates) {
             if (o == c || o.waitingFrameCount <= 0 || !pinsAllow(o, h) || !fitsOnHost(o, h))
                 continue;
             if (hostLayerFrames.getOrDefault(h.hostId + "|" + o.layerId, 0) >= layerHostCap(h, o))
                 continue;
-            if (jobCoresUsed.getOrDefault(o.jobId, o.jobCoresInUse)
-                    + o.layerCoresMin > o.jobMaxCores)
+            CandidateGate g = gate(o, groupAllocId, jobCoresUsed, showCoresUsed, folderUsed,
+                    limitBudgets, limitUsed, limitSeats);
+            if (g.capped || probeHeadroom(o) <= 0)
                 continue;
-            if (showCoresUsed.getOrDefault(subKey(o.showId, groupAllocId), o.showCoresInUse)
-                    + o.layerCoresMin > o.showBurstCores)
-                continue;
-            if (limitBlocks(h, o, limitBudgets, limitUsed, limitSeats))
-                continue;
-            return true;
+            if (hostOpenTo(o, h, g.limitSeatPools, limitSeats, tReadyByHost))
+                return true;
         }
         return false;
     }
 
+    /** Frames an unproven layer may still start farm-wide this tick; unbounded once proven. */
+    private int probeHeadroom(LayerCandidate c) {
+        if (c.rssProven)
+            return Integer.MAX_VALUE;
+        return PROBE_FRAMES - layerRunningFrames.getOrDefault(c.layerId, 0)
+                - layerProbeUsed.getOrDefault(c.layerId, 0);
+    }
+
     /**
-     * Whether a gating limit keeps candidate o off host h right now: a FRAME limit whose tick-wide
-     * budget is spent, or a HOST limit with no seat left that h does not already hold. A limit with
-     * no budget entry does not gate (see resolveLimitBudgets).
+     * The host gates of placeOnce beyond fit and the soft cap: a seat in each HOST limit, the
+     * reservation (or an EASY backfill of it), and one plan per (host, layer) per tick.
      */
-    private static boolean limitBlocks(BookableHost h, LayerCandidate o,
-            Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
-            Map<String, Set<String>> limitSeats) {
-        if (o.limitIds == null)
+    private boolean hostOpenTo(LayerCandidate c, BookableHost h, List<LimitBudget> limitSeatPools,
+            Map<String, Set<String>> limitSeats, Map<String, Integer> tReadyByHost) {
+        if (limitSeatPools != null && !limitSeatsAllow(limitSeatPools, limitSeats, h))
             return false;
-        for (String limId : o.limitIds) {
-            LimitBudget b = limitBudgets.get(limId);
-            if (b == null)
-                continue;
-            if (b.hostBased) {
-                Set<String> seats = limitSeats.getOrDefault(limId, b.seats);
-                if (!seats.contains(shortHostName(h.hostName)) && seats.size() >= b.seatCap)
-                    return true;
-            } else if (limitUsed.getOrDefault(limId, 0) >= b.usable) {
-                return true;
-            }
-        }
-        return false;
+        if (!reservationAllows(h, c) && !backfillAllows(h, c, tReadyByHost))
+            return false;
+        return !planSliceByHostLayer.containsKey(h.hostId + "|" + c.layerId);
     }
 
     /**
@@ -2981,37 +2975,18 @@ public class Maestro extends JdbcDaoSupport {
         // system decide") may hold only PROBE_FRAMES frames farm-wide, so a
         // brand-new mis-sized layer cannot blast the farm before the reports
         // have seen what it really uses.
-        int probeHeadroom = Integer.MAX_VALUE;
-        if (!c.rssProven) {
-            probeHeadroom = PROBE_FRAMES - layerRunningFrames.getOrDefault(c.layerId, 0)
-                    - layerProbeUsed.getOrDefault(c.layerId, 0);
-            if (probeHeadroom <= 0)
-                return 0;
-        }
+        int probeHeadroom = probeHeadroom(c);
+        if (probeHeadroom <= 0)
+            return 0;
         BookableHost best = null;
         BookableHost cappedFallback = null;
         double bestScore = Double.POSITIVE_INFINITY;
         for (BookableHost h : c.pinnedIdle != null ? c.pinnedIdle : hosts) {
-            if (!fitsOnHost(c, h))
-                continue;
-            // Per-host gate for HOST-type limits, keyed by host name (what
-            // a license server reports): this host is eligible only if it
-            // already holds every such limit, or the limit still has a
-            // seat to give out.
-            if (limitSeatPools != null && !limitSeatsAllow(limitSeatPools, limitSeats, h))
-                continue;
-            // A reserved host is off-limits unless EASY backfill can
-            // borrow it without delaying the reservation's owner.
-            if (!reservationAllows(h, c)) {
-                if (!backfillAllows(h, c, tReadyByHost))
-                    continue;
-            }
-            // Per-host layer cap: a host already holding its share of
-            // this layer takes no more of it; the flood spills to the
-            // next host instead of blanketing this one.
-            // One plan per (host, layer) per tick; a pair already
-            // planned takes its next slice next tick.
-            if (planSliceByHostLayer.containsKey(h.hostId + "|" + c.layerId))
+            // HOST-limit seats (keyed by host name, what a license server
+            // reports), the reservation unless EASY backfill can borrow the
+            // host without delaying its owner, and one plan per (host, layer)
+            // per tick: a pair already planned takes its next slice next tick.
+            if (!fitsOnHost(c, h) || !hostOpenTo(c, h, limitSeatPools, limitSeats, tReadyByHost))
                 continue;
             // SOFT per-host layer cap: prefer hosts under the cap, so
             // a flood spreads instead of blanketing one machine. But a
@@ -3024,7 +2999,7 @@ public class Maestro extends JdbcDaoSupport {
                     0) >= layerHostCap(h, c)) {
                 if (cappedFallback == null && c.rssProven
                         && !othersWant(h, c, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
-                                limitBudgets, limitUsed, limitSeats))
+                                folderUsed, tReadyByHost, limitBudgets, limitUsed, limitSeats))
                     cappedFallback = h;
                 continue;
             }

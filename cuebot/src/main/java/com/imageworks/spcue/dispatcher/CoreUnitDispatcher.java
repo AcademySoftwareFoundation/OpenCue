@@ -385,8 +385,12 @@ public class CoreUnitDispatcher implements Dispatcher {
         // Maestro commits the bookings in bulk. No writes, no RQD launch.
         List<FrameBooking> bookings = new ArrayList<FrameBooking>();
 
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(layer, host,
-                Math.max(getIntProperty("dispatcher.frame_query_max"), bookMax), planOffset);
+        // A slice reads exactly its own frames: a skipped frame must not pull
+        // in the next slice's, which another host plans this tick.
+        int readMax = planLimit > 0 ? planLimit
+                : Math.max(getIntProperty("dispatcher.frame_query_max"), bookMax);
+        List<DispatchFrame> frames =
+                dispatchSupport.findNextDispatchFrames(layer, host, readMax, planOffset);
 
         String[] selfishServices =
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");

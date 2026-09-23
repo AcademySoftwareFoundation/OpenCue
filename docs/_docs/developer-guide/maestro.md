@@ -481,7 +481,7 @@ mismatch worth investigating. `limit` = a job, show or folder cap. `no license` 
 limit's budget (frame tokens or machine seats) is exhausted. `held` = every fitting host is
 reserved for a wide job. `share` = every fitting host already holds the layer's
 per-host share (the soft cap, `maestro.layer_host_max_frac`) while other work
-waits, or was planned for
+could still place there, or was planned for
 the layer this tick and takes its next slice next tick. `no host` = the
 layer's tags name no host at all (a stale machine list, §3.10). The buckets
 reuse the why-not precedence

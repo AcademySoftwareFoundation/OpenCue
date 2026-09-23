@@ -547,6 +547,12 @@ public class FrameCompleteHandler {
             guard(() -> retryFrameWithRaisedMemory(c.proc, c.frame),
                     "memory retry of frame " + name);
         }
+        // The drain already released the proc; the NIMBY lock is the one host
+        // side effect of evaluateProcHealth left to apply.
+        if (!c.proc.isLocalDispatch && c.report.getHost().getNimbyLocked()) {
+            guard(() -> hostManager.setHostLock(c.proc, LockState.NIMBY_LOCKED,
+                    new Source("NIMBY")), "NIMBY lock of frame " + name);
+        }
     }
 
     /** One step of a frame's filing: a failure is logged and costs that step only. */
