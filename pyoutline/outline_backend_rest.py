@@ -198,6 +198,12 @@ def wait(job):
         session.close()
 
 def _get_jwt_token():
+    """
+    Generate a signed HS256 JWT token for authenticating with the REST gateway.
+
+    :rtype: str
+    :return: Encoded and signed JWT token string.
+    """
     jwt_secret = outline.config.get("backend:rest", "jwt_secret")
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {"sub": "jimmy", "exp": int(time.time()) + 3600}
@@ -222,15 +228,37 @@ class BearerAuth(AuthBase):
     """Authentication handler that sets Bearer token and retries on 401."""
 
     def __init__(self, token_func):
+        """
+        Initialize BearerAuth with a token generator function.
+
+        :type token_func: callable
+        :param token_func: Callable returning a valid token string.
+        """
         self.token_func = token_func
         self.token = self.token_func()
 
     def __call__(self, r):
+        """
+        Attach the Authorization header to the outgoing request.
+
+        :type r: requests.PreparedRequest
+        :param r: The prepared request object.
+        :rtype: requests.PreparedRequest
+        :return: The request with the Authorization header set.
+        """
         r.headers["Authorization"] = f"Bearer {self.token}"
         r.register_hook("response", self.handle_401)
         return r
 
     def handle_401(self, r, **kwargs):
+        """
+        Handle HTTP 401 Unauthorized responses by refreshing the token and retrying.
+
+        :type r: requests.Response
+        :param r: The HTTP response object.
+        :rtype: requests.Response
+        :return: The retry response or the original response if status was not 401.
+        """
         if r.status_code == 401:
             r.content  # Consume response body to release the connection
             self.token = self.token_func()
@@ -245,6 +273,12 @@ class BearerAuth(AuthBase):
 
 
 def _get_restgateway_session():
+    """
+    Create and configure a requests Session with Bearer token authentication.
+
+    :rtype: requests.Session
+    :return: Configured requests session for REST gateway calls.
+    """
     rest_gateway_session = requests.Session()
     rest_gateway_session.auth = BearerAuth(_get_jwt_token)
     return rest_gateway_session
