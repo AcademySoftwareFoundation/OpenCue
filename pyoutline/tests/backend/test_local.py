@@ -95,6 +95,30 @@ class DispatcherTest(unittest.TestCase):
 
         outline_backend_local.launch(launcher)
 
+class BackendOverrideTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+
+    def testOverrideBackendWithEnvVar(self):
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        ol = outline.load_outline(path)
+
+        with mock.patch.dict(os.environ, {'OUTLINE_OUTLINE_BACKEND': 'local'}):
+            # If the config is configured to resolve the default backend from the environment:
+            backend_name = os.environ['OUTLINE_OUTLINE_BACKEND']
+            outline.config.set('outline', 'backend', backend_name)
+
+            launcher = outline.cuerun.OutlineLauncher(ol)
+
+            # Check that the backend configured on the launcher matches
+            self.assertEqual('local', launcher.get('backend'))
+            self.assertEqual('local', launcher.get_flag('backend'))
+
+            # Check that the imported backend module resolves to the rest backend
+            backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
+            self.assertIs(outline_backend_local, backend_module)
+
 
 if __name__ == '__main__':
     unittest.main()
