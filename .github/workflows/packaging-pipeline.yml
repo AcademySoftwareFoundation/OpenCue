@@ -245,6 +245,9 @@ jobs:
       - name: Build Docker image
         run: |
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          # --push exports straight to the registry. The default docker driver
+          # used here also keeps the image in the local store, so the artifact
+          # extraction below can still docker create from it.
           docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
             --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
             --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
@@ -253,8 +256,8 @@ jobs:
             --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
             --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
             --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
-            --build-arg BUILD_ID="${BUILD_ID}"
-          docker push ${image_name}
+            --build-arg BUILD_ID="${BUILD_ID}" \
+            --push
 
       - name: Extract Artifacts
         if: ${{ matrix.ARTIFACTS }}
