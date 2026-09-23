@@ -1002,6 +1002,82 @@ public class MaestroTests {
         assertEquals(new HashSet<>(Arrays.asList("a", "b")), seen);
     }
 
+    // ---- subscription size: the lowest-tier show draws first --------------
+
+    /**
+     * A candidate of show {@code show} with {@code cores} in use on a subscription of {@code size}.
+     */
+    private static Maestro.LayerCandidate showCandidate(String layerId, String show, int size,
+            int cores, int priority) {
+        Maestro.LayerCandidate c = candidate(layerId, priority, 10);
+        c.showId = show;
+        c.showKey = show + "\talloc";
+        c.showSizeCores = size;
+        c.showCoresInUse = cores;
+        return c;
+    }
+
+    @Test
+    public void showTierMirrorsTheDatabaseTierFunction() {
+        Map<String, Integer> used = new HashMap<>();
+        // cores over size
+        assertEquals(0.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+        // running nothing: minus the size, below every running show
+        assertEquals(-200.0, Maestro.showTier(showCandidate("a", "s", 200, 0, 1), used), 1e-12);
+        // no size: cores (in cores, not points) plus one
+        assertEquals(4.0, Maestro.showTier(showCandidate("a", "s", 0, 300, 1), used), 1e-12);
+        // the tick-wide map, not the tick-start snapshot, once the show placed
+        used.put("s\talloc", 300);
+        assertEquals(1.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+    }
+
+    @Test
+    public void theSlotGoesToTheShowFurthestUnderItsSize() {
+        // A holds 80 of its 100 (tier 0.8), B 60 of its 300 (tier 0.2): every
+        // draw goes to B, even against A's far higher priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 1000),
+                showCandidate("b", "B", 300, 60, 1));
+        long weight = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals("the draw ranges over B's weight only", 1, weight);
+        for (long r = 0; r < 1000; r++)
+            assertEquals(1, Maestro.drawSlot(active, r));
+    }
+
+    @Test
+    public void insideTheLowestTierPriorityDecides() {
+        // Two layers of B share its tier: the lottery splits by priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 50),
+                showCandidate("b1", "B", 300, 60, 100), showCandidate("b2", "B", 300, 60, 300));
+        assertEquals(400, Maestro.stampTiers(active, new HashMap<>()));
+        assertEquals(1, Maestro.drawSlot(active, 0));
+        assertEquals(1, Maestro.drawSlot(active, 99));
+        assertEquals(2, Maestro.drawSlot(active, 100));
+        assertEquals(2, Maestro.drawSlot(active, 399));
+    }
+
+    @Test
+    public void aPlacementMovesItsShowBeforeTheNextDraw() {
+        // B starts lower; once this tick's placements lift it past A, A draws.
+        Map<String, Integer> used = new HashMap<>();
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
+                showCandidate("b", "B", 100, 20, 1));
+        Maestro.stampTiers(active, used);
+        assertEquals(1, Maestro.drawSlot(active, 0));
+        used.put("B\talloc", 70);
+        Maestro.stampTiers(active, used);
+        assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
+    @Test
+    public void aShowThatCanPlaceNothingYieldsToTheNextTier() {
+        // B, the lowest tier, left the draw (capped or no host): A takes the slot.
+        List<Maestro.LayerCandidate> active = new ArrayList<>(Arrays
+                .asList(showCandidate("a", "A", 100, 80, 1), showCandidate("b", "B", 300, 60, 1)));
+        active.remove(1);
+        assertEquals(1, Maestro.stampTiers(active, new HashMap<>()));
+        assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
     // ---- the commit chunks and the leader ---------------------------------
 
     private static FrameBooking bookingOn(String hostId) {
