@@ -2,4 +2,5 @@
 venv/
 opencue_proto/
 sim_hosts
+rqd_alive.txt
 *.log

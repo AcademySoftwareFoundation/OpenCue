@@ -18,6 +18,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -289,11 +290,32 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     @Override
     public void updateFrameCounters(ShowInterface s, int exitStatus) {
         String col = "int_frame_success_count = int_frame_success_count + 1";
-        if (exitStatus > 0) {
+        if (exitStatus != 0) {
+            // A signal-killed frame (negative status) failed too, as the job
+            // and layer counters have always counted it.
             col = "int_frame_fail_count = int_frame_fail_count + 1";
         }
         getJdbcTemplate().update("UPDATE show_stats SET " + col + " WHERE pk_show=?",
                 s.getShowId());
+    }
+
+    // spotless:off
+    // The batch form: one row per show with both counts, one statement per scoop.
+    private static final String INCREMENT_FRAME_COUNTS =
+            "UPDATE show_stats "
+            + "SET int_frame_success_count = int_frame_success_count + ?, "
+                + "int_frame_fail_count = int_frame_fail_count + ? "
+            + "WHERE pk_show = ?";
+    // spotless:on
+
+    /**
+     * The batched form of updateFrameCounters: one row per show, {successes, failures, pk_show}, in
+     * one statement for a whole scoop of completions, so the rows lock in the order they are given.
+     */
+    @Override
+    public void updateFrameCountersBatch(List<Object[]> rows) {
+        if (!rows.isEmpty())
+            getJdbcTemplate().batchUpdate(INCREMENT_FRAME_COUNTS, rows);
     }
 
     @Override

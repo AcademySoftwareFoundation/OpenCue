@@ -402,6 +402,15 @@ public class CoreUnitDispatcher implements Dispatcher {
             if (effMemKb > frame.getMinMemory()) {
                 frame.setMinMemory(effMemKb);
             }
+            // A frame that OOMed carries its own memory bump. Fit and reserve
+            // at that size here, so the commit's capacity gate sees the sum
+            // the plan reserved and never drops the host for a bump it did
+            // not know about.
+            long baseMemKb = frame.getMinMemory();
+            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(frame.getFrameId());
+            if (bump > frame.getMinMemory()) {
+                frame.setMinMemory(bump);
+            }
 
             VirtualProc proc;
             try {
@@ -421,8 +430,17 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores)
-                    || host.idleMemory < frame.getMinMemory() || host.idleGpus < frame.minGpus
-                    || host.idleGpuMemory < frame.minGpuMemory) {
+                    || host.idleGpus < frame.minGpus || host.idleGpuMemory < frame.minGpuMemory) {
+                break;
+            }
+            if (host.idleMemory < frame.getMinMemory()) {
+                // A layer's frames are uniform except for a per-frame OOM bump.
+                // When only the bump fails to fit, the bumped frame costs
+                // itself and waits for a roomier host; the rest of the slice
+                // the planner accounted is still delivered.
+                if (host.idleMemory >= baseMemKb) {
+                    continue;
+                }
                 break;
             }
 
@@ -438,7 +456,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                 break;
             } else if (bookings.size() >= bookMax) {
                 break;
-            } else if (bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+            } else if (planLimit <= 0
+                    && bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+                // The per-call cap belongs to the legacy trickle. A planner
+                // slice is already sized and charged; deliver all of it.
                 break;
             }
         }

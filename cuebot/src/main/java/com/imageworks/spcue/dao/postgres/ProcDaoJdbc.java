@@ -915,7 +915,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 String.class, p.getProcId());
     }
 
-    private static final String ORPHANED_PROC_INTERVAL = "interval '300' second";
+    private static final String ORPHANED_PROC_INTERVAL =
+            "interval '" + ORPHAN_AGE_SECONDS + "' second";
 
     // spotless:off
     private static final String GET_ORPHANED_PROC_LIST =

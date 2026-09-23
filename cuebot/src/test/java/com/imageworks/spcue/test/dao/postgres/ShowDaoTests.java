@@ -227,6 +227,30 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateFrameCountersSignalKilled() {
+        // A frame killed by a signal reports a negative status: a failure, as
+        // the job and layer counters have always counted it.
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        int success = jdbcTemplate.queryForObject(
+                "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?", Integer.class,
+                show.id);
+        int fail = jdbcTemplate.queryForObject(
+                "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?", Integer.class,
+                show.id);
+        showDao.updateFrameCounters(show, -9);
+        assertEquals(success,
+                (int) jdbcTemplate.queryForObject(
+                        "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?",
+                        Integer.class, show.id));
+        assertEquals(fail + 1,
+                (int) jdbcTemplate.queryForObject(
+                        "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?",
+                        Integer.class, show.id));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateSchedulerManaged() {
         ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         assertFalse(show.schedulerManaged);
@@ -295,5 +319,30 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         ShowEntity aliasedShow = showDao.findShowDetail("show_to_archive");
         assertEquals(targetShow.id, aliasedShow.id);
         assertEquals("show_to_archive", aliasedShow.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameCountersBatchCountsPerRow() {
+        // One row per show, {successes, failures, pk_show}: each column moves
+        // by its own count.
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        int success = jdbcTemplate.queryForObject(
+                "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?", Integer.class,
+                show.id);
+        int fail = jdbcTemplate.queryForObject(
+                "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?", Integer.class,
+                show.id);
+        showDao.updateFrameCountersBatch(
+                java.util.Collections.singletonList(new Object[] {4L, 2L, show.id}));
+        assertEquals(success + 4,
+                (int) jdbcTemplate.queryForObject(
+                        "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?",
+                        Integer.class, show.id));
+        assertEquals(fail + 2,
+                (int) jdbcTemplate.queryForObject(
+                        "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?",
+                        Integer.class, show.id));
     }
 }
