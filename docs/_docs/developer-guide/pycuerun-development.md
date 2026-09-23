@@ -522,7 +522,6 @@ cd pyoutline
 python -m pytest tests/ -v
 
 # Backend-specific tests (most relevant to pycuerun)
-python -m pytest tests/backend/test_cue.py -v
 python -m pytest tests/backend/test_rest.py -v
 python -m pytest tests/backend/test_local.py -v
 
