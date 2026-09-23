@@ -288,6 +288,10 @@ class BackendOverrideTest(unittest.TestCase):
 
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testOverrideBackend(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
