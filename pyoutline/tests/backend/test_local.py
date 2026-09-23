@@ -108,7 +108,7 @@ class BackendOverrideTest(unittest.TestCase):
         self.assertEqual('local', launcher.get('backend'))
         self.assertEqual('local', launcher.get_flag('backend'))
 
-        # Check that the imported backend module resolves to the rest backend
+        # Check that the imported backend module resolves to the local backend
         backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
         self.assertIs(outline_backend_local, backend_module)
 
