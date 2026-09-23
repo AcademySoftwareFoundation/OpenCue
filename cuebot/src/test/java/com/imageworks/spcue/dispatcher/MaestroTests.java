@@ -102,6 +102,8 @@ public class MaestroTests {
         h.gpusTotal = gpusTotal;
         h.gpuMemTotal = gpuMemTotal;
         h.runningProcs = 0;
+        h.layerFrames = new HashMap<>();
+        h.planned = new HashMap<>();
         return h;
     }
 
@@ -417,13 +419,185 @@ public class MaestroTests {
 
     @Test
     public void placementScoreDoesNotPenalizeGpuSurplusForNonGpuLayer() {
-        // A non-GPU layer adds nothing on the GPU dimensions (add <= 0), so a
-        // GPU host's idle GPUs contribute 0 to its score: GPU hosts are
-        // protected from non-GPU work by grouping (has_gpu in the spec key),
-        // not by the score. The score equals the cores+mem terms only.
+        // A non-GPU layer adds nothing on the GPU dimensions (add <= 0), so
+        // with no GPU work waiting a GPU host's idle GPUs contribute 0 to its
+        // score: the score equals the cores+mem terms only. The reach terms
+        // below price the GPUs once GPU work waits.
         Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
         double expected = 2 * (Math.exp(1.0) - 1.0);
         assertEquals(expected, Maestro.placementScore(freeHost(CORE, GB, 4, 16 * GB), cpu), 1e-9);
+    }
+
+    // ---- reach: E-PVM on the capacity waiting work can still use ---------
+    //
+    // With GPU work waiting, a GPU host's idle GPUs are priced by their reach:
+    // the GPUs still usable given the cores, memory and GPU memory each one
+    // needs. The fixtures: a CPU layer of 1 core/1GB and a waiting GPU layer
+    // of 2 cores/8GB/1 GPU/16GB, so one GPU needs 200 core points, 8GB of
+    // memory and 16GB of GPU memory.
+
+    private static final int GPUS = Maestro.Dim.GPUS.ordinal();
+    private static final int GPU_MEM = Maestro.Dim.GPU_MEM.ordinal();
+    private static final int CORES = Maestro.Dim.CORES.ordinal();
+    private static final int MEM = Maestro.Dim.MEM.ordinal();
+
+    private static Maestro.LayerCandidate gpuLayer() {
+        Maestro.LayerCandidate g = layer(2 * CORE, 8 * GB, 1, 16 * GB);
+        g.layerId = "gpu";
+        g.jobId = "gpuJob";
+        return g;
+    }
+
+    private static double[][] needsWithGpuWaiting() {
+        return Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), gpuLayer()));
+    }
+
+    @Test
+    public void reachNeedsCoupleOnlyWhatSomeWaitingWorkDoesNotUse() {
+        double[][] n = needsWithGpuWaiting();
+        // Every frame asks for cores and memory: nothing can strand them.
+        for (int e = 0; e < n.length; e++) {
+            assertEquals(0.0, n[CORES][e], 0);
+            assertEquals(0.0, n[MEM][e], 0);
+        }
+        assertEquals(2.0 * CORE, n[GPUS][CORES], 1e-9);
+        assertEquals(8.0 * GB, n[GPUS][MEM], 1e-9);
+        assertEquals(16.0 * GB, n[GPUS][GPU_MEM], 1e-9);
+        assertEquals(2.0 * CORE / (16.0 * GB), n[GPU_MEM][CORES], 1e-15);
+        assertEquals(0.5, n[GPU_MEM][MEM], 1e-12);
+        assertEquals(1.0 / (16.0 * GB), n[GPU_MEM][GPUS], 1e-15);
+    }
+
+    @Test
+    public void reachNeedsTakeTheLightestWaitingConsumer() {
+        Maestro.LayerCandidate light = layer(CORE, 4 * GB, 2, 8 * GB); // 50 cp and 2GB per GPU
+        double[][] n =
+                Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), gpuLayer(), light));
+        assertEquals(CORE / 2.0, n[GPUS][CORES], 1e-9);
+        assertEquals(2.0 * GB, n[GPUS][MEM], 1e-9);
+        assertEquals(4.0 * GB, n[GPUS][GPU_MEM], 1e-9);
+    }
+
+    @Test
+    public void nothingIsCoupledWhileNoGpuWorkWaits() {
+        Maestro.LayerCandidate g = gpuLayer();
+        g.waitingFrameCount = 0;
+        double[][] n = Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), g));
+        for (double[] row : n)
+            for (double v : row)
+                assertEquals(0.0, v, 0);
+    }
+
+    @Test
+    public void withNoCouplingTheScoreIsPlainEpvm() {
+        // No GPU work waiting: an all-zero needs table gives exactly the
+        // plain E-PVM score, on every host shape, for CPU and GPU frames.
+        int n = Maestro.Dim.values().length;
+        double[][] none = new double[n][n];
+        Maestro.BookableHost[] hosts = {
+                freeHost(8 * CORE, 32 * GB, 4, 64 * GB), host("alloc", "tags", "Linux", 3 * CORE,
+                        5 * GB, 1, 20 * GB, 8 * CORE, 32 * GB, 4, 64 * GB),
+                loadedHost(16 * CORE, 64 * GB, 7 * CORE, 9 * GB)};
+        Maestro.LayerCandidate[] layers = {layer(CORE, GB, 0, 0), gpuLayer()};
+        for (Maestro.BookableHost h : hosts)
+            for (Maestro.LayerCandidate c : layers)
+                if (Maestro.fitsOnHost(c, h))
+                    assertEquals(Maestro.placementScore(h, c), Maestro.placementScore(h, c, none),
+                            1e-12);
+    }
+
+    @Test
+    public void reachIsTheLeastIdleOverNeedAcrossCoupledDimensions() {
+        // 8 cores/32GB/4 GPUs/64GB, idle. Each GPU needs 200 cp, 8GB, 16GB:
+        // every dimension supports exactly 4 GPUs. One CPU frame (1 core,
+        // 1GB) leaves 700 cp, so 3.5 GPUs stay reachable.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        double[][] n = needsWithGpuWaiting();
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        assertEquals(4.0, Maestro.reach(Maestro.Dim.GPUS, h, cpu, n, false), 1e-9);
+        assertEquals(3.5, Maestro.reach(Maestro.Dim.GPUS, h, cpu, n, true), 1e-9);
+        assertEquals(64.0 * GB, Maestro.reach(Maestro.Dim.GPU_MEM, h, cpu, n, false), 1e-6);
+        assertEquals(56.0 * GB, Maestro.reach(Maestro.Dim.GPU_MEM, h, cpu, n, true), 1e-6);
+        // Uncoupled dimensions read plain idle.
+        assertEquals(8.0 * CORE, Maestro.reach(Maestro.Dim.CORES, h, cpu, n, false), 1e-9);
+        assertEquals(7.0 * CORE, Maestro.reach(Maestro.Dim.CORES, h, cpu, n, true), 1e-9);
+    }
+
+    @Test
+    public void aCpuFrameThatEatsAGpusBundlePaysOnTheGpuTerms() {
+        // Same host: the frame cuts GPU reach 4 -> 3.5 and GPU-memory reach
+        // 64GB -> 56GB, one eighth of each, on top of the plain terms.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        double eighth = Math.exp(1.0 / 8) - 1;
+        double expected = eighth // cores: 1 of 8
+                + (Math.exp(1.0 / 32) - 1) // mem: 1 of 32GB
+                + 4.0 * eighth // gpus, weight 4: 0.5 of 4
+                + 1.0 * eighth; // gpu mem: 8GB of 64GB
+        assertEquals(expected, Maestro.placementScore(h, cpu, needsWithGpuWaiting()), 1e-9);
+    }
+
+    @Test
+    public void coresBeyondTheBundleCostNothingOnTheGpuTerms() {
+        // 16 cores for 4 GPUs whose bundle is 8: the CPU frame takes a core
+        // the GPUs do not need, so reach holds and the score is plain E-PVM.
+        Maestro.BookableHost h = freeHost(16 * CORE, 64 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        assertEquals(Maestro.placementScore(h, cpu),
+                Maestro.placementScore(h, cpu, needsWithGpuWaiting()), 1e-12);
+    }
+
+    @Test
+    public void withGpuWorkWaitingCpuWorkPrefersTheHostWithoutGpus() {
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        double[][] n = needsWithGpuWaiting();
+        double gpuHost = Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), cpu, n);
+        double cpuHost = Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 0, 0), cpu, n);
+        assertTrue(cpuHost < gpuHost);
+        // Nothing waiting for GPUs: the two hosts cost the same.
+        assertEquals(Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), cpu),
+                Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 0, 0), cpu), 1e-12);
+    }
+
+    @Test
+    public void aGpuFramePaysForWhatItUsesAndNoMore() {
+        // The GPU frame takes 1 of 4 GPUs and exactly its own bundle, so each
+        // coupled term moves by one GPU's worth: the plain E-PVM score.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate g = gpuLayer();
+        assertEquals(Maestro.placementScore(h, g),
+                Maestro.placementScore(h, g, needsWithGpuWaiting()), 1e-9);
+    }
+
+    /** strandFreeFrames for a CPU frame on h, with the GPU layer waiting or not. */
+    private static int strandFree(Maestro.BookableHost h, boolean gpuWaits) throws Exception {
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        Maestro.LayerCandidate g = gpuLayer();
+        if (!gpuWaits)
+            g.waitingFrameCount = 0;
+        List<Maestro.LayerCandidate> cands = Arrays.asList(cpu, g);
+        set(s, "reachNeeds", Maestro.reachNeedsOf(cands));
+        Method m = Maestro.class.getDeclaredMethod("strandFreeFrames", Maestro.BookableHost.class,
+                Maestro.LayerCandidate.class, List.class, String.class, Map.class, Map.class,
+                Map.class, Map.class, Map.class);
+        m.setAccessible(true);
+        return (Integer) m.invoke(s, h, cpu, cands, "alloc", new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
+
+    @Test
+    public void theStrandBoundSellsExactlyTheCoresBeyondTheBundle() throws Exception {
+        // 16 cores, 4 GPUs needing 8 of them: 8 CPU frames fit beyond the
+        // bundle, and nothing is held back while no GPU work waits.
+        Maestro.BookableHost h = freeHost(16 * CORE, 64 * GB, 4, 64 * GB);
+        assertEquals(8, strandFree(h, true));
+        assertEquals(Integer.MAX_VALUE, strandFree(h, false));
+    }
+
+    @Test
+    public void aHostWhoseCoresAreAllInTheBundleIsOffLimits() throws Exception {
+        assertEquals(0, strandFree(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), true));
     }
 
     // ---- EASY backfill: hostReadySeconds ----------------------------------
@@ -908,8 +1082,8 @@ public class MaestroTests {
     @Test
     public void aLostLockTakesThePlannersMemoryWithIt() throws Exception {
         Maestro s = schedulerWithLeaderConn(null);
-        String[] fields = {"reservations", "blockedDebtMs", "lastSeenMs", "warmthByHostLayer",
-                "bookingsByHost"};
+        String[] fields =
+                {"reservations", "blockedDebtMs", "lastSeenMs", "warmthByHost", "bookingsByHost"};
         for (String f : fields)
             map(s, f).put("stale", f.equals("reservations") ? null : Long.valueOf(1L));
         s.demote();
@@ -1207,8 +1381,7 @@ public class MaestroTests {
         Maestro s = drainingScheduler(null);
         MaestroCompletionQueue.offer(completionOn("h", "l"));
         s.drainResolvedCompletions();
-        assertTrue("a standby has no odometer to stamp against",
-                map(s, "warmthByHostLayer").isEmpty());
+        assertTrue("a standby has no odometer to stamp against", map(s, "warmthByHost").isEmpty());
     }
 
     @Test
@@ -1217,7 +1390,7 @@ public class MaestroTests {
         Maestro s = drainingScheduler(mock(Connection.class));
         MaestroCompletionQueue.offer(completionOn("h", "l"));
         s.drainResolvedCompletions();
-        assertTrue(map(s, "warmthByHostLayer").containsKey("h|l"));
+        assertTrue(((Map<?, ?>) map(s, "warmthByHost").get("h")).containsKey("l"));
     }
 
     @Test
@@ -1245,7 +1418,11 @@ public class MaestroTests {
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
-            List<FrameBooking> planned = s.planBookings();
+            Maestro.BookableHost h = freeHost(CORE, GB, 0, 0);
+            h.planned = new HashMap<>();
+            Map<String, Maestro.BookableHost> hostById = new HashMap<>();
+            hostById.put("host1", h);
+            List<FrameBooking> planned = s.planBookings(hostById);
             assertEquals("the host's other layer stands", 1, planned.size());
             Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
             f.setAccessible(true);
@@ -1275,7 +1452,7 @@ public class MaestroTests {
                 m = x;
         m.setAccessible(true);
         return (Boolean) m.invoke(s, h, c, Arrays.asList(c, o), "alloc", new HashMap<>(),
-                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
                 new HashMap<>());
     }
 
@@ -1309,7 +1486,7 @@ public class MaestroTests {
         Maestro s = new Maestro();
         Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
         set(s, "reservationsEnabled", true);
-        map(s, "reservations").put(h.hostId, new Maestro.Reservation("owner", 100, 8 * CORE));
+        h.reservation = new Maestro.Reservation("owner", 100, 8 * CORE);
         assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), other()));
     }
 
@@ -1318,7 +1495,7 @@ public class MaestroTests {
         Maestro s = new Maestro();
         Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
         Maestro.LayerCandidate o = other();
-        map(s, "planSliceByHostLayer").put(h.hostId + "|" + o.layerId, new int[] {0, 1});
+        h.planned.put(o.layerId, new int[] {0, 1});
         assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), o));
     }
 }

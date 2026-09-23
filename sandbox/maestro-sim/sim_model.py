@@ -164,12 +164,15 @@ def mem_gb_for_cores(cores):
     return _mem_gb[lo] + frac * (_mem_gb[hi] - _mem_gb[lo])
 
 
-# GPU layers. SIM_GPU=F: a fraction F of layers are GPU layers. A GPU layer runs
+# GPU layers. SIM_GPU=F: a fraction F of layers are GPU layers. SIM_GPU_LAYERS
+# overrides that fraction alone and leaves the farm's GPU hosts untouched, so a
+# scenario can put CPU-only work on a farm that has GPU machines (GPUSTRAND). A
+# GPU layer runs
 # mostly on the GPU, so it asks for few software cores (GPU_CORES) and 1 GPU; its
 # GPU memory is sampled from the same mem model and its CPU memory is half that.
 # gpu_memory must stay under cuebot's mem_gpu_reserved_max (100 GB) or the job is
 # REJECTED (cuebot throws, unlike CPU memory which clamps), so we cap at 90 GB.
-GPU_FRAC = float(os.environ.get("SIM_GPU", "0"))
+GPU_FRAC = float(os.environ.get("SIM_GPU_LAYERS", os.environ.get("SIM_GPU", "0")))
 GPU_CORES = 4
 _GPU_MEM_MAX_KB = int(90 * GB_KB)
 
