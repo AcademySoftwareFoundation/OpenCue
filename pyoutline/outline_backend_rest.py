@@ -179,13 +179,13 @@ def wait(job):
                 job_data = job_response.json().get("job", {})
                 if job_data.get("state") in ("FINISHED", 1):
                     break
-                stats = job_data.get("job_stats", {})
+                stats = job_data.get("jobStats", {})
 
                 logger.debug(
                     "waiting on %s job to complete: %d/%d",
                     job_id,
-                    stats.get("succeeded_frames", 0),
-                    stats.get("total_frames", 0),
+                    stats.get("succeededFrames", 0),
+                    stats.get("totalFrames", 0),
                 )
             except requests.RequestException as ie:
                 print(

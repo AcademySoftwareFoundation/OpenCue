@@ -252,7 +252,7 @@ class LaunchTest(unittest.TestCase):
             'job': {
                 'id': 'job-123',
                 'state': 'RUNNING',
-                'job_stats': {'succeeded_frames': 5, 'total_frames': 10}
+                'jobStats': {'succeededFrames': 5, 'totalFrames': 10}
             }
         }
 
@@ -261,7 +261,7 @@ class LaunchTest(unittest.TestCase):
             'job': {
                 'id': 'job-123',
                 'state': 'FINISHED',
-                'job_stats': {'succeeded_frames': 10, 'total_frames': 10}
+                'jobStats': {'succeededFrames': 10, 'totalFrames': 10}
             }
         }
         session.post.side_effect = [pending_resp, finished_resp]
