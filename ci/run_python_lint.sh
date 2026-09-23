@@ -25,7 +25,7 @@ else
 fi
 
 echo "Running lint for pyoutline/..."
-pip install ./pyoutline[test] ${PIP_OPT}
+pip install './pyoutline[test]' ${PIP_OPT}
 cd pyoutline
 python -m pylint --rcfile=../ci/pylintrc_main FileSequence
 python -m pylint --rcfile=../ci/pylintrc_main outline_backend_local
@@ -35,7 +35,7 @@ python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for pycue/..."
-pip install ./pycue[test] ${PIP_OPT}
+pip install './pycue[test]' ${PIP_OPT}
 cd pycue
 python -m pylint --rcfile=../ci/pylintrc_main opencue
 python -m pylint --rcfile=../ci/pylintrc_main outline_backend_cue
@@ -43,49 +43,49 @@ python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cueadmin/..."
-pip install ./cueadmin[test] ${PIP_OPT}
+pip install './cueadmin[test]' ${PIP_OPT}
 cd cueadmin
 python -m pylint --rcfile=../ci/pylintrc_main cueadmin
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cueman/..."
-pip install ./cueman[test] ${PIP_OPT}
+pip install './cueman[test]' ${PIP_OPT}
 cd cueman
 python -m pylint --rcfile=../ci/pylintrc_main cueman
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cuecmd/..."
-pip install ./cuecmd[test] ${PIP_OPT}
+pip install './cuecmd[test]' ${PIP_OPT}
 cd cuecmd
 python -m pylint --rcfile=../ci/pylintrc_main cuecmd
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cuegui/..."
-pip install ./cuegui[test] ${PIP_OPT}
+pip install './cuegui[test]' ${PIP_OPT}
 cd cuegui
 python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
 python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for cuesubmit/..."
-pip install ./cuesubmit[test] ${PIP_OPT}
+pip install './cuesubmit[test]' ${PIP_OPT}
 cd cuesubmit
 python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
 python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for cuenimby/..."
-pip install ./cuenimby[test] ${PIP_OPT}
+pip install './cuenimby[test]' ${PIP_OPT}
 cd cuenimby
 python -m pylint --rcfile=../ci/pylintrc_main cuenimby
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for rqd/..."
-pip install ./rqd[test] ${PIP_OPT}
+pip install './rqd[test]' ${PIP_OPT}
 cd rqd
 python -m pylint --rcfile=../ci/pylintrc_main rqd
 python -m pylint --rcfile=../ci/pylintrc_test tests
