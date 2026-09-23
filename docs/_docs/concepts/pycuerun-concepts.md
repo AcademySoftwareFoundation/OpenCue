@@ -95,12 +95,14 @@ The wrapper (`opencue_wrap_frame`) sets up the execution environment (show, shot
 PyCuerun supports multiple backends:
 
 - **`cue` (default)**: Submits to Cuebot, which dispatches frames to render hosts
+- **`rest`**: Submits to Cuebot, which dispatches frames to render hosts using the rest gateway
 - **`local`**: Executes all frames sequentially on the local machine using a SQLite-based dispatcher
 
 The backend is selected by:
 1. The `--backend` CLI flag
 2. The `outline.backend` configuration setting
-3. Defaults to `cue`
+3. The `OUTLINE_OUTLINE_BACKEND` environment variable
+4. Defaults to `cue`
 
 ### Script Inspection
 

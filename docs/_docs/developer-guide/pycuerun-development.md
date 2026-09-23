@@ -104,11 +104,10 @@ bin/pycuerun                   CLI entry point, PyCuerun class
     │
     ├── outline/cuerun.py      OutlineLauncher, CuerunOptionParser, launch()
     │       │
-    │       ├── outline/loader.py      load_outline(), parse scripts
-    │       │
-    │       └── outline/backend/
-    │               ├── cue.py         OpenCue submission, XML serialization
-    │               └── local.py       Local SQLite-based execution
+    │       ├── outline/loader.py          load_outline(), parse scripts
+    │       ├── outline_backend_cue.py     OpenCue submission, XML serialization
+    │       ├── outline_backend_rest.py    OpenCue submission, XML serialization using REST gateway         
+    │       └── outline_backend_local.py   Local SQLite-based execution
     │
     └── bin/util_qc_job_layer.py   QC hold utility (pauses job for artist review)
 ```
@@ -524,6 +523,7 @@ python -m pytest tests/ -v
 
 # Backend-specific tests (most relevant to pycuerun)
 python -m pytest tests/backend/test_cue.py -v
+python -m pytest tests/backend/test_rest.py -v
 python -m pytest tests/backend/test_local.py -v
 
 # With coverage
