@@ -34,9 +34,43 @@ import outline_backend_rest
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 TEST_USER = 'test-user'
 GATEWAY_URL = 'http://localhost:8080'
+BACKEND = 'rest'
 
+class BackendOverrideTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
+    def testOverrideBackend(self):
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        ol = outline.load_outline(path)
+
+        outline.config.set('outline', 'backend', BACKEND)
+
+        launcher = outline.cuerun.OutlineLauncher(ol)
+
+        # Check that the backend configured on the launcher matches
+        self.assertEqual(BACKEND, launcher.get('backend'))
+        self.assertEqual(BACKEND, launcher.get_flag('backend'))
+
+        # Check that the imported backend module resolves to the rest backend
+        backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
+        self.assertIs(outline_backend_rest, backend_module)
 
 class SerializeTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set('outline', 'backend', BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
 
@@ -90,6 +124,11 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testLargeContiguousRangeIsCompactInSpec(self):
         ol = outline.Outline(name='maya_render', frame_range='1001-2301')
@@ -111,8 +150,14 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
 
 class CoresTest(unittest.TestCase):
+
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set('outline', 'backend', BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def create(self):
         ol = outline.Outline()
@@ -158,6 +203,8 @@ class LaunchTest(unittest.TestCase):
 
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
         self.orig_job_wait_period = outline_backend_rest.JOB_WAIT_PERIOD_SEC
         outline_backend_rest.JOB_WAIT_PERIOD_SEC = 0.01
 
@@ -166,6 +213,7 @@ class LaunchTest(unittest.TestCase):
         outline_backend_rest.CUEREST_GATEWAY_URL = GATEWAY_URL
 
     def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
         outline_backend_rest.JOB_WAIT_PERIOD_SEC = self.orig_job_wait_period
 
     @mock.patch('outline_backend_rest._get_restgateway_session')
@@ -331,32 +379,6 @@ class LaunchTest(unittest.TestCase):
         self.assertEqual(f"{GATEWAY_URL}/job.JobInterface/Kill",
                          session.post.call_args_list[-1][0][0])
         session.close.assert_called_once()
-
-
-class BackendOverrideTest(unittest.TestCase):
-
-    def setUp(self):
-        outline.Outline.current = None
-        self.orig_backend = outline.config.get('outline', 'backend')
-
-    def tearDown(self):
-        outline.config.set('outline', 'backend', self.orig_backend)
-
-    def testOverrideBackend(self):
-        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
-
-        outline.config.set('outline', 'backend', 'rest')
-
-        launcher = outline.cuerun.OutlineLauncher(ol)
-
-        # Check that the backend configured on the launcher matches
-        self.assertEqual('rest', launcher.get('backend'))
-        self.assertEqual('rest', launcher.get_flag('backend'))
-
-        # Check that the imported backend module resolves to the rest backend
-        backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
-        self.assertIs(outline_backend_rest, backend_module)
 
 
 if __name__ == '__main__':

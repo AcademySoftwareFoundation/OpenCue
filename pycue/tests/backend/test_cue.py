@@ -37,9 +37,18 @@ from .. import test_utils
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 TEST_USER = 'test-user'
-
+BACKEND = 'cue'
 
 class SerializeTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
 
@@ -100,6 +109,11 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testLargeContiguousRangeIsCompactInSpec(self):
         ol = outline.Outline(name='maya_render', frame_range='1001-2301')
@@ -121,9 +135,14 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
 
 class CoresTest(unittest.TestCase):
+
     def setUp(self):
-        # Ensure to reset current
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def create(self):
         ol = outline.Outline()
@@ -167,13 +186,20 @@ class CoresTest(unittest.TestCase):
 
 
 class BuildCommandTest(unittest.TestCase):
+
     def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         outline.config.set('outline', 'home', '')
         outline.config.set('outline', 'user_dir', '')
         self.ol = outline.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol, user=TEST_USER)
         self.layer = self.ol.get_layer('cmd')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testBuildShellCommand(self):
         self.assertEqual(
@@ -221,10 +247,14 @@ class BuildCommandTest(unittest.TestCase):
 class LaunchTest(unittest.TestCase):
 
     def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
         self.job_wait_period_original = outline_backend_cue.JOB_WAIT_PERIOD_SEC
         outline_backend_cue.JOB_WAIT_PERIOD_SEC = .1
 
     def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
         outline_backend_cue.JOB_WAIT_PERIOD_SEC = self.job_wait_period_original
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
