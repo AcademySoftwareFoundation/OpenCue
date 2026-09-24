@@ -100,8 +100,8 @@ PyCuerun supports multiple backends:
 
 The backend is selected by:
 1. The `--backend` CLI flag
-2. The `outline.backend` configuration setting
-3. The `OUTLINE_OUTLINE_BACKEND` environment variable
+2. The `OUTLINE_OUTLINE_BACKEND` environment variable (overrides the config file)
+3. The `outline.backend` configuration setting
 4. Defaults to `cue`
 
 ### Script Inspection
