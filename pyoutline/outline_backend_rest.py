@@ -205,7 +205,7 @@ def _get_jwt_token():
     """
     jwt_secret = outline.config.get("backend:rest", "jwt_secret")
     header = {"alg": "HS256", "typ": "JWT"}
-    payload = {"sub": "jimmy", "exp": int(time.time()) + 3600}
+    payload = {"sub": outline.util.get_user(), "exp": int(time.time()) + 3600}
     h = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
     p = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     m = f"{h}.{p}"
