@@ -226,12 +226,8 @@ class OutlineLauncher(object):
         if self.__outline.get_mode() < constants.OUTLINE_MODE_SETUP:
             self.setup()
         if use_pycuerun:
-            return getattr(self.__get_backend_module(),
-                           "serialize",
-                           backend.serialize)(self)
-        return getattr(self.__get_backend_module(),
-                       "serialize_simple",
-                       backend.serialize_simple)(self)
+            return backend.serialize(self)
+        return backend.serialize_simple(self)
 
     def __get_backend_module(self):
         if self.__backend is None:
