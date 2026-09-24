@@ -20,10 +20,6 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-# pylint: disable=wrong-import-position
-from future import standard_library
-standard_library.install_aliases()
-
 from builtins import range
 from builtins import object
 import logging

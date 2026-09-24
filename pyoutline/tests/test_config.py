@@ -23,7 +23,6 @@ import unittest
 import mock
 import pyfakefs.fake_filesystem_unittest
 
-import opencue
 import outline
 # The local import is necessary as `outline.config` will point to the ConfigParser after the
 # first import.
@@ -48,8 +47,6 @@ enable=1
 class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
-        self.fs.add_real_file(
-            os.path.join(os.path.dirname(opencue.__file__), 'default.yaml'), read_only=True)
         if 'OL_CONFIG' in os.environ:
             del os.environ['OL_CONFIG']
         if 'OUTLINE_CONFIG_FILE' in os.environ:

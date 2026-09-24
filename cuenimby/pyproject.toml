@@ -9,6 +9,7 @@ name = "opencue_cuenimby"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
+    'importlib-metadata>=0.12; python_version < "3.8"',
     
     "PySide6==6.8.2.1;python_version>'3.11'",
     "PySide6==6.5.3;python_version=='3.11'",

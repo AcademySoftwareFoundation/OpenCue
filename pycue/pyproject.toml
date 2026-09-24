@@ -9,8 +9,8 @@ name = "opencue_pycue"
 dynamic = ["version"]
 dependencies = [
     "opencue_proto",
-    "PyYAML>=6.0.1",
-    "future==1.0.0"
+    "opencue_pyoutline",
+    "PyYAML>=6.0.1"
 ]
 requires-python = ">3.7"
 description = "PyCue is the Python API client for OpenCue, providing programmatic access to core services. It enables developers to query, submit, and control jobs, layers, and frames directly from Python code."
@@ -23,7 +23,7 @@ path = "../ci/generate_version_number.py"
 default-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
-packages = ["opencue", "FileSequence"]
+packages = ["opencue", "outline_backend_cue.py"]
 
 # --- Pytest configuration ---
 [tool.pytest.ini_options]

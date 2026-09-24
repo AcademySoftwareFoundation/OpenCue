@@ -9,8 +9,10 @@ build-backend = "hatchling.build"
 name = "opencue_pyoutline"
 dynamic = ["version"]
 dependencies = [
-    "opencue_pycue",
     "typing_extensions; python_version < '3.12'",  # Unpack
+    "PyYAML>=6.0.1",
+    "requests",
+    "packaging"
 ]
 requires-python = ">3.7"
 description = "PyOutline is a Python library for building and managing OpenCue job definitions. It provides an API to create outlines that describe jobs, layers, and tasks, making it easier to construct repeatable workflows for rendering pipelines."
@@ -26,7 +28,7 @@ default-version = "0.0.0"
 pycuerun = "bin.pycuerun_main:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["outline", "wrappers", "bin"]
+packages = ["outline", "FileSequence", "wrappers", "bin", "outline_backend_rest.py", "outline_backend_local.py"]
 
 # --- Pytest configuration ---
 [tool.pytest.ini_options]

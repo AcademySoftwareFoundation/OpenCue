@@ -6,10 +6,11 @@ Subpackages
 
 .. toctree::
 
-    outline.backend
     outline.modules
     outline.plugins
     outline.versions
+    outline_backend_local
+    outline_backend_rest
 
 Module contents
 ---------------
@@ -19,6 +20,12 @@ Module contents
 
 Submodules
 ----------
+
+outline.backend module
+----------------------
+
+.. automodule:: outline.backend
+    :members:
 
 outline.config module
 ---------------------
