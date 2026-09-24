@@ -80,7 +80,7 @@
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 2
       },
@@ -130,8 +130,8 @@
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 2
       },
       "fieldConfig": {
@@ -170,6 +170,57 @@
           "expr": "sum by (show) (cue_maestro_show_cores{show=~\"$show\"})",
           "legendFormat": "{{show}}",
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Borrowed cores by show",
+      "description": "Cores each show holds above its subscription burst: capacity lent while no show within its burst could use it. Under contention it drains back to zero as the lent frames finish.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never",
+            "axisLabel": "cores"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "prometheus",
+          "refId": "A",
+          "legendFormat": "{{show}}",
+          "expr": "sum by (show) (cue_maestro_show_borrowed_cores{show=~\"$show\"})"
         }
       ]
     },

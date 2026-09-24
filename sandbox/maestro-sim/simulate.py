@@ -398,6 +398,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_slice.py", "slice_watch.py",
                      "inject_gpustrand.py", "gpustrand_watch.py",
                      "inject_showtier.py", "showtier_watch.py",
+                     "inject_budget.py", "budget_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
@@ -791,6 +792,7 @@ def start_cuebot(mode, reservations=True, block_seconds=60, max_fraction=0.5,
         "MAESTRO_LOCALITY_ENABLED": os.environ.get("SIM_LOCALITY_ENABLED", "true"),
         # Per-host layer cap fraction (0 = off). LAYERCAP turns it on.
         "MAESTRO_LAYER_HOST_MAX_FRAC": os.environ.get("SIM_LAYER_HOST_MAX_FRAC", "0.25"),
+        "MAESTRO_BURST_ORDERING": os.environ.get("SIM_BURST_ORDERING", "false"),
         # Periodic "Maestro stat:" summary (carries backfilled=N) fires every
         # this many seconds -- lowered from the 300s default so the live tail's
         # bf[] backfill counter updates often (override with SIM_STAT_INTERVAL_SECONDS).
@@ -880,6 +882,7 @@ def start_extra_cuebot(instance, mode, reservations=True, block_seconds=60,
         "MAESTRO_RESERVATION_MAX_GRANTEES": str(max_grantees),
         "MAESTRO_BACKFILL_ENABLED": "true" if backfill else "false",
         "MAESTRO_LAYER_HOST_MAX_FRAC": os.environ.get("SIM_LAYER_HOST_MAX_FRAC", "0.25"),
+        "MAESTRO_BURST_ORDERING": os.environ.get("SIM_BURST_ORDERING", "false"),
         "MAESTRO_STAT_INTERVAL_SECONDS": os.environ.get("SIM_STAT_INTERVAL_SECONDS", "30"),
         # Offset every listener so the extra never collides with instance 0.
         "CUEBOT_GRPC_CUE_PORT": str(cue),
@@ -1167,6 +1170,11 @@ def start_gpustrand_injector(duration):
         f"GPU job asks for one GPU) for {duration}s ...")
     spawn(["inject_gpustrand.py", str(duration)],
           f"{FARM}/inject_gpustrand.log")
+
+
+def start_budget_injector(duration):
+    log(f"starting BUDGET (four shows: size orders, burst lends) for {duration}s ...")
+    spawn(["inject_budget.py", str(duration)], f"{FARM}/inject_budget.log")
 
 
 def start_showtier_injector(duration):
@@ -1565,6 +1573,23 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{sm.group(2) if sm else '?'}, zero at "
                     f"{sm.group(3) if sm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "BUDGET":
+        # The watcher's verdict is the whole check: showA alone fills the farm
+        # past its burst, four shows split by size under contention, and
+        # showA takes the leftover past its burst. Fail-first: burst refuses
+        # (phases 1 and 3), the draw ignores size (phase 2).
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        p1 = re.search(r"phase 1: (.*)", txt)
+        p2 = re.search(r"tier gap ([0-9.]+); util ([0-9.]+)%; over-burst grabs (\d+)", txt)
+        p3 = re.search(r"phase 3: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"size orders, burst lends: phase 1 {p1.group(1) if p1 else '?'}; "
+                    f"phase 2 tier gap {p2.group(1) if p2 else '?'}, util "
+                    f"{p2.group(2) if p2 else '?'}%, grabs {p2.group(3) if p2 else '?'}; "
+                    f"phase 3 {p3.group(1) if p3 else '?'}")
     if name == "SHOWTIER":
         # The watcher's verdict is the whole check: equal tiers over the last
         # 30 s under contention, nobody above burst. Fail-first: the slot draw
@@ -1979,6 +2004,15 @@ def run_verify():
         # half, so the small show runs at twice its size.
         ("SHOWTIER", ["--hosts", "3,4,10", "--showtier-test", str(max(D, 180))],
          {"SIM_DUR_LONG_S": "90"}),
+        # BUDGET: size and burst together, four shows on one allocation with
+        # production-style budgets. showA alone must fill the farm past its
+        # burst; with all four flooding, the farm splits by size and no show
+        # over its burst gains while one under its size waits; with the other
+        # three capped, showA takes the leftover. Fail-first: a burst that
+        # refuses idles the farm (phases 1 and 3); a draw by priority alone
+        # splits it evenly (phase 2).
+        ("BUDGET", ["--hosts", "3,4,10", "--budget-test", str(max(D, 300))],
+         {"SIM_DUR_LONG_S": "40", "SIM_BURST_ORDERING": "true"}),
         # COMPLETIONSTORM: the completion path against the post-op worker. A
         # finished frame's urgent work happens in the batched stop inside the
         # tick; the slow follow-up (depends, job completion checks, usage) goes
@@ -2342,6 +2376,12 @@ def main():
                          "stranded count never rises and reaches zero: freed "
                          "cores on such a host go to GPU work, never back to "
                          "the flood.")
+    ap.add_argument("--budget-test", type=int, default=0, metavar="SECS",
+                    help="BUDGET test: four shows with sizes and bursts on one "
+                         "allocation. Assert that a lone show fills the farm past "
+                         "its burst, that under contention the farm splits by size "
+                         "and no over-burst show gains while one under its size "
+                         "waits, and that the leftover is lent past burst.")
     ap.add_argument("--showtier-test", type=int, default=0, metavar="SECS",
                     help="SHOWTIER test: two shows of equal priority flood one "
                          "allocation, sizes one quarter and three quarters of the "
@@ -2738,6 +2778,8 @@ def main():
         start_gpustrand_injector(args.gpustrand_test)
     if args.showtier_test:
         start_showtier_injector(args.showtier_test)
+    if args.budget_test:
+        start_budget_injector(args.budget_test)
     if args.completionstorm_test:
         start_completionstorm_injector(max(60, args.completionstorm_test - STORM_DRAIN_S))
     if args.doublerender_test:
@@ -2763,7 +2805,7 @@ def main():
              or args.layercap_solo_test or args.solofill_test or args.pin_test
              or args.health_test or args.strandgrow_test or args.migrate_test
              or args.slice_test
-             or args.gpustrand_test or args.showtier_test
+             or args.gpustrand_test or args.showtier_test or args.budget_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2833,6 +2875,9 @@ def main():
             f"for {args.gpustrand_test}s ...")
         subprocess.run([VENV_PY, "gpustrand_watch.py",
                         str(args.gpustrand_test), "3"], cwd=FARM)
+    elif args.budget_test:
+        log(f"watching BUDGET (size orders, burst lends) for {args.budget_test}s ...")
+        subprocess.run([VENV_PY, "budget_watch.py", str(args.budget_test), "3"], cwd=FARM)
     elif args.showtier_test:
         log(f"watching SHOWTIER (allocation split by subscription size) "
             f"for {args.showtier_test}s ...")

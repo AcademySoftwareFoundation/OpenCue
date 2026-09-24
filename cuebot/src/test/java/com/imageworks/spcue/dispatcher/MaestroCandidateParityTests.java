@@ -29,6 +29,7 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
@@ -45,6 +46,7 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -221,5 +223,69 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
         assertFalse("legacy refuses a job from another facility", legacy.contains(job.id));
         assertFalse("scheduler must refuse a job from another facility",
                 candidatesContainJob(job.id));
+    }
+
+    // ---- burst orders instead of refusing ---------------------------------
+
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+
+    /** Put the fixture show at its burst on the host's allocation. */
+    private void putShowOverBurst(JobDetail job) {
+        jdbcTemplate.update(
+                "UPDATE subscription SET int_burst = 0 WHERE pk_show = ? AND pk_alloc"
+                        + " = (SELECT pk_alloc FROM host WHERE str_name = ?)",
+                job.getShowId(), HOSTNAME);
+    }
+
+    @Test
+    public void anOverBurstShowStaysACandidateWhileBurstOrders() {
+        JobDetail job = getJob();
+        putShowOverBurst(job);
+        assertFalse("burst as a ceiling (default): an over-burst show is refused",
+                candidatesContainJob(job.id));
+        ReflectionTestUtils.setField(maestro, "burstOrdering", true);
+        try {
+            assertTrue("burst orders: an over-burst show is still planned",
+                    candidatesContainJob(job.id));
+        } finally {
+            ReflectionTestUtils.setField(maestro, "burstOrdering", false);
+        }
+    }
+
+    @Test
+    public void aShowWithinBurstSurvivesTheLimitAheadOfAnOverBurstShow() {
+        JobDetail over = getJob();
+        JobDetail within = jobManager.findJobDetail(TARGET_JOB);
+        // A second show, far under its burst on the host's allocation, owns the target job.
+        jdbcTemplate.update("INSERT INTO show (pk_show, str_name, int_default_max_cores,"
+                + " int_default_min_cores, b_booking_enabled, b_dispatch_enabled, b_active)"
+                + " VALUES ('BBBBBBBB-0000-0000-0000-000000000001', 'budget_within', 20000000,"
+                + " 100, true, true, true)");
+        jdbcTemplate.update("INSERT INTO subscription (pk_subscription, pk_alloc, pk_show,"
+                + " int_size, int_burst, int_cores, float_tier) SELECT"
+                + " 'BBBBBBBB-0000-0000-0000-000000000002', pk_alloc,"
+                + " 'BBBBBBBB-0000-0000-0000-000000000001', 100000, 100000000, 0, 0"
+                + " FROM host WHERE str_name = ?", HOSTNAME);
+        jdbcTemplate.update("UPDATE job SET pk_show = 'BBBBBBBB-0000-0000-0000-000000000001'"
+                + " WHERE pk_job = ?", within.id);
+        putShowOverBurst(over);
+        // The lottery alone would all but always pick the over-burst job first.
+        jdbcTemplate.update("UPDATE job_resource SET int_priority = 1000000 WHERE pk_job = ?",
+                over.id);
+        jdbcTemplate.update("UPDATE job_resource SET int_priority = 1 WHERE pk_job = ?", within.id);
+        springEnv.getPropertySources().addFirst(new MapPropertySource("oneCandidate",
+                Collections.singletonMap("maestro.layer_candidates_per_group_max", "1")));
+        ReflectionTestUtils.setField(maestro, "burstOrdering", true);
+        try {
+            for (int i = 0; i < 20; i++) {
+                List<Maestro.LayerCandidate> got = candidates();
+                assertEquals(1, got.size());
+                assertEquals("the within-burst show takes the one row", within.id,
+                        got.get(0).jobId);
+            }
+        } finally {
+            ReflectionTestUtils.setField(maestro, "burstOrdering", false);
+            springEnv.getPropertySources().remove("oneCandidate");
+        }
     }
 }

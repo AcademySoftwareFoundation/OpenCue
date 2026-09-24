@@ -1014,6 +1014,7 @@ public class MaestroTests {
         c.showKey = show + "\talloc";
         c.showSizeCores = size;
         c.showCoresInUse = cores;
+        c.showBurstCores = Integer.MAX_VALUE;
         return c;
     }
 
@@ -1076,6 +1077,113 @@ public class MaestroTests {
         active.remove(1);
         assertEquals(1, Maestro.stampTiers(active, new HashMap<>()));
         assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
+    // ---- burst orders instead of refusing ---------------------------------
+
+    @Test
+    public void showsWithinTheirBurstDrawBeforeAShowOverIt() {
+        // B has the lower tier but sits at its burst: every draw goes to A.
+        Maestro.LayerCandidate a = showCandidate("a", "A", 100, 90, 1);
+        Maestro.LayerCandidate b = showCandidate("b", "B", 300, 30, 1000);
+        a.layerCoresMin = b.layerCoresMin = 100;
+        b.showBurstCores = 30;
+        List<Maestro.LayerCandidate> active = Arrays.asList(a, b);
+        assertEquals("the draw ranges over A's weight only", 1,
+                Maestro.stampTiers(active, new HashMap<>()));
+        for (long r = 0; r < 1000; r++)
+            assertEquals(0, Maestro.drawSlot(active, r));
+    }
+
+    @Test
+    public void aShowOverItsBurstDrawsOnceNobodyWithinBurstIsLeft() {
+        Maestro.LayerCandidate b = showCandidate("b", "B", 300, 30, 1);
+        b.layerCoresMin = 100;
+        b.showBurstCores = 30;
+        List<Maestro.LayerCandidate> active = Arrays.asList(b);
+        assertEquals(1, Maestro.stampTiers(active, new HashMap<>()));
+        assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
+    @Test
+    public void aSliceStopsAtBurstUntilTheShowIsOverIt() {
+        Maestro.BookableHost h = freeHost(64 * CORE, 64 * GB, 0, 0);
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        c.showBurstCores = 10 * CORE;
+        c.showCoresInUse = 4 * CORE;
+        // Within burst: the slice stops at it, lending or not.
+        assertEquals(5, Maestro.computeMaxMore(h, c, true));
+        assertEquals(5, Maestro.computeMaxMore(h, c, false));
+        // Over it: burst is a ceiling (0 more), or only the draw order (the host bounds it).
+        c.showCoresInUse = 10 * CORE;
+        assertEquals(0, Maestro.computeMaxMore(h, c, false));
+        assertEquals(63, Maestro.computeMaxMore(h, c, true));
+    }
+
+    private static boolean capped(Maestro s, Maestro.LayerCandidate c) throws Exception {
+        Method m = null;
+        for (Method x : Maestro.class.getDeclaredMethods())
+            if (x.getName().equals("gate"))
+                m = x;
+        m.setAccessible(true);
+        Object g = m.invoke(s, c, "alloc", new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>());
+        Field f = g.getClass().getDeclaredField("capped");
+        f.setAccessible(true);
+        return f.getBoolean(g);
+    }
+
+    @Test
+    public void burstCapsOnlyWhenBurstOrderingIsOff() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        c.folderMax = -1;
+        c.showBurstCores = 2 * CORE;
+        c.showCoresInUse = 2 * CORE;
+        assertTrue("burst is a ceiling by default", capped(s, c));
+        set(s, "burstOrdering", true);
+        assertFalse("burst orders", capped(s, c));
+    }
+
+    @Test
+    public void aShowOverItsBurstNeverWantsAHost() throws Exception {
+        // The soft cap yields a host only when nobody else wants it; a show
+        // over its burst must not count, or it would take hosts ahead of shows
+        // within theirs.
+        Maestro.LayerCandidate o = other();
+        o.showBurstCores = 2 * CORE;
+        o.showCoresInUse = 2 * CORE;
+        Maestro s = new Maestro();
+        set(s, "burstOrdering", true);
+        assertFalse(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), layer(CORE, GB, 0, 0), o));
+    }
+
+    @Test
+    public void borrowedCoresComeFromTheTickNotAQuery() {
+        // One show over its burst on two allocations, one within it: the
+        // borrowed cores are the sum over the show's allocations, read from
+        // the tick-wide cores in use (this tick's placements included).
+        Maestro.LayerCandidate a1 = layer(CORE, GB, 0, 0);
+        a1.showName = "showA";
+        a1.showBurstCores = 10 * CORE;
+        a1.showCoresInUse = 4 * CORE;
+        Maestro.LayerCandidate a2 = layer(CORE, GB, 0, 0);
+        a2.showName = "showA";
+        a2.showBurstCores = 5 * CORE;
+        a2.showCoresInUse = 8 * CORE;
+        Maestro.LayerCandidate b = layer(CORE, GB, 0, 0);
+        b.showName = "showB";
+        b.showBurstCores = 50 * CORE;
+        b.showCoresInUse = 20 * CORE;
+        Map<String, Maestro.LayerCandidate> bySub = new HashMap<>();
+        bySub.put("A\talloc1", a1);
+        bySub.put("A\talloc2", a2);
+        bySub.put("B\talloc1", b);
+        Map<String, Integer> used = new HashMap<>();
+        used.put("A\talloc1", 16 * CORE);
+        Map<String, Double> borrowed = Maestro.borrowedCores(bySub, used);
+        assertEquals(6.0 + 3.0, borrowed.get("showA"), 1e-9);
+        assertFalse(borrowed.containsKey("showB"));
     }
 
     // ---- the commit chunks and the leader ---------------------------------

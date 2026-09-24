@@ -376,6 +376,25 @@ the rule orders work and never idles a host. Under contention shows converge to
 their sizes in proportion, as on the legacy dispatcher; the SHOWTIER scenario
 asserts it.
 
+**Burst can order instead of refusing** (`maestro.burst_ordering`, default
+`false`: burst is a hard ceiling). Maestro only places onto idle cores, so a burst that refuses work
+leaves the farm idle while a show waits at its cap. Instead the draw order is
+(over burst, tier): shows within their burst draw first, lowest tier first,
+and a show at or over its burst draws only once none of them can place, taking
+only capacity nobody within burst can use this tick. Under contention it gets
+nothing new and shrinks back to its burst as its frames finish (no
+preemption), so reclaim takes as long as its running frames. A show within
+its burst still stops at it in one slice (`computeMaxMore`); an over-burst
+show never counts as wanting a host (`othersWant`, the GPU bundle), and
+reservations stay burst-sized. The candidate query no longer drops an
+over-burst show and ranks shows within burst first, ahead of the lottery, so
+the `LIMIT` never cuts them. `cue_maestro_show_borrowed_cores{show}` shows
+each show's cores above its burst, for the shows with waiting work this tick,
+from the subscriptions their candidates carried (no query). With it off, burst is a hard ceiling (a
+layer held by it waits under `limit`). The BUDGET scenario asserts both
+rules together: a lone show fills the farm past its burst, four shows split by
+size under contention, and the leftover is lent.
+
 ### 3.6 Limit-gated placement (application licenses)
 
 Maestro gates placement on the same **limits** the legacy dispatcher enforces

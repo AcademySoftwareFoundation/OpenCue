@@ -75,6 +75,14 @@ public class MaestroMetrics {
             .help("Whole cores in use per show, summed live from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
+    // Cores per show above its burst, SET each tick from the subscription mirror: what burst
+    // ordering lent the show while nobody within burst needed the cores.
+    private static final Gauge showBorrowedCores = Gauge.build()
+            .name("cue_maestro_show_borrowed_cores")
+            .help("Whole cores in use per show above its subscription burst, lent while no show "
+                    + "within its burst could use them")
+            .labelNames("env", "cuebot_host", "show").register();
+
     // Frames booked per show; rate() = throughput.
     private static final Counter framesDispatched =
             Counter.build().name("cue_maestro_frames_dispatched_total")
@@ -169,6 +177,7 @@ public class MaestroMetrics {
     // Shows published last tick, so a show that drops to zero procs gets set to 0
     // this tick rather than pinning its last value.
     private final Set<String> lastShows = new HashSet<>();
+    private final Set<String> lastBorrowers = new HashSet<>();
     // Health slices published last tick ("by|name"), zeroed when absent for the
     // same reason.
     private final Set<String> lastHealth = new HashSet<>();
@@ -228,6 +237,13 @@ public class MaestroMetrics {
                     showCores.labels(env, host, prev).set(0.0);
             lastShows.clear();
             lastShows.addAll(s.coresByShow.keySet());
+            for (Map.Entry<String, Double> e : s.borrowedByShow.entrySet())
+                showBorrowedCores.labels(env, host, e.getKey()).set(e.getValue());
+            for (String prev : lastBorrowers)
+                if (!s.borrowedByShow.containsKey(prev))
+                    showBorrowedCores.labels(env, host, prev).set(0.0);
+            lastBorrowers.clear();
+            lastBorrowers.addAll(s.borrowedByShow.keySet());
             for (Map.Entry<String, Integer> e : s.framesByShow.entrySet())
                 framesDispatched.labels(env, host, e.getKey()).inc(e.getValue());
             for (Map.Entry<String, Long> e : s.bookedFramesByLocality.entrySet())
@@ -294,6 +310,7 @@ public class MaestroMetrics {
         public long strandedCores;
         public long tickDurationMs;
         public final Map<String, Double> coresByShow = new HashMap<>();
+        public final Map<String, Double> borrowedByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();
         public final Map<String, Long> bookedFramesByLocality = new HashMap<>();
         public final Map<String, Long> waitingFramesByReason = new HashMap<>();

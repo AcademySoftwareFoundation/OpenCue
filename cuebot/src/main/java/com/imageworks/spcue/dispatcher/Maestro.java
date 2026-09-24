@@ -223,6 +223,9 @@ public class Maestro extends JdbcDaoSupport {
     // Tick-scoped planning scratch (Maestro-thread only, reset each tick by clearTickScratch). Held
     // as fields so the phase methods share them without threading a dozen parameters.
     private final Map<String, Integer> jobCoresUsed = new HashMap<>();
+    // One candidate per subscription (show, allocation) seen this tick; consumed by
+    // borrowedCores() when metrics are on.
+    private final Map<String, LayerCandidate> subscriptionsSeen = new HashMap<>();
     private final Map<String, Integer> showCoresUsed = new HashMap<>();
     private final Map<String, Integer> folderUsed = new HashMap<>();
     private final Map<String, Integer> folderMaxCp = new HashMap<>();
@@ -291,6 +294,9 @@ public class Maestro extends JdbcDaoSupport {
     // When false, Maestro ignores reservations entirely (no claims, none enforced): the bare
     // placement core, for isolating core scheduling from the reservation logic.
     private volatile boolean reservationsEnabled = true;
+    // Burst orders instead of refusing: a show over its burst sorts after every show within
+    // its burst and takes only what they cannot use. false (default) = burst is a hard ceiling.
+    private volatile boolean burstOrdering = false;
 
     // Time gate: blocked-time a layer must accrue before it may reserve (wall-clock).
     // Property maestro.reservation_block_seconds. See maestro.md for the reservation model.
@@ -401,6 +407,7 @@ public class Maestro extends JdbcDaoSupport {
         int launchSize = env.getProperty("maestro.launch_pool_size", Integer.class, 8);
         frameQueryMax = env.getProperty("dispatcher.frame_query_max", Integer.class, 20);
         reservationsEnabled = env.getProperty("maestro.reservations_enabled", Boolean.class, true);
+        burstOrdering = env.getProperty("maestro.burst_ordering", Boolean.class, false);
         reservationBlockMs =
                 1000L * env.getProperty("maestro.reservation_block_seconds", Integer.class, 300);
         reservationMaxFraction =
@@ -511,6 +518,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  jr.int_priority, "
             + "  jr.int_cores       AS job_cores_in_use, "
             + "  jr.int_max_cores   AS job_max_cores, "
+            + "  sh.str_name        AS show_name, "
             + "  sub.int_cores      AS show_cores_in_use, "
             + "  sub.int_burst      AS show_burst, "
             + "  sub.int_size       AS show_size, "
@@ -579,7 +587,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  AND  (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) >= ? "
             + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
             + "  AND  jr.int_cores  < jr.int_max_cores "
-            + "  AND  sub.int_cores < sub.int_burst "
+            + "  AND  (? OR sub.int_cores < sub.int_burst) "
             + "  AND  l.int_cores_min <= ? "
             // Dispatchable-frame test and waiting_frame_count both come from
             // layer_stat.int_waiting_count (maintained by core trigger
@@ -607,7 +615,10 @@ public class Maestro extends JdbcDaoSupport {
             // low-priority layer keeps a share proportional to its priority instead of being
             // starved by a higher-priority stream. GREATEST(...,1) floors the weight for priority
             // <= 0. Reservation granting uses the same lottery weighting. See maestro.md 3.5.
-            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            // Shows within their burst first, so a show over it never pushes them past
+            // the LIMIT (burst ordering), then the lottery.
+            + "ORDER BY COALESCE(sub.int_cores < sub.int_burst, true) DESC, "
+            + "         power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
             + "LIMIT  ? ";
     // spotless:on
 
@@ -633,6 +644,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  jr.int_priority, "
             + "  jr.int_cores       AS job_cores_in_use, "
             + "  jr.int_max_cores   AS job_max_cores, "
+            + "  sh.str_name        AS show_name, "
             + "  COALESCE(sub.int_cores, 0) AS show_cores_in_use, "
             + "  COALESCE(sub.int_burst, 0) AS show_burst, "
             + "  COALESCE(sub.int_size, 0)  AS show_size, "
@@ -681,13 +693,17 @@ public class Maestro extends JdbcDaoSupport {
             + "  AND  NOT (string_to_array(lower(replace(l.str_tags, ' ', '')), '|') "
             + "            <@ string_to_array(?, ',')) "
             + "  AND  (h.pk_host IS NULL "
-            + "        OR (sub.pk_subscription IS NOT NULL AND sub.int_cores < sub.int_burst)) "
+            + "        OR (sub.pk_subscription IS NOT NULL "
+            + "            AND (? OR sub.int_cores < sub.int_burst))) "
             + "  AND  jr.int_cores  < jr.int_max_cores "
             + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
             + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) "
-            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            // Shows within their burst first, so a show over it never pushes them past
+            // the LIMIT (burst ordering), then the lottery.
+            + "ORDER BY COALESCE(sub.int_cores < sub.int_burst, true) DESC, "
+            + "         power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
             + "LIMIT  ? ";
     // spotless:on
 
@@ -734,6 +750,7 @@ public class Maestro extends JdbcDaoSupport {
                     c.jobMaxCores = rs.getInt("job_max_cores");
                     c.showCoresInUse = rs.getInt("show_cores_in_use");
                     c.showBurstCores = rs.getInt("show_burst");
+                    c.showName = rs.getString("show_name");
                     c.showSizeCores = rs.getInt("show_size");
                     c.waitingFrameCount = rs.getInt("waiting_frame_count");
                     c.clockTimeHighSec = rs.getInt("clock_time_high");
@@ -1243,6 +1260,7 @@ public class Maestro extends JdbcDaoSupport {
         plannedByHost.clear();
         jobCoresUsed.clear();
         showCoresUsed.clear();
+        subscriptionsSeen.clear();
         folderUsed.clear();
         folderMaxCp.clear();
         folderRunSeed.clear();
@@ -1318,6 +1336,10 @@ public class Maestro extends JdbcDaoSupport {
                 spec.pkAlloc, jobCoresUsed, showCoresUsed, folderUsed, reservationReqs,
                 limitBudgets, limitUsed, limitSeats);
         stats.strandedCores += strandedWholeCores(fullGroup, candidates);
+        if (maestroMetrics != null && maestroMetrics.isEnabled()) {
+            for (LayerCandidate c : candidates)
+                subscriptionsSeen.putIfAbsent(subKey(c.showId, spec.pkAlloc), c);
+        }
         if (booked > 0)
             stats.booked++;
         else
@@ -1441,6 +1463,7 @@ public class Maestro extends JdbcDaoSupport {
         // farm reads as empty every time.
         if (maestroMetrics != null && maestroMetrics.isEnabled()) {
             stats.coresByShow.putAll(showCoresLive);
+            stats.borrowedByShow.putAll(borrowedCores(subscriptionsSeen, showCoresUsed));
             stats.runningFrames = runningFramesLive;
             if (farmHealth != null)
                 aggregateFarmHealth(groups, farmHealth.snapshot(), stats);
@@ -2114,6 +2137,24 @@ public class Maestro extends JdbcDaoSupport {
         }
     }
 
+    /**
+     * Whole cores each show holds above its burst, summed over its allocations: what burst ordering
+     * lent it. From the subscriptions the tick's candidates carried (one per show and allocation)
+     * and the tick-wide cores in use, so no query and O(subscriptions); a show with nothing waiting
+     * this tick is not in it (it cannot borrow more, and drains as its frames finish).
+     */
+    static Map<String, Double> borrowedCores(Map<String, LayerCandidate> bySubscription,
+            Map<String, Integer> showCoresUsed) {
+        Map<String, Double> out = new HashMap<>();
+        for (Map.Entry<String, LayerCandidate> e : bySubscription.entrySet()) {
+            LayerCandidate c = e.getValue();
+            int over = showCoresUsed.getOrDefault(e.getKey(), c.showCoresInUse) - c.showBurstCores;
+            if (over > 0)
+                out.merge(c.showName, over / (double) CORE_POINTS_PER_CORE, Double::sum);
+        }
+        return out;
+    }
+
     private Map<String, Set<String>> readHostLayerAffinity() {
         Map<String, Set<String>> affinity = new HashMap<>();
         Map<String, Map<String, Integer>> counts = new HashMap<>();
@@ -2156,7 +2197,7 @@ public class Maestro extends JdbcDaoSupport {
                 continue;
             CandidateGate g = gate(o, groupAllocId, jobCoresUsed, showCoresUsed, folderUsed,
                     limitBudgets, limitUsed, limitSeats);
-            if (g.capped || probeHeadroom(o) <= 0)
+            if (g.capped || g.overBurst || probeHeadroom(o) <= 0)
                 continue;
             if (hostOpenTo(o, h, g.limitSeatPools, limitSeats))
                 return true;
@@ -2572,7 +2613,7 @@ public class Maestro extends JdbcDaoSupport {
         List<LayerCandidate> rows =
                 getJdbcTemplate().query(SELECT_CANDIDATES_FOR_GROUP, CANDIDATE_MAPPER, spec.pkAlloc,
                         spec.os, spec.pkFacility, spec.allThreadMode ? 1 : 0, spec.tagsNormalized,
-                        maxIdleInGroup, MaestroMode.facility(env), limit);
+                        burstOrdering, maxIdleInGroup, MaestroMode.facility(env), limit);
         // Defensive dedupe: a duplicated row would clone its candidate (double
         // placement per tick). First row per layer wins.
         Set<String> seen = new HashSet<>(rows.size() * 2);
@@ -2723,8 +2764,8 @@ public class Maestro extends JdbcDaoSupport {
         List<PinRow> rows;
         try {
             rows = getJdbcTemplate().query(SELECT_PINNED_CANDIDATES, PINNED_MAPPER,
-                    ThreadMode.ALL_VALUE, String.join(",", specTags), MaestroMode.facility(env),
-                    limit);
+                    ThreadMode.ALL_VALUE, String.join(",", specTags), burstOrdering,
+                    MaestroMode.facility(env), limit);
         } catch (RuntimeException e) {
             logger.warn("Maestro: pinned candidate query failed; no pinned layer is planned this"
                     + " tick: " + e.getMessage());
@@ -2937,7 +2978,7 @@ public class Maestro extends JdbcDaoSupport {
                 String why;
                 if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores)
                     why = "jobMaxCores";
-                else if (c.showCoresInUse + c.layerCoresMin > c.showBurstCores)
+                else if (!burstOrdering && c.showCoresInUse + c.layerCoresMin > c.showBurstCores)
                     why = "showBurst";
                 else if (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax)
                     why = "folderCap(" + folderInUse + "/" + c.folderMax + ")";
@@ -3017,18 +3058,16 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The winner of one slot among the candidates of the lowest tier in {@code active} (see
+     * The winner of one slot among the candidates at the head of the order in {@code active} (see
      * stampTiers): their lotteryWeight bands laid end to end in list order, r in [0, their weight
-     * sum). The last of them absorbs any rounding, so a draw never falls outside the tier.
+     * sum). The last of them absorbs any rounding, so a draw never falls outside the head.
      */
     static int drawSlot(List<LayerCandidate> active, long r) {
-        double low = Double.POSITIVE_INFINITY;
-        for (LayerCandidate c : active)
-            low = Math.min(low, c.tier);
+        LayerCandidate low = lowest(active);
         int last = 0;
         for (int i = 0; i < active.size(); i++) {
             LayerCandidate c = active.get(i);
-            if (c.tier > low)
+            if (!sameRank(c, low))
                 continue;
             last = i;
             if ((r -= lotteryWeight(c)) < 0)
@@ -3038,22 +3077,43 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Stamp every active candidate with its show's tier, read against the tick-wide show cores map
-     * so every placement of this tick moves its show before the next draw, and return the lottery
-     * weight of the lowest tier: the range drawSlot draws from.
+     * Stamp every active candidate with its show's tier and whether the show is over its burst,
+     * read against the tick-wide show cores map so every placement of this tick moves its show
+     * before the next draw, and return the lottery weight of the head of the order (see lowest):
+     * the range drawSlot draws from.
      */
     static long stampTiers(List<LayerCandidate> active, Map<String, Integer> showCoresUsed) {
-        double low = Double.POSITIVE_INFINITY;
         for (LayerCandidate c : active) {
+            int cores = showCoresUsed.getOrDefault(c.showKey, c.showCoresInUse);
+            c.overBurst = cores + c.layerCoresMin > c.showBurstCores;
             c.tier = showTier(c, showCoresUsed);
-            low = Math.min(low, c.tier);
         }
+        LayerCandidate low = lowest(active);
         long weightSum = 0;
         for (LayerCandidate c : active) {
-            if (c.tier <= low)
+            if (sameRank(c, low))
                 weightSum += lotteryWeight(c);
         }
         return weightSum;
+    }
+
+    /**
+     * The draw order's head: shows within their burst before shows over it, then the lowest tier.
+     * With burst as a hard ceiling an over-burst show never reaches the draw, so the order is the
+     * tier alone.
+     */
+    private static LayerCandidate lowest(List<LayerCandidate> active) {
+        LayerCandidate low = null;
+        for (LayerCandidate c : active) {
+            if (low == null || (c.overBurst != low.overBurst ? !c.overBurst : c.tier < low.tier))
+                low = c;
+        }
+        return low;
+    }
+
+    /** Whether c draws with the head of the order: same side of its burst, same tier. */
+    private static boolean sameRank(LayerCandidate c, LayerCandidate low) {
+        return c.overBurst == low.overBurst && c.tier <= low.tier;
     }
 
     /**
@@ -3091,6 +3151,9 @@ public class Maestro extends JdbcDaoSupport {
         int limitUsable = Integer.MAX_VALUE;
         List<LimitBudget> limitSeatPools;
         boolean capped;
+        // The show is at its burst on this allocation: a hard cap when burst ordering is off,
+        // otherwise only the draw order (see stampTiers).
+        boolean overBurst;
     }
 
     /**
@@ -3134,10 +3197,11 @@ public class Maestro extends JdbcDaoSupport {
         // A capped layer (job/show cap, folder ceiling, spent limit budget) must
         // not dispatch but must still reconcile, dropping reservations it can no
         // longer use so other work can take those hosts.
-        g.capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
-                || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
-                || (c.folderMax >= 0 && g.folderInUse + c.layerCoresMin > c.folderMax)
-                || g.limitUsable <= 0;
+        g.overBurst = c.showCoresInUse + c.layerCoresMin > c.showBurstCores;
+        g.capped =
+                c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores || (g.overBurst && !burstOrdering)
+                        || (c.folderMax >= 0 && g.folderInUse + c.layerCoresMin > c.folderMax)
+                        || g.limitUsable <= 0;
         return g;
     }
 
@@ -3629,7 +3693,7 @@ public class Maestro extends JdbcDaoSupport {
      */
     private int headroomFrames(LayerCandidate c, BookableHost best, boolean overCap,
             int probeHeadroom, int limitUsable, Map<String, Integer> folderUsed, int strandFree) {
-        long maxMore = computeMaxMore(best, c);
+        long maxMore = computeMaxMore(best, c, burstOrdering);
         // Commit size: one plan slice.
         int est = (int) Math.min(frameQueryMax, maxMore + 1);
         // Backlog: never book frames the layer does not have.
@@ -3654,6 +3718,15 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     static long computeMaxMore(BookableHost h, LayerCandidate c) {
+        return computeMaxMore(h, c, false);
+    }
+
+    /**
+     * Frames beyond the first that c may add on h. With burst ordering a show within its burst
+     * still stops at it (it then sorts last and yields to the shows within theirs); a show already
+     * over it is bounded by the host alone.
+     */
+    static long computeMaxMore(BookableHost h, LayerCandidate c, boolean burstOrdering) {
         long maxMore = Long.MAX_VALUE;
         for (Dim d : DIMS) {
             if (d.need(c) > 0)
@@ -3666,7 +3739,8 @@ public class Maestro extends JdbcDaoSupport {
                 jobRem = 0;
             maxMore = Math.min(maxMore, jobRem / c.layerCoresMin);
         }
-        if (c.layerCoresMin > 0) {
+        if (c.layerCoresMin > 0
+                && !(burstOrdering && c.showCoresInUse + c.layerCoresMin > c.showBurstCores)) {
             long showRem = (long) c.showBurstCores - c.showCoresInUse - c.layerCoresMin;
             if (showRem < 0)
                 showRem = 0;
@@ -4128,7 +4202,7 @@ public class Maestro extends JdbcDaoSupport {
             Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
             Map<String, Integer> limitUsed) {
         if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
-                || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
+                || (!burstOrdering && c.showCoresInUse + c.layerCoresMin > c.showBurstCores)
                 || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax))
             return "limit";
         if (limitUsable <= 0)
@@ -4217,6 +4291,7 @@ public class Maestro extends JdbcDaoSupport {
         String layerId;
         String jobId;
         String showId;
+        String showName; // consumed by borrowedCores()
         int layerCoresMin;
         long layerMemMin;
         boolean threadable;
@@ -4236,6 +4311,7 @@ public class Maestro extends JdbcDaoSupport {
         int showSizeCores; // consumed by showTier()
         String showKey; // consumed by showTier()
         double tier; // consumed by drawSlot()
+        boolean overBurst; // consumed by drawSlot()
         // Number of pending dispatchable (waiting) frames. Initialized from
         // waiting_frame_count in the candidate query; decremented as the
         // layer dispatches in this tick. Reconcile keeps the layer's
