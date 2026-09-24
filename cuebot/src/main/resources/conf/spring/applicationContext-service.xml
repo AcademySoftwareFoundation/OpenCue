@@ -404,6 +404,13 @@
     <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
     <property name="limitRuleCache" ref="limitRuleCache" />
+    <property name="completionForwarder" ref="maestroCompletionForwarder" />
+  </bean>
+
+  <bean id="maestroCompletionForwarder" class="com.imageworks.spcue.dispatcher.MaestroCompletionForwarder" destroy-method="shutdown">
+    <property name="hostManager" ref="hostManager" />
+    <property name="showDao" ref="showDao" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
   </bean>
 
   <bean id="limitRuleCache" class="com.imageworks.spcue.dispatcher.LimitRuleCache">
