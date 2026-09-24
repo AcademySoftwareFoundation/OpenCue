@@ -193,7 +193,7 @@ class LaunchTest(unittest.TestCase):
             json={"spec": serialized_xml},
             timeout=outline_backend_rest.TIMEOUT
         )
-        self.assertEqual({'id': 'job-123', 'name': 'shell'}, job)
+        self.assertEqual([{'id': 'job-123', 'name': 'shell'}], job)
         session.close.assert_called_once()
 
     @mock.patch('outline_backend_rest.wait')
@@ -214,7 +214,7 @@ class LaunchTest(unittest.TestCase):
 
         job = outline_backend_rest.launch(launcher)
 
-        self.assertEqual(expected_job, job)
+        self.assertEqual([expected_job], job)
         waitMock.assert_called_once_with(expected_job)
 
     @mock.patch('outline_backend_rest.test')
@@ -235,7 +235,7 @@ class LaunchTest(unittest.TestCase):
 
         job = outline_backend_rest.launch(launcher)
 
-        self.assertEqual(expected_job, job)
+        self.assertEqual([expected_job], job)
         testMock.assert_called_once_with(expected_job)
 
     @mock.patch('outline_backend_rest._get_restgateway_session')
