@@ -360,6 +360,53 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertTrue(jobs.size() > 0);
     }
 
+    /**
+     * A deeded host's preferred show is dispatched straight through the by-show query, skipping
+     * FIND_SHOWS, so the by-show query has to exclude scheduler-managed shows on its own.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindDispatchJobsByShowExcludesSchedulerManaged() {
+        DispatchHost host = getHost();
+
+        assertTrue(dispatcherDao.findDispatchJobs(host, adminManager.findShowEntity("pipe"), 5)
+                .size() > 0);
+
+        try {
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), true);
+
+            assertEquals(0, dispatcherDao
+                    .findDispatchJobs(host, adminManager.findShowEntity("pipe"), 5).size());
+        } finally {
+            // ShowDao's cache lives outside the transaction; reset it so the next test
+            // sees a clean false (rollback only restores the DB, not the in-memory cache).
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), false);
+        }
+    }
+
+    /** Group booking (a redirect) skips FIND_SHOWS the same way the by-show query does. */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindDispatchJobsByGroupExcludesSchedulerManaged() {
+        DispatchHost host = getHost();
+        final JobDetail job = getJob1();
+        assertNotNull(job);
+
+        assertTrue(
+                dispatcherDao.findDispatchJobs(host, groupManager.getGroupDetail(job)).size() > 0);
+
+        try {
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), true);
+
+            assertEquals(0,
+                    dispatcherDao.findDispatchJobs(host, groupManager.getGroupDetail(job)).size());
+        } finally {
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), false);
+        }
+    }
+
     @Test
     @Transactional
     @Rollback(true)

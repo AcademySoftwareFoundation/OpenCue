@@ -614,9 +614,14 @@ events change the database in the background. This is safe by design.
 1. `tickInFlight` compare-and-set, one Cuebot never overlaps its own ticks.
 2. Leader advisory lock, only one Cuebot plans across the deployment.
 3. In `facility` mode `maestro.enabled` suppresses the legacy `BookingQueue`
-   enqueue in `HostReportHandler`; in `managed` mode the legacy dispatcher keeps
-   running but its query excludes `b_scheduler_managed` shows, so the two never
-   book the same show.
+   enqueue in `HostReportHandler`; otherwise the legacy dispatcher keeps running
+   but every job-selection query it books from (`FIND_SHOWS` for the all-shows
+   path, `FIND_JOBS_BY_SHOW`/`FIND_JOBS_BY_GROUP` for a deeded host's preferred
+   show and for redirects) excludes `b_scheduler_managed` shows, so the two never
+   book the same show. That exclusion is in SQL and not behind `maestro.enabled`,
+   so it also holds on the Cuebots that run with Maestro off while one Cuebot
+   plans — the rollout topology where the rest only report and forward
+   completions.
 
 So the only things that can change host state during a tick are:
 
