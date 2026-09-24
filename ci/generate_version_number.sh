@@ -40,7 +40,7 @@ else
   sed_cmd="sed"
 fi
 
-version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
+version_major_minor="$(cat "$version_in" | ${sed_cmd} 's/[[:space:]]//g')"
 
 if [[ -n "${VERSION_PATCH:-}" ]]; then
   echo "${version_major_minor}.${VERSION_PATCH}"
