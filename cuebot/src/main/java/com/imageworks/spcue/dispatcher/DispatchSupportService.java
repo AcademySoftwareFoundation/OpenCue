@@ -292,6 +292,23 @@ public class DispatchSupportService implements DispatchSupport {
 
         // Publish FRAME_STARTED event (WAITING -> RUNNING transition)
         publishFrameStartedEvent(frame, proc, previousState);
+
+        recordTimeToBook(frame, "dispatcher");
+    }
+
+    /**
+     * Observe the frame's time-to-book: now minus the WAITING ts_updated the dispatch query
+     * captured in {@code frame.dateUpdated} (updateFrameStarted has already reset the row's
+     * timestamp by the time this runs, so the in-memory copy is the only source).
+     */
+    private void recordTimeToBook(DispatchFrame frame, String scheduler) {
+        if (prometheusMetrics == null || frame.dateUpdated == null) {
+            return;
+        }
+        double secondsWaiting = (System.currentTimeMillis() - frame.dateUpdated.getTime()) / 1000.0;
+        if (secondsWaiting >= 0) {
+            prometheusMetrics.recordFrameTimeToBook(secondsWaiting, frame.show, scheduler);
+        }
     }
 
     /**
@@ -515,6 +532,10 @@ public class DispatchSupportService implements DispatchSupport {
         // so this only writes the proc rows. The subscription/layer/job/folder/
         // point counters are batched by Maestro from the winners returned here.
         procDao.batchInsertVirtualProcs(winnerProcs);
+
+        for (FrameBooking b : winners) {
+            recordTimeToBook(b.frame, "maestro");
+        }
 
         // FRAME_STARTED events are published by the caller via
         // publishFrameStartedEvents, outside this transaction.

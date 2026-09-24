@@ -209,6 +209,18 @@ public class PrometheusMetricsCollector {
             .name("cue_host_reports_received_total").help("Total number of host reports received")
             .labelNames("env", "cuebot_host", "facility").register();
 
+    // Time from a frame becoming WAITING (its ts_updated as read by the dispatch
+    // query) to the booking that started it, observed at both booking funnels so
+    // the two engines are compared on identical terms: scheduler="dispatcher" in
+    // startFrameAndProc, scheduler="maestro" on the winners of
+    // startFramesAndProcsBatch. The migration board's pace comparison.
+    private static final Histogram frameTimeToBookHistogram =
+            Histogram.build().name("cue_frame_time_to_book_seconds")
+                    .help("Time from a frame becoming WAITING until it was booked, in seconds, "
+                            + "by booking engine (scheduler=dispatcher|maestro)")
+                    .labelNames("env", "cuebot_host", "show", "scheduler")
+                    .buckets(1, 5, 15, 30, 60, 120, 300, 600, 1800, 3600).register();
+
     // Layer start-after backoff (dispatcher.layer_delay.rules). The counter ticks once per real
     // delay write (concurrent reports that no-op on the conditional monotonic write do not count);
     // the gauge is the number of layers currently gated, served by the i_layer_start_after partial
@@ -627,6 +639,19 @@ public class PrometheusMetricsCollector {
      */
     public void recordLimitAutoTag(String limitName) {
         limitAutoTagTotal.labels(this.deployment_environment, this.cuebot_host, limitName).inc();
+    }
+
+    /**
+     * Record the time a frame spent WAITING before being booked.
+     *
+     * @param seconds time-to-book in seconds
+     * @param show show name
+     * @param scheduler which engine booked the frame ("dispatcher" or "maestro")
+     */
+    public void recordFrameTimeToBook(double seconds, String show, String scheduler) {
+        frameTimeToBookHistogram
+                .labels(this.deployment_environment, this.cuebot_host, show, scheduler)
+                .observe(seconds);
     }
 
     /**
