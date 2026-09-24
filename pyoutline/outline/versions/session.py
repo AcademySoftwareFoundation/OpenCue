@@ -116,9 +116,10 @@ class Session(metaclass=Singleton):
             return True
 
         if os.path.exists("%s/manifest.py" % src):
-            self.__run_manifest(src)
-            self.__lock_module(module, version)
-            return True
+            if self.__run_manifest(src):
+                self.__lock_module(module, version)
+                return True
+            return False
 
         logger.warning("Unable to load %s, not a module or manifest.", module)
         return False
@@ -187,8 +188,12 @@ class Session(metaclass=Singleton):
                 module = importlib.util.module_from_spec(spec)
                 sys.modules["manifest"] = module
                 spec.loader.exec_module(module)
+                return True
+            logger.warning("Failed to load spec for manifest file: %s", manifest_file)
+            return False
         except Exception as e:
-            print(f"Failed to execute manifest file: {e}")
+            logger.warning("Failed to execute manifest file %s: %s", manifest_file, e)
+            return False
 
     def __lock_module(self, name, version):
         self.__modules[name] = str(version)
