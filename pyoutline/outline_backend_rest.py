@@ -83,8 +83,7 @@ def launch(launcher, use_pycuerun=True):
             wait(jobs[0])
         elif launcher.get("test"):
             test(jobs[0])
-        return jobs[0]
-    return None
+    return jobs
 
 
 def test(job):
