@@ -800,7 +800,7 @@
     {
       "type": "timeseries",
       "title": "Stranded cores",
-      "description": "Whole cores idle after planning that no waiting frame can buy: on each such host every candidate is stopped by cores, memory or gpu (usually memory, eaten by co-resident frames). The physical counterpart of the waitlist's 'no fit' bucket; sustained growth means the farm's idle is the wrong shape for the waiting work.",
+      "description": "Whole cores idle after planning that cannot be used, stacked by cause (the top of the stack is the total; each core counted once). memory: the host's idle memory cannot feed them, whatever is waiting (it sees every dispatcher's bookings, so legacy shows too in managed mode). fit: memory could, but no waiting frame fits the shape (too wide, gpu). Sustained values mean the farm's idle is the wrong shape: usually memory eaten by frames with few cores.",
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
@@ -819,7 +819,11 @@
             "lineWidth": 2,
             "fillOpacity": 20,
             "showPoints": "never",
-            "axisLabel": "cores idle but unsellable"
+            "axisLabel": "cores idle but unsellable",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
         "overrides": [
@@ -842,7 +846,9 @@
       },
       "options": {
         "legend": {
-          "showLegend": false
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -851,8 +857,8 @@
       },
       "targets": [
         {
-          "expr": "max(cue_farm_health_stranded_cores)",
-          "legendFormat": "stranded",
+          "expr": "sum by (cause) (cue_farm_health_stranded_cores)",
+          "legendFormat": "{{cause}}",
           "refId": "A"
         }
       ]

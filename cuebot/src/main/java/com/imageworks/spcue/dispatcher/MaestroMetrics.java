@@ -145,14 +145,17 @@ public class MaestroMetrics {
                     .labelNames("env", "cuebot_host", "kind").register();
 
     // The physical counterpart of waiting_frames{reason='no fit'}: idle cores
-    // that exist but that no waiting frame can buy, usually because co-resident
-    // frames ate the host's memory first. SET each tick from the post-plan
-    // snapshot; sustained high values mean the farm's idle is the wrong shape.
-    private static final Gauge farmStrandedCores =
-            Gauge.build().name("cue_farm_health_stranded_cores")
-                    .help("Whole cores idle after planning that no waiting frame can buy "
-                            + "(cores, memory or gpu blocks every candidate on that host)")
-                    .labelNames("env", "cuebot_host").register();
+    // that cannot be used, SET each tick from the post-plan snapshot, by cause,
+    // each core counted once. memory: the host's idle memory cannot feed them,
+    // whatever is waiting (every dispatcher's bookings, so legacy shows too in
+    // managed mode). fit: memory could, but no waiting frame fits the shape.
+    // Sustained high values mean the farm's idle is the wrong shape.
+    private static final Gauge farmStrandedCores = Gauge.build()
+            .name("cue_farm_health_stranded_cores")
+            .help("Whole cores idle after planning that cannot be used, by cause: "
+                    + "memory (no memory left to feed them) or fit (no waiting frame "
+                    + "fits the shape)")
+            .labelNames("env", "cuebot_host", "cause").register();
 
     private static final String[] WAIT_REASONS = {"flowing", "capacity", "no fit", "limit",
             "no license", "held", "share", "strand", "no host"};
@@ -221,7 +224,8 @@ public class MaestroMetrics {
             groupsByState.labels(env, host, "inactive").set((double) s.noWork);
             farmCores.labels(env, host).set(s.farmCores);
             runningFrames.labels(env, host).set(s.runningFrames);
-            farmStrandedCores.labels(env, host).set(s.strandedCores);
+            farmStrandedCores.labels(env, host, "memory").set(s.strandedMemoryCores);
+            farmStrandedCores.labels(env, host, "fit").set(s.strandedCores - s.strandedMemoryCores);
             incReason("booked", s.booked);
             incReason("no fit", s.noFit);
             incReason("no work", s.noWork);
@@ -308,6 +312,7 @@ public class MaestroMetrics {
         public int queryError;
         public long runningFrames;
         public long strandedCores;
+        public long strandedMemoryCores; // the memory part of strandedCores
         public long tickDurationMs;
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Double> borrowedByShow = new HashMap<>();

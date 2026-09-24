@@ -321,6 +321,67 @@ public class MaestroTests {
                 Arrays.asList(layer(CORE, 4 * GB, 0, 0))));
     }
 
+    @Test
+    public void strandedCountsTheCoresMemoryCannotFeedBesideALightWaiter() {
+        // 60 idle cores but 2G left: a waiting 1-core/1G layer fits two frames,
+        // so 58 cores stay idle. Today's all-or-nothing count calls the whole
+        // host sellable and reports 0.
+        Maestro.BookableHost h = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 2 * GB);
+        assertEquals(58,
+                Maestro.strandedWholeCores(Arrays.asList(h), Arrays.asList(layer(CORE, GB, 0, 0))));
+    }
+
+    @Test
+    public void strandedTakesTheWaiterThatUsesTheMostCores() {
+        // 16 idle cores, 8G left: a 1-core/4G layer buys 2 cores, a 4-core/4G
+        // layer buys 8. The host can use 8, so 8 are stranded.
+        Maestro.BookableHost h = loadedHost(32 * CORE, 128 * GB, 16 * CORE, 8 * GB);
+        assertEquals(8, Maestro.strandedWholeCores(Arrays.asList(h),
+                Arrays.asList(layer(CORE, 4 * GB, 0, 0), layer(4 * CORE, 4 * GB, 0, 0))));
+    }
+
+    @Test
+    public void aGpuWaiterDoesNotBuyTheCoresOfACpuHost() {
+        Maestro.BookableHost h = loadedHost(32 * CORE, 128 * GB, 8 * CORE, 64 * GB);
+        assertEquals(8, Maestro.strandedWholeCores(Arrays.asList(h),
+                Arrays.asList(layer(CORE, GB, 1, GB))));
+    }
+
+    @Test
+    public void memoryStrandsTheCoresItCannotFeedWhateverIsWaiting() {
+        // 64c/256G hosts, 4G per core: 60 idle cores with 8G left feed 2 cores,
+        // so 58 are stranded; a balanced host strands none.
+        Maestro.BookableHost starved = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 8 * GB);
+        Maestro.BookableHost balanced = loadedHost(64 * CORE, 256 * GB, 16 * CORE, 64 * GB);
+        long perCore = Maestro.memPerWholeCoreKb(Arrays.asList(starved, balanced));
+        assertEquals(4 * GB, perCore);
+        assertEquals(58, Maestro.memoryStrandedCores(Arrays.asList(starved, balanced), perCore));
+    }
+
+    @Test
+    public void strandedCoresSplitByCauseCountingEachCoreOnce() {
+        // 4G per core, and only a GPU layer waits, which no CPU host can take.
+        // starved: 60 idle, 8G free: memory strands 58, the 2 it could feed
+        // are stranded by fit. roomy: 16 idle with 128G free: memory strands
+        // none, all 16 by fit.
+        Maestro.BookableHost starved = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 8 * GB);
+        Maestro.BookableHost roomy = loadedHost(64 * CORE, 256 * GB, 16 * CORE, 128 * GB);
+        long[] s = Maestro.strandedByCause(Arrays.asList(starved, roomy),
+                Arrays.asList(layer(CORE, GB, 1, GB)), 4 * GB);
+        assertEquals("memory", 58, s[0]);
+        assertEquals("fit", 18, s[1]);
+        // Nothing waiting: memory still strands, fit does not.
+        s = Maestro.strandedByCause(Arrays.asList(starved, roomy), new ArrayList<>(), 4 * GB);
+        assertEquals(58, s[0]);
+        assertEquals(0, s[1]);
+    }
+
+    @Test
+    public void memoryStrandingSkipsSubMinimumSlivers() {
+        Maestro.BookableHost sliver = loadedHost(32 * CORE, 128 * GB, 5, 0);
+        assertEquals(0, Maestro.memoryStrandedCores(Arrays.asList(sliver), 4 * GB));
+    }
+
     // ---- computeMaxMore ---------------------------------------------------
 
     @Test

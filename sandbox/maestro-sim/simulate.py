@@ -399,6 +399,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_gpustrand.py", "gpustrand_watch.py",
                      "inject_showtier.py", "showtier_watch.py",
                      "inject_budget.py", "budget_watch.py",
+                     "inject_memstrand.py", "memstrand_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
                      "health_watch.py",
@@ -1172,6 +1173,11 @@ def start_gpustrand_injector(duration):
           f"{FARM}/inject_gpustrand.log")
 
 
+def start_memstrand_injector(duration):
+    log(f"starting MEMSTRAND (4-core / 50 GB flood strands cores) for {duration}s ...")
+    spawn(["inject_memstrand.py", str(duration)], f"{FARM}/inject_memstrand.log")
+
+
 def start_budget_injector(duration):
     log(f"starting BUDGET (four shows: size orders, burst lends) for {duration}s ...")
     spawn(["inject_budget.py", str(duration)], f"{FARM}/inject_budget.log")
@@ -1573,6 +1579,17 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{sm.group(2) if sm else '?'}, zero at "
                     f"{sm.group(3) if sm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
+    if name == "MEMSTRAND":
+        # The watcher's verdict is the whole check: both stranded gauges track
+        # the cores memory strands. Fail-first: the stranded gauge counts a
+        # host's whole idle as sellable when any waiting layer fits one frame.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        m = re.search(r"last \d+s: (.*)", txt)
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, f"stranded cores reported: {m.group(1) if m else '?'}"
     if name == "BUDGET":
         # The watcher's verdict is the whole check: showA alone fills the farm
         # past its burst, four shows split by size under contention, and
@@ -2011,6 +2028,13 @@ def run_verify():
         # three capped, showA takes the leftover. Fail-first: a burst that
         # refuses idles the farm (phases 1 and 3); a draw by priority alone
         # splits it evenly (phase 2).
+        # MEMSTRAND: memory-heavy threadable frames capped at 4 cores fill
+        # every host's memory long before its cores; a light layer waits that
+        # fits every stranded host. Both stranded-cores gauges must report the
+        # cores memory strands. Fail-first: the demand gauge counts a host's
+        # whole idle as sellable when any waiting layer fits one frame.
+        ("MEMSTRAND", ["--hosts", "3,4,10", "--memstrand-test", str(max(D, 240))],
+         {"SIM_RSS_PIN": "simmemstrand=50", "SIM_DUR_LONG_S": "150"}),
         ("BUDGET", ["--hosts", "3,4,10", "--budget-test", str(max(D, 300))],
          {"SIM_DUR_LONG_S": "40", "SIM_BURST_ORDERING": "true"}),
         # COMPLETIONSTORM: the completion path against the post-op worker. A
@@ -2376,6 +2400,10 @@ def main():
                          "stranded count never rises and reaches zero: freed "
                          "cores on such a host go to GPU work, never back to "
                          "the flood.")
+    ap.add_argument("--memstrand-test", type=int, default=0, metavar="SECS",
+                    help="MEMSTRAND test: a 4-core / 50 GB threadable flood strands "
+                         "the cores memory cannot feed. Assert that the stranded-cores "
+                         "gauges report them.")
     ap.add_argument("--budget-test", type=int, default=0, metavar="SECS",
                     help="BUDGET test: four shows with sizes and bursts on one "
                          "allocation. Assert that a lone show fills the farm past "
@@ -2780,6 +2808,8 @@ def main():
         start_showtier_injector(args.showtier_test)
     if args.budget_test:
         start_budget_injector(args.budget_test)
+    if args.memstrand_test:
+        start_memstrand_injector(args.memstrand_test)
     if args.completionstorm_test:
         start_completionstorm_injector(max(60, args.completionstorm_test - STORM_DRAIN_S))
     if args.doublerender_test:
@@ -2806,6 +2836,7 @@ def main():
              or args.health_test or args.strandgrow_test or args.migrate_test
              or args.slice_test
              or args.gpustrand_test or args.showtier_test or args.budget_test
+             or args.memstrand_test
              or args.completionstorm_test
              or args.doublerender_test
              or args.folder_test or args.locality_test
@@ -2875,6 +2906,10 @@ def main():
             f"for {args.gpustrand_test}s ...")
         subprocess.run([VENV_PY, "gpustrand_watch.py",
                         str(args.gpustrand_test), "3"], cwd=FARM)
+    elif args.memstrand_test:
+        log(f"watching MEMSTRAND (stranded cores reported) for {args.memstrand_test}s ...")
+        subprocess.run([VENV_PY, "memstrand_watch.py", str(args.memstrand_test), "3"],
+                       cwd=FARM)
     elif args.budget_test:
         log(f"watching BUDGET (size orders, burst lends) for {args.budget_test}s ...")
         subprocess.run([VENV_PY, "budget_watch.py", str(args.budget_test), "3"], cwd=FARM)

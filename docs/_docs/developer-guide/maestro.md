@@ -531,14 +531,18 @@ static capped job stays off the panel), and when the same layer is weighed in
 several groups the last group's verdict wins. A `limit` share while cores sit
 idle is the fingerprint of a drifted `job_resource.int_cores` counter.
 
-The `no fit` bucket counts frames; its physical counterpart counts cores:
+The `no fit` bucket counts frames; its physical counterpart counts cores.
 `cue_farm_health_stranded_cores` is the whole cores idle after planning that
-no still-waiting candidate can buy (on every such host each candidate is
-stopped by cores, memory or gpu — usually memory, eaten by co-resident
-frames). Counted after the plan so cores that just sold are not blamed, and
-a group with nothing waiting strands nothing: idle without demand is just
-idle. Sustained growth means the farm's idle is the wrong shape for the
-waiting work.
+cannot be used, by `cause`, each core counted once (per host the larger of
+the two). `memory`: the idle cores the host's idle memory cannot feed at the
+group's memory-per-core, whatever is waiting; it reads the hosts as every
+dispatcher booked them, so in managed mode it also shows the stranding the
+legacy shows cause. `fit`: the rest of the idle cores the best waiting layer
+could not fill, a layer filling as many frames as every dimension allows (a
+shape no waiting frame fits: too wide, gpu). Counted after the plan so cores
+that just sold are not blamed. Sustained values mean the farm's idle is the
+wrong shape for the work, usually memory eaten by frames with few cores; the
+MEMSTRAND scenario asserts it.
 
 House rule for every Maestro metric: stats gather NO SQL, only live data the
 tick already holds. The waitlist reuses the loop's own verdicts, and the

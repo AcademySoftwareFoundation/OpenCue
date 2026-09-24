@@ -1316,12 +1316,14 @@ public class Maestro extends JdbcDaoSupport {
                         + e.getMessage());
             }
             stats.queryError++;
+            countStranded(fullGroup, Collections.emptyList(), stats);
             return 0;
         }
         if (logger.isDebugEnabled())
             logGroupCandidates(spec, fullGroup, idleGroup, candidates, maxCoresTotalInGroup);
         if (candidates.isEmpty()) {
             stats.noWork++;
+            countStranded(fullGroup, candidates, stats);
             return 0;
         }
         for (LayerCandidate lc : candidates) {
@@ -1335,7 +1337,7 @@ public class Maestro extends JdbcDaoSupport {
         int booked = dispatchGroupWithScoring(idleGroup, fullGroup, candidates, seenLayerIds,
                 spec.pkAlloc, jobCoresUsed, showCoresUsed, folderUsed, reservationReqs,
                 limitBudgets, limitUsed, limitSeats);
-        stats.strandedCores += strandedWholeCores(fullGroup, candidates);
+        countStranded(fullGroup, candidates, stats);
         if (maestroMetrics != null && maestroMetrics.isEnabled()) {
             for (LayerCandidate c : candidates)
                 subscriptionsSeen.putIfAbsent(subKey(c.showId, spec.pkAlloc), c);
@@ -3760,34 +3762,114 @@ public class Maestro extends JdbcDaoSupport {
      * reads cold and the dial shows the accidental locality rate, which is the A/B story.
      */
     /**
-     * Whole cores idle after this group's plan that no still-waiting candidate can buy: on every
-     * such host each candidate is stopped by cores, memory or gpu. The physical counterpart of the
-     * waitlist's 'no fit' bucket, counted after planning so cores that just sold are not blamed. A
-     * group with nothing waiting strands nothing; idle without demand is just idle.
+     * Whole cores idle after this group's plan that no still-waiting candidate can use: per host,
+     * the idle cores beyond what the best waiting candidate could fill, a candidate filling as many
+     * frames as every dimension allows (a 1-core/1G layer next to 2G free fills 2 cores, not 60).
+     * The physical counterpart of the waitlist's 'no fit' bucket, counted after planning so cores
+     * that just sold are not blamed. A group with nothing waiting strands nothing; idle without
+     * demand is just idle.
      */
     static long strandedWholeCores(List<BookableHost> hosts, List<LayerCandidate> candidates) {
-        List<LayerCandidate> waiting = new ArrayList<>();
-        for (LayerCandidate c : candidates)
-            if (c.waitingFrameCount > 0)
-                waiting.add(c);
+        List<LayerCandidate> waiting = waiting(candidates);
         if (waiting.isEmpty())
             return 0;
         long strandedCp = 0;
         for (BookableHost h : hosts) {
-            if (h.coresIdle < Dispatcher.CORE_POINTS_RESERVED_MIN)
-                continue;
-            boolean sellable = false;
-            for (LayerCandidate c : waiting) {
-                if (c.layerCoresMin <= h.coresIdle && c.layerMemMin <= h.memIdle
-                        && c.layerGpusMin <= h.gpusIdle && c.layerGpuMemMin <= h.gpuMemIdle) {
-                    sellable = true;
-                    break;
-                }
-            }
-            if (!sellable)
-                strandedCp += h.coresIdle;
+            if (h.coresIdle >= Dispatcher.CORE_POINTS_RESERVED_MIN)
+                strandedCp += unfilledCp(h, waiting);
         }
         return strandedCp / CORE_POINTS_PER_CORE;
+    }
+
+    /**
+     * The waiting candidates that can fill the most cores somewhere: per (cores, gpus, gpu memory)
+     * only the one asking the least memory, since on every host it fits at least as many frames as
+     * any heavier one of the same cores. Thousands of layers with distinct memory come down to one
+     * per core count, so the per-host scan is hosts x core counts, not hosts x layers.
+     */
+    private static List<LayerCandidate> waiting(List<LayerCandidate> candidates) {
+        Map<List<Long>, LayerCandidate> lightest = new HashMap<>();
+        for (LayerCandidate c : candidates) {
+            if (c.waitingFrameCount > 0)
+                lightest.merge(
+                        Arrays.asList((long) c.layerCoresMin, (long) c.layerGpusMin,
+                                c.layerGpuMemMin),
+                        c, (a, b) -> a.layerMemMin <= b.layerMemMin ? a : b);
+        }
+        return new ArrayList<>(lightest.values());
+    }
+
+    /** Idle core points on h beyond what the best of the waiting candidates could fill. */
+    private static long unfilledCp(BookableHost h, List<LayerCandidate> waiting) {
+        long usable = 0;
+        for (LayerCandidate c : waiting) {
+            usable = Math.max(usable, Math.min(h.coresIdle, idleFrames(c, h) * c.layerCoresMin));
+            if (usable >= h.coresIdle)
+                break;
+        }
+        return h.coresIdle - usable;
+    }
+
+    /** Frames of c the host's idle resources hold now: the least idle/need over its dimensions. */
+    private static long idleFrames(LayerCandidate c, BookableHost h) {
+        long f = Long.MAX_VALUE;
+        for (Dim d : DIMS) {
+            if (d.need(c) > 0)
+                f = Math.min(f, d.idle(h) / d.need(c));
+        }
+        return f == Long.MAX_VALUE ? 0 : f;
+    }
+
+    /**
+     * This group's stranded whole cores by cause, {memory, fit}. Per host the stranded cores are
+     * the larger of the two counts, never both: memory, the idle cores its idle memory cannot feed
+     * at the group's memory-per-core whatever is waiting (it reads every dispatcher's bookings, so
+     * in managed mode it sees the legacy shows' stranding too); fit, what remains of the idle cores
+     * the best waiting candidate could not fill (a shape no waiting frame fits: too wide, gpu).
+     */
+    static long[] strandedByCause(List<BookableHost> hosts, List<LayerCandidate> candidates,
+            long memPerCoreKb) {
+        List<LayerCandidate> waiting = waiting(candidates);
+        long memory = 0;
+        long fit = 0;
+        for (BookableHost h : hosts) {
+            if (h.coresIdle < Dispatcher.CORE_POINTS_RESERVED_MIN)
+                continue;
+            long mem = memoryStrandedCores(h, memPerCoreKb);
+            memory += mem;
+            // Fully stranded by memory: nothing is left for fit to count.
+            if (waiting.isEmpty() || mem >= h.coresIdle / CORE_POINTS_PER_CORE)
+                continue;
+            fit += Math.max(0, unfilledCp(h, waiting) / CORE_POINTS_PER_CORE - mem);
+        }
+        return new long[] {memory, fit};
+    }
+
+    /** Add a group's stranded cores to the tick: the total, and the part memory causes. */
+    private void countStranded(List<BookableHost> hosts, List<LayerCandidate> candidates,
+            MaestroMetrics.TickStats stats) {
+        if (maestroMetrics == null || !maestroMetrics.isEnabled())
+            return;
+        long[] s = strandedByCause(hosts, candidates,
+                memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(hosts));
+        stats.strandedMemoryCores += s[0];
+        stats.strandedCores += s[0] + s[1];
+    }
+
+    /** Whole cores idle that the hosts' idle memory cannot feed at memPerCoreKb. */
+    static long memoryStrandedCores(List<BookableHost> hosts, long memPerCoreKb) {
+        long stranded = 0;
+        for (BookableHost h : hosts) {
+            if (h.coresIdle >= Dispatcher.CORE_POINTS_RESERVED_MIN)
+                stranded += memoryStrandedCores(h, memPerCoreKb);
+        }
+        return stranded;
+    }
+
+    private static long memoryStrandedCores(BookableHost h, long memPerCoreKb) {
+        if (memPerCoreKb <= 0)
+            return 0;
+        return Math.max(0, h.coresIdle / CORE_POINTS_PER_CORE - h.memIdle / memPerCoreKb);
     }
 
     private String localityKind(BookableHost h, LayerCandidate c) {
