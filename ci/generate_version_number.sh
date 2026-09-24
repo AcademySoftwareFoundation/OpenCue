@@ -40,6 +40,11 @@ else
   sed_cmd="sed"
 fi
 
+if [[ -n "${VERSION_PATCH:-}" ]]; then
+  echo "${version_major_minor}.${VERSION_PATCH}"
+  exit 0
+fi
+
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 
 current_branch="$(git branch --show-current)"
