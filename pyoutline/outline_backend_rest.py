@@ -118,7 +118,8 @@ def test(job):
                     timeout=TIMEOUT,
                 )
                 if response.status_code == 404:
-                    break
+                    raise outline.exception.OutlineException(
+                        "Job test failed, job not found: %s" % job_name)
                 response.raise_for_status()
                 job_info = response.json().get("job", {})
                 stats = job_info.get("jobStats", {})
