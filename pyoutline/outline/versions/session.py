@@ -186,8 +186,8 @@ class Session(metaclass=Singleton):
             spec = importlib.util.spec_from_file_location("manifest", manifest_file)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
-                sys.modules["manifest"] = module
                 spec.loader.exec_module(module)
+                sys.modules["manifest"] = module
                 return True
             logger.warning("Failed to load spec for manifest file: %s", manifest_file)
             return False
