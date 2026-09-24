@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 """
-OpenCue backend module.
+OpenCue REST gateway backend module.
 
-Uses the OpenCue Python API to submit the given job to OpenCue for processing.
+Uses the OpenCue REST gateway to submit the given job to OpenCue for processing.
 
 See outline.backend for a description of the PyOutline backend system.
 """
