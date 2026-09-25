@@ -15,12 +15,11 @@ use std::{
     net::ToSocketAddrs,
     path::Path,
     process::Command,
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{Duration, UNIX_EPOCH},
 };
 
 use chrono::{DateTime, Local};
-use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic, Result};
 use opencue_proto::{
@@ -44,8 +43,9 @@ pub struct WindowsSystem {
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
     sysinfo_system: Mutex<sysinfo::System>,
-    // Cache of monitored processes and their lineage
-    session_processes: DashMap<u32, Vec<u32>>,
+    // Cache of monitored processes and their lineage. Rebuilt as a whole and swapped in by
+    // `refresh_procs_cache` so concurrent readers never observe a half-built map.
+    session_processes: RwLock<HashMap<u32, Vec<u32>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -166,7 +166,7 @@ impl WindowsSystem {
                 ),
             ]),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            session_processes: DashMap::new(),
+            session_processes: RwLock::new(HashMap::new()),
         })
     }
 
@@ -379,7 +379,7 @@ impl WindowsSystem {
             ProcessRefreshKind::nothing().with_cpu().with_memory(),
         );
 
-        self.session_processes.clear();
+        let mut session_processes: HashMap<u32, Vec<u32>> = HashMap::new();
         for (pid, proc) in sysinfo.processes() {
             if Self::is_proc_dead(Some(proc)) {
                 continue;
@@ -388,15 +388,19 @@ impl WindowsSystem {
             if let Some(parent_pid) = proc.parent() {
                 let parent_id = parent_pid.as_u32();
                 if parent_id != pid.as_u32() {
-                    self.session_processes
+                    session_processes
                         .entry(parent_id)
-                        .and_modify(|procs| procs.push(pid.as_u32()))
-                        .or_insert(vec![pid.as_u32()]);
+                        .or_default()
+                        .push(pid.as_u32());
                 }
             } else {
-                self.session_processes.entry(pid.as_u32()).or_insert(vec![]);
+                session_processes.entry(pid.as_u32()).or_default();
             }
         }
+        *self
+            .session_processes
+            .write()
+            .unwrap_or_else(|err| err.into_inner()) = session_processes;
     }
 
     fn is_proc_dead(process: Option<&sysinfo::Process>) -> bool {
@@ -410,6 +414,10 @@ impl WindowsSystem {
     }
 
     fn collect_lineage(&self, root_pid: u32) -> Vec<u32> {
+        let session_processes = self
+            .session_processes
+            .read()
+            .unwrap_or_else(|err| err.into_inner());
         let mut stack = vec![root_pid];
         let mut visited = std::collections::HashSet::new();
         let mut lineage = Vec::new();
@@ -419,7 +427,7 @@ impl WindowsSystem {
                 continue;
             }
             lineage.push(pid);
-            if let Some(children) = self.session_processes.get(&pid) {
+            if let Some(children) = session_processes.get(&pid) {
                 for child in children.iter().rev() {
                     stack.push(*child);
                 }

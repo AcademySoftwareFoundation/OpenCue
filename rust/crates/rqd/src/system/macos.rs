@@ -17,12 +17,11 @@ use std::{
     net::ToSocketAddrs,
     path::Path,
     process::Command,
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{Duration, UNIX_EPOCH},
 };
 
 use chrono::{DateTime, Local};
-use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
 use miette::{miette, Context, IntoDiagnostic, Result};
 use nix::sys::signal::{kill, killpg, Signal};
@@ -47,8 +46,9 @@ pub struct MacOsSystem {
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
     sysinfo_system: Mutex<sysinfo::System>,
-    // Cache of monitored processes and their lineage
-    session_processes: DashMap<u32, Vec<u32>>,
+    // Cache of monitored processes and their lineage. Rebuilt as a whole and swapped in by
+    // `refresh_procs_cache` so concurrent readers never observe a half-built map.
+    session_processes: RwLock<HashMap<u32, Vec<u32>>>,
 }
 
 #[derive(Debug)]
@@ -178,7 +178,7 @@ impl MacOsSystem {
                 // SwapOut is an aditional attribute that is missing on this implementation
             ]),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            session_processes: DashMap::new(),
+            session_processes: RwLock::new(HashMap::new()),
         })
     }
 
@@ -504,7 +504,6 @@ impl MacOsSystem {
             true,
             ProcessRefreshKind::nothing(),
         );
-        self.session_processes.clear();
         // Collect all session_ids
         let session_id_and_pid = sysinfo.processes().iter().filter_map(|(pid, proc)| {
             let session_pid = proc.session_id().unwrap_or(Pid::from_u32(0)).as_u32();
@@ -522,14 +521,23 @@ impl MacOsSystem {
             }
         });
         // Group all processes by session_id
+        let mut session_processes: HashMap<u32, Vec<u32>> = HashMap::new();
         for (session_pid, pid) in session_id_and_pid {
-            self.session_processes
-                .entry(session_pid)
-                .and_modify(|procs| {
-                    procs.push(pid);
-                })
-                .or_insert(vec![pid]);
+            session_processes.entry(session_pid).or_default().push(pid);
         }
+        *self.write_session_processes() = session_processes;
+    }
+
+    fn read_session_processes(&self) -> std::sync::RwLockReadGuard<'_, HashMap<u32, Vec<u32>>> {
+        self.session_processes
+            .read()
+            .unwrap_or_else(|err| err.into_inner())
+    }
+
+    fn write_session_processes(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<u32, Vec<u32>>> {
+        self.session_processes
+            .write()
+            .unwrap_or_else(|err| err.into_inner())
     }
 
     /// Checks if a process is dead or non-existent
@@ -592,11 +600,11 @@ impl MacOsSystem {
             return None;
         }
         // If session owner is still alive, iterate over the session and calculate memory
-        let (memory, virtual_memory, gpu_memory, start_time, run_time) = match self
-            .session_processes
+        let session_processes = self.read_session_processes();
+        let (memory, virtual_memory, gpu_memory, start_time, run_time) = match session_processes
             .get(session_id)
         {
-            Some(ref lineage) => {
+            Some(lineage) => {
                 // Process session data
                 lineage
                     .iter()
@@ -824,9 +832,7 @@ impl SystemManager for MacOsSystem {
     }
 
     fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        self.session_processes
-            .get(&pid)
-            .map(|lineage| lineage.clone())
+        self.read_session_processes().get(&pid).cloned()
     }
 
     fn reboot(&self) -> Result<()> {
@@ -842,9 +848,11 @@ impl SystemManager for MacOsSystem {
 mod tests {
     use crate::config::MachineConfig;
     use std::fs;
-    use std::{collections::HashMap, sync::Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Mutex, RwLock},
+    };
 
-    use dashmap::{DashMap, DashSet};
     use opencue_proto::host::HardwareState;
 
     use crate::system::macos::{MacOsSystem, MachineStaticInfo};
@@ -1215,7 +1223,7 @@ mod tests {
             hardware_state: HardwareState::Up,
             attributes: HashMap::new(),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            session_processes: DashMap::new(),
+            session_processes: RwLock::new(HashMap::new()),
         }
     }
 }

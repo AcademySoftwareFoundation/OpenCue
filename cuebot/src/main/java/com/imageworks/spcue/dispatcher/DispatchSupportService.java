@@ -21,6 +21,13 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
@@ -106,6 +113,25 @@ public class DispatchSupportService implements DispatchSupport {
      * {@code dispatcher.launch_confirm_poll_interval_ms}.
      */
     private static final long DEFAULT_LAUNCH_CONFIRM_POLL_INTERVAL_MS = 7000;
+
+    /**
+     * Threads confirming launches with unknown outcomes
+     * ({@link #resolveUnknownLaunchOutcomeAsync}). Each resolution blocks for up to two RPC
+     * deadlines plus a poll interval against a host that has just proven slow, so this pool is what
+     * absorbs that time instead of the booking and launch pools. Overridable via
+     * {@code dispatcher.launch_confirm_pool_size}.
+     */
+    private static final int DEFAULT_LAUNCH_CONFIRM_POOL_SIZE = 4;
+
+    /**
+     * Resolutions waiting for a confirmation thread before the submitting thread runs the
+     * resolution itself, restoring the synchronous behavior under sustained overload rather than
+     * growing without bound. Overridable via {@code dispatcher.launch_confirm_queue_size}.
+     */
+    private static final int DEFAULT_LAUNCH_CONFIRM_QUEUE_SIZE = 1000;
+
+    private volatile ExecutorService launchConfirmExecutor;
+    private final AtomicInteger pendingLaunchConfirmations = new AtomicInteger();
 
     private JobDao jobDao;
     private FrameDao frameDao;
@@ -1120,6 +1146,70 @@ public class DispatchSupportService implements DispatchSupport {
          */
         countLaunchOutcome(clearFrame(frame) ? "released" : "released_frame_moved_on");
         return true;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void resolveUnknownLaunchOutcomeAsync(VirtualProc proc, DispatchFrame frame) {
+        int pending = pendingLaunchConfirmations.incrementAndGet();
+        reportPendingLaunchConfirmations(pending);
+        try {
+            launchConfirmExecutor().execute(() -> {
+                try {
+                    boolean released = resolveUnknownLaunchOutcome(proc, frame);
+                    logger.info("launch outcome resolution for " + frame.getName() + " on "
+                            + proc.getName() + ": booking " + (released ? "released" : "kept"));
+                } catch (RuntimeException e) {
+                    logger.warn("launch outcome resolution failed for " + frame.getName() + " on "
+                            + proc.getName() + ", booking kept: " + e, e);
+                } finally {
+                    reportPendingLaunchConfirmations(pendingLaunchConfirmations.decrementAndGet());
+                }
+            });
+        } catch (RuntimeException e) {
+            reportPendingLaunchConfirmations(pendingLaunchConfirmations.decrementAndGet());
+            throw e;
+        }
+    }
+
+    /** Resolutions submitted to {@link #resolveUnknownLaunchOutcomeAsync} and not finished yet. */
+    public int getPendingLaunchConfirmations() {
+        return pendingLaunchConfirmations.get();
+    }
+
+    private void reportPendingLaunchConfirmations(int pending) {
+        if (prometheusMetrics != null) {
+            prometheusMetrics.setFrameLaunchConfirmPending(pending);
+        }
+    }
+
+    private ExecutorService launchConfirmExecutor() {
+        ExecutorService executor = launchConfirmExecutor;
+        if (executor == null) {
+            synchronized (this) {
+                executor = launchConfirmExecutor;
+                if (executor == null) {
+                    int threads = Math.max(1, getIntProperty("dispatcher.launch_confirm_pool_size",
+                            DEFAULT_LAUNCH_CONFIRM_POOL_SIZE));
+                    int queueSize =
+                            Math.max(1, getIntProperty("dispatcher.launch_confirm_queue_size",
+                                    DEFAULT_LAUNCH_CONFIRM_QUEUE_SIZE));
+                    ThreadPoolExecutor pool = new ThreadPoolExecutor(threads, threads, 60,
+                            TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(queueSize),
+                            new ThreadFactoryBuilder().setNameFormat("LaunchConfirm-%d")
+                                    .setDaemon(true).build(),
+                            new ThreadPoolExecutor.CallerRunsPolicy());
+                    pool.allowCoreThreadTimeOut(true);
+                    launchConfirmExecutor = executor = pool;
+                }
+            }
+        }
+        return executor;
+    }
+
+    private int getIntProperty(String key, int defaultValue) {
+        Integer value = env == null ? null : env.getProperty(key, Integer.class, defaultValue);
+        return value == null ? defaultValue : value;
     }
 
     /**

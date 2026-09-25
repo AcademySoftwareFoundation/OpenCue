@@ -175,6 +175,12 @@ public class PrometheusMetricsCollector {
                             + "unconfirmed_kept, released_unconfirmed (legacy behavior)")
                     .labelNames("env", "cuebot_host", "resolution").register();
 
+    private static final Gauge frameLaunchConfirmPending = Gauge.build()
+            .name("cue_frame_launch_confirm_pending")
+            .help("Launches with unknown outcome whose confirmation on the host is queued or "
+                    + "in progress on the launch confirmation pool")
+            .labelNames("env", "cuebot_host").register();
+
     private static final Counter frameZombieRenderCounter = Counter.build()
             .name("cue_frame_zombie_render_total")
             .help("Host reports carrying a frame the DB no longer has RUNNING: RQD is rendering "
@@ -529,6 +535,16 @@ public class PrometheusMetricsCollector {
     public void incrementFrameLaunchOutcomeUnknown(String resolution) {
         frameLaunchOutcomeUnknownCounter
                 .labels(this.deployment_environment, this.cuebot_host, resolution).inc();
+    }
+
+    /**
+     * Record how many unknown-outcome launch confirmations are queued or running.
+     *
+     * @param pending resolutions submitted to the confirmation pool and not finished yet
+     */
+    public void setFrameLaunchConfirmPending(int pending) {
+        frameLaunchConfirmPending.labels(this.deployment_environment, this.cuebot_host)
+                .set(pending);
     }
 
     /**

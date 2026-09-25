@@ -81,7 +81,12 @@ use crate::system::nimby::Nimby;
 pub struct MachineMonitor {
     maching_config: MachineConfig,
     report_client: Arc<ReportClient>,
-    pub system_manager: Mutex<SystemManagerType>,
+    /// Host introspection backend. Deliberately not behind a lock: every implementation
+    /// synchronizes its own caches, and the monitor cycle's /proc walk runs on the blocking pool,
+    /// so a frame launch never waits behind it.
+    pub system_manager: Arc<SystemManagerType>,
+    /// Serializes user creation so two launches for the same new user cannot race `useradd`.
+    user_admin: Mutex<()>,
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
     /// Frames that have finished locally but whose completion has not yet been acknowledged by
@@ -286,7 +291,8 @@ impl MachineMonitor {
         Ok(Self {
             maching_config: CONFIG.machine.clone(),
             report_client,
-            system_manager: Mutex::new(system_manager),
+            system_manager: Arc::new(system_manager),
+            user_admin: Mutex::new(()),
             running_frames_cache: RunningFrameCache::init(),
             pending_completions: Arc::new(DashMap::new()),
             completion_notify: Arc::new(Notify::new()),
@@ -311,10 +317,8 @@ impl MachineMonitor {
         #[cfg(not(feature = "nimby"))]
         let nimby_locked = false;
 
-        let host_state = {
-            let system_lock = self.system_manager.lock().await;
-            Self::inspect_host_state(&self.maching_config, &system_lock, nimby_locked)?
-        };
+        let host_state =
+            Self::inspect_host_state(&self.maching_config, &self.system_manager, nimby_locked)?;
 
         let core_info = {
             let core_manager = self.core_manager.read().await;
@@ -491,7 +495,16 @@ impl MachineMonitor {
 
     async fn collect_and_send_host_report(&self) -> Result<()> {
         let report_client = self.report_client.clone();
+        let started = Instant::now();
         let host_report = self.collect_host_report().await?;
+        let elapsed = started.elapsed();
+        if elapsed > self.maching_config.monitor_interval {
+            warn!(
+                "Host report collection took {:?}, longer than the {:?} monitor interval; \
+                 consider disabling collect_pss or raising monitor_interval",
+                elapsed, self.maching_config.monitor_interval
+            );
+        }
 
         debug!("Sending host report: {:?}", host_report.host);
         report_client.send_host_report(host_report).await?;
@@ -522,7 +535,7 @@ impl MachineMonitor {
                 // Deliberately not consumed: a failed reboot stays armed for the next tick,
                 // and a successful one takes the machine down anyway.
                 warn!("Machine became idle. Rebooting..");
-                if let Err(err) = self.system_manager.lock().await.reboot() {
+                if let Err(err) = self.system_manager.reboot() {
                     error!("Failed to reboot when became idle. {err}");
                 };
             }
@@ -697,19 +710,35 @@ impl MachineMonitor {
                 }
             });
 
-        // Handle Running frames separately to avoid deadlocks when trying to get a frame state
-        for (running_frame, running_state) in &running_frames {
-            // Collect stats about the procs related to this frame
-            let proc_stats_opt = {
-                let system_monitor = self.system_manager.lock().await;
-                system_monitor
-                    .collect_proc_stats(running_state.pid, running_frame.log_path.clone())
-                    .unwrap_or_else(|err| {
-                        warn!("Failed to collect proc_stats. {}", err);
-                        None
-                    })
-            };
+        // Collect stats about the procs related to each frame. This reads /proc and stats the
+        // frame log (possibly on a network filesystem), so it runs on the blocking pool.
+        let frame_procs: Vec<(u32, String)> = running_frames
+            .iter()
+            .map(|(running_frame, running_state)| {
+                (running_state.pid, running_frame.log_path.clone())
+            })
+            .collect();
+        let system_manager = Arc::clone(&self.system_manager);
+        let all_proc_stats = tokio::task::spawn_blocking(move || {
+            frame_procs
+                .into_iter()
+                .map(|(pid, log_path)| {
+                    system_manager
+                        .collect_proc_stats(pid, log_path)
+                        .unwrap_or_else(|err| {
+                            warn!("Failed to collect proc_stats. {}", err);
+                            None
+                        })
+                })
+                .collect::<Vec<_>>()
+        })
+        .await
+        .map_err(|err| miette!("Proc stats collection task failed: {err}"))?;
 
+        // Handle Running frames separately to avoid deadlocks when trying to get a frame state
+        for ((running_frame, running_state), proc_stats_opt) in
+            running_frames.iter().zip(all_proc_stats)
+        {
             if let Some(proc_stats) = proc_stats_opt {
                 // Mark memory aggressor frames
                 if running_frame.request.soft_memory_limit > 0
@@ -1688,8 +1717,14 @@ impl Machine for MachineMonitor {
     }
 
     async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
-        let system = self.system_manager.lock().await;
-        system.create_user_if_unexisting(username, uid, gid)
+        let _guard = self.user_admin.lock().await;
+        let system_manager = Arc::clone(&self.system_manager);
+        let username = username.to_string();
+        tokio::task::spawn_blocking(move || {
+            system_manager.create_user_if_unexisting(&username, uid, gid)
+        })
+        .await
+        .map_err(|err| miette!("User creation task failed: {err}"))?
     }
 
     async fn get_host_name(&self) -> String {
@@ -1701,27 +1736,23 @@ impl Machine for MachineMonitor {
     }
 
     async fn get_hyperthreading_multiplier(&self) -> u32 {
-        let system = self.system_manager.lock().await;
-        system.hyperthreading_multiplier()
+        self.system_manager.hyperthreading_multiplier()
     }
 
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()> {
-        let system = self.system_manager.lock().await;
         if force {
-            system.force_kill_session(pid)
+            self.system_manager.force_kill_session(pid)
         } else {
-            system.kill_session(pid)
+            self.system_manager.kill_session(pid)
         }
     }
 
     async fn force_kill(&self, pids: &[u32]) -> Result<()> {
-        let system = self.system_manager.lock().await;
-        system.force_kill(pids)
+        self.system_manager.force_kill(pids)
     }
 
     async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        let system = self.system_manager.lock().await;
-        system.get_proc_lineage(pid)
+        self.system_manager.get_proc_lineage(pid)
     }
 
     async fn lock_cores(&self, count: u32) -> u32 {
@@ -1750,10 +1781,8 @@ impl Machine for MachineMonitor {
 
         if self.is_idle() {
             // Reboot now
-            let system = self.system_manager.lock().await;
-
             warn!("Rebooting machine on request");
-            system.reboot()?;
+            self.system_manager.reboot()?;
         } else {
             warn!("Machine set to reboot when idle");
             self.arm_idle_action(IdleAction::Reboot).await;
@@ -1792,20 +1821,25 @@ impl Machine for MachineMonitor {
     }
 
     async fn collect_host_report(&self) -> Result<HostReport> {
-        let render_host = {
-            let system_manager = self.system_manager.lock().await;
-            // If there are frames running update the list of procs on the machine
-            if !self.running_frames_cache.is_empty() {
+        #[cfg(feature = "nimby")]
+        let nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+        #[cfg(not(feature = "nimby"))]
+        let nimby_locked = false;
+
+        // Walking /proc and reading per-process memory files is blocking, and on a busy host slow
+        // enough to starve the runtime that serves the gRPC servant, so it runs on the blocking
+        // pool.
+        let refresh_procs = !self.running_frames_cache.is_empty();
+        let system_manager = Arc::clone(&self.system_manager);
+        let machine_config = self.maching_config.clone();
+        let render_host = tokio::task::spawn_blocking(move || {
+            if refresh_procs {
                 system_manager.refresh_procs();
             }
-
-            #[cfg(feature = "nimby")]
-            let nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
-            #[cfg(not(feature = "nimby"))]
-            let nimby_locked = false;
-
-            Self::inspect_host_state(&self.maching_config, &system_manager, nimby_locked)?
-        }; // Scope ensures all mutex are released
+            Self::inspect_host_state(&machine_config, &system_manager, nimby_locked)
+        })
+        .await
+        .map_err(|err| miette!("Host inspection task failed: {err}"))??;
 
         let core_state = {
             let core_manager = self.core_manager.read().await;

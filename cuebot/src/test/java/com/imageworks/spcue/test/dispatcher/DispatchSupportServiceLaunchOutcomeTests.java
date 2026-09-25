@@ -14,6 +14,9 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.core.env.Environment;
@@ -31,8 +34,10 @@ import com.imageworks.spcue.dispatcher.DispatchSupportService;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -108,6 +113,59 @@ public class DispatchSupportServiceLaunchOutcomeTests {
     private void setPollInterval(long pollIntervalMs) {
         when(env.getProperty(eq(POLL_INTERVAL_PROPERTY), eq(Long.class), eq(POLL_INTERVAL_DEFAULT)))
                 .thenReturn(pollIntervalMs);
+    }
+
+    @Test
+    public void asyncResolutionReturnsBeforePollingAndReleasesOnAnotherThread()
+            throws InterruptedException {
+        // The first poll blocks until the test lets it go, proving the submitting thread never
+        // waited on the host; the resolution then confirms not running twice and releases.
+        CountDownLatch pollStarted = new CountDownLatch(1);
+        CountDownLatch pollMayAnswer = new CountDownLatch(1);
+        when(rqdClient.isFrameRunning(proc.hostName, frame.getFrameId())).thenAnswer(inv -> {
+            pollStarted.countDown();
+            pollMayAnswer.await(5, TimeUnit.SECONDS);
+            return false;
+        });
+
+        dispatchSupport.resolveUnknownLaunchOutcomeAsync(proc, frame);
+
+        assertTrue(pollStarted.await(5, TimeUnit.SECONDS));
+        assertEquals(1, dispatchSupport.getPendingLaunchConfirmations());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        pollMayAnswer.countDown();
+
+        verify(procDao, timeout(5000).times(1)).deleteVirtualProc(proc);
+        verify(frameDao, timeout(5000).times(1)).updateFrameClearedIfRunning(frame);
+        verify(rqdClient, times(2)).isFrameRunning(proc.hostName, frame.getFrameId());
+        long deadline = System.currentTimeMillis() + 5000;
+        while (dispatchSupport.getPendingLaunchConfirmations() != 0
+                && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10);
+        }
+        assertEquals(0, dispatchSupport.getPendingLaunchConfirmations());
+    }
+
+    @Test
+    public void asyncResolutionKeepsBookingWhenFrameIsRunning() {
+        when(rqdClient.isFrameRunning(proc.hostName, frame.getFrameId())).thenReturn(true);
+
+        dispatchSupport.resolveUnknownLaunchOutcomeAsync(proc, frame);
+
+        verify(rqdClient, timeout(5000).times(1)).isFrameRunning(proc.hostName, frame.getFrameId());
+        long deadline = System.currentTimeMillis() + 5000;
+        while (dispatchSupport.getPendingLaunchConfirmations() != 0
+                && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        assertEquals(0, dispatchSupport.getPendingLaunchConfirmations());
+        verify(procDao, never()).deleteVirtualProc(any(VirtualProc.class));
+        verify(frameDao, never()).updateFrameClearedIfRunning(any(DispatchFrame.class));
     }
 
     @Test

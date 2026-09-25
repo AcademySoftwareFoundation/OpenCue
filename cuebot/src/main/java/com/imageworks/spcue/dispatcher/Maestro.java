@@ -1605,6 +1605,13 @@ public class Maestro extends JdbcDaoSupport {
             tasks.add(() -> {
                 List<FrameBooking> out = new ArrayList<>();
                 DispatchHost host = hostManager.getDispatchHost(hostId);
+                // A host whose launches keep ending with unknown outcomes is not
+                // booked: the launch would cost a deadline and a confirmation.
+                if (rqdClient != null && rqdClient.isLaunchBreakerOpen(host.getName())) {
+                    logger.info(
+                            "Maestro: skipping " + host.getName() + ", its launch breaker is open");
+                    return out;
+                }
                 for (String layerId : layerIds) {
                     // One layer is one unit: a layer deleted mid-tick costs its
                     // own slice, never the host's other layers; the failure is
@@ -1778,8 +1785,9 @@ public class Maestro extends JdbcDaoSupport {
      * (ProcDao.ORPHAN_AGE_SECONDS), is rolled back unsent and without a kill: at the orphan age the
      * maintenance pass releases the proc, which never pinged, and the next tick rebooks the frame,
      * so a later launch would start it a second time. Half leaves the pass cadence, the RPC and the
-     * first host report their time whatever the interval is set to. Either way the failure is this
-     * launch's alone; the pool goes on with the next.
+     * first host report their time whatever the interval is set to. A booking whose host's launch
+     * breaker opened since the plan is rolled back unsent the same way. Either way the failure is
+     * this launch's alone; the pool goes on with the next.
      */
     void launchOne(FrameBooking fb) {
         long waitedMs = fb.committedMs > 0 ? System.currentTimeMillis() - fb.committedMs : 0;
@@ -1790,13 +1798,20 @@ public class Maestro extends JdbcDaoSupport {
             rollbackLaunch(fb, false);
             return;
         }
+        if (rqdClient != null && rqdClient.isLaunchBreakerOpen(fb.proc.hostName)) {
+            logger.info("Maestro: launch breaker open for " + fb.proc.hostName
+                    + "; rolling the booking of frame " + fb.frame.getFrameId() + " back unsent");
+            rollbackLaunch(fb, false);
+            return;
+        }
         try {
             dispatchSupport.runFrame(fb.proc, fb.frame);
         } catch (RqdLaunchUnknownOutcomeException e) {
             logger.warn("Maestro: launch outcome unknown for " + fb.proc.getName() + " on frame "
-                    + fb.frame.getFrameId() + ", resolving before any release: " + e.getMessage());
+                    + fb.frame.getFrameId() + ", keeping the booking until resolved: "
+                    + e.getMessage());
             try {
-                dispatchSupport.resolveUnknownLaunchOutcome(fb.proc, fb.frame);
+                dispatchSupport.resolveUnknownLaunchOutcomeAsync(fb.proc, fb.frame);
             } catch (RuntimeException re) {
                 logger.warn("Maestro: launch outcome resolution failed for " + fb.frame.getFrameId()
                         + ", booking kept: " + re.getMessage());

@@ -818,14 +818,22 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   never started is resolved before anything is released (`launchOne`): the
   frame may be running on the host, so two not-running polls are required,
   and the booking is kept otherwise (with `dispatcher.launch_confirm_budget_ms`
-  at zero the legacy release-first rollback applies instead). A definite
-  failure unbooks the proc, clears the frame on the version the batch start
-  kept in step, and kills on the host only when the clear matched: a clear
-  that matched no row means the frame moved on, and a kill addressed by host
-  and frame would hit the new run. A launch that waited more than half the
-  orphan age in the pool's queue (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so
-  150 s) is rolled back unsent and without a kill: at the orphan age the
-  maintenance pass releases the proc and the next tick rebooks the frame.
+  at zero the legacy release-first rollback applies instead). The polls run
+  on the dispatcher's launch confirmation pool
+  (`dispatcher.launch_confirm_pool_size`), not on the launch thread, which
+  moves on to the next booking while this one stays booked until resolved.
+  A definite failure unbooks the proc, clears the frame on the version the
+  batch start kept in step, and kills on the host only when the clear
+  matched: a clear that matched no row means the frame moved on, and a kill
+  addressed by host and frame would hit the new run. A launch that waited
+  more than half the orphan age in the pool's queue
+  (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so 150 s) is rolled back unsent and
+  without a kill: at the orphan age the maintenance pass releases the proc
+  and the next tick rebooks the frame. A host whose launch breaker is open
+  (`grpc.rqd_launch_breaker_failures` consecutive launches with unknown
+  outcome, skipped for `grpc.rqd_launch_breaker_cooldown_s`) is left out of
+  the plan reads, and a booking whose host's breaker opened after the plan
+  is rolled back unsent the same way.
 - **Leader loss mid-commit**: the chunk loop checks the lock connection before
   each chunk and demotes when it is gone; the frames left stay WAITING for the
   next leader, which plans from the database. The lost leader's reservations,
