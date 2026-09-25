@@ -18,6 +18,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import logging
+from xml.etree import ElementTree as Et
+
 from opencue_proto import comment_pb2
 from opencue_proto import criterion_pb2
 from opencue_proto import cue_pb2
@@ -57,6 +60,9 @@ from .wrappers.subscription import Subscription
 from .wrappers.task import Task
 from . import search
 from . import util
+
+
+logger = logging.getLogger("opencue")
 
 
 __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, facility_pb2,
@@ -401,6 +407,107 @@ def launchSpecAndWait(spec):
     jobSeq = Cuebot.getStub('job').LaunchSpecAndWait(
         job_pb2.JobLaunchSpecAndWaitRequest(spec=spec), timeout=Cuebot.Timeout).jobs
     return [Job(j) for j in jobSeq.jobs]
+
+
+def _addTextElement(parent, tag, text):
+    """Convenience method to create a sub element with text."""
+    element = Et.SubElement(parent, tag)
+    element.text = text
+    return element
+
+
+def cloneJob(job, name=None, user=None, frame_range=None, layer_frame_ranges=None):
+    """Duplicates an existing job's submission-time configuration into a new job spec
+    and launches it.
+
+    This reconstructs a launchable spec from the job and layer data available through the
+    API (commands, services, frame ranges, core/memory/gpu requirements, tags, and limits),
+    so a job can be re-run without needing its original outline/pyoutline submission script.
+    Only ``Render``, ``Util``, and ``Post`` layers can be cloned this way; any ``PreProcess``
+    layers are skipped, as are layers with no command to re-run.
+
+    :type job: opencue.wrappers.job.Job
+    :param job: the job to clone
+    :type name: str
+    :param name: name for the cloned job, defaults to "<original-name>_clone"
+    :type user: str
+    :param user: submitting user for the new job, defaults to the original job's user
+    :type frame_range: str
+    :param frame_range: frame range override applied to every cloned layer
+    :type layer_frame_ranges: dict[str, str]
+    :param layer_frame_ranges: per-layer frame range overrides, keyed by layer name; takes
+        precedence over `frame_range` for the layers it names
+    :rtype: list[opencue.wrappers.job.Job]
+    :return: the newly launched job(s)
+    """
+    layer_frame_ranges = layer_frame_ranges or {}
+    layer_type_names = {
+        job_pb2.RENDER: 'Render',
+        job_pb2.UTIL: 'Util',
+        job_pb2.POST: 'Post',
+    }
+
+    root = Et.Element('spec')
+    _addTextElement(root, 'facility', job.data.facility)
+    _addTextElement(root, 'show', job.data.show)
+    _addTextElement(root, 'shot', job.data.shot)
+    _addTextElement(root, 'user', user or job.data.user)
+
+    jobEl = Et.SubElement(root, 'job', {'name': name or '%s_clone' % job.data.name})
+    _addTextElement(jobEl, 'priority', str(job.data.priority))
+    if job.data.max_cores:
+        _addTextElement(jobEl, 'maxcores', str(job.data.max_cores))
+    if job.data.max_gpus:
+        _addTextElement(jobEl, 'maxgpus', str(job.data.max_gpus))
+    if job.data.os:
+        _addTextElement(jobEl, 'os', job.data.os)
+
+    layersEl = Et.SubElement(jobEl, 'layers')
+    for layer in job.getLayers():
+        typeName = layer_type_names.get(layer.data.type)
+        if typeName is None:
+            logger.warning(
+                "cloneJob: skipping layer %s, %s layers can't be cloned directly.",
+                layer.data.name, Layer.LayerType(layer.data.type).name)
+            continue
+        if not layer.data.command:
+            logger.warning(
+                "cloneJob: skipping layer %s, it has no command to re-run.", layer.data.name)
+            continue
+
+        layerEl = Et.SubElement(layersEl, 'layer', {'name': layer.data.name, 'type': typeName})
+        _addTextElement(layerEl, 'cmd', layer.data.command)
+        _addTextElement(
+            layerEl, 'range',
+            layer_frame_ranges.get(layer.data.name) or frame_range or layer.data.range)
+        _addTextElement(layerEl, 'chunk', str(layer.data.chunk_size or 1))
+        if layer.data.min_cores:
+            _addTextElement(layerEl, 'cores', '%0.1f' % layer.data.min_cores)
+        _addTextElement(layerEl, 'threadable', 'True' if layer.data.is_threadable else 'False')
+        if layer.data.min_memory:
+            _addTextElement(layerEl, 'memory', '%sm' % (layer.data.min_memory / 1024.0))
+        if layer.data.min_gpus or layer.data.min_gpu_memory:
+            _addTextElement(layerEl, 'gpus', str(int(round(layer.data.min_gpus)) or 1))
+            _addTextElement(
+                layerEl, 'gpu_memory',
+                '%sm' % (layer.data.min_gpu_memory / 1024.0) if layer.data.min_gpu_memory
+                else '1g')
+        if layer.data.timeout:
+            _addTextElement(layerEl, 'timeout', str(layer.data.timeout))
+        if layer.data.timeout_llu:
+            _addTextElement(layerEl, 'timeout_llu', str(layer.data.timeout_llu))
+        if layer.data.tags:
+            _addTextElement(layerEl, 'tags', '|'.join(layer.data.tags))
+        if layer.data.limits:
+            limitsEl = Et.SubElement(layerEl, 'limits')
+            for limitName in layer.data.limits:
+                _addTextElement(limitsEl, 'limit', limitName)
+
+        servicesEl = Et.SubElement(layerEl, 'services')
+        for serviceName in layer.data.services:
+            _addTextElement(servicesEl, 'service', serviceName)
+
+    return launchSpecAndWait(Et.tostring(root, encoding='unicode'))
 
 
 #
