@@ -15,6 +15,7 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
@@ -101,6 +102,8 @@ public class MaestroTests {
         h.gpusTotal = gpusTotal;
         h.gpuMemTotal = gpuMemTotal;
         h.runningProcs = 0;
+        h.layerFrames = new HashMap<>();
+        h.planned = new HashMap<>();
         return h;
     }
 
@@ -318,6 +321,67 @@ public class MaestroTests {
                 Arrays.asList(layer(CORE, 4 * GB, 0, 0))));
     }
 
+    @Test
+    public void strandedCountsTheCoresMemoryCannotFeedBesideALightWaiter() {
+        // 60 idle cores but 2G left: a waiting 1-core/1G layer fits two frames,
+        // so 58 cores stay idle. Today's all-or-nothing count calls the whole
+        // host sellable and reports 0.
+        Maestro.BookableHost h = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 2 * GB);
+        assertEquals(58,
+                Maestro.strandedWholeCores(Arrays.asList(h), Arrays.asList(layer(CORE, GB, 0, 0))));
+    }
+
+    @Test
+    public void strandedTakesTheWaiterThatUsesTheMostCores() {
+        // 16 idle cores, 8G left: a 1-core/4G layer buys 2 cores, a 4-core/4G
+        // layer buys 8. The host can use 8, so 8 are stranded.
+        Maestro.BookableHost h = loadedHost(32 * CORE, 128 * GB, 16 * CORE, 8 * GB);
+        assertEquals(8, Maestro.strandedWholeCores(Arrays.asList(h),
+                Arrays.asList(layer(CORE, 4 * GB, 0, 0), layer(4 * CORE, 4 * GB, 0, 0))));
+    }
+
+    @Test
+    public void aGpuWaiterDoesNotBuyTheCoresOfACpuHost() {
+        Maestro.BookableHost h = loadedHost(32 * CORE, 128 * GB, 8 * CORE, 64 * GB);
+        assertEquals(8, Maestro.strandedWholeCores(Arrays.asList(h),
+                Arrays.asList(layer(CORE, GB, 1, GB))));
+    }
+
+    @Test
+    public void memoryStrandsTheCoresItCannotFeedWhateverIsWaiting() {
+        // 64c/256G hosts, 4G per core: 60 idle cores with 8G left feed 2 cores,
+        // so 58 are stranded; a balanced host strands none.
+        Maestro.BookableHost starved = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 8 * GB);
+        Maestro.BookableHost balanced = loadedHost(64 * CORE, 256 * GB, 16 * CORE, 64 * GB);
+        long perCore = Maestro.memPerWholeCoreKb(Arrays.asList(starved, balanced));
+        assertEquals(4 * GB, perCore);
+        assertEquals(58, Maestro.memoryStrandedCores(Arrays.asList(starved, balanced), perCore));
+    }
+
+    @Test
+    public void strandedCoresSplitByCauseCountingEachCoreOnce() {
+        // 4G per core, and only a GPU layer waits, which no CPU host can take.
+        // starved: 60 idle, 8G free: memory strands 58, the 2 it could feed
+        // are stranded by fit. roomy: 16 idle with 128G free: memory strands
+        // none, all 16 by fit.
+        Maestro.BookableHost starved = loadedHost(64 * CORE, 256 * GB, 60 * CORE, 8 * GB);
+        Maestro.BookableHost roomy = loadedHost(64 * CORE, 256 * GB, 16 * CORE, 128 * GB);
+        long[] s = Maestro.strandedByCause(Arrays.asList(starved, roomy),
+                Arrays.asList(layer(CORE, GB, 1, GB)), 4 * GB);
+        assertEquals("memory", 58, s[0]);
+        assertEquals("fit", 18, s[1]);
+        // Nothing waiting: memory still strands, fit does not.
+        s = Maestro.strandedByCause(Arrays.asList(starved, roomy), new ArrayList<>(), 4 * GB);
+        assertEquals(58, s[0]);
+        assertEquals(0, s[1]);
+    }
+
+    @Test
+    public void memoryStrandingSkipsSubMinimumSlivers() {
+        Maestro.BookableHost sliver = loadedHost(32 * CORE, 128 * GB, 5, 0);
+        assertEquals(0, Maestro.memoryStrandedCores(Arrays.asList(sliver), 4 * GB));
+    }
+
     // ---- computeMaxMore ---------------------------------------------------
 
     @Test
@@ -416,13 +480,199 @@ public class MaestroTests {
 
     @Test
     public void placementScoreDoesNotPenalizeGpuSurplusForNonGpuLayer() {
-        // A non-GPU layer adds nothing on the GPU dimensions (add <= 0), so a
-        // GPU host's idle GPUs contribute 0 to its score: GPU hosts are
-        // protected from non-GPU work by grouping (has_gpu in the spec key),
-        // not by the score. The score equals the cores+mem terms only.
+        // A non-GPU layer adds nothing on the GPU dimensions (add <= 0), so
+        // with no GPU work waiting a GPU host's idle GPUs contribute 0 to its
+        // score: the score equals the cores+mem terms only. The reach terms
+        // below price the GPUs once GPU work waits.
         Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
         double expected = 2 * (Math.exp(1.0) - 1.0);
         assertEquals(expected, Maestro.placementScore(freeHost(CORE, GB, 4, 16 * GB), cpu), 1e-9);
+    }
+
+    // ---- reach: E-PVM on the capacity waiting work can still use ---------
+    //
+    // With GPU work waiting, a GPU host's idle GPUs are priced by their reach:
+    // the GPUs still usable given the cores, memory and GPU memory each one
+    // needs. The fixtures: a CPU layer of 1 core/1GB and a waiting GPU layer
+    // of 2 cores/8GB/1 GPU/16GB, so one GPU needs 200 core points, 8GB of
+    // memory and 16GB of GPU memory.
+
+    private static final int GPUS = Maestro.Dim.GPUS.ordinal();
+    private static final int GPU_MEM = Maestro.Dim.GPU_MEM.ordinal();
+    private static final int CORES = Maestro.Dim.CORES.ordinal();
+    private static final int MEM = Maestro.Dim.MEM.ordinal();
+
+    private static Maestro.LayerCandidate gpuLayer() {
+        Maestro.LayerCandidate g = layer(2 * CORE, 8 * GB, 1, 16 * GB);
+        g.layerId = "gpu";
+        g.jobId = "gpuJob";
+        return g;
+    }
+
+    private static double[][] needsWithGpuWaiting() {
+        return Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), gpuLayer()));
+    }
+
+    @Test
+    public void reachNeedsCoupleOnlyWhatSomeWaitingWorkDoesNotUse() {
+        double[][] n = needsWithGpuWaiting();
+        // Every frame asks for cores and memory: nothing can strand them.
+        for (int e = 0; e < n.length; e++) {
+            assertEquals(0.0, n[CORES][e], 0);
+            assertEquals(0.0, n[MEM][e], 0);
+        }
+        assertEquals(2.0 * CORE, n[GPUS][CORES], 1e-9);
+        assertEquals(8.0 * GB, n[GPUS][MEM], 1e-9);
+        assertEquals(16.0 * GB, n[GPUS][GPU_MEM], 1e-9);
+        assertEquals(2.0 * CORE / (16.0 * GB), n[GPU_MEM][CORES], 1e-15);
+        assertEquals(0.5, n[GPU_MEM][MEM], 1e-12);
+        assertEquals(1.0 / (16.0 * GB), n[GPU_MEM][GPUS], 1e-15);
+    }
+
+    @Test
+    public void reachNeedsTakeTheLightestWaitingConsumer() {
+        Maestro.LayerCandidate light = layer(CORE, 4 * GB, 2, 8 * GB); // 50 cp and 2GB per GPU
+        double[][] n =
+                Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), gpuLayer(), light));
+        assertEquals(CORE / 2.0, n[GPUS][CORES], 1e-9);
+        assertEquals(2.0 * GB, n[GPUS][MEM], 1e-9);
+        assertEquals(4.0 * GB, n[GPUS][GPU_MEM], 1e-9);
+    }
+
+    @Test
+    public void nothingIsCoupledWhileNoGpuWorkWaits() {
+        Maestro.LayerCandidate g = gpuLayer();
+        g.waitingFrameCount = 0;
+        double[][] n = Maestro.reachNeedsOf(Arrays.asList(layer(CORE, GB, 0, 0), g));
+        for (double[] row : n)
+            for (double v : row)
+                assertEquals(0.0, v, 0);
+    }
+
+    @Test
+    public void withNoCouplingTheScoreIsPlainEpvm() {
+        // No GPU work waiting: an all-zero needs table gives exactly the
+        // plain E-PVM score, on every host shape, for CPU and GPU frames.
+        int n = Maestro.Dim.values().length;
+        double[][] none = new double[n][n];
+        Maestro.BookableHost[] hosts = {
+                freeHost(8 * CORE, 32 * GB, 4, 64 * GB), host("alloc", "tags", "Linux", 3 * CORE,
+                        5 * GB, 1, 20 * GB, 8 * CORE, 32 * GB, 4, 64 * GB),
+                loadedHost(16 * CORE, 64 * GB, 7 * CORE, 9 * GB)};
+        Maestro.LayerCandidate[] layers = {layer(CORE, GB, 0, 0), gpuLayer()};
+        for (Maestro.BookableHost h : hosts)
+            for (Maestro.LayerCandidate c : layers)
+                if (Maestro.fitsOnHost(c, h))
+                    assertEquals(Maestro.placementScore(h, c), Maestro.placementScore(h, c, none),
+                            1e-12);
+    }
+
+    @Test
+    public void reachIsTheLeastIdleOverNeedAcrossCoupledDimensions() {
+        // 8 cores/32GB/4 GPUs/64GB, idle. Each GPU needs 200 cp, 8GB, 16GB:
+        // every dimension supports exactly 4 GPUs. One CPU frame (1 core,
+        // 1GB) leaves 700 cp, so 3.5 GPUs stay reachable.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        double[][] n = needsWithGpuWaiting();
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        assertEquals(4.0, Maestro.reach(Maestro.Dim.GPUS, h, cpu, n, false), 1e-9);
+        assertEquals(3.5, Maestro.reach(Maestro.Dim.GPUS, h, cpu, n, true), 1e-9);
+        assertEquals(64.0 * GB, Maestro.reach(Maestro.Dim.GPU_MEM, h, cpu, n, false), 1e-6);
+        assertEquals(56.0 * GB, Maestro.reach(Maestro.Dim.GPU_MEM, h, cpu, n, true), 1e-6);
+        // Uncoupled dimensions read plain idle.
+        assertEquals(8.0 * CORE, Maestro.reach(Maestro.Dim.CORES, h, cpu, n, false), 1e-9);
+        assertEquals(7.0 * CORE, Maestro.reach(Maestro.Dim.CORES, h, cpu, n, true), 1e-9);
+    }
+
+    @Test
+    public void aCpuFrameThatEatsAGpusBundlePaysOnTheGpuTerms() {
+        // Same host: the frame cuts GPU reach 4 -> 3.5 and GPU-memory reach
+        // 64GB -> 56GB, one eighth of each, on top of the plain terms.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        double eighth = Math.exp(1.0 / 8) - 1;
+        double expected = eighth // cores: 1 of 8
+                + (Math.exp(1.0 / 32) - 1) // mem: 1 of 32GB
+                + 4.0 * eighth // gpus, weight 4: 0.5 of 4
+                + 1.0 * eighth; // gpu mem: 8GB of 64GB
+        assertEquals(expected, Maestro.placementScore(h, cpu, needsWithGpuWaiting()), 1e-9);
+    }
+
+    @Test
+    public void coresBeyondTheBundleCostNothingOnTheGpuTerms() {
+        // 16 cores for 4 GPUs whose bundle is 8: the CPU frame takes a core
+        // the GPUs do not need, so reach holds and the score is plain E-PVM.
+        Maestro.BookableHost h = freeHost(16 * CORE, 64 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        assertEquals(Maestro.placementScore(h, cpu),
+                Maestro.placementScore(h, cpu, needsWithGpuWaiting()), 1e-12);
+    }
+
+    @Test
+    public void withGpuWorkWaitingCpuWorkPrefersTheHostWithoutGpus() {
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        double[][] n = needsWithGpuWaiting();
+        double gpuHost = Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), cpu, n);
+        double cpuHost = Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 0, 0), cpu, n);
+        assertTrue(cpuHost < gpuHost);
+        // Nothing waiting for GPUs: the two hosts cost the same.
+        assertEquals(Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), cpu),
+                Maestro.placementScore(freeHost(8 * CORE, 32 * GB, 0, 0), cpu), 1e-12);
+    }
+
+    @Test
+    public void aGpuFramePaysForWhatItUsesAndNoMore() {
+        // The GPU frame takes 1 of 4 GPUs and exactly its own bundle, so each
+        // coupled term moves by one GPU's worth: the plain E-PVM score.
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        Maestro.LayerCandidate g = gpuLayer();
+        assertEquals(Maestro.placementScore(h, g),
+                Maestro.placementScore(h, g, needsWithGpuWaiting()), 1e-9);
+    }
+
+    /** strandFreeFrames for a CPU frame on h, with the GPU layer waiting or not. */
+    private static int strandFree(Maestro.BookableHost h, boolean gpuWaits) throws Exception {
+        return strandFree(h, gpuWaits, null);
+    }
+
+    /** As above, with the GPU layer pinned to gpuPins (null: unpinned). */
+    private static int strandFree(Maestro.BookableHost h, boolean gpuWaits, Set<String> gpuPins)
+            throws Exception {
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
+        Maestro.LayerCandidate g = gpuLayer();
+        if (!gpuWaits)
+            g.waitingFrameCount = 0;
+        g.pinnedIds = gpuPins;
+        List<Maestro.LayerCandidate> cands = Arrays.asList(cpu, g);
+        set(s, "reachNeeds", Maestro.reachNeedsOf(cands));
+        Method m = Maestro.class.getDeclaredMethod("strandFreeFrames", Maestro.BookableHost.class,
+                Maestro.LayerCandidate.class, List.class, String.class, Map.class, Map.class,
+                Map.class, Map.class, Map.class);
+        m.setAccessible(true);
+        return (Integer) m.invoke(s, h, cpu, cands, "alloc", new HashMap<>(), new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
+
+    @Test
+    public void theStrandBoundSellsExactlyTheCoresBeyondTheBundle() throws Exception {
+        // 16 cores, 4 GPUs needing 8 of them: 8 CPU frames fit beyond the
+        // bundle, and nothing is held back while no GPU work waits.
+        Maestro.BookableHost h = freeHost(16 * CORE, 64 * GB, 4, 64 * GB);
+        assertEquals(8, strandFree(h, true));
+        assertEquals(Integer.MAX_VALUE, strandFree(h, false));
+    }
+
+    @Test
+    public void aHostWhoseCoresAreAllInTheBundleIsOffLimits() throws Exception {
+        assertEquals(0, strandFree(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), true));
+    }
+
+    @Test
+    public void gpuWorkPinnedElsewhereKeepsNoBundleOnThisHost() throws Exception {
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        assertEquals(Integer.MAX_VALUE,
+                strandFree(h, true, new HashSet<>(Arrays.asList("elsewhere"))));
     }
 
     // ---- EASY backfill: hostReadySeconds ----------------------------------
@@ -827,6 +1077,97 @@ public class MaestroTests {
         assertEquals(new HashSet<>(Arrays.asList("a", "b")), seen);
     }
 
+    // ---- subscription size: the lowest-tier show draws first --------------
+
+    /**
+     * A candidate of show {@code show} with {@code cores} in use on a subscription of {@code size}.
+     */
+    private static Maestro.LayerCandidate showCandidate(String layerId, String show, int size,
+            int cores, int priority) {
+        Maestro.LayerCandidate c = candidate(layerId, priority, 10);
+        c.showId = show;
+        c.showKey = show + "\talloc";
+        c.showSizeCores = size;
+        c.showCoresInUse = cores;
+        return c;
+    }
+
+    @Test
+    public void showTierMirrorsTheDatabaseTierFunction() {
+        Map<String, Integer> used = new HashMap<>();
+        // cores over size
+        assertEquals(0.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+        // running nothing: minus the size, below every running show
+        assertEquals(-200.0, Maestro.showTier(showCandidate("a", "s", 200, 0, 1), used), 1e-12);
+        // no size: cores (in cores, not points) plus one
+        assertEquals(4.0, Maestro.showTier(showCandidate("a", "s", 0, 300, 1), used), 1e-12);
+        // the tick-wide map, not the tick-start snapshot, once the show placed
+        used.put("s\talloc", 300);
+        assertEquals(1.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+    }
+
+    @Test
+    public void theSlotGoesToTheShowFurthestUnderItsSize() {
+        // A holds 80 of its 100 (tier 0.8), B 60 of its 300 (tier 0.2): every
+        // draw goes to B, even against A's far higher priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 1000),
+                showCandidate("b", "B", 300, 60, 1));
+        long weight = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals("the draw ranges over B's weight only", 1, weight);
+        for (long r = 0; r < 1000; r++)
+            assertEquals(1, Maestro.drawSlot(active, r));
+    }
+
+    @Test
+    public void insideTheLowestTierPriorityDecides() {
+        // Two layers of B share its tier: the lottery splits by priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 50),
+                showCandidate("b1", "B", 300, 60, 100), showCandidate("b2", "B", 300, 60, 300));
+        assertEquals(400, Maestro.stampTiers(active, new HashMap<>()));
+        assertEquals(1, Maestro.drawSlot(active, 0));
+        assertEquals(1, Maestro.drawSlot(active, 99));
+        assertEquals(2, Maestro.drawSlot(active, 100));
+        assertEquals(2, Maestro.drawSlot(active, 399));
+    }
+
+    @Test
+    public void aPlacementMovesItsShowBeforeTheNextDraw() {
+        // B starts lower; once this tick's placements lift it past A, A draws.
+        Map<String, Integer> used = new HashMap<>();
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
+                showCandidate("b", "B", 100, 20, 1));
+        Maestro.stampTiers(active, used);
+        assertEquals(1, Maestro.drawSlot(active, 0));
+        used.put("B\talloc", 70);
+        Maestro.stampTiers(active, used);
+        assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
+    @Test
+    public void restampingOnlyThePlacedShowMatchesAFullStamp() {
+        Map<String, Integer> used = new HashMap<>();
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
+                showCandidate("b1", "B", 100, 20, 1), showCandidate("b2", "B", 100, 20, 1));
+        assertSame(active.get(1), Maestro.stampTiers(active, used, null));
+        used.put("B\talloc", 70);
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, used, "B\talloc");
+        assertSame(active.get(0), head);
+        assertEquals(0.7, active.get(2).tier, 1e-12);
+        assertSame(head, Maestro.stampTiers(active, used, null));
+        assertEquals(1, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
+    }
+
+    @Test
+    public void aShowThatCanPlaceNothingYieldsToTheNextTier() {
+        // B, the lowest tier, left the draw (capped or no host): A takes the slot.
+        List<Maestro.LayerCandidate> active = new ArrayList<>(Arrays
+                .asList(showCandidate("a", "A", 100, 80, 1), showCandidate("b", "B", 300, 60, 1)));
+        active.remove(1);
+        assertEquals(1, Maestro.stampTiers(active, new HashMap<>()));
+        assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
     // ---- the commit chunks and the leader ---------------------------------
 
     private static FrameBooking bookingOn(String hostId) {
@@ -907,8 +1248,8 @@ public class MaestroTests {
     @Test
     public void aLostLockTakesThePlannersMemoryWithIt() throws Exception {
         Maestro s = schedulerWithLeaderConn(null);
-        String[] fields = {"reservations", "blockedDebtMs", "lastSeenMs", "warmthByHostLayer",
-                "bookingsByHost"};
+        String[] fields =
+                {"reservations", "blockedDebtMs", "lastSeenMs", "warmthByHost", "bookingsByHost"};
         for (String f : fields)
             map(s, f).put("stale", f.equals("reservations") ? null : Long.valueOf(1L));
         s.demote();
@@ -1224,8 +1565,7 @@ public class MaestroTests {
         Maestro s = drainingScheduler(null);
         MaestroCompletionQueue.offer(completionOn("h", "l"));
         s.drainResolvedCompletions();
-        assertTrue("a standby has no odometer to stamp against",
-                map(s, "warmthByHostLayer").isEmpty());
+        assertTrue("a standby has no odometer to stamp against", map(s, "warmthByHost").isEmpty());
     }
 
     @Test
@@ -1234,7 +1574,7 @@ public class MaestroTests {
         Maestro s = drainingScheduler(mock(Connection.class));
         MaestroCompletionQueue.offer(completionOn("h", "l"));
         s.drainResolvedCompletions();
-        assertTrue(map(s, "warmthByHostLayer").containsKey("h|l"));
+        assertTrue(((Map<?, ?>) map(s, "warmthByHost").get("h")).containsKey("l"));
     }
 
     @Test
@@ -1262,7 +1602,11 @@ public class MaestroTests {
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
-            List<FrameBooking> planned = s.planBookings();
+            Maestro.BookableHost h = freeHost(CORE, GB, 0, 0);
+            h.planned = new HashMap<>();
+            Map<String, Maestro.BookableHost> hostById = new HashMap<>();
+            hostById.put("host1", h);
+            List<FrameBooking> planned = s.planBookings(hostById);
             assertEquals("the host's other layer stands", 1, planned.size());
             Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
             f.setAccessible(true);
@@ -1270,5 +1614,72 @@ public class MaestroTests {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    // ---- the soft cap yields a host only another candidate can use --------
+
+    private static Maestro.LayerCandidate other() {
+        Maestro.LayerCandidate o = layer(CORE, GB, 0, 0);
+        o.layerId = "other";
+        o.jobId = "otherJob";
+        o.rssProven = true;
+        o.folderMax = -1;
+        return o;
+    }
+
+    /** Whether some candidate other than c could still use h, as the soft cap asks it. */
+    private static boolean othersWant(Maestro s, Maestro.BookableHost h, Maestro.LayerCandidate c,
+            Maestro.LayerCandidate o) throws Exception {
+        Method m = null;
+        for (Method x : Maestro.class.getDeclaredMethods())
+            if (x.getName().equals("othersWant"))
+                m = x;
+        m.setAccessible(true);
+        return (Boolean) m.invoke(s, h, c, Arrays.asList(c, o), "alloc", new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                new HashMap<>());
+    }
+
+    @Test
+    public void aCandidateThatCanPlaceWantsTheHost() throws Exception {
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        assertTrue(othersWant(new Maestro(), freeHost(16 * CORE, 32 * GB, 0, 0), c, other()));
+    }
+
+    @Test
+    public void aCandidateOutOfProbeHeadroomDoesNotWantTheHost() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate o = other();
+        o.rssProven = false;
+        set(s, "layerRunningFrames", new HashMap<>(Map.of(o.layerId, Maestro.PROBE_FRAMES)));
+        assertFalse(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), layer(CORE, GB, 0, 0), o));
+    }
+
+    @Test
+    public void aCandidateAtItsFolderCeilingDoesNotWantTheHost() throws Exception {
+        Maestro.LayerCandidate o = other();
+        o.folderId = "folder";
+        o.folderMax = 4 * CORE;
+        o.folderRunning = 4 * CORE;
+        assertFalse(othersWant(new Maestro(), freeHost(16 * CORE, 32 * GB, 0, 0),
+                layer(CORE, GB, 0, 0), o));
+    }
+
+    @Test
+    public void aCandidateShutOutByAReservationDoesNotWantTheHost() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
+        set(s, "reservationsEnabled", true);
+        h.reservation = new Maestro.Reservation("owner", 100, 8 * CORE);
+        assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), other()));
+    }
+
+    @Test
+    public void aCandidateThatPlannedTheHostThisTickDoesNotWantItAgain() throws Exception {
+        Maestro s = new Maestro();
+        Maestro.BookableHost h = freeHost(16 * CORE, 32 * GB, 0, 0);
+        Maestro.LayerCandidate o = other();
+        h.planned.put(o.layerId, new int[] {0, 1});
+        assertFalse(othersWant(s, h, layer(CORE, GB, 0, 0), o));
     }
 }

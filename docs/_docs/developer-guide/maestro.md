@@ -72,8 +72,10 @@ procs first). That pipeline:
       dispatchable layers that match the group, ranked by a **priority-weighted
       lottery** (§3.5), not a strict priority sort.
    2. **Dispatch** (`dispatchGroupWithScoring`): placement slots by lottery.
-      Every slot goes to a candidate drawn with probability proportional to its
-      job priority among the candidates that can still place (`drawSlot`); the
+      Every slot goes first to the show with the lowest subscription tier on
+      the allocation (§3.5.1), then to one of its candidates drawn with
+      probability proportional to its job priority among those that can still
+      place (`stampTiers`, `drawSlot`); the
       winner scores every fitting host, takes the lowest score, records the
       placement and decrements the in-memory snapshot (`placeOnce`). Slots
       repeat until no candidate can place, so a lone layer takes every fitting
@@ -360,6 +362,20 @@ handed out in priority-weighted lottery order too (`sortByPriorityLottery`;
 starved by a higher-priority stream. Reservations are firm, so a lottery win is
 never clawed back.
 
+### 3.5.1 Subscription size: the lowest tier draws first
+
+A subscription gives a show a **size** (its guaranteed share of an allocation)
+and a **burst** (its ceiling). Between shows, size decides: every placement slot
+goes to the show with the lowest **tier** on the allocation, cores in use over
+size (`showTier`, the database's `tier()` function), read tick-wide so this
+tick's placements count. A show running nothing sorts first; a show with no
+size sorts by its cores above every show that has one. Inside that show the
+priority lottery above picks the layer. A show whose candidates can place
+nothing leaves the draw and the slot goes to the next tier in the same tick, so
+the rule orders work and never idles a host. Under contention shows converge to
+their sizes in proportion, as on the legacy dispatcher; the SHOWTIER scenario
+asserts it.
+
 ### 3.6 Limit-gated placement (application licenses)
 
 Maestro gates placement on the same **limits** the legacy dispatcher enforces
@@ -481,7 +497,7 @@ mismatch worth investigating. `limit` = a job, show or folder cap. `no license` 
 limit's budget (frame tokens or machine seats) is exhausted. `held` = every fitting host is
 reserved for a wide job. `share` = every fitting host already holds the layer's
 per-host share (the soft cap, `maestro.layer_host_max_frac`) while other work
-waits, or was planned for
+could still place there, or was planned for
 the layer this tick and takes its next slice next tick. `no host` = the
 layer's tags name no host at all (a stale machine list, §3.10). The buckets
 reuse the why-not precedence
@@ -496,14 +512,18 @@ static capped job stays off the panel), and when the same layer is weighed in
 several groups the last group's verdict wins. A `limit` share while cores sit
 idle is the fingerprint of a drifted `job_resource.int_cores` counter.
 
-The `no fit` bucket counts frames; its physical counterpart counts cores:
+The `no fit` bucket counts frames; its physical counterpart counts cores.
 `cue_farm_health_stranded_cores` is the whole cores idle after planning that
-no still-waiting candidate can buy (on every such host each candidate is
-stopped by cores, memory or gpu — usually memory, eaten by co-resident
-frames). Counted after the plan so cores that just sold are not blamed, and
-a group with nothing waiting strands nothing: idle without demand is just
-idle. Sustained growth means the farm's idle is the wrong shape for the
-waiting work.
+cannot be used, by `cause`, each core counted once (per host the larger of
+the two). `memory`: the idle cores the host's idle memory cannot feed at the
+group's memory-per-core, whatever is waiting; it reads the hosts as every
+dispatcher booked them, so in managed mode it also shows the stranding the
+legacy shows cause. `fit`: the rest of the idle cores the best waiting layer
+could not fill, a layer filling as many frames as every dimension allows (a
+shape no waiting frame fits: too wide, gpu). Counted after the plan so cores
+that just sold are not blamed. Sustained values mean the farm's idle is the
+wrong shape for the work, usually memory eaten by frames with few cores; the
+MEMSTRAND scenario asserts it.
 
 House rule for every Maestro metric: stats gather NO SQL, only live data the
 tick already holds. The waitlist reuses the loop's own verdicts, and the

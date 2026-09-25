@@ -356,6 +356,26 @@ public class DispatchSupportTests extends TransactionalTest {
         }
     }
 
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void aSkippedBumpedFrameNeverReachesTheNextSlice() {
+        // Slice {offset 0, limit 2} is frames 0001-0002; 0003 opens the next
+        // host's slice. Skipping the bumped 0002 must not pull 0003 in.
+        DispatchFrame bumped = frame("0002-pass_1");
+        long bump = getHost().idleMemory * 2;
+        OomMemoryTracker.INSTANCE.onOom(bumped.getFrameId(), bumped.getLayerId(), bump, 1000);
+        try {
+            LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
+            List<FrameBooking> plan = dispatcher.planHost(getHost(), layer, 0, 0, 0, 2);
+            for (FrameBooking b : plan)
+                assertTrue(b.frame.getName() + " is outside the slice",
+                        b.frame.getName().compareTo("0002-pass_1") <= 0);
+        } finally {
+            OomMemoryTracker.INSTANCE.onSuccess(bumped.getFrameId());
+        }
+    }
+
     // ---- the batch stop ---------------------------------------------------
 
     private QueuedFrameCompletion completionOf(DispatchFrame frame, VirtualProc proc) {

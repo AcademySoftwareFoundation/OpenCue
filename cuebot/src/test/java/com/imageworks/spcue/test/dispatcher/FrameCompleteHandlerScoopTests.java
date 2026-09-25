@@ -38,8 +38,10 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
 import com.imageworks.spcue.dispatcher.QueuedFrameCompletion;
 import com.imageworks.spcue.dispatcher.RedirectManager;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
@@ -76,6 +78,7 @@ public class FrameCompleteHandlerScoopTests {
     private PrometheusMetricsCollector prometheusMetrics;
     private DispatchSupport dispatchSupport;
     private JobManager jobManager;
+    private HostManager hostManager;
     // The worker reuses one scoop list, so a mock sees it empty later: sizes are taken at the call.
     private final BlockingQueue<Integer> batchSizes = new LinkedBlockingQueue<Integer>();
 
@@ -112,7 +115,8 @@ public class FrameCompleteHandlerScoopTests {
         handler.setDispatchSupport(dispatchSupport);
         handler.setJobManager(jobManager);
         handler.setJobManagerSupport(mock(JobManagerSupport.class));
-        handler.setHostManager(mock(HostManager.class));
+        hostManager = mock(HostManager.class);
+        handler.setHostManager(hostManager);
         handler.setDispatcher(mock(Dispatcher.class));
         handler.setDispatchQueue(mock(DispatchQueue.class));
         handler.setRedirectManager(mock(RedirectManager.class));
@@ -266,5 +270,18 @@ public class FrameCompleteHandlerScoopTests {
         handler.queuePostOps(completion("f1", FrameState.SUCCEEDED, 1, "bad"));
         verify(jobManager, timeout(5000)).isLayerComplete(any());
         verify(jobManager, timeout(5000)).isJobComplete(any());
+    }
+
+    @Test
+    public void aNimbyLockedReportLocksTheHost() {
+        // The user took the workstation: the report says so, and the host must
+        // lock now, not at its next host report, or Maestro books onto it.
+        QueuedFrameCompletion c = completion("f1");
+        FrameCompleteReport report =
+                c.report.toBuilder().setHost(RenderHost.newBuilder().setNimbyLocked(true)).build();
+        handler.queuePostOps(new QueuedFrameCompletion(report, c.proc, c.job, c.layer,
+                c.frameDetail, c.frame, c.newFrameState, c.exitStatus));
+        verify(jobManager, timeout(5000)).isJobComplete(any());
+        verify(hostManager).setHostLock(eq(c.proc), eq(LockState.NIMBY_LOCKED), any());
     }
 }
