@@ -53,10 +53,10 @@
       <value>${grpc.rqd_task_deadline}</value>
     </constructor-arg>
     <constructor-arg index="5" type="int">
-      <value>${grpc.rqd_launch_breaker_failures}</value>
+      <value>${grpc.rqd_launch_breaker_failures:2}</value>
     </constructor-arg>
     <constructor-arg index="6" type="int">
-      <value>${grpc.rqd_launch_breaker_cooldown_s}</value>
+      <value>${grpc.rqd_launch_breaker_cooldown_s:60}</value>
     </constructor-arg>
   </bean>
 
