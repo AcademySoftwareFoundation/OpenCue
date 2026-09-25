@@ -11,7 +11,7 @@
 // the License.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use crate::{
@@ -86,7 +86,9 @@ pub struct MachineMonitor {
     /// so a frame launch never waits behind it.
     pub system_manager: Arc<SystemManagerType>,
     /// Serializes user creation so two launches for the same new user cannot race `useradd`.
-    user_admin: Mutex<()>,
+    /// A std mutex taken inside the blocking task, so the guard lives as long as the `useradd`
+    /// call itself rather than the launch request that may be cancelled mid-way.
+    user_admin: Arc<StdMutex<()>>,
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
     /// Frames that have finished locally but whose completion has not yet been acknowledged by
@@ -292,7 +294,7 @@ impl MachineMonitor {
             maching_config: CONFIG.machine.clone(),
             report_client,
             system_manager: Arc::new(system_manager),
-            user_admin: Mutex::new(()),
+            user_admin: Arc::new(StdMutex::new(())),
             running_frames_cache: RunningFrameCache::init(),
             pending_completions: Arc::new(DashMap::new()),
             completion_notify: Arc::new(Notify::new()),
@@ -1717,10 +1719,11 @@ impl Machine for MachineMonitor {
     }
 
     async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
-        let _guard = self.user_admin.lock().await;
+        let user_admin = Arc::clone(&self.user_admin);
         let system_manager = Arc::clone(&self.system_manager);
         let username = username.to_string();
         tokio::task::spawn_blocking(move || {
+            let _guard = user_admin.lock().unwrap_or_else(|err| err.into_inner());
             system_manager.create_user_if_unexisting(&username, uid, gid)
         })
         .await
@@ -1740,11 +1743,18 @@ impl Machine for MachineMonitor {
     }
 
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()> {
-        if force {
-            self.system_manager.force_kill_session(pid)
-        } else {
-            self.system_manager.kill_session(pid)
-        }
+        // On Windows the kill scans the process table under the sysinfo mutex, so it runs on the
+        // blocking pool like the other process-table work.
+        let system_manager = Arc::clone(&self.system_manager);
+        tokio::task::spawn_blocking(move || {
+            if force {
+                system_manager.force_kill_session(pid)
+            } else {
+                system_manager.kill_session(pid)
+            }
+        })
+        .await
+        .map_err(|err| miette!("Session kill task failed: {err}"))?
     }
 
     async fn force_kill(&self, pids: &[u32]) -> Result<()> {
