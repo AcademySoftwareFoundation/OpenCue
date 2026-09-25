@@ -135,6 +135,14 @@ machine:
   # Default: 4
   # worker_threads: 4
 
+  # Report PSS (proportional set size) for frame processes in addition to RSS.
+  # Reading /proc/<pid>/smaps_rollup makes the kernel walk the process page
+  # table, which can cost hundreds of milliseconds per large render process on
+  # every monitor cycle. Disable on hosts where the monitor cycle is too slow;
+  # PSS is then reported as RSS.
+  # Default: true
+  # collect_pss: true
+
   # Override real system values (useful for testing or limiting resources)
   # All fields are optional - only specify what you want to override
   # override_real_values:

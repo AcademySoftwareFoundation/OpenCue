@@ -17,7 +17,7 @@ use std::{
     net::ToSocketAddrs,
     path::Path,
     process::Command,
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -47,8 +47,9 @@ pub struct LinuxSystem {
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
     sysinfo_system: Mutex<sysinfo::System>,
-    // Cache of monitored processes and their lineage
-    session_processes: DashMap<u32, Vec<u32>>,
+    // Cache of monitored processes and their lineage. Rebuilt as a whole and swapped in by
+    // `refresh_procs_cache` so concurrent readers never observe a half-built map.
+    session_processes: RwLock<HashMap<u32, Vec<u32>>>,
     monitored_sessions: DashSet<u32>,
     cached_processes: DashMap<u32, ProcessData>,
 }
@@ -217,7 +218,7 @@ impl LinuxSystem {
                 // SwapOut is an aditional attribute that is missing on this implementation
             ]),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            session_processes: DashMap::new(),
+            session_processes: RwLock::new(HashMap::new()),
             monitored_sessions: DashSet::new(),
             cached_processes: DashMap::new(),
         })
@@ -549,7 +550,7 @@ impl LinuxSystem {
             .into_diagnostic()
             .wrap_err("Failed to read /proc")?;
 
-        self.session_processes.clear();
+        let mut session_processes: HashMap<u32, Vec<u32>> = HashMap::new();
 
         for entry in proc_dir.flatten() {
             let pid = match entry.file_name().to_string_lossy().parse::<u32>() {
@@ -609,10 +610,7 @@ impl LinuxSystem {
                     {
                         if let Ok(process_data) = self.read_proc_data(pid) {
                             self.cached_processes.insert(pid, process_data);
-                            self.session_processes
-                                .entry(session_id)
-                                .or_default()
-                                .push(pid);
+                            session_processes.entry(session_id).or_default().push(pid);
                         } // Skip processes that failed to be read
                     }
                 }
@@ -621,7 +619,21 @@ impl LinuxSystem {
                 }
             }
         }
+
+        *self.write_session_processes() = session_processes;
         Ok(())
+    }
+
+    fn read_session_processes(&self) -> std::sync::RwLockReadGuard<'_, HashMap<u32, Vec<u32>>> {
+        self.session_processes
+            .read()
+            .unwrap_or_else(|err| err.into_inner())
+    }
+
+    fn write_session_processes(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<u32, Vec<u32>>> {
+        self.session_processes
+            .write()
+            .unwrap_or_else(|err| err.into_inner())
     }
 
     // Read stats from /proc/{pid}/stat file and return session_id
@@ -732,8 +744,12 @@ impl LinuxSystem {
             };
             let virtual_memory = vsize;
 
-            // Try PSS, fallback to RSS if unavailable
-            let pss = self.read_pss(pid).unwrap_or(rss);
+            // PSS falls back to RSS when disabled or unavailable on this kernel
+            let pss = if self.config.collect_pss {
+                self.read_pss(pid).unwrap_or(rss)
+            } else {
+                rss
+            };
 
             let (start_time, run_time) = self.calculate_process_time(start_time);
 
@@ -801,9 +817,10 @@ impl LinuxSystem {
             })?;
 
         // If session owner is still alive, iterate over the session and calculate memory
+        let session_processes = self.read_session_processes();
         let (rss, pss, virtual_memory, gpu_memory, start_time, run_time) =
-            match self.session_processes.get(session_id) {
-                Some(ref lineage) => {
+            match session_processes.get(session_id) {
+                Some(lineage) => {
                     // Process session data
                     lineage
                         .iter()
@@ -1024,9 +1041,7 @@ impl SystemManager for LinuxSystem {
     }
 
     fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        self.session_processes
-            .get(&pid)
-            .map(|lineage| lineage.clone())
+        self.read_session_processes().get(&pid).cloned()
     }
 
     #[cfg(target_os = "linux")]
@@ -1047,7 +1062,10 @@ impl SystemManager for LinuxSystem {
 mod tests {
     use crate::config::MachineConfig;
     use std::fs;
-    use std::{collections::HashMap, sync::Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{Mutex, RwLock},
+    };
 
     use dashmap::{DashMap, DashSet};
     use libc::{_SC_CLK_TCK, _SC_PAGESIZE};
@@ -1340,6 +1358,31 @@ mod tests {
         assert!(lineage.is_some() || lineage.is_none());
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_read_proc_data_reports_rss_as_pss_when_pss_collection_is_disabled() {
+        let project_dir = env!("CARGO_MANIFEST_DIR");
+
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: "".to_string(),
+            proc_stat_path: "".to_string(),
+            collect_pss: false,
+            ..Default::default()
+        };
+
+        let processor_info_data =
+            LinuxSystem::read_cpuinfo(&config.cpuinfo_path).expect("Failed to read cpuinfo_path");
+        let system =
+            LinuxSystem::init(&config, processor_info_data).expect("Failed to init system");
+
+        let data = system
+            .read_proc_data(std::process::id())
+            .expect("Failed to read own proc data");
+        assert!(data.rss > 0);
+        assert_eq!(data.pss, data.rss);
+    }
+
     #[test]
     fn test_static_info_tags_integration() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
@@ -1562,7 +1605,7 @@ mod tests {
             hardware_state: HardwareState::Up,
             attributes: HashMap::new(),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            session_processes: DashMap::new(),
+            session_processes: RwLock::new(HashMap::new()),
             monitored_sessions: DashSet::new(),
             cached_processes: DashMap::new(),
         }

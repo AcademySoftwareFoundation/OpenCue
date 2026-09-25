@@ -143,4 +143,13 @@ public interface RqdClient {
      * @return true if the frame is still running on the host, false if RQD reports it is gone
      */
     boolean isFrameRunning(String hostName, String frameId);
+
+    /**
+     * Whether the host's launch breaker is open (see {@link HostLaunchBreaker}): launches to it
+     * have been ending with unknown outcomes and the dispatchers should not book it for now.
+     * Implementations without a breaker return false.
+     */
+    default boolean isLaunchBreakerOpen(String hostName) {
+        return false;
+    }
 }

@@ -39,9 +39,9 @@ import static org.mockito.Mockito.verify;
 /**
  * Tests for the launch-failure rollback in {@link AbstractDispatcher}: a launch whose outcome is
  * unknown (the RPC failed but the frame may be running on the host) must be routed through
- * {@link DispatchSupport#resolveUnknownLaunchOutcome} instead of the legacy release-first rollback,
- * which frees the frame for re-dispatch while the render may still be alive (double-booking). A
- * launch failure that proves the frame did not start keeps the legacy rollback.
+ * {@link DispatchSupport#resolveUnknownLaunchOutcomeAsync} instead of the legacy release-first
+ * rollback, which frees the frame for re-dispatch while the render may still be alive
+ * (double-booking). A launch failure that proves the frame did not start keeps the legacy rollback.
  */
 public class AbstractDispatcherLaunchRollbackTests {
 
@@ -86,7 +86,7 @@ public class AbstractDispatcherLaunchRollbackTests {
         } catch (DispatcherException expected) {
         }
 
-        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcome(proc, frame);
+        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcomeAsync(proc, frame);
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
         verify(dispatchSupport, never()).clearFrame(any(DispatchFrame.class));
@@ -103,7 +103,7 @@ public class AbstractDispatcherLaunchRollbackTests {
         } catch (DispatcherException expected) {
         }
 
-        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcome(proc, frame);
+        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcomeAsync(proc, frame);
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
         verify(dispatchSupport, never()).clearFrame(any(DispatchFrame.class));
@@ -122,7 +122,7 @@ public class AbstractDispatcherLaunchRollbackTests {
         } catch (DispatcherException expected) {
         }
 
-        verify(dispatchSupport, never()).resolveUnknownLaunchOutcome(any(VirtualProc.class),
+        verify(dispatchSupport, never()).resolveUnknownLaunchOutcomeAsync(any(VirtualProc.class),
                 any(DispatchFrame.class));
         verify(dispatchSupport, times(1)).unbookProc(proc);
         verify(dispatchSupport, times(1)).clearFrame(frame);
@@ -139,7 +139,7 @@ public class AbstractDispatcherLaunchRollbackTests {
         } catch (DispatcherException expected) {
         }
 
-        verify(dispatchSupport, never()).resolveUnknownLaunchOutcome(any(VirtualProc.class),
+        verify(dispatchSupport, never()).resolveUnknownLaunchOutcomeAsync(any(VirtualProc.class),
                 any(DispatchFrame.class));
         verify(dispatchSupport, times(1)).unbookProc(proc);
         verify(dispatchSupport, times(1)).clearFrame(frame);
@@ -152,7 +152,7 @@ public class AbstractDispatcherLaunchRollbackTests {
 
         verify(dispatchSupport, times(1)).startFrameAndProc(proc, frame);
         verify(dispatchSupport, times(1)).runFrame(proc, frame);
-        verify(dispatchSupport, never()).resolveUnknownLaunchOutcome(any(VirtualProc.class),
+        verify(dispatchSupport, never()).resolveUnknownLaunchOutcomeAsync(any(VirtualProc.class),
                 any(DispatchFrame.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(dispatchSupport, never()).clearFrame(any(DispatchFrame.class));
