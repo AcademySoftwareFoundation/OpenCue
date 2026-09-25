@@ -1251,8 +1251,9 @@ reloads on `GROUPS_CHANGED_EVENT`.
 ### Table
 
 Column visibility/order persist to `localStorage["cueweb.monitor-cue.columnOrder"]`
-and `["cueweb.monitor-cue.columnHidden"]`; the selected shows to
-`["cueweb.monitor-cue.shows"]`. `JobContextMenu` receives the table storage
+and `["cueweb.monitor-cue.columnHidden"]`; the selected shows to a facility-scoped key derived from
+`"cueweb.monitor-cue.shows"` and the active facility (for example,
+`"cueweb.monitor-cue.shows.production"`). `JobContextMenu` receives the table storage
 names `cueweb.monitor-cue.jobs` / `.jobsUnfiltered`. Row tint comes from
 `jobRowClass()` (paused/dead/maxRss/depend/waiting). The **Booking** column
 (`JobBookingBar`) computes cores-per-frame as `reserved/running` (default 6) and
