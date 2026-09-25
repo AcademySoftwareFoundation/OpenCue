@@ -632,11 +632,18 @@ public class MaestroTests {
 
     /** strandFreeFrames for a CPU frame on h, with the GPU layer waiting or not. */
     private static int strandFree(Maestro.BookableHost h, boolean gpuWaits) throws Exception {
+        return strandFree(h, gpuWaits, null);
+    }
+
+    /** As above, with the GPU layer pinned to gpuPins (null: unpinned). */
+    private static int strandFree(Maestro.BookableHost h, boolean gpuWaits, Set<String> gpuPins)
+            throws Exception {
         Maestro s = new Maestro();
         Maestro.LayerCandidate cpu = layer(CORE, GB, 0, 0);
         Maestro.LayerCandidate g = gpuLayer();
         if (!gpuWaits)
             g.waitingFrameCount = 0;
+        g.pinnedIds = gpuPins;
         List<Maestro.LayerCandidate> cands = Arrays.asList(cpu, g);
         set(s, "reachNeeds", Maestro.reachNeedsOf(cands));
         Method m = Maestro.class.getDeclaredMethod("strandFreeFrames", Maestro.BookableHost.class,
@@ -659,6 +666,13 @@ public class MaestroTests {
     @Test
     public void aHostWhoseCoresAreAllInTheBundleIsOffLimits() throws Exception {
         assertEquals(0, strandFree(freeHost(8 * CORE, 32 * GB, 4, 64 * GB), true));
+    }
+
+    @Test
+    public void gpuWorkPinnedElsewhereKeepsNoBundleOnThisHost() throws Exception {
+        Maestro.BookableHost h = freeHost(8 * CORE, 32 * GB, 4, 64 * GB);
+        assertEquals(Integer.MAX_VALUE,
+                strandFree(h, true, new HashSet<>(Arrays.asList("elsewhere"))));
     }
 
     // ---- EASY backfill: hostReadySeconds ----------------------------------
@@ -1128,6 +1142,21 @@ public class MaestroTests {
         used.put("B\talloc", 70);
         Maestro.stampTiers(active, used);
         assertEquals(0, Maestro.drawSlot(active, 0));
+    }
+
+    @Test
+    public void restampingOnlyThePlacedShowMatchesAFullStamp() {
+        Map<String, Integer> used = new HashMap<>();
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
+                showCandidate("b1", "B", 100, 20, 1), showCandidate("b2", "B", 100, 20, 1));
+        assertSame(active.get(1), Maestro.stampTiers(active, used, null));
+        used.put("B\talloc", 70);
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, used, "B\talloc");
+        assertSame(active.get(0), head);
+        assertEquals(0.7, active.get(2).tier, 1e-12);
+        assertSame(head, Maestro.stampTiers(active, used, null));
+        assertEquals(1, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
     }
 
     @Test

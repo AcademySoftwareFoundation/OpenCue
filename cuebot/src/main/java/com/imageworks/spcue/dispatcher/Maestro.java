@@ -267,6 +267,9 @@ public class Maestro extends JdbcDaoSupport {
     // deliver exactly what the scoring accounted.
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
     private double[][] reachNeeds; // consumed by placementScore() and strandFreeFrames()
+    // Bumped at every group start and after every slot: wantedOn answers cached on a host hold
+    // only while this matches their stamp (see strandFreeFrames).
+    private long strandEpoch;
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
     // effective memory KB}, read by planBookings so the commit books the same shape the
     // Maestro scored.
@@ -2242,10 +2245,23 @@ public class Maestro extends JdbcDaoSupport {
             return Integer.MAX_VALUE;
         long free = Integer.MAX_VALUE;
         for (Dim d : DIMS) {
-            if (d.need(c) > 0 || d.idle(h) <= 0)
+            if (d.need(c) > 0 || d.idle(h) <= 0 || !couples(reachNeeds[d.ordinal()], c))
                 continue;
-            if (!wantedOn(d, h, c, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
-                    limitBudgets, limitUsed, limitSeats))
+            // wantedOn depends on (d, h) and the tick's totals, never on c: cached per slot.
+            if (h.strandEpoch != strandEpoch) {
+                h.strandEpoch = strandEpoch;
+                h.strandKnown = 0;
+            }
+            int bit = 1 << d.ordinal();
+            if ((h.strandKnown & bit) == 0) {
+                h.strandKnown |= bit;
+                if (wantedOn(d, h, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+                        limitBudgets, limitUsed, limitSeats))
+                    h.strandWanted |= bit;
+                else
+                    h.strandWanted &= ~bit;
+            }
+            if ((h.strandWanted & bit) == 0)
                 continue;
             double keep = reach(d, h, c, reachNeeds, false);
             for (Dim e : DIMS) {
@@ -2260,14 +2276,28 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Whether a waiting candidate other than c needs d, could ever fit on h and is open to place.
+     * Whether d's row couples it to a dimension c uses. When it does not, protecting d bounds
+     * nothing, so the caller skips the candidate scan (the common case: no GPU work waits).
      */
-    private static boolean wantedOn(Dim d, BookableHost h, LayerCandidate c,
-            List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
+    private static boolean couples(double[] row, LayerCandidate c) {
+        for (Dim e : DIMS) {
+            if (row[e.ordinal()] > 0 && e.need(c) > 0)
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether a waiting candidate that needs d may run on h (pins), could ever fit on it and is
+     * open to place. Callers ask only for a d their own candidate does not need, so it never counts
+     * itself.
+     */
+    private static boolean wantedOn(Dim d, BookableHost h, List<LayerCandidate> candidates,
+            String groupAllocId, Map<String, Integer> jobCoresUsed,
             Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
             Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
         for (LayerCandidate o : candidates) {
-            if (o == c || o.waitingFrameCount <= 0 || d.need(o) <= 0)
+            if (o.waitingFrameCount <= 0 || d.need(o) <= 0 || !pinsAllow(o, h))
                 continue;
             if (hostCanEverFit(o, h) && openToPlace(o, groupAllocId, jobCoresUsed, showCoresUsed,
                     limitBudgets, limitUsed) && !hostSeatBlocked(h, o, limitBudgets, limitSeats))
@@ -2922,6 +2952,7 @@ public class Maestro extends JdbcDaoSupport {
         for (LayerCandidate c : candidates)
             c.showKey = subKey(c.showId, groupAllocId);
         reachNeeds = reachNeedsOf(candidates);
+        strandEpoch++;
 
         // Placement slots: every slot goes first to the show with the lowest
         // tier on this allocation (cores in use over subscription size, read
@@ -2942,13 +2973,18 @@ public class Maestro extends JdbcDaoSupport {
             if (c.waitingFrameCount > 0)
                 active.add(c);
         }
+        String restamp = null; // null: stamp every candidate; then only the last drawn show
         while (!active.isEmpty()) {
-            long weightSum = stampTiers(active, showCoresUsed);
-            int idx =
-                    drawSlot(active, (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
+            LayerCandidate head = stampTiers(active, showCoresUsed, restamp);
+            long weightSum = headWeight(active, head);
+            int idx = drawSlot(active, head,
+                    (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
             LayerCandidate c = active.get(idx);
             int got = placeOnce(c, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, limitBudgets, limitUsed, limitSeats);
+            // A slot moves only its own show's cores and the tick's totals.
+            restamp = c.showKey;
+            strandEpoch++;
             if (got > 0)
                 dispatched += got;
             if (got <= 0 || c.waitingFrameCount <= 0) {
@@ -3065,7 +3101,11 @@ public class Maestro extends JdbcDaoSupport {
      * sum). The last of them absorbs any rounding, so a draw never falls outside the head.
      */
     static int drawSlot(List<LayerCandidate> active, long r) {
-        LayerCandidate low = lowest(active);
+        return drawSlot(active, lowest(active), r);
+    }
+
+    /** As above, with the head of the order already known (see stampTiers). */
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate low, long r) {
         int last = 0;
         for (int i = 0; i < active.size(); i++) {
             LayerCandidate c = active.get(i);
@@ -3085,12 +3125,31 @@ public class Maestro extends JdbcDaoSupport {
      * the range drawSlot draws from.
      */
     static long stampTiers(List<LayerCandidate> active, Map<String, Integer> showCoresUsed) {
+        return headWeight(active, stampTiers(active, showCoresUsed, null));
+    }
+
+    /**
+     * Stamp the candidates of show {@code showKey} (null: every candidate) with their tier and
+     * burst side, and return the head of the order in the same pass. A slot moves only its own
+     * show's cores, so the other shows' stamps still hold.
+     */
+    static LayerCandidate stampTiers(List<LayerCandidate> active,
+            Map<String, Integer> showCoresUsed, String showKey) {
+        LayerCandidate low = null;
         for (LayerCandidate c : active) {
-            int cores = showCoresUsed.getOrDefault(c.showKey, c.showCoresInUse);
-            c.overBurst = cores + c.layerCoresMin > c.showBurstCores;
-            c.tier = showTier(c, showCoresUsed);
+            if (showKey == null || showKey.equals(c.showKey)) {
+                int cores = showCoresUsed.getOrDefault(c.showKey, c.showCoresInUse);
+                c.overBurst = cores + c.layerCoresMin > c.showBurstCores;
+                c.tier = showTier(c, showCoresUsed);
+            }
+            if (low == null || outranks(c, low))
+                low = c;
         }
-        LayerCandidate low = lowest(active);
+        return low;
+    }
+
+    /** The lottery weight of the candidates that draw with the head: the range drawSlot draws. */
+    static long headWeight(List<LayerCandidate> active, LayerCandidate low) {
         long weightSum = 0;
         for (LayerCandidate c : active) {
             if (sameRank(c, low))
@@ -3107,10 +3166,15 @@ public class Maestro extends JdbcDaoSupport {
     private static LayerCandidate lowest(List<LayerCandidate> active) {
         LayerCandidate low = null;
         for (LayerCandidate c : active) {
-            if (low == null || (c.overBurst != low.overBurst ? !c.overBurst : c.tier < low.tier))
+            if (low == null || outranks(c, low))
                 low = c;
         }
         return low;
+    }
+
+    /** Whether c sorts before low: within its burst over past it, then the lower tier. */
+    private static boolean outranks(LayerCandidate c, LayerCandidate low) {
+        return c.overBurst != low.overBurst ? !c.overBurst : c.tier < low.tier;
     }
 
     /** Whether c draws with the head of the order: same side of its burst, same tier. */
@@ -4365,6 +4429,9 @@ public class Maestro extends JdbcDaoSupport {
         Map<String, int[]> planned; // consumed by plannedOn() and planBookings()
         Map<String, Long> warmth; // consumed by warmthOn()
         long odometer; // consumed by placeOnce() and localityKind()
+        long strandEpoch; // consumed by strandFreeFrames()
+        int strandKnown; // Dim bits whose wantedOn answer is cached for strandEpoch
+        int strandWanted; // Dim bits wantedOn answered true
         Reservation reservation; // consumed by reservationAllows()
         Integer tReady; // consumed by backfillAllows()
     }

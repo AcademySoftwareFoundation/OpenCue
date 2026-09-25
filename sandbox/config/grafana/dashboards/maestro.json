@@ -857,7 +857,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cause) (cue_farm_health_stranded_cores)",
+          "expr": "max by (cause) (cue_farm_health_stranded_cores)",
           "legendFormat": "{{cause}}",
           "refId": "A"
         }

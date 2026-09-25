@@ -21,7 +21,7 @@ measured only on samples where GPU frames wait:
      host drains into GPU work;
   3. GPU frames run.
 
-The reference shape is the GPU job's own ask (4 software cores, 2G of memory,
+The reference shape is the GPU job's own ask (2 software cores, 2G of memory,
 1 GPU, 4G of GPU memory), so "unreachable" means exactly what the waiting
 frames need, not a nominal frame the farm never sees.
 
@@ -38,12 +38,13 @@ import os, subprocess, sys, time
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 import farm_spec as spec
+import sim_model
 
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 300
 INTERVAL = float(sys.argv[2]) if len(sys.argv) > 2 else 3.0
 TOKEN = "simgpustrand"
 GB_KB = 1024 * 1024
-GPU_ASK_CP = 400                  # 4 software cores, as inject_gpustrand.py asks
+GPU_ASK_CP = 2 * sim_model.CORE_POINTS  # 2 software cores, as inject_gpustrand.gpu_job asks
 GPU_ASK_MEM_KB = 2 * GB_KB
 GPU_ASK_GPU_MEM_KB = 4 * GB_KB
 MIN_UTIL = 85.0                   # below this the flood never took hold
