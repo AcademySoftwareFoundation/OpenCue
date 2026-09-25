@@ -46,6 +46,10 @@ class PyEval(outline.layer.Layer):
 
         self.__code = code
 
+    def get_code(self):
+        """Return the embedded Python code string, or None after setup."""
+        return self.__code
+
     def _setup(self):
         with open(f"{self.get_path()}/script", "w", encoding="utf-8") as fp:
             fp.write(self.__code)
