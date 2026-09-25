@@ -503,7 +503,7 @@ impl MachineMonitor {
         if elapsed > self.maching_config.monitor_interval {
             warn!(
                 "Host report collection took {:?}, longer than the {:?} monitor interval; \
-                 consider disabling collect_pss or raising monitor_interval",
+                 disable collect_pss if enabled, or raise monitor_interval",
                 elapsed, self.maching_config.monitor_interval
             );
         }
