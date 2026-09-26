@@ -94,7 +94,7 @@ jobs:
         # Pull requests run the small-farm binary set; the nightly schedule
         # adds the heavier behavioural scenarios (see the header for why).
         scenario: ${{ github.event_name == 'schedule'
-          && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","SOLOFILL","COMPLETIONSTORM"]')
+          && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM"]')
           || fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE"]') }}
 
     env:

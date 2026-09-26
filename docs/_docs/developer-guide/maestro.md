@@ -614,9 +614,14 @@ events change the database in the background. This is safe by design.
 1. `tickInFlight` compare-and-set, one Cuebot never overlaps its own ticks.
 2. Leader advisory lock, only one Cuebot plans across the deployment.
 3. In `facility` mode `maestro.enabled` suppresses the legacy `BookingQueue`
-   enqueue in `HostReportHandler`; in `managed` mode the legacy dispatcher keeps
-   running but its query excludes `b_scheduler_managed` shows, so the two never
-   book the same show.
+   enqueue in `HostReportHandler`; otherwise the legacy dispatcher keeps running
+   but every job-selection query it books from (`FIND_SHOWS` for the all-shows
+   path, `FIND_JOBS_BY_SHOW`/`FIND_JOBS_BY_GROUP` for a deeded host's preferred
+   show and for redirects) excludes `b_scheduler_managed` shows, so the two never
+   book the same show. That exclusion is in SQL and not behind `maestro.enabled`,
+   so it also holds on the Cuebots that run with Maestro off while one Cuebot
+   plans — the rollout topology where the rest only report and forward
+   completions.
 
 So the only things that can change host state during a tick are:
 
@@ -727,6 +732,10 @@ already takes most of the load off it.
 | `maestro.layer_host_max_frac` | `0.25` | SOFT per-host layer cap: one layer may hold at most this fraction of a host's cores (as frames, floor 8), so a flood spills across hosts instead of blanketing one. The cap yields when it is the only blocker: a fitting idle host that only the cap refuses is given to the layer (rss-proven layers only), so a lone farm-sized layer fills the farm instead of stranding it. On a busy farm no such host exists and the cap holds. 0 disables. |
 | `maestro.mem_per_core` | `0` | Memory-per-core ratio (KB) for rss-driven layer sizing (§3.9). 0 (the default) derives it from each group's own hosts; set e.g. 4194304 to pin 4G/core studio-wide. |
 | `maestro.plan_zero_warn_ticks` | `40` | Consecutive ticks a layer may plan but commit zero frames before a WARN names it (a commit-time gate Maestro does not model is rejecting it). |
+| `maestro.forward_completions_to` | *(empty)* | Completion-forward relay (rollout scaffolding, read only when `maestro.enabled=no`): comma-separated `host:port` report endpoints of the isolated Maestro deployment (leader and standby). When set, a legacy cuebot forwards a scheduler-managed show's `FrameCompleteReport`s there unmodified over the report gRPC; any failure processes the report locally through the legacy path. Empty disables the relay (see §6.2). |
+| `maestro.forward_deadline_ms` | `1500` | gRPC deadline for one forward attempt; exactly one attempt per report, then the local fallback. |
+| `maestro.forward_breaker_failures` | `3` | Consecutive forward failures that open the breaker. |
+| `maestro.forward_breaker_cooldown_s` | `30` | While open, managed-show reports take the instant local fallback with no gRPC call; after the cooldown the next report is the probe. |
 | `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings; a Maestro slice is sized by the planner and delivered whole. |
 | `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. A Maestro slice delivers the size the planner accounted (up to `frame_query_max`), not this cap. |
 
@@ -757,6 +766,39 @@ above the truth until a show drains to zero, and a bump recorded on a standby
 is not applied. Both need a shared home (a read the tick already makes for
 the affinity map, and a frame column); they are tracked for the next series.
 
+### 6.2 Completion forwarding to an isolated deployment
+
+When the managed pair runs isolated (its own hosts, an address no RQD knows),
+the completion pipeline would stay dormant until the facility flip. Setting
+`maestro.forward_completions_to` on the legacy cuebots closes that gap: a
+managed show's `FrameCompleteReport` is relayed, unmodified, into the pair's
+own report servant, so the drain path validated in production is byte-for-byte
+the facility-mode path and the leader cannot tell a forwarded report from a
+direct one (including the transport: the same plaintext, unauthenticated
+report gRPC the RQDs use, so the relay must stay on the trusted internal
+network -- it adds no new trust boundary and must not be given one to cross).
+It also answers §6.1's split-ledger concern for that topology:
+with forwarding healthy, one cuebot files every managed report. One attempt
+per report with a short deadline; every failure falls back to the local legacy
+path (never a retry signal to RQD -- RQD already delivered its report), and a
+consecutive-failure breaker keeps a down leader from taxing the report
+threads. A timed-out-but-delivered forward double-processes; the
+version-guarded stop and the run-ownership fences resolve it exactly like a
+duplicate report, visible in the stale/superseded counters. Outcomes are
+counted in `cue_completion_forward_total{outcome}` (`forwarded`,
+`fallback_error`, `fallback_breaker`) on the forwarding cuebots. Two limits
+to know: the ACK mirrors the RQD contract -- it means the pair resolved and
+QUEUED the completion, not that it was durably filed, so a receiver crash
+before its next tick loses the queued completion until host-report
+reconciliation reclaims the frame (facility mode's documented crash
+contract); and the breaker trips only on failed attempts, so a slow-but-ACKing
+receiver is not a breaker condition -- each managed report waits at most one
+`forward_deadline_ms` on a report thread, which is the accepted tax. The hook is
+gated on `maestro.enabled=no`, so a Maestro cuebot can never forward to
+itself; when the facility flips and no legacy cuebot remains, the relay is
+inert and gets deleted. The FORWARD simulator scenario (nightly) covers the
+steady path, the breaker fallback across an outage, and the ambiguity races.
+
 ## 7. Failure modes
 
 - **Commit collision** (`frame.int_version` / resource guard): the frame is
@@ -776,14 +818,22 @@ the affinity map, and a frame column); they are tracked for the next series.
   never started is resolved before anything is released (`launchOne`): the
   frame may be running on the host, so two not-running polls are required,
   and the booking is kept otherwise (with `dispatcher.launch_confirm_budget_ms`
-  at zero the legacy release-first rollback applies instead). A definite
-  failure unbooks the proc, clears the frame on the version the batch start
-  kept in step, and kills on the host only when the clear matched: a clear
-  that matched no row means the frame moved on, and a kill addressed by host
-  and frame would hit the new run. A launch that waited more than half the
-  orphan age in the pool's queue (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so
-  150 s) is rolled back unsent and without a kill: at the orphan age the
-  maintenance pass releases the proc and the next tick rebooks the frame.
+  at zero the legacy release-first rollback applies instead). The polls run
+  on the dispatcher's launch confirmation pool
+  (`dispatcher.launch_confirm_pool_size`), not on the launch thread, which
+  moves on to the next booking while this one stays booked until resolved.
+  A definite failure unbooks the proc, clears the frame on the version the
+  batch start kept in step, and kills on the host only when the clear
+  matched: a clear that matched no row means the frame moved on, and a kill
+  addressed by host and frame would hit the new run. A launch that waited
+  more than half the orphan age in the pool's queue
+  (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so 150 s) is rolled back unsent and
+  without a kill: at the orphan age the maintenance pass releases the proc
+  and the next tick rebooks the frame. A host whose launch breaker is open
+  (`grpc.rqd_launch_breaker_failures` consecutive launches with unknown
+  outcome, skipped for `grpc.rqd_launch_breaker_cooldown_s`) is left out of
+  the plan reads, and a booking whose host's breaker opened after the plan
+  is rolled back unsent the same way.
 - **Leader loss mid-commit**: the chunk loop checks the lock connection before
   each chunk and demotes when it is gone; the frames left stay WAITING for the
   next leader, which plans from the database. The lost leader's reservations,

@@ -245,6 +245,9 @@ jobs:
       - name: Build Docker image
         run: |
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          # --push exports straight to the registry. The default docker driver
+          # used here also keeps the image in the local store, so the artifact
+          # extraction below can still docker create from it.
           docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
             --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
             --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
@@ -253,8 +256,8 @@ jobs:
             --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
             --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
             --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
-            --build-arg BUILD_ID="${BUILD_ID}"
-          docker push ${image_name}
+            --build-arg BUILD_ID="${BUILD_ID}" \
+            --push
 
       - name: Extract Artifacts
         if: ${{ matrix.ARTIFACTS }}
@@ -279,6 +282,71 @@ jobs:
           for artifact in $artifacts; do
             aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           done
+
+  build_web_components:
+    needs: integration_test
+    strategy:
+      matrix:
+        include:
+          - component: rest-gateway
+            NAME: REST Gateway
+            DOCKERFILE: rest_gateway/Dockerfile
+            WORKDIR: .
+
+          - component: cueweb
+            NAME: CueWeb
+            DOCKERFILE: Dockerfile
+            WORKDIR: cueweb
+            # project_root exposes the repo-root VERSION.in to the build, which
+            # lives outside the cueweb/ context. NEXT_PUBLIC_GIT_SHA is baked in
+            # at build time so the About dialog reports a real SHA; ${GIT_SHA}
+            # is expanded by the shell in the build step below.
+            BUILD_FLAGS: >-
+              --build-context project_root=..
+              --build-arg NEXT_PUBLIC_GIT_SHA=${GIT_SHA}
+
+    name: Build ${{ matrix.NAME }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Set build ID
+        run: |
+          set -e
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+          echo "GIT_SHA=$(git rev-parse --short HEAD)" >> ${GITHUB_ENV}
+
+      - name: Build Docker image
+        working-directory: ${{ matrix.WORKDIR }}
+        run: |
+          set -e
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          # --push exports the result straight to the registry. The buildx
+          # docker-container driver set up above keeps the image in the build
+          # cache rather than the local image store, so a separate docker push
+          # would not find it.
+          docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
+            ${{ matrix.BUILD_FLAGS }} \
+            --push
 
   upload_python_packages_test:
     needs:

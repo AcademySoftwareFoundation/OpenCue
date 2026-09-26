@@ -929,7 +929,7 @@ public class MaestroTests {
         doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
                 .runFrame(any(), any());
         s.launchOne(fb);
-        verify(support).resolveUnknownLaunchOutcome(fb.proc, fb.frame);
+        verify(support).resolveUnknownLaunchOutcomeAsync(fb.proc, fb.frame);
         verify(support, never()).unbookProc(any());
         verify(support, never()).clearFrame(any());
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
@@ -946,7 +946,7 @@ public class MaestroTests {
         doThrow(new DispatcherException("refused")).when(support).runFrame(any(), any());
         when(support.clearFrame(fb.frame)).thenReturn(true);
         s.launchOne(fb);
-        verify(support, never()).resolveUnknownLaunchOutcome(any(), any());
+        verify(support, never()).resolveUnknownLaunchOutcomeAsync(any(), any());
         InOrder release = inOrder(support, rqd);
         release.verify(support).unbookProc(fb.proc);
         release.verify(support).clearFrame(fb.frame);
@@ -1106,7 +1106,7 @@ public class MaestroTests {
         doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
                 .runFrame(any(), any());
         doThrow(new RuntimeException("rqd unreachable")).when(support)
-                .resolveUnknownLaunchOutcome(any(), any());
+                .resolveUnknownLaunchOutcomeAsync(any(), any());
         s.launchOne(fb);
         verify(support, never()).unbookProc(any());
         verify(support, never()).clearFrame(any());
@@ -1132,6 +1132,24 @@ public class MaestroTests {
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
         assertTrue("the bound stays inside the orphan age",
                 Maestro.LAUNCH_MAX_AGE_MS < ProcDao.ORPHAN_AGE_SECONDS * 1000L);
+    }
+
+    @Test
+    public void aBookingOnAHostWhoseLaunchBreakerOpenedIsRolledBackUnsent() {
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        fb.proc.hostName = "slow-host";
+        when(rqd.isLaunchBreakerOpen("slow-host")).thenReturn(true);
+        when(support.clearFrame(fb.frame)).thenReturn(true);
+        s.launchOne(fb);
+        verify(support, never()).runFrame(any(), any());
+        verify(support).unbookProc(fb.proc);
+        verify(support).clearFrame(fb.frame);
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
     }
 
     @Test

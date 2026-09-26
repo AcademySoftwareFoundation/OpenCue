@@ -149,6 +149,14 @@ public class PrometheusMetricsCollector {
                     + "the reported frame (the run was superseded)")
             .labelNames("env", "cuebot_host", "reason").register();
 
+    private static final Counter completionForwardCounter = Counter.build()
+            .name("cue_completion_forward_total")
+            .help("Managed-show frame complete reports offered to the Maestro completion-forward "
+                    + "relay: forwarded (ACKed by the isolated deployment), fallback_error "
+                    + "(forward failed, processed locally), fallback_breaker (breaker open, "
+                    + "processed locally without a forward attempt)")
+            .labelNames("env", "cuebot_host", "outcome").register();
+
     private static final Counter frameCompleteDroppedCounter =
             Counter.build().name("cue_frame_complete_dropped_total")
                     .help("Frame complete reports that could not be applied to their frame; "
@@ -166,6 +174,12 @@ public class PrometheusMetricsCollector {
                             + "by how the booking was resolved: running_kept, released, "
                             + "unconfirmed_kept, released_unconfirmed (legacy behavior)")
                     .labelNames("env", "cuebot_host", "resolution").register();
+
+    private static final Gauge frameLaunchConfirmPending = Gauge.build()
+            .name("cue_frame_launch_confirm_pending")
+            .help("Launches with unknown outcome whose confirmation on the host is queued or "
+                    + "in progress on the launch confirmation pool")
+            .labelNames("env", "cuebot_host").register();
 
     private static final Counter frameZombieRenderCounter = Counter.build()
             .name("cue_frame_zombie_render_total")
@@ -477,6 +491,17 @@ public class PrometheusMetricsCollector {
     }
 
     /**
+     * Increment cue_completion_forward_total metric
+     *
+     * @param outcome what became of the managed-show report: "forwarded", "fallback_error" or
+     *        "fallback_breaker"
+     */
+    public void incrementCompletionForward(String outcome) {
+        completionForwardCounter.labels(this.deployment_environment, this.cuebot_host, outcome)
+                .inc();
+    }
+
+    /**
      * Increment cue_frame_complete_dropped_total metric
      *
      * @param exitStatus the exit status of the report that could not be applied
@@ -510,6 +535,16 @@ public class PrometheusMetricsCollector {
     public void incrementFrameLaunchOutcomeUnknown(String resolution) {
         frameLaunchOutcomeUnknownCounter
                 .labels(this.deployment_environment, this.cuebot_host, resolution).inc();
+    }
+
+    /**
+     * Record how many unknown-outcome launch confirmations are queued or running.
+     *
+     * @param pending resolutions submitted to the confirmation pool and not finished yet
+     */
+    public void setFrameLaunchConfirmPending(int pending) {
+        frameLaunchConfirmPending.labels(this.deployment_environment, this.cuebot_host)
+                .set(pending);
     }
 
     /**
