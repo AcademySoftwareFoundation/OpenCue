@@ -80,18 +80,26 @@ impl FrameManager {
         self.validate_grpc_frame(&run_frame)?;
         self.validate_machine_state(run_frame.ignore_nimby).await?;
 
+        // Cuebot doesn't send a gid, so fall back to the same default RunningFrame uses rather
+        // than creating the user with root (0) as its primary group
+        let gid = if run_frame.gid <= 0 {
+            CONFIG.runner.default_gid
+        } else {
+            run_frame.gid as u32
+        };
+
         // Create user if required. uid and gid ranges have already been verified
         let uid = match run_frame.uid_optional.as_ref().map(|o| match o {
             run_frame::UidOptional::Uid(v) => *v as u32,
         }) {
             Some(uid) => self
                 .machine
-                .create_user_if_unexisting(&run_frame.user_name, uid, run_frame.gid as u32)
+                .create_user_if_unexisting(&run_frame.user_name, uid, gid)
                 .await
                 .map_err(|err| {
                     FrameManagerError::Aborted(format!(
                         "Not launching, user {}({}:{}) could not be created. {:?}",
-                        run_frame.user_name, uid, run_frame.gid, err
+                        run_frame.user_name, uid, gid, err
                     ))
                 })?,
             None => CONFIG.runner.default_uid,
