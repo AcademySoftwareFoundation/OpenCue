@@ -942,16 +942,27 @@ impl SystemManager for LinuxSystem {
         }
 
         // User doesn't exist, create it using useradd
-        let output = Command::new("useradd")
-            .arg("-p")
+        let mut cmd = Command::new("useradd");
+        cmd.arg("-p")
             .arg(Uuid::new_v4().to_string())
             .arg("--uid")
             .arg(uid.to_string())
             .arg("--gid")
-            .arg(gid.to_string())
-            .arg(username)
-            .output()
-            .into_diagnostic()?;
+            .arg(gid.to_string());
+
+        // The uid may already belong to another account (e.g. a user baked into the image).
+        // Frames run under the numeric uid, so alias the name onto it instead of failing.
+        if let Some(existing) = users::get_user_by_uid(uid) {
+            info!(
+                "uid {} already belongs to {:?}, creating {} as a non-unique alias",
+                uid,
+                existing.name(),
+                username
+            );
+            cmd.arg("--non-unique");
+        }
+
+        let output = cmd.arg(username).output().into_diagnostic()?;
 
         if !output.status.success() {
             return Err(miette!(

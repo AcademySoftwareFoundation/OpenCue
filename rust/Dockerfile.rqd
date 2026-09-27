@@ -37,7 +37,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
-RUN useradd -m -u 1000 -s /bin/bash rqd
+# System uid (<1000) so it does not collide with submitting users, who
+# typically start at uid 1000 on Linux hosts.
+RUN useradd -r -m -s /bin/bash rqd
 
 # Create necessary directories
 RUN mkdir -p /app/resources && chown -R rqd:rqd /app
