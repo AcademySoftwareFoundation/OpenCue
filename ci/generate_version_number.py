@@ -117,6 +117,10 @@ def get_full_version(versionType="") -> str:
     if version_patch:
         return f"{version_major_minor}.{version_patch}"
 
+    version_patch = os.environ.get("VERSION_PATCH")
+    if version_patch:
+        return f"{version_major_minor}.{version_patch}"
+
     current_branch = get_current_branch()
 
     last_version_commit = run_command(
