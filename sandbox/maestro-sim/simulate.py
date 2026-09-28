@@ -1576,8 +1576,8 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{cm.group(1) if cm else '?'}, peak core util "
                     f"{um.group(1) if um else '?'}%")
     if name == "SHOWTIER":
-        # The watcher's verdict is the whole check: equal tiers over the last
-        # 30 s under contention, nobody above burst. Fail-first: the slot draw
+        # The watcher's verdict is the whole check: mean tiers within a 15%
+        # relative gap over the last 30 s under contention, nobody above burst. Fail-first: the slot draw
         # ignores subscription size.
         try:
             txt = open(logp, errors="ignore").read()

@@ -2707,16 +2707,17 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * Layer-driven placement with persistent reservations, one placement slot at a time. Every slot
-     * goes to a candidate drawn by priority-weighted lottery among the candidates that can still
-     * place (placeOnce: the host with the lowest {@link #placementScore} among those that fit and
-     * pass the reservation, seat, per-host-plan and soft-cap gates), until none can. So a lone
-     * layer takes every fitting host in one tick, contending layers share the tick's capacity in
-     * proportion to their priority however much capacity there is, and priority stays a rate, never
-     * a strict order. Every plan gets a disjoint frame slice from submitCommit, so parallel
-     * per-host plan reads cannot collide, and a layer's waiting count is tick-wide (frames planned
-     * for it in an earlier group are subtracted on entry), so the groups share one backlog. A tick
-     * therefore costs what the idle capacity it can fill costs, and commitInChunks lands that in
-     * bounded transactions.
+     * goes to the show with the lowest subscription tier (showTier), and within it to a candidate
+     * drawn by priority-weighted lottery among that tier's candidates that can still place
+     * (placeOnce: the host with the lowest {@link #placementScore} among those that fit and pass
+     * the reservation, seat, per-host-plan and soft-cap gates), until none can. So a lone layer
+     * takes every fitting host in one tick, shows converge to their subscription sizes, and within
+     * a tier contending layers share the capacity in proportion to their priority: a rate, never a
+     * strict order. Every plan gets a disjoint frame slice from submitCommit, so parallel per-host
+     * plan reads cannot collide, and a layer's waiting count is tick-wide (frames planned for it in
+     * an earlier group are subtracted on entry), so the groups share one backlog. A tick therefore
+     * costs what the idle capacity it can fill costs, and commitInChunks lands that in bounded
+     * transactions.
      *
      * After the slots, once per candidate: the why-not trace, the waitlist tally, and the
      * reservation reconcile (c's reservation count should equal c.waitingFrameCount, decremented as
@@ -2757,9 +2758,8 @@ public class Maestro extends JdbcDaoSupport {
             if (candidate.waitingFrameCount > 0)
                 active.add(candidate);
         }
-        String restamp = null; // null: stamp every candidate; then only the last drawn show
         while (!active.isEmpty()) {
-            LayerCandidate head = stampTiers(active, showCoresUsed, restamp);
+            LayerCandidate head = stampTiers(active, showCoresUsed);
             long weightSum = headWeight(active, head);
             int idx = drawSlot(active, head,
                     (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
@@ -2767,8 +2767,6 @@ public class Maestro extends JdbcDaoSupport {
             int got = placeOnce(drawn, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
                     limitSeats);
-            // A slot moves only its own show's cores and the tick's totals.
-            restamp = drawn.showKey;
             if (got > 0)
                 dispatched += got;
             if (got <= 0 || drawn.waitingFrameCount <= 0) {
@@ -2878,15 +2876,10 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The winner of one slot among the candidates of the lowest tier in {@code active} (see
-     * stampTiers): their lotteryWeight bands laid end to end in list order, ticket in [0, their
-     * weight sum). The last of them absorbs any rounding, so a draw never falls outside the tier.
+     * The winner of one slot among the candidates of {@code head}'s tier (see stampTiers): their
+     * lotteryWeight bands laid end to end in list order, ticket in [0, headWeight). The last of
+     * them absorbs any rounding, so a draw never falls outside the tier.
      */
-    static int drawSlot(List<LayerCandidate> active, long ticket) {
-        return drawSlot(active, lowest(active), ticket);
-    }
-
-    /** As above, with the lowest tier's candidate already known (see stampTiers). */
     static int drawSlot(List<LayerCandidate> active, LayerCandidate head, long ticket) {
         int lastInTier = 0;
         for (int index = 0; index < active.size(); index++) {
@@ -2902,31 +2895,21 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * Stamp every active candidate with its show's tier, read against the tick-wide show cores map
-     * so every placement of this tick moves its show before the next draw, and return the lottery
-     * weight of the lowest tier: the range drawSlot draws from.
-     */
-    static long stampTiers(List<LayerCandidate> active, Map<String, Integer> showCoresUsed) {
-        return headWeight(active, stampTiers(active, showCoresUsed, null));
-    }
-
-    /**
-     * Stamp the candidates of show {@code showKey} (null: every candidate) with their tier and
-     * return a candidate of the lowest tier in the same pass. A slot moves only its own show's
-     * cores, so the other shows' stamps still hold.
+     * so every placement of this tick moves its show before the next draw, and return a candidate
+     * of the lowest tier.
      */
     static LayerCandidate stampTiers(List<LayerCandidate> active,
-            Map<String, Integer> showCoresUsed, String showKey) {
+            Map<String, Integer> showCoresUsed) {
         LayerCandidate head = null;
         for (LayerCandidate candidate : active) {
-            if (showKey == null || showKey.equals(candidate.showKey))
-                candidate.tier = showTier(candidate, showCoresUsed);
+            candidate.tier = showTier(candidate, showCoresUsed);
             if (head == null || candidate.tier < head.tier)
                 head = candidate;
         }
         return head;
     }
 
-    /** The lottery weight of the lowest tier: the range drawSlot draws from. */
+    /** The lottery weight of {@code head}'s tier: the range drawSlot draws from. */
     static long headWeight(List<LayerCandidate> active, LayerCandidate head) {
         long weightSum = 0;
         for (LayerCandidate candidate : active) {
@@ -2934,16 +2917,6 @@ public class Maestro extends JdbcDaoSupport {
                 weightSum += lotteryWeight(candidate);
         }
         return weightSum;
-    }
-
-    /** A candidate of the lowest tier in {@code active}. */
-    private static LayerCandidate lowest(List<LayerCandidate> active) {
-        LayerCandidate head = null;
-        for (LayerCandidate candidate : active) {
-            if (head == null || candidate.tier < head.tier)
-                head = candidate;
-        }
-        return head;
     }
 
     /**
@@ -2963,8 +2936,9 @@ public class Maestro extends JdbcDaoSupport {
     /**
      * The tier of a candidate's show on this allocation: the legacy dispatcher's subscription tier
      * (the database's tier() function) read tick-wide. Cores in use over subscription size; a show
-     * running nothing sorts below every other, at minus its size; a show with no size has no
-     * guarantee and sorts by its cores above every show that has one. Lower runs first.
+     * running nothing sorts below every other, at minus its size; a show with no size scores its
+     * whole cores plus one, so it sorts above every show still under its size, though a sized show
+     * far enough over its size can sort above it. Lower runs first.
      */
     static double showTier(LayerCandidate candidate, Map<String, Integer> showCoresUsed) {
         int cores = showCoresUsed.getOrDefault(candidate.showKey, candidate.showCoresInUse);

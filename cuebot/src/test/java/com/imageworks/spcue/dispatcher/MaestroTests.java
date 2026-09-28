@@ -801,14 +801,17 @@ public class MaestroTests {
         // Bands laid end to end in list order: [0,100) [100,400) [400,401); a
         // priority of zero weighs one, like the query's GREATEST, and a draw
         // past the last band stays on the last candidate.
+        // Candidates without show fields all share tier 0, so any of them heads it.
         List<Maestro.LayerCandidate> active =
                 Arrays.asList(candidate("a", 100, 1), candidate("b", 300, 1), candidate("c", 0, 1));
-        assertEquals(0, Maestro.drawSlot(active, 0));
-        assertEquals(0, Maestro.drawSlot(active, 99));
-        assertEquals(1, Maestro.drawSlot(active, 100));
-        assertEquals(1, Maestro.drawSlot(active, 399));
-        assertEquals(2, Maestro.drawSlot(active, 400));
-        assertEquals(2, Maestro.drawSlot(active, 1000));
+        Maestro.LayerCandidate head = active.get(0);
+        assertEquals(401, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
+        assertEquals(0, Maestro.drawSlot(active, head, 99));
+        assertEquals(1, Maestro.drawSlot(active, head, 100));
+        assertEquals(1, Maestro.drawSlot(active, head, 399));
+        assertEquals(2, Maestro.drawSlot(active, head, 400));
+        assertEquals(2, Maestro.drawSlot(active, head, 1000));
     }
 
     @Test
@@ -862,10 +865,11 @@ public class MaestroTests {
         // draw goes to B, even against A's far higher priority.
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 1000),
                 showCandidate("b", "B", 300, 60, 1));
-        long weight = Maestro.stampTiers(active, new HashMap<>());
-        assertEquals("the draw ranges over B's weight only", 1, weight);
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertSame(active.get(1), head);
+        assertEquals("the draw ranges over B's weight only", 1, Maestro.headWeight(active, head));
         for (long ticket = 0; ticket < 1000; ticket++)
-            assertEquals(1, Maestro.drawSlot(active, ticket));
+            assertEquals(1, Maestro.drawSlot(active, head, ticket));
     }
 
     @Test
@@ -873,11 +877,12 @@ public class MaestroTests {
         // Two layers of B share its tier: the lottery splits by priority.
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 50),
                 showCandidate("b1", "B", 300, 60, 100), showCandidate("b2", "B", 300, 60, 300));
-        assertEquals(400, Maestro.stampTiers(active, new HashMap<>()));
-        assertEquals(1, Maestro.drawSlot(active, 0));
-        assertEquals(1, Maestro.drawSlot(active, 99));
-        assertEquals(2, Maestro.drawSlot(active, 100));
-        assertEquals(2, Maestro.drawSlot(active, 399));
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals(400, Maestro.headWeight(active, head));
+        assertEquals(1, Maestro.drawSlot(active, head, 0));
+        assertEquals(1, Maestro.drawSlot(active, head, 99));
+        assertEquals(2, Maestro.drawSlot(active, head, 100));
+        assertEquals(2, Maestro.drawSlot(active, head, 399));
     }
 
     @Test
@@ -886,26 +891,9 @@ public class MaestroTests {
         Map<String, Integer> used = new HashMap<>();
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
                 showCandidate("b", "B", 100, 20, 1));
-        Maestro.stampTiers(active, used);
-        assertEquals(1, Maestro.drawSlot(active, 0));
+        assertEquals(1, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
         used.put("B\talloc", 70);
-        Maestro.stampTiers(active, used);
-        assertEquals(0, Maestro.drawSlot(active, 0));
-    }
-
-    @Test
-    public void restampingOnlyThePlacedShowMatchesAFullStamp() {
-        Map<String, Integer> used = new HashMap<>();
-        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
-                showCandidate("b1", "B", 100, 20, 1), showCandidate("b2", "B", 100, 20, 1));
-        assertSame(active.get(1), Maestro.stampTiers(active, used, null));
-        used.put("B\talloc", 70);
-        Maestro.LayerCandidate head = Maestro.stampTiers(active, used, "B\talloc");
-        assertSame(active.get(0), head);
-        assertEquals(0.7, active.get(2).tier, 1e-12);
-        assertSame(head, Maestro.stampTiers(active, used, null));
-        assertEquals(1, Maestro.headWeight(active, head));
-        assertEquals(0, Maestro.drawSlot(active, head, 0));
+        assertEquals(0, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
     }
 
     @Test
@@ -914,8 +902,9 @@ public class MaestroTests {
         List<Maestro.LayerCandidate> active = new ArrayList<>(Arrays
                 .asList(showCandidate("a", "A", 100, 80, 1), showCandidate("b", "B", 300, 60, 1)));
         active.remove(1);
-        assertEquals(1, Maestro.stampTiers(active, new HashMap<>()));
-        assertEquals(0, Maestro.drawSlot(active, 0));
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals(1, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
     }
 
     // ---- the commit chunks and the leader ---------------------------------

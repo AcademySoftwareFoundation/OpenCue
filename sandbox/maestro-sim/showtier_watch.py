@@ -11,8 +11,10 @@ The verdict reads the last WINDOW_S seconds of samples, past the first fill
 and one replacement wave, and needs contention (both shows still waiting)
 and a full farm, or it is INCONCLUSIVE.
 
-PASS      : mean tiers within TIER_GAP of each other, nobody above burst.
-FAIL      : the disease. The tiers differ by more than TIER_GAP (the slot
+The gap is relative: (higher mean tier - lower) / higher.
+
+PASS      : mean tier gap within TIER_GAP, nobody above burst.
+FAIL      : the disease. The tier gap exceeds TIER_GAP (the slot
             draw split the allocation by priority, not by size), or a show
             ran above its burst.
 INCONCLUSIVE: the farm never filled, or a show ran out of waiting frames.
@@ -75,7 +77,7 @@ def sample():
 
 def main():
     print(f"watching SHOWTIER for {DURATION}s. PASS needs the two tiers (cores over "
-          f"subscription size) within {TIER_GAP:.2f} of each other over the last "
+          f"subscription size) within a relative gap of {TIER_GAP:.2f} over the last "
           f"{WINDOW_S:.0f}s, nobody above burst, both shows still waiting.\n", flush=True)
     t0 = time.time()
     rows = []
@@ -127,13 +129,13 @@ def main():
     elif over_burst > 0:
         print(f"FAIL: a show ran above its burst in {over_burst} samples.", flush=True)
     elif gap > TIER_GAP:
-        print(f"FAIL: the tiers differ by {gap:.2f} (> {TIER_GAP:.2f}). The slot draw split "
+        print(f"FAIL: relative tier gap {gap:.2f} (> {TIER_GAP:.2f}). The slot draw split "
               f"the allocation by priority, not by subscription size: the small show runs "
               f"over its size while the large one sits under it.", flush=True)
     else:
-        print(f"PASS: tiers within {gap:.2f} of each other; the allocation is shared in "
-              f"proportion to size, nobody above burst, at {peak_util:.1f}% peak "
-              f"utilization.", flush=True)
+        print(f"PASS: relative tier gap {gap:.2f} (<= {TIER_GAP:.2f}); the allocation is "
+              f"shared in proportion to size, nobody above burst, at {peak_util:.1f}% "
+              f"peak utilization.", flush=True)
 
 
 if __name__ == "__main__":
