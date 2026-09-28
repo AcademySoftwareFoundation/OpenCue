@@ -192,7 +192,7 @@ mod tests {
     use config::{Config as ConfigBase, File, FileFormat};
     use tempfile::Builder;
 
-    use super::{deserialize_with_unknown_keys, Config, MachineConfig};
+    use super::{deserialize_with_unknown_keys, expand_home, Config, MachineConfig};
 
     /// Deserializes `yaml` the same way RQD does at startup, returning the config and the
     /// sorted list of unrecognized keys.
@@ -364,6 +364,31 @@ machine:
             }
         }
         assert!(offenders.is_empty(), "unrecognized keys: {offenders:#?}");
+    }
+
+    #[test]
+    fn expand_home_resolves_leading_tilde() {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .expect("tests need a home directory");
+
+        assert_eq!(
+            expand_home("~/.local/share/rqd.yaml"),
+            format!("{home}/.local/share/rqd.yaml")
+        );
+        assert_eq!(expand_home("~"), home);
+    }
+
+    #[test]
+    fn expand_home_leaves_other_paths_alone() {
+        for path in [
+            "/etc/openrqd/rqd.yaml",
+            "config/rqd.yaml",
+            "~user/rqd.yaml",
+            "config/~/rqd.yaml",
+        ] {
+            assert_eq!(expand_home(path), path);
+        }
     }
 
     #[test]
@@ -803,13 +828,29 @@ fn config_key_path(path: &serde_ignored::Path) -> String {
     }
 }
 
+/// Expands a leading `~` in `path` to the user's home directory.
+///
+/// The config crate takes file paths literally, so an unexpanded `~/.local/share/rqd.yaml` is
+/// looked up under a directory named `~` inside the working directory. `~user/...` forms are
+/// left untouched, as is the whole path when no home directory can be determined.
+fn expand_home(path: &str) -> String {
+    let rest = match path.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => rest,
+        _ => return path.to_string(),
+    };
+    match env::var("HOME").or_else(|_| env::var("USERPROFILE")) {
+        Ok(home) => format!("{home}{rest}"),
+        Err(_) => path.to_string(),
+    }
+}
+
 impl Config {
     /// Returns the config file path and whether its presence is required (it is when the
     /// operator pointed at it explicitly via `OPENCUE_RQD_CONFIG`).
     fn config_file_source() -> (String, bool) {
         match env::var("OPENCUE_RQD_CONFIG") {
-            Ok(v) => (v, true),
-            Err(_) => (DEFAULT_CONFIG_FILE.to_string(), false),
+            Ok(v) => (expand_home(&v), true),
+            Err(_) => (expand_home(DEFAULT_CONFIG_FILE), false),
         }
     }
 
