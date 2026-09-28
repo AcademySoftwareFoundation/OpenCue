@@ -2743,27 +2743,19 @@ public class Maestro extends JdbcDaoSupport {
                 maxGroupHostCores = h.coresTotal;
         }
         takeTickWideRemainder(candidates, plannedFramesByLayer, seenLayerIds);
-        for (LayerCandidate c : candidates)
-            c.showKey = subKey(c.showId, groupAllocId);
+        for (LayerCandidate candidate : candidates)
+            candidate.showKey = subKey(candidate.showId, groupAllocId);
 
-        // Placement slots: every slot goes first to the show with the lowest
-        // tier on this allocation (cores in use over subscription size, read
-        // tick-wide so this tick's placements count), which is the legacy
-        // dispatcher's show walk applied per placement: a show under its size
-        // beats a show over it, shows under size share in proportion to size,
-        // and burst stays the ceiling. Inside that show the slot goes to a
-        // candidate drawn with probability proportional to its job priority
-        // among the candidates that can still place, until none can: the
-        // candidate query's own draw (power(random(), 1/priority)) applied per
-        // placement instead of once per tick, so a tick's capacity splits by
-        // priority however much of it there is. A candidate leaves the draw
-        // when it places nothing (capped, out of probe headroom, no host left)
-        // or runs out of frames; a show whose candidates all left yields the
-        // slot to the next tier in the same tick.
+        // Hand out placements one at a time until no candidate can place. Each
+        // placement goes to the show with the lowest tier (cores in use over
+        // subscription size, updated after every placement), as the legacy
+        // dispatcher does. Within that show, a candidate is drawn weighted by
+        // job priority. A candidate that places nothing or runs out of frames
+        // leaves the draw; once a show has none left, the next tier takes over.
         List<LayerCandidate> active = new ArrayList<>(candidates.size());
-        for (LayerCandidate c : candidates) {
-            if (c.waitingFrameCount > 0)
-                active.add(c);
+        for (LayerCandidate candidate : candidates) {
+            if (candidate.waitingFrameCount > 0)
+                active.add(candidate);
         }
         String restamp = null; // null: stamp every candidate; then only the last drawn show
         while (!active.isEmpty()) {
@@ -2771,15 +2763,15 @@ public class Maestro extends JdbcDaoSupport {
             long weightSum = headWeight(active, head);
             int idx = drawSlot(active, head,
                     (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
-            LayerCandidate c = active.get(idx);
-            int got = placeOnce(c, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+            LayerCandidate drawn = active.get(idx);
+            int got = placeOnce(drawn, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
                     limitSeats);
             // A slot moves only its own show's cores and the tick's totals.
-            restamp = c.showKey;
+            restamp = drawn.showKey;
             if (got > 0)
                 dispatched += got;
-            if (got <= 0 || c.waitingFrameCount <= 0) {
+            if (got <= 0 || drawn.waitingFrameCount <= 0) {
                 active.set(idx, active.get(active.size() - 1));
                 active.remove(active.size() - 1);
             }
@@ -2887,25 +2879,25 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * The winner of one slot among the candidates of the lowest tier in {@code active} (see
-     * stampTiers): their lotteryWeight bands laid end to end in list order, r in [0, their weight
-     * sum). The last of them absorbs any rounding, so a draw never falls outside the tier.
+     * stampTiers): their lotteryWeight bands laid end to end in list order, ticket in [0, their
+     * weight sum). The last of them absorbs any rounding, so a draw never falls outside the tier.
      */
-    static int drawSlot(List<LayerCandidate> active, long r) {
-        return drawSlot(active, lowest(active), r);
+    static int drawSlot(List<LayerCandidate> active, long ticket) {
+        return drawSlot(active, lowest(active), ticket);
     }
 
     /** As above, with the lowest tier's candidate already known (see stampTiers). */
-    static int drawSlot(List<LayerCandidate> active, LayerCandidate low, long r) {
-        int last = 0;
-        for (int i = 0; i < active.size(); i++) {
-            LayerCandidate c = active.get(i);
-            if (c.tier > low.tier)
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, long ticket) {
+        int lastInTier = 0;
+        for (int index = 0; index < active.size(); index++) {
+            LayerCandidate candidate = active.get(index);
+            if (candidate.tier > head.tier)
                 continue;
-            last = i;
-            if ((r -= lotteryWeight(c)) < 0)
-                return i;
+            lastInTier = index;
+            if ((ticket -= lotteryWeight(candidate)) < 0)
+                return index;
         }
-        return last;
+        return lastInTier;
     }
 
     /**
@@ -2924,36 +2916,34 @@ public class Maestro extends JdbcDaoSupport {
      */
     static LayerCandidate stampTiers(List<LayerCandidate> active,
             Map<String, Integer> showCoresUsed, String showKey) {
-        LayerCandidate low = null;
-        for (LayerCandidate c : active) {
-            if (showKey == null || showKey.equals(c.showKey))
-                c.tier = showTier(c, showCoresUsed);
-            if (low == null || c.tier < low.tier)
-                low = c;
+        LayerCandidate head = null;
+        for (LayerCandidate candidate : active) {
+            if (showKey == null || showKey.equals(candidate.showKey))
+                candidate.tier = showTier(candidate, showCoresUsed);
+            if (head == null || candidate.tier < head.tier)
+                head = candidate;
         }
-        return low;
+        return head;
     }
 
     /** The lottery weight of the lowest tier: the range drawSlot draws from. */
-    static long headWeight(List<LayerCandidate> active, LayerCandidate low) {
+    static long headWeight(List<LayerCandidate> active, LayerCandidate head) {
         long weightSum = 0;
-        for (LayerCandidate c : active) {
-            if (c.tier <= low.tier)
-                weightSum += lotteryWeight(c);
+        for (LayerCandidate candidate : active) {
+            if (candidate.tier <= head.tier)
+                weightSum += lotteryWeight(candidate);
         }
         return weightSum;
     }
 
-    /**
-     * A candidate of the lowest tier in {@code active}.
-     */
+    /** A candidate of the lowest tier in {@code active}. */
     private static LayerCandidate lowest(List<LayerCandidate> active) {
-        LayerCandidate low = null;
-        for (LayerCandidate c : active) {
-            if (low == null || c.tier < low.tier)
-                low = c;
+        LayerCandidate head = null;
+        for (LayerCandidate candidate : active) {
+            if (head == null || candidate.tier < head.tier)
+                head = candidate;
         }
-        return low;
+        return head;
     }
 
     /**
@@ -2976,13 +2966,13 @@ public class Maestro extends JdbcDaoSupport {
      * running nothing sorts below every other, at minus its size; a show with no size has no
      * guarantee and sorts by its cores above every show that has one. Lower runs first.
      */
-    static double showTier(LayerCandidate c, Map<String, Integer> showCoresUsed) {
-        int cores = showCoresUsed.getOrDefault(c.showKey, c.showCoresInUse);
-        if (c.showSizeCores == 0)
+    static double showTier(LayerCandidate candidate, Map<String, Integer> showCoresUsed) {
+        int cores = showCoresUsed.getOrDefault(candidate.showKey, candidate.showCoresInUse);
+        if (candidate.showSizeCores == 0)
             return cores / 100.0 + 1;
         if (cores == 0)
-            return -c.showSizeCores;
-        return (double) cores / c.showSizeCores;
+            return -candidate.showSizeCores;
+        return (double) cores / candidate.showSizeCores;
     }
 
     /** Tick-wide cap state of one candidate, read fresh at every slot and once in the epilogue. */

@@ -834,12 +834,12 @@ public class MaestroTests {
      */
     private static Maestro.LayerCandidate showCandidate(String layerId, String show, int size,
             int cores, int priority) {
-        Maestro.LayerCandidate c = candidate(layerId, priority, 10);
-        c.showId = show;
-        c.showKey = show + "\talloc";
-        c.showSizeCores = size;
-        c.showCoresInUse = cores;
-        return c;
+        Maestro.LayerCandidate showCandidate = candidate(layerId, priority, 10);
+        showCandidate.showId = show;
+        showCandidate.showKey = show + "\talloc";
+        showCandidate.showSizeCores = size;
+        showCandidate.showCoresInUse = cores;
+        return showCandidate;
     }
 
     @Test
@@ -864,8 +864,8 @@ public class MaestroTests {
                 showCandidate("b", "B", 300, 60, 1));
         long weight = Maestro.stampTiers(active, new HashMap<>());
         assertEquals("the draw ranges over B's weight only", 1, weight);
-        for (long r = 0; r < 1000; r++)
-            assertEquals(1, Maestro.drawSlot(active, r));
+        for (long ticket = 0; ticket < 1000; ticket++)
+            assertEquals(1, Maestro.drawSlot(active, ticket));
     }
 
     @Test
