@@ -192,16 +192,15 @@ public abstract class AbstractDispatcher {
      * render is alive the frame gets re-booked onto a second host while this one keeps rendering.
      * The resolution confirms the frame's state first and only releases the booking when the frame
      * is confirmed not running, keeping it otherwise (see
-     * {@link DispatchSupport#resolveUnknownLaunchOutcome}).
+     * {@link DispatchSupport#resolveUnknownLaunchOutcome}). It runs on the confirmation pool: the
+     * booking is kept, which is the safe state, while this thread moves on to other hosts.
      */
     private void handleUnknownLaunchOutcome(DispatchFrame frame, VirtualProc proc,
             RqdLaunchUnknownOutcomeException e) {
         DispatchSupport.bookingErrors.incrementAndGet();
         logger.warn("launch outcome unknown booking proc " + proc + " on frame " + frame.getName()
-                + ", resolving before any release, " + e);
-        boolean released = dispatchSupport.resolveUnknownLaunchOutcome(proc, frame);
-        logger.info("launch outcome resolution for " + frame.getName() + " on " + proc.getName()
-                + ": booking " + (released ? "released" : "kept"));
+                + ", keeping the booking until resolved, " + e);
+        dispatchSupport.resolveUnknownLaunchOutcomeAsync(proc, frame);
     }
 
     public void dispatch(DispatchFrame frame, VirtualProc proc) {

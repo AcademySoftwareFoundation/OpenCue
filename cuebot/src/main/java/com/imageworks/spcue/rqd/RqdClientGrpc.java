@@ -62,17 +62,37 @@ public final class RqdClientGrpc implements RqdClient {
     private final int rqdCacheConcurrency;
     private final int rqdServerPort;
     private final int rqdTaskDeadlineSeconds;
+    private final HostLaunchBreaker launchBreaker;
     private LoadingCache<String, ManagedChannel> channelCache;
 
     private boolean testMode = false;
 
+    /** Client without a launch breaker. */
     public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration,
             int rqdCacheConcurrency, int rqdTaskDeadline) {
+        this(rqdServerPort, rqdCacheSize, rqdCacheExpiration, rqdCacheConcurrency, rqdTaskDeadline,
+                0, 0);
+    }
+
+    /**
+     * @param launchBreakerFailures consecutive unknown-outcome launches after which a host is
+     *        skipped for {@code launchBreakerCooldownSeconds}; zero disables the breaker
+     */
+    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration,
+            int rqdCacheConcurrency, int rqdTaskDeadline, int launchBreakerFailures,
+            int launchBreakerCooldownSeconds) {
         this.rqdServerPort = rqdServerPort;
         this.rqdCacheSize = rqdCacheSize;
         this.rqdCacheExpiration = rqdCacheExpiration;
         this.rqdCacheConcurrency = rqdCacheConcurrency;
         this.rqdTaskDeadlineSeconds = rqdTaskDeadline;
+        this.launchBreaker =
+                new HostLaunchBreaker(launchBreakerFailures, 1000L * launchBreakerCooldownSeconds);
+        if (launchBreaker.isEnabled()) {
+            logger.info("RQD launch breaker enabled: a host is skipped for "
+                    + launchBreakerCooldownSeconds + "s after " + launchBreakerFailures
+                    + " consecutive launches with unknown outcome");
+        }
     }
 
     private void buildChannelCache() {
@@ -300,6 +320,7 @@ public final class RqdClientGrpc implements RqdClient {
 
         try {
             getStub(proc.hostName).launchFrame(request);
+            launchBreaker.recordAnswered(proc.hostName);
         } catch (StatusRuntimeException e) {
             // Log the underlying cause: the caller only sees a generic
             // RqdClientException, which hides why the launch failed (e.g. an
@@ -309,11 +330,14 @@ public final class RqdClientGrpc implements RqdClient {
                     "failed to launch frame on " + proc.hostName + ":" + rqdServerPort + ": " + e,
                     e);
             if (LAUNCH_OUTCOME_UNKNOWN_CODES.contains(e.getStatus().getCode())) {
+                launchBreaker.recordUnknownOutcome(proc.hostName, e);
                 throw new RqdLaunchUnknownOutcomeException(
                         "failed to launch frame " + frame.getFrameId() + " on " + proc.hostName
                                 + ", outcome unknown: the frame may be running",
                         e);
             }
+            // A refusal is still an answer: the host is responsive.
+            launchBreaker.recordAnswered(proc.hostName);
             throw new RqdClientException("failed to launch frame", e);
         } catch (ExecutionException e) {
             // The channel could not even be created; the request was never sent.
@@ -322,6 +346,11 @@ public final class RqdClientGrpc implements RqdClient {
                     e);
             throw new RqdClientException("failed to launch frame", e);
         }
+    }
+
+    @Override
+    public boolean isLaunchBreakerOpen(String hostName) {
+        return launchBreaker.isOpen(hostName);
     }
 
     @Override
