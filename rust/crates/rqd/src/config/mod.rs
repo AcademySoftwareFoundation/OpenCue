@@ -14,7 +14,7 @@ pub mod error;
 
 use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
-use config::{Config as ConfigBase, Environment, File};
+use config::{Config as ConfigBase, ConfigError, Environment, File};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -186,11 +186,26 @@ impl Default for MachineConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::{fs, io::Write, path::Path};
 
+    use bytesize::ByteSize;
+    use config::{Config as ConfigBase, File, FileFormat};
     use tempfile::Builder;
 
-    use super::{Config, MachineConfig};
+    use super::{deserialize_with_unknown_keys, Config, MachineConfig};
+
+    /// Deserializes `yaml` the same way RQD does at startup, returning the config and the
+    /// sorted list of unrecognized keys.
+    fn parse_yaml(yaml: &str) -> (Config, Vec<String>) {
+        let source = ConfigBase::builder()
+            .add_source(File::from_str(yaml, FileFormat::Yaml))
+            .build()
+            .expect("config should build");
+        let (config, mut unknown_keys) =
+            deserialize_with_unknown_keys(source).expect("config should deserialize");
+        unknown_keys.sort();
+        (config, unknown_keys)
+    }
 
     #[test]
     fn machine_config_defaults_to_unlocked_nimby_startup() {
@@ -224,6 +239,131 @@ mod tests {
 
         assert!(config.machine.nimby_mode);
         assert!(config.machine.nimby_lock_by_default);
+    }
+
+    #[test]
+    fn override_real_values_loads_from_machine_section() {
+        let (config, unknown_keys) = parse_yaml(
+            r#"
+machine:
+  override_real_values:
+    cores: 4
+    procs: 2
+    memory_size: "2GB"
+    workstation_mode: true
+    hostname: "some_host_name"
+    os: "rocky9"
+"#,
+        );
+
+        assert!(unknown_keys.is_empty(), "unexpected: {unknown_keys:?}");
+        let overrides = config
+            .machine
+            .override_real_values
+            .expect("override_real_values should load");
+        assert_eq!(overrides.cores, Some(4));
+        assert_eq!(overrides.procs, Some(2));
+        assert_eq!(overrides.memory_size, Some(ByteSize::gb(2)));
+        assert_eq!(overrides.workstation_mode, Some(true));
+        assert_eq!(overrides.hostname.as_deref(), Some("some_host_name"));
+        assert_eq!(overrides.os.as_deref(), Some("rocky9"));
+    }
+
+    #[test]
+    fn misplaced_override_is_reported_as_unknown() {
+        // Verbatim from issue #2531: machine keys nested under `runner:` were silently dropped.
+        let (config, unknown_keys) = parse_yaml(
+            r#"
+runner:
+  monitor_interval_seconds: 3
+  use_ip_as_hostname: false
+  override_real_values:
+    cores: 4
+    procs: 8
+    memory: "2Gb"
+    desktop_mode: true
+    hostname: "some_host_name"
+"#,
+        );
+
+        assert_eq!(
+            unknown_keys,
+            [
+                "runner.monitor_interval_seconds",
+                "runner.override_real_values",
+                "runner.use_ip_as_hostname",
+            ]
+        );
+        assert!(config.machine.override_real_values.is_none());
+    }
+
+    #[test]
+    fn misspelled_override_field_is_reported_as_unknown() {
+        let (config, unknown_keys) = parse_yaml(
+            r#"
+machine:
+  override_real_values:
+    memory: "2GB"
+    desktop_mode: true
+"#,
+        );
+
+        assert_eq!(
+            unknown_keys,
+            [
+                "machine.override_real_values.desktop_mode",
+                "machine.override_real_values.memory",
+            ]
+        );
+        let overrides = config.machine.override_real_values.unwrap_or_default();
+        assert_eq!(overrides.memory_size, None);
+        assert_eq!(overrides.workstation_mode, None);
+    }
+
+    #[test]
+    fn empty_placeholder_keys_are_not_reported() {
+        let (config, unknown_keys) = parse_yaml(
+            r#"
+logging:
+  "": ""
+  level: info
+machine:
+  "": ""
+"#,
+        );
+
+        assert!(unknown_keys.is_empty(), "unexpected: {unknown_keys:?}");
+        assert_eq!(config.logging.level, "info");
+    }
+
+    #[test]
+    fn sample_configs_have_no_unknown_keys() {
+        let config_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config");
+        let mut samples: Vec<_> = fs::read_dir(&config_dir)
+            .expect("rust/config should be readable")
+            .map(|entry| entry.expect("dir entry").path())
+            .filter(|path| {
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                name.starts_with("rqd") && name.ends_with(".yaml")
+            })
+            .collect();
+        samples.sort();
+        assert!(!samples.is_empty(), "no rqd*.yaml under {config_dir:?}");
+
+        let mut offenders = Vec::new();
+        for sample in samples {
+            let source = ConfigBase::builder()
+                .add_source(File::from(sample.as_path()))
+                .build()
+                .unwrap_or_else(|err| panic!("{sample:?} should build: {err}"));
+            let (_, mut unknown_keys) = deserialize_with_unknown_keys(source)
+                .unwrap_or_else(|err| panic!("{sample:?} should deserialize: {err}"));
+            if !unknown_keys.is_empty() {
+                unknown_keys.sort();
+                offenders.push((sample.file_name().unwrap().to_owned(), unknown_keys));
+            }
+        }
+        assert!(offenders.is_empty(), "unrecognized keys: {offenders:#?}");
     }
 
     #[test]
@@ -627,6 +767,42 @@ pub struct Config {
     pub runner: RunnerConfig,
 }
 
+/// Deserializes `source` into a [`Config`], also returning the dotted path of every key that
+/// matched no config field (e.g. `runner.override_real_values`). Serde drops unknown keys
+/// silently, so without this a misplaced or misspelled key simply has no effect.
+///
+/// Empty keys are not reported: the sample `rqd.yaml` uses `"": ""` placeholders so that a
+/// section whose keys are all commented out still parses as a map.
+fn deserialize_with_unknown_keys(source: ConfigBase) -> Result<(Config, Vec<String>), ConfigError> {
+    let mut unknown_keys = Vec::new();
+    let config = serde_ignored::deserialize(source, |path| {
+        if !matches!(&path, serde_ignored::Path::Map { key, .. } if key.is_empty()) {
+            unknown_keys.push(config_key_path(&path));
+        }
+    })?;
+    Ok((config, unknown_keys))
+}
+
+/// Renders an ignored-key path the way it is written in the config file, e.g.
+/// `machine.override_real_values.memory`. `serde_ignored`'s own `Display` adds a `?` segment
+/// for every `Option` or newtype on the way (`machine.override_real_values.?.memory`).
+fn config_key_path(path: &serde_ignored::Path) -> String {
+    use serde_ignored::Path;
+
+    let (parent, segment) = match path {
+        Path::Root => return String::new(),
+        Path::Seq { parent, index } => (parent, index.to_string()),
+        Path::Map { parent, key } => (parent, key.clone()),
+        Path::Some { parent }
+        | Path::NewtypeStruct { parent }
+        | Path::NewtypeVariant { parent } => return config_key_path(parent),
+    };
+    match config_key_path(parent) {
+        prefix if prefix.is_empty() => segment,
+        prefix => format!("{prefix}.{segment}"),
+    }
+}
+
 impl Config {
     /// Returns the config file path and whether its presence is required (it is when the
     /// operator pointed at it explicitly via `OPENCUE_RQD_CONFIG`).
@@ -638,9 +814,10 @@ impl Config {
     }
 
     /// Reads and deserializes the config from its sources (config file + `OPENRQD` environment
-    /// variables) without performing any filesystem setup. Used both by the initial [`load`]
-    /// and by the watcher re-reading the file at runtime.
-    fn read_sources() -> Result<Self, RqdConfigError> {
+    /// variables) without performing any filesystem setup, returning it along with any keys
+    /// that matched no config field. Used both by the initial [`load`] and by the watcher
+    /// re-reading the file at runtime.
+    fn read_sources() -> Result<(Self, Vec<String>), RqdConfigError> {
         let (config_file, required) = Self::config_file_source();
 
         let config = ConfigBase::builder()
@@ -658,7 +835,7 @@ impl Config {
                 ))
             })?;
 
-        Config::deserialize(config).map_err(|err| {
+        deserialize_with_unknown_keys(config).map_err(|err| {
             RqdConfigError::LoadConfigError(format!(
                 "{:?} config could not be deserialized. {}",
                 &config_file, err
@@ -671,7 +848,15 @@ impl Config {
         let (config_file, _) = Self::config_file_source();
         println!(" INFO Config::load: using config file: {:?}", config_file);
 
-        let deserialized_config = Self::read_sources()?;
+        let (deserialized_config, unknown_keys) = Self::read_sources()?;
+        // Tracing is not set up yet (its level comes from this config), hence println.
+        for key in unknown_keys {
+            println!(
+                " WARN Config::load: ignoring unrecognized config key {:?}. \
+                 Check that it is spelled correctly and placed under the right section",
+                key
+            );
+        }
 
         Self::setup(&deserialized_config)?;
 
@@ -781,8 +966,9 @@ pub async fn watch_live_config() {
     loop {
         ticker.tick().await;
 
+        // Unknown keys were already reported at startup; don't repeat them on every tick.
         let new_config = match Config::read_sources() {
-            Ok(config) => config,
+            Ok((config, _unknown_keys)) => config,
             Err(err) => {
                 warn!("Skipping config reload, config re-read failed: {err}");
                 continue;
