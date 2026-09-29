@@ -258,12 +258,12 @@ public class Maestro extends JdbcDaoSupport {
     // Probe frames planned this tick per unproven layer.
     private final Map<String, Integer> layerProbeUsed = new HashMap<>();
 
-    // Tick-scoped frame-slice bookkeeping for same-layer multi-host planning
-    // (the relax pass): frames planned per layer this tick, and each
-    // (host|layer) plan's {starting offset, size} slice of the layer's
-    // waiting list, so the parallel plan reads pull disjoint frames and
-    // deliver exactly what the scoring accounted.
+    // Tick-scoped frame slices, so a layer planned on several hosts has its parallel plan reads
+    // pull disjoint frames and deliver exactly what the scoring accounted.
+    // layerId -> frames planned for the layer so far this tick (where its next slice starts).
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
+    // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
+    // count}. A pair holds one slice per slot the draw gave it this tick.
     private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
     // effective memory KB}, read by planBookings so the commit books the same shape the
@@ -1544,12 +1544,17 @@ public class Maestro extends JdbcDaoSupport {
     private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId, String layerId,
             int planZeroWarnTicks) {
         LayerInterface layer = jobManager.getLayer(layerId);
-        long[] rz = layerResize.get(layerId);
-        List<int[]> slices = planSliceByHostLayer.get(hostId + "|" + layerId);
+        long[] resize = layerResize.get(layerId);
+        int effCores = resize != null ? (int) resize[0] : 0;
+        long effMemKb = resize != null ? resize[1] : 0;
+        // No recorded slice: a single {0, 0} slice, which planHost reads as "no slice limit".
+        List<int[]> slices = planSliceByHostLayer.getOrDefault(hostId + "|" + layerId,
+                List.of(new int[] {0, 0}));
         List<FrameBooking> got = new ArrayList<>();
-        for (int[] slice : slices != null ? slices : Collections.singletonList(new int[] {0, 0})) {
-            got.addAll(dispatcher.planHost(host, layer, rz != null ? (int) rz[0] : 0,
-                    rz != null ? rz[1] : 0, slice[0], slice[1]));
+        for (int[] slice : slices) {
+            int offset = slice[0];
+            int frameCount = slice[1];
+            got.addAll(dispatcher.planHost(host, layer, effCores, effMemKb, offset, frameCount));
         }
         if (got.isEmpty()) {
             int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
@@ -2893,28 +2898,38 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The draw weight of a job priority: priority to the {@link #PRIORITY_EXPONENT}, floored at 1
-     * like the query's GREATEST. The curve decides how much a priority gap is worth: linear shares
-     * cores in proportion to priority, legacy's job walk gives everything to the higher job; 1.5
-     * sits between, 80 against 30 draws 81 to 19.
+     * The weight of a job in the placement draw, computed from its priority. The higher the weight,
+     * the larger the share of this tick's slots the job wins.
+     *
+     * Each slot goes to a candidate picked at random, with odds proportional to its weight: a
+     * higher priority wins more slots, but a lower one still gets some. The weight is the priority
+     * raised to PRIORITY_EXPONENT, with priorities below 1 counted as 1 (like the candidate query's
+     * GREATEST). The exponent decides how much a priority gap is worth. For two jobs competing for
+     * the same slots, priority 80 against 30, the higher job wins 73% of slots with a linear weight
+     * (80 vs 30), 81% with the 1.5 exponent (716 vs 164), and all of them under legacy's job walk,
+     * until it runs out of frames.
+     *
+     * Equal priorities split slots evenly. The weight is per job; stampDrawWeights splits it among
+     * the job's layers.
      */
-    static double lotteryWeight(LayerCandidate c) {
-        return Math.pow(Math.max(1, c.priority), PRIORITY_EXPONENT);
+    static double lotteryWeight(LayerCandidate candidate) {
+        return Math.pow(Math.max(1, candidate.priority), PRIORITY_EXPONENT);
     }
 
     /**
      * The winner of one slot among the candidates of {@code head}'s tier (see stampTiers): their
-     * drawWeight bands (see headWeight) laid end to end in list order, r in [0, headWeight). The
-     * last of them absorbs any rounding, so a draw never falls outside the tier.
+     * drawWeight bands (see headWeight) laid end to end in list order, ticket in [0, headWeight).
+     * The last of them absorbs any rounding, so a draw never falls outside the tier.
      */
-    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, double r) {
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, double ticket) {
         int lastInTier = 0;
         for (int index = 0; index < active.size(); index++) {
             LayerCandidate candidate = active.get(index);
             if (candidate.tier > head.tier)
                 continue;
             lastInTier = index;
-            if ((r -= candidate.drawWeight) < 0)
+            ticket -= candidate.drawWeight;
+            if (ticket < 0)
                 return index;
         }
         return lastInTier;
@@ -3644,10 +3659,8 @@ public class Maestro extends JdbcDaoSupport {
      * doTick drains plannedByHost via planHost + startFramesAndProcsBatch.
      */
     private void submitCommit(String hostId, String layerId, int estFrames) {
-        // Slice bookkeeping: this plan starts where the layer's earlier plans
-        // this tick end, so parallel plan reads pull disjoint frames. A pair
-        // may plan several slices a tick: every slot the draw gives a layer
-        // is its to place.
+        // Start this slice where the layer's previous one ended, so parallel plan reads never
+        // pull the same frames. A (host, layer) pair gets one slice per slot the draw gives it.
         List<int[]> slices = planSliceByHostLayer.computeIfAbsent(hostId + "|" + layerId,
                 k -> new ArrayList<>());
         if (slices.isEmpty())
