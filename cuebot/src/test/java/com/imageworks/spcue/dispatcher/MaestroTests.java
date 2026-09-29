@@ -17,6 +17,7 @@ package com.imageworks.spcue.dispatcher;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -929,6 +930,41 @@ public class MaestroTests {
         assertEquals(1, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
         used.put("B\talloc", 70);
         assertEquals(0, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
+    }
+
+    private static Maestro.LayerCandidate other() {
+        Maestro.LayerCandidate o = layer(CORE, GB, 0, 0);
+        o.layerId = "other";
+        o.jobId = "otherJob";
+        o.rssProven = true;
+        return o;
+    }
+
+    /** Whether some candidate other than c could still use h, as the soft cap asks it. */
+    private static boolean othersWant(Maestro s, Maestro.BookableHost h, Maestro.LayerCandidate c,
+            Maestro.LayerCandidate o) throws Exception {
+        Method m = null;
+        for (Method x : Maestro.class.getDeclaredMethods())
+            if (x.getName().equals("othersWant"))
+                m = x;
+        m.setAccessible(true);
+        return (Boolean) m.invoke(s, h, c, Arrays.asList(c, o), "alloc", new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
+
+    @Test
+    public void theSoftCapYieldsToWantersOfLowerPriorityOnly() throws Exception {
+        // The cap spreads a layer among its peers; work the draw ranks below
+        // it does not hold the host against it.
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        Maestro.LayerCandidate o = other();
+        Maestro s = new Maestro();
+        o.priority = c.priority;
+        assertTrue(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
+        o.priority = c.priority + 1;
+        assertTrue(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
+        o.priority = c.priority - 1;
+        assertFalse(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
     }
 
     @Test

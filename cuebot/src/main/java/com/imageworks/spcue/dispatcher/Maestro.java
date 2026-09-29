@@ -2139,10 +2139,11 @@ public class Maestro extends JdbcDaoSupport {
      * The soft cap's yield test: whether another candidate of this group could still use host h.
      * True when some other layer has waiting frames, fits the host as it stands now, is under its
      * own per-host cap there, and is not held by its job cap, show burst or a full limit, all read
-     * against the tick-wide usage maps. The cap is a contention rule: while other work waits for a
-     * machine, no layer takes more than its share of it; with nobody else able to use the machine,
-     * holding the cap would only strand it. Candidates later in the draw count as waiting, which is
-     * the point: the yield must not run ahead of their turn.
+     * against the tick-wide usage maps. The cap is a contention rule among peers: while work of
+     * equal or higher priority waits for a machine, no layer takes more than its share of it; with
+     * nobody else able to use the machine, holding the cap would only strand it, and holding it for
+     * lower-priority work would hand that work the cores the draw gave this layer. Candidates later
+     * in the draw count as waiting, which is the point: the yield must not run ahead of their turn.
      */
     private boolean othersWant(BookableHost h, LayerCandidate c, List<LayerCandidate> candidates,
             String groupAllocId, Map<String, Integer> jobCoresUsed,
@@ -2150,6 +2151,8 @@ public class Maestro extends JdbcDaoSupport {
             Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
         for (LayerCandidate o : candidates) {
             if (o == c || o.waitingFrameCount <= 0 || !pinsAllow(o, h) || !fitsOnHost(o, h))
+                continue;
+            if (lotteryWeight(o) < lotteryWeight(c))
                 continue;
             if (hostLayerFrames.getOrDefault(h.hostId + "|" + o.layerId, 0) >= layerHostCap(h, o))
                 continue;
