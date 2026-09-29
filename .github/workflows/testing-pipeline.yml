@@ -9,7 +9,7 @@ on:
 jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.9
     steps:
       - uses: actions/checkout@v7
@@ -23,7 +23,7 @@ jobs:
 
   build_opencue_packages:
     name: Build Python Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -70,7 +70,7 @@ jobs:
   install_opencue_packages:
     needs: build_opencue_packages
     name: Test installing packages with python ${{ matrix.python-version }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -104,7 +104,7 @@ jobs:
   test_python_2023:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v7
@@ -136,7 +136,7 @@ jobs:
   test_cuebot_2023:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -149,7 +149,7 @@ jobs:
   test_python_2024:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024
     steps:
       - name: Checkout
@@ -183,7 +183,7 @@ jobs:
   test_cuebot_2024:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2024
     steps:
@@ -196,7 +196,7 @@ jobs:
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -236,7 +236,7 @@ jobs:
   lint_python:
     needs: build_opencue_packages
     name: Lint Python Code
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024.1
     steps:
       - name: Checkout
@@ -272,7 +272,7 @@ jobs:
   test_sphinx:
     needs: build_opencue_packages
     name: Test Documentation Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -289,7 +289,7 @@ jobs:
 
   check_changed_files:
     name: Check Changed Files
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -305,7 +305,7 @@ jobs:
 
   check_migration_files:
     name: Check Database Migration Files
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Check Migration Files
@@ -313,7 +313,7 @@ jobs:
 
   check_for_version_bump:
     name: Check for Version Bump
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -329,7 +329,7 @@ jobs:
 
   test_rest_gateway:
     name: Test REST Gateway
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -408,7 +408,7 @@ jobs:
 
   build_cueweb:
     name: Build CueWeb Docker Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -432,7 +432,7 @@ jobs:
 
   build_rest_gateway:
     name: Build REST Gateway Docker Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7

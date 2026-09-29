@@ -8,7 +8,7 @@ on:
 jobs:
   build_opencue_packages:
     name: Build Python Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -137,7 +137,7 @@ jobs:
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -197,7 +197,7 @@ jobs:
             DOCKERFILE: rust/Dockerfile.rqd
 
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -306,7 +306,7 @@ jobs:
               --build-arg NEXT_PUBLIC_GIT_SHA=${GIT_SHA}
 
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -352,7 +352,7 @@ jobs:
     needs:
       - integration_test
       - build_opencue_packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
@@ -380,7 +380,7 @@ jobs:
       - build_components
       - build_opencue_packages
       - build_rust_binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
       - name: Checkout

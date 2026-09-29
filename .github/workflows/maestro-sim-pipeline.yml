@@ -80,7 +80,7 @@ concurrency:
 
 jobs:
   sim:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     # A scenario is ~4 minutes of simulation on top of a cuebot build and a
     # fresh database; the ceiling is for a hang, not for normal slowness.
     # MIGRATE (three cuebots) and COMPLETIONSTORM (80 hosts) run longer, so
