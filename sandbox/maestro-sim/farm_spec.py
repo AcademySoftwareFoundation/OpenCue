@@ -23,9 +23,11 @@ SHOW = "sim"
 # Multi-show model. Real farms run many concurrent shows, so the standard feeder
 # spreads its jobs across these (override with SIM_SHOWS). Each show carries a
 # fixed PRIORITY spanning 10..100 (SHOW_PRIS), so the per-show board panels have
-# real structure and the priority-weighted lottery hands higher-priority shows a
-# bigger slice of a contended farm. Single-show scripts (the priority tests, etc.)
-# keep using SHOW above and are untouched.
+# real structure. The seed gives every show the same subscription size, and
+# Maestro splits an allocation between shows by size (lowest tier first), so a
+# contended farm converges to equal cores per show; priority only splits a
+# show's own slice among its jobs. Single-show scripts (the priority tests,
+# etc.) keep using SHOW above and are untouched.
 SHOWS = [s for s in os.environ.get("SIM_SHOWS", "showA,showB,showC,showD,showE").split(",") if s]
 
 

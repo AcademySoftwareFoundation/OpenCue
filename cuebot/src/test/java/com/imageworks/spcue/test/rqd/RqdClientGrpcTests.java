@@ -36,6 +36,7 @@ import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
@@ -172,6 +173,60 @@ public class RqdClientGrpcTests {
             fail("expected RqdLaunchUnknownOutcomeException for a transport failure");
         } catch (RqdLaunchUnknownOutcomeException expected) {
             // The request may have been delivered; the frame may be running.
+        }
+    }
+
+    @Test
+    public void launchBreakerOpensAfterConsecutiveUnknownOutcomesAndClosesOnAnAnswer() {
+        // Breaker after 1 unknown outcome, 60s cooldown, 1s deadline against a 2s server.
+        RqdClientGrpc breakerClient = new RqdClientGrpc(server.getPort(), 10, 5, 1, 1, 1, 60);
+        RunFrame frame = RunFrame.newBuilder().setFrameId("frame-id").build();
+        try {
+            assertFalse(breakerClient.isLaunchBreakerOpen("localhost"));
+
+            launchDelayMs = 2000;
+            try {
+                breakerClient.launchFrame(frame, launchProc());
+                fail("expected RqdLaunchUnknownOutcomeException when the deadline expires");
+            } catch (RqdLaunchUnknownOutcomeException expected) {
+            }
+            assertTrue("one unknown outcome opens a threshold-1 breaker",
+                    breakerClient.isLaunchBreakerOpen("localhost"));
+            assertFalse("the breaker is per host", breakerClient.isLaunchBreakerOpen("other-host"));
+
+            // The breaker never blocks the client itself (the dispatchers consult it); a
+            // launch that gets an answer closes it, whether accepted or refused.
+            launchDelayMs = 0;
+            launchResponseStatus = Status.FAILED_PRECONDITION;
+            try {
+                breakerClient.launchFrame(frame, launchProc());
+                fail("expected RqdClientException for a refused launch");
+            } catch (RqdLaunchUnknownOutcomeException e) {
+                fail("a refusal is a known outcome");
+            } catch (RqdClientException expected) {
+            }
+            assertFalse(breakerClient.isLaunchBreakerOpen("localhost"));
+        } finally {
+            breakerClient.shutdown();
+        }
+    }
+
+    @Test
+    public void launchBreakerIsDisabledByDefaultConstructor() {
+        RqdClientGrpc slowClient = new RqdClientGrpc(server.getPort(), 10, 5, 1, 1);
+        launchDelayMs = 2000;
+        try {
+            for (int i = 0; i < 2; i++) {
+                try {
+                    slowClient.launchFrame(RunFrame.newBuilder().setFrameId("frame-id").build(),
+                            launchProc());
+                    fail("expected RqdLaunchUnknownOutcomeException when the deadline expires");
+                } catch (RqdLaunchUnknownOutcomeException expected) {
+                }
+            }
+            assertFalse(slowClient.isLaunchBreakerOpen("localhost"));
+        } finally {
+            slowClient.shutdown();
         }
     }
 
