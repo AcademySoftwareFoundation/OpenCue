@@ -183,8 +183,10 @@ public class Maestro extends JdbcDaoSupport {
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
 
-    // Max completions applied per drain transaction (bounds the stop/delete/refund lock footprint).
-    private static final int DRAIN_CHUNK = 2000;
+    // Completions per drain transaction. Each holds its procs' host rows, and every
+    // stop costs a frame_history close on the production table: 130 rows at 200 ms
+    // held every host of a tick for 27 s. Small, so no one waits long on a host.
+    private static final int DRAIN_CHUNK = 20;
 
     // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
