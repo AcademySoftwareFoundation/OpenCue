@@ -505,8 +505,8 @@ public class MaestroTests {
         LayerLiveMem mem = new LayerLiveMem();
         int i = 0;
         for (long kb : rssKbs) {
-            mem.record(Arrays.asList(RunningFrameInfo.newBuilder().setLayerId(layerId)
-                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build()));
+            mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId(layerId)
+                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build());
         }
         return mem;
     }
@@ -522,7 +522,7 @@ public class MaestroTests {
 
     private static Map<String, long[]> resize(Maestro.LayerCandidate c, LayerLiveMem mem) {
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, out);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, Integer.MAX_VALUE, out);
         return out;
     }
 
@@ -562,7 +562,7 @@ public class MaestroTests {
     }
 
     @Test
-    public void resizeNeverTouchesNonThreadable() {
+    public void resizeNeverTouchesNonThreadableCores() {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, g18);
         resize(c, seen("ctrl", g18, g18, g18, g18));
@@ -591,8 +591,8 @@ public class MaestroTests {
         long g18 = 18L * CueUtil.GB;
         LayerLiveMem mem = seen("hog", g18, g18, g18, g18);
         // The same frame reporting a lower rss later must not add a new sample.
-        mem.record(Arrays.asList(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
-                .setMaxRss(1L * CueUtil.GB).build()));
+        mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
+                .setMaxRss(1L * CueUtil.GB).build());
         assertEquals(g18, mem.typicalRssKb("hog"));
         assertEquals(0, mem.typicalRssKb("never-seen"));
     }
@@ -626,7 +626,8 @@ public class MaestroTests {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, g18);
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric, out);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric,
+                Integer.MAX_VALUE, out);
         assertEquals(500, c.layerCoresMin);
     }
 
@@ -1423,4 +1424,77 @@ public class MaestroTests {
             pool.shutdownNow();
         }
     }
+
+    // ---- the grant and the ledger ------------------------------------------
+
+    @Test
+    public void aNonThreadableLayerSizesItsMemoryOnly() {
+        long g6 = 6L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("single", false, 100, 0, 2L * CueUtil.GB);
+        Map<String, long[]> out = resize(c, seen("single", g6, g6, g6, g6));
+        assertEquals(100, c.layerCoresMin);
+        assertEquals(g6, c.layerMemMin);
+        assertEquals(g6, out.get("single")[1]);
+    }
+
+    @Test
+    public void aCompletionReplacesTheFramesRunningSamples() {
+        // Four frames ran at 20G; retried after a scene fix they finish at 4G.
+        long g20 = 20L * CueUtil.GB;
+        long g4 = 4L * CueUtil.GB;
+        LayerLiveMem mem = new LayerLiveMem();
+        List<RunningFrameInfo> running = new ArrayList<>();
+        for (int i = 0; i < 4; i++)
+            running.add(RunningFrameInfo.newBuilder().setLayerId("retry").setFrameId("f" + i)
+                    .setMaxRss(g20).build());
+        mem.record(running);
+        assertEquals(g20, mem.typicalRssKb("retry"));
+        for (RunningFrameInfo frame : running)
+            mem.recordFinished(frame.toBuilder().setMaxRss(g4).build());
+        assertEquals(g4, mem.typicalRssKb("retry"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aSliceIsPlannedAtItsOwnCores() throws Exception {
+        Maestro s = new Maestro();
+        set(s, "env", new MockEnvironment());
+        ExecutorService pool = Executors.newFixedThreadPool(1);
+        set(s, "readPool", pool);
+        try {
+            HostManager hosts = mock(HostManager.class);
+            when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
+            JobManager jobs = mock(JobManager.class);
+            LayerInterface layer = mock(LayerInterface.class);
+            when(jobs.getLayer("wide")).thenReturn(layer);
+            Dispatcher dispatcher = mock(Dispatcher.class);
+            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(), eq(0), eq(5)))
+                    .thenReturn(Arrays.asList(bookingOn("host1")));
+            s.setHostManager(hosts);
+            s.setJobManager(jobs);
+            s.setDispatcher(dispatcher);
+            ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
+                    new ArrayList<>(Arrays.asList("wide")));
+            ((Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer"))
+                    .put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 1600})));
+            assertEquals(1, s.planBookings().size());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+
+    @Test
+    public void theGrantNeverExceedsTheLargestHost() {
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        c.layerId = "big";
+        c.threadable = true;
+        // 200G at 4G per core asks 50 cores; the largest host has 16.
+        LayerLiveMem mem = seen("big", 200 * GB, 200 * GB, 200 * GB, 200 * GB);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, 4 * GB, 16 * CORE, new HashMap<>());
+        assertEquals(16 * CORE, c.layerCoresMin);
+        assertEquals(200 * GB, c.layerMemMin);
+    }
+
+
 }
