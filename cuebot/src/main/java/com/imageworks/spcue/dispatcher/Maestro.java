@@ -513,6 +513,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  jr.int_max_cores   AS job_max_cores, "
             + "  sub.int_cores      AS show_cores_in_use, "
             + "  sub.int_burst      AS show_burst, "
+            + "  sub.int_size       AS show_size, "
             + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
             + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
@@ -634,6 +635,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  jr.int_max_cores   AS job_max_cores, "
             + "  COALESCE(sub.int_cores, 0) AS show_cores_in_use, "
             + "  COALESCE(sub.int_burst, 0) AS show_burst, "
+            + "  COALESCE(sub.int_size, 0)  AS show_size, "
             + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
             + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
@@ -732,6 +734,7 @@ public class Maestro extends JdbcDaoSupport {
                     c.jobMaxCores = rs.getInt("job_max_cores");
                     c.showCoresInUse = rs.getInt("show_cores_in_use");
                     c.showBurstCores = rs.getInt("show_burst");
+                    c.showSizeCores = rs.getInt("show_size");
                     c.waitingFrameCount = rs.getInt("waiting_frame_count");
                     c.clockTimeHighSec = rs.getInt("clock_time_high");
                     c.frameSuccessCount = rs.getInt("frame_success_count");
@@ -2719,16 +2722,17 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * Layer-driven placement with persistent reservations, one placement slot at a time. Every slot
-     * goes to a candidate drawn by priority-weighted lottery among the candidates that can still
-     * place (placeOnce: the host with the lowest {@link #placementScore} among those that fit and
-     * pass the reservation, seat, per-host-plan and soft-cap gates), until none can. So a lone
-     * layer takes every fitting host in one tick, contending layers share the tick's capacity in
-     * proportion to their priority however much capacity there is, and priority stays a rate, never
-     * a strict order. Every plan gets a disjoint frame slice from submitCommit, so parallel
-     * per-host plan reads cannot collide, and a layer's waiting count is tick-wide (frames planned
-     * for it in an earlier group are subtracted on entry), so the groups share one backlog. A tick
-     * therefore costs what the idle capacity it can fill costs, and commitInChunks lands that in
-     * bounded transactions.
+     * goes to the show with the lowest subscription tier (showTier), and within it to a candidate
+     * drawn by priority-weighted lottery among that tier's candidates that can still place
+     * (placeOnce: the host with the lowest {@link #placementScore} among those that fit and pass
+     * the reservation, seat, per-host-plan and soft-cap gates), until none can. So a lone layer
+     * takes every fitting host in one tick, shows converge to their subscription sizes, and within
+     * a tier contending layers share the capacity in proportion to their priority: a rate, never a
+     * strict order. Every plan gets a disjoint frame slice from submitCommit, so parallel per-host
+     * plan reads cannot collide, and a layer's waiting count is tick-wide (frames planned for it in
+     * an earlier group are subtracted on entry), so the groups share one backlog. A tick therefore
+     * costs what the idle capacity it can fill costs, and commitInChunks lands that in bounded
+     * transactions.
      *
      * After the slots, once per candidate: the why-not trace, the waitlist tally, and the
      * reservation reconcile (c's reservation count should equal c.waitingFrameCount, decremented as
@@ -2755,35 +2759,32 @@ public class Maestro extends JdbcDaoSupport {
                 maxGroupHostCores = h.coresTotal;
         }
         takeTickWideRemainder(candidates, plannedFramesByLayer, seenLayerIds);
+        for (LayerCandidate candidate : candidates)
+            candidate.showKey = subKey(candidate.showId, groupAllocId);
 
-        // Placement slots by lottery: every slot goes to a candidate drawn with
-        // probability proportional to its job priority among the candidates
-        // that can still place, until none can. This is the candidate query's
-        // own draw (power(random(), 1/priority)) applied per placement instead
-        // of once per tick, so a tick's capacity splits by priority however
-        // much of it there is: a lone layer still takes every fitting host,
-        // and contending layers share each tick in proportion to their weight.
-        // A candidate leaves the draw when it places nothing (capped, out of
-        // probe headroom, no host left) or runs out of frames.
+        // Hand out placements one at a time until no candidate can place. Each
+        // placement goes to the show with the lowest tier (cores in use over
+        // subscription size, updated after every placement), as the legacy
+        // dispatcher does. Within that show, a candidate is drawn weighted by
+        // job priority. A candidate that places nothing or runs out of frames
+        // leaves the draw; once a show has none left, the next tier takes over.
         List<LayerCandidate> active = new ArrayList<>(candidates.size());
-        long weightSum = 0;
-        for (LayerCandidate c : candidates) {
-            if (c.waitingFrameCount > 0) {
-                active.add(c);
-                weightSum += lotteryWeight(c);
-            }
+        for (LayerCandidate candidate : candidates) {
+            if (candidate.waitingFrameCount > 0)
+                active.add(candidate);
         }
         while (!active.isEmpty()) {
-            int idx =
-                    drawSlot(active, (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
-            LayerCandidate c = active.get(idx);
-            int got = placeOnce(c, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+            LayerCandidate head = stampTiers(active, showCoresUsed);
+            long weightSum = headWeight(active, head);
+            int idx = drawSlot(active, head,
+                    (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
+            LayerCandidate drawn = active.get(idx);
+            int got = placeOnce(drawn, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
                     limitSeats);
             if (got > 0)
                 dispatched += got;
-            if (got <= 0 || c.waitingFrameCount <= 0) {
-                weightSum -= lotteryWeight(c);
+            if (got <= 0 || drawn.waitingFrameCount <= 0) {
                 active.set(idx, active.get(active.size() - 1));
                 active.remove(active.size() - 1);
             }
@@ -2890,15 +2891,47 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The winner of one slot: the candidate whose weight band holds the draw r, the bands being the
-     * active candidates' lotteryWeight laid end to end in list order, r in [0, weightSum). The last
-     * candidate absorbs any rounding, so a draw never falls outside the list.
+     * The winner of one slot among the candidates of {@code head}'s tier (see stampTiers): their
+     * lotteryWeight bands laid end to end in list order, ticket in [0, headWeight). The last of
+     * them absorbs any rounding, so a draw never falls outside the tier.
      */
-    static int drawSlot(List<LayerCandidate> active, long r) {
-        int idx = 0;
-        while (idx < active.size() - 1 && (r -= lotteryWeight(active.get(idx))) >= 0)
-            idx++;
-        return idx;
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, long ticket) {
+        int lastInTier = 0;
+        for (int index = 0; index < active.size(); index++) {
+            LayerCandidate candidate = active.get(index);
+            if (candidate.tier > head.tier)
+                continue;
+            lastInTier = index;
+            if ((ticket -= lotteryWeight(candidate)) < 0)
+                return index;
+        }
+        return lastInTier;
+    }
+
+    /**
+     * Stamp every active candidate with its show's tier, read against the tick-wide show cores map
+     * so every placement of this tick moves its show before the next draw, and return a candidate
+     * of the lowest tier.
+     */
+    static LayerCandidate stampTiers(List<LayerCandidate> active,
+            Map<String, Integer> showCoresUsed) {
+        LayerCandidate head = null;
+        for (LayerCandidate candidate : active) {
+            candidate.tier = showTier(candidate, showCoresUsed);
+            if (head == null || candidate.tier < head.tier)
+                head = candidate;
+        }
+        return head;
+    }
+
+    /** The lottery weight of {@code head}'s tier: the range drawSlot draws from. */
+    static long headWeight(List<LayerCandidate> active, LayerCandidate head) {
+        long weightSum = 0;
+        for (LayerCandidate candidate : active) {
+            if (candidate.tier <= head.tier)
+                weightSum += lotteryWeight(candidate);
+        }
+        return weightSum;
     }
 
     /**
@@ -2913,6 +2946,22 @@ public class Maestro extends JdbcDaoSupport {
             c.waitingFrameCount -= plannedByLayer.getOrDefault(c.layerId, 0);
             c.placedThisTick = false;
         }
+    }
+
+    /**
+     * The tier of a candidate's show on this allocation: the legacy dispatcher's subscription tier
+     * (the database's tier() function) read tick-wide. Cores in use over subscription size; a show
+     * running nothing sorts below every other, at minus its size; a show with no size scores its
+     * whole cores plus one, so it sorts above every show still under its size, though a sized show
+     * far enough over its size can sort above it. Lower runs first.
+     */
+    static double showTier(LayerCandidate candidate, Map<String, Integer> showCoresUsed) {
+        int cores = showCoresUsed.getOrDefault(candidate.showKey, candidate.showCoresInUse);
+        if (candidate.showSizeCores == 0)
+            return cores / 100.0 + 1;
+        if (cores == 0)
+            return -candidate.showSizeCores;
+        return (double) cores / candidate.showSizeCores;
     }
 
     /** Tick-wide cap state of one candidate, read fresh at every slot and once in the epilogue. */
@@ -3914,6 +3963,9 @@ public class Maestro extends JdbcDaoSupport {
         int jobMaxCores;
         int showCoresInUse;
         int showBurstCores;
+        int showSizeCores; // consumed by showTier()
+        String showKey; // consumed by showTier()
+        double tier; // consumed by drawSlot()
         // Number of pending dispatchable (waiting) frames. Initialized from
         // waiting_frame_count in the candidate query; decremented as the
         // layer dispatches in this tick. Reconcile keeps the layer's

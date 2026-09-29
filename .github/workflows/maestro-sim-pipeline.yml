@@ -30,7 +30,9 @@ name: OpenCue Maestro Sim Pipeline
 #   cuebots, SOLOFILL on the full farm, COMPLETIONSTORM's 80-host burst):
 #   their invariants are binary too, but their load does not belong on every
 #   pull request, and their throughput-dependent windows are better judged on
-#   a quiet nightly runner than under PR-time contention.
+#   a quiet nightly runner than under PR-time contention. SHOWTIER runs there
+#   too: its farm is small, but its verdict is a mean tier gap over a
+#   throughput window, not a binary invariant.
 #
 #   Deliberately NOT gated anywhere:
 #     - the full-farm scenarios (PRODENV, OOM, DEPENDS, LOCALITY, TAGS_GPU,
@@ -94,7 +96,7 @@ jobs:
         # Pull requests run the small-farm binary set; the nightly schedule
         # adds the heavier behavioural scenarios (see the header for why).
         scenario: ${{ github.event_name == 'schedule'
-          && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM"]')
+          && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM","SHOWTIER"]')
           || fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE"]') }}
 
     env:
