@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: python:3.9
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -36,7 +36,7 @@ jobs:
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -88,7 +88,7 @@ jobs:
             os: windows-2022
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -166,7 +166,7 @@ jobs:
         shell: cmd
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-binaries-${{ matrix.target }}
           path: release/
@@ -183,7 +183,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -204,7 +204,7 @@ jobs:
     name: Release ${{ matrix.component }} Docker image
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -287,7 +287,7 @@ jobs:
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Download Rust binaries artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rust-binaries-*
           path: rust-binaries
