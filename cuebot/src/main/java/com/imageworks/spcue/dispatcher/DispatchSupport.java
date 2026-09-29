@@ -260,6 +260,17 @@ public interface DispatchSupport {
     boolean resolveUnknownLaunchOutcome(VirtualProc proc, DispatchFrame frame);
 
     /**
+     * Hands {@link #resolveUnknownLaunchOutcome} to a dedicated confirmation pool and returns at
+     * once. The booking stays intact (proc booked, frame RUNNING) until the resolution runs, which
+     * is the fail-closed state either way, so the dispatching thread does not have to spend up to
+     * two RPC deadlines plus a poll interval re-probing a host that just failed to answer in time.
+     *
+     * @param proc the proc created for the failed dispatch
+     * @param frame the frame the launch was for
+     */
+    void resolveUnknownLaunchOutcomeAsync(VirtualProc proc, DispatchFrame frame);
+
+    /**
      * Unbooks a proc with no message
      *
      * @param proc

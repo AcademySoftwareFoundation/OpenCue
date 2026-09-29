@@ -72,13 +72,15 @@ procs first). That pipeline:
       dispatchable layers that match the group, ranked by a **priority-weighted
       lottery** (§3.5), not a strict priority sort.
    2. **Dispatch** (`dispatchGroupWithScoring`): placement slots by lottery.
-      Every slot goes to a candidate drawn with probability proportional to its
-      job priority among the candidates that can still place (`drawSlot`); the
+      Every slot goes first to the show with the lowest subscription tier on
+      the allocation (§3.5.1), then to one of its candidates drawn with
+      probability proportional to its job priority among those that can still
+      place (`stampTiers`, `headWeight`, `drawSlot`); the
       winner scores every fitting host, takes the lowest score, records the
       placement and decrements the in-memory snapshot (`placeOnce`). Slots
       repeat until no candidate can place, so a lone layer takes every fitting
-      host in one tick and contending layers share the tick in proportion to
-      their weight. A layer planned in an earlier group enters with only its
+      host in one tick and, within a show's tier, contending layers share the
+      tick in proportion to their weight. A layer planned in an earlier group enters with only its
       remaining frames (`takeTickWideRemainder`). A candidate that stays
       blocked long enough and is wide enough records a reservation *request*.
 4. **Grant reservations**: after all groups, order the requests by a
@@ -337,9 +339,13 @@ legacy dispatcher, which sorted strictly by `priority DESC` and so gave every fr
 core to the highest-priority work until it drained — starving everything below it
 while a high-priority backlog stayed full.
 
-**What this means for operators.** Priority now buys a *share*, not dominance. A
-show at priority 120 vs one at 100 wins roughly `120/(120+100) ≈ 55%` of the
-contested selections, not 100%. Two consequences:
+**What this means for operators.** Priority now buys a *share*, not dominance,
+and only among work that shares a tier (§3.5.1): between shows on one allocation,
+subscription size decides; priority splits a show's slice among its layers (and
+among shows tied on tier). A job at priority 120 vs one at 100 in the same show
+wins roughly `120/(120+100) ≈ 55%` of the contested selections, not 100%. With
+equal (or zero) sizes, shows on an allocation converge to equal cores whatever
+their jobs' priorities; set sizes to give shows unequal shares. Two consequences:
 
 - **Re-spread clustered values.** If your priority numbers were calibrated for
   rank semantics they often cluster in a narrow band (e.g. 90–110). Under the
@@ -349,9 +355,10 @@ contested selections, not 100%. Two consequences:
   depends on backlog composition: a stream with far more waiting layers is
   over-represented in the candidate pool, so it lands more selections than its
   bare priority ratio suggests, and a thin low-priority stream lands fewer. The
-  firm guarantee the lottery provides is **anti-starvation** — any eligible layer
-  keeps a nonzero, priority-weighted chance every tick and never waits behind a
-  saturating higher-priority backlog forever. `GREATEST(priority, 1)` floors the
+  firm guarantee the lottery provides is **anti-starvation** within a tier — any
+  eligible layer keeps a nonzero, priority-weighted chance whenever its show
+  holds the lowest tier, and never waits behind a saturating higher-priority
+  backlog of its own show forever. `GREATEST(priority, 1)` floors the
   weight so priority 0 or negative still draws the minimum nonzero share.
 
 **Reservation granting uses the same lottery.** The scarce reservation budget is
@@ -359,6 +366,21 @@ handed out in priority-weighted lottery order too (`sortByPriorityLottery`;
 §3.2), so a low-priority wide job still wins a grant now and then and is not
 starved by a higher-priority stream. Reservations are firm, so a lottery win is
 never clawed back.
+
+### 3.5.1 Subscription size: the lowest tier draws first
+
+A subscription gives a show a **size** (its guaranteed share of an allocation)
+and a **burst** (its ceiling). Between shows, size decides: every placement slot
+goes to the show with the lowest **tier** on the allocation, cores in use over
+size (`showTier`, the database's `tier()` function), read tick-wide so this
+tick's placements count. A show running nothing sorts first. A show with no
+size has tier = its whole cores plus one, so it sorts above every show still
+under its size, but a sized show far enough over its size can sort above it. Inside that show the
+priority lottery above picks the layer. A show whose candidates can place
+nothing leaves the draw and the slot goes to the next tier in the same tick, so
+the rule orders work and never idles a host. Under contention shows converge to
+their sizes in proportion, as on the legacy dispatcher; the SHOWTIER scenario
+asserts it.
 
 ### 3.6 Limit-gated placement (application licenses)
 
@@ -818,14 +840,22 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   never started is resolved before anything is released (`launchOne`): the
   frame may be running on the host, so two not-running polls are required,
   and the booking is kept otherwise (with `dispatcher.launch_confirm_budget_ms`
-  at zero the legacy release-first rollback applies instead). A definite
-  failure unbooks the proc, clears the frame on the version the batch start
-  kept in step, and kills on the host only when the clear matched: a clear
-  that matched no row means the frame moved on, and a kill addressed by host
-  and frame would hit the new run. A launch that waited more than half the
-  orphan age in the pool's queue (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so
-  150 s) is rolled back unsent and without a kill: at the orphan age the
-  maintenance pass releases the proc and the next tick rebooks the frame.
+  at zero the legacy release-first rollback applies instead). The polls run
+  on the dispatcher's launch confirmation pool
+  (`dispatcher.launch_confirm_pool_size`), not on the launch thread, which
+  moves on to the next booking while this one stays booked until resolved.
+  A definite failure unbooks the proc, clears the frame on the version the
+  batch start kept in step, and kills on the host only when the clear
+  matched: a clear that matched no row means the frame moved on, and a kill
+  addressed by host and frame would hit the new run. A launch that waited
+  more than half the orphan age in the pool's queue
+  (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so 150 s) is rolled back unsent and
+  without a kill: at the orphan age the maintenance pass releases the proc
+  and the next tick rebooks the frame. A host whose launch breaker is open
+  (`grpc.rqd_launch_breaker_failures` consecutive launches with unknown
+  outcome, skipped for `grpc.rqd_launch_breaker_cooldown_s`) is left out of
+  the plan reads, and a booking whose host's breaker opened after the plan
+  is rolled back unsent the same way.
 - **Leader loss mid-commit**: the chunk loop checks the lock connection before
   each chunk and demotes when it is gone; the frames left stay WAITING for the
   next leader, which plans from the database. The lost leader's reservations,

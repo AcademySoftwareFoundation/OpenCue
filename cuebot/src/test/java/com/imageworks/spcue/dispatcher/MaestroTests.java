@@ -801,14 +801,17 @@ public class MaestroTests {
         // Bands laid end to end in list order: [0,100) [100,400) [400,401); a
         // priority of zero weighs one, like the query's GREATEST, and a draw
         // past the last band stays on the last candidate.
+        // Candidates without show fields all share tier 0, so any of them heads it.
         List<Maestro.LayerCandidate> active =
                 Arrays.asList(candidate("a", 100, 1), candidate("b", 300, 1), candidate("c", 0, 1));
-        assertEquals(0, Maestro.drawSlot(active, 0));
-        assertEquals(0, Maestro.drawSlot(active, 99));
-        assertEquals(1, Maestro.drawSlot(active, 100));
-        assertEquals(1, Maestro.drawSlot(active, 399));
-        assertEquals(2, Maestro.drawSlot(active, 400));
-        assertEquals(2, Maestro.drawSlot(active, 1000));
+        Maestro.LayerCandidate head = active.get(0);
+        assertEquals(401, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
+        assertEquals(0, Maestro.drawSlot(active, head, 99));
+        assertEquals(1, Maestro.drawSlot(active, head, 100));
+        assertEquals(1, Maestro.drawSlot(active, head, 399));
+        assertEquals(2, Maestro.drawSlot(active, head, 400));
+        assertEquals(2, Maestro.drawSlot(active, head, 1000));
     }
 
     @Test
@@ -825,6 +828,83 @@ public class MaestroTests {
         assertEquals("an unplanned layer keeps its whole backlog", 7, fresh.waitingFrameCount);
         assertFalse("the placement flag starts the group clear", planned.placedThisTick);
         assertEquals(new HashSet<>(Arrays.asList("a", "b")), seen);
+    }
+
+    // ---- subscription size: the lowest-tier show draws first --------------
+
+    /**
+     * A candidate of show {@code show} with {@code cores} in use on a subscription of {@code size}.
+     */
+    private static Maestro.LayerCandidate showCandidate(String layerId, String show, int size,
+            int cores, int priority) {
+        Maestro.LayerCandidate showCandidate = candidate(layerId, priority, 10);
+        showCandidate.showId = show;
+        showCandidate.showKey = show + "\talloc";
+        showCandidate.showSizeCores = size;
+        showCandidate.showCoresInUse = cores;
+        return showCandidate;
+    }
+
+    @Test
+    public void showTierMirrorsTheDatabaseTierFunction() {
+        Map<String, Integer> used = new HashMap<>();
+        // cores over size
+        assertEquals(0.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+        // running nothing: minus the size, below every running show
+        assertEquals(-200.0, Maestro.showTier(showCandidate("a", "s", 200, 0, 1), used), 1e-12);
+        // no size: cores (in cores, not points) plus one
+        assertEquals(4.0, Maestro.showTier(showCandidate("a", "s", 0, 300, 1), used), 1e-12);
+        // the tick-wide map, not the tick-start snapshot, once the show placed
+        used.put("s\talloc", 300);
+        assertEquals(1.5, Maestro.showTier(showCandidate("a", "s", 200, 100, 1), used), 1e-12);
+    }
+
+    @Test
+    public void theSlotGoesToTheShowFurthestUnderItsSize() {
+        // A holds 80 of its 100 (tier 0.8), B 60 of its 300 (tier 0.2): every
+        // draw goes to B, even against A's far higher priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 1000),
+                showCandidate("b", "B", 300, 60, 1));
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertSame(active.get(1), head);
+        assertEquals("the draw ranges over B's weight only", 1, Maestro.headWeight(active, head));
+        for (long ticket = 0; ticket < 1000; ticket++)
+            assertEquals(1, Maestro.drawSlot(active, head, ticket));
+    }
+
+    @Test
+    public void insideTheLowestTierPriorityDecides() {
+        // Two layers of B share its tier: the lottery splits by priority.
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 50),
+                showCandidate("b1", "B", 300, 60, 100), showCandidate("b2", "B", 300, 60, 300));
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals(400, Maestro.headWeight(active, head));
+        assertEquals(1, Maestro.drawSlot(active, head, 0));
+        assertEquals(1, Maestro.drawSlot(active, head, 99));
+        assertEquals(2, Maestro.drawSlot(active, head, 100));
+        assertEquals(2, Maestro.drawSlot(active, head, 399));
+    }
+
+    @Test
+    public void aPlacementMovesItsShowBeforeTheNextDraw() {
+        // B starts lower; once this tick's placements lift it past A, A draws.
+        Map<String, Integer> used = new HashMap<>();
+        List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
+                showCandidate("b", "B", 100, 20, 1));
+        assertEquals(1, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
+        used.put("B\talloc", 70);
+        assertEquals(0, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
+    }
+
+    @Test
+    public void aShowThatCanPlaceNothingYieldsToTheNextTier() {
+        // B, the lowest tier, left the draw (capped or no host): A takes the slot.
+        List<Maestro.LayerCandidate> active = new ArrayList<>(Arrays
+                .asList(showCandidate("a", "A", 100, 80, 1), showCandidate("b", "B", 300, 60, 1)));
+        active.remove(1);
+        Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
+        assertEquals(1, Maestro.headWeight(active, head));
+        assertEquals(0, Maestro.drawSlot(active, head, 0));
     }
 
     // ---- the commit chunks and the leader ---------------------------------
@@ -929,7 +1009,7 @@ public class MaestroTests {
         doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
                 .runFrame(any(), any());
         s.launchOne(fb);
-        verify(support).resolveUnknownLaunchOutcome(fb.proc, fb.frame);
+        verify(support).resolveUnknownLaunchOutcomeAsync(fb.proc, fb.frame);
         verify(support, never()).unbookProc(any());
         verify(support, never()).clearFrame(any());
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
@@ -946,7 +1026,7 @@ public class MaestroTests {
         doThrow(new DispatcherException("refused")).when(support).runFrame(any(), any());
         when(support.clearFrame(fb.frame)).thenReturn(true);
         s.launchOne(fb);
-        verify(support, never()).resolveUnknownLaunchOutcome(any(), any());
+        verify(support, never()).resolveUnknownLaunchOutcomeAsync(any(), any());
         InOrder release = inOrder(support, rqd);
         release.verify(support).unbookProc(fb.proc);
         release.verify(support).clearFrame(fb.frame);
@@ -1106,7 +1186,7 @@ public class MaestroTests {
         doThrow(new RqdLaunchUnknownOutcomeException("deadline", null)).when(support)
                 .runFrame(any(), any());
         doThrow(new RuntimeException("rqd unreachable")).when(support)
-                .resolveUnknownLaunchOutcome(any(), any());
+                .resolveUnknownLaunchOutcomeAsync(any(), any());
         s.launchOne(fb);
         verify(support, never()).unbookProc(any());
         verify(support, never()).clearFrame(any());
@@ -1132,6 +1212,24 @@ public class MaestroTests {
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
         assertTrue("the bound stays inside the orphan age",
                 Maestro.LAUNCH_MAX_AGE_MS < ProcDao.ORPHAN_AGE_SECONDS * 1000L);
+    }
+
+    @Test
+    public void aBookingOnAHostWhoseLaunchBreakerOpenedIsRolledBackUnsent() {
+        Maestro s = new Maestro();
+        DispatchSupport support = mock(DispatchSupport.class);
+        RqdClient rqd = mock(RqdClient.class);
+        s.setDispatchSupport(support);
+        s.setRqdClient(rqd);
+        FrameBooking fb = bookingOn("a");
+        fb.proc.hostName = "slow-host";
+        when(rqd.isLaunchBreakerOpen("slow-host")).thenReturn(true);
+        when(support.clearFrame(fb.frame)).thenReturn(true);
+        s.launchOne(fb);
+        verify(support, never()).runFrame(any(), any());
+        verify(support).unbookProc(fb.proc);
+        verify(support).clearFrame(fb.frame);
+        verify(rqd, never()).killFrame(any(VirtualProc.class), any());
     }
 
     @Test
