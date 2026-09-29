@@ -9,14 +9,17 @@ size.
 
 The verdict reads the last WINDOW_S seconds of samples, past the first fill
 and one replacement wave, and needs contention (both shows still waiting)
-and a full farm, or it is INCONCLUSIVE.
+and a farm that filled at least once, or it is INCONCLUSIVE. The farm must
+also stay full inside that window: a scheduler that stops booking drains
+both shows to tier 0, a gap of zero that would otherwise read as a PASS.
 
 The gap is relative: (higher mean tier - lower) / higher.
 
 PASS      : mean tier gap within TIER_GAP, nobody above burst.
 FAIL      : the disease. The tier gap exceeds TIER_GAP (the slot
             draw split the allocation by priority, not by size), or a show
-            ran above its burst.
+            ran above its burst, or booking stalled inside the window
+            (mean utilization under MIN_UTIL while both shows still wait).
 INCONCLUSIVE: the farm never filled, or a show ran out of waiting frames.
 
 usage: showtier_watch.py [duration_s] [interval_s]
@@ -114,18 +117,24 @@ def main():
     tail = [r for r in rows if r[0] >= DURATION - WINDOW_S] or rows[-3:]
     mean = {s: sum(r[2][s] for r in tail) / len(tail) for s in SHOWS}
     contended = all(r[3][s] > 0 for r in tail for s in SHOWS)
+    window_util = sum(r[1] for r in tail) / len(tail)
     hi = max(mean.values())
     gap = (hi - min(mean.values())) / hi if hi > 0 else 0.0
     print("\n==== SHOWTIER VERDICT ====", flush=True)
     print(f"peak util {peak_util:.1f}%; last {WINDOW_S:.0f}s mean tiers "
           + ", ".join(f"{s} {mean[s]:.2f}" for s in SHOWS)
-          + f"; tier gap {gap:.2f}; samples over burst {over_burst}", flush=True)
+          + f"; tier gap {gap:.2f}; window util {window_util:.1f}%; samples over burst "
+          f"{over_burst}", flush=True)
     if peak_util < MIN_UTIL:
         print(f"INCONCLUSIVE: the farm only reached {peak_util:.1f}% (< {MIN_UTIL}%).",
               flush=True)
     elif not contended:
         print("INCONCLUSIVE: a show ran out of waiting frames inside the window, so the "
               "split was not contended.", flush=True)
+    elif window_util < MIN_UTIL:
+        print(f"FAIL: booking stalled. Mean utilization over the last {WINDOW_S:.0f}s was "
+              f"{window_util:.1f}% (< {MIN_UTIL}%) while both shows still had waiting "
+              f"frames, so the tier gap measures nothing.", flush=True)
     elif over_burst > 0:
         print(f"FAIL: a show ran above its burst in {over_burst} samples.", flush=True)
     elif gap > TIER_GAP:
