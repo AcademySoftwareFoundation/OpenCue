@@ -435,6 +435,7 @@
     <property name="bookingManager" ref="bookingManager" />
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
+    <property name="showDao" ref="showDao" />
     <property name="killQueue" ref="killQueue"/>
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
