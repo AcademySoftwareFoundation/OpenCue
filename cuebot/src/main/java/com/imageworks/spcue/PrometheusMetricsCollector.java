@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import com.imageworks.spcue.dao.HistoricalDao.FrameHistoryBacklog;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
@@ -259,6 +260,33 @@ public class PrometheusMetricsCollector {
     private static final Gauge coresMemoryStranded = Gauge.build().name("cue_cores_memory_stranded")
             .help("Idle cores on UP and OPEN hosts stranded by insufficient host memory")
             .labelNames("env", "cuebot_hosts", "alloc").register();
+
+    // frame_history is written by a background drainer (HistoricalSupport.drainFrameHistory). A
+    // climbing oldest-age means history is falling behind; skipped events are lost rows.
+    private static final Counter frameHistoryEvents =
+            Counter.build().name("cue_frame_history_events_total")
+                    .help("Frame history events drained from the queue: applied, or skipped "
+                            + "(orphaned or failed; failures are logged by the database)")
+                    .labelNames("env", "cuebot_host", "outcome").register();
+    // Short runs whose start and end reach the same drain batch are written as one row, saving
+    // the UPDATE. Compare against applied events to judge history.frame_drain_interval_ms.
+    private static final Counter frameHistoryRunsMerged =
+            Counter.build().name("cue_frame_history_runs_merged_total")
+                    .help("Frame runs whose start and end were written to frame_history as one row")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Gauge frameHistoryQueueDepth =
+            Gauge.build().name("cue_frame_history_queue_depth")
+                    .help("Approximate number of frame history events waiting to be drained")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Gauge frameHistoryQueueAge =
+            Gauge.build().name("cue_frame_history_queue_oldest_age_seconds")
+                    .help("Age of the oldest frame history event waiting to be drained")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Histogram frameHistoryDrainDuration =
+            Histogram.build().name("cue_frame_history_drain_duration_seconds")
+                    .help("Wall-clock duration of one frame history drain run")
+                    .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
+                    .labelNames("env", "cuebot_host").register();
 
     private static final Logger logger = LogManager.getLogger(PrometheusMetricsCollector.class);
 
@@ -653,6 +681,29 @@ public class PrometheusMetricsCollector {
     public void recordHostReport(String facility) {
         hostReportsReceivedCounter.labels(this.deployment_environment, this.cuebot_host, facility)
                 .inc();
+    }
+
+    /**
+     * Record one frame history drain run.
+     *
+     * @param applied events applied to frame_history
+     * @param skipped events dropped without being applied
+     * @param merged runs whose start and end were written as one row
+     * @param durationSeconds wall-clock duration of the run
+     * @param backlog queue backlog after the run, or null when it could not be read
+     */
+    public void recordFrameHistoryDrain(int applied, int skipped, int merged,
+            double durationSeconds, FrameHistoryBacklog backlog) {
+        frameHistoryEvents.labels(deployment_environment, cuebot_host, "applied").inc(applied);
+        frameHistoryEvents.labels(deployment_environment, cuebot_host, "skipped").inc(skipped);
+        frameHistoryRunsMerged.labels(deployment_environment, cuebot_host).inc(merged);
+        frameHistoryDrainDuration.labels(deployment_environment, cuebot_host)
+                .observe(durationSeconds);
+        if (backlog != null) {
+            frameHistoryQueueDepth.labels(deployment_environment, cuebot_host).set(backlog.depth);
+            frameHistoryQueueAge.labels(deployment_environment, cuebot_host)
+                    .set(backlog.oldestAgeSeconds);
+        }
     }
 
     // Setters used for dependency injection

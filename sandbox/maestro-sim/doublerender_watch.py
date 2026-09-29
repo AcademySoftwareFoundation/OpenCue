@@ -95,7 +95,9 @@ def main():
         swept = len(fl) - int(r[0][0]) if r else 0
         # Any proc ever created for a flipped frame other than the corpse
         # counts as the rebook; frame_history keeps the record even if that
-        # run also ended inside the window.
+        # run also ended inside the window. Drain the history queue first so
+        # runs Cuebot has not applied yet still count.
+        rows("SELECT drained FROM frame_history_drain(1000000, true);")
         r = rows(f"SELECT count(DISTINCT fh.pk_frame) FROM frame_history fh "
                  f"WHERE fh.pk_frame IN ({frames});")
         hist = int(r[0][0]) if r else 0
