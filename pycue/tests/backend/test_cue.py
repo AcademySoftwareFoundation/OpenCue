@@ -15,12 +15,8 @@
 #  limitations under the License.
 
 """
-Tests for the outline.backend.cue module.
+Tests for the outline_backend_cue module.
 """
-
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
 
 import os
 import unittest
@@ -29,19 +25,30 @@ import xml.etree.ElementTree as ET
 import mock
 
 import opencue_proto.job_pb2
+import outline
+import outline.cuerun
+
 import opencue.wrappers.job
 
-import outline
-import outline.backend.cue
-import outline.cuerun
+import outline_backend_cue
+
 from .. import test_utils
 
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 TEST_USER = 'test-user'
-
+BACKEND = 'cue'
 
 class SerializeTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
 
@@ -50,7 +57,7 @@ class SerializeTest(unittest.TestCase):
         ol = outline.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
 
-        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        outlineXml = ET.fromstring(outline_backend_cue.serialize(launcher))
 
         self.assertEqual('spec', outlineXml.tag)
         self.assertEqual(1, len(outlineXml.findall('facility')))
@@ -102,6 +109,11 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
     def setUp(self):
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testLargeContiguousRangeIsCompactInSpec(self):
         ol = outline.Outline(name='maya_render', frame_range='1001-2301')
@@ -111,7 +123,7 @@ class SerializeFrameRangeTest(unittest.TestCase):
         ol.add_layer(cleanup_layer)
 
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        outlineXml = ET.fromstring(outline_backend_cue.serialize(launcher))
 
         render_layer = next(
             layer_el for layer_el in outlineXml.find('job').find('layers').findall('layer')
@@ -123,9 +135,14 @@ class SerializeFrameRangeTest(unittest.TestCase):
 
 
 class CoresTest(unittest.TestCase):
+
     def setUp(self):
-        # Ensure to reset current
         outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def create(self):
         ol = outline.Outline()
@@ -135,7 +152,7 @@ class CoresTest(unittest.TestCase):
 
     def assertCoresOverride(self, ol, v):
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        outlineXml = ET.fromstring(outline_backend_cue.serialize(launcher))
         job = outlineXml.find('job')
         layer = job.find('layers').find('layer')
         self.assertEqual(v, layer.find('cores').text)
@@ -162,20 +179,27 @@ class CoresTest(unittest.TestCase):
         layer.set_arg("cores", None)
 
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        outlineXml = ET.fromstring(outline_backend_cue.serialize(launcher))
         job = outlineXml.find('job')
         layer = job.find('layers').find('layer')
         self.assertIsNone(layer.find('cores'))
 
 
 class BuildCommandTest(unittest.TestCase):
+
     def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         outline.config.set('outline', 'home', '')
         outline.config.set('outline', 'user_dir', '')
         self.ol = outline.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol, user=TEST_USER)
         self.layer = self.ol.get_layer('cmd')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
 
     def testBuildShellCommand(self):
         self.assertEqual(
@@ -184,7 +208,7 @@ class BuildCommandTest(unittest.TestCase):
                 '%s/shell.outline -e #IFRAME#-cmd' % SCRIPTS_DIR,
                 '--version latest', '--debug',
             ],
-            outline.backend.cue.build_command(self.launcher, self.layer))
+            outline.backend.build_command(self.launcher, self.layer))
 
     def testBuildCommandWithStrace(self):
         self.layer.set_arg('strace', True)
@@ -201,7 +225,7 @@ class BuildCommandTest(unittest.TestCase):
                     '%s -e #IFRAME#-cmd' % self.ol.get_path(),
                     '--version latest', '--debug',
                 ],
-                outline.backend.cue.build_command(self.launcher, self.layer))
+                outline.backend.build_command(self.launcher, self.layer))
 
     def testBuildCommandWithCustomWrapper(self):
         devUser = 'foo-user'
@@ -217,17 +241,21 @@ class BuildCommandTest(unittest.TestCase):
                 '--version latest', '--debug', '--dev',
                 '--dev-user %s' % devUser,
             ],
-            outline.backend.cue.build_command(self.launcher, self.layer))
+            outline.backend.build_command(self.launcher, self.layer))
 
 
 class LaunchTest(unittest.TestCase):
 
     def setUp(self):
-        self.job_wait_period_original = outline.backend.cue.JOB_WAIT_PERIOD_SEC
-        outline.backend.cue.JOB_WAIT_PERIOD_SEC = .1
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+        outline.config.set("outline", "backend", BACKEND)
+        self.job_wait_period_original = outline_backend_cue.JOB_WAIT_PERIOD_SEC
+        outline_backend_cue.JOB_WAIT_PERIOD_SEC = .1
 
     def tearDown(self):
-        outline.backend.cue.JOB_WAIT_PERIOD_SEC = self.job_wait_period_original
+        outline.config.set('outline', 'backend', self.orig_backend)
+        outline_backend_cue.JOB_WAIT_PERIOD_SEC = self.job_wait_period_original
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     @mock.patch('opencue.Cuebot.setHosts')
@@ -241,7 +269,7 @@ class LaunchTest(unittest.TestCase):
         launcher.set_flag('server', serverName)
         serializedXml = launcher.serialize(use_pycuerun=True)
 
-        outline.backend.cue.launch(launcher)
+        outline_backend_cue.launch(launcher)
 
         launchSpecAndWaitMock.assert_called_with(serializedXml)
         setHostsMock.assert_called_with([serverName])
@@ -261,7 +289,7 @@ class LaunchTest(unittest.TestCase):
         launcher.set_flag('wait', True)
         serializedXml = launcher.serialize(use_pycuerun=True)
 
-        outline.backend.cue.launch(launcher)
+        outline_backend_cue.launch(launcher)
 
         launchSpecAndWaitMock.assert_called_with(serializedXml)
         isJobPendingMock.assert_has_calls([mock.call(jobName), mock.call(jobName)])
@@ -282,9 +310,34 @@ class LaunchTest(unittest.TestCase):
         launcher.set_flag('test', True)
         serializedXml = launcher.serialize(use_pycuerun=True)
 
-        outline.backend.cue.launch(launcher)
+        outline_backend_cue.launch(launcher)
 
         launchSpecAndWaitMock.assert_called_with(serializedXml)
+
+class BackendOverrideTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
+    def testOverrideBackend(self):
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        ol = outline.load_outline(path)
+
+        outline.config.set('outline', 'backend', 'cue')
+
+        launcher = outline.cuerun.OutlineLauncher(ol)
+
+        # Check that the backend configured on the launcher matches
+        self.assertEqual('cue', launcher.get('backend'))
+        self.assertEqual('cue', launcher.get_flag('backend'))
+
+        # Check that the imported backend module resolves to the cue backend
+        backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
+        self.assertIs(outline_backend_cue, backend_module)
 
 
 if __name__ == '__main__':

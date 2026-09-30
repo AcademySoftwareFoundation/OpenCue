@@ -15,12 +15,8 @@
 #  limitations under the License.
 
 """
-Tests for the outline.backend.local module.
+Tests for the outline_backend_local module.
 """
-
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
 
 import os
 import unittest
@@ -28,8 +24,8 @@ import unittest
 import mock
 
 import outline
-import outline.backend.local
 import outline.cuerun
+import outline_backend_local
 
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -47,7 +43,7 @@ class BuildCommandTest(unittest.TestCase):
     def testBuildShellCommand(self):
         frameNum = 47
 
-        generatedCmd = outline.backend.local.build_command(self.ol, self.layer, frameNum)
+        generatedCmd = outline_backend_local.build_command(self.ol, self.layer, frameNum)
 
         self.assertEqual(
             [
@@ -65,24 +61,24 @@ class SerializeTest(unittest.TestCase):
 
     def testSerialize(self):
         self.assertEqual(
-            outline.backend.local.Dispatcher,
-            outline.backend.local.serialize(self.launcher).__class__)
+            outline_backend_local.Dispatcher,
+            outline_backend_local.serialize(self.launcher).__class__)
 
     def testSerializeSimple(self):
         self.assertEqual(
-            outline.backend.local.Dispatcher,
-            outline.backend.local.serialize_simple(self.launcher).__class__)
+            outline_backend_local.Dispatcher,
+            outline_backend_local.serialize_simple(self.launcher).__class__)
 
 
 class BuildFrameRangeTest(unittest.TestCase):
     def testBuildFrameRange(self):
-        self.assertEqual([3, 4, 5, 6, 7, 8, 9], outline.backend.local.build_frame_range('3-9', 1))
+        self.assertEqual([3, 4, 5, 6, 7, 8, 9], outline_backend_local.build_frame_range('3-9', 1))
 
     def testBuildChunkedFrameRange(self):
-        self.assertEqual([3, 7], outline.backend.local.build_frame_range('3-9', 4))
+        self.assertEqual([3, 7], outline_backend_local.build_frame_range('3-9', 4))
 
     def testBuildLargeChunkedFrameRange(self):
-        self.assertEqual([3], outline.backend.local.build_frame_range('3-9', 87))
+        self.assertEqual([3], outline_backend_local.build_frame_range('3-9', 87))
 
 
 class DispatcherTest(unittest.TestCase):
@@ -93,7 +89,32 @@ class DispatcherTest(unittest.TestCase):
         launcher = outline.cuerun.OutlineLauncher(ol)
         subprocessCallMock.return_value = 0
 
-        outline.backend.local.launch(launcher)
+        outline_backend_local.launch(launcher)
+
+class BackendOverrideTest(unittest.TestCase):
+
+    def setUp(self):
+        outline.Outline.current = None
+        self.orig_backend = outline.config.get('outline', 'backend')
+
+    def tearDown(self):
+        outline.config.set('outline', 'backend', self.orig_backend)
+
+    def testOverrideBackend(self):
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        ol = outline.load_outline(path)
+
+        outline.config.set('outline', 'backend', 'local')
+
+        launcher = outline.cuerun.OutlineLauncher(ol)
+
+        # Check that the backend configured on the launcher matches
+        self.assertEqual('local', launcher.get('backend'))
+        self.assertEqual('local', launcher.get_flag('backend'))
+
+        # Check that the imported backend module resolves to the local backend
+        backend_module = outline.cuerun.import_backend_module(launcher.get('backend'))
+        self.assertIs(outline_backend_local, backend_module)
 
 
 if __name__ == '__main__':
