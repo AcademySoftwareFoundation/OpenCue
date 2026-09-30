@@ -12,6 +12,7 @@
 
 use std::str::FromStr;
 
+use clap::Parser;
 use miette::IntoDiagnostic;
 use tokio::{select, sync::oneshot};
 use tracing::{error, warn};
@@ -30,7 +31,66 @@ mod report;
 mod servant;
 mod system;
 
+/// OpenCue RQD - executes frames dispatched by Cuebot on this host.
+#[derive(Parser, Debug)]
+#[command(name = "openrqd", version, about)]
+struct Args {
+    /// Path to the RQD config file. Overrides the OPENCUE_RQD_CONFIG environment variable and
+    /// the default (~/.local/share/rqd.yaml).
+    #[arg(short, long)]
+    config: Option<String>,
+
+    /// Override a config value, e.g. --set grpc.rqd_port=8444 (repeatable). Equivalent to
+    /// setting OPENRQD__GRPC__RQD_PORT=8444 in the environment (see deploying-rqd.md).
+    #[arg(long = "set", value_name = "KEY=VALUE")]
+    overrides: Vec<String>,
+}
+
+/// Converts a dotted config key (e.g. "grpc.rqd_port") into the env var name the config loader
+/// already recognizes (e.g. "OPENRQD__GRPC__RQD_PORT"), matching the `OPENRQD__SECTION__FIELD`
+/// convention documented in deploying-rqd.md.
+fn override_env_var_name(key: &str) -> String {
+    format!(
+        "OPENRQD__{}",
+        key.split('.').collect::<Vec<_>>().join("__").to_uppercase()
+    )
+}
+
+/// Parses one `--set KEY=VALUE` argument into the env var name/value pair `apply_cli_overrides`
+/// sets before `CONFIG` is first read.
+fn parse_override(spec: &str) -> Result<(String, String), String> {
+    let (key, value) = spec.split_once('=').ok_or_else(|| {
+        format!("invalid --set value {spec:?}, expected KEY=VALUE (e.g. grpc.rqd_port=8444)")
+    })?;
+    if key.is_empty() {
+        return Err(format!("invalid --set value {spec:?}, missing KEY"));
+    }
+    Ok((override_env_var_name(key), value.to_string()))
+}
+
+/// Applies `--config` and `--set` as environment variables the config loader already reads, so
+/// this must run before `CONFIG` (a `lazy_static`) is first dereferenced.
+fn apply_cli_overrides(args: &Args) -> Result<(), String> {
+    if let Some(config) = &args.config {
+        // SAFETY: called once from `main`, before any thread is spawned (including the tokio
+        // runtime built right after), so no concurrent env access can race this.
+        unsafe { std::env::set_var("OPENCUE_RQD_CONFIG", config) };
+    }
+    for spec in &args.overrides {
+        let (env_var, value) = parse_override(spec)?;
+        // SAFETY: see above.
+        unsafe { std::env::set_var(env_var, value) };
+    }
+    Ok(())
+}
+
 fn main() -> miette::Result<()> {
+    let args = Args::parse();
+    if let Err(err) = apply_cli_overrides(&args) {
+        eprintln!("error: {err}");
+        std::process::exit(2);
+    }
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(CONFIG.machine.worker_threads)
         .enable_all()
@@ -38,6 +98,46 @@ fn main() -> miette::Result<()> {
         .into_diagnostic()?;
 
     runtime.block_on(async_main())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn override_env_var_name_joins_dotted_key_with_prefix() {
+        assert_eq!(
+            override_env_var_name("grpc.rqd_port"),
+            "OPENRQD__GRPC__RQD_PORT"
+        );
+        assert_eq!(
+            override_env_var_name("machine.nimby_mode"),
+            "OPENRQD__MACHINE__NIMBY_MODE"
+        );
+    }
+
+    #[test]
+    fn parse_override_splits_key_value() {
+        let (env_var, value) = parse_override("grpc.rqd_port=8444").unwrap();
+        assert_eq!(env_var, "OPENRQD__GRPC__RQD_PORT");
+        assert_eq!(value, "8444");
+    }
+
+    #[test]
+    fn parse_override_rejects_missing_equals() {
+        assert!(parse_override("grpc.rqd_port").is_err());
+    }
+
+    #[test]
+    fn parse_override_rejects_empty_key() {
+        assert!(parse_override("=8444").is_err());
+    }
+
+    #[test]
+    fn parse_override_allows_equals_in_value() {
+        let (_, value) = parse_override("machine.temp_path=/tmp/a=b").unwrap();
+        assert_eq!(value, "/tmp/a=b");
+    }
 }
 
 async fn async_main() -> miette::Result<()> {
